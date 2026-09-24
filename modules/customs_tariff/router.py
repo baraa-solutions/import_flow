@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from modules.auth.router import get_current_user
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,7 @@ from .service import (
     verify_and_update_tariff_service,
 )
 
-customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Customs Tariff"])
+customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Customs Tariff"], dependencies=[Depends(get_current_user)])
 
 
 @customs_tariff_router.get("", response_model=List[CustomsTariffResponse])

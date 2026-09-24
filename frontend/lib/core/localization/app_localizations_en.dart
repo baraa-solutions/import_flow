@@ -10318,6 +10318,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get stepConfigSubtitle => 'Central dynamic management for step skip policies and pending references without code changes';
   @override String get stepConfigAccessDeniedTitle => 'Insufficient Permissions — Manager Role Required';
   @override String get stepConfigAccessDeniedDesc => 'According to operational governance standards, operational users are restricted from viewing or modifying step skip policies. This screen is reserved exclusively for managers.';
+  @override String get adminOnlyFeatureMessage => 'This feature is available to system administrators only.';
   @override String get stepConfigDemoSwitchBtn => 'Switch to Manager Role (Demo)';
   @override String get stepConfigRefreshTooltip => 'Refresh Data';
   @override String get stepConfigSearchHint => 'Search by step code, name, or policy...';

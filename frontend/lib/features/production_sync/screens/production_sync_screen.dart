@@ -10,7 +10,6 @@ import '../providers/production_sync_provider.dart';
 import '../services/auto_updater_service.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_export_service.dart';
-import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
 import '../widgets/sync_progress_and_diff_widget.dart';
 
@@ -40,7 +39,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? LocalProcessSyncService();
+    _service = widget.service ??
+        LocalProcessSyncService(ref.read(productionSyncServiceProvider));
     _tabController = TabController(length: 2, vsync: this);
     _initLocalStats();
     Future.microtask(() {
@@ -136,7 +136,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     if (confirmed == true) {
       await _executeAction(l.prodSyncRestoreActionBtn, () async {
         try {
-          final api = ProductionSyncService();
+          final api = ref.read(productionSyncServiceProvider);
           final target = b.tag.contains('dev') ? 'dev' : 'prod';
           final res = await api.restoreBackup(filename: b.filename, target: target);
           _appendLog('✅ ${res.message}');

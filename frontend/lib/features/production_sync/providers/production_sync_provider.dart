@@ -11,7 +11,7 @@ final productionSyncServiceProvider = Provider<ProductionSyncService>((ref) {
 });
 
 final autoUpdaterServiceProvider = Provider<AutoUpdaterService>((ref) {
-  return AutoUpdaterService();
+  return AutoUpdaterService(apiDio: ref.watch(dioProvider));
 });
 
 final systemVersionInfoProvider = FutureProvider.autoDispose<SystemVersionInfoModel>((ref) async {

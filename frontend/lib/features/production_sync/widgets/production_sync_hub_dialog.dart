@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../providers/production_sync_provider.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_export_service.dart';
-import '../services/production_sync_service.dart';
 import 'sync_console_widget.dart';
 import 'sync_progress_and_diff_widget.dart';
 
@@ -43,7 +43,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? LocalProcessSyncService();
+    _service = widget.service ??
+        LocalProcessSyncService(ref.read(productionSyncServiceProvider));
     _tabController = TabController(length: 2, vsync: this);
     _refreshLocalData();
     Future.microtask(() => _checkDiffsSilently());
@@ -122,7 +123,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
       final restoreActionLabel = '${l.prodSyncRestoreActionBtn} ${b.filename}';
       await _executeAction(restoreActionLabel, () async {
         try {
-          final api = ProductionSyncService();
+          final api = ref.read(productionSyncServiceProvider);
           final target = b.tag.contains('dev') ? 'dev' : 'prod';
           final res = await api.restoreBackup(filename: b.filename, target: target);
           _appendLog('✅ ${res.message}');

@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 
@@ -41,7 +42,7 @@ from .service import (
     record_empty_container_return_service,
 )
 
-router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Detention Engine"])
+router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Detention Engine"], dependencies=[Depends(get_current_user)])
 
 
 # ----------------------------------------------------

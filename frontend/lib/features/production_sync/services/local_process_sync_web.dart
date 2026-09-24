@@ -2,10 +2,13 @@ import 'local_process_sync_service.dart';
 import 'production_sync_service.dart';
 import '../models/production_sync_model.dart';
 
-LocalProcessSyncService createLocalProcessSyncService() => LocalProcessSyncServiceWebImpl();
+LocalProcessSyncService createLocalProcessSyncService(ProductionSyncService api) =>
+    LocalProcessSyncServiceWebImpl(api);
 
 class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
-  final ProductionSyncService _apiService = ProductionSyncService();
+  final ProductionSyncService _apiService;
+
+  LocalProcessSyncServiceWebImpl(this._apiService);
 
   SyncComparisonResponseModel? _cachedComparison;
   List<BackupItemModel> _cachedBackups = [];

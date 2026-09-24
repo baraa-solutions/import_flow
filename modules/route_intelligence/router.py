@@ -4,6 +4,7 @@ Route & Supplier Intelligence Router (AI-ROUTE-006)
 
 from typing import List
 from fastapi import APIRouter, Depends, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 
@@ -18,7 +19,7 @@ from .service import (
 )
 from . import repository
 
-router = APIRouter(prefix="/api/v1/route-intelligence", tags=["Route & Supplier Intelligence"])
+router = APIRouter(prefix="/api/v1/route-intelligence", tags=["Route & Supplier Intelligence"], dependencies=[Depends(get_current_user)])
 
 
 @router.get(

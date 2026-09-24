@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/constants/api_constants.dart';
@@ -214,7 +215,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Demo role switching fabricates a local user profile without a backend
+  /// login. It is a development aid only and is disabled in release/profile
+  /// builds. Tests may flip it to exercise both paths.
+  @visibleForTesting
+  static bool demoRoleSwitchEnabled = kDebugMode;
+
   void switchDemoRole(String role) async {
+    if (!demoRoleSwitchEnabled) return;
     UserModel user;
     if (role == 'ADMIN') {
       user = UserModel(

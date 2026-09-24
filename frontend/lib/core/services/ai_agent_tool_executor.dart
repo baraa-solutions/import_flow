@@ -1201,7 +1201,7 @@ class AiAgentToolExecutor {
           'next_step_codes': <String>[],
         },
         options: Options(headers: {
-          if (userRole != null && userRole.isNotEmpty) 'X-User-Role': userRole,
+          // Role comes from the JWT on the backend; X-User-Role is ignored.
           if (userName != null && userName.isNotEmpty) 'X-User-Name': userName,
         }),
       );

@@ -9,6 +9,7 @@ import '../../../core/helpers/file_picker_helper.dart';
 
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -35,10 +36,9 @@ class InvoiceBLMatcherTab extends ConsumerStatefulWidget {
 }
 
 class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  late final Dio _dio = ref.read(dioProvider);
+  late final Dio _uploadDio = ref.read(uploadDioProvider);
+  final CancelToken _cancelToken = CancelToken();
 
   final TextEditingController _invoiceTextCtrl = TextEditingController();
   final TextEditingController _blTextCtrl = TextEditingController();
@@ -149,7 +149,7 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   @override
   void dispose() {
-    _dio.close(force: true);
+    _cancelToken.cancel();
     _invoiceTextCtrl.dispose();
     _blTextCtrl.dispose();
     _packingTextCtrl.dispose();
@@ -361,9 +361,10 @@ Total Items: 31 Total: 20,030.000 kgs.
           formData.fields.add(MapEntry('bl_text', blText));
         }
 
-        response = await _dio.post(
+        response = await _uploadDio.post(
           '${ApiConstants.baseUrl}/import-documentation/invoice-bl/extract-files-and-match',
           data: formData,
+          cancelToken: _cancelToken,
         );
       } else {
         response = await _dio.post(
@@ -374,6 +375,7 @@ Total Items: 31 Total: 20,030.000 kgs.
             'bl_raw_text': _blTextCtrl.text,
             'packing_list_raw_text': _packingTextCtrl.text,
           },
+          cancelToken: _cancelToken,
         );
       }
 

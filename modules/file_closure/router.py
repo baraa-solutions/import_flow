@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -26,7 +27,7 @@ from .service import (
     official_close_import_file_service,
 )
 
-router = APIRouter(prefix="/api/v1/file-closure", tags=["Phase 10 - Import File Closure & Historical Archival"])
+router = APIRouter(prefix="/api/v1/file-closure", tags=["Phase 10 - Import File Closure & Historical Archival"], dependencies=[Depends(get_current_user)])
 
 @router.get("", response_model=List[FileClosureResponse])
 def list_closures(

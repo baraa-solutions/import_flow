@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -12,7 +13,7 @@ from modules.transport_locations.schemas import (
 from modules.transport_locations.service import TransportLocationService
 from utils.cache_manager import memory_cache
 
-router = APIRouter(prefix="/api/v1/transport-locations", tags=["Transport Locations (MD-009)"])
+router = APIRouter(prefix="/api/v1/transport-locations", tags=["Transport Locations (MD-009)"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=List[TransportLocationResponse])

@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/network/dio_client.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../models/step_config_model.dart';
 
 class StepConfigState {
@@ -69,18 +69,12 @@ class StepConfigState {
 
 class StepConfigNotifier extends StateNotifier<StepConfigState> {
   final Dio _dio;
-  final Ref _ref;
 
-  StepConfigNotifier(this._dio, this._ref) : super(const StepConfigState()) {
+  // The role is taken from the JWT by the backend; [ref] is kept for API
+  // compatibility with existing callers.
+  // ignore: avoid_unused_constructor_parameters
+  StepConfigNotifier(this._dio, Ref ref) : super(const StepConfigState()) {
     fetchConfigs();
-  }
-
-  Map<String, dynamic> _getAuthHeaders() {
-    final user = _ref.read(authProvider).user;
-    return {
-      'x-user-role': user?.role ?? 'MANAGER',
-      'x-user-name': user?.username ?? 'Manager',
-    };
   }
 
   Future<void> fetchConfigs() async {
@@ -88,7 +82,6 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/lifecycle-board/step-configs',
-        options: Options(headers: _getAuthHeaders()),
       );
       if (response.data is List) {
         final list = (response.data as List)
@@ -102,7 +95,7 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'تعذر جلب إعدادات تصنيف المراحل: $e',
+        errorMessage: 'تعذر جلب إعدادات تصنيف المراحل: ${ApiError.message(e)}',
       );
     }
   }
@@ -144,7 +137,6 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
       final response = await _dio.put(
         '${ApiConstants.baseUrl}/lifecycle-board/step-configs/$stepCode',
         data: payload,
-        options: Options(headers: _getAuthHeaders()),
       );
 
       final updated =
@@ -161,10 +153,9 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
       );
       return true;
     } on DioException catch (e) {
-      final detail = e.response?.data?['detail'] ?? e.message;
       state = state.copyWith(
         isSaving: false,
-        errorMessage: 'فشل تعديل سياسة المرحلة: $detail',
+        errorMessage: 'فشل تعديل سياسة المرحلة: ${ApiError.message(e)}',
       );
       return false;
     } catch (e) {
@@ -180,7 +171,6 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/lifecycle-board/step-configs/$stepCode/audit-logs',
-        options: Options(headers: _getAuthHeaders()),
       );
       if (response.data is List) {
         return (response.data as List)
@@ -213,7 +203,6 @@ class StepConfigNotifier extends StateNotifier<StepConfigState> {
       await _dio.post(
         '${ApiConstants.baseUrl}/lifecycle-board/stages/register-pending-reference',
         data: payload,
-        options: Options(headers: _getAuthHeaders()),
       );
       return true;
     } catch (e) {

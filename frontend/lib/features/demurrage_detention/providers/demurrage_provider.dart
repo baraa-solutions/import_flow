@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -49,9 +48,8 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
   final Ref? _ref;
   CancelToken? _cancelToken;
 
-  DemurrageNotifier([Dio? dio, this._ref])
-      : _dio = dio ?? Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)),
-        super(const DemurrageState());
+  /// [_dio] must be the authenticated client from `dioProvider`.
+  DemurrageNotifier(this._dio, [this._ref]) : super(const DemurrageState());
 
   @override
   void dispose() {

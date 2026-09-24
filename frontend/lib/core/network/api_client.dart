@@ -73,6 +73,8 @@ final dioProvider = Provider<Dio>((ref) {
   // ── Logging Interceptor (debug only) ──────────────────────
   dio.interceptors.add(
     LogInterceptor(
+      // Never log headers: they carry the Bearer token (CORE_RULES: no tokens in logs).
+      requestHeader: false,
       requestBody: false,
       responseBody: false,
       logPrint: (obj) => debugPrintSynchronously('[DIO] $obj'),

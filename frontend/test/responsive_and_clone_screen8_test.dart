@@ -23,7 +23,7 @@ import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 class MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
   int cloneCallCount = 0;
 
-  MockPaymentRequestsNotifier(List<PaymentRequestModel> initialList) : super() {
+  MockPaymentRequestsNotifier(List<PaymentRequestModel> initialList) : super(Dio()) {
     state = AsyncValue.data(initialList);
   }
 
@@ -112,7 +112,7 @@ class MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
 }
 
 class MockImportBudgetsNotifier extends ImportBudgetsNotifier {
-  MockImportBudgetsNotifier() : super() {
+  MockImportBudgetsNotifier() : super(Dio()) {
     state = const AsyncValue.data([]);
   }
 

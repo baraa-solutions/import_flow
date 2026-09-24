@@ -1,6 +1,7 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status, Header
+from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -21,6 +22,7 @@ from modules.purchase_orders.service import PurchaseOrderService
 router = APIRouter(
     prefix="/api/v1/purchase-orders",
     tags=["Purchase Orders"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -81,12 +83,10 @@ def update_purchase_order(
     po_id: int,
     data: PurchaseOrderUpdate,
     db: Session = Depends(get_db),
-    x_user_name: Optional[str] = Header(None),
     current_user: User = Depends(require_permission("purchase_orders.edit")),
 ):
     service = PurchaseOrderService(db)
-    user_name = x_user_name or (current_user.username if current_user else None)
-    return service.update(po_id, data, current_user_name=user_name)
+    return service.update(po_id, data, current_user_name=current_user.username)
 
 
 @router.delete("/{po_id}", response_model=PurchaseOrderResponse)

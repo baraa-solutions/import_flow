@@ -4,6 +4,7 @@ FastAPI Router for Smart Import Checklist Engine
 
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -20,6 +21,7 @@ from modules.smart_checklists.schemas import (
 router = APIRouter(
     prefix="/api/v1/import-files",
     tags=["Smart Checklists"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

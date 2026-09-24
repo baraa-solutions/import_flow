@@ -4,6 +4,7 @@ FastAPI Router for Phase 4 – Freight Booking & Container Allocation
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -16,7 +17,7 @@ from modules.freight_booking.schemas import (
 )
 import modules.freight_booking.service as service
 
-router = APIRouter(prefix="/api/v1/freight-booking", tags=["Freight Booking & Container Allocation (Phase 4)"])
+router = APIRouter(prefix="/api/v1/freight-booking", tags=["Freight Booking & Container Allocation (Phase 4)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post(

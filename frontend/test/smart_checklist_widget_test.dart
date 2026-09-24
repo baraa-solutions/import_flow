@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +20,7 @@ class _SimpleLocaleDelegate extends LocalizationsDelegate<MaterialLocalizations>
 }
 
 class MockSmartChecklistNotifier extends SmartChecklistNotifier {
-  MockSmartChecklistNotifier(ChecklistSummaryModel mockSummary) : super() {
+  MockSmartChecklistNotifier(ChecklistSummaryModel mockSummary) : super(Dio()) {
     state = SmartChecklistState(summary: mockSummary, isLoading: false);
   }
 

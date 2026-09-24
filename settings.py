@@ -27,6 +27,8 @@ SECRET_KEY: str = _secret
 # SECURITY: Strictly False in production to enforce JWT Bearer tokens on all endpoints.
 ALLOW_DEV_AUTH_BYPASS = os.getenv("ALLOW_DEV_AUTH_BYPASS", "false").lower() in ("true", "1")
 DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1")
+# Swagger UI / ReDoc / openapi.json are disabled unless explicitly enabled (they expose the route map).
+ENABLE_API_DOCS = os.getenv("ENABLE_API_DOCS", "false").lower() in ("true", "1")
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
 _admin_pass = os.getenv("ADMIN_INITIAL_PASSWORD", "")
 if not _admin_pass:

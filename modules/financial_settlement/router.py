@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -39,7 +40,7 @@ from .odoo_export_service import (
     export_odoo_excel_service,
 )
 
-router = APIRouter(prefix="/api/v1/financial-settlement", tags=["Phase 9 - Financial Settlement & Landed Cost"])
+router = APIRouter(prefix="/api/v1/financial-settlement", tags=["Phase 9 - Financial Settlement & Landed Cost"], dependencies=[Depends(get_current_user)])
 
 @router.get("", response_model=List[FinancialSettlementResponse])
 def list_settlements(

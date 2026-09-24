@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -26,6 +27,7 @@ import modules.customs_clearance_quotations.service as svc
 router = APIRouter(
     prefix="/api/v1/customs-clearance-quotations",
     tags=["Customs Clearance Quotations & Price Lists"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

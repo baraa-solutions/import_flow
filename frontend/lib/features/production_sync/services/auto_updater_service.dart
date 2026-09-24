@@ -16,10 +16,16 @@ enum AutoUpdateState {
 /// Service responsible for downloading and launching the latest installer
 /// for in-app silent self-update on Windows.
 class AutoUpdaterService {
-  final Dio _dio;
+  /// Authenticated backend client (`dioProvider`, base URL `.../api/v1`).
+  final Dio _apiDio;
 
-  AutoUpdaterService([Dio? dio])
-      : _dio = dio ??
+  /// Plain client for the installer binary. It must NOT carry the JWT because
+  /// the installer URL may point to a third-party host (e.g. GitHub releases).
+  final Dio _downloadDio;
+
+  AutoUpdaterService({required Dio apiDio, Dio? downloadDio})
+      : _apiDio = apiDio,
+        _downloadDio = downloadDio ??
             Dio(
               BaseOptions(
                 connectTimeout: const Duration(seconds: 30),
@@ -29,14 +35,10 @@ class AutoUpdaterService {
 
   /// Fetches the latest installer info from the backend API.
   Future<InstallerInfoModel> getInstallerInfo() async {
-    final response = await Dio(
-      BaseOptions(
-        baseUrl: ApiConstants.serverUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: {'Accept': 'application/json'},
-      ),
-    ).get('/api/v1/production-sync/installer-info');
+    final response = await _apiDio.get(
+      '${ApiConstants.serverUrl}/api/v1/production-sync/installer-info',
+      options: Options(receiveTimeout: const Duration(seconds: 15)),
+    );
 
     if (response.statusCode == 200) {
       return InstallerInfoModel.fromJson(Map<String, dynamic>.from(response.data as Map));
@@ -69,7 +71,7 @@ class AutoUpdaterService {
       existingFile.deleteSync();
     }
 
-    await _dio.download(
+    await _downloadDio.download(
       installerUrl,
       savePath,
       cancelToken: cancelToken,

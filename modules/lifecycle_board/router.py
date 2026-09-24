@@ -3,10 +3,13 @@ FastAPI Router for 6-Phase Lifecycle Board & Stage Transitions
 """
 
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.auth.permissions import effective_role_code
+from modules.auth.router import get_current_user
+from modules.users.model import User
 from modules.lifecycle_board.schemas import (
     LifecycleBoardSummaryResponse,
     LiveLogisticsSummaryResponse,
@@ -23,7 +26,11 @@ from modules.lifecycle_board.schemas import (
 )
 import modules.lifecycle_board.service as service
 
-router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle Board (6 Phases / 25 Steps)"])
+router = APIRouter(
+    prefix="/api/v1/lifecycle-board",
+    tags=["Shipment Lifecycle Board (6 Phases / 25 Steps)"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 # ─── Configurable Step Risk & Settings Endpoints (Addendum: Section 10) ───
@@ -35,7 +42,6 @@ router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle B
 )
 def get_all_step_configs(
     db: Session = Depends(get_db),
-    x_user_role: Optional[str] = Header(None),
 ):
     return service.get_all_step_configs_service(db)
 
@@ -61,15 +67,14 @@ def update_step_config(
     step_code: str,
     payload: StepConfigUpdateRequest,
     db: Session = Depends(get_db),
-    x_user_role: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
     return service.update_step_config_service(
         db=db,
         step_code=step_code,
         payload=payload,
-        current_user_role=x_user_role,
-        current_username=x_user_name,
+        current_user_role=effective_role_code(current_user),
+        current_username=current_user.username,
     )
 
 
@@ -94,12 +99,12 @@ def get_step_config_audit_logs(
 def register_pending_reference(
     payload: RegisterPendingReferenceRequest,
     db: Session = Depends(get_db),
-    x_user_name: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
     return service.register_pending_reference_service(
         db=db,
         payload=payload,
-        current_username=x_user_name,
+        current_username=current_user.username,
     )
 
 
@@ -169,14 +174,13 @@ def sync_lifecycle_step(payload: LifecycleSyncRequest, db: Session = Depends(get
 def skip_step(
     payload: SkipStepPayload,
     db: Session = Depends(get_db),
-    x_user_role: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
     return service.skip_step_service(
         db=db,
         payload=payload,
-        current_user_role=x_user_role,
-        current_username=x_user_name,
+        current_user_role=effective_role_code(current_user),
+        current_username=current_user.username,
     )
 
 

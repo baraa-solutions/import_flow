@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -16,7 +17,7 @@ from modules.cargo_insurance.service import (
     calculate_cargo_insurance_engine,
 )
 
-router = APIRouter(prefix="/api/v1/cargo-insurance", tags=["Cargo & Marine Insurance"])
+router = APIRouter(prefix="/api/v1/cargo-insurance", tags=["Cargo & Marine Insurance"], dependencies=[Depends(get_current_user)])
 
 
 @router.post(

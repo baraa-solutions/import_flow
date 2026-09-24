@@ -7866,6 +7866,7 @@ abstract class AppLocalizations {
   String get stepConfigSubtitle;
   String get stepConfigAccessDeniedTitle;
   String get stepConfigAccessDeniedDesc;
+  String get adminOnlyFeatureMessage;
   String get stepConfigDemoSwitchBtn;
   String get stepConfigRefreshTooltip;
   String get stepConfigSearchHint;

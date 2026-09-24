@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import 'copyable_data_helper.dart';
 import 'searchable_dropdown_field.dart';
 import 'extraction_progress_dialog.dart';
@@ -20,7 +22,7 @@ enum EntityTarget {
   partner,
 }
 
-class UniversalEntityExtractorDialog extends StatefulWidget {
+class UniversalEntityExtractorDialog extends ConsumerStatefulWidget {
   final EntityTarget initialTarget;
   final bool lockTarget;
   final VoidCallback? onSaved;
@@ -86,10 +88,10 @@ class UniversalEntityExtractorDialog extends StatefulWidget {
   }
 
   @override
-  State<UniversalEntityExtractorDialog> createState() => _UniversalEntityExtractorDialogState();
+  ConsumerState<UniversalEntityExtractorDialog> createState() => _UniversalEntityExtractorDialogState();
 }
 
-class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtractorDialog> {
+class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntityExtractorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late EntityTarget _selectedTarget;
   int _inputModeTab = 0;
@@ -312,7 +314,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     }
 
     try {
-      final dio = Dio();
+      final dio = ref.read(uploadDioProvider);
       final formData = FormData.fromMap({'raw_text': text});
       final moduleName = _getModuleForTarget(_selectedTarget);
       final resp = await dio.post(
@@ -383,7 +385,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
       setState(() => _isExtracting = true);
 
-      final dio = Dio();
+      final dio = ref.read(uploadDioProvider);
       final moduleName = _getModuleForTarget(_selectedTarget);
       FormData formData;
 
@@ -622,7 +624,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
     setState(() => _isSaving = true);
     try {
-      final dio = Dio();
+      final dio = ref.read(dioProvider);
       String endpoint = '${ApiConstants.baseUrl}/suppliers';
       Map<String, dynamic> payload = {};
 

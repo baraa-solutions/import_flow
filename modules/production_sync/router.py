@@ -25,6 +25,7 @@ from modules.users.model import User
 router = APIRouter(
     prefix="/api/v1/production-sync",
     tags=["Production Synchronization & Deployment"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -62,7 +63,7 @@ def check_for_system_updates(
 )
 def compare_databases(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     service = ProductionSyncService(db)
     return service.get_comparison()
@@ -119,7 +120,7 @@ def create_manual_backup(
 )
 def list_backups(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     service = ProductionSyncService(db)
     return service.list_backups()

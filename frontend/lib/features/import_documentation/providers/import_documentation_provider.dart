@@ -373,10 +373,7 @@ class AcidTrackerNotifier extends StateNotifier<AsyncValue<AcidTrackerSummaryMod
 // 1. Legal Documents & ACID Expiry Compliance (+30 Days Safety Margin) Provider
 final legalComplianceFamilyProvider =
     FutureProvider.family<LegalDocsExpiryComplianceModel, int>((ref, importFileId) async {
-  final dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final dio = ref.read(dioProvider);
   final response = await dio.get(
     '${ApiConstants.baseUrl}/import-documentation/legal-compliance/$importFileId',
   );

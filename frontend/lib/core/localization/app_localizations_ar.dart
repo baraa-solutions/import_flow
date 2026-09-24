@@ -10319,6 +10319,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get stepConfigSubtitle => 'إدارة ديناميكية مركزية لسياسات تخطي المراحل وإسناد المراجع المعلقة دون تعديل الكود';
   @override String get stepConfigAccessDeniedTitle => 'صلاحية غير كافية — مقصورة على مسؤول الإدارة';
   @override String get stepConfigAccessDeniedDesc => 'وفقاً لمعايير الحوكمة والرقابة التشغيلية، يحظر على المستخدمين التشغيليين تعديل سياسات وقواعد تخطي المراحل. هذه الشاشة متاحة حصرياً للمدير المعتمد.';
+  @override String get adminOnlyFeatureMessage => 'هذه الخاصية متاحة لمدير النظام فقط.';
   @override String get stepConfigDemoSwitchBtn => 'التبديل لدور المدير تجريبياً';
   @override String get stepConfigRefreshTooltip => 'تحديث البيانات';
   @override String get stepConfigSearchHint => 'بحث بكود الخطوة أو الاسم أو السياسة...';

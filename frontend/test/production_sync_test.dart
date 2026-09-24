@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:frontend/features/production_sync/models/production_sync_model.d
 import 'package:frontend/features/production_sync/providers/production_sync_provider.dart';
 import 'package:frontend/features/production_sync/screens/production_sync_screen.dart';
 import 'package:frontend/features/production_sync/services/local_process_sync_service.dart';
+import 'package:frontend/features/production_sync/services/production_sync_service.dart';
 
 void main() {
   group('ProductionSyncModel Unit Tests', () {
@@ -203,7 +205,7 @@ void main() {
     });
 
     test('LocalProcessSyncService retrieves db stats directly from filesystem', () {
-      final service = LocalProcessSyncService();
+      final service = LocalProcessSyncService(ProductionSyncService(Dio()));
       final stats = service.getDbStats(service.devDbPath);
       expect(stats.exists, isTrue);
       expect(stats.sizeKb, greaterThan(0));

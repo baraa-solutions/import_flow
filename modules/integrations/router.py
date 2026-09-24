@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status
+from modules.auth.router import get_current_user, require_admin
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -21,7 +22,7 @@ from .cargox_client import CargoXIntegrationClient
 from .pki_signer import PKISignerService
 from .goeic_client import GOEICIntegrationClient
 
-router = APIRouter(prefix="/api/v1/integrations", tags=["Nafeza, CargoX, GOEIC & Customs Integrations"])
+router = APIRouter(prefix="/api/v1/integrations", tags=["Nafeza, CargoX, GOEIC & Customs Integrations"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/nafeza/request-acid")
@@ -56,7 +57,7 @@ def transfer_cargox_envelope(request: CargoXTransferLiveRequest):
     )
 
 
-@router.post("/pki/sign-payload")
+@router.post("/pki/sign-payload", dependencies=[Depends(require_admin)])
 def sign_payload_with_pki(request: PKISignPayloadRequest):
     signer = PKISignerService(mode=request.mode)
     return signer.sign_payload(request.payload_data)

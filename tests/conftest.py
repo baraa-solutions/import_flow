@@ -6,6 +6,7 @@ import pytest
 # SECRET_KEY must be at least 32 chars (enforced by settings.py)
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars")
 os.environ.setdefault("ALLOW_DEV_AUTH_BYPASS", "true")
+os.environ.setdefault("ENABLE_API_DOCS", "false")
 
 # Create a temporary test database file for the test session
 test_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
@@ -63,3 +64,36 @@ def setup_test_database():
             os.remove(test_db_path)
     except Exception:
         pass
+
+
+# ─── Dev-bypass test seam ─────────────────────────────────────────────────────
+# Most TestClient tests override get_db with an empty (or table-less) database and call routes without a
+# token, relying on ALLOW_DEV_AUTH_BYPASS=true. Now that routers require auth, the bypass would find no user
+# and return 401. This seam keeps the real bypass lookup and, only when it yields nothing (or the test DB has
+# no users table), returns a transient ADMIN user that is never persisted.
+# Tests that need the strict behaviour patch modules.auth.permissions.ALLOW_DEV_AUTH_BYPASS to False, which
+# short-circuits before this seam is reached.
+import modules.auth.permissions as _auth_permissions  # noqa: E402
+from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
+from modules.users.model import User as _User  # noqa: E402
+
+
+def _transient_test_admin() -> _User:
+    return _User(username="test-admin", full_name="Test Admin", role="ADMIN", is_active=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def dev_bypass_test_admin_seam():
+    original = _auth_permissions._dev_bypass_fallback_user
+
+    def _wrapped(db, x_user_role=None, x_user_name=None):
+        try:
+            user = original(db, x_user_role, x_user_name)
+        except SQLAlchemyError:
+            db.rollback()
+            user = None
+        return user if user is not None else _transient_test_admin()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_auth_permissions, "_dev_bypass_fallback_user", _wrapped)
+        yield

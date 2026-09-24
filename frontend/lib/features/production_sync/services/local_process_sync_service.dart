@@ -1,4 +1,5 @@
 import 'local_process_sync_models.dart';
+import 'production_sync_service.dart';
 import 'local_process_sync_web.dart'
     if (dart.library.io) 'local_process_sync_io.dart';
 
@@ -6,7 +7,10 @@ export 'local_process_sync_models.dart';
 
 /// Abstract service contract for Production Sync Hub.
 abstract class LocalProcessSyncService {
-  factory LocalProcessSyncService() => createLocalProcessSyncService();
+  /// [api] is the authenticated backend client used for the server-side
+  /// fallback (obtain it via `ref.read(productionSyncServiceProvider)`).
+  factory LocalProcessSyncService(ProductionSyncService api) =>
+      createLocalProcessSyncService(api);
 
   String get projectRoot;
   String get devDbPath;

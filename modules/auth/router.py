@@ -23,6 +23,7 @@ from .permissions import (
     get_user_effective_permissions,
     get_user_permissions_breakdown,
     resolve_user,
+    is_admin_user,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & User Access Control (RBAC)"])
@@ -46,7 +47,7 @@ def get_current_user(
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """ADMIN role required."""
-    if current_user.role != "ADMIN" and getattr(current_user.assigned_role, "role_code", None) != "ADMIN":
+    if not is_admin_user(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Admin role required."
@@ -193,7 +194,7 @@ def register_user(
 ):
     """Register a new user — Requires 'users.manage' permission or Admin."""
     service = AuthService(db)
-    return service.register_user(user_data)
+    return service.register_user(user_data, actor=current_user)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -205,7 +206,7 @@ def update_user(
 ):
     """Update user data (full_name, email, role, password) — Requires 'users.manage' permission or Admin."""
     service = AuthService(db)
-    return service.update_user(user_id, update_data)
+    return service.update_user(user_id, update_data, actor=current_user)
 
 
 @router.patch("/users/{user_id}/toggle-status", response_model=UserResponse)
@@ -216,7 +217,7 @@ def toggle_user_status(
 ):
     """Activate or deactivate a user — Requires 'users.manage' permission or Admin. Cannot deactivate yourself."""
     service = AuthService(db)
-    return service.toggle_user_status(user_id, admin_user_id=current_user.user_id)
+    return service.toggle_user_status(user_id, actor=current_user)
 
 
 # ─── RBAC Permissions & Roles Endpoints ───────────────────────────────────────
@@ -261,4 +262,4 @@ def update_user_permissions(
 ):
     """Update user's assigned role and granular permission overrides with audit trail."""
     service = AuthService(db)
-    return service.update_user_permissions(user_id, payload, admin_user=current_user)
+    return service.update_user_permissions(user_id, payload, actor=current_user)

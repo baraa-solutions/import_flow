@@ -5,6 +5,7 @@ FastAPI Router for Import Files Master & Tracking Module
 from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -27,7 +28,7 @@ import modules.import_files.service as service
 from modules.auth.permissions import require_permission
 from modules.users.model import User
 
-router = APIRouter(prefix="/api/v1/import-files", tags=["Import Files Tracking"])
+router = APIRouter(prefix="/api/v1/import-files", tags=["Import Files Tracking"], dependencies=[Depends(get_current_user)])
 
 
 @router.post(
@@ -362,7 +363,7 @@ def reopen_shipment(
     import_file_id: int,
     payload: ReopenShipmentSubmit,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("import_files.edit")),
+    current_user: User = Depends(require_permission("import_files.close")),
 ):
     return service.reopen_shipment_service(db, import_file_id, payload)
 

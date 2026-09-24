@@ -1,6 +1,7 @@
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -10,7 +11,7 @@ from .service import evaluate_container_loading_service, list_container_specs_se
 
 logger = logging.getLogger(__name__)
 
-container_loader_router = APIRouter(prefix="/api/v1/container-loader", tags=["Container Loader"])
+container_loader_router = APIRouter(prefix="/api/v1/container-loader", tags=["Container Loader"], dependencies=[Depends(get_current_user)])
 
 
 @container_loader_router.post("/evaluate", response_model=ContainerLoaderEvaluationResult)

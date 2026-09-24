@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -26,7 +27,7 @@ from .service import (
 )
 
 
-router = APIRouter(prefix="/api/v1/warehouse-receiving", tags=["Phase 8 - Warehouse Receiving"])
+router = APIRouter(prefix="/api/v1/warehouse-receiving", tags=["Phase 8 - Warehouse Receiving"], dependencies=[Depends(get_current_user)])
 
 @router.get("", response_model=List[WarehouseReceivingResponse])
 def list_warehouse_receivings(

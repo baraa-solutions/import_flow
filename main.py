@@ -109,7 +109,7 @@ from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
 from modules.audit_logs.router import router as audit_router
-from modules.auth.router import router as auth_router, get_current_user
+from modules.auth.router import router as auth_router, require_admin
 from modules.incoterms.router import incoterms_router
 from modules.customs_tariff.router import customs_tariff_router
 from modules.transport_locations.router import router as transport_locations_router
@@ -132,7 +132,7 @@ from modules.warehouse_receiving.router import router as warehouse_receiving_rou
 from modules.inland_transport.router import router as inland_transport_router
 from modules.financial_settlement.router import router as financial_settlement_router
 from modules.file_closure.router import router as file_closure_router
-from modules.notifications.router import router as notifications_router
+from modules.notifications.router import router as notifications_router, ws_router as notifications_ws_router
 from modules.integrations.router import router as integrations_router
 from modules.container_loader.router import container_loader_router
 from modules.smart_tasks.router import router as smart_tasks_router
@@ -165,10 +165,23 @@ setup_query_listener(engine)
 # Create FastAPI Application
 # ==================================================
 
+import logging as _logging
+import settings as _settings
+
+# Interactive API docs expose the full route map: served only when ENABLE_API_DOCS is set.
 app = FastAPI(
     title="Sorour Logistics ERP API",
     version="2.0.3",
+    docs_url="/docs" if _settings.ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if _settings.ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if _settings.ENABLE_API_DOCS else None,
 )
+
+if _settings.ALLOW_DEV_AUTH_BYPASS:
+    _logging.getLogger("main").warning(
+        "ALLOW_DEV_AUTH_BYPASS is enabled: requests without an Authorization header are resolved to "
+        "a local user. Never enable this on a networked or production deployment."
+    )
 
 # ==================================================
 # Observability & Request Correlation Middleware
@@ -315,6 +328,7 @@ app.include_router(warehouse_receiving_router)
 app.include_router(financial_settlement_router)
 app.include_router(file_closure_router)
 app.include_router(notifications_router)
+app.include_router(notifications_ws_router)
 app.include_router(integrations_router)
 app.include_router(smart_tasks_router)
 app.include_router(shipment_updates_router)
@@ -524,7 +538,7 @@ def download_system_installer():
 
 @app.post("/shutdown")
 @app.post("/api/v1/shutdown")
-def shutdown_system(current_user: User = Depends(get_current_user)):
+def shutdown_system(current_user: User = Depends(require_admin)):
     import os
     import threading
     import time

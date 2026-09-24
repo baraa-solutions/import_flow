@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/checklist_item_model.dart';
 
 class SmartChecklistState {
@@ -51,9 +52,8 @@ class SmartChecklistState {
 class SmartChecklistNotifier extends StateNotifier<SmartChecklistState> {
   final Dio _dio;
 
-  SmartChecklistNotifier()
-      : _dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)),
-        super(const SmartChecklistState());
+  /// [_dio] must be the authenticated client from `dioProvider`.
+  SmartChecklistNotifier(this._dio) : super(const SmartChecklistState());
 
   Future<void> fetchChecklist(int fileId) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -144,5 +144,5 @@ class SmartChecklistNotifier extends StateNotifier<SmartChecklistState> {
 
 final smartChecklistProvider =
     StateNotifierProvider.autoDispose<SmartChecklistNotifier, SmartChecklistState>((ref) {
-  return SmartChecklistNotifier();
+  return SmartChecklistNotifier(ref.watch(dioProvider));
 });

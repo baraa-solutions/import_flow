@@ -1,13 +1,14 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.projects.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from modules.projects.service import ProjectService
 
-router = APIRouter(prefix="/api/v1/projects", tags=["Projects Module"])
+router = APIRouter(prefix="/api/v1/projects", tags=["Projects Module"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=List[ProjectResponse])

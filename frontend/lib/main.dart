@@ -27,7 +27,8 @@ Future<void> _ensureBackendRunning() async {
   if (!kIsWeb && Platform.isWindows) {
     try {
       final dio = Dio(BaseOptions(connectTimeout: const Duration(milliseconds: 500)));
-      await dio.get('${ApiConstants.serverUrl}/docs');
+      // Public liveness endpoint (/docs is disabled in production).
+      await dio.get('${ApiConstants.serverUrl}/health');
     } catch (_) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;

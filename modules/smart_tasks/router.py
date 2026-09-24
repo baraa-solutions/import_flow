@@ -4,6 +4,7 @@ FastAPI Router for Smart Task Management & Reminder Engine (Feature 2.4 & 2.5)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -17,7 +18,7 @@ from modules.smart_tasks.schemas import (
 from modules.smart_tasks.model import SmartTask
 import modules.smart_tasks.service as service
 
-router = APIRouter(prefix="/api/v1/smart-tasks", tags=["Smart Task Management & Reminders"])
+router = APIRouter(prefix="/api/v1/smart-tasks", tags=["Smart Task Management & Reminders"], dependencies=[Depends(get_current_user)])
 
 
 @router.post(

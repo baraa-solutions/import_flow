@@ -20,6 +20,8 @@ class UserModel {
   bool get isOperator => role.toUpperCase() == 'OPERATOR';
   bool get canViewAllRecords => isAdmin || isManager;
   bool get canManageStepConfig => isAdmin || isManager;
+  /// Email server settings (/smart-email/settings, test-connection, send-email) are admin-only.
+  bool get canManageEmailSettings => isAdmin;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(

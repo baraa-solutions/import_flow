@@ -85,7 +85,7 @@ def check_port_availability(port: int = DEFAULT_PORT):
     except OSError:
         # Port is occupied, check if it's our backend
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/docs", timeout=1) as res:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/health", timeout=1) as res:
                 if res.status == 200:
                     is_backend = True
         except Exception:

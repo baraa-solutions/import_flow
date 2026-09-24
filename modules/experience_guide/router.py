@@ -4,6 +4,7 @@ Institutional Knowledge Engine & Operational Memory + Autonomous Learning Engine
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -27,6 +28,7 @@ from modules.experience_guide.service import ExperienceGuideService
 router = APIRouter(
     prefix="/api/v1/experience-guide",
     tags=["Experience Guide & Institutional Knowledge Engine (KB-GUIDE-012)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

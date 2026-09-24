@@ -116,12 +116,14 @@ String _resolveProjectRoot() {
   return r'C:\Users\Hp\Desktop\ImportFlow';
 }
 
-LocalProcessSyncService createLocalProcessSyncService() => LocalProcessSyncServiceImpl();
+LocalProcessSyncService createLocalProcessSyncService(ProductionSyncService api) =>
+    LocalProcessSyncServiceImpl(api);
 
 class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
   final String _projectRoot;
+  final ProductionSyncService _api;
 
-  LocalProcessSyncServiceImpl() : _projectRoot = _resolveProjectRoot();
+  LocalProcessSyncServiceImpl(this._api) : _projectRoot = _resolveProjectRoot();
 
   @override
   String get projectRoot => _projectRoot;
@@ -296,7 +298,7 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
       onError('⚠️ تعذر تشغيل سطر أوامر بايثون محلياً: $e');
       onError('🔄 جارٍ التحويل التلقائي للتنفيذ الآمن عبر السيرفر (FastAPI Engine)...');
       try {
-        final api = ProductionSyncService();
+        final api = _api;
         if (args.contains('--compare')) {
           final comp = await api.getComparison();
           final diffTables = comp.tables.map((t) {

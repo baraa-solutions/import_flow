@@ -4,6 +4,7 @@ FastAPI Router for Smart Email Listener (INT-EMAIL-010)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user, require_admin
 from sqlalchemy.orm import Session
 from database.database import get_db
 
@@ -34,8 +35,8 @@ from .service import (
 )
 from . import repository
 
-router = APIRouter(prefix="/api/v1/smart-email", tags=["Smart Email Listener (INT-EMAIL-010)"])
-compat_router = APIRouter(prefix="/smart-email", include_in_schema=False)
+router = APIRouter(prefix="/api/v1/smart-email", tags=["Smart Email Listener (INT-EMAIL-010)"], dependencies=[Depends(get_current_user)])
+compat_router = APIRouter(prefix="/smart-email", include_in_schema=False, dependencies=[Depends(get_current_user)])
 
 
 @router.post(
@@ -116,10 +117,12 @@ def get_local_outlook_status_endpoint():
     "/settings",
     response_model=Optional[EmailSettingsResponse],
     summary="جلب إعدادات خادم البريد الحالية",
+    dependencies=[Depends(require_admin)],
 )
 @compat_router.get(
     "/settings",
     response_model=Optional[EmailSettingsResponse],
+    dependencies=[Depends(require_admin)],
 )
 def get_email_settings_endpoint(db: Session = Depends(get_db)):
     settings = repository.get_email_settings(db)
@@ -130,10 +133,12 @@ def get_email_settings_endpoint(db: Session = Depends(get_db)):
     "/settings",
     response_model=EmailSettingsResponse,
     summary="حفظ أو تحديث إعدادات خادم البريد (IMAP/SMTP)",
+    dependencies=[Depends(require_admin)],
 )
 @compat_router.post(
     "/settings",
     response_model=EmailSettingsResponse,
+    dependencies=[Depends(require_admin)],
 )
 def save_email_settings_endpoint(req: EmailSettingsCreate, db: Session = Depends(get_db)):
     settings = repository.save_or_update_email_settings(db, req.model_dump())
@@ -144,10 +149,12 @@ def save_email_settings_endpoint(req: EmailSettingsCreate, db: Session = Depends
     "/test-connection",
     response_model=EmailConnectionTestResult,
     summary="اختبار الاتصال بخادمي IMAP و SMTP والتحقق من صحة بيانات الدخول",
+    dependencies=[Depends(require_admin)],
 )
 @compat_router.post(
     "/test-connection",
     response_model=EmailConnectionTestResult,
+    dependencies=[Depends(require_admin)],
 )
 def test_email_connection_endpoint(req: EmailConnectionTestRequest):
     return test_email_connection_service(req)
@@ -180,10 +187,12 @@ def fetch_inbox_endpoint(
     "/send-email",
     response_model=OutboundEmailSendResult,
     summary="إرسال بريد إلكتروني صادر عبر خادم SMTP",
+    dependencies=[Depends(require_admin)],
 )
 @compat_router.post(
     "/send-email",
     response_model=OutboundEmailSendResult,
+    dependencies=[Depends(require_admin)],
 )
 def send_outbound_email_endpoint(
     req: OutboundEmailSendRequest,
