@@ -94,11 +94,11 @@ def test_system_version_check_via_x_client_version_header():
     assert data["has_update"] is True
 
 
-def test_download_system_installer_endpoint():
-    """Verifies that /api/v1/system/download-installer returns a 200 FileResponse or redirect."""
+def test_download_system_installer_endpoint_is_removed():
+    """The unauthenticated installer download was removed (updates come from app_update)."""
     response = client.get("/api/v1/system/download-installer", follow_redirects=False)
-    # Either returns 200 if installer file exists or 307 redirect to GitHub release
-    assert response.status_code in (200, 307)
+    assert response.status_code == 404
+    assert "local_download_url" not in client.get("/api/v1/system/version").json()
 
 
 def test_publish_release_script_zero_drift():

@@ -3,16 +3,27 @@ Production Sync Service
 Contains enterprise-grade, non-destructive database synchronization, comparison,
 schema migration, and safety backup logic preserving 100% of production user data.
 """
-import os
-import re
 import json
-import shutil
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from database.database import DB_PATH
+from utils.db_safety import (
+    PRODUCTION_SYNC_PREFIX,
+    BackupVerificationError,
+    app_base_dir,
+    backups_dir_for,
+    check_integrity,
+    is_frozen_build,
+    select_prunable,
+    sqlite_online_backup,
+    version_file_path,
+)
 from modules.production_sync.repository import ProductionSyncRepository
 from modules.production_sync.schemas import (
     DatabaseStatsSchema,
@@ -25,43 +36,41 @@ from modules.production_sync.schemas import (
     RemoteUpdateCheckResponseSchema,
     SystemVersionInfoSchema,
     RemoteUpdateCheckSchema,
+    InstallerInfoSchema,
 )
-from modules.production_sync.validators import validate_db_exists
+from modules.production_sync.validators import (
+    resolve_backup_file,
+    validate_db_exists,
+    validate_not_production_build,
+    validate_restore_target,
+)
 
+logger = logging.getLogger("production_sync")
 
-import sys
+# Own backups carry PRODUCTION_SYNC_PREFIX; retention only ever prunes that family (R9).
+BACKUP_RETENTION = 50
+
 
 def _resolve_paths():
-    if getattr(sys, "frozen", False):
-        exe_dir = Path(sys.executable).resolve().parent
-        # If running from inside dist/Sorour_Logistics_Standalone or dist/ImportFlow_Standalone
-        if exe_dir.name in ["Sorour_Logistics_Standalone", "ImportFlow_Standalone"] and exe_dir.parent.name == "dist":
-            root_dir = exe_dir.parent.parent
-        else:
-            root_dir = exe_dir
+    """(root_dir, standalone_dir, dev_db, prod_db, backups_dir).
 
-        dev_db = root_dir / "sorour_logistics.db"
-        prod_db = exe_dir / "sorour_logistics.db"
-        backups_dir = root_dir / "backups"
-        if not backups_dir.exists() and root_dir == exe_dir:
-            backups_dir = exe_dir / "backups"
+    The live DB is always ``database.DB_PATH`` (honours DATABASE_PATH). In the frozen build there is
+    one installed DB, so dev and prod are the same file; the destructive actions are blocked there (R7).
+    Backups live next to the live DB.
+    """
+    live_db = Path(DB_PATH).resolve()
+    root_dir = app_base_dir()
+    if is_frozen_build():
+        return root_dir, root_dir, live_db, live_db, backups_dir_for(live_db)
 
-        # Fallback if dev_db does not exist in standalone installation
-        if not dev_db.exists():
-            dev_db = prod_db
+    standalone_dir = root_dir / "dist" / "Sorour_Logistics_Standalone"
+    if not standalone_dir.exists():
+        legacy_dir = root_dir / "dist" / "ImportFlow_Standalone"
+        if legacy_dir.exists():
+            standalone_dir = legacy_dir
+    prod_db = standalone_dir / "sorour_logistics.db"
+    return root_dir, standalone_dir, live_db, prod_db, backups_dir_for(live_db)
 
-        return root_dir, exe_dir, dev_db, prod_db, backups_dir
-    else:
-        root_dir = Path(__file__).resolve().parent.parent.parent
-        standalone_dir = root_dir / "dist" / "Sorour_Logistics_Standalone"
-        if not standalone_dir.exists():
-            legacy_dir = root_dir / "dist" / "ImportFlow_Standalone"
-            if legacy_dir.exists():
-                standalone_dir = legacy_dir
-        dev_db = root_dir / "sorour_logistics.db"
-        prod_db = standalone_dir / "sorour_logistics.db"
-        backups_dir = root_dir / "backups"
-        return root_dir, standalone_dir, dev_db, prod_db, backups_dir
 
 ROOT_DIR, STANDALONE_DIR, DEV_DB, PROD_DB, BACKUPS_DIR = _resolve_paths()
 DIST_DIR = ROOT_DIR / "dist"
@@ -121,46 +130,65 @@ class ProductionSyncService:
         except Exception:
             return {}
 
-    def _cleanup_old_backups(self, max_keep: int = 50, exclude_path: Optional[Path] = None):
-        """Maintains the newest `max_keep` backups in BACKUPS_DIR and removes older ones."""
-        try:
-            if not BACKUPS_DIR.exists():
-                return
-            all_backups = sorted(BACKUPS_DIR.glob("*.db"), key=lambda f: (f.stat().st_mtime, f.name), reverse=True)
-            if len(all_backups) > max_keep:
-                for old_file in all_backups[max_keep:]:
-                    if exclude_path and old_file.resolve() == exclude_path.resolve():
-                        continue
-                    try:
-                        old_file.unlink(missing_ok=True)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+    def _cleanup_old_backups(self, max_keep: int = BACKUP_RETENTION, exclude_path: Optional[Path] = None) -> List[str]:
+        """Prune only this module's own backups (``psync_*.db``), keeping the newest ``max_keep``
+        (at least MIN_BACKUPS_KEPT). daily_backup_*, auto_pre_upgrade_*, pre_install_*, pre_update_*,
+        pre_migration_*, pre_restore_* and anything else in BACKUPS_DIR are never touched (R9, A8)."""
+        removed: List[str] = []
+        if not BACKUPS_DIR.exists():
+            return removed
+        own_backups = [f for f in BACKUPS_DIR.glob(f"{PRODUCTION_SYNC_PREFIX}*.db") if f.is_file()]
+        for old_file in select_prunable(own_backups, keep=max_keep):
+            if exclude_path is not None and old_file.resolve() == Path(exclude_path).resolve():
+                continue
+            try:
+                old_file.unlink(missing_ok=True)
+                removed.append(old_file.name)
+            except OSError as exc:
+                logger.warning("Could not prune backup %s: %s", old_file.name, exc)
+        return removed
+
+    def create_manual_backup(self, target: str = "dev") -> BackupItemSchema:
+        target_path = PROD_DB if target == "prod" else DEV_DB
+        return self.create_safety_backup(target_path, tag=f"manual_{target}")
 
     def create_safety_backup(self, db_path: Path, tag: str = "manual") -> BackupItemSchema:
+        """Verified online backup (SQLite backup API + integrity_check + sha256) into BACKUPS_DIR."""
         validate_db_exists(db_path, tag)
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = BACKUPS_DIR / f"{db_path.stem}_{tag}_{timestamp}.db"
-        shutil.copy(db_path, backup_file)
+        backup_file = BACKUPS_DIR / f"{PRODUCTION_SYNC_PREFIX}{db_path.stem}_{tag}_{timestamp}.db"
+        counter = 1
+        while backup_file.exists():
+            backup_file = BACKUPS_DIR / f"{PRODUCTION_SYNC_PREFIX}{db_path.stem}_{tag}_{timestamp}_{counter}.db"
+            counter += 1
         try:
-            os.utime(backup_file, None)
-        except Exception:
-            pass
-        
+            backup_result = sqlite_online_backup(db_path, backup_file)
+        except BackupVerificationError as exc:
+            logger.error("Backup verification failed for %s: %s", db_path, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="فشل التحقق من سلامة النسخة الاحتياطية (integrity_check). لم يتم حفظ النسخة.",
+            ) from exc
+        except sqlite3.Error as exc:
+            logger.error("Online backup failed for %s: %s", db_path, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"تعذر إنشاء النسخة الاحتياطية من قاعدة البيانات: {exc}",
+            ) from exc
+
         try:
             self.repo.create_log(
                 action_type="CREATE_BACKUP",
                 status="SUCCESS",
                 backup_path=str(backup_file),
-                notes=f"Backup created for {db_path.name} with tag {tag}",
+                notes=f"Backup created for {db_path.name} with tag {tag} (sha256={backup_result.sha256})",
             )
-        except Exception:
-            pass
+        except Exception as exc:  # the log row is informational; the verified backup already exists
+            logger.warning("Could not record backup log for %s: %s", backup_file.name, exc)
 
-        # Automatically clean up oldest snapshots beyond the retention threshold
-        self._cleanup_old_backups(max_keep=50, exclude_path=backup_file)
+        # Prune only this module's own older backups
+        self._cleanup_old_backups(max_keep=BACKUP_RETENTION, exclude_path=backup_file)
 
         return BackupItemSchema(
             filename=backup_file.name,
@@ -181,8 +209,7 @@ class ProductionSyncService:
         4. Reference/Master data tables are safely updated/upserted.
         """
         if not target_db.exists():
-            target_db.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_db, target_db)
+            sqlite_online_backup(src_db, target_db)
             return {"status": "copied_fresh", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
 
         conn_src = sqlite3.connect(src_db)
@@ -423,6 +450,7 @@ class ProductionSyncService:
         """
         Pushes development updates to production non-destructively.
         """
+        validate_not_production_build()
         validate_db_exists(DEV_DB, "قاعدة بيانات التطوير")
 
         prod_backup_str = None
@@ -487,6 +515,7 @@ class ProductionSyncService:
         """
         Pulls actual production data into development workspace non-destructively.
         """
+        validate_not_production_build()
         validate_db_exists(PROD_DB, "قاعدة بيانات الإنتاج")
 
         dev_backup = self.create_safety_backup(DEV_DB, "dev_before_pull")
@@ -549,16 +578,23 @@ class ProductionSyncService:
     def restore_backup(self, filename: str, target: str = "prod") -> RestoreBackupResponseSchema:
         """
         Restore a specific backup snapshot to the target database (dev or prod).
+        Only a file inside BACKUPS_DIR, referenced by bare name, can be restored. Never available in
+        the frozen build (R7).
         """
+        validate_not_production_build()
+        validate_restore_target(target)
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-        clean_filename = Path(filename).name
-        backup_file = BACKUPS_DIR / clean_filename
-        if not backup_file.exists():
-            alt_path = Path(filename)
-            if alt_path.exists():
-                backup_file = alt_path
-            else:
-                raise FileNotFoundError(f"الملف الاحتياطي '{clean_filename}' غير موجود في مجلد النسخ الاحتياطية.")
+        backup_file = resolve_backup_file(BACKUPS_DIR, filename)
+
+        try:
+            integrity = check_integrity(backup_file)
+        except sqlite3.DatabaseError as exc:
+            integrity = str(exc)
+        if integrity != "ok":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"النسخة الاحتياطية تالفة ولا يمكن استعادتها (integrity_check: {integrity}).",
+            )
 
         target_db = PROD_DB if target == "prod" else DEV_DB
 
@@ -566,8 +602,8 @@ class ProductionSyncService:
         if target_db.exists():
             safety_backup = self.create_safety_backup(target_db, tag=f"pre_restore_{target}")
 
-        target_db.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(backup_file, target_db)
+        # Online backup API: one transaction on the target, safe with open connections and WAL.
+        sqlite_online_backup(backup_file, target_db, overwrite=target_db.exists())
 
         try:
             self.repo.create_log(
@@ -589,101 +625,16 @@ class ProductionSyncService:
         )
 
     def check_remote_update(self) -> RemoteUpdateCheckResponseSchema:
-        """
-        Queries GitHub Releases API to check for new published versions and assets.
-        """
-        import urllib.request
-        import urllib.error
-
-        version_file = ROOT_DIR / "version.json"
-        current_version = "1.0.55"
-        current_build = 56
-        if version_file.exists():
-            try:
-                with open(version_file, "r", encoding="utf-8") as f:
-                    v_data = json.load(f)
-                    current_version = v_data.get("version", current_version)
-                    current_build = v_data.get("build_number", current_build)
-            except Exception:
-                pass
-
-        api_url = "https://api.github.com/repos/ahmedsalahsorour88/import_flow/releases/latest"
-        req = urllib.request.Request(
-            api_url,
-            headers={
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "SorourLogisticsERP-Updater",
-            },
+        """Local installed-version info only. Update discovery moved to the signed app_update flow
+        (/api/v1/app-update); this makes no outbound request."""
+        info = self.get_system_version_info()
+        return RemoteUpdateCheckResponseSchema(
+            current_version=info.version,
+            current_build=info.build_number,
+            latest_version=info.version,
+            update_available=False,
+            check_status="no_update",
         )
-
-        try:
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status != 200:
-                    return RemoteUpdateCheckResponseSchema(
-                        current_version=current_version,
-                        current_build=current_build,
-                        check_status="error",
-                        error_message=f"GitHub API returned status code {response.status}",
-                    )
-                release_data = json.loads(response.read().decode("utf-8"))
-
-            latest_tag = release_data.get("tag_name", "")
-            latest_version = latest_tag.lstrip("v").strip()
-            release_name = release_data.get("name", "")
-            release_notes = release_data.get("body", "")
-            published_at = release_data.get("published_at", "")
-            html_url = release_data.get("html_url", "")
-
-            installer_url = None
-            portable_url = None
-            for asset in release_data.get("assets", []):
-                name = asset.get("name", "").lower()
-                url = asset.get("browser_download_url", "")
-                if name.endswith(".exe") and "setup" in name:
-                    installer_url = url
-                elif name.endswith(".zip") and "portable" in name:
-                    portable_url = url
-
-            def _parse_version(v_str: str) -> tuple:
-                try:
-                    parts = [int(p) for p in v_str.split(".") if p.isdigit()]
-                    return tuple(parts) if parts else (0, 0, 0)
-                except Exception:
-                    return (0, 0, 0)
-
-            cur_v_tuple = _parse_version(current_version)
-            latest_v_tuple = _parse_version(latest_version)
-            update_available = latest_v_tuple > cur_v_tuple
-
-            return RemoteUpdateCheckResponseSchema(
-                current_version=current_version,
-                current_build=current_build,
-                latest_version=latest_version,
-                latest_tag=latest_tag,
-                update_available=update_available,
-                release_name=release_name,
-                release_notes=release_notes,
-                published_at=published_at,
-                installer_download_url=installer_url,
-                portable_zip_download_url=portable_url,
-                html_url=html_url,
-                check_status="success" if update_available else "no_update",
-            )
-
-        except urllib.error.URLError as e:
-            return RemoteUpdateCheckResponseSchema(
-                current_version=current_version,
-                current_build=current_build,
-                check_status="offline",
-                error_message=f"تعذر الاتصال بخادم التحديثات (الوضع غير متصل بالإنترنت): {str(e.reason)}",
-            )
-        except Exception as e:
-            return RemoteUpdateCheckResponseSchema(
-                current_version=current_version,
-                current_build=current_build,
-                check_status="error",
-                error_message=f"حدث خطأ أثناء فحص التحديثات: {str(e)}",
-            )
 
     def get_system_version_info(self) -> SystemVersionInfoSchema:
         """Retrieves live system version, build number, environment, and database metrics."""
@@ -691,7 +642,7 @@ class ProductionSyncService:
         build_num = 56
         rel_date = None
 
-        v_file = ROOT_DIR / "version.json"
+        v_file = version_file_path()
         if v_file.exists():
             try:
                 with open(v_file, "r", encoding="utf-8") as f:
@@ -702,7 +653,7 @@ class ProductionSyncService:
             except Exception:
                 pass
 
-        is_standalone = getattr(sys, "frozen", False) or not (ROOT_DIR / "frontend").exists()
+        is_standalone = is_frozen_build() or not (ROOT_DIR / "frontend").exists()
         active_db = PROD_DB if (is_standalone and PROD_DB.exists()) else DEV_DB
         db_stats = self._get_db_stats(active_db)
 
@@ -726,185 +677,27 @@ class ProductionSyncService:
             total_backups_count=backups_count,
         )
 
-    def check_for_updates(self, custom_remote_url: Optional[str] = None) -> RemoteUpdateCheckSchema:
-        """
-        Checks for newer software releases via GitHub / Remote JSON.
-        Also fetches installer_url for in-app auto-update.
-        """
-        import urllib.request
-        from fastapi import HTTPException
-
-        # S-007: SSRF protection — only allow trusted domains for custom URLs
-        _ALLOWED_URL_PREFIXES = (
-            "https://raw.githubusercontent.com/",
-            "https://api.github.com/",
-            "https://github.com/",
-        )
-        if custom_remote_url is not None:
-            if not any(custom_remote_url.startswith(p) for p in _ALLOWED_URL_PREFIXES):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "custom_remote_url must point to a trusted domain "
-                        "(raw.githubusercontent.com, api.github.com, or github.com)."
-                    ),
-                )
-
-        curr_info = self.get_system_version_info()
-        curr_ver = curr_info.version
-
-        def parse_ver(v_str: str):
-            clean = re.sub(r"[^\d\.]", "", v_str.strip())
-            parts = [int(p) for p in clean.split(".") if p.isdigit()]
-            while len(parts) < 3:
-                parts.append(0)
-            return tuple(parts[:3])
-
-        import time
-        ts = int(time.time())
-        remote_url = custom_remote_url or f"https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json?_t={ts}"
-
-        try:
-            req = urllib.request.Request(
-                remote_url,
-                headers={
-                    "User-Agent": "SorourLogistics-Update-Engine",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=3.5) as resp:
-                if resp.status == 200:
-                    remote_data = json.loads(resp.read().decode("utf-8"))
-                    latest_ver = remote_data.get("version", curr_ver)
-                    curr_tuple = parse_ver(curr_ver)
-                    latest_tuple = parse_ver(latest_ver)
-                    has_update = latest_tuple > curr_tuple
-
-                    release_notes = remote_data.get("release_notes")
-                    if not release_notes:
-                        try:
-                            from version_manager import extract_recent_release_notes
-                            release_notes = extract_recent_release_notes()
-                        except Exception:
-                            release_notes = [
-                                "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
-                                "تحديثات في محرك استخراج وثائق الشحن والجمارك",
-                                "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
-                            ]
-
-                    download_url = remote_data.get(
-                        "download_url",
-                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/tag/v{latest_ver}",
-                    )
-
-                    # Installer metadata for in-app auto-update
-                    installer_url = remote_data.get(
-                        "installer_url",
-                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{latest_ver}/Sorour_Logistics_Setup_v{latest_ver}.exe",
-                    )
-                    installer_filename = remote_data.get(
-                        "installer_filename",
-                        f"Sorour_Logistics_Setup_v{latest_ver}.exe",
-                    )
-                    installer_size_mb = float(remote_data.get("installer_size_mb", 0.0))
-
-                    return RemoteUpdateCheckSchema(
-                        has_update=has_update,
-                        current_version=curr_ver,
-                        latest_version=latest_ver,
-                        release_name=f"Sorour Logistics Release v{latest_ver}",
-                        release_notes=release_notes,
-                        download_url=download_url,
-                        installer_url=installer_url,
-                        installer_filename=installer_filename,
-                        installer_size_mb=installer_size_mb,
-                        published_at=remote_data.get("updated_at"),
-                        is_mandatory=remote_data.get("is_mandatory", False),
-                        check_status="UPDATE_AVAILABLE" if has_update else "UP_TO_DATE",
-                        message=f"يتوفر إصدار جديد v{latest_ver} جاهز للتنزيل والترقية التلقائية!" if has_update else "النظام محدث لأحدث إصدار رسمي.",
-                    )
-        except Exception:
-            pass
-
+    def check_for_updates(self) -> RemoteUpdateCheckSchema:
+        """Local version info only. Update discovery moved to the signed app_update flow
+        (/api/v1/app-update), so this makes no outbound request and accepts no remote URL."""
+        curr_ver = self.get_system_version_info().version
         return RemoteUpdateCheckSchema(
             has_update=False,
             current_version=curr_ver,
             latest_version=curr_ver,
             release_notes=[],
             check_status="UP_TO_DATE",
-            message="النظام محدث ومستقر بأحدث إصدار مثبت (v" + curr_ver + ").",
+            message=f"الإصدار المثبت v{curr_ver}. فحص التحديثات يتم من شاشة تحديث البرنامج.",
         )
 
-    def get_latest_installer_info(self) -> "InstallerInfoSchema":
-        """
-        Fetches the latest installer metadata from the remote version.json on GitHub.
-        Returns installer_url, installer_filename, and installer_size_mb for in-app auto-update.
-        """
-        from modules.production_sync.schemas import InstallerInfoSchema
-        import urllib.request
-        import time
-
-        ts = int(time.time())
-        remote_url = f"https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json?_t={ts}"
-        try:
-            req = urllib.request.Request(
-                remote_url,
-                headers={
-                    "User-Agent": "SorourLogistics-AutoUpdater",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    version = data.get("version", "1.0.0")
-                    installer_url = data.get(
-                        "installer_url",
-                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{version}/Sorour_Logistics_Setup_v{version}.exe",
-                    )
-                    installer_filename = data.get(
-                        "installer_filename",
-                        f"Sorour_Logistics_Setup_v{version}.exe",
-                    )
-                    installer_size_mb = float(data.get("installer_size_mb", 0.0))
-                    return InstallerInfoSchema(
-                        version=version,
-                        installer_url=installer_url,
-                        installer_filename=installer_filename,
-                        installer_size_mb=installer_size_mb,
-                        is_available=True,
-                    )
-        except Exception:
-            pass
-
-        # Fallback: read from local version.json
-        try:
-            v_file = ROOT_DIR / "version.json"
-            if v_file.exists():
-                with open(v_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    version = data.get("version", "1.0.0")
-                    installer_url = data.get("installer_url", "")
-                    installer_filename = data.get("installer_filename", f"Sorour_Logistics_Setup_v{version}.exe")
-                    installer_size_mb = float(data.get("installer_size_mb", 0.0))
-                    if installer_url:
-                        return InstallerInfoSchema(
-                            version=version,
-                            installer_url=installer_url,
-                            installer_filename=installer_filename,
-                            installer_size_mb=installer_size_mb,
-                            is_available=True,
-                        )
-        except Exception:
-            pass
-
+    def get_latest_installer_info(self) -> InstallerInfoSchema:
+        """No installer is offered here any more (updates come from /api/v1/app-update); returns the
+        installed version with is_available=False and makes no outbound request."""
         return InstallerInfoSchema(
-            version="unknown",
+            version=self.get_system_version_info().version,
             installer_url="",
             installer_filename="",
             installer_size_mb=0.0,
             is_available=False,
-            error="تعذّر الاتصال بخادم التحديثات. يرجى التحقق من الاتصال بالإنترنت.",
+            error="التحديثات تتم من شاشة تحديث البرنامج.",
         )

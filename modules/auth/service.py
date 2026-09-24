@@ -1,6 +1,8 @@
 from typing import Iterable, List, Optional, Dict, Any, Set
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+import settings
+from utils.db_safety import is_frozen_build
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 from modules.audit_logs.service import AuditLogService
 from .schemas import UserCreate, UserUpdate, UserPermissionsUpdatePayload
@@ -19,6 +21,7 @@ MSG_ADMIN_ACCOUNT_EDIT_FORBIDDEN = "لا يمكن تعديل حساب مدير �
 MSG_PERMISSION_GRANT_FORBIDDEN = "لا يمكنك منح صلاحية لا تملكها."
 MSG_WIDER_TARGET_FORBIDDEN = "لا يمكنك تعديل مستخدم يملك صلاحيات أوسع من صلاحياتك."
 MANAGER_ROLE_CODES = {"MANAGER", "GENERAL_MANAGER"}
+INITIAL_ADMIN_USERNAME = "admin"
 
 
 class AuthService:
@@ -239,6 +242,9 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
+        if update_data.password is not None:
+            self._forget_admin_initial_password(user, update_data.password)
+
         AuditLogService(self.db).log_activity(
             entity_type="User",
             entity_id=user.user_id,
@@ -250,6 +256,16 @@ class AuthService:
         invalidate_permission_cache(user.user_id)
 
         return user
+
+    @staticmethod
+    def _forget_admin_initial_password(user: User, new_password: str) -> bool:
+        """Production build only: once the seeded admin has a new password, drop the plaintext
+        ADMIN_INITIAL_PASSWORD line from the .env next to backend.exe right away. The developer's .env is never touched."""
+        if not is_frozen_build() or user.username != INITIAL_ADMIN_USERNAME:
+            return False
+        if new_password == settings.ADMIN_INITIAL_PASSWORD:
+            return False
+        return settings.remove_env_key(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD")
 
     def toggle_user_status(self, user_id: int, actor: User) -> User:
         user = self.db.query(User).filter(User.user_id == user_id).first()

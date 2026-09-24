@@ -60,6 +60,18 @@ def build_backend():
         "database.schema_upgrade_service",
         "utils.migration_linter",
         "utils.crypto_utils",
+        "utils.db_safety",
+        # In-app update (plan §6) and the verified daily backup it relies on (R5, §7)
+        "modules.app_update",
+        "modules.app_update.model",
+        "modules.app_update.schemas",
+        "modules.app_update.repository",
+        "modules.app_update.service",
+        "modules.app_update.validators",
+        "modules.app_update.router",
+        "scripts",
+        "scripts.daily_backup",
+        "scripts.db_script_guard",
         "modules.common.concurrency",
         "modules.system_observability.daily_report_service",
         "modules.smart_document_upload.extractors.purchase_order",
@@ -99,6 +111,9 @@ def build_backend():
         "--distpath", str(ROOT_DIR / "dist_backend"),
         "--workpath", str(ROOT_DIR / "build_backend"),
     ]
+
+    # Code only: never --add-data / --add-binary anything data-bearing (*.db, .env, keys, backups, version
+    # state). The backend creates its database next to backend.exe on first run (plan section 0, R1/R4).
 
     # Add hidden imports
     for imp in hidden_imports:

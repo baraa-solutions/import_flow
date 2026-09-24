@@ -57,6 +57,17 @@ if getattr(sys, 'frozen', False):
     sys.stderr = safe_stream
     sys.stdin = SafeLogStream()
 
+    def _exit_cleanly():
+        # WAL checkpoint before the hard exit (A17). WAL commits are atomic either way; this only
+        # folds the -wal file back into the DB so the file on disk is self-contained.
+        try:
+            from database.database import DB_PATH
+            from utils.db_safety import checkpoint_wal
+            checkpoint_wal(DB_PATH)
+        except Exception as exc:  # noqa: BLE001 - never block shutdown
+            print(f"[backend_runner] WAL checkpoint skipped: {exc}")
+        os._exit(0)
+
     # Background watchdog: monitors frontend.exe and shuts down backend when frontend exits
     def _frontend_watchdog():
         import time
@@ -73,10 +84,10 @@ if getattr(sys, 'frozen', False):
                     frontend_seen = True
                 elif frontend_seen:
                     # Frontend was running and has now closed
-                    os._exit(0)
+                    _exit_cleanly()
                 elif time.time() > startup_grace_until:
                     # Frontend never launched within generous 2-minute grace period
-                    os._exit(0)
+                    _exit_cleanly()
             except Exception:
                 pass
 

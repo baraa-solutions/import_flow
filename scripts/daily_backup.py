@@ -2,69 +2,110 @@
 Sorour Logistics ERP — Automated Daily Database Backup Utility
 =============================================================
 - Executes zero-downtime, non-blocking online SQLite backup.
-- Manages 30-day retention policy (prunes older daily backups).
+- Manages 30-day retention policy (prunes older daily backups), but always keeps the newest
+  MIN_BACKUPS_KEPT (7) daily backups whatever their age and never touches protected backups (R9).
 - Verifies database integrity after backup (PRAGMA integrity_check).
 - Computes SHA-256 checksum and writes metadata log.
 - Supports one-click registration in Windows Task Scheduler.
+
+The database defaults to the app database (``DATABASE_PATH`` or ``<app dir>/sorour_logistics.db``, where
+the app dir is the executable's folder in the frozen build); backups go next to it in ``backups/``.
 """
 import os
 import sys
 import time
 import shutil
-import hashlib
-import sqlite3
 import argparse
 import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional, Union
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
-from utils.crypto_utils import (
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from utils.crypto_utils import (  # noqa: E402
     compute_sha256,
     encrypt_backup_file,
     is_encrypted_backup,
     get_backup_encryption_key,
 )
+from utils.db_safety import (  # noqa: E402
+    DAILY_BACKUP_PREFIX,
+    MIN_BACKUPS_KEPT,
+    app_base_dir,
+    backups_dir_for,
+    select_prunable,
+    sqlite_online_backup,
+)
 
-DB_PATH = ROOT_DIR / "sorour_logistics.db"
-BACKUPS_DIR = ROOT_DIR / "backups"
 DEFAULT_RETENTION_DAYS = 30
 TASK_NAME = "SorourLogistics_DailyBackup"
 
 
-def prune_backups_in_dir(directory: Path, retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
+def default_backup_db_path() -> Path:
+    """Same resolution as ``database.database.DB_PATH``: DATABASE_PATH, else <app dir>/sorour_logistics.db."""
+    env_path = os.getenv("DATABASE_PATH")
+    if env_path:
+        return Path(env_path)
+    return app_base_dir() / "sorour_logistics.db"
+
+
+def default_backups_dir(db_path: Optional[Union[str, Path]] = None) -> Path:
+    return backups_dir_for(db_path or default_backup_db_path())
+
+
+# Import-time snapshots kept for backward compatibility; the functions resolve paths at call time.
+DB_PATH = default_backup_db_path()
+BACKUPS_DIR = default_backups_dir(DB_PATH)
+
+
+def _daily_backup_files(directory: Path) -> list:
+    patterns = [f"{DAILY_BACKUP_PREFIX}*.db", f"{DAILY_BACKUP_PREFIX}*.db.enc", f"{DAILY_BACKUP_PREFIX}*.enc"]
+    seen = set()
+    files = []
+    for pattern in patterns:
+        for f in directory.glob(pattern):
+            if f in seen or not f.is_file():
+                continue
+            seen.add(f)
+            files.append(f)
+    return files
+
+
+def prune_backups_in_dir(
+    directory: Path,
+    retention_days: int = DEFAULT_RETENTION_DAYS,
+    keep_min: int = MIN_BACKUPS_KEPT,
+) -> int:
+    """Delete ``daily_backup_*`` files older than ``retention_days``, except the newest ``keep_min``
+    (floored at MIN_BACKUPS_KEPT) and any protected backup (R9). Other backup families are never touched."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     pruned_count = 0
 
+    directory = Path(directory)
     if not directory.exists():
         return 0
 
-    patterns = ["daily_backup_*.db", "daily_backup_*.db.enc", "daily_backup_*.enc"]
-    seen_files = set()
-    for pattern in patterns:
-        for f in directory.glob(pattern):
-            if f in seen_files:
-                continue
-            seen_files.add(f)
-            try:
-                mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
-                if mtime < cutoff:
-                    f.unlink(missing_ok=True)
-                    # Also prune associated json metadata
-                    meta_json = f.parent / f"{f.stem.replace('.db', '')}.json"
-                    meta_json.unlink(missing_ok=True)
-                    f.with_suffix(".json").unlink(missing_ok=True)
-                    pruned_count += 1
-                    print(f"  [PRUNED] Removed backup older than {retention_days} days: {f.name} in {directory}")
-            except Exception as e:
-                print(f"  [WARN] Failed to evaluate/prune {f.name}: {e}")
+    for f in select_prunable(_daily_backup_files(directory), keep=keep_min):
+        try:
+            mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+            if mtime < cutoff:
+                f.unlink(missing_ok=True)
+                # Also prune associated json metadata
+                meta_json = f.parent / f"{f.stem.replace('.db', '')}.json"
+                meta_json.unlink(missing_ok=True)
+                f.with_suffix(".json").unlink(missing_ok=True)
+                pruned_count += 1
+                print(f"  [PRUNED] Removed backup older than {retention_days} days: {f.name} in {directory}")
+        except OSError as e:
+            print(f"  [WARN] Failed to evaluate/prune {f.name}: {e}")
 
     return pruned_count
 
 
-def prune_old_backups(retention_days: int = DEFAULT_RETENTION_DAYS):
-    pruned_count = prune_backups_in_dir(BACKUPS_DIR, retention_days)
+def prune_old_backups(retention_days: int = DEFAULT_RETENTION_DAYS, backups_dir: Optional[Path] = None):
+    pruned_count = prune_backups_in_dir(Path(backups_dir) if backups_dir else default_backups_dir(), retention_days)
     if pruned_count > 0:
         print(f"[OK] Pruned {pruned_count} old local backup file(s) exceeding {retention_days} days retention.")
     else:
@@ -201,49 +242,46 @@ def perform_backup(
     retention_days: int = DEFAULT_RETENTION_DAYS,
     offsite_dir: Path = None,
     encrypt_offsite: bool = True,
+    db_path: Optional[Union[str, Path]] = None,
+    backups_dir: Optional[Union[str, Path]] = None,
 ) -> Path:
+    """Verified online backup of ``db_path`` (default: the app database) into ``backups_dir``
+    (default: ``backups/`` next to the database), then retention and the optional offsite copy."""
     print("================================================================================")
     print("           Sorour Logistics ERP — Automated Daily Online Backup                 ")
     print("================================================================================")
 
-    if not DB_PATH.exists():
-        raise FileNotFoundError(f"Source database not found at {DB_PATH}")
+    source_db = Path(db_path) if db_path else default_backup_db_path()
+    target_dir = Path(backups_dir) if backups_dir else default_backups_dir(source_db)
 
-    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    if not source_db.exists():
+        raise FileNotFoundError(f"Source database not found at {source_db}")
+
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"daily_backup_{timestamp_str}.db"
-    backup_path = BACKUPS_DIR / backup_filename
+    backup_filename = f"{DAILY_BACKUP_PREFIX}{timestamp_str}.db"
+    backup_path = target_dir / backup_filename
+    counter = 1
+    while backup_path.exists():
+        backup_filename = f"{DAILY_BACKUP_PREFIX}{timestamp_str}_{counter}.db"
+        backup_path = target_dir / backup_filename
+        counter += 1
 
     start_time = time.time()
     print(f"[1/4] Performing zero-downtime online backup to: {backup_filename}...")
 
-    # 1. Native Online Backup API
-    src_conn = sqlite3.connect(DB_PATH)
-    dst_conn = sqlite3.connect(backup_path)
-    src_conn.backup(dst_conn)
-    dst_conn.close()
-    src_conn.close()
+    # 1-2. Native Online Backup API + integrity_check (a failed copy is deleted and raises)
+    result = sqlite_online_backup(source_db, backup_path)
     elapsed = time.time() - start_time
     print(f"      Completed in {elapsed:.2f} seconds.")
-
-    # 2. Integrity check on the backup copy
     print("[2/4] Verifying backup database integrity...")
-    check_conn = sqlite3.connect(backup_path)
-    cur = check_conn.cursor()
-    cur.execute("PRAGMA integrity_check;")
-    integrity_result = cur.fetchone()[0]
-    check_conn.close()
-
-    if integrity_result != "ok":
-        backup_path.unlink(missing_ok=True)
-        raise RuntimeError(f"Database backup integrity check failed: {integrity_result}")
-    print(f"      Integrity check: PASS ({integrity_result})")
+    print(f"      Integrity check: PASS ({result.integrity})")
 
     # 3. Checksum & Metadata
     print("[3/4] Generating SHA-256 Checksum and metadata...")
-    checksum = compute_sha256(backup_path)
-    file_size = backup_path.stat().st_size
+    checksum = result.sha256
+    file_size = result.size_bytes
 
     meta = {
         "system": "Sorour Logistics ERP",
@@ -267,7 +305,7 @@ def perform_backup(
 
     # 4. Retention policy enforcement
     print(f"[4/4] Enforcing {retention_days}-day backup retention policy...")
-    prune_old_backups(retention_days)
+    prune_old_backups(retention_days, backups_dir=target_dir)
 
     # 5. Offsite sync to Google Drive Desktop folder
     offsite_res = sync_to_google_drive(

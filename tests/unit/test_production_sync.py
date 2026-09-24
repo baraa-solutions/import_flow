@@ -1,7 +1,13 @@
 """
 Unit Tests for Production Sync Module
 Tests comparison, backup creation, and push/pull sync logic.
+
+Every test runs on temp copies: the service's DEV_DB / PROD_DB / BACKUPS_DIR / ROOT_DIR / DIST_DIR /
+STANDALONE_DIR are patched into a per-test temp folder, so nothing here can write to dist/ or the repo DB.
 """
+import shutil
+import sqlite3
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -9,12 +15,18 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
-from modules.production_sync.service import ProductionSyncService, DEV_DB, PROD_DB
+from modules.production_sync import service as sync_service
+from modules.production_sync.service import ProductionSyncService
 from modules.production_sync.schemas import (
     SyncComparisonResponseSchema,
     SyncActionResponseSchema,
     BackupsListResponseSchema,
 )
+
+REAL_PATHS = {
+    name: getattr(sync_service, name)
+    for name in ("ROOT_DIR", "STANDALONE_DIR", "DEV_DB", "PROD_DB", "BACKUPS_DIR", "DIST_DIR")
+}
 
 
 class TestProductionSyncBackend(unittest.TestCase):
@@ -25,10 +37,27 @@ class TestProductionSyncBackend(unittest.TestCase):
         self.db = TestingSessionLocal()
         self.service = ProductionSyncService(self.db)
 
-        # Ensure DEV_DB has tables created for comparison tests in CI environments
-        import sqlite3
-        DEV_DB.parent.mkdir(parents=True, exist_ok=True)
-        dev_conn = sqlite3.connect(DEV_DB)
+        # Isolated workspace: <tmp>/sorour_logistics.db (dev) and <tmp>/dist/.../sorour_logistics.db (prod)
+        self.tmp_root = Path(tempfile.mkdtemp(prefix="psync_test_"))
+        self.addCleanup(shutil.rmtree, self.tmp_root, ignore_errors=True)
+        dist_dir = self.tmp_root / "dist"
+        standalone_dir = dist_dir / "Sorour_Logistics_Standalone"
+        self.dev_db = self.tmp_root / "sorour_logistics.db"
+        self.prod_db = standalone_dir / "sorour_logistics.db"
+        self.backups_dir = self.tmp_root / "backups"
+        patcher = patch.multiple(
+            sync_service,
+            ROOT_DIR=self.tmp_root,
+            STANDALONE_DIR=standalone_dir,
+            DEV_DB=self.dev_db,
+            PROD_DB=self.prod_db,
+            BACKUPS_DIR=self.backups_dir,
+            DIST_DIR=dist_dir,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        dev_conn = sqlite3.connect(self.dev_db)
         dev_conn.execute("CREATE TABLE IF NOT EXISTS _test_sync_tbl (id INTEGER PRIMARY KEY, name TEXT);")
         dev_conn.execute("INSERT OR IGNORE INTO _test_sync_tbl VALUES (1, 'initial');")
         dev_conn.commit()
@@ -37,14 +66,15 @@ class TestProductionSyncBackend(unittest.TestCase):
     def tearDown(self):
         self.db.close()
         Base.metadata.drop_all(bind=self.engine)
-        import sqlite3
-        try:
-            dev_conn = sqlite3.connect(DEV_DB)
-            dev_conn.execute("DROP TABLE IF EXISTS _test_sync_tbl;")
-            dev_conn.commit()
-            dev_conn.close()
-        except Exception:
-            pass
+        self.engine.dispose()
+
+    def test_paths_are_isolated_from_the_repo(self):
+        for name, real in REAL_PATHS.items():
+            patched = getattr(sync_service, name)
+            self.assertTrue(
+                str(patched).startswith(str(self.tmp_root)),
+                f"{name} must point into the temp workspace, got {patched} (real: {real})",
+            )
 
     def test_get_comparison(self):
         comp = self.service.get_comparison()
@@ -54,12 +84,13 @@ class TestProductionSyncBackend(unittest.TestCase):
         self.assertIsInstance(comp.tables, list)
 
     def test_create_safety_backup(self):
-        backup = self.service.create_safety_backup(DEV_DB, tag="test_unit")
+        backup = self.service.create_safety_backup(self.dev_db, tag="test_unit")
         self.assertTrue(backup.filename.endswith(".db"))
         self.assertGreaterEqual(backup.size_kb, 0.0)
         self.assertTrue(Path(backup.filepath).exists())
 
     def test_list_backups(self):
+        self.service.create_safety_backup(self.dev_db, tag="test_list")
         backups_resp = self.service.list_backups()
         self.assertIsInstance(backups_resp, BackupsListResponseSchema)
         self.assertGreaterEqual(backups_resp.total_backups, 1)
@@ -70,30 +101,28 @@ class TestProductionSyncBackend(unittest.TestCase):
         self.assertIsInstance(res, SyncActionResponseSchema)
         self.assertTrue(res.success)
         self.assertEqual(res.action, "PUSH_TO_PROD")
-        self.assertTrue(PROD_DB.exists())
+        self.assertTrue(self.prod_db.exists())
+        self.assertTrue(str(res.details["prod_path"]).startswith(str(self.tmp_root)))
+        conn = sqlite3.connect(self.prod_db)
+        rows = conn.execute("SELECT id, name FROM _test_sync_tbl;").fetchall()
+        conn.close()
+        self.assertEqual(rows, [(1, "initial")])
 
     def test_restore_backup_success(self):
         """Create a backup, then restore it — verify restore response is correct and safety backup is created."""
         # Create a backup first
-        backup = self.service.create_safety_backup(DEV_DB, tag="test_restore_source")
+        backup = self.service.create_safety_backup(self.dev_db, tag="test_restore_source")
         self.assertTrue(Path(backup.filepath).exists())
 
         # Restore it to dev
         from modules.production_sync.schemas import RestoreBackupResponseSchema
-        try:
-            result = self.service.restore_backup(filename=backup.filename, target="dev")
-            self.assertIsInstance(result, RestoreBackupResponseSchema)
-            self.assertTrue(result.success)
-            self.assertEqual(result.restored_from, backup.filename)
-            self.assertEqual(result.target, "dev")
-            # Safety backup should have been created (not empty)
-            self.assertNotEqual(result.safety_backup_created, "")
-        except OSError as e:
-            if "1224" in str(e):
-                # When dev server is running, Windows locks memory-mapped sections of the DB file
-                pass
-            else:
-                raise
+        result = self.service.restore_backup(filename=backup.filename, target="dev")
+        self.assertIsInstance(result, RestoreBackupResponseSchema)
+        self.assertTrue(result.success)
+        self.assertEqual(result.restored_from, backup.filename)
+        self.assertEqual(result.target, "dev")
+        # Safety backup should have been created (not empty)
+        self.assertNotEqual(result.safety_backup_created, "")
 
     def test_restore_backup_nonexistent_raises(self):
         """Attempting to restore a nonexistent backup should raise FileNotFoundError."""

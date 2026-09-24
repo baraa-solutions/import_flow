@@ -1,18 +1,23 @@
 """
-Wipe Projects, Fix Currencies, and Populate All World Transport Locations.
+Wipe Projects, Fix Currencies, and Populate All World Transport Locations on ONE explicit database.
+
+DESTRUCTIVE (deletes every project). Safety (update-system-plan A13/R12):
+    python populate_all_world_transport_locations.py --db <path/to/db> --confirm
+The target must not be in use, and a verified pre_migration_ backup is taken first (abort on failure).
 """
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-DATABASES = [
-    ROOT_DIR / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "ImportFlow_Standalone" / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "sorour_logistics.db",
-    ROOT_DIR / "dist_backend" / "sorour_logistics.db",
-]
+from scripts.db_script_guard import add_target_arguments, guard_target, run_cli_action  # noqa: E402
+
+SCRIPT_TAG = "populate_all_world_transport_locations"
 
 CURRENCY_SYMBOLS = {
     "USD": "$", "EUR": "€", "GBP": "£", "EGP": "E£", "JPY": "¥", "CNY": "¥",
@@ -371,9 +376,10 @@ MAJOR_PORTS_AIRPORTS_BORDERS = [
     ("SNDKR", "Dakar Port", "Sea Port", "Senegal", "Dakar"),
 ]
 
-def execute_all_updates(db_path: Path):
-    if not db_path.exists():
-        return
+def execute_all_updates(db_path: Path, *, confirm: bool = False, backups_dir: Optional[Path] = None) -> bool:
+    """confirm=True: in-use check + verified backup first. confirm=False: never the live app DB."""
+    db_path = Path(db_path)
+    guard_target(db_path, confirm=confirm, tag=SCRIPT_TAG, backups_dir=backups_dir)
 
     print(f"\n=======================================================")
     print(f" Executing updates on: {db_path.name}")
@@ -455,8 +461,25 @@ def execute_all_updates(db_path: Path):
     ports_cnt = cur.fetchone()[0]
     print(f"   [SUMMARY] Projects: {prj_cnt} records | Empty Symbols: {empty_syms} | Transport Locations: {ports_cnt} total ports/airports/borders")
     conn.close()
+    return True
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Wipe projects, fix currency symbols and populate world transport locations on ONE database."
+    )
+    add_target_arguments(parser, target_help="Database file to update")
+    args = parser.parse_args(argv)
+
+    def _run(target: Path, backups_dir: Optional[Path]):
+        execute_all_updates(target, confirm=True, backups_dir=backups_dir)
+        print("\n[SUCCESS] Successfully wiped projects, fixed currency symbols, and populated all world transport locations!")
+        return True
+
+    return run_cli_action(args, _run)
+
 
 if __name__ == "__main__":
-    for db in DATABASES:
-        execute_all_updates(db)
-    print("\n[SUCCESS] Successfully wiped projects, fixed currency symbols, and populated all world transport locations!")
+    sys.exit(main())

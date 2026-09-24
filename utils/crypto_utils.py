@@ -21,7 +21,10 @@ from typing import Optional, Dict, Any
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+from utils.db_safety import app_base_dir
+
+# Frozen build: next to backend.exe (never the PyInstaller temp dir), so the key persists.
+ROOT_DIR = app_base_dir()
 ENV_PATH = ROOT_DIR / ".env"
 MAGIC_HEADER = b"SL_AESGCM_V1"  # 12 bytes
 ASSOCIATED_DATA = b"SorourLogistics_Backup_v1"
@@ -40,8 +43,9 @@ def get_backup_encryption_key() -> bytes:
     Retrieves the 256-bit backup encryption key.
     Order of precedence:
     1. Environment variable: BACKUP_ENCRYPTION_KEY
-    2. .env file in ROOT_DIR
+    2. .env file in ROOT_DIR (app_base_dir(): the exe folder when frozen)
     3. Auto-generate a secure random 256-bit key, persist to .env, and return.
+       Raises RuntimeError if the new key cannot be persisted.
     """
     key_str = os.getenv("BACKUP_ENCRYPTION_KEY", "").strip()
 
@@ -58,12 +62,18 @@ def get_backup_encryption_key() -> bytes:
 
     if not key_str:
         # Generate new 256-bit (64 hex chars) key and persist to .env
+        # A key that cannot be persisted is refused: backups encrypted with it could never be
+        # decrypted after a restart.
         key_str = secrets.token_hex(32)
         try:
+            ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
             with open(ENV_PATH, "a", encoding="utf-8") as f:
                 f.write(f"\n# Automated AES-256-GCM Backup Encryption Key\nBACKUP_ENCRYPTION_KEY={key_str}\n")
-        except Exception:
-            pass
+        except OSError as exc:
+            raise RuntimeError(
+                f"Cannot persist BACKUP_ENCRYPTION_KEY to {ENV_PATH}: {exc}. "
+                "Refusing to encrypt with a key that would be lost on restart."
+            ) from exc
         os.environ["BACKUP_ENCRYPTION_KEY"] = key_str
 
     # Parse key

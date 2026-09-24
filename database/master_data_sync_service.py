@@ -17,8 +17,10 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone
 
 from modules.users.model import User
-from modules.auth.security import hash_password
+import settings
+from modules.auth.security import hash_password, verify_password
 from settings import ADMIN_INITIAL_PASSWORD
+from utils.db_safety import is_frozen_build
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.incoterms.incoterms_matrix import IncotermsMatrix, Party
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
@@ -33,10 +35,11 @@ class MasterDataSyncService:
         self.db = db
 
     def sync_system_users(self) -> int:
-        """Ensure default system users exist if user table is empty."""
+        """Seed ONLY the initial admin, and only when the users table is empty. Existing users are
+        never touched. No other accounts with well-known passwords are ever created."""
         added = 0
         if self.db.query(User).count() == 0:
-            default_users = [
+            self.db.add(
                 User(
                     username="admin",
                     email="admin@sorourlogistics.com",
@@ -44,36 +47,27 @@ class MasterDataSyncService:
                     hashed_password=hash_password(ADMIN_INITIAL_PASSWORD),
                     role="ADMIN",
                     is_active=True,
-                ),
-                User(
-                    username="manager",
-                    email="manager@sorourlogistics.com",
-                    full_name="General Logistics Manager",
-                    hashed_password=hash_password("manager123"),
-                    role="MANAGER",
-                    is_active=True,
-                ),
-                User(
-                    username="operator1",
-                    email="operator1@sorourlogistics.com",
-                    full_name="Ahmed Import Specialist",
-                    hashed_password=hash_password("operator123"),
-                    role="OPERATOR",
-                    is_active=True,
-                ),
-                User(
-                    username="operator2",
-                    email="operator2@sorourlogistics.com",
-                    full_name="Sara Customs Operator",
-                    hashed_password=hash_password("operator123"),
-                    role="OPERATOR",
-                    is_active=True,
-                ),
-            ]
-            self.db.add_all(default_users)
+                )
+            )
             self.db.commit()
-            added = len(default_users)
+            added = 1
+            # The seeded password is recorded in .env only now that it is actually in use.
+            settings.persist_admin_initial_password(settings.ENV_PATH, ADMIN_INITIAL_PASSWORD)
+        else:
+            self._forget_used_admin_initial_password()
         return added
+
+    def _forget_used_admin_initial_password(self) -> bool:
+        """Frozen build only: once the admin no longer logs in with ADMIN_INITIAL_PASSWORD (it was
+        changed), drop the plaintext line from .env. Dev .env files are left to the developer."""
+        if not is_frozen_build():
+            return False
+        admin = self.db.query(User).filter(User.username == "admin").first()
+        if admin is None or not admin.hashed_password:
+            return False
+        if verify_password(ADMIN_INITIAL_PASSWORD, admin.hashed_password):
+            return False
+        return settings.remove_env_key(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD")
 
     def sync_incoterms(self) -> Dict[str, int]:
         """Incremental upsert for Incoterms 2020 rules, Cost Items, and Matrix from IncotermsMatrix Single Source of Truth."""
@@ -156,6 +150,8 @@ class MasterDataSyncService:
                     IncotermResponsibility.cost_item_id == ci_id,
                 ).first()
 
+                # Insert-missing only (A12): an existing row may carry user edits of
+                # responsible_party / included_in_incoterm / notes, so it is never overwritten.
                 if not existing:
                     resp = IncotermResponsibility(
                         incoterm_id=inc_id,
@@ -166,12 +162,6 @@ class MasterDataSyncService:
                     )
                     self.db.add(resp)
                     added_resp += 1
-                else:
-                    if existing.responsible_party != expected_resp or existing.included_in_incoterm != included or existing.notes != note:
-                        existing.responsible_party = expected_resp
-                        existing.included_in_incoterm = included
-                        existing.notes = note
-                        updated_resp += 1
         self.db.commit()
 
         return {

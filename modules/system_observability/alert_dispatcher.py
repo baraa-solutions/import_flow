@@ -31,7 +31,12 @@ from email.mime.multipart import MIMEMultipart
 
 from sqlalchemy.orm import Session
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+from database.database import DB_PATH as _LIVE_DB_PATH
+from utils.db_safety import app_base_dir, backups_dir_for
+
+# R11: runtime paths next to the executable (frozen) / repo root (dev); backups next to the live DB.
+ROOT_DIR = app_base_dir()
+BACKUPS_DIR = backups_dir_for(_LIVE_DB_PATH)
 LOGS_DIR = ROOT_DIR / "logs"
 ALERTS_LOG_FILE = LOGS_DIR / "alerts.log"
 TOAST_SCRIPT_PATH = ROOT_DIR / "scripts" / "send_windows_toast.ps1"
@@ -336,7 +341,7 @@ class AlertDispatcher:
         if backup_age_hours_override is not None:
             backup_age = backup_age_hours_override
         else:
-            backups_dir = ROOT_DIR / "backups"
+            backups_dir = BACKUPS_DIR
             if backups_dir.exists():
                 b_files = sorted(backups_dir.glob("daily_backup_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
                 if b_files:
@@ -358,7 +363,7 @@ class AlertDispatcher:
                 offsite_dir = Path(env_offsite)
             else:
                 candidates = [
-                    ROOT_DIR / "backups" / "sandbox_drive" / "SorourLogistics-Backups",
+                    BACKUPS_DIR / "sandbox_drive" / "SorourLogistics-Backups",
                     Path("G:/My Drive/SorourLogistics-Backups"),
                     Path(os.path.expanduser("~")) / "Google Drive" / "SorourLogistics-Backups",
                 ]

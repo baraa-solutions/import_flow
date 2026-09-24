@@ -44,8 +44,10 @@ from modules.system_observability.schemas import (
     DailyReportHistoryItem,
 )
 from modules.auth.rate_limiter import login_limiter
+from utils.db_safety import app_base_dir
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+# R11: runtime paths next to the executable (frozen) / repo root (dev), never __file__.
+ROOT_DIR = app_base_dir()
 LOGS_DIR = ROOT_DIR / "logs"
 DAILY_REPORTS_DIR = LOGS_DIR / "daily-reports"
 DEFAULT_RETENTION_DAYS = 90
@@ -91,7 +93,7 @@ class DailyReportService:
             Path("G:/Shared drives/SorourLogistics-Backups"),
             Path(os.path.expanduser("~")) / "Google Drive" / "SorourLogistics-Backups",
             Path(os.path.expanduser("~")) / "My Drive" / "SorourLogistics-Backups",
-            ROOT_DIR / "backups" / "sandbox_drive" / "SorourLogistics-Backups",
+            BACKUPS_DIR / "sandbox_drive" / "SorourLogistics-Backups",
         ]
         env_drive = os.getenv("GOOGLE_DRIVE_BACKUP_DIR")
         if env_drive:

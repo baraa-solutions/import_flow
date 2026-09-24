@@ -34,7 +34,6 @@ PUBLIC_ROUTES: Set[Tuple[str, str]] = {
     ("GET", "/api/v1/health"),
     ("GET", "/api/v1/system/version"),
     ("GET", "/api/v1/system/version-check"),
-    ("GET", "/api/v1/system/download-installer"),
     ("POST", "/api/v1/auth/login"),
     ("POST", "/api/v1/auth/refresh"),
 }

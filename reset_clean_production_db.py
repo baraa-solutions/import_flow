@@ -8,31 +8,36 @@ Creates a pristine production database containing ONLY core standard reference t
 - Package Types & Units of Measure (24 Package types, 15 Units of measure)
 - Incoterms 2020 & Responsibility Matrix & Cost Items (11 Incoterms, 17 Cost items, 187 Rules - MD-006)
 - Clearance Expense Types & Coded Expense Catalog (53 Clearance types, 54 Catalog items)
-- Core System Users & RBAC Roles (Admin with secure password, Manager, Operators)
+- Core System User: the single admin (password from ADMIN_INITIAL_PASSWORD; no demo accounts)
 - Core International Shipping Lines (32 Lines - MD-009B)
 
 All demo companies, suppliers, service providers (except shipping lines), shipments,
 purchase orders, invoices, and logs are completely wiped (0 records).
+
+DESTRUCTIVE (replaces the whole target database). Safety (update-system-plan A4/R12):
+    python reset_clean_production_db.py --db <path/to/db> --confirm [--reference-snapshot <db>]
+ONE explicit target; it must not be in use, and a verified pre_migration_ backup of it is taken first
+(abort on failure). A target that does not exist yet is simply created.
 """
-import os
+import importlib
 import sys
-import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT_DIR))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-# Import main to ensure all SQLAlchemy models are loaded into Base.metadata
-import main
-from database.database import Base, engine
-from update_db_schema import migrate_db
-from modules.auth.security import hash_password
-from settings import ADMIN_INITIAL_PASSWORD
+from scripts.db_script_guard import (  # noqa: E402
+    add_target_arguments,
+    guard_target,
+    run_cli_action,
+)
 
+SCRIPT_TAG = "reset_clean_production_db"
 BACKUPS_DIR = ROOT_DIR / "backups"
-TARGET_DB = ROOT_DIR / "sorour_logistics.db"
 
 MASTER_TABLES = [
     "package_types",
@@ -102,57 +107,111 @@ OPERATIONAL_TABLES = [
 ]
 
 
-def find_best_reference_snapshot() -> Path:
-    """Find the most complete reference snapshot to seed master data from."""
-    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-    candidates = sorted(BACKUPS_DIR.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+def find_best_reference_snapshot(backups_dir: Optional[Path] = None, exclude: Optional[Path] = None) -> Path:
+    """Find the most complete reference snapshot to seed master data from (read-only)."""
+    folder = Path(backups_dir) if backups_dir else BACKUPS_DIR
+    if not folder.exists():
+        raise FileNotFoundError(f"Backups folder not found: {folder}")
+    candidates = sorted(folder.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
     for c in candidates:
+        if exclude is not None and c.resolve() == Path(exclude).resolve():
+            continue
         try:
-            conn = sqlite3.connect(c)
-            cur = conn.cursor()
-            cur.execute("SELECT count(*) FROM transport_locations")
-            loc_cnt = cur.fetchone()[0]
-            cur.execute("SELECT count(*) FROM customs_tariffs")
-            tar_cnt = cur.fetchone()[0]
-            cur.execute("SELECT count(*) FROM external_service_providers WHERE partner_type = 'Shipping Line'")
-            ship_cnt = cur.fetchone()[0]
-            conn.close()
+            conn = sqlite3.connect(f"file:{c.as_posix()}?mode=ro", uri=True)
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT count(*) FROM transport_locations")
+                loc_cnt = cur.fetchone()[0]
+                cur.execute("SELECT count(*) FROM customs_tariffs")
+                tar_cnt = cur.fetchone()[0]
+                cur.execute("SELECT count(*) FROM external_service_providers WHERE partner_type = 'Shipping Line'")
+                ship_cnt = cur.fetchone()[0]
+            finally:
+                conn.close()
             if loc_cnt >= 200 and tar_cnt >= 50 and ship_cnt >= 20:
                 return c
-        except Exception:
+        except sqlite3.Error:
             continue
-    raise FileNotFoundError("Could not find a valid reference snapshot database in backups/.")
+    raise FileNotFoundError(f"Could not find a valid reference snapshot database in {folder}.")
 
 
-def build_clean_production_db() -> bool:
+def _load_all_models() -> None:
+    """Register every SQLAlchemy model on Base.metadata without importing main (no app startup)."""
+    importlib.import_module("database.models")
+    modules_dir = ROOT_DIR / "modules"
+    for item in sorted(modules_dir.iterdir()):
+        if item.is_dir() and (item / "model.py").exists():
+            importlib.import_module(f"modules.{item.name}.model")
+
+
+def seed_core_users(cur, admin_password_hash: str) -> None:
+    """Replace all users with the single admin (password from ADMIN_INITIAL_PASSWORD, never a fixed
+    default). No demo manager/operator accounts with well-known passwords in a production database."""
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("DELETE FROM main.users;")
+    cur.execute(
+        "INSERT INTO main.users (user_id, username, email, full_name, hashed_password, role, role_id, is_active, "
+        "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        (1, "admin", "admin@sorourlogistics.com", "System Admin", admin_password_hash, "ADMIN", 1, 1, now_str, now_str),
+    )
+
+
+def build_clean_production_db(
+    target_db: Path,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+    reference_snapshot: Optional[Path] = None,
+) -> bool:
+    """Rebuild ``target_db`` as a clean production database.
+
+    confirm=True: in-use check + verified backup of the existing target first (abort on failure).
+    confirm=False: refused for the live app database or a database in use.
+    """
+    from sqlalchemy import create_engine
+
+    from database.database import Base
+    from modules.auth.security import hash_password
+    from settings import ADMIN_INITIAL_PASSWORD
+    from update_db_schema import migrate_db
+
+    target_db = Path(target_db)
     print("================================================================================")
     print("           ImportFlow ERP - Generating Clean Production Database                ")
     print("================================================================================")
 
-    # 1. Take safety backup of current db if it exists
-    if TARGET_DB.exists():
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safety_path = BACKUPS_DIR / f"sorour_logistics_pre_clean_snapshot_{timestamp}.db"
-        shutil.copy2(TARGET_DB, safety_path)
-        print(f"[OK] Safety backup created at: {safety_path}")
-        try:
-            TARGET_DB.unlink()
-            print(f"[OK] Removed previous database: {TARGET_DB}")
-        except Exception as e:
-            print(f"Could not unlink db ({e}), dropping tables instead.")
-            Base.metadata.drop_all(bind=engine)
+    # 1. Safety: target not in use + verified backup of the current target (if it exists)
+    backup = guard_target(target_db, confirm=confirm, tag=SCRIPT_TAG, must_exist=False, backups_dir=backups_dir)
 
-    # 2. Locate master reference snapshot
-    ref_snapshot = find_best_reference_snapshot()
+    # 2. Locate master reference snapshot BEFORE anything is removed
+    ref_snapshot = Path(reference_snapshot) if reference_snapshot else find_best_reference_snapshot(
+        exclude=backup.path if backup else None
+    )
+    if ref_snapshot.resolve() == target_db.resolve():
+        raise FileNotFoundError("The reference snapshot cannot be the target database itself.")
     print(f"[OK] Master reference source snapshot: {ref_snapshot.name}")
 
-    # 3. Create all tables & schema via SQLAlchemy and Alembic migrations
-    Base.metadata.create_all(bind=engine)
-    migrate_db()
+    _load_all_models()
+    target_engine = create_engine(f"sqlite:///{target_db.resolve().as_posix()}")
+    try:
+        if target_db.exists():
+            try:
+                for suffix in ("", "-wal", "-shm"):
+                    Path(f"{target_db}{suffix}").unlink(missing_ok=True)
+                print(f"[OK] Removed previous database: {target_db}")
+            except OSError as e:
+                print(f"Could not unlink db ({e}), dropping tables instead.")
+                Base.metadata.drop_all(bind=target_engine)
+
+        # 3. Create all tables & schema via SQLAlchemy and the legacy additive upgrade
+        Base.metadata.create_all(bind=target_engine)
+    finally:
+        target_engine.dispose()
+    migrate_db(target_db, backups_dir=backups_dir)
     print("[OK] Database schema created and migrated.")
 
     # 4. Populate standard master data directly from verified snapshot using named column matching
-    conn = sqlite3.connect(TARGET_DB)
+    conn = sqlite3.connect(target_db)
     cur = conn.cursor()
     cur.execute(f"ATTACH DATABASE '{ref_snapshot.as_posix()}' AS snapshot;")
 
@@ -189,16 +248,7 @@ def build_clean_production_db() -> bool:
 
     # 6. Seed Core System Users with Secure Production Credentials
     print("[3/5] Seeding Core System Users (RBAC)...")
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    users_to_seed = [
-        (1, "admin", "admin@sorourlogistics.com", "System Admin", hash_password(ADMIN_INITIAL_PASSWORD), "ADMIN", 1, 1, now_str, now_str),
-        (2, "manager", "manager@sorourlogistics.com", "General Logistics Manager", hash_password("manager123"), "MANAGER", 2, 1, now_str, now_str),
-        (3, "operator1", "operator1@sorourlogistics.com", "Ahmed Import Specialist", hash_password("operator123"), "OPERATOR", 3, 1, now_str, now_str),
-        (4, "operator2", "operator2@sorourlogistics.com", "Sara Customs Operator", hash_password("operator123"), "OPERATOR", 3, 1, now_str, now_str),
-    ]
-    cur.execute("DELETE FROM main.users;")
-    for u in users_to_seed:
-        cur.execute("INSERT INTO main.users (user_id, username, email, full_name, hashed_password, role, role_id, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", u)
+    seed_core_users(cur, hash_password(ADMIN_INITIAL_PASSWORD))
     conn.commit()
 
     cur.execute("DETACH DATABASE snapshot;")
@@ -242,6 +292,24 @@ def build_clean_production_db() -> bool:
         return False
 
 
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Rebuild ONE database as a clean production database.")
+    add_target_arguments(parser, target_help="Database file to rebuild")
+    parser.add_argument("--reference-snapshot", default=None, help="Master-data source DB (default: best in backups/)")
+    args = parser.parse_args(argv)
+
+    def _run(target: Path, backups_dir: Optional[Path]):
+        return build_clean_production_db(
+            target,
+            confirm=True,
+            backups_dir=backups_dir,
+            reference_snapshot=Path(args.reference_snapshot) if args.reference_snapshot else None,
+        )
+
+    return run_cli_action(args, _run, must_exist=False)
+
+
 if __name__ == "__main__":
-    success = build_clean_production_db()
-    sys.exit(0 if success else 1)
+    sys.exit(main())
