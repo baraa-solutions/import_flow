@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/features/auth/screens/login_screen.dart';
 
-Widget _buildTestApp({Locale locale = const Locale('ar')}) {
+Widget _buildTestApp({Locale locale = const Locale('ar'), bool showDemoLogins = true}) {
   return ProviderScope(
     child: MaterialApp(
       home: AppLocalizationsProvider(
@@ -14,7 +15,7 @@ Widget _buildTestApp({Locale locale = const Locale('ar')}) {
         child: Directionality(
           textDirection:
               locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-          child: const LoginScreen(),
+          child: LoginScreen(showDemoLogins: showDemoLogins),
         ),
       ),
     ),
@@ -91,6 +92,29 @@ void main() {
 
       expect(find.text(ar.loginUsernameRequired), findsOneWidget);
       expect(find.text(ar.loginPasswordRequired), findsOneWidget);
+    });
+
+    testWidgets('Demo quick-login chips are hidden when demo logins are off (release: !kDebugMode)',
+        (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(_buildTestApp(locale: const Locale('en'), showDemoLogins: false));
+      await tester.pumpAndSettle();
+
+      final en = AppLocalizationsEn();
+      expect(find.text(en.loginQuickDemoAccess), findsNothing);
+      expect(find.text(en.loginRoleAdmin), findsNothing);
+      expect(find.text(en.loginRoleManager), findsNothing);
+      expect(find.text(en.loginRoleSpecialist), findsNothing);
+      expect(find.byTooltip(en.loginDemoCredentialsTooltip), findsNothing);
+      // The login form itself is still there.
+      expect(find.text(en.loginButtonLabel), findsOneWidget);
+    });
+
+    test('LoginScreen defaults showDemoLogins to kDebugMode', () {
+      expect(const LoginScreen().showDemoLogins, kDebugMode);
     });
   });
 }

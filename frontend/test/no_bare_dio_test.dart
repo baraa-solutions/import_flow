@@ -10,10 +10,6 @@ const _allowList = <String, String>{
   'lib/core/network/api_client.dart': 'defines dioProvider / uploadDioProvider',
   // Login / refresh client: runs before a token exists (public routes).
   'lib/features/auth/providers/auth_provider.dart': 'login/refresh client',
-  // Public GET /api/v1/system/version.
-  'lib/features/production_sync/widgets/system_update_banner.dart': 'public version route',
-  // Installer binary download; the URL may be GitHub, so it must not carry the JWT.
-  'lib/features/production_sync/services/auto_updater_service.dart': 'installer download client',
   // Backend liveness probe on public /health before the app starts.
   'lib/main.dart': 'startup /health probe',
 };

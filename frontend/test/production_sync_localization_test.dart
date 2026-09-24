@@ -273,16 +273,8 @@ void main() {
       expect(en.prodSyncManualBackupTag.isNotEmpty, true);
       expect(ar.prodSyncRestoreActionBtn.isNotEmpty, true);
       expect(en.prodSyncRestoreActionBtn.isNotEmpty, true);
-      expect(ar.prodSyncSyncDevToProdBtn.isNotEmpty, true);
-      expect(en.prodSyncSyncDevToProdBtn.isNotEmpty, true);
       expect(ar.prodSyncCompareTablesBtn.isNotEmpty, true);
       expect(en.prodSyncCompareTablesBtn.isNotEmpty, true);
-      expect(ar.prodSyncPullProdToDevBtn.isNotEmpty, true);
-      expect(en.prodSyncPullProdToDevBtn.isNotEmpty, true);
-      expect(ar.prodSyncFullBuildBtn.isNotEmpty, true);
-      expect(en.prodSyncFullBuildBtn.isNotEmpty, true);
-      expect(ar.prodSyncLaunchProdAppBtn.isNotEmpty, true);
-      expect(en.prodSyncLaunchProdAppBtn.isNotEmpty, true);
       expect(ar.prodSyncDbNotFoundNotice.isNotEmpty, true);
       expect(en.prodSyncDbNotFoundNotice.isNotEmpty, true);
       expect(ar.prodSyncDbLastModified('2026-09-08'), contains('2026-09-08'));
@@ -448,11 +440,7 @@ void main() {
         ar.prodSyncAutoPreUpgradeTag,
         ar.prodSyncManualBackupTag,
         ar.prodSyncRestoreActionBtn,
-        ar.prodSyncSyncDevToProdBtn,
         ar.prodSyncCompareTablesBtn,
-        ar.prodSyncPullProdToDevBtn,
-        ar.prodSyncFullBuildBtn,
-        ar.prodSyncLaunchProdAppBtn,
         ar.prodSyncDbNotFoundNotice,
         ar.prodSyncConfirmRestoreTitleDialog,
         ar.prodSyncConfirmRestoreSafeNotice,

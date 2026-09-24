@@ -11,7 +11,7 @@ system version / version-check / download-installer (decided 2026-09, auth enfor
 - Only authenticated clients: `dioProvider` / `uploadDioProvider` in `core/network/api_client.dart`.
   `core/network/dio_client.dart` just delegates to them (keep it that way).
 - `test/no_bare_dio_test.dart` fails on any `Dio(` in lib/ outside an allow-list (api_client, auth_provider
-  login/refresh, system_update_banner, auto_updater download client, main.dart /health probe). Add to the
+  login/refresh, main.dart /health probe; the old updater clients were removed 2026-09-24). Add to the
   allow-list only for public routes or non-backend hosts.
 - PATH TRAP: dioProvider baseUrl is `$serverUrl/api/v1`; Dio 5 concatenates, so a relative `'/api/v1/x'` becomes
   `/api/v1/api/v1/x`. Use `ApiConstants.xxx` absolute URLs or paths relative to /api/v1.

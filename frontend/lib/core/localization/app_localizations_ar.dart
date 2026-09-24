@@ -1315,11 +1315,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get prodSyncAutoPreUpgradeTag => 'ترقية تلقائية آمنة';
   @override String get prodSyncManualBackupTag => 'نسخة يدوية';
   @override String get prodSyncRestoreActionBtn => 'استعادة';
-  @override String get prodSyncSyncDevToProdBtn => 'مزامنة لقاعدة الإنتاج';
   @override String get prodSyncCompareTablesBtn => 'فحص ومقارنة الجداول';
-  @override String get prodSyncPullProdToDevBtn => 'سحب الإنتاج للتطوير';
-  @override String get prodSyncFullBuildBtn => 'بناء وتجميع الإنتاج بالكامل';
-  @override String get prodSyncLaunchProdAppBtn => 'تشغيل تطبيق الإنتاج الآن';
   @override String get prodSyncDbNotFoundNotice => 'لم يتم العثور على الملف بعد (سيتم إنشاؤه عند أول مزامنة)';
   @override String prodSyncDbLastModified(dynamic date) => 'آخر تعديل: $date';
   @override String prodSyncDbSizeLabel(dynamic size) => 'الحجم: $size كيلوبايت';
@@ -10965,6 +10961,51 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cooChinaGeneralExemptionNote => 'المنشأ: China - تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%.';
   @override String get cooEuRecommendationAlert => 'بلد المنشأ ضمن دول الاتحاد الأوروبي (27 دولة) — تم اختيار شهادة الحركة EUR.1 تلقائياً للاستفادة من الإعفاء الجمركي التفضيلى الكامل.';
   @override String get cooAgadirGaftaRecommendationAlert => 'بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية (GAFTA) معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.';
+
+  // ── In-app updates (app_update) ──
+  @override String updateAvailableBanner(String version) => 'يتوفر تحديث جديد للنظام: الإصدار $version';
+  @override String updateMandatoryBanner(String version) => 'تحديث إلزامي مطلوب: الإصدار $version. يجب تثبيته لمتابعة العمل.';
+  @override String get updateWhatsNew => 'ما الجديد في هذا الإصدار';
+  @override String updateSize(String mb) => '$mb ميجابايت';
+  @override String get updateInstallNow => 'تثبيت الآن';
+  @override String get updateRemindLater => 'ذكّرني لاحقاً';
+  @override String updateDownloading(String done, String total) => 'جاري التنزيل… $done من $total ميجابايت';
+  @override String get updateVerifying => 'جاري التحقق من البصمة الرقمية للتحديث…';
+  @override String get updateBackingUp => 'جاري أخذ نسخة احتياطية من قاعدة البيانات…';
+  @override String get updateInstalling => 'جاري تثبيت التحديث، سيُعاد تشغيل البرنامج تلقائياً';
+  @override String get updateCancel => 'إلغاء التنزيل';
+  @override String updateSucceeded(String version) => 'تم تحديث النظام بنجاح إلى الإصدار $version';
+  @override String get updateFailed => 'فشل التحديث';
+  @override String get updateRollback => 'التراجع إلى الإصدار السابق';
+  @override String updateRollbackWarning(String backupTime) => 'سيتم استرجاع قاعدة البيانات من النسخة الاحتياطية المأخوذة في $backupTime. كل البيانات التي تم إدخالها بعد هذا التوقيت ستُفقد نهائياً.';
+  @override String get updateFromFile => 'تحديث من ملف (USB)';
+  @override String updateCheckOffline(String lastChecked) => 'تعذّر الاتصال بخادم التحديثات. آخر فحص ناجح: $lastChecked';
+  @override String get updateDevModeDisabled => 'التحديث التلقائي غير متاح في وضع التطوير';
+  @override String updateDialogTitle(String version) => 'تحديث النظام إلى الإصدار $version';
+  @override String get updateDownloadNow => 'تنزيل التحديث';
+  @override String get updateReadyToInstall => 'تم تنزيل التحديث والتحقق منه، وهو جاهز للتثبيت. سيتم أخذ نسخة احتياطية من قاعدة البيانات قبل التثبيت.';
+  @override String get updateMandatoryNotice => 'هذا التحديث إلزامي (إصلاح أمني أو تغيير في قاعدة البيانات) ولا يمكن تأجيله.';
+  @override String get updateAdminOnlyNotice => 'تثبيت التحديثات متاح لمدير النظام فقط. برجاء التواصل مع المدير.';
+  @override String get updateSignOut => 'تسجيل الخروج';
+  @override String get updateViewDetails => 'عرض التفاصيل';
+  @override String get updateRestartingHint => 'لا تغلق الجهاز أثناء التثبيت.';
+  @override String get updateRollbackTitle => 'تأكيد التراجع عن التحديث';
+  @override String get updateRollbackConfirmCheck => 'أفهم أن البيانات المُدخلة بعد النسخة الاحتياطية ستُفقد';
+  @override String get updateRollbackConfirmBtn => 'تأكيد التراجع';
+  @override String get updateRollbackNoBackup => 'لا توجد نسخة احتياطية سابقة للتحديث متاحة للتراجع';
+  @override String get updatePickManifest => 'اختر ملف الإصدار (manifest.json)';
+  @override String get updatePickInstaller => 'اختر ملف التثبيت (.exe)';
+  @override String get updateStagedFromFile => 'تم التحقق من ملفات التحديث وهي جاهزة للتثبيت';
+  @override String get updateSectionTitle => 'تحديثات البرنامج';
+  @override String get updateCheckNow => 'فحص التحديثات';
+  @override String updateUpToDate(String version) => 'النظام محدّث (الإصدار $version)';
+  @override String get updateInvalidSignature => 'تم رفض ملف الإصدار على الخادم لأن توقيعه غير صالح';
+  @override String get updateNeverChecked => 'لم يتم الفحص بعد';
+  @override String get updateRetry => 'إعادة المحاولة';
+  @override String get updateClose => 'إغلاق';
+  @override String get updateFailedRollbackHint => 'لم يكتمل فحص ما بعد التحديث. يمكن لمدير النظام التراجع إلى الإصدار السابق.';
+  @override String updateCurrentVersion(String version) => 'الإصدار الحالي: $version';
+  @override String get updateNoPermission => 'ليس لديك صلاحية تثبيت تحديثات النظام (مطلوب صلاحية مدير النظام)';
 }
 
 

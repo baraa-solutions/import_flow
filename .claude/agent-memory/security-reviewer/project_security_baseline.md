@@ -38,13 +38,46 @@ then diff against this list.
 - MINOR: WS token checked once only (expiry/logout/deactivation not re-checked); no cap on pending sockets.
 - MINOR (pre-existing): approver names come from the request body in cargo_shipping level1/level2 approval, import_documentation
   approvals, DCA reviewer_name, and financial_settlement. One user can sign both dual-approval levels.
-- MINOR (pre-existing): public /health exposes DB size and table count; download-installer is public.
+- MINOR (pre-existing): public /health exposes DB size and table count. (download-installer removed 2026-09-24)
 - Phase 2 (lead's list): per-route permission catalog, restore path, check-updates SSRF, upload limits,
   handler-level resolve_user in customs_consultation/financial_approval.
 - Carried over: updater has no SHA-256/signature; plain http on LAN.
 - MINOR (pre-existing, CI): build_and_release.yml uses subosito/flutter-action@v2 by mutable tag, not commit SHA.
   (2026-09-24 scoped review: Flutter pinned to 3.44.6, pubspec.lock re-resolved to pub.dev only with no new packages,
   web_file_saver moved to dart:js_interop with the same behaviour. Nothing new found.)
+
+## Update system / DB safety (Phase 0 + app_update check/download), reviewed 2026-09-24, uncommitted
+Fixed: installer no longer ships .db (Excludes + PrepareToInstall kill->copy db/-wal/-shm->size check->abort,
+fail-safe on unknown process state); all historic .iss versions had uninsneveruninstall on the DB, so uninstall is safe.
+production_sync sync/pull/restore 403 when frozen, restore bare-name only (resolve_backup_file), online backup API,
+pruning only psync_* with protected prefixes + floor 7. Startup snapshot next to DB, only on version change,
+failure -> maintenance mode. Runtime paths anchored via utils/db_safety.app_base_dir. Incoterm sync insert-only.
+app_update: no URL params, https + host allow-list, follow_redirects=False, 64 KB manifest cap, Ed25519 over
+`signed` utf-8, strict relative installer path, streaming sha256 + size cap, placeholder key -> "disabled",
+download/cancel/apply/stage-local/rollback/history need system.update. Actions pinned by SHA.
+Re-review 2026-09-24 (still uncommitted): ALL prior MAJORs fixed - bypass forced off when frozen
+(settings.resolve_dev_auth_bypass), highest_seen.json anti-replay + required expires_at, verify() wraps all errors,
+installed version fails closed, /check force throttled 60 s, history capped 1000, signed `previous` block; CI build job
+read-only + persist-credentials false, separate `release` write job, stand-alone signer (hash-pinned venv, python -I,
+key only in the sign step), resign_update_manifest.yml; maintenance allow-list = health/shutdown/login/refresh/logout +
+/app-update/*; installer: no override dialog, other-folder DB abort, [InstallDelete] of 3 exact scripts, guard scans
+[Code]/[Run]/[UninstallRun]. Legacy Flutter auto_updater deleted (C6 closed). 11 maintenance scripts use
+scripts/db_script_guard.py (--db + --confirm + in-use probe + verified pre_migration_/pre_restore_ backup).
+Round-3 re-check 2026-09-24 (uncommitted): ALL items below RESOLVED -
+seed = admin only on empty users table (random ADMIN_INITIAL_PASSWORD, written to .env, removed in frozen build once
+changed), reset_clean_production_db admin only; download-installer gone (404) and PUBLIC_ROUTES = 7 HTTP routes in
+tests/unit/test_route_auth_coverage.py; startup rotate_stored_email_passwords (idempotent, never destroys undecryptable);
+alert_dispatcher/daily_report anchored via app_base_dir; production_sync check-updates/check-update/installer-info are
+local-only; db_script_guard.live_db_paths incl. registry + {autopf} installs, re-probe after backup; restore decrypts
+into mkdtemp + rmtree; workflows: no Python after "Prepare SSH", release job tag-only, publish v*-tag guard, resign
+main-only guard; bundle_guard checks [Code] write destinations + Exec verbs.
+Remaining NITs (not worth re-reporting unless touched):
+- main.py system_version_check re-reads version.json with stale fallback 1.0.198 + default GitHub installer_url
+  (not read_installed_version); production_sync get_system_version_info fallback 1.0.55.
+- Flutter production_sync_service.dart still sends remote_url (backend ignores it).
+- crypto.encrypt_email_password treats plaintext starting with "enc:" as ciphertext.
+- bundle_guard Exec regex cannot see commands built in variables (static-guard limit); probe TOCTOU inherent.
+- Carried: apply/stage-local/rollback 501 stubs - re-review when built; R10 not built.
 
 ## Review gotchas
 - `import main` writes `backups/auto_pre_upgrade_*.db` into the worktree (gitignored) on every import.

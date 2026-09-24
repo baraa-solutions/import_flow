@@ -53,35 +53,6 @@ class _MockLocalProcessSyncService implements LocalProcessSyncService {
   }
 
   @override
-  Future<int> syncDevToProd({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
-  }) async => 0;
-
-  @override
-  Future<int> pullProdToDev({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-  }) async => 0;
-
-  @override
-  Future<int> fullBuildAndSync({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
-  }) async => 0;
-
-  @override
-  Future<int> launchProductionApp({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-  }) async => 0;
-
-  @override
   Future<int> createManualBackup({
     required void Function(String line) onOutput,
     required void Function(String line) onError,
@@ -133,12 +104,12 @@ void main() {
       expect(find.text(ar.prodSyncDevDbTitle), findsOneWidget);
       expect(find.text(ar.prodSyncProdDbTitle), findsOneWidget);
 
-      // Check Action buttons in operations tab
-      expect(find.text(ar.prodSyncSyncDevToProdBtn), findsOneWidget);
+      // Operations tab: only the read-only compare action remains.
       expect(find.text(ar.prodSyncCompareTablesBtn), findsAtLeastNWidgets(1));
-      expect(find.text(ar.prodSyncPullProdToDevBtn), findsOneWidget);
-      expect(find.text(ar.prodSyncFullBuildBtn), findsOneWidget);
-      expect(find.text(ar.prodSyncLaunchProdAppBtn), findsOneWidget);
+      // Retired (CTO decision): sync to prod, pull, full build, launch.
+      expect(find.byIcon(Icons.cloud_upload_rounded), findsNothing);
+      expect(find.byIcon(Icons.inventory_rounded), findsNothing);
+      expect(find.byIcon(Icons.play_circle_filled_rounded), findsNothing);
     });
 
     testWidgets('switches to Safety Backups tab and renders copyable backups', (tester) async {

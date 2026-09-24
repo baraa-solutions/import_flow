@@ -85,6 +85,18 @@ class ApiConstants {
   static String get productionSync => '$baseUrl/production-sync';
   static String get simulation => '$baseUrl/simulation';
 
+  // ── In-app updates (backend verifies, downloads and installs) ──
+  static String get appUpdate => '$baseUrl/app-update';
+  static String get appUpdateCheck => '$appUpdate/check';
+  static String get appUpdateStatus => '$appUpdate/status';
+  static String get appUpdateDownload => '$appUpdate/download';
+  static String get appUpdateCancel => '$appUpdate/cancel';
+  static String get appUpdateApply => '$appUpdate/apply';
+  static String get appUpdateStageLocal => '$appUpdate/stage-local';
+  static String get appUpdateRollback => '$appUpdate/rollback';
+  static String get appUpdateLastResult => '$appUpdate/last-result';
+  static String get appUpdateHistory => '$appUpdate/history';
+
 
   // ── Auth ──────────────────────────────────────────────────
   static String get auth => '$baseUrl/auth';

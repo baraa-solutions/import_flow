@@ -69,7 +69,8 @@ import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
-import '../production_sync/widgets/system_update_banner.dart';
+import '../app_update/widgets/post_update_notice.dart';
+import '../app_update/widgets/update_banner.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
 import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
@@ -391,7 +392,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               if (isMobile && !ref.watch(focusModeProvider)) _buildMobileTopNav(context),
                               if (!ref.watch(focusModeProvider)) const UnifiedTopBar(),
-                              if (!ref.watch(focusModeProvider)) const SystemUpdateBanner(),
+                              if (!ref.watch(focusModeProvider)) const UpdateBanner(),
+                              // One-time "updated to vX" / failed-update notice from /last-result.
+                              const PostUpdateNotice(),
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(

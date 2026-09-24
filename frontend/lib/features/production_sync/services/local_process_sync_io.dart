@@ -331,52 +331,15 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
           ));
           onOutput('✅ تم جلب مقارنة قاعدة البيانات بنجاح عبر السيرفر');
           return 0;
-        } else if (args.contains('--pull')) {
-          final res = await api.pullProdToDev();
-          onOutput('✅ [API] ${res.message}');
-          return 0;
-        } else {
-          final res = await api.syncDevToProd();
-          onOutput('✅ [API] ${res.message}');
-          if (res.backupFile != null) {
-            onOutput('📦 [BACKUP] تم إنشاء نسخة أمان احتياطية: ${res.backupFile}');
-          }
-          return 0;
         }
+        onError('❌ Unsupported action: ${args.join(' ')}');
+        return 1;
       } catch (apiErr) {
         onError('❌ فشل التنفيذ عبر السيرفر أيضاً: $apiErr');
         return 1;
       }
     }
   }
-
-  @override
-  Future<int> syncDevToProd({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-    void Function(SyncDiffSummary)? onDiffSummary,
-  }) =>
-      _runScript(
-        ['--db-only'],
-        onOutput: onOutput,
-        onError: onError,
-        onProgress: onProgress,
-        onDiffSummary: onDiffSummary,
-      );
-
-  @override
-  Future<int> pullProdToDev({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-  }) =>
-      _runScript(
-        ['--pull'],
-        onOutput: onOutput,
-        onError: onError,
-        onProgress: onProgress,
-      );
 
   @override
   Future<int> compareDatabases({
@@ -390,28 +353,6 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
         onError: onError,
         onDiffSummary: onDiffSummary,
       );
-
-  @override
-  Future<int> fullBuildAndSync({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-    void Function(SyncDiffSummary)? onDiffSummary,
-  }) =>
-      _runScript(
-        ['--full'],
-        onOutput: onOutput,
-        onError: onError,
-        onProgress: onProgress,
-        onDiffSummary: onDiffSummary,
-      );
-
-  @override
-  Future<int> launchProductionApp({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-  }) =>
-      _runScript(['--launch'], onOutput: onOutput, onError: onError);
 
   @override
   Future<int> createManualBackup({

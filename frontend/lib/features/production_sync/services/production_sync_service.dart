@@ -36,22 +36,6 @@ class ProductionSyncService {
     throw Exception('فشل جلب مقارنة قاعدة البيانات: ${response.statusCode}');
   }
 
-  Future<SyncActionResponseModel> syncDevToProd() async {
-    final response = await _dio.post('${ApiConstants.serverUrl}/api/v1/production-sync/sync-to-prod');
-    if (response.statusCode == 200) {
-      return SyncActionResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
-    }
-    throw Exception('فشل مزامنة قاعدة البيانات إلى الإنتاج: ${response.statusCode}');
-  }
-
-  Future<SyncActionResponseModel> pullProdToDev() async {
-    final response = await _dio.post('${ApiConstants.serverUrl}/api/v1/production-sync/pull-to-dev');
-    if (response.statusCode == 200) {
-      return SyncActionResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
-    }
-    throw Exception('فشل سحب قاعدة بيانات الإنتاج: ${response.statusCode}');
-  }
-
   Future<BackupItemModel> createManualBackup({String target = 'dev'}) async {
     final response = await _dio.post(
       '${ApiConstants.serverUrl}/api/v1/production-sync/backup',

@@ -9,6 +9,8 @@
   - `tests/unit/test_arabic_ocr_engine.py` — needs the OCR engine installed.
   - `tests/unit/test_md09_ports_tariff_exchange_audit.py` — needs seeded reference data (100+ ports, 50+ tariffs).
   - `tests/unit/test_version_and_updates_api.py::test_uat_environment_staging_integrity` — needs `sorour_logistics_uat.db`.
+- 2026-09-24 update-system change: backend 1725 tests, 21 min. Running `flutter test -j 4` at the same time as pytest made BOTH
+  run out of memory: flutter crashed with 'Could not start thread', and the cargox tests failed with MemoryError plus a follow-on LT001 != LTVNO. Run them one after the other.
 - Slow tests: `tests/unit/test_cargox_standard_invoice.py` takes ~4.5 min alone (several tests 17-60 s).
 - Tests write into the repo (`dist/`, `logs/`, `backups/`); these are gitignored.
 - [Flutter test baseline](flutter_test_baseline.md) — 3.44.6 port: 1420 pass/94 perf skip; never run flutter test alongside build

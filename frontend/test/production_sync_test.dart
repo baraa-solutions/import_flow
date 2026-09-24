@@ -422,35 +422,6 @@ class FakeLocalProcessSyncService implements LocalProcessSyncService {
   }) async => 0;
 
   @override
-  Future<int> syncDevToProd({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
-  }) async => 0;
-
-  @override
-  Future<int> pullProdToDev({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-  }) async => 0;
-
-  @override
-  Future<int> fullBuildAndSync({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
-    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
-  }) async => 0;
-
-  @override
-  Future<int> launchProductionApp({
-    required void Function(String line) onOutput,
-    required void Function(String line) onError,
-  }) async => 0;
-
-  @override
   Future<int> createManualBackup({
     required void Function(String line) onOutput,
     required void Function(String line) onError,

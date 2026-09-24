@@ -9,7 +9,10 @@
 - Auth gap closed and committed 2026-09-24 (406dba5; router-level get_current_user, 9 public routes); Phase-2 auth items in history/2026-09-24.md. Tests use a conftest seam
   (`_dev_bypass_fallback_user` -> transient ADMIN); `test_route_auth_coverage.py` guards new routes.
 - Flutter pinned to 3.44.6 (pubspec + CI) in 0b9db72; flutter test green (perf tag skipped by default).
-  This laptop has NO Visual Studio -> `flutter build windows` impossible; app-review (docs/prompts/app-review.md) blocked on it.
+  This laptop has NO Visual Studio -> `flutter build windows` impossible. UI review/screens are done on the WEB build via
+  `scripts/app_review/capture_web.py` (Playwright, scratch backend); results in docs/app-review/ (screenshots local-only).
+- DANGER: modules/production_sync ignores DATABASE_PATH and always targets the real root/dist DBs — never click its
+  buttons in automated runs, even with a scratch backend.
 - Locale bug: main.dart has no supportedLocales -> localeOf = en_US, Arabic users see English in ~84 files.
 - `import main` runs SchemaUpgradeService on DATABASE_PATH and writes snapshots to `backups/`: always point
   DATABASE_PATH at a scratch copy for probes.
@@ -21,3 +24,4 @@
 - User: CTO, prefers Egyptian Arabic, wants to stay on the current branch, Opus 5.5 at medium effort for agents.
 - Track 1 daily work: never bump versions or touch `version.json` / `package_production.py`.
 - Full backend suite takes ~8 minutes (930 tests on 2026-09-23).
+- [Production laptop layout](project_production_laptop_layout.md) — per-user install path, DB/backups location, leftover dev scripts
