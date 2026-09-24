@@ -1,0 +1,305 @@
+{
+ "screen_nn": "40",
+ "screen_slug": "demurrage-detention",
+ "state": "tab-3-carrier-tariff-policies",
+ "screenshot": "../screenshots/40-demurrage-detention-tab-3-carrier-tariff-policies.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "مؤشر شحن الحاويات الأسبوعي المجاني"
+  },
+  {
+   "text": "مكتبة مجانية مفتوحة المصدر لجلب مؤشرات نولون الحاويات الأسبوعية الفورية للخطوط العالمية والبحر المتوسط دون أي تكلفة اشتراك."
+  },
+  {
+   "text": "نشط ومتصل"
+  },
+  {
+   "text": "الخطوط الملاحية المتابعة"
+  },
+  {
+   "text": "تاريخ آخر تحديث"
+  },
+  {
+   "text": "Active (Free SFX Weekly Index)"
+  },
+  {
+   "text": "0"
+  },
+  {
+   "text": "لم يتم التحديث بعد"
+  },
+  {
+   "text": "موصل قواعد غرامات التوكيلات الملاحية"
+  },
+  {
+   "text": "تجميع فترات السماح وشرائح غرامات الحاويات للخطوط الملاحية الكبرى مع حماية الحصة الشهرية المجانية."
+  },
+  {
+   "text": "الحصة الشهرية للطلبات"
+  },
+  {
+   "text": "الطلبات المستخدمة"
+  },
+  {
+   "text": "الطلبات المتبقية"
+  },
+  {
+   "text": "الخطوط الملاحية المسجلة"
+  },
+  {
+   "text": "25"
+  },
+  {
+   "text": "5"
+  },
+  {
+   "text": "حماية الحصة: الحد الأقصى عشر طلبات شهريا لضمان توفر الرصيد المجاني"
+  },
+  {
+   "text": "سجل قرارات وتعريفات أرضيات هيئات الموانئ المصرية"
+  },
+  {
+   "text": "القرارات الوزارية التاريخية والنشطة المنظمة لأرضيات ساحات الموانئ بالجنيه المصري مع دعم التقييم الزمني بحسب تاريخ التفريغ."
+  },
+  {
+   "text": "القرارات الوزارية المسجلة"
+  },
+  {
+   "text": "8"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1216,
+    178,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "نسخ ملخص الحالة كاملا",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    344,
+    328,
+    195,
+    58
+   ]
+  },
+  {
+   "label": "تحديث حالة الموصل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    866,
+    328,
+    178,
+    58
+   ]
+  },
+  {
+   "label": "تحديث مؤشر النولون الآن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1052,
+    328,
+    204,
+    58
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    621,
+    497,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    919,
+    497,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1217,
+    497,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    546,
+    648,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    770,
+    648,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    994,
+    648,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1217,
+    648,
+    13,
+    13
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    768,
+    842,
+    13,
+    13
+   ]
+  }
+ ],
+ "text_fields": [],
+ "tabs": [
+  {
+   "label": "نظرة عامة ومراقبة الحصة",
+   "selected": true
+  },
+  {
+   "label": "محاكي الغرامات والأرضيات المزدوج",
+   "selected": false
+  },
+  {
+   "label": "تعريفات أرضيات الموانئ المصرية",
+   "selected": false
+  }
+ ],
+ "checkboxes_radios": [
+  {
+   "label": "Alexandria",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "Damietta",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "Port Said",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "Sokhna",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 474,
+   "cells_left_to_right": [
+    "نشط ومتصل",
+    "الخطوط الملاحية المتابعة",
+    "تاريخ آخر تحديث"
+   ]
+  },
+  {
+   "y": 494,
+   "cells_left_to_right": [
+    "Active (Free SFX Weekly Index)",
+    "0",
+    "لم يتم التحديث بعد"
+   ]
+  },
+  {
+   "y": 625,
+   "cells_left_to_right": [
+    "الحصة الشهرية للطلبات",
+    "الطلبات المستخدمة",
+    "الطلبات المتبقية",
+    "الخطوط الملاحية المسجلة"
+   ]
+  },
+  {
+   "y": 645,
+   "cells_left_to_right": [
+    "25",
+    "0",
+    "25",
+    "5"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 21,
+  "buttons": 12,
+  "fields": 0,
+  "tabs": 3,
+  "headers": 0,
+  "header_rows": 4
+ }
+}

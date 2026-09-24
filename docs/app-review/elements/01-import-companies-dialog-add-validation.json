@@ -1,0 +1,342 @@
+{
+ "screen_nn": "01",
+ "screen_slug": "import-companies",
+ "state": "dialog-add-validation",
+ "screenshot": "../screenshots/01-import-companies-dialog-add-validation.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "اسم الشركة المستوردة *"
+  },
+  {
+   "text": "*"
+  },
+  {
+   "text": "اسم الشركة المستوردة * is required"
+  },
+  {
+   "text": "العنوان *"
+  },
+  {
+   "text": "العنوان * is required"
+  },
+  {
+   "text": "الدولة *"
+  },
+  {
+   "text": "رقم البطاقة الاستيرادية (9 أرقام) *"
+  },
+  {
+   "text": "رقم البطاقة الاستيرادية (9 أرقام) * is required"
+  },
+  {
+   "text": "تاريخ انتهاء البطاقة الاستيرادية *"
+  },
+  {
+   "text": "رقم التسجيل الضريبي (9 أرقام) *"
+  },
+  {
+   "text": "رقم التسجيل الضريبي (9 أرقام) * is required"
+  },
+  {
+   "text": "تاريخ انتهاء التسجيل الضريبي *"
+  },
+  {
+   "text": "رقم السجل التجاري (15 رقم) *"
+  },
+  {
+   "text": "رقم السجل التجاري (15 رقم) * is required"
+  },
+  {
+   "text": "تاريخ انتهاء السجل التجاري *"
+  },
+  {
+   "text": "رقم الهاتف"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "إغلاق النافذة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1026,
+    93,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1018,
+    202,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    312,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1018,
+    322,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    424,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "2027-09-24",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    808,
+    433,
+    258,
+    46
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    534,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "2027-09-24",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    808,
+    544,
+    258,
+    46
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    646,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "2027-09-24",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    808,
+    655,
+    258,
+    46
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1018,
+    756,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "إلغاء وإغلاق ✕",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    847,
+    143,
+    58
+   ]
+  },
+  {
+   "label": "حفظ بيانات الشركة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    899,
+    847,
+    171,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "مثال: شركة الفراعنة للاستيراد والتصدير",
+   "label_above": "اسم الشركة المستوردة *",
+   "hint": "",
+   "required": true,
+   "invalid": true,
+   "error_text_below": "العنوان *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    201,
+    540,
+    75
+   ]
+  },
+  {
+   "label": "مثال: 12 شارع رمسيس، القاهرة",
+   "label_above": "العنوان *",
+   "hint": "",
+   "required": true,
+   "invalid": true,
+   "error_text_below": "رقم البطاقة الاستيرادية (9 أرقام) *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    312,
+    266,
+    75
+   ]
+  },
+  {
+   "label": "",
+   "label_above": "الدولة *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    322,
+    266,
+    55
+   ]
+  },
+  {
+   "label": "مثال: 528153439",
+   "label_above": "رقم البطاقة الاستيرادية (9 أرقام) *",
+   "hint": "",
+   "required": true,
+   "invalid": true,
+   "error_text_below": "رقم التسجيل الضريبي (9 أرقام) *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    423,
+    266,
+    75
+   ]
+  },
+  {
+   "label": "مثال: 528153439",
+   "label_above": "رقم التسجيل الضريبي (9 أرقام) *",
+   "hint": "",
+   "required": true,
+   "invalid": true,
+   "error_text_below": "رقم السجل التجاري (15 رقم) *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    534,
+    266,
+    75
+   ]
+  },
+  {
+   "label": "مثال: 100200000070828",
+   "label_above": "رقم السجل التجاري (15 رقم) *",
+   "hint": "",
+   "required": true,
+   "invalid": true,
+   "error_text_below": "رقم الهاتف",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    645,
+    266,
+    75
+   ]
+  },
+  {
+   "label": "مثال: 01000000000",
+   "label_above": "رقم الهاتف",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    534,
+    755,
+    540,
+    55
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 16,
+  "buttons": 13,
+  "fields": 7,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

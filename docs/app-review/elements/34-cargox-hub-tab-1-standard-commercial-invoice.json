@@ -1,0 +1,719 @@
+{
+ "screen_nn": "34",
+ "screen_slug": "cargox-hub",
+ "state": "tab-1-standard-commercial-invoice",
+ "screenshot": "../screenshots/34-cargox-hub-tab-1-standard-commercial-invoice.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "منظومة كارجو إكس والبلوك تشين:"
+  },
+  {
+   "text": "مركز إدارة وتوليد الفاتورة التجارية المعيارية"
+  },
+  {
+   "text": "توليد نموذج إكسيل الموحد ذو النطاقات المسمّاة، مطابقة بيانات المورد آلياً، واكتشاف الفروق الجمركية قبل إرسال المظروف لكارجو إكس ونافذة."
+  },
+  {
+   "text": "١. توليد نموذج الإكسيل المعياري"
+  },
+  {
+   "text": "٢. قراءة واستخراج فاتورة المورد"
+  },
+  {
+   "text": "تجهيز ملف إكسيل بنطاقات مسمّاة لإرساله للمورد"
+  },
+  {
+   "text": "رفع ملف الإكسيل المكتمل واستخراجه آلياً"
+  },
+  {
+   "text": "لم يتم رفع وقراءة ملف فاتورة المورد بعد."
+  },
+  {
+   "text": "قم بتحميل النموذج أولاً ثم ارفعه بعد قيام المورد بملء البيانات."
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nمنظومة الشحن المسبق والبلوك تشين\n24H LIVE\nOriginal Docs Collection & CargoX Hub — Phase 4\nCargoX & Banking\nOperations & Stages"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:52",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    608,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    735,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    841,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    871,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    897,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    925,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    973,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    999,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1027,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1117,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1145,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1171,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "منظومة الشحن المسبق والبلوك تشين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    479,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "تحديث البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    96,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1013,
+    96,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    658,
+    100,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    100,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "الفاتورة المعيارية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    906,
+    166,
+    125,
+    40
+   ]
+  },
+  {
+   "label": "تجهيز المظروف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1031,
+    166,
+    125,
+    40
+   ]
+  },
+  {
+   "label": "تتبع البلوك تشين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1156,
+    166,
+    125,
+    40
+   ]
+  },
+  {
+   "label": "المانيفست الرقمي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1280,
+    166,
+    125,
+    40
+   ]
+  },
+  {
+   "label": "Original Docs Collection & Courier",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    195,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "CargoX Blockchain & ACI Hub",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    235,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "اختيار ملف الشحنة الاستيرادية *",
+   "tooltip": "ابحث برقم الملف، رقم القيد الجمركي، اسم المورد أو الشركة...",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    367,
+    946,
+    48
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1465,
+    362,
+    98,
+    58
+   ]
+  },
+  {
+   "label": "تحميل نموذج إكسيل الموحد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    509,
+    532,
+    499,
+    54
+   ]
+  },
+  {
+   "label": "رفع وقراءة فاتورة المورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1062,
+    532,
+    499,
+    54
+   ]
+  },
+  {
+   "label": "بيانات الفاتورة المستخرجة",
+   "tooltip": "بيانات الفاتورة المستخرجة",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    633,
+    206,
+    45
+   ]
+  },
+  {
+   "label": "مصفوفة المطابقة والفروق",
+   "tooltip": "مصفوفة المطابقة والفروق",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    682,
+    206,
+    45
+   ]
+  },
+  {
+   "label": "الاعتماد والتحكم الجمركي",
+   "tooltip": "الاعتماد والتحكم الجمركي",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    732,
+    206,
+    45
+   ]
+  },
+  {
+   "label": "سجل الفواتير المعيارية",
+   "tooltip": "سجل الفواتير المعيارية",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    781,
+    206,
+    45
+   ]
+  },
+  {
+   "label": "المسارات الجمركية",
+   "tooltip": "المسارات الجمركية",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    831,
+    206,
+    45
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 9,
+  "buttons": 54,
+  "fields": 1,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

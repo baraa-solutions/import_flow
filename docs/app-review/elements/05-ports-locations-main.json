@@ -1,0 +1,3070 @@
+{
+ "screen_nn": "05",
+ "screen_slug": "ports-locations",
+ "state": "main",
+ "screenshot": "../screenshots/05-ports-locations-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "الإجراءات"
+  },
+  {
+   "text": "كود المنفذ"
+  },
+  {
+   "text": "اسم المنفذ أو الميناء"
+  },
+  {
+   "text": "النوع"
+  },
+  {
+   "text": "الدولة"
+  },
+  {
+   "text": "المدينة"
+  },
+  {
+   "text": "الحالة"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالموانئ والمنافذ الجمركية\n24H LIVE\n1 - 50 / 264\n1 / 6\nالموانئ والمنافذ الجمركية\nدليل الموانئ البحرية، المطارات الجوية، الموانئ الجافة والمنافذ البرية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:26",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    548,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    674,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    781,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    811,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    837,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    865,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    912,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    938,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    966,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1056,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1084,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1110,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    791,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "المشاريع ومراكز التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    950,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الموانئ والمنافذ الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1108,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إضافة منفذ أو ميناء جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    180,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    468,
+    132,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "الكل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    747,
+    133,
+    127,
+    34
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    132,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير المنافذ (جدول نصوص)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    132,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    225,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    238,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    240,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    240,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    240,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    240,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    230,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGRAM",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    240,
+    76,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    551,
+    248,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "10th of Ramadan Dry Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    234,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء جاف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    232,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    234,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "10th of Ramadan",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    234,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    233,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    283,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    296,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    298,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    298,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    298,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    298,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    288,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGOCT",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    298,
+    73,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    548,
+    306,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "6th of October Dry Port / ODPI",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    292,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء جاف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    290,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    292,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "6th of October",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    292,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    291,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    341,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    354,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    356,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    356,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    356,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    356,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    346,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "CIABJ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    356,
+    68,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    543,
+    364,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Abidjan Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    350,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    348,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Cote D Ivoire",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    350,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Abidjan",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    350,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    349,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    399,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    412,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    404,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "AEAUH",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    414,
+    74,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    549,
+    422,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Abu Dhabi International Cargo",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    408,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "مطار جوي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    406,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "United Arab Emirates",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    408,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Abu Dhabi",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    408,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    407,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    457,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    470,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    472,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    472,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    472,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    472,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    462,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGAQU",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    472,
+    74,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    549,
+    480,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Abu Qir Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    466,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    464,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    466,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Alexandria",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    466,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    465,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    515,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    528,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    530,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    530,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    530,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    530,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    520,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "QAABU",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    530,
+    74,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    549,
+    538,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Abu Samra Land Border",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    524,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "منفذ بري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    522,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Qatar",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    524,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Abu Samra",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    524,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    523,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    573,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    586,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    588,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    588,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    588,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    588,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    578,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGABS",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    588,
+    73,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    548,
+    596,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Abu Zenima Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    582,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    580,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    582,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "South Sinai",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    582,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    581,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    631,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    644,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    646,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    646,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    646,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    646,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    636,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGADA",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    646,
+    74,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    549,
+    654,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Adabiya Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    640,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    638,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    640,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Suez",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    640,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    639,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    689,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    702,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    704,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    704,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    704,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    704,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    694,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGSOK",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    704,
+    73,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    548,
+    712,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Ain Sokhna Port / DP World",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    698,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    696,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    698,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Suez",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    698,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    697,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    747,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    760,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    762,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    762,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    762,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    762,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    752,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "EGOJA",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    762,
+    73,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    548,
+    770,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Al Awja Land Cargo Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    756,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "منفذ بري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    754,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Egypt",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    756,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "North Sinai",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    756,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    755,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    805,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    818,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    820,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    820,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    820,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    820,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    810,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "SABTH",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    820,
+    73,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    548,
+    828,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Al Batha Land Border",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    814,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "منفذ بري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    812,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Saudi Arabia",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    814,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Eastern Province",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    814,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    813,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    863,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    876,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    878,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    878,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    878,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    878,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    868,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "IQFAW",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    878,
+    70,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    545,
+    886,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Al Faw Grand Port",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    872,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "ميناء بحري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    870,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "Iraq",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    872,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Basra",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    872,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    871,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    921,
+    210,
+    36
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    934,
+    34,
+    23
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    936,
+    28,
+    21
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    936,
+    28,
+    21
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    936,
+    28,
+    21
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    936,
+    28,
+    21
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    926,
+    140,
+    31
+   ]
+  },
+  {
+   "label": "AEGHW",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    936,
+    77,
+    21
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    552,
+    944,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "Al Ghuwaifat Land Border Crossing",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    930,
+    311,
+    27
+   ]
+  },
+  {
+   "label": "منفذ بري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    928,
+    140,
+    29
+   ]
+  },
+  {
+   "label": "United Arab Emirates",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    930,
+    207,
+    27
+   ]
+  },
+  {
+   "label": "Abu Dhabi",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    930,
+    207,
+    27
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    929,
+    95,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    979,
+    210,
+    58
+   ]
+  },
+  {
+   "label": "نسخ ملخص بيانات المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    992,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    994,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    994,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    994,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المنفذ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    994,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    984,
+    140,
+    47
+   ]
+  },
+  {
+   "label": "AEDWC",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    994,
+    76,
+    27
+   ]
+  },
+  {
+   "label": "Al Maktoum Cargo Airport / DWC",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    988,
+    311,
+    40
+   ]
+  },
+  {
+   "label": "مطار جوي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    933,
+    986,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "United Arab Emirates",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1073,
+    988,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "Dubai",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1281,
+    988,
+    207,
+    39
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    987,
+    95,
+    42
+   ]
+  },
+  {
+   "label": "الصفحة الأولى",
+   "tooltip": null,
+   "enabled": false,
+   "icon_only": false,
+   "bounds": [
+    1420,
+    962,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الصفحة السابقة",
+   "tooltip": null,
+   "enabled": false,
+   "icon_only": false,
+   "bounds": [
+    1446,
+    962,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الصفحة التالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1519,
+    962,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الصفحة الأخيرة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1545,
+    962,
+    26,
+    26
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود المنفذ، الاسم، المدينة...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "كود المنفذ",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    521,
+    132,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 194,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "كود المنفذ",
+    "اسم المنفذ أو الميناء",
+    "النوع",
+    "الدولة",
+    "المدينة",
+    "الحالة"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 7,
+  "buttons": 248,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 1
+ }
+}

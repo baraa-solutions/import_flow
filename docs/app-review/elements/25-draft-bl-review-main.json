@@ -1,0 +1,973 @@
+{
+ "screen_nn": "25",
+ "screen_slug": "draft-bl-review",
+ "state": "main",
+ "screenshot": "../screenshots/25-draft-bl-review-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "BILL OF LADING (DRAFT)"
+  },
+  {
+   "text": "NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY"
+  },
+  {
+   "text": "SHIPPER / EXPORTER:"
+  },
+  {
+   "text": "CARRIER'S AGENTS ENDORSEMENTS:"
+  },
+  {
+   "text": "SHIPPER'S LOAD, STOW AND COUNT; FCL/FCL; SAID TO CONTAIN"
+  },
+  {
+   "text": "Standard International Maritime Carrier Endorsement"
+  },
+  {
+   "text": "CONSIGNEE:"
+  },
+  {
+   "text": "PORT OF DISCHARGE AGENT:"
+  },
+  {
+   "text": "NOTIFY PARTY:"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nمراجعة مسودات بوالص الشحن\n24H LIVE",
+  "Draft B/L Review & Approval\nDraft B/L Review",
+  "1. ملخص الشحنة المرجعي كشكل بوليصة شحن\nالبيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد وبيان العبوة والحجز الملاحي ومعايير نافذة (ACID)"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:45",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    577,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    704,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    810,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    840,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    866,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    894,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    942,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    968,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    996,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1086,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1114,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1140,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "متطلبات واشتراطات الاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الاستعلام الذكي عن الشحنات وسجل الأسعار",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    639,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "اعتمادات الميزانية وسداد الموردين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    666,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    798,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الرقم التعريفي المبدئي للشحنة ACID",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    957,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "النموذج الإحصائي والتحويل البنكي نموذج 4",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    984,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1116,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مراجعة مسودات بوالص الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1143,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1275,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مراجعة مسودات بوالص الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1302,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1433,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    86,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    879,
+    86,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "البحث ونسخ مسودة سابقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1070,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "توليد وميكنة المخاطبات والخطابات الرسمية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    80,
+    271,
+    43
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1406,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1454,
+    82,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "1. ورقة المراجعة والتدقيق",
+   "tooltip": "1. ورقة المراجعة والتدقيق",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    262,
+    137,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "2. تقرير التعديلات وخطاب الخط الملاحي",
+   "tooltip": "2. تقرير التعديلات وخطاب الخط الملاحي",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    262,
+    186,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "3. إدارة النسخ والإصدارات",
+   "tooltip": "3. إدارة النسخ والإصدارات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    262,
+    236,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "4. الاعتماد الثنائي",
+   "tooltip": "4. الاعتماد الثنائي",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    262,
+    285,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "5. السجل النهائي المعتمد",
+   "tooltip": "5. السجل النهائي المعتمد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    262,
+    335,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "ورقة مراجعة واعتماد مسودة بوليصة الشحن",
+   "tooltip": "مطابقة تامة 100% جاهزة للاعتماد | يقوم النظام تلقائياً باستدعاء كافة البيانات المرجعية للشحنة من الحجز الملاحي وبيان العبوة المعتمد، ومقارنتها مباشرة بمسودة الخط الملاحي. | ملف الشحنة الاستيرادي * | FILE-2026-0006 (IMP-2026-0006) - Nile Delta Electronics S.A.E / الدلتا للإلكترونيات (Gujarat Polymers Pvt. Ltd)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    495,
+    149,
+    1085,
+    196
+   ]
+  },
+  {
+   "label": "البحث ونسخ مسودة سابقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    837,
+    173,
+    175,
+    41
+   ]
+  },
+  {
+   "label": "تنزيل PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1024,
+    174,
+    94,
+    40
+   ]
+  },
+  {
+   "label": "تنزيل Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1130,
+    174,
+    100,
+    40
+   ]
+  },
+  {
+   "label": "تحديث ومقارنة البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    263,
+    196,
+    58
+   ]
+  },
+  {
+   "label": "📥 استخراج ذكي من ملفات ومسودات البوليصة",
+   "tooltip": "ارفع ملف المسودة مباشرة من الخط الملاحي أو الصق نص المسودة للاستخراج والمطابقة الآلية الفورية | PDF | Word (.docx) | Excel (.xlsx) | Text / OCR | أو الصق نص المسودة يدوياً:",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    495,
+    361,
+    1085,
+    230
+   ]
+  },
+  {
+   "label": "📁 رفع واستخراج ملف المسودة (PDF، Word، Excel)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    515,
+    444,
+    342,
+    55
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1121,
+    632,
+    82,
+    45
+   ]
+  },
+  {
+   "label": "طباعة البوليصة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1212,
+    632,
+    123,
+    45
+   ]
+  },
+  {
+   "label": "تنزيل PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1343,
+    632,
+    101,
+    45
+   ]
+  },
+  {
+   "label": "تنزيل Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1452,
+    632,
+    108,
+    45
+   ]
+  },
+  {
+   "label": "B/L NO: DRAFT-BL",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1254,
+    708,
+    101,
+    17
+   ]
+  },
+  {
+   "label": "BOOKING REF: BKG-REF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1233,
+    725,
+    123,
+    16
+   ]
+  },
+  {
+   "label": "Gujarat Polymers Pvt. Ltd",
+   "tooltip": "Address: GIDC Vapi, Gujarat | Phone: +91 260 243 8810",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    524,
+    780,
+    148,
+    48
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": "Address: Industrial Zone 3, 10th of Ramadan City, Sharqia | Phone: +20 55 441 2290",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    524,
+    864,
+    306,
+    49
+   ]
+  },
+  {
+   "label": "Port of Discharge (POD)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    864,
+    123,
+    16
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": "Address: Industrial Zone 3, 10th of Ramadan City, Sharqia | Phone: +20 55 441 2290",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    524,
+    950,
+    306,
+    49
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 9,
+  "buttons": 75,
+  "fields": 1,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

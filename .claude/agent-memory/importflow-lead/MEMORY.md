@@ -6,11 +6,11 @@
   Python 3.12 (missing typing/schema imports) plus environment-dependent tests. Check with `/ci-status`.
 - Consequence: no GitHub Release after v1.0.60 was published, while `version.json` on main advertised newer
   versions -> in-app update downloads 404. `/release-check` flags this ("Installer published").
-- Auth gap closed in working tree 2026-09-24 (router-level get_current_user, 9 public routes) — check `git log`
-  whether it was committed; open items listed in history/2026-09-24.md. Tests use a conftest seam
+- Auth gap closed and committed 2026-09-24 (406dba5; router-level get_current_user, 9 public routes); Phase-2 auth items in history/2026-09-24.md. Tests use a conftest seam
   (`_dev_bypass_fallback_user` -> transient ADMIN); `test_route_auth_coverage.py` guards new routes.
-- Local Flutter 3.44.6 cannot compile `app_theme.dart` (CardTheme/DialogTheme) -> ~270 flutter test files fail to load
-  and the app cannot run for screenshots. CI Flutter is unpinned `stable`. Fix before any UI/app-review work.
+- Flutter pinned to 3.44.6 (pubspec + CI) in 0b9db72; flutter test green (perf tag skipped by default).
+  This laptop has NO Visual Studio -> `flutter build windows` impossible; app-review (docs/prompts/app-review.md) blocked on it.
+- Locale bug: main.dart has no supportedLocales -> localeOf = en_US, Arabic users see English in ~84 files.
 - `import main` runs SchemaUpgradeService on DATABASE_PATH and writes snapshots to `backups/`: always point
   DATABASE_PATH at a scratch copy for probes.
 - Auto-updater runs the downloaded installer with no SHA-256 / signature verification.

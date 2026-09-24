@@ -1,0 +1,278 @@
+{
+ "screen_nn": "39",
+ "screen_slug": "customs-clearance",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/39-customs-clearance-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "مطالبة الرسوم والضرائب الجمركية (بالجنيه المصري):"
+  }
+ ],
+ "merged_containers": [
+  "رفع الإقرار الجمركي\nتسجيل معاملة تخليص جمركي وميناء جديدة"
+ ],
+ "buttons": [
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1100,
+    266,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "ملف الشحنة الاستيرادية المرتكز عليه *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    460,
+    324,
+    680,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    633,
+    386,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    863,
+    386,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "المسار الجمركي *",
+   "tooltip": "🔴 مسار أحمر (معاينة وعينات)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    804,
+    448,
+    336,
+    52
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    953,
+    686,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "حفظ المعاملة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1025,
+    676,
+    115,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "رقم الإقرار الجمركي (46 ك.م)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    460,
+    384,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "رقم إذن التسليم",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    689,
+    384,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "أيام السماح بالميناء",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    919,
+    384,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "اسم الجمرك والدائرة الجمركية *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    460,
+    448,
+    344,
+    58
+   ]
+  },
+  {
+   "label": "ضريبة الوارد",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    460,
+    540,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "ضريبة القيمة المضافة",
+   "label_above": "مطالبة الرسوم والضرائب الجمركية (بالجنيه المصري):",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    689,
+    540,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "ضريبة الجدول",
+   "label_above": "مطالبة الرسوم والضرائب الجمركية (بالجنيه المصري):",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    919,
+    540,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "أرباح تجارية وصناعية",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    460,
+    600,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "رسوم معملية وخدمات",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    689,
+    600,
+    229,
+    58
+   ]
+  },
+  {
+   "label": "التقديري من النظام",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    919,
+    600,
+    229,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 2,
+  "buttons": 7,
+  "fields": 10,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

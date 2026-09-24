@@ -1,0 +1,726 @@
+{
+ "screen_nn": "35",
+ "screen_slug": "freight-booking",
+ "state": "tab-1-freight-bookings-registry",
+ "screenshot": "../screenshots/35-freight-booking-tab-1-freight-bookings-registry.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "عمليات البيانات والتصدير/الاستيراد"
+  },
+  {
+   "text": "لا توجد حجوزات شحن مسجلة بالنظام. اضغط إضافة حجز جديد."
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nحجز النولون وتأكيد الخط الملاحي\n24H LIVE\nFreight Booking & Carrier Allocation\nContainer Allocation\nOperations & Stages"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:52",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    581,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    707,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    814,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    844,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    870,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    898,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    946,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    972,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1000,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1090,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1118,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1144,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "منظومة الشحن المسبق والبلوك تشين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "حجز النولون وتأكيد الخط الملاحي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    638,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "Freight Bookings Registry",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    177,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "New Booking Request",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    217,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "تكويد خط ملاحي بالذكاء الاصطناعي ✨",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    84,
+    261,
+    46
+   ]
+  },
+  {
+   "label": "تكويد شركة شحن بالذكاء الاصطناعي ✨",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1233,
+    84,
+    118,
+    46
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1506,
+    87,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    658,
+    91,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    91,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    726,
+    171,
+    115,
+    40
+   ]
+  },
+  {
+   "label": "تصدير Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    849,
+    171,
+    100,
+    40
+   ]
+  },
+  {
+   "label": "تصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    957,
+    171,
+    94,
+    40
+   ]
+  },
+  {
+   "label": "استيراد Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1059,
+    171,
+    104,
+    40
+   ]
+  },
+  {
+   "label": "إنشاء حجز شحن جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    508,
+    252,
+    177,
+    54
+   ]
+  },
+  {
+   "label": "بحث واستنساخ حجز سابق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    703,
+    252,
+    199,
+    54
+   ]
+  },
+  {
+   "label": "نسخ كجدول (TSV)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    920,
+    252,
+    153,
+    54
+   ]
+  },
+  {
+   "label": "تصدير سجل الحجوزات إلى Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1091,
+    252,
+    230,
+    54
+   ]
+  },
+  {
+   "label": "تصدير سجل الحجوزات إلى PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1339,
+    252,
+    223,
+    54
+   ]
+  },
+  {
+   "label": "تصفية حسب الحالة",
+   "tooltip": "جميع الحالات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    508,
+    378,
+    1054,
+    48
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1361,
+    87,
+    132,
+    40
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود الحجز أو رقم التأكيد...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    508,
+    316,
+    1062,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 2,
+  "buttons": 55,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

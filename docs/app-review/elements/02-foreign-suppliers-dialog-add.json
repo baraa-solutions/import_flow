@@ -1,0 +1,371 @@
+{
+ "screen_nn": "02",
+ "screen_slug": "foreign-suppliers",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/02-foreign-suppliers-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "اسم شركة المورد *"
+  },
+  {
+   "text": "*"
+  },
+  {
+   "text": "معرف المصدر الأجنبي (نافذة) *"
+  },
+  {
+   "text": "معرف منصة كارجو إكس"
+  },
+  {
+   "text": "دولة المورد *"
+  },
+  {
+   "text": "كود الدولة المعتمد *"
+  },
+  {
+   "text": "العنوان بالكامل *"
+  },
+  {
+   "text": "البريد الإلكتروني الرئيسي"
+  },
+  {
+   "text": "بريد إلكتروني إضافي"
+  },
+  {
+   "text": "رقم الهاتف الأرضي"
+  },
+  {
+   "text": "رقم المحمول"
+  },
+  {
+   "text": "رقم الفاكس"
+  },
+  {
+   "text": "الموقع الإلكتروني"
+  },
+  {
+   "text": "بيانات البنك المستفيد والسويفت:"
+  },
+  {
+   "text": "اسم البنك المستفيد"
+  },
+  {
+   "text": "كود السويفت البنكي"
+  },
+  {
+   "text": "رقم الحساب البنكي"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "إغلاق النافذة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1061,
+    68,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "نوع المورد *",
+   "tooltip": "مصنع أو جهة إنتاج",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    499,
+    241,
+    293,
+    48
+   ]
+  },
+  {
+   "label": "نوع التسجيل والتوثيق *",
+   "tooltip": "قيد مصنع",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    808,
+    241,
+    293,
+    48
+   ]
+  },
+  {
+   "label": "إلغاء وإغلاق ✕",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    739,
+    872,
+    143,
+    58
+   ]
+  },
+  {
+   "label": "حفظ بيانات المورد الأجنبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    894,
+    872,
+    211,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "مثال: شركة الصناعات العامة المحدودة",
+   "label_above": "اسم شركة المورد *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    176,
+    610,
+    55
+   ]
+  },
+  {
+   "label": "مثال: رقم القيد بالمصدر الأجنبي",
+   "label_above": "معرف المصدر الأجنبي (نافذة) *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "دولة المورد *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    331,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "مثال: معرف الحساب في كارجو إكس",
+   "label_above": "معرف منصة كارجو إكس",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "كود الدولة المعتمد *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    330,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "إيطاليا، الصين، ألمانيا، إلخ",
+   "label_above": "دولة المورد *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "العنوان بالكامل *",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    422,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "كود الدولة حرفين",
+   "label_above": "كود الدولة المعتمد *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    422,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "مثال: شارع الصناعة، مبنى 7، المدينة، الدولة",
+   "label_above": "العنوان بالكامل *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "البريد الإلكتروني الرئيسي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    513,
+    610,
+    55
+   ]
+  },
+  {
+   "label": "export@supplier.com",
+   "label_above": "البريد الإلكتروني الرئيسي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم الهاتف الأرضي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    603,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "sales@supplier.com",
+   "label_above": "بريد إلكتروني إضافي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم الفاكس",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    603,
+    301,
+    55
+   ]
+  },
+  {
+   "label": "رقم الهاتف مع كود الدولة",
+   "label_above": "رقم الهاتف الأرضي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "الموقع الإلكتروني",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    693,
+    198,
+    55
+   ]
+  },
+  {
+   "label": "رقم المحمول مع كود الدولة",
+   "label_above": "رقم المحمول",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    705,
+    693,
+    198,
+    55
+   ]
+  },
+  {
+   "label": "رقم الفاكس مع كود الدولة",
+   "label_above": "رقم الفاكس",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    911,
+    693,
+    198,
+    55
+   ]
+  },
+  {
+   "label": "www.supplier.com",
+   "label_above": "الموقع الإلكتروني",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "بيانات البنك المستفيد والسويفت:",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    499,
+    783,
+    610,
+    55
+   ]
+  },
+  {
+   "label": "مثال: بنك الصين، دويتشه بنك",
+   "label_above": "اسم البنك المستفيد",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "كود السويفت البنكي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    512,
+    917,
+    584,
+    55
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 306,
+   "cells_left_to_right": [
+    "معرف المصدر الأجنبي (نافذة) *",
+    "*",
+    "معرف منصة كارجو إكس"
+   ]
+  },
+  {
+   "y": 396,
+   "cells_left_to_right": [
+    "دولة المورد *",
+    "*",
+    "كود الدولة المعتمد *",
+    "*"
+   ]
+  },
+  {
+   "y": 668,
+   "cells_left_to_right": [
+    "رقم الهاتف الأرضي",
+    "رقم المحمول",
+    "رقم الفاكس"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 17,
+  "buttons": 5,
+  "fields": 13,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 3
+ }
+}

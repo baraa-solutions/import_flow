@@ -1,0 +1,235 @@
+{
+ "screen_nn": "47",
+ "screen_slug": "file-closure",
+ "state": "tab-2-close-import-file",
+ "screenshot": "../screenshots/47-file-closure-tab-2-close-import-file.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "إصدار شهادة إغلاق وأرشفة شحنة نهائياً"
+  },
+  {
+   "text": "نسبة اكتمال المهام والأوراق الكلية:"
+  },
+  {
+   "text": "100% (5/5)"
+  },
+  {
+   "text": "100",
+   "role": "progressbar"
+  },
+  {
+   "text": "💡 يمكنك استخدام زر \"حفظ كمسودة مؤقتة\" لحفظ تقدم الإنجاز ومتابعة باقي الأوراق لاحقاً."
+  },
+  {
+   "text": "قائمة التحقق الإلزامية للإغلاق:"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "اختر ملف الشحنة للإغلاق النهائي *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    365,
+    98,
+    870,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1187,
+    540,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1187,
+    600,
+    48,
+    28
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1187,
+    672,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية 🔄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1075,
+    652,
+    160,
+    53
+   ]
+  },
+  {
+   "label": "تفريغ وبدء تسجيل جديد 🔄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1042,
+    721,
+    193,
+    53
+   ]
+  },
+  {
+   "label": "حفظ كمسودة مؤقتة 💾",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1070,
+    790,
+    165,
+    45
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1171,
+    851,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "اعتماد الإغلاق والأرشفة النهائية ✅",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1017,
+    907,
+    218,
+    45
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "اسم المراجع المسؤول *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    365,
+    538,
+    878,
+    58
+   ]
+  },
+  {
+   "label": "مستودع الأرشيف الرقمي *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    365,
+    598,
+    878,
+    36
+   ]
+  },
+  {
+   "label": "ملاحظات الأرشفة والتدقيق",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    365,
+    658,
+    876,
+    82
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "1️⃣ استلام المستندات الأصلية والتبادل الإلكتروني",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "2️⃣ إتمام الإفراج الجمركي وسداد الضرائب والإيقاف الجمركي (إقرار 46)",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "3️⃣ استلام البضائع بالمخازن وإصدار إذن الإضافة",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "4️⃣ التسوية المالية وتوزيع المصاريف وحساب تكلفة الوصول",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "5️⃣ إغلاق كافة المهام والتنبيهات المرتبطة بالشحنة",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 7,
+  "buttons": 9,
+  "fields": 3,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

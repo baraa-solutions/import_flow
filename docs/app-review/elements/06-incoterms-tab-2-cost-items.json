@@ -1,0 +1,2892 @@
+{
+ "screen_nn": "06",
+ "screen_slug": "incoterms",
+ "state": "tab-2-cost-items",
+ "screenshot": "../screenshots/06-incoterms-tab-2-cost-items.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "عرض البنود المتوقفة:"
+  },
+  {
+   "text": "الإجراءات"
+  },
+  {
+   "text": "كود البند"
+  },
+  {
+   "text": "اسم بند التكلفة"
+  },
+  {
+   "text": "التصنيف"
+  },
+  {
+   "text": "الحالة"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالشروط التجارية الدولية\n24H LIVE\nالشروط التجارية الدولية\nإصدارات شروط التجارة الدولية، بنود التكلفة ومصفوفة توزيع المسؤوليات"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:27",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    539,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    665,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    772,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    802,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    828,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    856,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    903,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    929,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    957,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1047,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1075,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1101,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    791,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "المشاريع ومراكز التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    950,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الموانئ والمنافذ الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1109,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشروط التجارية الدولية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1136,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1267,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إضافة بند تكلفة جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    160,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير شروط التجارة (جدول بيانات)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    133,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "شروط التجارة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    271,
+    182,
+    438,
+    46
+   ]
+  },
+  {
+   "label": "بنود التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    709,
+    182,
+    438,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    273,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    290,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    290,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    290,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    290,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    290,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    273,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    285,
+    72,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "FORM4",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    285,
+    72,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    273,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "L/C Or Form 4 fees",
+   "tooltip": "L/C or Form 4 bank charges (Contractual)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    285,
+    231,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    273,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "بنوك وتمويل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    285,
+    71,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    273,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    285,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    335,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    352,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    352,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    352,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    352,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    352,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    335,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    347,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "DUTY",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    347,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    335,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Tax & Customs Duties",
+   "tooltip": "Customs duty, VAT, and taxes",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    347,
+    163,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    335,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "جمارك وضرائب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    347,
+    85,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    335,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    347,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    397,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    414,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    414,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    397,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    409,
+    57,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "ICLR",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    409,
+    57,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    397,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Import Clearance fees",
+   "tooltip": "Import customs brokerage and clearance",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    409,
+    228,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    397,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "جمارك وضرائب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    409,
+    85,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    397,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    409,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    459,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    476,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    476,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    476,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    476,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    476,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    459,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    471,
+    61,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "XCLR",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    471,
+    61,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    459,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Export Clearance fees",
+   "tooltip": "Export customs clearance and licenses",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    471,
+    218,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    459,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "جمارك وضرائب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    471,
+    85,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    459,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    471,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    521,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    538,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    538,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    538,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    538,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    538,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    521,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    533,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "DTRK",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    533,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    521,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Trucking Destination fees",
+   "tooltip": "Destination inland transport to warehouse",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    533,
+    233,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    521,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "شحن ونولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    533,
+    71,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    521,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    533,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    583,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    600,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    600,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    600,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    600,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    600,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    583,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    595,
+    51,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "INS",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    595,
+    51,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    583,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Insurance fees",
+   "tooltip": "Marine and air cargo insurance",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    595,
+    172,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    583,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "شحن ونولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    595,
+    71,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    583,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    595,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    645,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    662,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    662,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    662,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    662,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    662,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    645,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    657,
+    54,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "OFR",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    657,
+    54,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    645,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "O/F fees",
+   "tooltip": "International ocean / air freight charges",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    657,
+    221,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    645,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "شحن ونولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    657,
+    71,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    645,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    657,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    707,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    724,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    724,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    724,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    724,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    724,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    707,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    719,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "OTRK",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    719,
+    62,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    707,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Trucking Origin fees",
+   "tooltip": "Trucking origin transport",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    719,
+    137,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    707,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "شحن ونولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    719,
+    71,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    707,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    719,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    769,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    786,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    786,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    786,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    786,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    786,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    769,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    781,
+    58,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "DISC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    781,
+    58,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    769,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Disclaim letter",
+   "tooltip": "Disclaimer letter charges (Contractual)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    781,
+    215,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    769,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "مصاريف أخرى",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    781,
+    79,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    769,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    781,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    831,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    848,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    848,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    848,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    848,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    848,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    831,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    843,
+    56,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "DOC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    843,
+    56,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    831,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Documentation fees",
+   "tooltip": "Documentation and courier charges",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    843,
+    199,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    831,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "مصاريف أخرى",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    843,
+    79,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    831,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    843,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    893,
+    190,
+    62
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    910,
+    37,
+    27
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    910,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    910,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    910,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    910,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    893,
+    110,
+    47
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    905,
+    65,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "XCMP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    905,
+    65,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    893,
+    785,
+    61
+   ]
+  },
+  {
+   "label": "Compliance Fees",
+   "tooltip": "Regulatory compliance fees (Contractual)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    905,
+    231,
+    37
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    893,
+    130,
+    46
+   ]
+  },
+  {
+   "label": "مصاريف أخرى",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    905,
+    79,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    893,
+    85,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    905,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    955,
+    190,
+    36
+   ]
+  },
+  {
+   "label": "نسخ ملخص بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    288,
+    972,
+    37,
+    19
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    332,
+    972,
+    28,
+    19
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    364,
+    972,
+    28,
+    19
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    396,
+    972,
+    28,
+    19
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل بند التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    428,
+    972,
+    28,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    462,
+    955,
+    110,
+    36
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    478,
+    967,
+    66,
+    23
+   ]
+  },
+  {
+   "label": "نسخ القيمة إلى الحافظة",
+   "tooltip": "XINSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    478,
+    967,
+    66,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    872,
+    955,
+    785,
+    36
+   ]
+  },
+  {
+   "label": "Origin Inspection",
+   "tooltip": "Pre-shipment inspection and quality check",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    967,
+    235,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1357,
+    955,
+    130,
+    36
+   ]
+  },
+  {
+   "label": "مصاريف أخرى",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1373,
+    967,
+    79,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1487,
+    955,
+    85,
+    36
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1503,
+    967,
+    41,
+    22
+   ]
+  },
+  {
+   "label": "مصفوفة المسؤوليات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1146,
+    182,
+    438,
+    46
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بالكود، الاسم، أو التصنيف...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    501,
+    133,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "switch",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 242,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "كود البند",
+    "اسم بند التكلفة",
+    "التصنيف",
+    "الحالة"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 6,
+  "buttons": 233,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 1
+ }
+}

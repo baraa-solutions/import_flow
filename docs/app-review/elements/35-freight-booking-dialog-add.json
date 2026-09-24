@@ -1,0 +1,353 @@
+{
+ "screen_nn": "35",
+ "screen_slug": "freight-booking",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/35-freight-booking-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "✅ تم الإبحار في الموعد المجدول (لا توجد تأخيرات)"
+  },
+  {
+   "text": "موعد الوصول للمخزن المتوقع: 2026-10-24"
+  },
+  {
+   "text": "ℹ️ ملاحظة: تخصيص الحاويات التفصيلي، أرقام السيل، أوزان VGM، والفحص يتم في مرحلة (متابعة وتجهيز التحميل)."
+  }
+ ],
+ "merged_containers": [
+  "إنشاء حجز شحن ملاحي"
+ ],
+ "buttons": [
+  {
+   "label": "إغلاق النافذة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1240,
+    93,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "ملف الشحنة الاستيرادية *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    237,
+    474,
+    48
+   ]
+  },
+  {
+   "label": "الخط الملاحي *",
+   "tooltip": "Kuehne Line Logistics Egypt",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    301,
+    474,
+    48
+   ]
+  },
+  {
+   "label": "وكيل الشحن",
+   "tooltip": "Kuehne Line Logistics Egypt",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    806,
+    301,
+    474,
+    48
+   ]
+  },
+  {
+   "label": "ميناء التحميل *",
+   "tooltip": "10th of Ramadan Dry Port",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    361,
+    474,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الوصول *",
+   "tooltip": "6th of October Dry Port / ODPI",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    806,
+    361,
+    474,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ المغادرة المتوقع *",
+   "tooltip": "2026-09-29",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    421,
+    312,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ الوصول المتوقع *",
+   "tooltip": "2026-10-17",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    644,
+    421,
+    312,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ المغادرة الفعلي",
+   "tooltip": "لم يحدد بعد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    968,
+    421,
+    312,
+    48
+   ]
+  },
+  {
+   "label": "حالة الحجز *",
+   "tooltip": "مسودة",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    968,
+    535,
+    312,
+    48
+   ]
+  },
+  {
+   "label": "نوع الحاوية المطلوب حجزها",
+   "tooltip": "40HC High Cube",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    663,
+    632,
+    48
+   ]
+  },
+  {
+   "label": "إغلاق وتراجع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    363,
+    854,
+    122,
+    53
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    854,
+    142,
+    53
+   ]
+  },
+  {
+   "label": "تفريغ وبدء تسجيل جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    671,
+    854,
+    175,
+    53
+   ]
+  },
+  {
+   "label": "حفظ مسودة ومتابعة لاحقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    868,
+    854,
+    189,
+    53
+   ]
+  },
+  {
+   "label": "حفظ وتأكيد حجز الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1079,
+    853,
+    201,
+    54
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "رقم تأكيد الحجز *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    806,
+    235,
+    482,
+    58
+   ]
+  },
+  {
+   "label": "الأيام المجانية بالميناء *",
+   "label_above": "✅ تم الإبحار في الموعد المجدول (لا توجد تأخيرات)",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    320,
+    533,
+    320,
+    58
+   ]
+  },
+  {
+   "label": "أيام الوصول للمخزن",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    644,
+    533,
+    320,
+    58
+   ]
+  },
+  {
+   "label": "اسم السفينة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    320,
+    597,
+    320,
+    58
+   ]
+  },
+  {
+   "label": "رقم الرحلة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    644,
+    597,
+    320,
+    58
+   ]
+  },
+  {
+   "label": "إذن الإفراج عن الحاويات",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    968,
+    597,
+    320,
+    58
+   ]
+  },
+  {
+   "label": "عدد الحاويات المحجوزة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "ℹ️ ملاحظة: تخصيص الحاويات التفصيلي، أرقام السيل، أوزان VGM، والفحص يتم في مرحلة (متابعة وتجهيز التحميل).",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    964,
+    661,
+    324,
+    58
+   ]
+  }
+ ],
+ "tabs": [
+  {
+   "label": "1. تفاصيل الحجز وعروض الشحن",
+   "selected": true
+  },
+  {
+   "label": "2. بنود التكلفة والنولون",
+   "selected": false
+  }
+ ],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 4,
+  "buttons": 16,
+  "fields": 7,
+  "tabs": 2,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

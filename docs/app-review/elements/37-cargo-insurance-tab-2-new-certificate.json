@@ -1,0 +1,391 @@
+{
+ "screen_nn": "37",
+ "screen_slug": "cargo-insurance",
+ "state": "tab-2-new-certificate",
+ "screenshot": "../screenshots/37-cargo-insurance-tab-2-new-certificate.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "بيانات الشحن والرحلة وخط السير"
+  },
+  {
+   "text": "شروط التغطية التأمينية وملاحق المخاطر الإضافية"
+  },
+  {
+   "text": "📊 محاكاة وحساب قسط التأمين الفوري"
+  },
+  {
+   "text": "قيمة البضاعة سيف شاملة النولون:"
+  },
+  {
+   "text": "0.00 USD"
+  },
+  {
+   "text": "القيمة المؤمنة الإجمالية (110%):"
+  },
+  {
+   "text": "قسط التأمين الأساسي (0.25%):"
+  },
+  {
+   "text": "ملحق الحرب والإضرابات (0.05%):"
+  },
+  {
+   "text": "+ 0.00 USD"
+  },
+  {
+   "text": "صافي القسط بعد الحد الأدنى:"
+  },
+  {
+   "text": "30.00 USD"
+  },
+  {
+   "text": "رسوم إصدار ودمغات إدارية:"
+  },
+  {
+   "text": "+ 15.00 USD"
+  },
+  {
+   "text": "الضرائب والدمغات (5%):"
+  },
+  {
+   "text": "+ 2.25 USD"
+  },
+  {
+   "text": "إجمالي قسط التأمين المستحق:"
+  },
+  {
+   "text": "47.25 USD"
+  },
+  {
+   "text": "وصف البضاعة والطرود المشحونة"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "ربط ملف الشحنة الاستيرادية *",
+   "tooltip": "اختر ملف الشحنة لاستدعاء البيانات تلقائياً...",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    245,
+    612,
+    48
+   ]
+  },
+  {
+   "label": "نوع وثيقة التأمين *",
+   "tooltip": "وثيقة محددة لشحنة واحدة",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    589,
+    307,
+    301,
+    48
+   ]
+  },
+  {
+   "label": "وسيلة النقل *",
+   "tooltip": "شحن بحري",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    291,
+    475,
+    190,
+    48
+   ]
+  },
+  {
+   "label": "العملة *",
+   "tooltip": "دولار أمريكي",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    693,
+    614,
+    197,
+    48
+   ]
+  },
+  {
+   "label": "بند التغطية (شروط المعهد) *",
+   "tooltip": "شروط المعهد (أ) — أخطار شاملة معهد المكتتبين (0.25%)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    291,
+    714,
+    586,
+    48
+   ]
+  },
+  {
+   "label": "تضمين ملحق أخطار الحروب والإضرابات (+0.05%)",
+   "tooltip": "ملحق إلزامي للاعتمادات المستندية والتخليص الجمركي للشحنات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    291,
+    770,
+    586,
+    40
+   ]
+  },
+  {
+   "label": "حفظ وإصدار مسودة الوثيقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    927,
+    734,
+    395,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1280,
+    124,
+    40,
+    40
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "المؤمن له (المستورد) *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    278,
+    305,
+    309,
+    58
+   ]
+  },
+  {
+   "label": "شركة التأمين المصدرة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "بيانات الشحن والرحلة وخط السير",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    278,
+    369,
+    309,
+    58
+   ]
+  },
+  {
+   "label": "رقم وثيقة التأمين",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    589,
+    369,
+    309,
+    58
+   ]
+  },
+  {
+   "label": "الخط الملاحي أو الناقل",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    489,
+    473,
+    198,
+    58
+   ]
+  },
+  {
+   "label": "اسم السفينة أو الرحلة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    687,
+    473,
+    198,
+    58
+   ]
+  },
+  {
+   "label": "ميناء الشحن والتصدير *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    291,
+    533,
+    198,
+    58
+   ]
+  },
+  {
+   "label": "ميناء الوصول والتفريغ *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    489,
+    533,
+    198,
+    58
+   ]
+  },
+  {
+   "label": "رقم بوليصة الشحن والتتبع",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    687,
+    533,
+    198,
+    58
+   ]
+  },
+  {
+   "label": "قيمة فاتورة البضاعة فوب *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "شروط التغطية التأمينية وملاحق المخاطر الإضافية",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    278,
+    612,
+    205,
+    58
+   ]
+  },
+  {
+   "label": "تكلفة النولون أو الشحن",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "شروط التغطية التأمينية وملاحق المخاطر الإضافية",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    485,
+    612,
+    205,
+    58
+   ]
+  },
+  {
+   "label": "الوصف الدقيق للبضاعة",
+   "label_above": "وصف البضاعة والطرود المشحونة",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    927,
+    582,
+    401,
+    82
+   ]
+  },
+  {
+   "label": "عدد الطرود",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    927,
+    666,
+    202,
+    58
+   ]
+  },
+  {
+   "label": "الوزن القائم (كجم)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1128,
+    666,
+    202,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 18,
+  "buttons": 8,
+  "fields": 13,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

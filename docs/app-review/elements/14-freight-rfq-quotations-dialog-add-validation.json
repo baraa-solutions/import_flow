@@ -1,0 +1,804 @@
+{
+ "screen_nn": "14",
+ "screen_slug": "freight-rfq-quotations",
+ "state": "dialog-add-validation",
+ "screenshot": "../screenshots/14-freight-rfq-quotations-dialog-add-validation.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "$0"
+  },
+  {
+   "text": "أقل سعر شحن متوفر"
+  },
+  {
+   "text": "أسرع زمن ترانزيت"
+  },
+  {
+   "text": "0 أيام"
+  },
+  {
+   "text": "0"
+  },
+  {
+   "text": "عدد عروض الناقلين"
+  },
+  {
+   "text": "(Freight Quotation AI) استخراج وقراءة عروض أسعار الشحن والنولون ⚡ ✨"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nمقارنة عروض أسعار الشحن\n24H LIVE",
+  "بيانات شحنة طلب عرض الأسعار (Freight RFQ Setup)\n🚚 نوع التحميل والتخزين: \n🚚 اقتراح أعداد وأنواع الحاويات التلقائي:\nلم يتم تحديد حمولة لحساب الحاوية المقترحة [🌟 رص ذكي هجين (أفقي + على السيف)]",
+  "عروض أسعار الخطوط الملاحية والشركات المنافسة"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:35",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    558,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    685,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    792,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    822,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    848,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    876,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    923,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    949,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1095,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1121,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "دراسات ومفاضلة نولون الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مقارنة عروض أسعار الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    638,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "استدعاء طلب مسجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1079,
+    82,
+    172,
+    40
+   ]
+  },
+  {
+   "label": "طلب جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1257,
+    82,
+    114,
+    40
+   ]
+  },
+  {
+   "label": "دراسات النولون والسجلات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1377,
+    74,
+    211,
+    56
+   ]
+  },
+  {
+   "label": "حفظ وتثبيت طلب مقارنة النولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1331,
+    152,
+    248,
+    58
+   ]
+  },
+  {
+   "label": "طي الأداة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    242,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "لصق نص العرض",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    298,
+    377,
+    107,
+    24
+   ]
+  },
+  {
+   "label": "تفريغ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    411,
+    377,
+    54,
+    24
+   ]
+  },
+  {
+   "label": "نموذج تجريبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    471,
+    376,
+    93,
+    26
+   ]
+  },
+  {
+   "label": "رفع مستند عرض السعر 📄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1345,
+    290,
+    220,
+    47
+   ]
+  },
+  {
+   "label": "استخراج وتحليل عروض السعر ⚡",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1345,
+    345,
+    220,
+    47
+   ]
+  },
+  {
+   "label": "ملف الشحنة الاستيرادية (Import File)",
+   "tooltip": "-- غير مرتبط بملف شحنة / None --",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    503,
+    271,
+    48
+   ]
+  },
+  {
+   "label": "وسيلة الشحن (Shipping Method) *",
+   "tooltip": "Ocean FCL (شحن بحري كامل)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1001,
+    503,
+    271,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ جاهزية البضاعة (CRD) *",
+   "tooltip": "2026-10-09",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1285,
+    503,
+    271,
+    48
+   ]
+  },
+  {
+   "label": "ميناء التحميل (POL) *",
+   "tooltip": "Shanghai Port (CN SHA), China",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    567,
+    305,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الوصول (POD) *",
+   "tooltip": "Alexandria Port (EG ALX), Egypt",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    616,
+    567,
+    305,
+    48
+   ]
+  },
+  {
+   "label": "مقارنة الحالتين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1431,
+    686,
+    110,
+    40
+   ]
+  },
+  {
+   "label": "استخراج عروض الأسعار الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    623,
+    811,
+    217,
+    50
+   ]
+  },
+  {
+   "label": "إضافة عرض سعر ناقل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    860,
+    807,
+    188,
+    58
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...",
+   "label_above": "(Freight Quotation AI) استخراج وقراءة عروض أسعار الشحن والنولون ⚡ ✨",
+   "hint": "(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    290,
+    290,
+    1047,
+    126
+   ]
+  },
+  {
+   "label": "عنوان طلب عرض الأسعار *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    582,
+    501,
+    415,
+    58
+   ]
+  },
+  {
+   "label": "إجمالي الحجم (CBM)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    934,
+    565,
+    313,
+    58
+   ]
+  },
+  {
+   "label": "الوزن القائم (Gross Wt kg)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1251,
+    565,
+    313,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "📦 بضائع قابلة للرص",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "🚫 بضائع غير قابلة للرص",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 7,
+  "buttons": 55,
+  "fields": 5,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

@@ -60,3 +60,6 @@ backups/
 .pytest-report.xml
 .pytest-output.txt
 .claude/.cache/
+
+# App review screenshots (local only, not committed)
+docs/app-review/screenshots/

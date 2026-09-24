@@ -1,0 +1,1114 @@
+{
+ "screen_nn": "01",
+ "screen_slug": "import-companies",
+ "state": "main",
+ "screenshot": "../screenshots/01-import-companies-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "عرض الشركات المتوقفة:"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالشركات المستوردة\n24H LIVE\nالشركات المستوردة المصرية\nإدارة بيانات المستوردين والتراخيص الرسمية وتواريخ الصلاحية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:24",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    523,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    650,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    756,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    786,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    812,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    840,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    888,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    914,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    942,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1032,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1060,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1086,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    154,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    474,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إضافة شركة مستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    160,
+    39
+   ]
+  },
+  {
+   "label": "تكويد الشركة بالذكاء الاصطناعي ✨",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    446,
+    131,
+    230,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    684,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير الشركات (جدول)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    133,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشركة",
+   "tooltip": "نشطة | بطاقة استيرادية:  | تسجيل ضريبي:  | سجل تجاري:  | البطاقة الاستيرادية: سارٍ (1558 يوم) | التسجيل الضريبي: سارٍ (1558 يوم) | السجل التجاري: سارٍ (1558 يوم)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    287,
+    198,
+    1281,
+    98
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    287,
+    227,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    338,
+    233,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    370,
+    233,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    402,
+    233,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشركة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    434,
+    233,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: بطاقة استيرادية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    742,
+    253,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    949,
+    221,
+    18,
+    18
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: تسجيل ضريبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    949,
+    253,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: سجل تجاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1128,
+    253,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشركة",
+   "tooltip": "نشطة | بطاقة استيرادية:  | تسجيل ضريبي:  | سجل تجاري:  | البطاقة الاستيرادية: سارٍ (1558 يوم) | التسجيل الضريبي: سارٍ (1558 يوم) | السجل التجاري: سارٍ (1558 يوم)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    287,
+    297,
+    1281,
+    98
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    287,
+    326,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    338,
+    332,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    370,
+    332,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    402,
+    332,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشركة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    434,
+    332,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: بطاقة استيرادية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    742,
+    352,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    876,
+    320,
+    18,
+    18
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: تسجيل ضريبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    949,
+    352,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: سجل تجاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1128,
+    352,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشركة",
+   "tooltip": "نشطة | بطاقة استيرادية:  | تسجيل ضريبي:  | سجل تجاري:  | البطاقة الاستيرادية: سارٍ (1558 يوم) | التسجيل الضريبي: سارٍ (1558 يوم) | السجل التجاري: سارٍ (1558 يوم)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    287,
+    396,
+    1281,
+    98
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    287,
+    425,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    338,
+    431,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    370,
+    431,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    402,
+    431,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشركة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    434,
+    431,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    938,
+    419,
+    18,
+    18
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: بطاقة استيرادية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    742,
+    451,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: تسجيل ضريبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    949,
+    451,
+    16,
+    16
+   ]
+  },
+  {
+   "label": "نسخ البيانات إلى الحافظة: سجل تجاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1128,
+    451,
+    16,
+    16
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث باسم المستورد، رقم القيد، أو رقم التسجيل الضريبي...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    737,
+    133,
+    218,
+    42
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    541,
+    219,
+    408,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    641,
+    253,
+    103,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    872,
+    253,
+    79,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    1067,
+    253,
+    63,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    541,
+    318,
+    335,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    641,
+    352,
+    103,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    872,
+    352,
+    79,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    1067,
+    352,
+    63,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    541,
+    417,
+    397,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    641,
+    451,
+    103,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    872,
+    451,
+    79,
+    23
+   ]
+  },
+  {
+   "label": "",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    1067,
+    451,
+    63,
+    23
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "switch",
+   "checked": "true",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 1,
+  "buttons": 71,
+  "fields": 14,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}
