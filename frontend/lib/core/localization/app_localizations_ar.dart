@@ -11006,6 +11006,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get updateFailedRollbackHint => 'لم يكتمل فحص ما بعد التحديث. يمكن لمدير النظام التراجع إلى الإصدار السابق.';
   @override String updateCurrentVersion(String version) => 'الإصدار الحالي: $version';
   @override String get updateNoPermission => 'ليس لديك صلاحية تثبيت تحديثات النظام (مطلوب صلاحية مدير النظام)';
+  @override String updateRollbackSucceeded(String version) => 'تم التراجع بنجاح إلى الإصدار $version واسترجاع قاعدة البيانات من النسخة الاحتياطية';
+  @override String get updateRollbackFailed => 'فشل التراجع عن التحديث';
 }
 
 

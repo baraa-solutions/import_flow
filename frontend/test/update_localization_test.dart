@@ -86,6 +86,8 @@ void main() {
         l.updateCheckOffline('2026-09-24 10:00'),
         l.updateDevModeDisabled,
         l.updateNoPermission,
+        l.updateRollbackSucceeded('2.0.3'),
+        l.updateRollbackFailed,
       ];
 
   test('values are non-empty and differ between ar and en', () {

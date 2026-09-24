@@ -111,6 +111,9 @@ class _AppUpdatePanelState extends ConsumerState<AppUpdatePanel> {
     final checkAsync = ref.watch(updateCheckProvider);
     final check = checkAsync.valueOrNull;
     final canInstall = ref.watch(canInstallUpdatesProvider);
+    // No rollback right after a rollback (last-result kind == "rollback").
+    final canRollback = canInstall &&
+        (ref.watch(lastUpdateResultProvider).valueOrNull?.allowsRollback ?? true);
     final status = canInstall ? ref.watch(updateStatusProvider).valueOrNull : null;
     final stagedVersion =
         status != null && status.state == UpdateState.ready ? status.version : null;
@@ -175,7 +178,7 @@ class _AppUpdatePanelState extends ConsumerState<AppUpdatePanel> {
                   onPressed: () => _installStaged(stagedVersion),
                 ),
               if (canInstall) const UpdateFromFileButton(),
-              if (canInstall)
+              if (canRollback)
                 AppButton(
                   key: AppUpdatePanel.rollbackKey,
                   label: l.updateRollback,

@@ -1,22 +1,29 @@
 """
 Schema Upgrade Service (SchemaUpgradeService)
 ============================================
-In-place, additive database upgrade run on every backend start:
+In-place database upgrade run on every backend start (update-system-phase2-5-spec.md A.3):
+0. Preflight: classify the DB against the bundled Alembic scripts (read-only). A revision this build
+   does not know (R10) enters maintenance mode before anything is written.
 1. When the code version differs from the last version seen for this DB, takes a verified
    snapshot (SQLite online backup + integrity_check + sha256) into ``<DB folder>/backups``
-   (``auto_pre_upgrade_v...``). No snapshot on ordinary restarts.
-2. Prunes old ``auto_pre_upgrade_*`` snapshots, always keeping the newest one and never touching
-   protected backups (R9).
-3. Creates missing tables and adds missing columns (additive DDL only).
-4. Invokes MasterDataSyncService to insert newly introduced reference items.
+   (``auto_pre_upgrade_v...``). No snapshot on ordinary restarts. Old ``auto_pre_upgrade_*``
+   snapshots are pruned, always keeping the newest one and never touching protected backups (R9).
+2. Unstamped or behind DBs with data: verified, protected ``pre_migration_*`` backup.
+3. Behind: ``alembic upgrade head``.
+4. Creates missing tables and adds missing columns (additive DDL only).
+5. Fresh or unstamped: ``alembic stamp head`` (models == head schema).
+6. Invokes MasterDataSyncService to insert newly introduced reference items, rotates mailbox
+   passwords, records the last-seen version.
 
-Failure policy (R8, A11): if the snapshot cannot be verified or the DDL fails, nothing further is
-written, the failure is logged loudly and the process enters maintenance mode (writes blocked).
+Failure policy (R8, A11): if a backup cannot be verified or the DDL / migration fails, nothing further
+is written, the failure is logged loudly and the process enters maintenance mode (writes blocked).
 There is never an automatic restore.
 """
 import json
 import logging
+import os
 import re
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,8 +31,10 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import Engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
+from database import migration_runner
 from database.database import Base, DB_PATH, engine as default_engine
 from database.master_data_sync_service import MasterDataSyncService
+from database.migration_runner import DbState, MigrationResult
 from utils.db_safety import (
     AUTO_PRE_UPGRADE_PREFIX,
     backups_dir_for,
@@ -151,6 +160,26 @@ class SchemaUpgradeService:
             return 0
 
     @staticmethod
+    def _rollback_pending_reason(db_file_path: Path) -> Optional[str]:
+        """Reason to stay read-only because a rollback restored this DB for an older version whose installer
+        never ran (owned by modules.app_update). A build without that module/function returns None."""
+        try:
+            from modules.app_update.repository import rollback_pending_reason
+        except ImportError:
+            return None
+        return rollback_pending_reason(db_file_path)
+
+    @staticmethod
+    def _same_file(a: Path, b: Path) -> bool:
+        return os.path.normcase(str(Path(a).resolve())) == os.path.normcase(str(Path(b).resolve()))
+
+    @staticmethod
+    def _migration_dict(migration: MigrationResult) -> Dict[str, Any]:
+        data = asdict(migration)
+        data["state"] = migration.state.value
+        return data
+
+    @staticmethod
     def _fail(reason: str, result: Dict[str, Any]) -> Dict[str, Any]:
         logger.critical("[SchemaUpgradeService] STARTUP UPGRADE FAILED: %s", reason)
         enter_maintenance_mode(reason)
@@ -189,13 +218,54 @@ class SchemaUpgradeService:
             "tables_added": [],
             "columns_added": [],
             "master_data_summary": {},
+            "migration": None,
         }
 
+        # 0a. Rollback safety (update-system Phase 5): a pending or failed rollback blocks all writes.
+        try:
+            rollback_reason = cls._rollback_pending_reason(db_file_path)
+        except Exception as exc:  # cannot tell whether a rollback is pending: fail closed
+            return cls._fail(f"preflight failed: rollback state unreadable ({type(exc).__name__}: {exc})", result)
+        if rollback_reason:
+            return cls._fail(rollback_reason, result)
+
+        # 0b. The file we snapshot/back up must be the file the engine migrates (DATABASE_URL may differ
+        #     from DATABASE_PATH). In-memory SQLite has nothing to back up.
+        backup_source_ok = True
+        if engine_to_use.dialect.name == "sqlite":
+            engine_file = migration_runner.sqlite_engine_file(engine_to_use)
+            if engine_file is None:
+                backup_source_ok = False
+                logger.warning("In-memory SQLite engine: startup snapshots and pre_migration backups are skipped.")
+            elif not cls._same_file(engine_file, db_file_path):
+                return cls._fail(
+                    f"preflight failed: engine database {engine_file} differs from DATABASE_PATH {db_file_path}; "
+                    "backups would protect the wrong file",
+                    result,
+                )
+
+        # 0c. Preflight (read-only): where is this DB relative to the bundled migration scripts?
+        try:
+            report = migration_runner.inspect_db_state(engine_to_use)
+        except Exception as exc:  # unreadable / corrupt DB or broken script dir: write nothing
+            return cls._fail(f"preflight failed: cannot determine the database state ({type(exc).__name__}: {exc})", result)
+        if report.state == DbState.UNKNOWN:
+            # R10: a newer (or foreign) schema. No snapshot, no DDL, no master data, no version write.
+            result["migration"] = cls._migration_dict(
+                MigrationResult(report.state, "refused", report.current_revision, None, None)
+            )
+            return cls._fail(
+                f"R10: database revision {report.current_revision} is unknown to this version "
+                f"(head {report.head_revision})",
+                result,
+            )
+
         # 1. Verified snapshot, only when the code version changed since the last start.
-        db_has_data = db_file_path.exists() and db_file_path.stat().st_size > 0
+        db_has_data = backup_source_ok and db_file_path.exists() and db_file_path.stat().st_size > 0
         previous_version = cls._read_last_seen_version(backups_dir, db_file_path) if backups_dir.exists() else None
         result["previous_version"] = previous_version
-        if db_has_data and previous_version != version_str:
+        # A FRESH DB (no user tables) holds nothing worth a snapshot.
+        if db_has_data and report.state != DbState.FRESH and previous_version != version_str:
             try:
                 backups_dir.mkdir(parents=True, exist_ok=True)
                 snapshot = cls._take_snapshot(db_file_path, backups_dir, version_str)
@@ -206,7 +276,36 @@ class SchemaUpgradeService:
                 backups_dir, max_auto_backups, keep_path=backups_dir / result["backup_created"]
             )
 
-        # 2. Create missing tables.
+        # 2. Protected pre_migration backup before the first Alembic write (stamp or upgrade).
+        backup_file: Optional[str] = None
+        if report.state in (DbState.UNSTAMPED, DbState.BEHIND) and db_has_data:
+            if engine_to_use.dialect.name != "sqlite":
+                logger.warning(
+                    "Skipping pre_migration backup: backups are SQLite-only (dialect %s).", engine_to_use.dialect.name
+                )
+            else:
+                try:
+                    backup = migration_runner.take_pre_migration_backup(db_file_path, backups_dir, report)
+                except Exception as exc:  # no verified backup -> no migration
+                    return cls._fail(f"pre-migration backup failed ({type(exc).__name__}: {exc})", result)
+                backup_file = backup.path.name
+        migration = MigrationResult(report.state, "none", report.current_revision, report.current_revision, backup_file)
+        result["migration"] = cls._migration_dict(migration)
+
+        # 3. Behind: apply the bundled revisions. A failure is never auto-restored (R8).
+        if report.state == DbState.BEHIND:
+            try:
+                new_revision = migration_runner.upgrade_to_head(engine_to_use)
+            except Exception as exc:
+                return cls._fail(
+                    f"migration {report.current_revision} -> {report.head_revision} failed "
+                    f"({type(exc).__name__}: {exc}); backup: {backup_file or 'none'}",
+                    result,
+                )
+            migration = MigrationResult(report.state, "upgraded", report.current_revision, new_revision, backup_file)
+            result["migration"] = cls._migration_dict(migration)
+
+        # 4. Create missing tables.
         try:
             inspector = inspect(engine_to_use)
             existing_tables = set(inspector.get_table_names())
@@ -214,7 +313,7 @@ class SchemaUpgradeService:
         except Exception as exc:
             return cls._fail(f"create_all failed ({type(exc).__name__}: {exc})", result)
 
-        # 3. Additive column upgrade (ALTER TABLE ADD COLUMN).
+        # 4b. Additive column upgrade (ALTER TABLE ADD COLUMN).
         failed_columns: List[str] = []
         try:
             inspector = inspect(engine_to_use)
@@ -242,7 +341,16 @@ class SchemaUpgradeService:
         if failed_columns:
             return cls._fail("could not add columns: " + "; ".join(failed_columns), result)
 
-        # 4. Master data: insert-only seeds. A failure is logged loudly but does not block writes.
+        # 5. Fresh / unstamped: the schema now equals the models, which equal head -> stamp head.
+        if report.state in (DbState.FRESH, DbState.UNSTAMPED):
+            try:
+                new_revision = migration_runner.stamp_head(engine_to_use)
+            except Exception as exc:
+                return cls._fail(f"alembic stamp head failed ({type(exc).__name__}: {exc})", result)
+            migration = MigrationResult(report.state, "stamped", report.current_revision, new_revision, backup_file)
+            result["migration"] = cls._migration_dict(migration)
+
+        # 6. Master data: insert-only seeds. A failure is logged loudly but does not block writes.
         try:
             SessionMaker = sessionmaker(autocommit=False, autoflush=False, bind=engine_to_use)
             session = SessionMaker()
@@ -254,10 +362,10 @@ class SchemaUpgradeService:
             logger.error("[SchemaUpgradeService] Master data sync error: %s", exc, exc_info=True)
             result["master_data_error"] = str(exc)
 
-        # 5. Move stored mailbox passwords to the current SECRET_KEY (idempotent, never destructive).
+        # 6b. Move stored mailbox passwords to the current SECRET_KEY (idempotent, never destructive).
         result["email_passwords_rotated"] = cls._rotate_email_passwords(engine_to_use)
 
-        # 6. Remember the version only after a successful upgrade.
+        # 6c. Remember the version only after a successful upgrade.
         if db_file_path.exists():
             try:
                 backups_dir.mkdir(parents=True, exist_ok=True)

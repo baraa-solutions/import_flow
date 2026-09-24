@@ -1,4 +1,7 @@
+import atexit
+import gc
 import os
+import shutil
 import tempfile
 import pytest
 
@@ -8,12 +11,17 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars
 os.environ.setdefault("ALLOW_DEV_AUTH_BYPASS", "true")
 os.environ.setdefault("ENABLE_API_DOCS", "false")
 
-# Create a temporary test database file for the test session
-test_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-test_db_path = test_db_file.name
-test_db_file.close()
+# The session database lives in its own temporary folder: startup snapshots and pre_migration backups
+# land in <folder>/backups (next to the DB) and are removed with the folder at session end, instead of
+# accumulating as protected files in %TEMP%\backups.
+test_db_dir = tempfile.mkdtemp(prefix="importflow_test_db_")
+test_db_path = os.path.join(test_db_dir, "test_session.db")
+open(test_db_path, "wb").close()
 
 os.environ["DATABASE_PATH"] = test_db_path
+# database.database prefers DATABASE_URL over DATABASE_PATH: never let an inherited URL point the session
+# engine at a real database.
+os.environ.pop("DATABASE_URL", None)
 
 from database.database import Base, engine, SessionLocal, get_db
 
@@ -57,13 +65,18 @@ import modules.smart_email_listener.model
 def setup_test_database():
     # Build all tables in the temporary database
     Base.metadata.create_all(bind=engine)
+    # models == head schema: stamp so a later `import main` sees AT_HEAD and takes no pre_migration backup.
+    from database.migration_runner import stamp_head
+
+    stamp_head(engine)
     yield
-    # Cleanup after test session
-    try:
-        if os.path.exists(test_db_path):
-            os.remove(test_db_path)
-    except Exception:
-        pass
+    # Cleanup after test session: release pooled and leaked connections first (Windows keeps open files
+    # locked); anything still locked is retried at interpreter exit.
+    engine.dispose()
+    gc.collect()
+    shutil.rmtree(test_db_dir, ignore_errors=True)
+    if os.path.exists(test_db_dir):
+        atexit.register(shutil.rmtree, test_db_dir, True)
 
 
 # ─── Dev-bypass test seam ─────────────────────────────────────────────────────

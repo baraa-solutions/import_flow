@@ -9,6 +9,7 @@ R2  PrepareToInstall stops frontend.exe/backend.exe, copies .db + -wal + -shm in
     {app}\\backups\\pre_install_<version>_<timestamp>\\, verifies the copies and aborts on any failure.
 R3  uninstall keeps the data: data folders carry uninsneveruninstall, the DB is never a Setup file.
 C11 a silent install relaunches the app only with /RELAUNCH=1; the interactive checkbox is unchanged.
+K2  StopRunningApp kills by image name without /T (Setup is a child of backend.exe during an in-app update).
 
 These are static checks on the script text; ISCC compiles it in CI (build_and_release.yml).
 """
@@ -245,6 +246,15 @@ def test_app_processes_are_killed_and_waited_for():
 
     running = _pascal_routine("IsProcessRunning")
     assert re.search(r"begin\s*Result := True;", running), "an unknown process state must count as running"
+
+
+def test_stop_running_app_never_kills_the_process_tree():
+    """K2: during an in-app update Setup is a child of backend.exe; a tree kill (/T) would kill Setup itself."""
+    stop = _pascal_routine("StopRunningApp")
+    assert "taskkill" in stop
+    assert not re.search(r"/T\b", stop, re.IGNORECASE), stop
+    assert "'/F /IM frontend.exe'" in stop and "'/F /IM backend.exe'" in stop
+    assert not re.search(r"taskkill[^\r\n]*/T\b", ISS_TEXT, re.IGNORECASE), "no taskkill anywhere may use /T"
 
 
 def test_abort_message_is_arabic_and_english():

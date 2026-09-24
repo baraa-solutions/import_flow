@@ -22,7 +22,6 @@ from modules.app_update.validators import (
     DETAIL_HASH_MISMATCH,
     DETAIL_NO_DOWNLOAD_RUNNING,
     DETAIL_NO_UPDATE_FOR_VERSION,
-    DETAIL_NOT_IMPLEMENTED,
     DETAIL_SERVER_UNREACHABLE,
 )
 
@@ -565,7 +564,7 @@ def test_cancel_stops_download_and_removes_part(server, data_dir):
     assert "download_cancelled" in _history(data_dir)
 
 
-# ─── status / history / later-phase stubs ────────────────────────────────────
+# ─── status / history ────────────────────────────────────
 
 def test_status_starts_idle(server, data_dir):
     status = _service(server, data_dir).get_status()
@@ -593,17 +592,21 @@ def test_last_result_is_none(server, data_dir):
     assert result.from_version is None and result.to_version is None
 
 
-def test_later_phase_operations_are_501(server, data_dir):
-    service = _service(server, data_dir)
-    for call in (
-        lambda: service.apply("2.1.0", actor="admin"),
-        lambda: service.stage_local("m.json", "s.exe", actor="admin"),
-        lambda: service.rollback("pre_update_x.db", actor="admin"),
-    ):
-        with pytest.raises(HTTPException) as exc:
-            call()
-        assert exc.value.status_code == 501
-        assert exc.value.detail == DETAIL_NOT_IMPLEMENTED
+def test_not_implemented_detail_is_gone():
+    import modules.app_update.validators as rules
+
+    assert not hasattr(rules, "DETAIL_NOT_IMPLEMENTED")
+
+
+def test_download_saves_the_staged_manifest(server, data_dir):
+    _service(server, data_dir).start_download("2.1.0", actor="admin")
+    assert (data_dir / "staging" / "staged_manifest.json").read_bytes() == server.manifest
+
+
+def test_failed_download_leaves_no_staged_manifest(server, data_dir):
+    server.installer = b"X" * len(INSTALLER_BYTES)
+    _service(server, data_dir).start_download("2.1.0", actor="admin")
+    assert list((data_dir / "staging").iterdir()) == []
 
 
 def test_default_data_dir_honours_env(tmp_path, monkeypatch):

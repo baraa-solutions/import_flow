@@ -29,7 +29,11 @@ PathLike = Union[str, Path]
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Backups that rollback depends on. No pruner may ever delete them (R9).
-PROTECTED_BACKUP_PREFIXES = ("pre_install_", "pre_update_", "pre_migration_", "pre_restore_")
+PRE_INSTALL_PREFIX = "pre_install_"
+PRE_UPDATE_PREFIX = "pre_update_"
+PRE_MIGRATION_PREFIX = "pre_migration_"
+PRE_RESTORE_PREFIX = "pre_restore_"
+PROTECTED_BACKUP_PREFIXES = (PRE_INSTALL_PREFIX, PRE_UPDATE_PREFIX, PRE_MIGRATION_PREFIX, PRE_RESTORE_PREFIX)
 # Backup families owned by other tools; a pruner may only touch its own family.
 DAILY_BACKUP_PREFIX = "daily_backup_"
 AUTO_PRE_UPGRADE_PREFIX = "auto_pre_upgrade_"
@@ -146,6 +150,19 @@ def check_integrity(db_path: PathLike) -> str:
     conn = sqlite3.connect(str(p))
     try:
         row = conn.execute("PRAGMA integrity_check;").fetchone()
+        return str(row[0]) if row else "no result"
+    finally:
+        conn.close()
+
+
+def quick_check(db_path: PathLike) -> str:
+    """First row of PRAGMA quick_check ('ok' when healthy). Never creates the file; FileNotFoundError if missing."""
+    p = Path(db_path)
+    if not p.exists():
+        raise FileNotFoundError(str(p))
+    conn = sqlite3.connect(f"{p.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        row = conn.execute("PRAGMA quick_check;").fetchone()
         return str(row[0]) if row else "no result"
     finally:
         conn.close()

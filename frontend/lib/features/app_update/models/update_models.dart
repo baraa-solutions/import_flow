@@ -257,9 +257,30 @@ enum UpdateResultKind {
   }
 }
 
+/// `kind` of `GET /last-result`: what produced the result.
+enum UpdateOperationKind {
+  update,
+  rollback;
+
+  /// Null for older backends that don't send `kind` (treated as an update).
+  static UpdateOperationKind? parse(Object? raw) {
+    switch (raw) {
+      case 'update':
+        return UpdateOperationKind.update;
+      case 'rollback':
+        return UpdateOperationKind.rollback;
+      default:
+        return null;
+    }
+  }
+}
+
 /// `GET /last-result`: outcome of the last install (post-update health check).
 class UpdateLastResult {
   final UpdateResultKind result;
+
+  /// `update` | `rollback`; null when the backend predates the field.
+  final UpdateOperationKind? kind;
   final String? fromVersion;
   final String? toVersion;
   final DateTime? finishedAt;
@@ -272,6 +293,7 @@ class UpdateLastResult {
 
   const UpdateLastResult({
     this.result = UpdateResultKind.none,
+    this.kind,
     this.fromVersion,
     this.toVersion,
     this.finishedAt,
@@ -284,6 +306,7 @@ class UpdateLastResult {
 
   factory UpdateLastResult.fromJson(Map<String, dynamic> json) => UpdateLastResult(
         result: UpdateResultKind.parse(json['result']),
+        kind: UpdateOperationKind.parse(json['kind']),
         fromVersion: _parseString(json['from_version']),
         toVersion: _parseString(json['to_version']),
         finishedAt: _parseDate(json['finished_at']),
@@ -292,9 +315,15 @@ class UpdateLastResult {
         backupCreatedAt: _parseDate(json['backup_created_at']),
       );
 
+  /// True when this result came from a rollback (never offer another one).
+  bool get isRollback => kind == UpdateOperationKind.rollback;
+
+  /// Rollback is offered only after an update (or an older backend without `kind`).
+  bool get allowsRollback => !isRollback;
+
   /// Identity used to show the post-update notice only once.
   String get noticeKey =>
-      '${result.name}|${toVersion ?? ''}|${finishedAt?.toIso8601String() ?? ''}';
+      '${kind?.name ?? 'update'}|${result.name}|${toVersion ?? ''}|${finishedAt?.toIso8601String() ?? ''}';
 }
 
 /// One line of `GET /history` (`{ts, event, version, detail}`).
@@ -329,7 +358,9 @@ class RollbackCandidate {
 
   /// Prefers `last-result.backup_file`; otherwise the newest `backup_ok`
   /// history event whose `detail` holds the backup file.
+  /// Returns null when the last operation was itself a rollback.
   static RollbackCandidate? resolve(UpdateLastResult? lastResult, List<UpdateHistoryItem> history) {
+    if (lastResult != null && !lastResult.allowsRollback) return null;
     final fromResult = lastResult?.backupFile;
     if (fromResult != null) {
       return RollbackCandidate(

@@ -77,7 +77,32 @@ Remaining NITs (not worth re-reporting unless touched):
 - Flutter production_sync_service.dart still sends remote_url (backend ignores it).
 - crypto.encrypt_email_password treats plaintext starting with "enc:" as ciphertext.
 - bundle_guard Exec regex cannot see commands built in variables (static-guard limit); probe TOCTOU inherent.
-- Carried: apply/stage-local/rollback 501 stubs - re-review when built; R10 not built.
+- (superseded 2026-09-24: apply/stage-local/rollback + R10 now built, see below)
+
+## Phase 2 (migrations) + Phase 5 (apply/rollback/stage-local), reviewed 2026-09-24, uncommitted on c1530f0
+OK: R10 preflight refuses before any write; migration failure never restores; pre_migration backup before
+stamp/upgrade; env.py ignores alembic.ini url (DATABASE_URL/DATABASE_PATH); tests use tmp DBs + repo-DB mtime check;
+apply R5 gate (disk + online backup + sidecar) before marker/launch; re-hash #1/#2; /DIR /LOG quoted, `"` refused;
+detached + breakaway retry; rollback 8 checks before any change, bare-name regex + == last.backup_file + resolved
+parent, sha + integrity, aside pre_restore_ first; all 3 new routes system.update; .iss no /T.
+Re-check 2026-09-25 (still uncommitted): RESOLVED - maintenance snapshot/_restore_maintenance on every apply +
+rollback pre-restore failure, _enter_maintenance never overwrites; restore/marker/launch failure keeps maintenance +
+rollback_blocked.json; validate_local_file drive regex + GetDriveType fixed/removable + resolved-path re-check, one 400;
+rollback installed == to_version == manifest.version; /last-result flip only with system.update; backup copied to
+private file + re-verified before restore; share-deny-write handle held through Popen (apply + rollback); audit
+wrapped, UPDATE_APPLY after launch, *_FAILED entries; engine-file == DATABASE_PATH else maintenance; regexes \Z +
+fullmatch; conftest mkdtemp DB; /cancel only with a live download event (apply/_claim null it under the lock).
+OPEN:
+- MAJOR: repository.rollback_pending_reason (~316-342) is fail-OPEN: corrupt/non-dict/unreadable rollback_blocked.json
+  (_load_json_object -> None), missing db_path, or any exception -> None, so the caller's fail-closed except in
+  schema_upgrade_service (~226) is dead code; newer binary then migrates the restored older-schema DB.
+  Fix: existing-but-unparseable block or exception -> return a maintenance reason (or re-raise).
+- MINOR: tests/conftest.py forces DATABASE_PATH but not DATABASE_URL; an exported DATABASE_URL makes create_all +
+  stamp_head hit that DB. Fix: os.environ.pop("DATABASE_URL", None) before importing database.
+- NIT: validate_local_file suffix/size 400s come after the existence check (local-file oracle, system.update only);
+  UPDATE_ROLLBACK audited before the launch (a failed launch logs both); save_rollback_block has no fsync.
+- Carried: in-flight writes between aside and restore; restart after failed rollback launch (now blocked if block
+  file is sound).
 
 ## Review gotchas
 - `import main` writes `backups/auto_pre_upgrade_*.db` into the worktree (gitignored) on every import.

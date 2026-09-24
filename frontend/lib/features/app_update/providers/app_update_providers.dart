@@ -35,6 +35,7 @@ final updateHistoryProvider = FutureProvider.autoDispose<List<UpdateHistoryItem>
 final rollbackCandidateProvider = FutureProvider.autoDispose<RollbackCandidate?>((ref) async {
   final service = ref.watch(appUpdateServiceProvider);
   final last = await service.lastResult();
+  if (!last.allowsRollback) return null; // the last operation was a rollback
   List<UpdateHistoryItem> history = const [];
   if (last.backupFile == null) {
     try {

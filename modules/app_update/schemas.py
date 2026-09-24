@@ -48,14 +48,29 @@ class ApplyRequest(BaseModel):
     version: str = Field(..., pattern=VERSION_PATTERN)
 
 
+class ApplyResponse(BaseModel):
+    """202 body of POST /apply: the installer was launched; the pre-update backup the rollback would restore."""
+    state: Literal["installing"] = "installing"
+    backup_file: str
+    backup_created_at: datetime
+
+
 class StageLocalRequest(BaseModel):
-    manifest_path: str = Field(..., min_length=1)
-    installer_path: str = Field(..., min_length=1)
+    """Absolute paths on this machine (e.g. a USB stick). Never a URL."""
+    manifest_path: str = Field(..., min_length=1, max_length=1024)
+    installer_path: str = Field(..., min_length=1, max_length=1024)
 
 
 class RollbackRequest(BaseModel):
     confirm: bool
-    backup_file: str = Field(..., min_length=1)
+    backup_file: str = Field(..., min_length=1, max_length=255)
+
+
+class RollbackResponse(BaseModel):
+    """202 body of POST /rollback: DB restored from `restored_from`, the failed DB kept as `aside_file`."""
+    state: Literal["installing"] = "installing"
+    restored_from: str
+    aside_file: str
 
 
 class LastResultResponse(BaseModel):
@@ -64,6 +79,9 @@ class LastResultResponse(BaseModel):
     to_version: Optional[str] = None
     finished_at: Optional[datetime] = None
     detail: Optional[str] = None
+    kind: Optional[Literal["update", "rollback"]] = None
+    backup_file: Optional[str] = None
+    backup_created_at: Optional[datetime] = None
 
 
 class UpdateHistoryItem(BaseModel):

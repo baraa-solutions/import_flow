@@ -8552,6 +8552,8 @@ abstract class AppLocalizations {
   String get updateFailedRollbackHint;
   String updateCurrentVersion(String version);
   String get updateNoPermission;
+  String updateRollbackSucceeded(String version);
+  String get updateRollbackFailed;
 }
 
 

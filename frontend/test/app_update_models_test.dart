@@ -206,5 +206,40 @@ void main() {
 
       expect(RollbackCandidate.resolve(null, const []), isNull);
     });
+      test('last-result kind: update / rollback / missing (older backend)', () {
+      expect(UpdateLastResult.fromJson({'result': 'success', 'kind': 'update'}).kind, UpdateOperationKind.update);
+      final rb = UpdateLastResult.fromJson({'result': 'success', 'kind': 'rollback'});
+      expect(rb.kind, UpdateOperationKind.rollback);
+      expect(rb.isRollback, isTrue);
+      expect(rb.allowsRollback, isFalse);
+      final legacy = UpdateLastResult.fromJson({'result': 'failed'});
+      expect(legacy.kind, isNull);
+      expect(legacy.allowsRollback, isTrue);
+      expect(UpdateLastResult.fromJson({'kind': 'weird'}).kind, isNull);
+      // Notices for an update and a rollback to the same version are distinct.
+      expect(rb.noticeKey, isNot(UpdateLastResult.fromJson({'result': 'success', 'kind': 'update'}).noticeKey));
+    });
+
+    test('rollback candidate: none after a rollback, offered for update or missing kind', () {
+      final history = [UpdateHistoryItem(ts: DateTime.utc(2026, 9, 20), event: 'backup_ok', detail: 'h.db')];
+      expect(
+        RollbackCandidate.resolve(
+          const UpdateLastResult(result: UpdateResultKind.success, kind: UpdateOperationKind.rollback, backupFile: 'r.db'),
+          history,
+        ),
+        isNull,
+      );
+      expect(
+        RollbackCandidate.resolve(
+          const UpdateLastResult(result: UpdateResultKind.failed, kind: UpdateOperationKind.update, backupFile: 'r.db'),
+          history,
+        )!.backupFile,
+        'r.db',
+      );
+      expect(
+        RollbackCandidate.resolve(const UpdateLastResult(result: UpdateResultKind.failed), history)!.backupFile,
+        'h.db',
+      );
+    });
   });
 }

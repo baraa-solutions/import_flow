@@ -40,12 +40,26 @@ class _PostUpdateNoticeState extends ConsumerState<PostUpdateNotice> {
     final l = context.l10n;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
+    final isRollback = result.isRollback;
     if (result.result == UpdateResultKind.success) {
       messenger.showSnackBar(SnackBar(
-        content: Text(l.updateSucceeded(result.toVersion ?? '')),
+        content: Text(isRollback
+            ? l.updateRollbackSucceeded(result.toVersion ?? '')
+            : l.updateSucceeded(result.toVersion ?? '')),
         backgroundColor: AppTheme.emerald,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
+    if (isRollback) {
+      // A failed rollback never offers another rollback.
+      final detail = result.detail;
+      messenger.showSnackBar(SnackBar(
+        content: Text(detail == null ? l.updateRollbackFailed : '${l.updateRollbackFailed}: $detail'),
+        backgroundColor: AppTheme.crimson,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 12),
       ));
       return;
     }

@@ -25,7 +25,8 @@ import modules.app_update.service as update_service
 import modules.auth.permissions as auth_permissions
 from database.database import Base, get_db
 from modules.app_update.service import UpdateService, get_update_service
-from modules.app_update.validators import DETAIL_NO_DOWNLOAD_RUNNING, DETAIL_NOT_IMPLEMENTED
+from modules.app_update.schemas import ApplyResponse, LastResultResponse, RollbackResponse, UpdateStatusResponse
+from modules.app_update.validators import DETAIL_NO_DOWNLOAD_RUNNING
 from modules.audit_logs.model import AuditLog
 from modules.auth.permissions import invalidate_permission_cache
 from modules.auth.security import create_access_token, hash_password
@@ -166,7 +167,7 @@ VALID_BODIES = {
     "/download": {"version": "2.1.0"},
     "/apply": {"version": "2.1.0"},
     "/stage-local": {"manifest_path": "D:/usb/manifest.json", "installer_path": "D:/usb/setup.exe"},
-    "/rollback": {"confirm": True, "backup_file": "pre_update_2.0.3.db"},
+    "/rollback": {"confirm": True, "backup_file": "pre_update_v2.0.3_to_v2.1.0_20261001_101500.db"},
 }
 
 ALL_ROUTES = [
@@ -252,7 +253,10 @@ def test_status_contract(client, operator):
 
 def test_last_result_contract(client, operator):
     body = client.get(PREFIX + "/last-result", headers=_bearer(operator)).json()
-    assert body == {"result": "none", "from_version": None, "to_version": None, "finished_at": None, "detail": None}
+    assert body == {
+        "result": "none", "from_version": None, "to_version": None, "finished_at": None, "detail": None,
+        "kind": None, "backup_file": None, "backup_created_at": None,
+    }
 
 
 # ─── ADMIN flows ─────────────────────────────────────────────────────────────
@@ -296,11 +300,130 @@ def test_cancel_without_download_is_409(client, admin):
     assert response.json()["detail"] == DETAIL_NO_DOWNLOAD_RUNNING
 
 
+class StubService:
+    """Records what the router forwards; returns the Phase 5 contract bodies."""
+
+    def __init__(self):
+        self.calls = []
+
+    def apply(self, version, actor, db=None):
+        self.calls.append(("apply", version, actor, db is not None))
+        return ApplyResponse(
+            state="installing",
+            backup_file="pre_update_v2.0.3_to_v2.1.0_20261001_101500.db",
+            backup_created_at="2026-10-01T08:15:00+00:00",
+        )
+
+    def rollback(self, backup_file, confirm, actor, db=None):
+        self.calls.append(("rollback", backup_file, confirm, actor, db is not None))
+        return RollbackResponse(
+            state="installing",
+            restored_from=backup_file,
+            aside_file="pre_restore_failed_v2.1.0_20261001_110000.db",
+        )
+
+    def stage_local(self, manifest_path, installer_path, actor, db=None):
+        self.calls.append(("stage_local", manifest_path, installer_path, actor, db is not None))
+        return UpdateStatusResponse(state="ready", version="2.1.0", downloaded_bytes=5, total_bytes=5)
+
+    def get_last_result(self, client_version=None, can_acknowledge=True):
+        self.calls.append(("last_result", client_version, can_acknowledge))
+        return LastResultResponse(
+            result="success", from_version="2.0.3", to_version="2.1.0",
+            finished_at="2026-10-01T08:17:00+00:00", kind="update",
+            backup_file="pre_update_v2.0.3_to_v2.1.0_20261001_101500.db",
+            backup_created_at="2026-10-01T08:15:00+00:00",
+        )
+
+
+@pytest.fixture
+def stub(client):
+    service = StubService()
+    client.app.dependency_overrides[get_update_service] = lambda: service
+    return service
+
+
+def test_apply_is_202_with_backup_fields(client, admin, stub):
+    response = client.post(PREFIX + "/apply", headers=_bearer(admin), json={"version": "2.1.0"})
+    assert response.status_code == 202
+    assert response.json() == {
+        "state": "installing",
+        "backup_file": "pre_update_v2.0.3_to_v2.1.0_20261001_101500.db",
+        "backup_created_at": "2026-10-01T08:15:00Z",
+    }
+    assert stub.calls == [("apply", "2.1.0", "upd_admin", True)]
+
+
+def test_rollback_is_202_and_forwards_confirm(client, admin, stub):
+    body = VALID_BODIES["/rollback"]
+    response = client.post(PREFIX + "/rollback", headers=_bearer(admin), json=body)
+    assert response.status_code == 202
+    assert response.json() == {
+        "state": "installing",
+        "restored_from": body["backup_file"],
+        "aside_file": "pre_restore_failed_v2.1.0_20261001_110000.db",
+    }
+    assert stub.calls == [("rollback", body["backup_file"], True, "upd_admin", True)]
+
+
+def test_rollback_forwards_confirm_false(client, admin, stub):
+    client.post(PREFIX + "/rollback", headers=_bearer(admin), json={**VALID_BODIES["/rollback"], "confirm": False})
+    assert stub.calls[0][2] is False
+
+
+def test_rollback_requires_confirm_field(client, admin, stub):
+    response = client.post(PREFIX + "/rollback", headers=_bearer(admin),
+                           json={"backup_file": VALID_BODIES["/rollback"]["backup_file"]})
+    assert response.status_code == 422
+    assert stub.calls == []
+
+
+def test_stage_local_forwards_paths(client, admin, stub):
+    response = client.post(PREFIX + "/stage-local", headers=_bearer(admin), json=VALID_BODIES["/stage-local"])
+    assert response.status_code == 200
+    assert response.json()["state"] == "ready"
+    assert stub.calls == [("stage_local", "D:/usb/manifest.json", "D:/usb/setup.exe", "upd_admin", True)]
+
+
+def test_stage_local_rejects_overlong_paths(client, admin, stub):
+    body = {"manifest_path": "D:/" + "a" * 1100 + ".json", "installer_path": "D:/usb/setup.exe"}
+    response = client.post(PREFIX + "/stage-local", headers=_bearer(admin), json=body)
+    assert response.status_code == 422
+    assert stub.calls == []
+
+
+def test_last_result_forwards_client_version_header(client, operator, stub):
+    response = client.get(PREFIX + "/last-result", headers={**_bearer(operator), "X-Client-Version": "2.1.0"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "update"
+    assert body["backup_file"] == "pre_update_v2.0.3_to_v2.1.0_20261001_101500.db"
+    assert body["backup_created_at"] == "2026-10-01T08:15:00Z"
+    assert stub.calls == [("last_result", "2.1.0", False)]  # OPERATOR: may read, may not acknowledge
+
+
+def test_last_result_without_header_passes_none(client, operator, stub):
+    client.get(PREFIX + "/last-result", headers=_bearer(operator))
+    assert stub.calls == [("last_result", None, False)]
+
+
+def test_last_result_admin_may_acknowledge(client, admin, stub):
+    client.get(PREFIX + "/last-result", headers={**_bearer(admin), "X-Client-Version": "2.1.0"})
+    assert stub.calls == [("last_result", "2.1.0", True)]
+
+
 @pytest.mark.parametrize("path", ["/apply", "/stage-local", "/rollback"])
-def test_later_phase_routes_are_501_for_admin(client, admin, path):
+def test_phase5_routes_in_dev_mode_are_400(client, admin, path, update_svc):
+    update_svc._apply_supported_provider = lambda: False
     response = client.post(PREFIX + path, headers=_bearer(admin), json=VALID_BODIES[path])
-    assert response.status_code == 501
-    assert response.json()["detail"] == DETAIL_NOT_IMPLEMENTED
+    assert response.status_code == 400
+    assert response.json()["detail"] == "التحديث التلقائي غير متاح في وضع التطوير"
+
+
+def test_apply_not_ready_is_409(client, admin):
+    response = client.post(PREFIX + "/apply", headers=_bearer(admin), json={"version": "2.1.0"})
+    assert response.status_code == 409
+    assert response.json()["detail"] == "التحديث غير جاهز للتثبيت"
 
 
 @pytest.mark.parametrize("limit", [0, 201])

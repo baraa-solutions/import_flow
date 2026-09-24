@@ -11005,6 +11005,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get updateFailedRollbackHint => 'The post-update check did not pass. An administrator can roll back to the previous version.';
   @override String updateCurrentVersion(String version) => 'Current version: $version';
   @override String get updateNoPermission => 'You do not have permission to install system updates (administrator required)';
+  @override String updateRollbackSucceeded(String version) => 'Rolled back to v$version and restored the database from the backup';
+  @override String get updateRollbackFailed => 'The rollback failed';
 }
 
 

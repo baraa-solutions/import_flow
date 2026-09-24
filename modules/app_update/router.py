@@ -3,22 +3,26 @@
 
 No route accepts a URL: the update host is a code constant validated against an allow-list.
 """
-from fastapi import APIRouter, Depends, Query, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.app_update.schemas import (
     ApplyRequest,
+    ApplyResponse,
     DownloadRequest,
     LastResultResponse,
     RollbackRequest,
+    RollbackResponse,
     StageLocalRequest,
     UpdateCheckResponse,
     UpdateHistoryResponse,
     UpdateStatusResponse,
 )
 from modules.app_update.service import UpdateService, get_update_service
-from modules.auth.permissions import require_permission
+from modules.auth.permissions import has_user_permission, require_permission
 from modules.auth.router import get_current_user
 from modules.users.model import User
 
@@ -62,36 +66,51 @@ def cancel_update_download(
     return service.cancel(actor=current_user.username)
 
 
-@router.post("/apply", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/apply", response_model=ApplyResponse, status_code=status.HTTP_202_ACCEPTED)
 def apply_update(
     payload: ApplyRequest,
     current_user: User = Depends(require_system_update),
+    db: Session = Depends(get_db),
     service: UpdateService = Depends(get_update_service),
 ):
-    return service.apply(payload.version, actor=current_user.username)
+    return service.apply(payload.version, actor=current_user.username, db=db)
 
 
 @router.post("/stage-local", response_model=UpdateStatusResponse)
 def stage_local_update(
     payload: StageLocalRequest,
     current_user: User = Depends(require_system_update),
+    db: Session = Depends(get_db),
     service: UpdateService = Depends(get_update_service),
 ):
-    return service.stage_local(payload.manifest_path, payload.installer_path, actor=current_user.username)
+    return service.stage_local(payload.manifest_path, payload.installer_path, actor=current_user.username, db=db)
 
 
-@router.post("/rollback", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/rollback", response_model=RollbackResponse, status_code=status.HTTP_202_ACCEPTED)
 def rollback_update(
     payload: RollbackRequest,
     current_user: User = Depends(require_system_update),
+    db: Session = Depends(get_db),
     service: UpdateService = Depends(get_update_service),
 ):
-    return service.rollback(payload.backup_file, actor=current_user.username)
+    return service.rollback(payload.backup_file, confirm=payload.confirm, actor=current_user.username, db=db)
+
+
+def caller_has_system_update(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> bool:
+    """Any authenticated user may read /last-result; only system.update holders may acknowledge the client check."""
+    return has_user_permission(db, current_user, "system.update")
 
 
 @router.get("/last-result", response_model=LastResultResponse)
-def get_last_update_result(service: UpdateService = Depends(get_update_service)):
-    return service.get_last_result()
+def get_last_update_result(
+    x_client_version: Optional[str] = Header(None, alias="X-Client-Version"),
+    can_acknowledge: bool = Depends(caller_has_system_update),
+    service: UpdateService = Depends(get_update_service),
+):
+    return service.get_last_result(client_version=x_client_version, can_acknowledge=can_acknowledge)
 
 
 @router.get("/history", response_model=UpdateHistoryResponse)

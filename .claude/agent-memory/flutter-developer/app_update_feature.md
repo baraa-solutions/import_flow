@@ -19,6 +19,9 @@ the old production_sync auto-updater + SystemUpdateBanner. Flutter never downloa
 - Test fake: `frontend/test/helpers/fake_app_update_service.dart` (`implements AppUpdateService`, status sequence).
 - Contract gap: `last-result` has no `backup_file`; rollback candidate is read from optional
   `last-result.backup_file` or newest history `backup_ok` event detail. Confirm with backend before relying on it.
+- `last-result.kind` ("update" | "rollback", null on older backends): rollback is offered only when
+  `UpdateLastResult.allowsRollback` (kind != rollback) — enforced in `RollbackCandidate.resolve`, the candidate
+  provider, the panel button and the failed-update SnackBar action. Rollback results get their own messages.
 - ProductionSyncScreen opens the full panel via `showAppUpdatePanelDialog` (header had no room; embedding the
   panel risked overflow in its 800x600 widget tests).
 

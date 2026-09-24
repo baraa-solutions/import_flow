@@ -132,12 +132,16 @@ begin
   Result := Pos(Lowercase(ExeName), Lowercase(String(Output))) > 0;
 end;
 
+// K2 (update-system spec): no /T (tree kill) here. During an in-app update this Setup runs as a child of
+// backend.exe, so killing the backend's process tree would kill Setup inside its own PrepareToInstall and
+// the update would silently not happen. Matching by image name already stops both PyInstaller onefile
+// processes (bootloader parent and child) of each exe.
 procedure StopRunningApp;
 var
   ResultCode: Integer;
 begin
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM frontend.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM backend.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM frontend.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM backend.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 { Kill both processes and wait until they are really gone, so the DB files are consistent on disk. }
