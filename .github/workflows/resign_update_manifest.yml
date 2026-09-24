@@ -1,0 +1,217 @@
+name: Re-sign Update Manifest
+
+# The signed manifest carries a required expires_at (default released_at + 90 days); the app treats an expired
+# manifest as invalid. This workflow re-signs the CURRENTLY published manifest with a fresh expires_at and replaces
+# manifest.json only. Installers are never touched. Plan docs/plans/update-system-plan.md sections 4.2, 4.4, 9.
+#
+# - Monthly schedule: the `check` job (no secrets, no environment) reads expires_at from the live manifest and asks
+#   for a re-sign only when fewer than `threshold_days` remain, so the `production-updates` approval is requested
+#   only when it is actually needed.
+# - Manual run: Actions -> "Re-sign Update Manifest" -> Run workflow (force = true re-signs regardless of expiry).
+on:
+  schedule:
+    - cron: '0 6 1 * *'   # 06:00 UTC on the 1st of every month
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Re-sign even if the manifest is not close to expiry'
+        type: boolean
+        default: false
+      expires_days:
+        description: 'New expires_at = now + N days (default 90)'
+        type: string
+        default: '90'
+      threshold_days:
+        description: 'Re-sign when fewer than N days remain (default 45)'
+        type: string
+        default: '45'
+
+permissions:
+  contents: read
+
+env:
+  UPDATE_BASE_URL: https://kamal-sroor.online/importflow/updates/
+
+# Third-party actions are pinned by full commit SHA; the comment names the release.
+jobs:
+  check:
+    name: Check Manifest Expiry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      due: ${{ steps.expiry.outputs.due }}
+    steps:
+      # Unauthenticated read used only to decide whether to ask for approval; the signer re-verifies the signature.
+      - name: Read expires_at From The Live Manifest
+        id: expiry
+        env:
+          FORCE: ${{ inputs.force || false }}
+          THRESHOLD_DAYS: ${{ inputs.threshold_days || '45' }}
+        run: |
+          set -euo pipefail
+          [[ "$THRESHOLD_DAYS" =~ ^[0-9]+$ ]] || { echo "::error::threshold_days must be a number"; exit 1; }
+          code=$(curl -sS --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o live-manifest.json -w '%{http_code}' "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)") || code=000
+          if [[ "$code" == "404" ]]; then echo "No published manifest: nothing to re-sign."; echo "due=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          [[ "$code" == "200" ]] || { echo "::error::GET live manifest returned HTTP $code"; exit 1; }
+          expires_at=$(jq -r '.signed | fromjson | .expires_at // empty' live-manifest.json)
+          if [[ "$FORCE" == "true" ]]; then due=true
+          elif [[ -z "$expires_at" ]]; then due=true
+          else
+            remaining=$(( ( $(date -u -d "$expires_at" +%s) - $(date -u +%s) ) / 86400 ))
+            echo "Live manifest expires_at=$expires_at ($remaining days left, threshold $THRESHOLD_DAYS)."
+            if (( remaining < THRESHOLD_DAYS )); then due=true; else due=false; fi
+          fi
+          echo "due=$due" >> "$GITHUB_OUTPUT"
+          echo "Re-sign due: $due"
+
+  resign:
+    name: Re-sign & Publish Manifest (Hostinger)
+    needs: check
+    if: needs.check.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    environment: production-updates
+    permissions:
+      contents: read
+    # Same group as the publish job in build_and_release.yml: a re-sign never races a release.
+    concurrency:
+      group: production-updates-publish
+      cancel-in-progress: false
+    env:
+      REMOTE_DIR: ${{ vars.UPDATE_REMOTE_DIR || 'domains/kamal-sroor.online/public_html/importflow/updates' }}
+      SSH_HOST: ${{ vars.HOSTINGER_HOST }}
+      SSH_PORT: ${{ vars.HOSTINGER_PORT || '65002' }}
+      SSH_USER: ${{ vars.HOSTINGER_USER }}
+      EXPIRES_DAYS: ${{ inputs.expires_days || '90' }}
+
+    steps:
+      # Signer code comes from the triggering ref: only main may re-sign (also enforced by the environment's
+      # deployment rule "branch: main").
+      # CTO setup: Settings > Environments > production-updates > Deployment branches and tags =
+      # "Selected branches and tags" with a TAG rule `v*` (publish) and a BRANCH rule `main` (re-sign).
+      - name: Guard Ref (main only)
+        run: |
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "::error::re-sign must run on refs/heads/main, not $GITHUB_REF"; exit 1; }
+
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # No pip cache: nothing restored from a cache may run next to the signing key.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Create Signer Environment (hash-pinned)
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/signer-venv"
+          "$RUNNER_TEMP/signer-venv/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            --require-hashes --only-binary :all: --no-deps -r scripts/release/requirements-sign.txt
+
+      - name: Fetch Live Manifest
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          code=$(curl -sS --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o payload/live-manifest.json -w '%{http_code}' "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)") || code=000
+          [[ "$code" == "200" ]] || { echo "::error::GET live manifest returned HTTP $code"; exit 1; }
+          [[ "$REMOTE_DIR" =~ ^[A-Za-z0-9._/-]+$ && "$REMOTE_DIR" != *..* && "$REMOTE_DIR" != /* ]] || { echo "::error::UPDATE_REMOTE_DIR must be a plain relative path"; exit 1; }
+
+      # The key lives only in this step's environment. The live manifest must verify with it; only expires_at changes.
+      - name: Re-sign Manifest
+        env:
+          UPDATE_SIGNING_KEY_ED25519: ${{ secrets.UPDATE_SIGNING_KEY_ED25519 }}
+        run: |
+          "$RUNNER_TEMP/signer-venv/bin/python" -I scripts/release/sign_manifest.py \
+            --resign payload/live-manifest.json --out payload/manifest.json --expires-days "$EXPIRES_DAYS"
+
+      # Application dependencies only AFTER signing.
+      - name: Install Release Verification Dependencies
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir -r requirements.txt
+
+      # Client code path + embedded public keys; the referenced installer must still be served (HEAD + length).
+      - name: Verify Re-signed Manifest (Client Code Path)
+        run: |
+          python scripts/release/verify_manifest.py --manifest payload/manifest.json --url "$UPDATE_BASE_URL" --head-only
+
+      # From here on no Python runs in this job: the SSH key is on disk only while sftp/ssh/curl run.
+
+      - name: Prepare SSH Credentials
+        env:
+          HOSTINGER_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          HOSTINGER_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in SSH_HOST SSH_PORT SSH_USER HOSTINGER_SSH_KEY HOSTINGER_KNOWN_HOSTS; do
+            [[ -n "${!name:-}" ]] || { echo "::error::$name is not configured"; exit 1; }
+          done
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || { echo "::error::HOSTINGER_PORT must be a number"; exit 1; }
+          umask 077
+          SSH_DIR="$RUNNER_TEMP/importflow-ssh"
+          mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR"
+          install -m 600 /dev/null "$SSH_DIR/id"
+          printf '%s\n' "$HOSTINGER_SSH_KEY" > "$SSH_DIR/id"
+          install -m 600 /dev/null "$SSH_DIR/known_hosts"
+          printf '%s\n' "$HOSTINGER_KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+          install -m 600 /dev/null "$SSH_DIR/config"
+          cat > "$SSH_DIR/config" <<EOF
+          Host importflow-updates
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile $SSH_DIR/id
+            IdentitiesOnly yes
+            UserKnownHostsFile $SSH_DIR/known_hosts
+            GlobalKnownHostsFile /dev/null
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 30
+          EOF
+          echo "SSH_DIR=$SSH_DIR" >> "$GITHUB_ENV"
+
+      # Only if the live manifest is still the one that was re-signed (no release slipped in meanwhile).
+      - name: Publish Manifest (manifest.json.tmp, then posix-rename)
+        run: |
+          set -euo pipefail
+          curl -sS --fail --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o "$RUNNER_TEMP/live-again.json" "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)"
+          cmp -s "$RUNNER_TEMP/live-again.json" payload/live-manifest.json || { echo "::error::live manifest changed during the run; not replacing it"; exit 1; }
+          sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
+          -rm $REMOTE_DIR/manifest.json.tmp
+          put payload/manifest.json $REMOTE_DIR/manifest.json.tmp
+          posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
+          EOF
+
+      # The served manifest must be byte-identical to the one verified above.
+      - name: Verify Published Manifest
+        run: |
+          set -euo pipefail
+          curl -sS --fail --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o "$RUNNER_TEMP/published-manifest.json" "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)"
+          cmp -s "$RUNNER_TEMP/published-manifest.json" payload/manifest.json \
+            || { echo "::error::published manifest.json differs from the verified manifest"; exit 1; }
+          echo "Published manifest.json is byte-identical to the verified manifest."
+
+      - name: Keep Re-signed Manifest (Audit Record)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: resigned-manifest-${{ github.run_id }}
+          path: payload/manifest.json
+          retention-days: 90
+
+      - name: Remove SSH Credentials
+        if: always()
+        run: |
+          SSH_DIR="$RUNNER_TEMP/importflow-ssh"
+          if [[ -d "$SSH_DIR" ]]; then
+            find "$SSH_DIR" -type f -exec shred -u {} + 2>/dev/null || true
+            rm -rf "$SSH_DIR"
+          fi
+          rm -rf "$RUNNER_TEMP/signer-venv"
+          test ! -e "$SSH_DIR"

@@ -2,15 +2,19 @@
 Pre-release gate for Sorour Logistics / ImportFlow ERP.
 
 Checks (static + boot) that must pass before cutting a release:
-  1. Version is identical in version.json, pubspec.yaml, main.py and the Inno Setup script.
+  1. Version is identical in version.json, pubspec.yaml and the Inno Setup script (main.py reads version.json).
   2. version.json installer_url / installer_filename point at the SAME version.
   3. The installer at installer_url is actually published (HTTP HEAD).
   4. version.json carries a sha256 for the installer (the auto-updater has nothing to verify otherwise).
   5. The backend boots: `import main` against a throwaway database.
+  6. Bundle guard (plan section 0, R1/R4): the Inno Setup script, the staged bundle
+     (dist/Sorour_Logistics_Standalone) and any portable zip in dist/releases contain no database,
+     .env, key, backups/updates folder or destructive maintenance script.
 
 Usage:  python .claude/skills/release-check/check_release.py
 Exit code 0 = all FAIL-level checks passed.
 """
+import importlib.util
 import json
 import os
 import re
@@ -39,7 +43,7 @@ def check_version_consistency(version_info: dict) -> None:
     expected = version_info.get("version", "")
     sources = {
         "frontend/pubspec.yaml": re.findall(r"^version:\s*([\d.]+)", read_text("frontend/pubspec.yaml"), re.M),
-        "main.py": re.findall(r'version\s*=\s*"([\d.]+)"|"version":\s*"([\d.]+)"', read_text("main.py")),
+        # main.py no longer hard-codes the version: it reads version.json via utils.db_safety.read_installed_version().
         "installer/importflow_setup.iss": re.findall(r'#define MyAppVersion "([\d.]+)"', read_text("installer/importflow_setup.iss")),
     }
     mismatches = []
@@ -124,10 +128,45 @@ def check_backend_boots() -> None:
         record("FAIL", "Backend boot", last_line)
 
 
+def load_bundle_guard():
+    guard_path = PROJECT_DIR / "scripts" / "release" / "bundle_guard.py"
+    spec = importlib.util.spec_from_file_location("importflow_bundle_guard", guard_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_bundle_guard() -> None:
+    """Production data must never ship: the laptop DB would be overwritten or leaked (plan section 0)."""
+    try:
+        guard = load_bundle_guard()
+    except (OSError, ImportError, SyntaxError) as error:
+        record("FAIL", "Bundle guard", f"cannot load scripts/release/bundle_guard.py: {error}")
+        return
+
+    iss = PROJECT_DIR / "installer" / "importflow_setup.iss"
+    staged = PROJECT_DIR / "dist" / "Sorour_Logistics_Standalone"
+    zips = sorted((PROJECT_DIR / "dist" / "releases").glob("Sorour_Logistics_*_Windows_Portable.zip"))
+    dirs = [staged] if staged.is_dir() else []
+    violations = guard.run(dirs=dirs, zips=zips, iss_files=[iss])
+    scanned = ["installer/importflow_setup.iss"] + [p.relative_to(PROJECT_DIR).as_posix() for p in [*dirs, *zips]]
+
+    if violations:
+        shown = "; ".join(str(v) for v in violations[:5])
+        more = f" (+{len(violations) - 5} more)" if len(violations) > 5 else ""
+        record("FAIL", "Bundle guard", f"{len(violations)} forbidden item(s): {shown}{more}")
+    elif not dirs:
+        record("WARN", "Bundle guard", "installer script clean; no staged bundle in dist/ yet - re-run after packaging")
+    else:
+        record("PASS", "Bundle guard", "clean: " + ", ".join(scanned))
+
+
 def main() -> int:
     version_info = json.loads(read_text("version.json"))
     check_version_consistency(version_info)
     check_installer_metadata(version_info)
+    check_bundle_guard()
     check_backend_boots()
 
     for level, check, detail in results:

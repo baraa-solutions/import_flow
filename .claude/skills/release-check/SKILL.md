@@ -1,13 +1,13 @@
 ---
 name: release-check
-description: Pre-release gate for ImportFlow / Sorour Logistics ERP. Verifies version consistency, installer metadata, backend boot, and runs the full backend + frontend test suites before a release is cut.
+description: Pre-release gate for ImportFlow / Sorour Logistics ERP. Verifies version consistency, installer metadata, the bundle guard (no database / secrets / destructive scripts in the installer or staged bundle), backend boot, and runs the full backend + frontend test suites before a release is cut.
 disable-model-invocation: true
 ---
 
 # Release Check
 
-Run this before bumping the version, tagging, or pushing a release to `main`
-(the CI workflow publishes a GitHub Release on every push to `main`).
+Run this before bumping the version or pushing a release tag
+(the CI workflow builds and publishes a GitHub Release when a `v*` tag is pushed, or on manual dispatch).
 
 ## Steps
 
@@ -22,6 +22,12 @@ Run every step even if an earlier one fails, then report all results together.
    - Version identical in `version.json`, `frontend/pubspec.yaml`, `main.py`, `installer/importflow_setup.iss`
    - `installer_url` / `installer_filename` point at the same version as `version.json`
    - `installer_sha256` present (WARN only until the auto-updater verifies it)
+   - Bundle guard (`scripts/release/bundle_guard.py`, plan section 0 R1/R4): `installer/importflow_setup.iss`,
+     `dist/Sorour_Logistics_Standalone/` and any `dist/releases/*_Windows_Portable.zip` contain no `*.db*`,
+     `*.sqlite*`, `.env*`, `*.key`/`*.pem`, `backups/`/`updates/` folder, or destructive script
+     (`reset_clean_production_db.py`, `clean_and_isolate_databases.py`, `sync_to_production.py`, ...).
+     FAIL blocks the release; WARN only means nothing is staged yet - re-run after packaging.
+     Run it alone with `python scripts/release/bundle_guard.py --iss installer/importflow_setup.iss --dir dist/Sorour_Logistics_Standalone`.
    - `import main` succeeds against a throwaway database (never touches `sorour_logistics.db`)
 
 2. **Backend tests** — run on Python 3.12, the same version CI uses:
