@@ -76,7 +76,8 @@ void main() {
       expect(find.textContaining('Pre-shipment Inspection, CoC/VOC'), findsWidgets);
 
       // Verify Inspection Agency category choice chip exists
-      expect(find.widgetWithText(ChoiceChip, 'هيئة فحص ومعاينة'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('هيئة فحص ومعاينة'), findsWidgets); // category badge in the partner row
 
       // Verify add partner button exists
       expect(find.byIcon(Icons.add), findsWidgets);

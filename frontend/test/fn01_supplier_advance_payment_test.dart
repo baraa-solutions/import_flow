@@ -104,8 +104,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Verify header and badges
-      expect(find.text('طلب سداد الدفعة المقدمة للمورد (FN-01)'), findsOneWidget);
+      // Verify header and badges (dialog localizes via Localizations.localeOf -> en_US in tests)
+      expect(find.text('Supplier Advance Payment (FN-01)'), findsOneWidget);
       expect(find.text('IMP-2026-0004'), findsOneWidget);
       expect(find.textContaining('Sinopec Plastics Global'), findsWidgets);
 
@@ -121,8 +121,8 @@ void main() {
       expect(find.textContaining('Finance Officer'), findsOneWidget);
 
       // Verify action buttons
-      expect(find.text('إلغاء'), findsOneWidget);
-      expect(find.text('إصدار طلب السداد وإخطار المالية'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Issue Payment Request & Notify Finance'), findsOneWidget);
 
       // Tap 50% ChoiceChip and check recalculation
       await tester.tap(find.text('50%'));
@@ -131,7 +131,7 @@ void main() {
       // 50% of 80,000 USD is 40000.00
       expect(find.text('40000.00'), findsOneWidget);
       // EGP equivalent: 40,000 * 50 = 2,000,000.00
-      expect(find.textContaining('2000000.00 ج.م'), findsOneWidget);
+      expect(find.textContaining('2000000.00 EGP'), findsOneWidget);
 
       // Tap 10% ChoiceChip and check recalculation
       await tester.tap(find.text('10%'));
@@ -140,7 +140,7 @@ void main() {
       // 10% of 80,000 USD is 8000.00
       expect(find.text('8000.00'), findsOneWidget);
       // EGP equivalent: 8,000 * 50 = 400,000.00
-      expect(find.textContaining('400000.00 ج.م'), findsOneWidget);
+      expect(find.textContaining('400000.00 EGP'), findsOneWidget);
     });
   });
 }

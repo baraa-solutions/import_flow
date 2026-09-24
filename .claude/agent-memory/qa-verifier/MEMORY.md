@@ -11,5 +11,5 @@
   - `tests/unit/test_version_and_updates_api.py::test_uat_environment_staging_integrity` — needs `sorour_logistics_uat.db`.
 - Slow tests: `tests/unit/test_cargox_standard_invoice.py` takes ~4.5 min alone (several tests 17-60 s).
 - Tests write into the repo (`dist/`, `logs/`, `backups/`); these are gitignored.
-- [Flutter test baseline](flutter_test_baseline.md) — app_theme compile error masks 269 suites on Flutter 3.44; how to diff runs
+- [Flutter test baseline](flutter_test_baseline.md) — 3.44.6 port: 1420 pass/94 perf skip; never run flutter test alongside build
 - Boot/uvicorn probes: set DATABASE_PATH to a scratch copy; schema upgrade still writes auto_pre_upgrade_*.db into repo `backups/`.

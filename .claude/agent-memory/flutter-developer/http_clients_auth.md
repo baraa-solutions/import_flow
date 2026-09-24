@@ -28,6 +28,4 @@ Related pitfalls:
 - `core/network/api_error.dart` `ApiError.message(e)` / `ApiError.isForbidden(e)`: use them to surface the backend
   `detail` (403 on admin-only routes) in SnackBars instead of `$e`.
 - The role comes from the JWT on the backend. Never send `x-user-role` overrides from features.
-- Local SDK Flutter 3.44.6 cannot compile `core/theme/app_theme.dart` (CardTheme/DialogTheme vs *ThemeData),
-  so every test that imports it fails to load (~270 files, as of 2026-09). Keep unit tests for providers and
-  helpers free of app_theme imports so they can still run.
+- SDK / test pitfalls moved to [[flutter-344-pitfalls]].

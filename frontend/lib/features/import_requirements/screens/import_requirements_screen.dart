@@ -1459,22 +1459,22 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         Row(
           children: [
             Expanded(
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.decree43ApplicableCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 subtitle: Text(l10n.decree43ApplicableSub),
                 value: _decree43Applicable,
                 onChanged: (v) => setState(() => _decree43Applicable = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.whiteListVerifiedCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 subtitle: Text(l10n.whiteListVerifiedSub),
                 value: _whiteListVerified,
                 onChanged: (v) => setState(() => _whiteListVerified = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
           ],
         ),
@@ -1510,12 +1510,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           children: [
             Expanded(
               flex: 1,
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.cooRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _cooRequired,
                 onChanged: (v) => setState(() => _cooRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
               flex: 2,
@@ -1579,12 +1579,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           children: [
             Expanded(
               flex: 1,
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.inspectionRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _inspectionRequired,
                 onChanged: (v) => setState(() => _inspectionRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
               flex: 2,
@@ -1670,12 +1670,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           children: [
             Expanded(
               flex: 1,
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.importPermitRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _importPermitRequired,
                 onChanged: (v) => setState(() => _importPermitRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
               flex: 2,
@@ -1760,28 +1760,28 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         Row(
           children: [
             Expanded(
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.msdsRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _msdsRequired,
                 onChanged: (v) => setState(() => _msdsRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.halalCertRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _halalCertRequired,
                 onChanged: (v) => setState(() => _halalCertRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
             Expanded(
-              child: CheckboxListTile(
+              child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                 title: Text(l10n.coaRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _coaRequired,
                 onChanged: (v) => setState(() => _coaRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-              ),
+              )),
             ),
           ],
         ),
@@ -2196,7 +2196,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         : l10n.fallbackImportingCompany;
     final displayName = fileTitle.isNotEmpty ? '$fileTitle - $companyName' : req.assessmentCode;
 
-    return ListTile(
+    return Material(type: MaterialType.transparency, child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
         backgroundColor: req.isActive ? AppTheme.cobalt.withOpacity(0.12) : Colors.grey.shade300,
@@ -2349,7 +2349,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildBadge(String label, Color color) {

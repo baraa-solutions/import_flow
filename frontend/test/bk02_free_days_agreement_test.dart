@@ -83,8 +83,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify header titles
-      expect(find.text('توثيق اتفاقية فترات السماح المجانية (BK-02)'), findsOneWidget);
+      // Verify header titles (default test locale is en; dialog localizes via Localizations.localeOf)
+      expect(find.text('Free Days Agreement (BK-02)'), findsOneWidget);
       expect(find.text('Free Days Agreement & Demurrage Radar Feed'), findsOneWidget);
 
       // Verify inputs present
@@ -92,8 +92,8 @@ void main() {
       expect(find.text('14'), findsOneWidget);
 
       // Verify live savings and benefit card
-      expect(find.textContaining('تحليل الوفر المالي وتغذية رادار الغرامات:'), findsOneWidget);
-      expect(find.textContaining('توثيق واعتماد فترات السماح (BK-02)'), findsOneWidget);
+      expect(find.textContaining('Financial Savings & Radar Analysis:'), findsOneWidget);
+      expect(find.textContaining('Confirm Free Days (BK-02)'), findsOneWidget);
     });
   });
 }

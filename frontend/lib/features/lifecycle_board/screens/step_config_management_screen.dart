@@ -924,7 +924,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
-                    child: SwitchListTile(
+                    child: Material(type: MaterialType.transparency, child: SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         l.stepConfigPendingRefToggleTitle,
@@ -940,7 +940,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       activeColor: AppTheme.flatCobalt,
                       onChanged: (val) =>
                           setState(() => _supportsPendingReference = val),
-                    ),
+                    )),
                   ),
                   const SizedBox(height: 16),
 

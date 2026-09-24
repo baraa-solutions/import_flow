@@ -1018,7 +1018,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             Row(
               children: [
                 Expanded(
-                  child: ListTile(
+                  child: Material(type: MaterialType.transparency, child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('تاريخ المغادرة المخططة', style: TextStyle(fontSize: 12)),
                     subtitle: Text(
@@ -1035,11 +1035,11 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                       );
                       if (picked != null) setState(() => _plannedDepartureDate = picked);
                     },
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: ListTile(
+                  child: Material(type: MaterialType.transparency, child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('تاريخ الوصول المتوقع للمخزن (ETA)', style: TextStyle(fontSize: 12)),
                     subtitle: Text(
@@ -1056,7 +1056,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                       );
                       if (picked != null) setState(() => _expectedArrivalDate = picked);
                     },
-                  ),
+                  )),
                 ),
               ],
             ),

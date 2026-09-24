@@ -281,19 +281,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify Header
-      expect(find.textContaining('محاكاة تكلفة الوصول التقديرية للوحدة'), findsOneWidget);
+      // Verify Header (labels are localized via Localizations.localeOf -> en_US in tests;
+      // the executive summary text comes from the API payload and stays Arabic)
+      expect(find.textContaining('Pre-Shipment Estimated Landed Cost Simulation'), findsOneWidget);
       expect(find.textContaining('IMP-2026-TEST08'), findsOneWidget);
 
       // Verify Executive Summary
       expect(find.textContaining('تبلغ تكلفة الوصول التقديرية الإجمالية'), findsOneWidget);
 
       // Verify KPI Cards
-      expect(find.text('إجمالي البضاعة FOB'), findsOneWidget);
-      expect(find.text('النولون والتأمين'), findsOneWidget);
-      expect(find.text('الجمارك والضرائب'), findsOneWidget);
-      expect(find.text('تكلفة الوصول الشاملة'), findsOneWidget);
-      expect(find.text('معامل الزيادة الإجمالي'), findsOneWidget);
+      expect(find.text('Total Goods FOB'), findsOneWidget);
+      expect(find.text('Freight & Insurance'), findsOneWidget);
+      expect(find.text('Customs & Taxes'), findsOneWidget);
+      expect(find.text('Total Landed Cost'), findsOneWidget);
+      expect(find.text('Overall Markup Factor'), findsOneWidget);
 
       // Verify Items Breakdown
       expect(find.text('ITM-MAC-01'), findsOneWidget);
@@ -301,9 +302,9 @@ void main() {
       expect(find.text('Industrial Packing Machine'), findsOneWidget);
 
       // Verify Action Buttons
-      expect(find.text('تصدير تقرير Excel/CSV'), findsOneWidget);
-      expect(find.text('نسخ جدول النتائج (TSV)'), findsOneWidget);
-      expect(find.text('إغلاق'), findsOneWidget);
+      expect(find.text('Export Excel/CSV'), findsOneWidget);
+      expect(find.text('Copy TSV Table'), findsOneWidget);
+      expect(find.text('Close'), findsOneWidget);
     });
   });
 }

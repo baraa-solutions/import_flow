@@ -140,6 +140,34 @@ void main() {
     expect(rowTexts.contains('60'), isTrue);
   });
 
+  testWidgets('EnterpriseDataTable sortable header: 1st tap ascending, 2nd tap descending (full-cell tap target)', (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    List<int> scoresTopToBottom() {
+      final cells = ['60', '70', '85', '90', '95'].map((v) => (int.parse(v), tester.getRect(find.text(v)).top)).toList()
+        ..sort((a, b) => a.$2.compareTo(b.$2));
+      return cells.map((c) => c.$1).toList();
+    }
+
+    // The header InkWell fills the whole heading-row height.
+    final header = find.byKey(const ValueKey('enterprise_table_header_score'));
+    expect(header, findsOneWidget);
+    final headerRect = tester.getRect(header);
+    expect(headerRect.height, 44.0);
+    expect(headerRect.width, greaterThanOrEqualTo(tester.getRect(find.text('الدرجة')).width));
+
+    // 1st tap (on the label) -> ascending.
+    await tester.tap(find.text('الدرجة'), warnIfMissed: true);
+    await tester.pumpAndSettle();
+    expect(scoresTopToBottom(), [60, 70, 85, 90, 95]);
+
+    // 2nd tap near the top edge of the cell, away from the label -> descending.
+    await tester.tapAt(Offset(headerRect.center.dx, headerRect.top + 3));
+    await tester.pumpAndSettle();
+    expect(scoresTopToBottom(), [95, 90, 85, 70, 60]);
+  });
+
   testWidgets('EnterpriseDataTable pagination slices items properly', (tester) async {
     await tester.pumpWidget(createTestWidget(initialPageSize: 2));
     await tester.pumpAndSettle();

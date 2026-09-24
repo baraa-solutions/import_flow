@@ -54,6 +54,9 @@ void main() {
     );
   }
 
+  // Since 83f71fc long titles are intentionally truncated with an ellipsis
+  // (VerticalStageScaffold: up to 2 lines; DedicatedStageScaffold: single line).
+  // These tests assert that behaviour and that the header never overflows.
   group('Type A Header Title Visibility Tests (Problem 1 Fix)', () {
     testWidgets('Freight Shipping Scenarios & Carrier Evaluation renders in full with multiple action buttons', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1100, 768));
@@ -100,11 +103,12 @@ void main() {
       expect(titleFinder, findsOneWidget, reason: 'Title must be present in the tree');
 
       final Text titleText = tester.widget<Text>(titleFinder);
-      expect(titleText.overflow, isNot(TextOverflow.ellipsis), reason: 'Title must not use ellipsis truncation');
-      expect(titleText.maxLines, isNull, reason: 'Title must not be restricted to 1 line');
+      expect(titleText.overflow, TextOverflow.ellipsis, reason: 'Long titles are truncated with an ellipsis (83f71fc)');
+      expect(titleText.maxLines, 2, reason: 'Type A title may wrap to at most 2 lines');
       expect(titleText.softWrap, isTrue, reason: 'Title must be allowed to soft-wrap');
 
       // Verify no overflow exception occurred
+      expect(tester.takeException(), isNull);
       // Verify Problem 2 Fix: Raw internal code is hidden, human-readable name is displayed
       expect(find.text('PHASE-1: STEP_03'), findsNothing, reason: 'Raw internal phase/step code must not be shown to user');
       expect(find.text('Freight Studies'), findsOneWidget, reason: 'Badge must show human-readable stage name');
@@ -143,8 +147,8 @@ void main() {
       expect(titleFinder, findsOneWidget);
 
       final Text titleText = tester.widget<Text>(titleFinder);
-      expect(titleText.overflow, isNot(TextOverflow.ellipsis));
-      expect(titleText.maxLines, isNull);
+      expect(titleText.overflow, TextOverflow.ellipsis);
+      expect(titleText.maxLines, 2);
       expect(tester.takeException(), isNull);
 
       // Verify Problem 2 Fix
@@ -191,8 +195,8 @@ void main() {
       expect(titleFinder, findsOneWidget);
 
       final Text titleText = tester.widget<Text>(titleFinder);
-      expect(titleText.overflow, isNot(TextOverflow.ellipsis));
-      expect(titleText.maxLines, isNull);
+      expect(titleText.overflow, TextOverflow.ellipsis);
+      expect(titleText.maxLines, 2);
       expect(tester.takeException(), isNull);
 
       // Verify Problem 2 Fix in Arabic RTL
@@ -200,7 +204,7 @@ void main() {
       expect(find.text('الرسوم الجمركية والضرائب'), findsOneWidget);
     });
 
-    testWidgets('DedicatedStageScaffold renders long title without truncation', (tester) async {
+    testWidgets('DedicatedStageScaffold renders long title with ellipsis and no overflow', (tester) async {
       const dedicatedTitle = 'Smart Invoice vs B/L Match & Variance Reconciliation';
       await tester.binding.setSurfaceSize(const Size(1150, 768));
 
@@ -223,8 +227,7 @@ void main() {
       expect(titleFinder, findsOneWidget);
 
       final Text titleText = tester.widget<Text>(titleFinder);
-      expect(titleText.overflow, isNot(TextOverflow.ellipsis));
-      expect(titleText.maxLines, isNull);
+      expect(titleText.overflow, TextOverflow.ellipsis);
       expect(tester.takeException(), isNull);
 
       // Verify Problem 2 Fix in DedicatedStageScaffold

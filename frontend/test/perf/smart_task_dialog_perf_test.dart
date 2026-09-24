@@ -120,7 +120,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       await _measureCycle(tester, _createTestDio());
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg first-frame render <= 300ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -134,7 +134,7 @@ void main() {
       final avg = runs.reduce((a, b) => a + b) ~/ runs.length;
       print('[SmartTaskDialog] avg first-frame: ${avg}ms');
       expect(avg, lessThanOrEqualTo(300));
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg settled render <= 350ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -148,7 +148,7 @@ void main() {
       final avg = runs.reduce((a, b) => a + b) ~/ runs.length;
       print('[SmartTaskDialog] avg settled: ${avg}ms');
       expect(avg, lessThanOrEqualTo(350));
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg disposal <= 150ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -162,7 +162,7 @@ void main() {
       final avg = runs.reduce((a, b) => a + b) ~/ runs.length;
       print('[SmartTaskDialog] avg disposal: ${avg}ms');
       expect(avg, lessThanOrEqualTo(150));
-    });
+    }, tags: ['perf']);
 
     testWidgets('dialog renders add_task icon and close button', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);

@@ -12,6 +12,9 @@ import '../theme/density_provider.dart';
 /// - Implements [PreferredSizeWidget] so it can be passed directly to `Scaffold.appBar`
 ///   or placed as the first widget in a `Column`.
 class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
+  /// Minimum width reserved for the title block when actions are wide.
+  static const double _minTitleWidth = 240.0;
+
   final IconData? icon;
   final Color? iconColor;
   final String title;
@@ -69,7 +72,8 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
       ),
       child: SafeArea(
         bottom: false,
-        child: Row(
+        child: LayoutBuilder(
+          builder: (context, headerConstraints) => Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
@@ -126,12 +130,58 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
             ),
             if (actions != null && actions!.isNotEmpty) ...[
               const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: actions!,
+              // PageHeader is used as Scaffold.appBar with a fixed preferredSize, so actions
+              // cannot wrap to a second row. When they exceed the cap (title keeps at least
+              // [_minTitleWidth]) they scroll horizontally with an always-visible scrollbar.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: headerConstraints.maxWidth.isFinite
+                      ? (headerConstraints.maxWidth - _minTitleWidth).clamp(0.0, double.infinity)
+                      : double.infinity,
+                ),
+                child: _HeaderActionsStrip(actions: actions!),
               ),
             ],
           ],
+        ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal actions strip for [PageHeader]; shows a visible scrollbar when the actions
+/// are wider than the space available, so no action is silently hidden.
+class _HeaderActionsStrip extends StatefulWidget {
+  const _HeaderActionsStrip({required this.actions});
+
+  final List<Widget> actions;
+
+  @override
+  State<_HeaderActionsStrip> createState() => _HeaderActionsStripState();
+}
+
+class _HeaderActionsStripState extends State<_HeaderActionsStrip> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      thickness: 3,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: widget.actions,
         ),
       ),
     );

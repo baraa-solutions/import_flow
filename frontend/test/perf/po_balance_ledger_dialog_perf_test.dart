@@ -135,7 +135,7 @@ void main() {
       expect(avgFirstFrame, lessThanOrEqualTo(300), reason: 'Avg first frame <= 300ms');
       expect(avgSettled,    lessThanOrEqualTo(350), reason: 'Avg settled <= 350ms');
       expect(avgDisposal,   lessThanOrEqualTo(150), reason: 'Avg disposal <= 150ms');
-    });
+    }, tags: ['perf']);
 
     testWidgets('Renders summary cards and 2 line items after data loads',
         (tester) async {

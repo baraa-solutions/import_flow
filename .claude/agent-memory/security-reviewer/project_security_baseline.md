@@ -42,6 +42,9 @@ then diff against this list.
 - Phase 2 (lead's list): per-route permission catalog, restore path, check-updates SSRF, upload limits,
   handler-level resolve_user in customs_consultation/financial_approval.
 - Carried over: updater has no SHA-256/signature; plain http on LAN.
+- MINOR (pre-existing, CI): build_and_release.yml uses subosito/flutter-action@v2 by mutable tag, not commit SHA.
+  (2026-09-24 scoped review: Flutter pinned to 3.44.6, pubspec.lock re-resolved to pub.dev only with no new packages,
+  web_file_saver moved to dart:js_interop with the same behaviour. Nothing new found.)
 
 ## Review gotchas
 - `import main` writes `backups/auto_pre_upgrade_*.db` into the worktree (gitignored) on every import.

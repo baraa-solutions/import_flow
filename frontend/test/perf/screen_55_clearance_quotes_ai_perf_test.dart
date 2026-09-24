@@ -1,4 +1,7 @@
-﻿import 'dart:typed_data';
+﻿@Tags(['perf'])
+library;
+
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

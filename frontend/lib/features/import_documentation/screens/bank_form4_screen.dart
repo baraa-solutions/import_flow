@@ -1131,67 +1131,81 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryCopyBtn'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  // Buttons wrap onto a second line instead of overflowing the toolbar.
+                  Flexible(
+                    flex: 2,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        runSpacing: 8,
+                        children: [
+                        OutlinedButton.icon(
+                          key: const Key('bankRegistryCopyBtn'),
+                          icon: const Icon(Icons.copy, size: 16),
+                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                            side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          ),
+                          onPressed: () => _copyBankForm4AsTsv(filtered, importFiles),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          key: const Key('bankRegistryExcelBtn'),
+                          icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green.shade700,
+                            side: const BorderSide(color: Colors.green),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          ),
+                          onPressed: () => _exportBankForm4ToExcel(filtered, importFiles),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          key: const Key('bankRegistryPdfBtn'),
+                          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          ),
+                          onPressed: () => _exportBankForm4ToPdf(filtered, importFiles),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          key: const Key('subtab1SearchAndCloneBtn'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          onPressed: _openSearchAndCloneBankForm4Dialog,
+                          icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt),
+                          label: Text(context.l10n.searchAndCloneBankForm4Btn),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          key: const Key('subtab1NewForm4Btn'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.wcagCobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          ),
+                          onPressed: () {
+                            _resetForm4Form();
+                            setState(() => _selectedSubTab = 0);
+                          },
+                          icon: const Icon(Icons.add),
+                          label: Text(context.l10n.newForm4RequestButton),
+                        ),
+                        ],
+                      ),
                     ),
-                    onPressed: () => _copyBankForm4AsTsv(filtered, importFiles),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryExcelBtn'),
-                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green.shade700,
-                      side: const BorderSide(color: Colors.green),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportBankForm4ToExcel(filtered, importFiles),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryPdfBtn'),
-                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportBankForm4ToPdf(filtered, importFiles),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('subtab1SearchAndCloneBtn'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    onPressed: _openSearchAndCloneBankForm4Dialog,
-                    icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt),
-                    label: Text(context.l10n.searchAndCloneBankForm4Btn),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    key: const Key('subtab1NewForm4Btn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.wcagCobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    ),
-                    onPressed: () {
-                      _resetForm4Form();
-                      setState(() => _selectedSubTab = 0);
-                    },
-                    icon: const Icon(Icons.add),
-                    label: Text(context.l10n.newForm4RequestButton),
                   ),
                 ],
               ),

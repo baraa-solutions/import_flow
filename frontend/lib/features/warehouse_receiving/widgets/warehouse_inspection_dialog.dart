@@ -412,31 +412,31 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
                       Row(
                         children: [
                           Expanded(
-                            child: CheckboxListTile(
+                            child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                               title: const Text('رفع مطالبة تأمين بحري/نقل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               value: _insuranceClaimFiled,
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               onChanged: (v) => setState(() => _insuranceClaimFiled = v ?? false),
-                            ),
+                            )),
                           ),
                           Expanded(
-                            child: CheckboxListTile(
+                            child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                               title: const Text('طلب إشعار دائن (Credit Note) من المورد', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               value: _supplierClaimFiled,
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               onChanged: (v) => setState(() => _supplierClaimFiled = v ?? false),
-                            ),
+                            )),
                           ),
                           Expanded(
-                            child: SwitchListTile(
+                            child: Material(type: MaterialType.transparency, child: SwitchListTile(
                               title: const Text('عزل الأصناف التالفة في منطقة الحجر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               value: _quarantineAssigned,
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               onChanged: (v) => setState(() => _quarantineAssigned = v),
-                            ),
+                            )),
                           ),
                         ],
                       ),

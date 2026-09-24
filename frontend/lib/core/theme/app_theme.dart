@@ -232,7 +232,7 @@ class AppTheme {
             return cobalt;
           }
           if (states.contains(WidgetState.hovered)) {
-            return cobalt.withOpacity(0.85);
+            return cobalt.withValues(alpha: 0.85);
           }
           return Colors.grey.shade400;
         }),
@@ -254,7 +254,7 @@ class AppTheme {
       ),
 
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 2,
         shadowColor: const Color(0x0A000000),
@@ -265,7 +265,7 @@ class AppTheme {
       ),
 
       // Dialog Theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         elevation: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -382,7 +382,7 @@ class AppTheme {
             return cobalt;
           }
           if (states.contains(WidgetState.hovered)) {
-            return cobalt.withOpacity(0.85);
+            return cobalt.withValues(alpha: 0.85);
           }
           return const Color(0xFF475569);
         }),
@@ -404,7 +404,7 @@ class AppTheme {
       ),
 
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: darkCardBackground,
         elevation: 2,
         shadowColor: const Color(0x33000000),
@@ -415,7 +415,7 @@ class AppTheme {
       ),
 
       // Dialog Theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: darkElevatedSurface,
         elevation: 8,
         shape: RoundedRectangleBorder(

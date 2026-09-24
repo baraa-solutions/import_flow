@@ -75,7 +75,8 @@ void main() {
       expect(find.textContaining('14 يوم سماح'), findsWidgets);
 
       // Verify Shipping Line category choice chip exists
-      expect(find.widgetWithText(ChoiceChip, 'خط ملاحي'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('خط ملاحي'), findsWidgets); // category badge in the partner row
 
       // Verify add partner button exists
       expect(find.byIcon(Icons.add), findsWidgets);

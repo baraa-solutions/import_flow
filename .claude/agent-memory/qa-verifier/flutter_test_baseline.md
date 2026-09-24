@@ -1,24 +1,23 @@
 ---
 name: flutter-test-baseline
-description: Flutter test gate facts on this machine - app_theme compile error masks ~270 suites, how to compare baseline vs current, runtime and pitfalls
+description: Flutter test gate facts on this machine - 3.44.6 port baseline counts, perf tag, concurrency crashes, how to compare runs
 metadata:
   type: project
 ---
 
-As of 2026-09-24, on Flutter 3.44.6 (stable), `lib/core/theme/app_theme.dart` uses `CardTheme(`/`DialogTheme(` where
-`CardThemeData`/`DialogThemeData` are required. That makes 269 of ~385 test suites fail to *load* on HEAD, so it is
-pre-existing and not caused by feature diffs. CI (`subosito/flutter-action@v2`, channel stable, no version pin) will hit the same error.
-Temporarily patching those 4 lines in a scratch worktree reveals ~80-93 more hidden failures, many of them `*_perf_test` timing tests that are flaky under load.
+Before the Flutter 3.44.6 port (commit 406dba5 and earlier), `app_theme.dart` used `CardTheme(`/`DialogTheme(`, so
+269 of ~385 suites failed to *load*. On 2026-09-24 the uncommitted port fixed that. Its first clean full run gave:
+386 files, 1420 passed, 0 failed, 94 skipped (all skips = `perf` tag, 85 files in test/perf), exit 0, ~7 min alone.
+`frontend/dart_test.yaml` skips tag `perf` by default. A serial perf run (`--run-skipped -t perf -j 1 test/perf`) took ~6 min.
+It gave 97 passed and 1 failed. The failure was a RenderFlex overflow of 8236 px in `import_file_details_dialog_perf_test`, not a timing miss.
 
-**Why:** unpatched runs only show load failures, so a regression inside those 269 suites is invisible.
+**Why:** these numbers are the new reference, and pre-port numbers are no longer comparable.
 **How to apply:**
-- Compare with `--reporter json`. Normalize "loading <abs path>" test names to the basename, because they embed the worktree path.
-- Patch the theme in a scratch worktree only, never in the task worktree.
-- Windows rejects `flutter test` with ~269 file args ("command line is too long"). Run the full suite instead.
-- A full run takes ~12-15 min alone and ~40-55 min when two run concurrently (plus pytest running alongside).
-- A HEAD baseline worktree needs `flutter pub get` first. It re-resolves 16 deps, like the task tree's modified pubspec.lock.
-- A one-off "The Dart compiler exited unexpectedly" can be attached to a hidden "loading" test that still ends in success.
-  That is tool noise, not a failure. Count results from `testDone`, not from `error` events.
-- The "failing suites" affected by auth work (auth_gate, login_screen_widget, email_settings_widget) are among the 269 masked
-  load failures. An unpatched run cannot prove those suites have no regression.
-- Other sessions may remove or prune scratch worktrees mid-run. One vanished on 2026-09-24 and killed a run. Check `git worktree list` if a run stalls.
+- Run `flutter test` ALONE. Running it at the same time as `flutter build web` crashed the flutter tool with "Could not start thread ... 22"
+  (thread/commit-memory exhaustion). That produced false "Connection closed before test suite loaded" failures, and the tool then hung
+  without writing `done`. Kill only your own process tree (check the command line and start time), then rerun.
+- Other sessions leave `flutter test` processes and orphaned `flutter_tester.exe` processes running for hours. Don't kill them. They eat memory.
+- Parse `--reporter json`: count `testDone` with hidden=false; a hidden non-success = load failure.
+- In Python, set PYTHONIOENCODING=utf-8 before printing test messages; cp1252 crashes on box-drawing characters.
+- `flutter build web --debug` takes ~3 min. A wasm dry-run crash under memory pressure is only a warning and does not change the exit code.
+- Other sessions may prune scratch worktrees mid-run. Check `git worktree list` if a run stalls.

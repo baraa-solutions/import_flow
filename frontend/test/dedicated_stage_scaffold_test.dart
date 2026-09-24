@@ -1,14 +1,44 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/core/services/display_name_resolver.dart';
 import 'package:frontend/core/theme/density_provider.dart';
 import 'package:frontend/core/widgets/dedicated_stage_scaffold.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 
 class FakeDensityNotifier extends DisplayDensityNotifier {
   FakeDensityNotifier(DisplayDensityMode initial) : super() {
     state = initial;
   }
 }
+
+class _EmptyImportFilesNotifier extends ImportFilesNotifier {
+  _EmptyImportFilesNotifier() : super(Dio()) {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  Future<void> fetchImportFiles({
+    bool includeInactive = false,
+    String? search,
+    int? companyId,
+    int? supplierId,
+    String? status,
+    String? owner,
+  }) async {
+    state = const AsyncValue.data([]);
+  }
+}
+
+/// The header shows a human-readable stage label, not the raw stage code.
+final String _badge = DisplayNameResolver.resolveStageBadge('STEP_08_BL', isArabic: false);
+
+/// Header icon / title are rendered at 90% of the density token (see DedicatedStageScaffold).
+double _icon(DisplayDensityMode m) => m.headerIconSize * 0.9;
+double _title(DisplayDensityMode m) => DisplayDensityMode.clampFontSize(m.headerTitleFontSize * 0.9);
 
 void main() {
   Widget buildTestWidget({
@@ -54,21 +84,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Bill of Lading Review'), findsOneWidget);
-      expect(find.text('STEP_08_BL'), findsOneWidget);
+      expect(find.text(_badge), findsOneWidget);
       expect(find.byIcon(Icons.directions_boat), findsOneWidget);
       expect(find.text('Formal Letter'), findsOneWidget);
       expect(find.text('Main Stage Body Content'), findsOneWidget);
 
       // Verify Icon size in Comfortable mode
       final iconWidget = tester.widget<Icon>(find.byIcon(Icons.directions_boat));
-      expect(iconWidget.size, equals(DisplayDensityMode.comfortable.headerIconSize));
+      expect(iconWidget.size, equals(_icon(DisplayDensityMode.comfortable)));
 
       // Verify Title font size in Comfortable mode
       final titleText = tester.widget<Text>(find.text('Bill of Lading Review'));
-      expect(titleText.style?.fontSize, equals(DisplayDensityMode.comfortable.headerTitleFontSize));
+      expect(titleText.style?.fontSize, equals(_title(DisplayDensityMode.comfortable)));
 
       // Verify Stage badge font size adheres to 11px floor rule
-      final badgeText = tester.widget<Text>(find.text('STEP_08_BL'));
+      final badgeText = tester.widget<Text>(find.text(_badge));
       expect(badgeText.style?.fontSize, greaterThanOrEqualTo(11.0));
     });
 
@@ -81,12 +111,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final iconWidget = tester.widget<Icon>(find.byIcon(Icons.directions_boat));
-      expect(iconWidget.size, equals(DisplayDensityMode.compact.headerIconSize));
+      expect(iconWidget.size, equals(_icon(DisplayDensityMode.compact)));
 
       final titleText = tester.widget<Text>(find.text('Bill of Lading Review'));
-      expect(titleText.style?.fontSize, equals(DisplayDensityMode.compact.headerTitleFontSize));
+      expect(titleText.style?.fontSize, equals(_title(DisplayDensityMode.compact)));
 
-      final badgeText = tester.widget<Text>(find.text('STEP_08_BL'));
+      final badgeText = tester.widget<Text>(find.text(_badge));
       expect(badgeText.style?.fontSize, greaterThanOrEqualTo(11.0));
     });
 
@@ -99,16 +129,18 @@ void main() {
       await tester.pumpAndSettle();
 
       final iconWidget = tester.widget<Icon>(find.byIcon(Icons.directions_boat));
-      expect(iconWidget.size, equals(DisplayDensityMode.ultraCompact.headerIconSize));
+      expect(iconWidget.size, equals(_icon(DisplayDensityMode.ultraCompact)));
 
       final titleText = tester.widget<Text>(find.text('Bill of Lading Review'));
-      expect(titleText.style?.fontSize, equals(DisplayDensityMode.ultraCompact.headerTitleFontSize));
+      expect(titleText.style?.fontSize, equals(_title(DisplayDensityMode.ultraCompact)));
 
-      final badgeText = tester.widget<Text>(find.text('STEP_08_BL'));
+      final badgeText = tester.widget<Text>(find.text(_badge));
       expect(badgeText.style?.fontSize, greaterThanOrEqualTo(11.0));
     });
 
-    testWidgets('Includes bottom clearance buffer for floating widgets (+72px)', (tester) async {
+    testWidgets('Body workspace fills the remaining viewport down to the bottom edge', (tester) async {
+      // Since 83f71fc the scaffold uses a maximized body (the former +72px bottom
+      // anti-occlusion buffer was removed), so the body reaches the bottom of the view.
       tester.view.physicalSize = const Size(1366, 768);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -116,19 +148,12 @@ void main() {
       await tester.pumpWidget(buildTestWidget(densityMode: DisplayDensityMode.comfortable));
       await tester.pumpAndSettle();
 
-      // Find the Padding widget wrapping the body
-      final paddings = tester.widgetList<Padding>(find.byType(Padding));
-      bool foundBuffer = false;
-      for (final p in paddings) {
-        if (p.padding is EdgeInsets) {
-          final insets = p.padding as EdgeInsets;
-          if (insets.bottom >= 72.0) {
-            foundBuffer = true;
-            break;
-          }
-        }
-      }
-      expect(foundBuffer, isTrue, reason: 'Workspace body must have >= 72px bottom clearance buffer');
+      final bodyFinder = find.byWidgetPredicate(
+        (w) => w is Center && w.child is Text && (w.child as Text).data == 'Main Stage Body Content',
+      );
+      expect(bodyFinder, findsOneWidget);
+      expect(find.ancestor(of: bodyFinder, matching: find.byType(Expanded)), findsWidgets);
+      expect(tester.getRect(bodyFinder).bottom, moreOrLessEquals(768.0));
     });
 
     testWidgets('Renders without overflow on narrow screens (< 1000px)', (tester) async {
@@ -146,6 +171,75 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Bill of Lading Review'), findsOneWidget);
       expect(find.text('Formal Letter'), findsOneWidget);
+    });
+  });
+
+  group('DedicatedStageScaffold adaptive header (lifecycle controls never clipped)', () {
+    Widget buildWithControls(double width) => ProviderScope(
+          overrides: [
+            displayDensityProvider.overrideWith((ref) => FakeDensityNotifier(DisplayDensityMode.comfortable)),
+            importFilesProvider.overrideWith((ref) => _EmptyImportFilesNotifier()),
+          ],
+          child: AppLocalizationsProvider(
+            locale: const Locale('en'),
+            child: MaterialApp(
+              home: DedicatedStageScaffold(
+                stageCode: 'STEP_08_MATCH',
+                titleAr: 'المطابقة الذكية للفاتورة والبوليصة',
+                titleEn: 'Smart Invoice vs B/L Match & Variance Reconciliation',
+                headerIcon: Icons.rule_folder_outlined,
+                showStageLifecycleControls: true,
+                headerActions: [
+                  OutlinedButton(onPressed: () {}, child: const Text('Re-run Matching')),
+                ],
+                body: const Center(child: Text('Body')),
+              ),
+            ),
+          ),
+        );
+
+    RenderAdaptiveStageHeader headerRender(WidgetTester tester) =>
+        tester.renderObject<RenderAdaptiveStageHeader>(find.byType(AdaptiveStageHeaderLayout));
+
+    testWidgets('at 800px the controls move to a second row and Hold & Stop is fully visible and tappable', (tester) async {
+      tester.view.physicalSize = const Size(800, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWithControls(800));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(headerRender(tester).isSingleRow, isFalse);
+
+      final holdFinder = find.text(const AppLocalizationsEn().stopShipmentAtThisStageBtn);
+      final skipFinder = find.text(const AppLocalizationsEn().skipStepBtn);
+      expect(holdFinder, findsOneWidget);
+      expect(skipFinder, findsOneWidget);
+
+      final headerRect = tester.getRect(find.byType(AdaptiveStageHeaderLayout));
+      for (final f in [holdFinder, skipFinder]) {
+        final r = tester.getRect(f);
+        expect(r.left >= headerRect.left && r.right <= headerRect.right, isTrue,
+            reason: '$f must be fully inside the header ($r vs $headerRect)');
+        expect(r.left >= 0 && r.right <= 800, isTrue, reason: '$f must be inside the viewport ($r)');
+      }
+
+      await tester.tap(holdFinder, warnIfMissed: true);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget, reason: 'Hold & Stop opens the file-selection dialog');
+    });
+
+    testWidgets('on a wide desktop the header stays a single row', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWithControls(1920));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(headerRender(tester).isSingleRow, isTrue);
     });
   });
 }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/page_header.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
@@ -168,8 +169,14 @@ void main() {
       await tester.pumpWidget(createTestWidget(size: const Size(1366, 768), locale: const Locale('en')));
       await tester.pumpAndSettle();
 
-      // Find the vertical scrollbar (last Scrollbar in the tree)
-      final bodyScrollbarFinder = find.byType(Scrollbar).last;
+      // Find the vertical body scrollbar (last Scrollbar outside the PageHeader actions strip)
+      final headerScrollbars = find
+          .descendant(of: find.byType(PageHeader), matching: find.byType(Scrollbar))
+          .evaluate()
+          .toSet();
+      final bodyScrollbarFinder = find
+          .byElementPredicate((e) => e.widget is Scrollbar && !headerScrollbars.contains(e))
+          .last;
       expect(bodyScrollbarFinder, findsOneWidget);
 
       // Verify the Directionality immediately wrapping the vertical Scrollbar is TextDirection.rtl (scrollbar on left)

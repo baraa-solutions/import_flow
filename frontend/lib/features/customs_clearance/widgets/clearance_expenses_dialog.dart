@@ -784,7 +784,7 @@ class _ClearanceExpensesDialogState
                   flex: 2,
                   child: Column(
                     children: [
-                      CheckboxListTile(
+                      Material(type: MaterialType.transparency, child: CheckboxListTile(
                         title: const Text(
                           'ضريبة القيمة المضافة (14% VAT)',
                           overflow: TextOverflow.ellipsis,
@@ -799,7 +799,7 @@ class _ClearanceExpensesDialogState
                             _recalculateVat();
                           });
                         },
-                      ),
+                      )),
                       if (_vatIncluded)
                         TextFormField(
                           key: const Key('invoiceVatAmountField'),
@@ -822,7 +822,7 @@ class _ClearanceExpensesDialogState
                   flex: 2,
                   child: Column(
                     children: [
-                      CheckboxListTile(
+                      Material(type: MaterialType.transparency, child: CheckboxListTile(
                         title: const Text(
                           'خصم ضريبة الأرباح (WHT)',
                           overflow: TextOverflow.ellipsis,
@@ -837,7 +837,7 @@ class _ClearanceExpensesDialogState
                             _recalculateWht();
                           });
                         },
-                      ),
+                      )),
                       if (_whtDeducted)
                         TextFormField(
                           key: const Key('invoiceWhtAmountField'),

@@ -1612,34 +1612,34 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           child: Row(
             children: [
               Expanded(
-                child: CheckboxListTile(
+                child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(isArabic ? 'شهادة آيزو العالمية' : 'ISO Certified', style: const TextStyle(fontSize: 11)),
                   value: _hasIso,
                   activeColor: AppTheme.cobalt,
                   onChanged: (val) => setState(() => _hasIso = val ?? false),
-                ),
+                )),
               ),
               Expanded(
-                child: CheckboxListTile(
+                child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(isArabic ? 'قرار 43' : 'Decree 43', style: const TextStyle(fontSize: 11)),
                   value: _registeredDecree43,
                   activeColor: AppTheme.cobalt,
                   onChanged: (val) => setState(() => _registeredDecree43 = val ?? false),
-                ),
+                )),
               ),
               Expanded(
-                child: CheckboxListTile(
+                child: Material(type: MaterialType.transparency, child: CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(isArabic ? 'القائمة البيضاء' : 'White List', style: const TextStyle(fontSize: 11)),
                   value: _whiteListRegistered,
                   activeColor: AppTheme.emerald,
                   onChanged: (val) => setState(() => _whiteListRegistered = val ?? false),
-                ),
+                )),
               ),
             ],
           ),

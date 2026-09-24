@@ -97,7 +97,7 @@ void main() {
       expect(avgFirstFrame, lessThan(400), reason: 'Nav-IN First Frame must be responsive');
       expect(avgSettled, lessThan(600), reason: 'Nav-IN Settled must be responsive');
       expect(avgNavOut, lessThan(200), reason: 'Nav-OUT must be responsive');
-    });
+    }, tags: ['perf']);
 
     testWidgets('Export service dossier generation verification', (tester) async {
       await tester.pumpWidget(

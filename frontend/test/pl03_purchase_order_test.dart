@@ -415,7 +415,7 @@ void main() {
       expect(find.text('1'), findsWidgets); // 1 PO
       expect(find.text('\$60000.00'), findsOneWidget); // Total FOB Amount
       expect(find.text('30.80 m³'), findsOneWidget); // Total CBM
-      expect(find.text('9000.0 kg'), findsOneWidget); // Total Gross Weight
+      expect(find.text('9000 kg'), findsOneWidget); // Total Gross Weight (PoPackingMatcher.formatWeight trims .0)
 
       // Check PO Table row
       expect(find.text('PO-2026-0001'), findsOneWidget);

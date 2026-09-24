@@ -66,6 +66,9 @@ class MetricCard extends ConsumerWidget {
     this.forceShort = false,
   });
 
+  /// Width kept free for the gap between the icon and the title.
+  static const double _valueReserve = 8.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final density = ref.watch(displayDensityProvider);
@@ -77,51 +80,65 @@ class MetricCard extends ConsumerWidget {
       borderRadius: BorderRadius.circular(4),
       child: Padding(
         padding: density.metricCardPadding,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              data.icon,
-              color: data.color,
-              size: density.metricIconSize,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                displayTitle,
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextSecondary
-                      : const Color(0xFF64748B),
-                  fontSize: density.metricTitleFontSize,
-                  fontWeight: FontWeight.w600,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                data.icon,
+                color: data.color,
+                size: density.metricIconSize,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  displayTitle,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+                    fontSize: density.metricTitleFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              ': ',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextSecondary
-                    : const Color(0xFF64748B),
-                fontSize: density.metricTitleFontSize,
-                fontWeight: FontWeight.w600,
+              // The numeric VALUE is preserved in full and never truncated: when the card is
+              // narrower than icon + value, ': value' scales down instead of overflowing.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth.isFinite
+                      ? (constraints.maxWidth - density.metricIconSize - _valueReserve).clamp(0.0, double.infinity)
+                      : double.infinity,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        ': ',
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+                          fontSize: density.metricTitleFontSize,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      CopyableText(
+                        data.value,
+                        showIcon: false,
+                        style: TextStyle(
+                          fontSize: density.metricValueFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            // The numeric VALUE is preserved in full and never truncated
-            CopyableText(
-              data.value,
-              showIcon: false,
-              style: TextStyle(
-                fontSize: density.metricValueFontSize,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
