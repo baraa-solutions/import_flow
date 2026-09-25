@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from modules.app_update.validators import installer_sort_key
-from utils.db_safety import read_installed_version
+from utils.db_safety import read_installed_version, same_file
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +232,11 @@ class UpdateFileRepository:
     def clear_rollback_block(self) -> None:
         self.remove_file(self.data_dir / ROLLBACK_BLOCK_FILE)
 
+    # ─── pre-update backup sidecar (next to the backup, outside data_dir) ─
+    def save_backup_sidecar(self, backup_path: Path, sidecar: Dict[str, Any]) -> None:
+        """`<backup file>.json` (sha256 / size / integrity of the backup), written atomically."""
+        self._atomic_write_text(Path(f"{backup_path}.json"), json.dumps(sidecar, indent=1))
+
     # ─── installers kept for rollback ─────────────────────────────────────
     @property
     def installers_dir(self) -> Path:
@@ -306,15 +311,6 @@ class UpdateFileRepository:
             raise
 
 
-def _same_file_path(a: object, b: object) -> bool:
-    if not a or not b:
-        return False
-    try:
-        return os.path.normcase(str(Path(str(a)).resolve())) == os.path.normcase(str(Path(str(b)).resolve()))
-    except (OSError, ValueError):
-        return False
-
-
 ROLLBACK_BLOCK_UNREADABLE_REASON = (
     "ملف حالة التراجع تالف — راجع الدعم الفني / "
     "rollback state file unreadable (rollback_blocked.json): contact support before using the system"
@@ -346,7 +342,7 @@ def rollback_pending_reason(
     if not isinstance(block, dict) or not isinstance(block.get("db_path"), str) or not block["db_path"].strip():
         logger.critical("rollback_blocked.json is malformed (not an object or no db_path)")
         return ROLLBACK_BLOCK_UNREADABLE_REASON
-    if not _same_file_path(block["db_path"], db_path):
+    if not same_file(block["db_path"], db_path):
         return None
     installed = installed_version or read_installed_version()
     if installed == block.get("to_version"):

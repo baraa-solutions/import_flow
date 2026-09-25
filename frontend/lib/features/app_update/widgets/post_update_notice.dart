@@ -23,9 +23,13 @@ class _PostUpdateNoticeState extends ConsumerState<PostUpdateNotice> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.invalidate(lastUpdateResultProvider);
-    });
+    // Re-fetch only a result cached before this mount; otherwise the listen in
+    // build creates the provider and fetches it once.
+    if (ref.exists(lastUpdateResultProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(lastUpdateResultProvider);
+      });
+    }
   }
 
   Future<void> _handle(UpdateLastResult result) async {

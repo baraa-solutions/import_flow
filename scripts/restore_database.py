@@ -32,7 +32,7 @@ from utils.crypto_utils import (  # noqa: E402
     is_encrypted_backup,
     decrypt_backup_file,
 )
-from utils.db_safety import backups_dir_for, default_db_path, sqlite_online_backup  # noqa: E402
+from utils.db_safety import backups_dir_for, check_integrity, default_db_path, sqlite_online_backup  # noqa: E402
 from scripts.db_script_guard import (  # noqa: E402
     PRE_RESTORE_BACKUP_PREFIX,
     UnsafeTargetError,
@@ -45,15 +45,10 @@ from scripts.db_script_guard import (  # noqa: E402
 
 
 def verify_sqlite_integrity(db_path: Path) -> bool:
-    if not db_path.exists():
-        return False
     try:
-        conn = sqlite3.connect(db_path)
-        try:
-            res = conn.execute("PRAGMA integrity_check;").fetchone()[0]
-        finally:
-            conn.close()
-        return res == "ok"
+        return check_integrity(db_path) == "ok"
+    except FileNotFoundError:
+        return False
     except sqlite3.Error as e:
         print(f"[ERROR] Integrity check exception: {e}")
         return False

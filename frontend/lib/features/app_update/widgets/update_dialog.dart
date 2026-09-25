@@ -47,9 +47,12 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   void initState() {
     super.initState();
     // Fresh status on open (a download may already be running in the backend).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(updateStatusProvider.notifier).refresh();
-    });
+    // A notifier first created by this mount's build fetches in its constructor.
+    if (ref.exists(updateStatusProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(updateStatusProvider.notifier).refresh();
+      });
+    }
   }
 
   Future<void> _run(Future<void> Function() action) async {

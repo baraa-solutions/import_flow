@@ -234,7 +234,6 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
     List<String> args, {
     required void Function(String line) onOutput,
     required void Function(String line) onError,
-    void Function(SyncProgressEvent progress)? onProgress,
     void Function(SyncDiffSummary diffSummary)? onDiffSummary,
   }) async {
     onOutput('⚡ > python -u sync_to_production.py ${args.join(' ')}');
@@ -264,13 +263,7 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .listen((line) {
-        if (line.startsWith('[PROGRESS] ')) {
-          try {
-            final jsonStr = line.substring(11).trim();
-            final parsed = json.decode(jsonStr) as Map<String, dynamic>;
-            onProgress?.call(SyncProgressEvent.fromJson(parsed));
-          } catch (_) {}
-        } else if (line.startsWith('[DIFF_DATA] ')) {
+        if (line.startsWith('[DIFF_DATA] ')) {
           try {
             final jsonStr = line.substring(12).trim();
             final parsed = json.decode(jsonStr) as Map<String, dynamic>;
@@ -301,34 +294,7 @@ class LocalProcessSyncServiceImpl implements LocalProcessSyncService {
         final api = _api;
         if (args.contains('--compare')) {
           final comp = await api.getComparison();
-          final diffTables = comp.tables.map((t) {
-            String status = 'MATCH';
-            if (t.isNewTable) {
-              status = 'NEW_TABLE';
-            } else if (t.hasSchemaDiff) {
-              status = 'SCHEMA_DIFF';
-            } else if (t.diff > 0) {
-              status = 'NEW_DATA';
-            } else if (t.diff < 0) {
-              status = 'BEHIND';
-            }
-            return SyncTableDiff(
-              tableName: t.tableName,
-              devCount: t.devCount,
-              prodCount: t.prodCount,
-              diff: t.diff,
-              status: status,
-            );
-          }).toList();
-          onDiffSummary?.call(SyncDiffSummary(
-            exists: true,
-            targetExists: comp.prodStats.exists,
-            totalNewRecords: comp.tables.where((t) => t.diff > 0).fold(0, (acc, t) => acc + t.diff),
-            tablesWithDiff: comp.differingTablesCount,
-            newTablesCount: comp.tables.where((t) => t.isNewTable).length,
-            newColumnsCount: comp.schemaDiffsCount,
-            tables: diffTables,
-          ));
+          onDiffSummary?.call(SyncDiffSummary.fromComparison(comp));
           onOutput('✅ تم جلب مقارنة قاعدة البيانات بنجاح عبر السيرفر');
           return 0;
         }

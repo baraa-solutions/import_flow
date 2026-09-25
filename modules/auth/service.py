@@ -12,6 +12,7 @@ from .permissions import (
     get_user_effective_permissions,
     invalidate_permission_cache,
     is_admin_user,
+    merge_role_and_overrides,
 )
 
 ADMIN_ROLE_CODE = "ADMIN"
@@ -61,16 +62,8 @@ class AuthService:
 
     @staticmethod
     def _compute_effective_codes(role_obj: Optional[Role], overrides: Dict[str, bool]) -> Set[str]:
-        """Pure mirror of get_user_effective_permissions for a non-ADMIN user, ignoring is_active."""
-        effective: Set[str] = set()
-        if role_obj is not None and role_obj.is_active:
-            effective = {rp.permission.permission_code for rp in role_obj.role_permissions if rp.permission}
-        for code, is_granted in overrides.items():
-            if is_granted:
-                effective.add(code)
-            else:
-                effective.discard(code)
-        return effective
+        """Same merge as get_user_effective_permissions for a non-ADMIN user, ignoring is_active."""
+        return merge_role_and_overrides(role_obj, overrides.items())
 
     def _stored_overrides(self, user_id: int) -> Dict[str, bool]:
         rows = self.db.query(UserPermission).filter(UserPermission.user_id == user_id).all()

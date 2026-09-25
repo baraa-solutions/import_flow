@@ -37,6 +37,7 @@ from utils.db_safety import (  # noqa: E402
     backups_dir_for,
     select_prunable,
     sqlite_online_backup,
+    unique_backup_name,
 )
 
 DEFAULT_RETENTION_DAYS = 30
@@ -260,13 +261,8 @@ def perform_backup(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"{DAILY_BACKUP_PREFIX}{timestamp_str}.db"
+    backup_filename = unique_backup_name(f"{DAILY_BACKUP_PREFIX}{timestamp_str}", target_dir)
     backup_path = target_dir / backup_filename
-    counter = 1
-    while backup_path.exists():
-        backup_filename = f"{DAILY_BACKUP_PREFIX}{timestamp_str}_{counter}.db"
-        backup_path = target_dir / backup_filename
-        counter += 1
 
     start_time = time.time()
     print(f"[1/4] Performing zero-downtime online backup to: {backup_filename}...")

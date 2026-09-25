@@ -77,6 +77,20 @@ void main() {
       expect(find.byKey(UpdateBanner.detailsKey), findsNothing);
     });
 
+    testWidgets('first mount checks once; a remount re-checks the cached result', (tester) async {
+      _bigView(tester);
+      final fake = FakeAppUpdateService();
+      await tester.pumpWidget(_app(fake: fake, home: const UpdateBanner()));
+      await tester.pumpAndSettle();
+      expect(fake.checkCalls, 1);
+
+      await tester.pumpWidget(_app(fake: fake, home: const SizedBox()));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(_app(fake: fake, home: const UpdateBanner()));
+      await tester.pumpAndSettle();
+      expect(fake.checkCalls, 2);
+    });
+
     testWidgets('optional update shows and "remind me later" hides it', (tester) async {
       _bigView(tester);
       await tester.pumpWidget(_app(fake: FakeAppUpdateService(check: optionalCheck), home: const UpdateBanner()));
@@ -111,10 +125,10 @@ void main() {
   group('UpdateDialog', () {
     testWidgets('shows version, size and release notes; download starts polling to ready', (tester) async {
       _bigView(tester);
-      // Two idle reads (notifier creation + dialog mount), then the backend
-      // verifies and becomes ready after the download request.
+      // One idle read (the notifier is created by the dialog mount, so the
+      // mount does not refresh it again), then the backend verifies and
+      // becomes ready after the download request.
       final fake = FakeAppUpdateService(check: optionalCheck, statuses: const [
-        UpdateStatus.idle,
         UpdateStatus.idle,
         UpdateStatus(state: UpdateState.verifying),
         UpdateStatus(state: UpdateState.ready, version: '2.1.0'),
@@ -125,6 +139,7 @@ void main() {
       ));
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
+      expect(fake.statusCalls, 1);
 
       expect(find.text(en.updateDialogTitle('2.1.0')), findsOneWidget);
       expect(find.text(en.updateSize('202.8')), findsOneWidget);

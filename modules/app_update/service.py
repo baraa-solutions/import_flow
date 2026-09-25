@@ -52,6 +52,7 @@ from utils.db_safety import (
     is_maintenance_mode,
     maintenance_reason,
     quick_check,
+    same_file,
     sha256_file,
     sqlite_online_backup,
     version_file_path,  # frozen: next to backend.exe; source run: repo root
@@ -451,15 +452,6 @@ def _utc_iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat()
 
 
-def _same_path(a: object, b: object) -> bool:
-    if not a or not b:
-        return False
-    try:
-        return os.path.normcase(str(Path(str(a)).resolve())) == os.path.normcase(str(Path(str(b)).resolve()))
-    except (OSError, ValueError):
-        return False
-
-
 MaintenanceSnapshot = Tuple[bool, str]
 
 
@@ -673,12 +665,16 @@ class UpdateService:
         problem = self._freshness_problem(manifest, repo)
         if problem:
             raise _StaleManifest(problem)
+        self._record_highest_seen(repo, manifest)
+        self._remember_manifest(manifest, self._utcnow())
+        return manifest
+
+    @staticmethod
+    def _record_highest_seen(repo: UpdateFileRepository, manifest: VerifiedManifest) -> None:
         try:
             repo.save_highest_seen(manifest.version, manifest.build_number)
         except OSError as exc:
             logger.warning("Could not persist highest_seen.json: %s", exc)
-        self._remember_manifest(manifest, self._utcnow())
-        return manifest
 
     def _remember_manifest(self, manifest: VerifiedManifest, fetched_at: datetime) -> None:
         with self._lock:
@@ -862,16 +858,15 @@ class UpdateService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DETAIL_NO_UPDATE_FOR_VERSION)
 
         repo = self._repo()
+        with self._lock:  # cheap early exit before the previous installer is hashed below
+            if self._already_staged(version, repo, manifest):
+                return self._status_snapshot()
         # B.6: the previous installer is pre-fetched for rollback when it is the installed version and missing.
         fetch_previous = self._needs_previous_installer(manifest, installed, repo)
         with self._lock:
             if self._state in BUSY_STATES:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DETAIL_DOWNLOAD_IN_PROGRESS)
-            if (
-                self._state == "ready"
-                and self._version == version
-                and repo.staged_file(manifest.installer.filename).is_file()
-            ):
+            if self._already_staged(version, repo, manifest):
                 return self._status_snapshot()
             self._job_id += 1
             job_id = self._job_id
@@ -892,6 +887,14 @@ class UpdateService:
             lambda: self._download_worker(job_id, cancel_event, manifest, base_url, fetch_previous)
         )
         return self._status_snapshot()
+
+    def _already_staged(self, version: str, repo: UpdateFileRepository, manifest: VerifiedManifest) -> bool:
+        """Caller holds the lock: this version is already downloaded and verified."""
+        return (
+            self._state == "ready"
+            and self._version == version
+            and repo.staged_file(manifest.installer.filename).is_file()
+        )
 
     @staticmethod
     def _needs_previous_installer(manifest: VerifiedManifest, installed: str, repo: UpdateFileRepository) -> bool:
@@ -1055,12 +1058,7 @@ class UpdateService:
             self._cancel_event.set()
             version = self._version
             self._job_id += 1
-            self._state = "idle"
-            self._version = None
-            self._downloaded = 0
-            self._total = 0
-            self._error_code = None
-            self._error_detail = None
+            self._reset("idle")
         self._repo().append_history("download_cancelled", version, f"by {actor}")
         return self.get_status()
 
@@ -1106,6 +1104,13 @@ class UpdateService:
             self._error_detail = None
             return previous
 
+    def _reset(self, state: str, version: Optional[str] = None, size_bytes: int = 0) -> None:
+        """Caller holds the lock: `state` without an error, downloaded = total = `size_bytes`."""
+        self._state = state
+        self._version = version
+        self._downloaded = self._total = size_bytes
+        self._error_code = self._error_detail = None
+
     def _ensure_not_busy(self) -> None:
         with self._lock:
             if self._state in BUSY_STATES:
@@ -1145,10 +1150,7 @@ class UpdateService:
         with self._lock:
             if self._state != "idle":
                 return
-            self._state = "ready"
-            self._version = manifest.version
-            self._downloaded = self._total = manifest.installer.size_bytes
-            self._error_code = self._error_detail = None
+            self._reset("ready", manifest.version, manifest.installer.size_bytes)
         logger.info("Recovered staged update v%s after restart", manifest.version)
 
     # ─── apply (spec B.3) ─────────────────────────────────────────────────
@@ -1222,24 +1224,10 @@ class UpdateService:
             # 7. marker for the post-update health check
             log_path = repo.install_log_path("install", version)
             now = self._utcnow()
-            repo.save_pending({
-                "schema": MARKER_SCHEMA,
-                "kind": "update",
-                "from_version": installed,
-                "to_version": version,
-                "app_dir": str(self._app_dir_provider()),
-                "db_path": str(self._db_path),
-                "backup_file": backup_name,
-                "backup_sha256": backup_sha,
-                "backup_created_at": backup_created_at,
-                "installer_file": info.filename,
-                "installer_sha256": info.sha256,
-                "install_log": str(log_path),
-                "manifest_raw": raw.decode("utf-8"),
-                "aside_file": None,
-                "started_at": _utc_iso(now),
-                "actor": actor,
-            })
+            repo.save_pending(self._marker(
+                "update", installed, version, backup_name, backup_sha, backup_created_at, info, log_path,
+                raw.decode("utf-8"), None, now, actor,
+            ))
             marker_written = True
 
             # 8. re-hash #2 just before launch (TOCTOU guard over the backup window). The handle stays open with
@@ -1282,6 +1270,41 @@ class UpdateService:
             backup_created_at=datetime.fromisoformat(backup_created_at),
         )
 
+    def _marker(
+        self,
+        kind: str,
+        from_version: Optional[str],
+        to_version: str,
+        backup_file: str,
+        backup_sha256: Any,
+        backup_created_at: Any,
+        installer: InstallerInfo,
+        log_path: Path,
+        manifest_raw: str,
+        aside_file: Optional[str],
+        started_at: datetime,
+        actor: str,
+    ) -> Dict[str, Any]:
+        """pending_update.json content (same layout for update and rollback), read by evaluate_pending_update."""
+        return {
+            "schema": MARKER_SCHEMA,
+            "kind": kind,
+            "from_version": from_version,
+            "to_version": to_version,
+            "app_dir": str(self._app_dir_provider()),
+            "db_path": str(self._db_path),
+            "backup_file": backup_file,
+            "backup_sha256": backup_sha256,
+            "backup_created_at": backup_created_at,
+            "installer_file": installer.filename,
+            "installer_sha256": installer.sha256,
+            "install_log": str(log_path),
+            "manifest_raw": manifest_raw,
+            "aside_file": aside_file,
+            "started_at": _utc_iso(started_at),
+            "actor": actor,
+        }
+
     def _take_pre_update_backup(self, installed: str, version: str) -> Tuple[str, str, str]:
         """R5: disk-space check, verified online backup (integrity_check inside), JSON sidecar. Raises on failure."""
         db_path = self._db_path
@@ -1309,7 +1332,7 @@ class UpdateService:
             "from_version": installed,
             "to_version": version,
         }
-        self._repo()._atomic_write_text(self._backups_dir / f"{name}.json", json.dumps(sidecar, indent=1))
+        self._repo().save_backup_sidecar(self._backups_dir / name, sidecar)
         return name, result.sha256, created_at
 
     # ─── post-update health check (spec B.4) ─────────────────────────────
@@ -1330,8 +1353,8 @@ class UpdateService:
         if not marker:
             return None
         if not (
-            _same_path(marker.get("app_dir"), self._app_dir_provider())
-            and _same_path(marker.get("db_path"), self._db_path)
+            same_file(marker.get("app_dir"), self._app_dir_provider())
+            and same_file(marker.get("db_path"), self._db_path)
         ):
             logger.warning("pending_update.json belongs to another install (%s); leaving it untouched",
                            marker.get("app_dir"))
@@ -1363,7 +1386,7 @@ class UpdateService:
     def _clear_resolved_rollback_block(self, repo: UpdateFileRepository) -> None:
         """The block ends once the older version is installed (the manual rollback finished)."""
         block = repo.load_rollback_block()
-        if not block or not _same_path(block.get("db_path"), self._db_path):
+        if not block or not same_file(block.get("db_path"), self._db_path):
             return
         if self._installed_version() == block.get("to_version"):
             repo.clear_rollback_block()
@@ -1511,10 +1534,8 @@ class UpdateService:
                 raise fail("backup_corrupt", DETAIL_BACKUP_CORRUPT, 422, "rollback_backup_changed",
                            RuntimeError("backup changed before restore"))
             try:
+                # integrity_check of the restored DB runs inside (BackupVerificationError when it is not "ok")
                 sqlite_online_backup(source, self._db_path, overwrite=True)
-                integrity = check_integrity(self._db_path)
-                if integrity != "ok":
-                    raise RuntimeError(f"integrity_check after restore: {integrity}")
             except Exception as exc:  # the DB state is uncertain: stay read-only, also after a restart
                 logger.exception("Restoring the pre-update backup failed")
                 _enter_maintenance("rollback: restore failed")
@@ -1531,24 +1552,10 @@ class UpdateService:
         try:
             # 12. marker
             log_path = repo.install_log_path("rollback", previous.version)
-            repo.save_pending({
-                "schema": MARKER_SCHEMA,
-                "kind": "rollback",
-                "from_version": installed,
-                "to_version": previous.version,
-                "app_dir": str(self._app_dir_provider()),
-                "db_path": str(self._db_path),
-                "backup_file": backup_file,
-                "backup_sha256": expected_sha,
-                "backup_created_at": last.get("backup_created_at"),
-                "installer_file": prev_info.filename,
-                "installer_sha256": prev_info.sha256,
-                "install_log": str(log_path),
-                "manifest_raw": last["manifest_raw"],
-                "aside_file": aside_name,
-                "started_at": _utc_iso(now),
-                "actor": actor,
-            })
+            repo.save_pending(self._marker(
+                "rollback", installed, previous.version, backup_file, expected_sha, last.get("backup_created_at"),
+                prev_info, log_path, last["manifest_raw"], aside_name, now, actor,
+            ))
         except Exception as exc:  # restored DB, but no launch: stay read-only, point to the manual path
             logger.exception("Could not write the rollback marker")
             self._block_after_restore(repo, "marker_failed", installed, previous.version, backup_file,
@@ -1690,10 +1697,7 @@ class UpdateService:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=DETAIL_LOCAL_COPY_FAILED)
 
         self._remember_manifest(manifest, self._utcnow())
-        try:
-            repo.save_highest_seen(manifest.version, manifest.build_number)
-        except OSError as exc:
-            logger.warning("Could not persist highest_seen.json: %s", exc)
+        self._record_highest_seen(repo, manifest)
         with self._lock:
             self._state = "ready"
             self._downloaded = self._total = info.size_bytes
@@ -1725,8 +1729,7 @@ class UpdateService:
         with self._lock:
             self._job_id += 1
             if prior["state"] == "ready":
-                self._state, self._version, self._downloaded, self._total = "idle", None, 0, 0
-                self._error_code = self._error_detail = None
+                self._reset("idle")
             else:
                 self._state = prior["state"]
                 self._version = prior["version"]

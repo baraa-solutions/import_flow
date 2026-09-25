@@ -38,9 +38,12 @@ class _UpdateRollbackDialogState extends ConsumerState<UpdateRollbackDialog> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.invalidate(rollbackCandidateProvider);
-    });
+    // A candidate created by this mount's build is already fresh.
+    if (ref.exists(rollbackCandidateProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(rollbackCandidateProvider);
+      });
+    }
   }
 
   Future<void> _confirm(RollbackCandidate candidate) async {

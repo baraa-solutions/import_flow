@@ -62,6 +62,8 @@ class MasterDataSyncService:
         changed), drop the plaintext line from .env. Dev .env files are left to the developer."""
         if not is_frozen_build():
             return False
+        if not settings.env_file_defines(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD"):
+            return False  # nothing to remove: skip the password hash check
         admin = self.db.query(User).filter(User.username == "admin").first()
         if admin is None or not admin.hashed_password:
             return False

@@ -581,9 +581,13 @@ def _fake_app_update_repository(monkeypatch, **attrs):
     monkeypatch.setitem(sys.modules, "modules.app_update.repository", fake)
 
 
-def test_rollback_hook_missing_is_ignored(monkeypatch, tmp_path):
-    _fake_app_update_repository(monkeypatch)  # a build without the Phase 5 hook
-    assert SchemaUpgradeService._rollback_pending_reason(tmp_path / "x.db") is None
+def test_rollback_hook_missing_fails_closed(monkeypatch, tmp_path):
+    _fake_app_update_repository(monkeypatch)  # the hook cannot be imported: the startup must not write
+    db_file = _legacy_db(tmp_path / "sorour_logistics.db")
+    res = _startup(db_file)
+    assert res["status"] == "maintenance_mode"
+    assert "rollback state unreadable" in res["error"]
+    assert not (tmp_path / "backups").exists()
 
 
 def test_rollback_pending_reason_blocks_startup_before_any_write(tmp_path, monkeypatch):

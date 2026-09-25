@@ -36,9 +36,13 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.invalidate(updateCheckProvider);
-    });
+    // A provider first created by this mount's build already fetches fresh
+    // data; only a pre-existing (possibly stale) result needs a re-check.
+    if (ref.exists(updateCheckProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(updateCheckProvider);
+      });
+    }
     _recheckTimer = Timer.periodic(widget.recheckInterval, (_) {
       if (mounted) ref.invalidate(updateCheckProvider);
     });

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from database.schema_upgrade_service import SchemaUpgradeService
-from utils.db_safety import MIN_BACKUPS_KEPT, is_protected_backup, select_prunable
+from utils.db_safety import MIN_BACKUPS_KEPT, is_protected_backup, same_file, select_prunable, unique_backup_name
 
 
 def _touch(path: Path, age_seconds: float) -> Path:
@@ -91,3 +91,35 @@ def test_schema_upgrade_pruner_orders_by_name_timestamp_not_mtime(tmp_path):
     SchemaUpgradeService._prune_snapshots(backups, max_auto_backups=1, keep_path=None)
     assert newest_by_name.exists()
     assert sum(p.exists() for p in older) == MIN_BACKUPS_KEPT - 1
+
+
+# ---------------------------------------------------------------- shared helpers
+
+def test_unique_backup_name_appends_counter_on_collision(tmp_path):
+    stem = "pre_update_v2.0.0_to_v2.1.0_20260101_120000"
+    assert unique_backup_name(stem, None) == f"{stem}.db"
+    assert unique_backup_name(stem, tmp_path) == f"{stem}.db"
+    (tmp_path / f"{stem}.db").write_bytes(b"x")
+    assert unique_backup_name(stem, tmp_path) == f"{stem}_1.db"
+    (tmp_path / f"{stem}_1.db").write_bytes(b"x")
+    assert unique_backup_name(stem, str(tmp_path)) == f"{stem}_2.db"
+    assert is_protected_backup(tmp_path / unique_backup_name(stem, tmp_path))
+
+
+def test_same_file_resolves_and_ignores_case_on_windows(tmp_path):
+    db = tmp_path / "sorour_logistics.db"
+    db.write_bytes(b"x")
+    assert same_file(db, tmp_path / "sub" / ".." / "sorour_logistics.db")
+    assert same_file(str(db), db)
+    assert not same_file(db, tmp_path / "other.db")
+    if os.name == "nt":
+        assert same_file(db, str(db).upper())
+
+
+@pytest.mark.parametrize("a,b", [(None, "x.db"), ("x.db", None), ("", "x.db"), ("x.db", "")])
+def test_same_file_empty_is_false(a, b):
+    assert same_file(a, b) is False
+
+
+def test_same_file_unresolvable_is_false(tmp_path):
+    assert same_file(tmp_path / "a\x00b.db", tmp_path / "a\x00b.db") is False

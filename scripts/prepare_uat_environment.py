@@ -10,7 +10,6 @@ and takes a verified pre_migration_ backup of the old UAT copy first.
     python scripts/prepare_uat_environment.py --init  --db sorour_logistics_uat.db
     python scripts/prepare_uat_environment.py --reset --db sorour_logistics_uat.db --confirm
 """
-import os
 import sys
 import sqlite3
 import argparse
@@ -30,6 +29,7 @@ from scripts.db_script_guard import (  # noqa: E402
     require_target,
     run_cli_action,
     run_guarded,
+    same_file_fail_closed,
 )
 
 # Default read-only source, and the conventional UAT file name (pass it explicitly with --db).
@@ -37,8 +37,6 @@ PROD_DB = ROOT_DIR / "sorour_logistics.db"
 UAT_DB = ROOT_DIR / "sorour_logistics_uat.db"
 
 
-def _same_file(a: Path, b: Path) -> bool:
-    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 
 # Master data tables to preserve during UAT seeding
 MASTER_DATA_TABLES = {
@@ -97,7 +95,7 @@ def create_uat_database(
     if not source.exists():
         print(f"[ERROR] Source database {source} not found.")
         return False
-    if _same_file(target, source) or is_live_db(target):
+    if same_file_fail_closed(target, source) or is_live_db(target):
         raise UnsafeTargetError(
             f"Refusing to use {target} as the UAT database: it is the source or the live database."
         )
@@ -117,7 +115,7 @@ def create_uat_database(
     sqlite_online_backup(source, target, overwrite=target.exists())
 
     # Belt and braces (A14): never run the DELETEs below against anything but the UAT copy.
-    if _same_file(target, source) or is_live_db(target):
+    if same_file_fail_closed(target, source) or is_live_db(target):
         raise UnsafeTargetError(f"UAT target {target} resolved to the source/live database; aborting.")
 
     conn = sqlite3.connect(target)

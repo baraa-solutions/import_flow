@@ -13,18 +13,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from utils.db_safety import app_base_dir, is_frozen_build
+from utils.db_safety import default_db_path, env_file_path, is_frozen_build
 
 _logger = logging.getLogger("settings")
 
-BASE_DIR = app_base_dir()
-ENV_PATH = BASE_DIR / ".env"
+ENV_PATH = env_file_path()
 
 # True only inside the PyInstaller executable. Deliberately not overridable by env (R7).
 IS_PRODUCTION_BUILD: bool = is_frozen_build()
 
 
-def _env_file_defines(env_path: Path, key: str) -> bool:
+def env_file_defines(env_path: Path, key: str) -> bool:
+    """True when .env has a ``KEY=`` line (False when the file is missing or unreadable)."""
     if not env_path.exists():
         return False
     try:
@@ -56,14 +56,14 @@ def load_or_create_secret_key(env_path: Path) -> str:
         return secret
     secret = secrets.token_hex(32)
     new_lines = {"SECRET_KEY": secret}
-    if not _env_file_defines(env_path, "ALLOW_DEV_AUTH_BYPASS"):
+    if not env_file_defines(env_path, "ALLOW_DEV_AUTH_BYPASS"):
         new_lines["ALLOW_DEV_AUTH_BYPASS"] = "false"
     _append_env_lines(env_path, new_lines)
     os.environ["SECRET_KEY"] = secret
     return secret
 
 
-def load_or_create_admin_password(env_path: Path) -> str:
+def load_or_create_admin_password() -> str:
     """Initial admin password, kept in memory only. It is written to .env only when it is actually
     used to seed the first admin user (persist_admin_initial_password), and removed from .env in the
     frozen build once the admin has changed it (remove_env_key)."""
@@ -77,14 +77,14 @@ def load_or_create_admin_password(env_path: Path) -> str:
 
 def persist_admin_initial_password(env_path: Path, password: str) -> bool:
     """Record the seeded admin password in .env (once) so the operator can read it for first login."""
-    if _env_file_defines(env_path, "ADMIN_INITIAL_PASSWORD"):
+    if env_file_defines(env_path, "ADMIN_INITIAL_PASSWORD"):
         return True
     return _append_env_lines(env_path, {"ADMIN_INITIAL_PASSWORD": password})
 
 
 def remove_env_key(env_path: Path, key: str) -> bool:
     """Remove every ``KEY=`` line from .env, keeping all other lines. Returns True if a line was removed."""
-    if not _env_file_defines(env_path, key):
+    if not env_file_defines(env_path, key):
         return False
     try:
         with open(env_path, "r", encoding="utf-8") as fh:
@@ -124,9 +124,9 @@ ALLOW_DEV_AUTH_BYPASS = resolve_dev_auth_bypass(IS_PRODUCTION_BUILD)
 DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1")
 # Swagger UI / ReDoc / openapi.json are disabled unless explicitly enabled (they expose the route map).
 ENABLE_API_DOCS = os.getenv("ENABLE_API_DOCS", "false").lower() in ("true", "1")
-DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
+DATABASE_PATH = os.getenv("DATABASE_PATH", str(default_db_path()))
 
-ADMIN_INITIAL_PASSWORD = load_or_create_admin_password(ENV_PATH)
+ADMIN_INITIAL_PASSWORD = load_or_create_admin_password()
 
 # Authentication & Session Lifetime (7 days for Desktop ERP, 14 days refresh grace period)
 JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(86400 * 7)))

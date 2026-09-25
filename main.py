@@ -394,7 +394,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 # A failure never crashes the import silently or lets the app keep writing to a half-upgraded DB:
 # it is logged at CRITICAL level and the app starts in maintenance mode (writes return 503).
 try:
-    STARTUP_UPGRADE_RESULT = SchemaUpgradeService.execute_safe_startup_upgrade(
+    SchemaUpgradeService.execute_safe_startup_upgrade(
         target_engine=engine,
         metadata=Base.metadata,
     )
@@ -403,7 +403,6 @@ except Exception as _startup_exc:  # noqa: BLE001 - any failure must block write
         "Startup database upgrade raised %s: %s", type(_startup_exc).__name__, _startup_exc, exc_info=True
     )
     enter_maintenance_mode(f"startup upgrade raised {type(_startup_exc).__name__}: {_startup_exc}")
-    STARTUP_UPGRADE_RESULT = {"status": "maintenance_mode", "error": str(_startup_exc)}
 
 
 
@@ -416,7 +415,7 @@ except Exception as _startup_exc:  # noqa: BLE001 - any failure must block write
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": read_installed_version(),
+        "version": INSTALLED_VERSION,
         "status": "running",
     }
 
@@ -447,7 +446,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": read_installed_version(),
+        "version": INSTALLED_VERSION,
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,
@@ -477,8 +476,6 @@ def system_version_check(
     client_version: Optional[str] = Query(None, description="Current client app semver"),
     x_client_version: Optional[str] = Header(None, alias="X-Client-Version"),
 ):
-    import json
-
     version_file = version_file_path()
     ver_data = {}
     if version_file.exists():

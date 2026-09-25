@@ -22,6 +22,7 @@ from utils.db_safety import (
     is_frozen_build,
     select_prunable,
     sqlite_online_backup,
+    unique_backup_name,
     version_file_path,
 )
 from modules.production_sync.repository import ProductionSyncRepository
@@ -157,11 +158,9 @@ class ProductionSyncService:
         validate_db_exists(db_path, tag)
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = BACKUPS_DIR / f"{PRODUCTION_SYNC_PREFIX}{db_path.stem}_{tag}_{timestamp}.db"
-        counter = 1
-        while backup_file.exists():
-            backup_file = BACKUPS_DIR / f"{PRODUCTION_SYNC_PREFIX}{db_path.stem}_{tag}_{timestamp}_{counter}.db"
-            counter += 1
+        backup_file = BACKUPS_DIR / unique_backup_name(
+            f"{PRODUCTION_SYNC_PREFIX}{db_path.stem}_{tag}_{timestamp}", BACKUPS_DIR
+        )
         try:
             backup_result = sqlite_online_backup(db_path, backup_file)
         except BackupVerificationError as exc:

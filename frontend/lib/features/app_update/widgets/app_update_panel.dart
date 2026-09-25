@@ -51,10 +51,16 @@ class _AppUpdatePanelState extends ConsumerState<AppUpdatePanel> {
   @override
   void initState() {
     super.initState();
+    // Providers first created by this mount's build fetch on creation; only
+    // results cached before this mount are re-fetched.
+    final checkExisted = ref.exists(updateCheckProvider);
+    final statusExisted = ref.exists(updateStatusProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.invalidate(updateCheckProvider);
-      if (ref.read(canInstallUpdatesProvider)) ref.read(updateStatusProvider.notifier).refresh();
+      if (checkExisted) ref.invalidate(updateCheckProvider);
+      if (statusExisted && ref.read(canInstallUpdatesProvider)) {
+        ref.read(updateStatusProvider.notifier).refresh();
+      }
     });
   }
 

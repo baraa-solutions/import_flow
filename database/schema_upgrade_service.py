@@ -21,7 +21,6 @@ There is never an automatic restore.
 """
 import json
 import logging
-import os
 import re
 from dataclasses import asdict
 from datetime import datetime
@@ -39,8 +38,10 @@ from utils.db_safety import (
     AUTO_PRE_UPGRADE_PREFIX,
     backups_dir_for,
     enter_maintenance_mode,
+    same_file,
     select_prunable,
     sqlite_online_backup,
+    unique_backup_name,
     version_file_path,
 )
 
@@ -110,11 +111,7 @@ class SchemaUpgradeService:
     @classmethod
     def _take_snapshot(cls, db_file: Path, backups_dir: Path, version_str: str) -> Path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dest = backups_dir / f"{AUTO_PRE_UPGRADE_PREFIX}v{version_str}_{timestamp}.db"
-        counter = 1
-        while dest.exists():
-            dest = backups_dir / f"{AUTO_PRE_UPGRADE_PREFIX}v{version_str}_{timestamp}_{counter}.db"
-            counter += 1
+        dest = backups_dir / unique_backup_name(f"{AUTO_PRE_UPGRADE_PREFIX}v{version_str}_{timestamp}", backups_dir)
         result = sqlite_online_backup(db_file, dest)
         logger.warning(
             "Pre-upgrade snapshot created: %s (sha256=%s, %d bytes)",
@@ -162,16 +159,11 @@ class SchemaUpgradeService:
     @staticmethod
     def _rollback_pending_reason(db_file_path: Path) -> Optional[str]:
         """Reason to stay read-only because a rollback restored this DB for an older version whose installer
-        never ran (owned by modules.app_update). A build without that module/function returns None."""
-        try:
-            from modules.app_update.repository import rollback_pending_reason
-        except ImportError:
-            return None
-        return rollback_pending_reason(db_file_path)
+        never ran (owned by modules.app_update). Imported here, not at module level, to keep the startup
+        import graph small; an import failure propagates and the caller fails closed."""
+        from modules.app_update.repository import rollback_pending_reason
 
-    @staticmethod
-    def _same_file(a: Path, b: Path) -> bool:
-        return os.path.normcase(str(Path(a).resolve())) == os.path.normcase(str(Path(b).resolve()))
+        return rollback_pending_reason(db_file_path)
 
     @staticmethod
     def _migration_dict(migration: MigrationResult) -> Dict[str, Any]:
@@ -237,7 +229,7 @@ class SchemaUpgradeService:
             if engine_file is None:
                 backup_source_ok = False
                 logger.warning("In-memory SQLite engine: startup snapshots and pre_migration backups are skipped.")
-            elif not cls._same_file(engine_file, db_file_path):
+            elif not same_file(engine_file, db_file_path):
                 return cls._fail(
                     f"preflight failed: engine database {engine_file} differs from DATABASE_PATH {db_file_path}; "
                     "backups would protect the wrong file",

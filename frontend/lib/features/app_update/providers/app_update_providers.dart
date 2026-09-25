@@ -14,7 +14,7 @@ final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
   return AppUpdateService(ref.watch(dioProvider));
 });
 
-/// `GET /check`. The banner invalidates it on mount and every 24 h; it is also
+/// `GET /check`. Fetched fresh on the banner mount (re-checked if already cached) and every 24 h; it is also
 /// invalidated after download / apply / rollback.
 final updateCheckProvider = FutureProvider<UpdateCheckResult>((ref) async {
   return ref.watch(appUpdateServiceProvider).check();

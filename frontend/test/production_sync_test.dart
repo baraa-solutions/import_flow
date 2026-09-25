@@ -238,6 +238,48 @@ void main() {
       expect(event.message, contains('cargo_insurance_certificates'));
     });
 
+    test('SyncDiffSummary.fromComparison maps statuses and totals', () {
+      TableComparisonItemModel row(String name, int dev, int prod,
+              {bool isNew = false, bool schema = false}) =>
+          TableComparisonItemModel(
+            tableName: name,
+            devCount: dev,
+            prodCount: prod,
+            diff: dev - prod,
+            isMatch: dev == prod,
+            status: '',
+            isNewTable: isNew,
+            hasSchemaDiff: schema,
+          );
+      final comp = SyncComparisonResponseModel(
+        devStats: const DatabaseStatsModel(exists: true),
+        prodStats: const DatabaseStatsModel(exists: false),
+        isFullySynchronized: false,
+        totalTables: 5,
+        matchedTablesCount: 1,
+        differingTablesCount: 4,
+        schemaDiffsCount: 2,
+        tables: [
+          row('a', 3, 3),
+          row('b', 10, 0, isNew: true, schema: true),
+          row('c', 5, 5, schema: true),
+          row('d', 7, 2),
+          row('e', 1, 4),
+        ],
+      );
+
+      final summary = SyncDiffSummary.fromComparison(comp);
+      expect(summary.exists, isTrue);
+      expect(summary.targetExists, isFalse);
+      expect(summary.totalNewRecords, 15);
+      expect(summary.tablesWithDiff, 4);
+      expect(summary.newTablesCount, 1);
+      expect(summary.newColumnsCount, 2);
+      expect(summary.tables.map((t) => t.status).toList(),
+          ['MATCH', 'NEW_TABLE', 'SCHEMA_DIFF', 'NEW_DATA', 'BEHIND']);
+      expect(summary.tables[3].diff, 5);
+    });
+
     test('SyncTableDiff and SyncDiffSummary parse structured diff correctly', () {
       final json = {
         'exists': true,

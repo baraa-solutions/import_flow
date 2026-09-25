@@ -1,5 +1,5 @@
 import os
-from typing import List, Set, Dict, Any, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from database.database import get_db, SessionLocal
@@ -55,6 +55,20 @@ def _on_user_change(mapper, connection, target):
     invalidate_permission_cache()
 
 
+def merge_role_and_overrides(role: Optional[Role], overrides: Iterable[Tuple[str, bool]]) -> Set[str]:
+    """Non-ADMIN effective codes: the active role's permissions, then each (code, is_granted) override in order
+    (True adds the code, False removes it). Shared by get_user_effective_permissions and AuthService."""
+    effective: Set[str] = set()
+    if role is not None and role.is_active:
+        effective = {rp.permission.permission_code for rp in role.role_permissions if rp.permission}
+    for code, is_granted in overrides:
+        if is_granted:
+            effective.add(code)
+        else:
+            effective.discard(code)
+    return effective
+
+
 def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
     """
     Computes effective permissions for a given user according to the Hybrid RBAC algorithm:
@@ -94,23 +108,11 @@ def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
             _PERMISSION_CACHE[cache_key] = (now, set(all_perms))
         return all_perms
 
-    effective: Set[str] = set()
-
-    # Step 1: Base Role Permissions
-    if user.assigned_role and user.assigned_role.is_active:
-        for rp in user.assigned_role.role_permissions:
-            if rp.permission:
-                effective.add(rp.permission.permission_code)
-
-    # Step 2: Custom User-level Overrides
     user_perms = db.query(UserPermission).filter(UserPermission.user_id == user_id).all()
-    for up in user_perms:
-        if up.permission:
-            code = up.permission.permission_code
-            if up.is_granted:
-                effective.add(code)
-            else:
-                effective.discard(code)
+    effective = merge_role_and_overrides(
+        user.assigned_role,
+        ((up.permission.permission_code, bool(up.is_granted)) for up in user_perms if up.permission),
+    )
 
     with _CACHE_LOCK:
         _PERMISSION_CACHE[cache_key] = (now, set(effective))

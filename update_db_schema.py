@@ -9,7 +9,6 @@ CLI (update-system-plan A13/R12):
     python update_db_schema.py --db <path/to/db> --confirm
 The target must not be in use, and a verified pre_migration_ backup is taken first (abort on failure).
 """
-import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -24,6 +23,7 @@ from scripts.db_script_guard import (
     run_cli_action,
     take_verified_backup,
 )
+from utils.db_safety import same_file
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -79,14 +79,10 @@ from modules.lifecycle_board.model import (
 SCRIPT_TAG = "update_db_schema"
 
 
-def _same_file(a: Union[str, Path], b: Union[str, Path]) -> bool:
-    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
-
-
 def migrate_db(db_path: Optional[Union[str, Path]] = None, *, backups_dir: Optional[Path] = None):
     """Upgrade ``db_path`` (default: ``database.DB_PATH``, the engine's database)."""
     target = Path(db_path) if db_path else Path(DB_PATH)
-    if _same_file(target, DB_PATH):
+    if same_file(target, DB_PATH):
         target_engine = engine
     else:
         target_engine = create_engine(f"sqlite:///{target.resolve().as_posix()}")

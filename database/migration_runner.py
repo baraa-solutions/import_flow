@@ -25,7 +25,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine, inspect, text
 
-from utils.db_safety import PRE_MIGRATION_PREFIX, REPO_ROOT, BackupResult, sqlite_online_backup
+from utils.db_safety import PRE_MIGRATION_PREFIX, REPO_ROOT, BackupResult, sqlite_online_backup, unique_backup_name
 
 logger = logging.getLogger("migration_runner")
 
@@ -83,11 +83,15 @@ def _script_directory() -> ScriptDirectory:
     return ScriptDirectory.from_config(build_alembic_config())
 
 
-def get_head_revision() -> str:
-    heads = _script_directory().get_heads()
+def _single_head(script: ScriptDirectory) -> str:
+    heads = script.get_heads()
     if len(heads) != 1:
         raise RuntimeError(f"Alembic script directory must have exactly one head, found {len(heads)}: {heads}")
     return heads[0]
+
+
+def get_head_revision() -> str:
+    return _single_head(_script_directory())
 
 
 # ----------------------------------------------------------------------------
@@ -97,10 +101,7 @@ def get_head_revision() -> str:
 def inspect_db_state(engine: Engine) -> DbStateReport:
     """Classify the database. Read-only; raises when the DB cannot be read (e.g. corrupt file)."""
     script = _script_directory()
-    heads = script.get_heads()
-    if len(heads) != 1:
-        raise RuntimeError(f"Alembic script directory must have exactly one head, found {len(heads)}: {heads}")
-    head = heads[0]
+    head = _single_head(script)
 
     with engine.connect() as conn:
         tables = inspect(conn).get_table_names()
@@ -155,11 +156,7 @@ def take_pre_migration_backup(db_path: Path, backups_dir: Path, report: DbStateR
     backups_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     stem = f"{PRE_MIGRATION_PREFIX}{report.current_revision or 'unstamped'}_to_{report.head_revision}_{timestamp}"
-    dest = backups_dir / f"{stem}.db"
-    counter = 1
-    while dest.exists():
-        dest = backups_dir / f"{stem}_{counter}.db"
-        counter += 1
+    dest = backups_dir / unique_backup_name(stem, backups_dir)
     result = sqlite_online_backup(Path(db_path), dest)
     logger.warning(
         "Pre-migration backup created: %s (sha256=%s, %d bytes)", result.path.name, result.sha256, result.size_bytes

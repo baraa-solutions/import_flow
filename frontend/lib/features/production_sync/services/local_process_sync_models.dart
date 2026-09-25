@@ -1,3 +1,5 @@
+import '../models/production_sync_model.dart';
+
 /// Local database statistics.
 class LocalDbStats {
   final bool exists;
@@ -132,6 +134,40 @@ class SyncDiffSummary {
       newTablesCount: (json['new_tables_count'] as num?)?.toInt() ?? 0,
       newColumnsCount: (json['new_columns_count'] as num?)?.toInt() ?? 0,
       tables: parsedTables,
+    );
+  }
+
+  /// Builds the summary from the backend `GET /compare` response (used by the
+  /// web service and by the desktop server-side fallback).
+  factory SyncDiffSummary.fromComparison(SyncComparisonResponseModel comp) {
+    return SyncDiffSummary(
+      exists: true,
+      targetExists: comp.prodStats.exists,
+      totalNewRecords: comp.tables.where((t) => t.diff > 0).fold(0, (acc, t) => acc + t.diff),
+      tablesWithDiff: comp.differingTablesCount,
+      newTablesCount: comp.tables.where((t) => t.isNewTable).length,
+      newColumnsCount: comp.schemaDiffsCount,
+      tables: comp.tables.map(_tableDiffFromComparison).toList(),
+    );
+  }
+
+  static SyncTableDiff _tableDiffFromComparison(TableComparisonItemModel t) {
+    String status = 'MATCH';
+    if (t.isNewTable) {
+      status = 'NEW_TABLE';
+    } else if (t.hasSchemaDiff) {
+      status = 'SCHEMA_DIFF';
+    } else if (t.diff > 0) {
+      status = 'NEW_DATA';
+    } else if (t.diff < 0) {
+      status = 'BEHIND';
+    }
+    return SyncTableDiff(
+      tableName: t.tableName,
+      devCount: t.devCount,
+      prodCount: t.prodCount,
+      diff: t.diff,
+      status: status,
     );
   }
 }

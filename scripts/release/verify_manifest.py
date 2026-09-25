@@ -45,6 +45,7 @@ from modules.app_update.validators import (  # noqa: E402
     build_installer_url,
     validate_base_url,
 )
+from utils.db_safety import sha256_file  # noqa: E402
 
 DEFAULT_TIMEOUT_SECONDS = 60.0
 _HASH_CHUNK = 1024 * 1024
@@ -52,14 +53,6 @@ _HASH_CHUNK = 1024 * 1024
 
 class VerificationError(Exception):
     """The manifest or installer does not match what clients expect."""
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(_HASH_CHUNK), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _parse_public_keys(items: Optional[List[str]]) -> Optional[Dict[str, str]]:
@@ -100,7 +93,7 @@ def verify_local_installer(manifest: VerifiedManifest, installer: Path) -> None:
     size = installer.stat().st_size
     if size != manifest.installer.size_bytes:
         raise VerificationError(f"installer size {size} != manifest {manifest.installer.size_bytes}")
-    digest = _sha256_file(installer)
+    digest = sha256_file(installer)
     if digest != manifest.installer.sha256:
         raise VerificationError(f"installer sha256 {digest} != manifest {manifest.installer.sha256}")
 

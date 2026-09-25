@@ -14,7 +14,13 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException, status
 
-from utils.db_safety import PRE_RESTORE_PREFIX, PRE_UPDATE_PREFIX, app_base_dir, is_frozen_build
+from utils.db_safety import (
+    PRE_RESTORE_PREFIX,
+    PRE_UPDATE_PREFIX,
+    app_base_dir,
+    is_frozen_build,
+    unique_backup_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -215,18 +221,6 @@ def env_value(name: str) -> Optional[str]:
 
 # ─── Pre-update / pre-restore backup names (spec B.3 step 5, B.5 steps 6 and 10) ─
 
-def _unique_backup_name(stem: str, backups_dir: Optional[Path]) -> str:
-    """`<stem>.db`, or `<stem>_N.db` when that name is already taken in `backups_dir`."""
-    name = f"{stem}.db"
-    if backups_dir is None:
-        return name
-    counter = 1
-    while (Path(backups_dir) / name).exists():
-        name = f"{stem}_{counter}.db"
-        counter += 1
-    return name
-
-
 def pre_update_backup_name(
     from_version: str, to_version: str, now: datetime, backups_dir: Optional[Path] = None
 ) -> str:
@@ -234,14 +228,14 @@ def pre_update_backup_name(
     parse_version(from_version)
     parse_version(to_version)
     stem = f"{PRE_UPDATE_PREFIX}v{from_version}_to_v{to_version}_{now.strftime(BACKUP_TIMESTAMP_FORMAT)}"
-    return _unique_backup_name(stem, backups_dir)
+    return unique_backup_name(stem, backups_dir)
 
 
 def pre_restore_aside_name(installed_version: str, now: datetime, backups_dir: Optional[Path] = None) -> str:
     """pre_restore_failed_v{installed}_{ts}.db (+ _N): the live DB copied aside before a rollback restore."""
     parse_version(installed_version)
     stem = f"{PRE_RESTORE_PREFIX}failed_v{installed_version}_{now.strftime(BACKUP_TIMESTAMP_FORMAT)}"
-    return _unique_backup_name(stem, backups_dir)
+    return unique_backup_name(stem, backups_dir)
 
 
 def validate_backup_filename(backup_file: str, expected: Optional[str]) -> str:

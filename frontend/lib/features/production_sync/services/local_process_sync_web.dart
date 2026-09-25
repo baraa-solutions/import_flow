@@ -75,38 +75,7 @@ class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
         _cachedBackups = await _apiService.listBackups();
       } catch (_) {}
 
-      final diffTables = comp.tables.map((t) {
-        String status = 'MATCH';
-        if (t.isNewTable) {
-          status = 'NEW_TABLE';
-        } else if (t.hasSchemaDiff) {
-          status = 'SCHEMA_DIFF';
-        } else if (t.diff > 0) {
-          status = 'NEW_DATA';
-        } else if (t.diff < 0) {
-          status = 'BEHIND';
-        }
-
-        return SyncTableDiff(
-          tableName: t.tableName,
-          devCount: t.devCount,
-          prodCount: t.prodCount,
-          diff: t.diff,
-          status: status,
-        );
-      }).toList();
-
-      final summary = SyncDiffSummary(
-        exists: true,
-        targetExists: comp.prodStats.exists,
-        totalNewRecords: comp.tables.where((t) => t.diff > 0).fold(0, (acc, t) => acc + t.diff),
-        tablesWithDiff: comp.differingTablesCount,
-        newTablesCount: comp.tables.where((t) => t.isNewTable).length,
-        newColumnsCount: comp.schemaDiffsCount,
-        tables: diffTables,
-      );
-
-      onDiffSummary?.call(summary);
+      onDiffSummary?.call(SyncDiffSummary.fromComparison(comp));
       onOutput('📊 نتائج الفحص: إجمالي الجداول (${comp.totalTables}) | متطابقة (${comp.matchedTablesCount}) | بحاجة لتحديث (${comp.differingTablesCount})');
       if (comp.isFullySynchronized) {
         onOutput('✅ قاعدتا البيانات متطابقتان تماماً بنسبة 100%');

@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import sqlite3
 import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Union
+from typing import Iterable, Optional, Union
 
 logger = logging.getLogger("db_safety")
 
@@ -90,6 +91,29 @@ def default_db_path() -> Path:
 def backups_dir_for(db_path: PathLike) -> Path:
     """Backups always live next to the database they protect."""
     return Path(db_path).resolve().parent / "backups"
+
+
+def same_file(a: object, b: object) -> bool:
+    """True when both paths resolve to the same file (case-insensitive on Windows). False when either is
+    empty/None or a path cannot be resolved: callers that must fail closed treat False as "different"."""
+    if not a or not b:
+        return False
+    try:
+        return os.path.normcase(str(Path(str(a)).resolve())) == os.path.normcase(str(Path(str(b)).resolve()))
+    except (OSError, ValueError):
+        return False
+
+
+def unique_backup_name(stem: str, backups_dir: Optional[PathLike]) -> str:
+    """``<stem>.db``, or ``<stem>_N.db`` (N = 1, 2, ...) when that name is already taken in ``backups_dir``."""
+    name = f"{stem}.db"
+    if backups_dir is None:
+        return name
+    counter = 1
+    while (Path(backups_dir) / name).exists():
+        name = f"{stem}_{counter}.db"
+        counter += 1
+    return name
 
 
 # ----------------------------------------------------------------------------

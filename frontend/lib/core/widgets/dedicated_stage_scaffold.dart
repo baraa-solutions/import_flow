@@ -267,7 +267,7 @@ class DedicatedStageScaffold extends ConsumerWidget {
   }
 }
 
-/// Lays out a stage header as a single row when `title` (at least [minTitleWidth]) +
+/// Lays out a stage header as a single row when `title` (at least 200 px) +
 /// `trailing` + `back` fit the available width; otherwise `title` and `back` share the
 /// first row and `trailing` moves to a second row (full width, horizontally scrollable).
 ///
@@ -281,31 +281,17 @@ class AdaptiveStageHeaderLayout extends MultiChildRenderObjectWidget {
     required Widget trailing,
     required Widget back,
     required this.textDirection,
-    this.minTitleWidth = 200,
-    this.gap = 8,
-    this.rowGap = 6,
   }) : super(children: [title, trailing, back]);
 
   final TextDirection textDirection;
-  final double minTitleWidth;
-  final double gap;
-  final double rowGap;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => RenderAdaptiveStageHeader(
-        textDirection: textDirection,
-        minTitleWidth: minTitleWidth,
-        gap: gap,
-        rowGap: rowGap,
-      );
+  RenderObject createRenderObject(BuildContext context) =>
+      RenderAdaptiveStageHeader(textDirection: textDirection);
 
   @override
   void updateRenderObject(BuildContext context, RenderAdaptiveStageHeader renderObject) {
-    renderObject
-      ..textDirection = textDirection
-      ..minTitleWidth = minTitleWidth
-      ..gap = gap
-      ..rowGap = rowGap;
+    renderObject.textDirection = textDirection;
   }
 }
 
@@ -317,41 +303,17 @@ class RenderAdaptiveStageHeader extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _HeaderSlotParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _HeaderSlotParentData> {
-  RenderAdaptiveStageHeader({
-    required TextDirection textDirection,
-    required double minTitleWidth,
-    required double gap,
-    required double rowGap,
-  })  : _textDirection = textDirection,
-        _minTitleWidth = minTitleWidth,
-        _gap = gap,
-        _rowGap = rowGap;
+  RenderAdaptiveStageHeader({required TextDirection textDirection}) : _textDirection = textDirection;
+
+  /// Minimum width reserved for the title before `trailing` wraps to row 2.
+  static const double _minTitleWidth = 200;
+  static const double _gap = 8;
+  static const double _rowGap = 6;
 
   TextDirection _textDirection;
   set textDirection(TextDirection v) {
     if (v == _textDirection) return;
     _textDirection = v;
-    markNeedsLayout();
-  }
-
-  double _minTitleWidth;
-  set minTitleWidth(double v) {
-    if (v == _minTitleWidth) return;
-    _minTitleWidth = v;
-    markNeedsLayout();
-  }
-
-  double _gap;
-  set gap(double v) {
-    if (v == _gap) return;
-    _gap = v;
-    markNeedsLayout();
-  }
-
-  double _rowGap;
-  set rowGap(double v) {
-    if (v == _rowGap) return;
-    _rowGap = v;
     markNeedsLayout();
   }
 

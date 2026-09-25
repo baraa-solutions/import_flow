@@ -32,17 +32,20 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from utils.db_safety import (  # noqa: E402
+    PRE_MIGRATION_PREFIX,
+    PRE_RESTORE_PREFIX,
     BackupResult,
     backups_dir_for,
     default_db_path,
     sqlite_online_backup,
+    unique_backup_name,
 )
 
 PathLike = Union[str, Path]
 
 # Protected prefixes (utils.db_safety.PROTECTED_BACKUP_PREFIXES): no pruner ever deletes these.
-PRE_CHANGE_BACKUP_PREFIX = "pre_migration_"
-PRE_RESTORE_BACKUP_PREFIX = "pre_restore_"
+PRE_CHANGE_BACKUP_PREFIX = PRE_MIGRATION_PREFIX
+PRE_RESTORE_BACKUP_PREFIX = PRE_RESTORE_PREFIX
 
 EXIT_REFUSED = 2
 
@@ -112,7 +115,9 @@ def run_cli_action(
 # Checks
 # ----------------------------------------------------------------------------
 
-def _same_file(a: Path, b: Path) -> bool:
+def same_file_fail_closed(a: Path, b: Path) -> bool:
+    """Same file? Guard flavour of utils.db_safety.same_file: when a path cannot be resolved it falls back to
+    comparing absolute paths instead of answering False, so a refusal check never fails open."""
     try:
         return a.resolve() == b.resolve()
     except OSError:
@@ -174,7 +179,7 @@ def installed_app_db_paths() -> List[Path]:
     paths: List[Path] = []
     for folder in _registry_app_dirs() + _default_install_dirs():
         candidate = folder / DB_FILE_NAME
-        if not any(_same_file(candidate, known) for known in paths):
+        if not any(same_file_fail_closed(candidate, known) for known in paths):
             paths.append(candidate)
     return paths
 
@@ -196,7 +201,7 @@ def live_db_paths() -> List[Path]:
 
 def is_live_db(db_path: PathLike) -> bool:
     target = Path(db_path)
-    return any(_same_file(target, live) for live in live_db_paths())
+    return any(same_file_fail_closed(target, live) for live in live_db_paths())
 
 
 def is_db_in_use(db_path: PathLike) -> bool:
@@ -251,12 +256,7 @@ def take_verified_backup(
     folder = Path(backups_dir) if backups_dir else backups_dir_for(source)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_tag = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in tag) or "script"
-    base = f"{prefix}{safe_tag}_{source.stem}_{stamp}"
-    dest = folder / f"{base}.db"
-    counter = 1
-    while dest.exists():
-        dest = folder / f"{base}_{counter}.db"
-        counter += 1
+    dest = folder / unique_backup_name(f"{prefix}{safe_tag}_{source.stem}_{stamp}", folder)
     try:
         result = sqlite_online_backup(source, dest)
     except Exception as exc:  # any failure (I/O, sqlite, integrity) aborts the change
@@ -286,7 +286,7 @@ def guard_destructive_target(
             f"Refusing to change {target} without --confirm (alias --i-understand-this-destroys-data)."
         )
     for other in forbid:
-        if other is not None and _same_file(target, Path(other)):
+        if other is not None and same_file_fail_closed(target, Path(other)):
             raise UnsafeTargetError(f"Target {target} is the same file as the source database.")
     if not target.exists():
         return None
@@ -339,6 +339,6 @@ def guard_target(
         )
     target = guard_programmatic_target(db_path, must_exist=must_exist)
     for other in forbid:
-        if other is not None and _same_file(target, Path(other)):
+        if other is not None and same_file_fail_closed(target, Path(other)):
             raise UnsafeTargetError(f"Target {target} is the same file as the source database.")
     return None
