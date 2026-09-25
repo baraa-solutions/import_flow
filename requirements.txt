@@ -21,6 +21,9 @@ pdfplumber>=0.10.0
 pypdf>=4.0.0
 pymupdf>=1.24.0
 
+# Arabic OCR: right-to-left reordering of recognized text (modules/import_documentation/arabic_ocr_engine.py)
+python-bidi>=0.6,<0.7
+
 # Document Parsing — Word
 python-docx>=1.1.0
 
