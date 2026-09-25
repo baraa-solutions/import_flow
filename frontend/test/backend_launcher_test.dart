@@ -46,6 +46,8 @@ class _Harness {
   bool startThrows;
   final log = MemoryLauncherLog();
   final List<String> workingDirs = [];
+  final List<Map<String, String>> envs = [];
+  Map<String, String> parentEnv = const {'PATH': r'C:\Windows', 'SystemRoot': r'C:\Windows'};
 
   /// Probe index (1-based) from which /health answers; null = never.
   final int? upAfterProbes;
@@ -65,7 +67,8 @@ class _Harness {
           final up = upAfterProbes != null && probes >= upAfterProbes!;
           return up ? BackendHealth.up(maintenanceMode: maintenance) : const BackendHealth.down();
         },
-        startProcess: (path, wd) async {
+        startProcess: (path, wd, env) async {
+          envs.add(env);
           if (startThrows) throw const ProcessException('backend.exe', [], 'Access is denied.', 5);
           started.add(path);
           workingDirs.add(wd);
@@ -86,6 +89,7 @@ class _Harness {
         fileExists: (_) => exeExists,
         clock: clock,
         log: log,
+        parentEnvironment: () => parentEnv,
       );
 }
 
@@ -208,7 +212,7 @@ void main() {
           probes++;
           return const BackendHealth.foreign();
         },
-        startProcess: (p, _) async {
+        startProcess: (p, _, __) async {
           started.add(p);
           return 1;
         },
@@ -229,7 +233,7 @@ void main() {
       final launcher = BackendLauncher(
         healthCheck: () async =>
             ++probes < 3 ? const BackendHealth.down() : const BackendHealth.foreign(),
-        startProcess: (_, __) async => 1,
+        startProcess: (_, __, ___) async => 1,
         listProcesses: () async => const [],
         backendExecutablePath: _exe,
         fileExists: (_) => true,
@@ -329,7 +333,7 @@ void main() {
         healthCheck: () async => const [1, 3].contains(++calls)
             ? const BackendHealth.down()
             : const BackendHealth.up(),
-        startProcess: (p, _) async {
+        startProcess: (p, _, __) async {
           started.add(p);
           return 1;
         },
@@ -352,7 +356,7 @@ void main() {
           if (calls < 3) throw StateError('socket');
           return const BackendHealth.up();
         },
-        startProcess: (_, __) async => 1,
+        startProcess: (_, __, ___) async => 1,
         backendExecutablePath: _exe,
         fileExists: (_) => true,
         clock: _FakeClock(),
@@ -455,6 +459,79 @@ void main() {
       const h = BackendHealth.down(error: 'connectionError: SocketException: refused');
       expect(h.describe(), 'down (connectionError: SocketException: refused)');
       expect(BackendHealth.fromResponse(503, const {'detail': 'x'}).describe(), 'down 503');
+    });
+  });
+
+  group('sanitizeBackendEnvironment (PyInstaller onefile)', () {
+    const inherited = <String, String>{
+      'PATH': r'C:\Windows\System32',
+      'SystemRoot': r'C:\Windows',
+      'LOCALAPPDATA': r'C:\Users\u\AppData\Local',
+      '_PYI_APPLICATION_HOME_DIR': r'C:\Users\u\AppData\Local\Temp\_MEI1234',
+      '_PYI_ARCHIVE_FILE': r'C:\Program Files\Sorour\backend.exe',
+      '_PYI_PARENT_PROCESS_LEVEL': '1',
+      '_pyi_splash_ipc': 'x',
+      '_MEIPASS2': r'C:\Temp\_MEI1234',
+      '_meipass': 'y',
+      'PYINSTALLER_RESET_ENVIRONMENT': '0',
+      'MY_PYI_SETTING': 'kept', // only the prefix counts
+      '_MEIX': 'kept',
+    };
+
+    test('drops every _PYI_* / _MEIPASS* key case-insensitively and keeps the rest', () {
+      final r = sanitizeBackendEnvironment(inherited);
+      expect(r.environment.keys.where((k) => k.toUpperCase().startsWith('_PYI_')), isEmpty);
+      expect(r.environment.keys.where((k) => k.toUpperCase().startsWith('_MEIPASS')), isEmpty);
+      expect(r.environment['PATH'], r'C:\Windows\System32');
+      expect(r.environment['SystemRoot'], r'C:\Windows');
+      expect(r.environment['LOCALAPPDATA'], r'C:\Users\u\AppData\Local');
+      expect(r.environment['MY_PYI_SETTING'], 'kept');
+      expect(r.environment['_MEIX'], 'kept');
+    });
+
+    test('forces PYINSTALLER_RESET_ENVIRONMENT=1', () {
+      expect(sanitizeBackendEnvironment(inherited).environment['PYINSTALLER_RESET_ENVIRONMENT'], '1');
+      expect(sanitizeBackendEnvironment(const {}).environment, {'PYINSTALLER_RESET_ENVIRONMENT': '1'});
+    });
+
+    test('reports removed key NAMES only, sorted', () {
+      final r = sanitizeBackendEnvironment(inherited);
+      expect(r.removedKeys, [
+        '_MEIPASS2',
+        '_PYI_APPLICATION_HOME_DIR',
+        '_PYI_ARCHIVE_FILE',
+        '_PYI_PARENT_PROCESS_LEVEL',
+        '_meipass',
+        '_pyi_splash_ipc',
+      ]);
+      expect(r.removedKeys.join(' '), isNot(contains('_MEI1234')));
+    });
+
+    test('does not mutate the parent map', () {
+      final parent = Map<String, String>.of(inherited);
+      sanitizeBackendEnvironment(parent);
+      expect(parent, inherited);
+    });
+
+    test('the launcher starts backend.exe with the sanitized environment and logs names only', () async {
+      final h = _Harness(upAfterProbes: 2)..parentEnv = inherited;
+      await h.build().ensureRunning();
+      expect(h.envs, hasLength(1));
+      final env = h.envs.single;
+      expect(env.containsKey('_PYI_ARCHIVE_FILE'), isFalse);
+      expect(env['PYINSTALLER_RESET_ENVIRONMENT'], '1');
+      expect(env['PATH'], r'C:\Windows\System32');
+      final line = h.log.lines.firstWhere((l) => l.contains('start env:'));
+      expect(line, contains('_PYI_APPLICATION_HOME_DIR'));
+      expect(line, contains('PYINSTALLER_RESET_ENVIRONMENT=1'));
+      expect(line, isNot(contains('_MEI1234')), reason: 'values are never logged');
+      expect(line, isNot(contains(r'Program Files')));
+    });
+
+    test('a clean environment logs "removed none"', () async {
+      final h = _Harness(upAfterProbes: 2);
+      await h.build().ensureRunning();
+      expect(h.log.any('removed none'), isTrue);
     });
   });
 
@@ -596,7 +673,7 @@ void main() {
       var up = false;
       final launcher = BackendLauncher(
         healthCheck: () async => up ? const BackendHealth.up() : const BackendHealth.down(),
-        startProcess: (_, __) async => 1,
+        startProcess: (_, __, ___) async => 1,
         listProcesses: () async => const [],
         backendExecutablePath: _exe,
         fileExists: (_) => true,

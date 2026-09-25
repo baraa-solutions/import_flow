@@ -12,6 +12,10 @@ import urllib.request
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from utils.db_safety import clean_child_environment  # noqa: E402
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 VBS_LAUNCHER = SCRIPTS_DIR / "start_backend_service.vbs"
 PORT = 28080
@@ -66,12 +70,13 @@ def start_service():
         return True
 
     if VBS_LAUNCHER.exists():
-        subprocess.run(["wscript.exe", str(VBS_LAUNCHER)], check=True)
+        subprocess.run(["wscript.exe", str(VBS_LAUNCHER)], check=True, env=clean_child_environment())
     else:
         # Fallback to python subprocess if VBS is missing
         subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", f"--port={PORT}", "--no-access-log"],
             cwd=str(ROOT_DIR),
+            env=clean_child_environment(),
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         )
 

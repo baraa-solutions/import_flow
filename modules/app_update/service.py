@@ -45,6 +45,7 @@ from modules.app_update import validators as update_rules
 from modules.audit_logs.service import AuditLogService
 from utils.db_safety import (
     app_base_dir,
+    clean_child_environment,
     backups_dir_for,
     check_integrity,
     clear_maintenance_mode,
@@ -416,6 +417,8 @@ def launch_installer_detached(command: str, cwd: Path) -> int:
     Start Setup detached from this process (no console, own process group, outside our job object) so it
     survives backend.exe being killed, first by the frontend watchdog and then by Setup's own StopRunningApp.
     When the job forbids breakaway (winerror 5), retry once without CREATE_BREAKAWAY_FROM_JOB. Returns the pid.
+    The environment drops our PyInstaller bootloader state (_PYI_*, _MEIPASS*): Setup relaunches frontend.exe,
+    which starts the NEW backend.exe, and an inherited _PYI_* would make it reuse our old _MEI data files.
     """
     base_flags = _DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP
 
@@ -428,6 +431,7 @@ def launch_installer_detached(command: str, cwd: Path) -> int:
             stderr=subprocess.DEVNULL,
             close_fds=True,
             creationflags=flags,
+            env=clean_child_environment(),
         )
         return proc.pid
 

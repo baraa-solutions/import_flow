@@ -90,9 +90,45 @@ typedef BackendProcessInfo = (int pid, String path);
 typedef BackendHealthChecker = Future<BackendHealth> Function();
 
 /// Starts the backend executable detached (no console, not tied to this
-/// process) in [workingDirectory]; returns its pid when known. Throws on failure.
+/// process) in [workingDirectory] with exactly [environment] (no inherited
+/// variables); returns its pid when known. Throws on failure.
 typedef BackendProcessStarter = Future<int?> Function(
-    String executablePath, String workingDirectory);
+    String executablePath, String workingDirectory, Map<String, String> environment);
+
+/// Environment for a fresh PyInstaller onefile backend.exe.
+@immutable
+class BackendEnvironment {
+  const BackendEnvironment(this.environment, this.removedKeys);
+
+  final Map<String, String> environment;
+
+  /// Names (never values) of the dropped variables, for the log.
+  final List<String> removedKeys;
+}
+
+/// Copies [parent] without the PyInstaller bootloader state (`_PYI_*`,
+/// `_MEIPASS*`, case-insensitive) and sets `PYINSTALLER_RESET_ENVIRONMENT=1`.
+///
+/// Why: after an in-app update Setup relaunches frontend.exe with the OLD
+/// backend's environment; if the new backend.exe inherits `_PYI_*` it reuses the
+/// old `_MEI` folder and runs the old bundled code (old Alembic files).
+BackendEnvironment sanitizeBackendEnvironment(Map<String, String> parent) {
+  final env = <String, String>{};
+  final removed = <String>[];
+  for (final entry in parent.entries) {
+    final upper = entry.key.toUpperCase();
+    if (upper.startsWith('_PYI_') ||
+        upper.startsWith('_MEIPASS') ||
+        upper == 'PYINSTALLER_RESET_ENVIRONMENT') {
+      if (upper != 'PYINSTALLER_RESET_ENVIRONMENT') removed.add(entry.key);
+      continue;
+    }
+    env[entry.key] = entry.value;
+  }
+  env['PYINSTALLER_RESET_ENVIRONMENT'] = '1';
+  removed.sort();
+  return BackendEnvironment(env, removed);
+}
 
 /// Lists running processes with their full image paths.
 typedef BackendProcessLister = Future<List<BackendProcessInfo>> Function();
@@ -219,7 +255,9 @@ class BackendLauncher {
     this.killSettleDelay = const Duration(milliseconds: 800),
     this.aliveCheckInterval = const Duration(seconds: 5),
     this.maxStartsPerAttempt = 3,
+    Map<String, String> Function()? parentEnvironment,
   })  : _healthCheck = healthCheck,
+        _parentEnvironment = parentEnvironment ?? _platformEnvironment,
         _startProcess = startProcess,
         _listProcesses = listProcesses,
         _killProcess = killProcess,
@@ -233,6 +271,7 @@ class BackendLauncher {
   /// (web, non-Windows, tests).
   BackendLauncher.disabled()
       : _healthCheck = (() async => const BackendHealth.up()),
+        _parentEnvironment = _platformEnvironment,
         _startProcess = null,
         _listProcesses = null,
         _killProcess = null,
@@ -249,7 +288,11 @@ class BackendLauncher {
         _disabled = true,
         status = ValueNotifier(BackendLaunchStatus.alreadyReady);
 
+  static Map<String, String> _platformEnvironment() =>
+      Map<String, String>.of(Platform.environment);
+
   final BackendHealthChecker _healthCheck;
+  final Map<String, String> Function() _parentEnvironment;
   final BackendProcessStarter? _startProcess;
   final BackendProcessLister? _listProcesses;
   final BackendProcessKiller? _killProcess;
@@ -475,8 +518,11 @@ class BackendLauncher {
     final wd = parentDirectoryOf(exe);
     _w('start: path=$exe workingDirectory=$wd');
     try {
+      final env = sanitizeBackendEnvironment(_parentEnvironment());
+      _w('start env: ${env.environment.length} vars, PYINSTALLER_RESET_ENVIRONMENT=1, removed '
+          '${env.removedKeys.isEmpty ? 'none' : env.removedKeys.join(', ')}');
       _lastStartAt = _clock.now();
-      final pid = await _startProcess!(exe, wd);
+      final pid = await _startProcess!(exe, wd, env.environment);
       _startCount++;
       _w('start OK pid=${pid ?? 'unknown'}');
       return true;
@@ -495,12 +541,19 @@ class WindowsBackendProcess {
   /// (Dart passes DETACHED_PROCESS), and outlives this process (its own watchdog
   /// handles shutdown). Not `detachedWithStdio`: nobody would drain those pipes,
   /// so a chatty backend could block on a full stdout pipe. Throws on failure
-  /// (the launcher logs it).
-  static Future<int?> start(String executablePath, String workingDirectory) async {
+  /// (the launcher logs it). [environment] is the complete environment
+  /// (see [sanitizeBackendEnvironment]); nothing is inherited implicitly.
+  static Future<int?> start(
+    String executablePath,
+    String workingDirectory,
+    Map<String, String> environment,
+  ) async {
     final process = await Process.start(
       executablePath,
       const <String>[],
       workingDirectory: workingDirectory,
+      environment: environment,
+      includeParentEnvironment: false,
       mode: ProcessStartMode.detached,
     );
     return process.pid;

@@ -21,7 +21,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import Iterable, Mapping, Optional, Union
 
 logger = logging.getLogger("db_safety")
 
@@ -65,6 +65,30 @@ def env_file_path() -> Path:
 
 def version_file_path() -> Path:
     return app_base_dir() / "version.json"
+
+
+# PyInstaller onefile bootloader state. A child that inherits these believes it is the second stage
+# of OUR process and reuses our _MEI extraction folder, so a freshly installed backend.exe would run
+# new Python code against the OLD bundled data files (alembic/versions) and skip its migrations.
+_PYINSTALLER_ENV_PREFIXES = ("_PYI_", "_MEIPASS")
+PYINSTALLER_RESET_ENV = "PYINSTALLER_RESET_ENVIRONMENT"
+
+
+def clean_child_environment(base: Optional[Mapping[str, str]] = None) -> dict:
+    """
+    Environment for any process we start that is (or may start) one of our executables: Setup,
+    frontend.exe, backend.exe, launcher scripts. Drops every ``_PYI_*`` / ``_MEIPASS*`` key
+    (case-insensitive, Windows env names are) and sets ``PYINSTALLER_RESET_ENVIRONMENT=1`` so a
+    PyInstaller bootloader down the chain always starts as a fresh top-level process.
+    """
+    source = os.environ if base is None else base
+    env = {
+        key: value
+        for key, value in source.items()
+        if not key.upper().startswith(_PYINSTALLER_ENV_PREFIXES) and key.upper() != PYINSTALLER_RESET_ENV
+    }
+    env[PYINSTALLER_RESET_ENV] = "1"
+    return env
 
 
 UNKNOWN_VERSION = "unknown"

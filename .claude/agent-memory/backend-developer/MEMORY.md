@@ -150,4 +150,7 @@
   Scratchpad paths break MSBuild (MAX_PATH): PowerShell `subst R: '<path>'`, build from R:, `subst R: /D`; `Path.resolve()` undoes subst.
 - Frozen backend with a `backups\pre_migration_*.db` path > ~255 chars fails that backup -> maintenance: smoke-test from a
   short dir. Dev-box `C:\Program Files (x86)\Sorour Logistics` is v1.0.58. stage-local checks sha/size only, not exe name.
+- Any process we start that is/leads to backend.exe, frontend.exe or Setup MUST get `env=utils.db_safety.clean_child_environment()`
+  (drops `_PYI_*`/`_MEIPASS*`, sets PYINSTALLER_RESET_ENVIRONMENT=1). Inherited `_PYI_*` made the new onefile backend reuse
+  the old _MEI dir (old alembic/versions, no migration). Guard: `tests/unit/test_child_environment.py` (AST check on Popen).
 - Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.
