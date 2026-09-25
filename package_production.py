@@ -23,7 +23,6 @@ WEB_DEST = DIST_DIR / "Sorour_Logistics_Web"
 DESKTOP_SRC = ROOT_DIR / "frontend" / "build" / "windows" / "x64" / "runner" / "Release"
 WEB_SRC = ROOT_DIR / "frontend" / "build" / "web"
 BACKEND_EXE = ROOT_DIR / "dist_backend" / "backend.exe"
-DB_SRC = ROOT_DIR / "sorour_logistics.db"
 APP_ICON_SRC = ROOT_DIR / "installer" / "app_icon.ico"
 
 import version_manager
@@ -103,24 +102,20 @@ def copy_standalone_package():
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
 
-    # 3. Copy Database to Standalone Destination
-    prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
-    if DB_SRC.exists():
-        safe_copy_file(DB_SRC, prod_db_file)
-        if "--keep-operational-data" in sys.argv or "--preserve-data" in sys.argv:
-            print(f"      Included FULL real operational sorour_logistics.db into {STANDALONE_DEST} (Preserved real operational data)")
-        else:
-            # Only clean operational demo data from the standalone release copy, NEVER the dev source database
-            import clean_and_isolate_databases
-            clean_and_isolate_databases.clean_database(prod_db_file)
-            print(f"      Included clean master sorour_logistics.db into {STANDALONE_DEST}")
+    # 3. The database is NEVER bundled (docs/plans/update-system-plan.md section 0, A1/A3/R1).
+    #    The installed backend creates an empty DB on first run; an existing laptop DB is never replaced.
+    if "--keep-operational-data" in sys.argv or "--preserve-data" in sys.argv:
+        print("[ERROR] --preserve-data / --keep-operational-data are no longer supported: the database is never bundled.")
+        return False
 
     # 4. Copy App Icon & Sync Tools
     if APP_ICON_SRC.exists():
         safe_copy_file(APP_ICON_SRC, STANDALONE_DEST / "app_icon.ico")
         print(f"      Included app_icon.ico into {STANDALONE_DEST}")
 
-    for util_file in ["sync_to_production.py", "version_manager.py", "version.json", "reset_clean_production_db.py", "clean_and_isolate_databases.py", "incoterms_data.json"]:
+    # Destructive maintenance scripts (reset_clean_production_db.py, clean_and_isolate_databases.py,
+    # sync_to_production.py) are never shipped (plan section 0, A4/R4).
+    for util_file in ["version_manager.py", "version.json", "incoterms_data.json"]:
         if (ROOT_DIR / util_file).exists():
             safe_copy_file(ROOT_DIR / util_file, STANDALONE_DEST / util_file)
             print(f"      Included {util_file} into {STANDALONE_DEST}")
