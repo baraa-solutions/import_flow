@@ -546,3 +546,21 @@ def test_build_workflow_holds_no_publish_step_or_secret():
     for needle in ("production-updates", "HOSTINGER", "UPDATE_SIGNING_KEY_ED25519", "sftp", "sign_manifest.py"):
         assert needle not in WORKFLOW_TEXT, needle
     assert "name: update-payload" in WORKFLOW_TEXT
+
+
+def test_build_workflow_requires_green_ci_first_and_runs_no_test_suites():
+    """The suites run in ci.yml before merge; the tag build only checks that CI passed for its commit."""
+    yaml = pytest.importorskip("yaml")
+    job = yaml.safe_load(WORKFLOW_TEXT)["jobs"]["build-and-release"]
+    steps = job["steps"]
+
+    gate = _run(steps[0])
+    assert "uses" not in steps[0]
+    assert "actions/workflows/ci.yml/runs" in gate and "$GITHUB_SHA" in gate
+    assert "branch=main" in gate and "event=push" in gate and "conclusion == " in gate
+    assert "Merge to main and wait for CI, then tag." in gate and "exit 1" in gate
+    assert job["permissions"] == {"contents": "read", "actions": "read"}
+    for step in steps:
+        run = _run(step)
+        assert "pytest" not in run, step.get("name")
+        assert "flutter test" not in run, step.get("name")

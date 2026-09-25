@@ -20,11 +20,28 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+      actions: read
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       build: ${{ steps.get_version.outputs.build }}
 
     steps:
+      # The test suites run in ci.yml before merge (4 backend shards + flutter, in parallel). A release build only
+      # starts for a commit whose CI run on main (push event) is green.
+      - name: Require Green CI For This Commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=main&event=push&status=success&per_page=20" \
+            --jq "[.workflow_runs[] | select(.head_sha == \"$GITHUB_SHA\" and .head_branch == \"main\" and .event == \"push\" and .conclusion == \"success\")] | length")
+          if [[ "$ok" -lt 1 ]]; then
+            echo "::error::No successful CI run (push to main) for commit $GITHUB_SHA. Merge to main and wait for CI, then tag."
+            exit 1
+          fi
+          echo "CI is green on main for $GITHUB_SHA ($ok run(s))."
+
       - name: Checkout Code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -41,12 +58,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install "pydantic[email]" email-validator pytest pytest-asyncio pyinstaller pyyaml
-
-
-      - name: Run Backend Pytest Suite
-        run: |
-          python -m pytest
+          pip install "pydantic[email]" email-validator pyinstaller
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -63,11 +75,6 @@ jobs:
         working-directory: ./frontend
         run: |
           flutter pub get
-
-      - name: Run Frontend Tests
-        working-directory: ./frontend
-        run: |
-          flutter test
 
       - name: Build Standalone Backend Executable (backend.exe)
         run: |

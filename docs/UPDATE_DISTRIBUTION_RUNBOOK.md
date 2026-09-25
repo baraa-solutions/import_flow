@@ -26,7 +26,7 @@ This runbook replaces the old multi-workstation / GitHub-download runbook. The o
 | Pre-install backups | `{app}\backups\pre_install_<old version>_<yyyymmdd_hhnnss>\` | Written by the installer before every install (section 5). |
 | Update data | `C:\Users\Hp\AppData\Local\SorourLogistics\updates\` | `last_manifest.json`, `update_history.jsonl`, `staging\` (downloads). Override: env `UPDATE_DATA_DIR`. |
 | Update host | `https://kamal-sroor.online/importflow/updates/` (Hostinger, static files) | Only allowed host in code (`modules/app_update/validators.py`). No credentials on the laptop. |
-| CI | Private repo `baraa-solutions/import_flow` (https://github.com/baraa-solutions/import_flow). GitHub Actions: `build_and_release.yml` (build), `publish_update.yml` ("Publish update", manual), `resign_update_manifest.yml` (monthly) | The signing key and SFTP key live only in the secrets of environment `production-updates`. |
+| CI | Private repo `baraa-solutions/import_flow` (https://github.com/baraa-solutions/import_flow). GitHub Actions: `ci.yml` (tests on every PR and push to `main`), `build_and_release.yml` (build), `publish_update.yml` ("Publish update", manual), `resign_update_manifest.yml` (monthly) | The signing key and SFTP key live only in the secrets of environment `production-updates`. |
 
 Hosted layout (`UPDATE_REMOTE_DIR`, default `domains/kamal-sroor.online/public_html/importflow/updates`):
 
@@ -57,13 +57,19 @@ importflow/updates/
 The repo is private on GitHub Free/Team, where environments have **no "Required reviewers"**. The approval is therefore a
 manual button: a tag push only builds; publishing to the update host happens only when you run **"Publish update"**.
 
+### 2.9 `.github/workflows/ci.yml` (pull request to `main`, push to `main`, `workflow_dispatch`)
+
+The test suites run **before merge and in parallel**: `backend-tests` = 4 shards of `tests/unit` + `tests/integration`
+(deterministic split by `scripts/ci/shard_tests.py`, JUnit XML per shard as artifact), `frontend-tests` = `flutter analyze`
+(errors only) + `flutter test -j 2` (the `perf` tag is skipped). `ci-ok` is the single required status check.
+
 ### 3.0 `.github/workflows/build_and_release.yml` (tag `v*` or `workflow_dispatch`)
 
 A push to `main` builds nothing. This workflow holds **no publish secrets** (no signing key, no SFTP key, no environment).
 
 | Job | Runner | Secrets | What it does |
 |-----|--------|---------|--------------|
-| `build-and-release` | windows | none | Full `pytest`, `flutter test`, `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest, kept 30 days). |
+| `build-and-release` | windows | none | **First: the commit must have a successful `ci.yml` run (push to `main`)**, otherwise it stops with "Merge to main and wait for CI, then tag." No test suites here (they ran in CI). Then `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest, kept 30 days). |
 | `release` | ubuntu | `GITHUB_TOKEN` | Tag runs only. Creates the (private-repo) GitHub Release with the installer, portable zip and `version.json`. Audit record only; the laptop never downloads from GitHub. |
 
 ### 3.0.1 `.github/workflows/publish_update.yml` ("Publish update", `workflow_dispatch` only)
@@ -118,12 +124,14 @@ Daily work is Track 1 (`docs/DEV_WORKFLOW.md`): no version bumps, no packaging. 
    docs/release_notes/X.Y.Z.ar.txt
    docs/release_notes/X.Y.Z.en.txt
    ```
-4. Commit, push to `main`, then tag **the same commit** and push the tag:
+4. Open a PR to `main`, wait for `ci-ok`, merge. Wait until the `CI` run for the merge commit on `main` is **green**.
+5. Tag **that merge commit** (it is what CI tested) and push the tag:
    ```bash
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
+   git fetch company && git tag vX.Y.Z company/main
+   git push company vX.Y.Z
    ```
-5. Wait until Actions -> "Build & Release Sorour Logistics" for the tag is **green** (nothing is published yet).
+   Wait until Actions -> "Build & Release Sorour Logistics" for the tag is **green** (~15 min; nothing is published yet).
+   If it stops at "Require Green CI For This Commit", the tag is not on a CI-green `main` commit: delete it, wait for CI, re-tag.
 6. Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag
    (`vX.Y.Z`) -> **Run workflow**. This click is the approval. The run must end green.
 7. Verify from any dev machine (section 7).

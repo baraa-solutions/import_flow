@@ -147,14 +147,18 @@ Tick each box in order.
   Note: `/release-check` still checks the legacy `version.json` `installer_url` (GitHub) against the version. After the bump it
   reports those as FAIL because `installer_url` still names v2.0.3. That path is retired; see "Inconsistencies" below. Every other
   check (version consistency, bundle guard, backend boot) must pass.
-  Commit the bump, the release notes and the step 4/7 changes, and push to `main`. A push to `main` publishes nothing.
+  Commit the bump, the release notes and the step 4/7 changes on a branch, open a PR to `main`, wait for the `ci-ok` check,
+  merge, and wait until the `CI` run for the merge commit on `main` is **green** (the tag build refuses any other commit).
+  A push to `main` publishes nothing.
 
-- [ ] **15. Tag the release commit and push the tag.** The tag must equal `v` + `version.json` version, or "Publish update" stops.
-  The tag push only builds and creates the GitHub Release; it publishes nothing to the update host.
+- [ ] **15. Tag the CI-green merge commit and push the tag.** The tag must equal `v` + `version.json` version, or "Publish update"
+  stops. The tag push only builds (~15 min, no test suites: they ran in CI) and creates the GitHub Release; it publishes nothing.
   ```bash
-  git tag vX.Y.Z
-  git push origin vX.Y.Z
+  git fetch company && git tag vX.Y.Z company/main
+  git push company vX.Y.Z
   ```
+  If the build stops at "Require Green CI For This Commit": delete the tag (`git push company :refs/tags/vX.Y.Z`, `git tag -d vX.Y.Z`),
+  wait for CI on `main`, and tag again.
 
 - [ ] **16. Publish (this is the approval).** Wait until Actions -> "Build & Release Sorour Logistics" -> the tag run is **green**.
   Then Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag

@@ -30,3 +30,8 @@ metadata:
 - `check_release.py` checks take `(report, project_dir, ...)`; `main(argv, project_dir=, transport=)`. Tooling (bundle_guard,
   verify_manifest) always loads from the real checkout; the signing key is read by AST from `modules/app_update/service.py`.
   Tests: `tests/unit/test_release_check.py` (tmp git repo fixture, build_manifest-signed manifest, MockTransport, `no_boot` stub).
+
+## CI (ci.yml, 2026-09-26)
+- Tests run only in `ci.yml` (PR + push to main): 4 windows shards via `scripts/ci/shard_tests.py` (greedy by file size,
+  no pytest-split dependency) + flutter job + `ci-ok` (required check). `build_and_release.yml` has no test steps; its first
+  step requires a green ci.yml push run on main for $GITHUB_SHA, so tags must point at a CI-green merge commit.
