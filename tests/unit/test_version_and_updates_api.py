@@ -43,7 +43,7 @@ def test_system_version_check_endpoint():
     data = response.json()
     assert data["status"] == "OK"
     assert data["system_name"] == "Sorour Logistics ERP"
-    assert any(data["current_version"].startswith(prefix) for prefix in ("1.0.", "2.0."))
+    assert data["current_version"] == load_version_json()["version"]
     assert "installer_url" in data
     assert "installer_filename" in data
     assert "installer_size_mb" in data

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  static const String clientVersion = '2.0.3';
-  static const int clientBuildNumber = 205;
+  static const String clientVersion = '2.1.0';
+  static const int clientBuildNumber = 206;
 
   // ── Server & Base ─────────────────────────────────────────
   static String customServerUrl = '';
