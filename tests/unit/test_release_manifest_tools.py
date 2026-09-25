@@ -880,7 +880,7 @@ def test_resign_job_signs_isolated_and_uploads_only_the_manifest(resign_workflow
         if i != sign:
             assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(step)
     upload_run = _run(steps[upload])
-    assert "posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in upload_run
+    assert "rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in upload_run
     assert ".exe" not in upload_run and "releases/" not in upload_run, "re-sign must never touch installers"
     assert steps[cleanup].get("if") == "always()"
     assert "StrictHostKeyChecking yes" in json.dumps(steps)
@@ -1078,7 +1078,7 @@ def test_upload_publishes_manifest_last_after_public_installer_verification(publ
     steps = _jobs(publish_workflow)["upload"]["steps"]
     prepare_ssh = _step_index(steps, lambda s: "HOSTINGER_SSH_KEY" in _run(s), "writes the SSH key")
     installer_upload = _step_index(
-        steps, lambda s: "sftp" in _run(s) and ".part" in _run(s) and "posix-rename" in _run(s),
+        steps, lambda s: "sftp" in _run(s) and ".part" in _run(s) and "\nrename " in "\n" + _run(s),
         "uploads the installer as .part then renames it",
     )
     public_check = _step_index(
@@ -1092,7 +1092,7 @@ def test_upload_publishes_manifest_last_after_public_installer_verification(publ
     backstop = _step_index(steps, lambda s: "shred" in _run(s) and s.get("if") == "always()", "always() cleanup")
 
     assert prepare_ssh < installer_upload < public_check < manifest_upload < published < prune < remove_now < backstop
-    assert "posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in _run(steps[manifest_upload])
+    assert "rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in _run(steps[manifest_upload])
     assert all("manifest.json.tmp" not in _run(s) for s in steps[:public_check])
     assert not any("upload-artifact" in str(s.get("uses", "")) for s in steps[prepare_ssh:remove_now])
 
