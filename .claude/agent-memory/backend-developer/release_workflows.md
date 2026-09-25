@@ -30,3 +30,9 @@ metadata:
 - `check_release.py` checks take `(report, project_dir, ...)`; `main(argv, project_dir=, transport=)`. Tooling (bundle_guard,
   verify_manifest) always loads from the real checkout; the signing key is read by AST from `modules/app_update/service.py`.
   Tests: `tests/unit/test_release_check.py` (tmp git repo fixture, build_manifest-signed manifest, MockTransport, `no_boot` stub).
+
+## Tests are LOCAL only (CTO decision 2026-09-26)
+- No ci.yml: GitHub only builds/publishes (a PR-CI attempt was dropped to avoid push/fix/re-push cycles). Gate =
+  `scripts/release/run_release_tests.py` (clean tracked tree except .claude/, backend pytest THEN flutter test -j 4 - never
+  both at once, the dev box runs out of memory) -> `.release/tests_<HEAD>.json`; `/release-check` "Local tests" requires it green.
+- Windows-runner pitfall seen on the way: Python output is CRLF, so bash `mapfile` of a Python-printed file list needs `tr -d '\r'`.

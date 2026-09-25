@@ -5,6 +5,7 @@ Every check runs against a throw-away repo in tmp_path. The published-manifest c
 manifest signed by scripts/release/build_manifest.py with a test key: no real network, never the real signing key.
 """
 import importlib.util
+import json
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -79,7 +80,30 @@ def repo(tmp_path, signing_key):
     _git(root, "-c", "user.name=t", "-c", "user.email=t@example.com", "add", "-A")
     _git(root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "release")
     _git(root, "tag", f"v{VERSION}")
+    _write_local_tests(root)
     return root
+
+
+def _write_local_tests(root: Path, **overrides) -> Path:
+    """A green .release/tests_<HEAD>.json as scripts/release/run_release_tests.py writes it."""
+    head = _git(root, "rev-parse", "HEAD")
+    data = {
+        "sha": head,
+        "version": VERSION,
+        "backend": {"total": 2100, "passed": 2069, "failed": 0, "errors": 0, "skipped": 31, "exit_code": 0},
+        "flutter": {"passed": 1500, "failed": 0, "skipped": 3, "exit_code": 0},
+        "finished_at": "2026-09-26T10:00:00Z",
+    }
+    for key, value in overrides.items():
+        suite, _, field = key.partition("__")
+        if field:
+            data[suite][field] = value
+        else:
+            data[suite] = value
+    path = root / ".release" / f"tests_{head}.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
 
 
 @pytest.fixture
@@ -402,3 +426,54 @@ def test_no_retired_github_checks_remain():
     source = (PROJECT_DIR / ".claude" / "skills" / "release-check" / "check_release.py").read_text(encoding="utf-8")
     for retired in ("installer_filename", "installer_sha256", "github.com", "urllib", "kamal-sroor.online", "base64"):
         assert retired not in source
+
+
+# ─── local tests (run_release_tests.py result) ────────────────────────────────
+
+def test_local_tests_green_for_head_pass(repo):
+    report = []
+    check_release.check_local_tests(report, repo)
+    assert _levels(report, "Local tests") == ["PASS"]
+    assert "backend 2069 passed" in _detail(report, "Local tests")
+
+
+def test_local_tests_missing_result_fails(repo):
+    for f in (repo / ".release").iterdir():
+        f.unlink()
+    report = []
+    check_release.check_local_tests(report, repo)
+    assert _levels(report, "Local tests") == ["FAIL"]
+    assert "run python scripts/release/run_release_tests.py" in _detail(report, "Local tests")
+
+
+@pytest.mark.parametrize("override", [
+    {"backend__failed": 1},
+    {"backend__errors": 2},
+    {"flutter__failed": 1},
+    {"flutter__exit_code": 1},
+    {"backend__total": 0},
+    {"sha": "0" * 40},
+])
+def test_local_tests_failures_fail(repo, override):
+    _write_local_tests(repo, **override)
+    report = []
+    check_release.check_local_tests(report, repo)
+    assert _levels(report, "Local tests") == ["FAIL"]
+
+
+def test_local_tests_result_of_an_older_commit_does_not_count(repo):
+    _write(repo / "README.md", "new commit\n")
+    _git(repo, "-c", "user.name=t", "-c", "user.email=t@example.com", "add", "-A")
+    _git(repo, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "later")
+    report = []
+    check_release.check_local_tests(report, repo)
+    assert _levels(report, "Local tests") == ["FAIL"]
+
+
+def test_main_reports_local_tests(repo, no_boot, capsys):
+    assert check_release.main(["--offline"], project_dir=repo) == 0
+    assert "[PASS] Local tests" in capsys.readouterr().out
+    for f in (repo / ".release").iterdir():
+        f.unlink()
+    assert check_release.main(["--offline"], project_dir=repo) == 1
+    assert "[FAIL] Local tests" in capsys.readouterr().out

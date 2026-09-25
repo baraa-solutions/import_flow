@@ -139,21 +139,22 @@ Tick each box in order.
   docs/release_notes/X.Y.Z.en.txt
   ```
 
-- [ ] **14. Local gates, then commit and push `main`.**
+- [ ] **14. Commit, then run the local tests and the gate on that commit.** GitHub does not run the test suites.
+  Commit the bump, the release notes and the step 4/7 changes (merge them to `main`). Then, with no uncommitted changes to tracked files:
   ```bash
-  python -m pytest -q -W ignore --junitxml=.pytest-report.xml; echo "exit=$?"
+  python scripts/release/run_release_tests.py
   python .claude/skills/release-check/check_release.py
   ```
-  Note: `/release-check` still checks the legacy `version.json` `installer_url` (GitHub) against the version. After the bump it
-  reports those as FAIL because `installer_url` still names v2.0.3. That path is retired; see "Inconsistencies" below. Every other
-  check (version consistency, bundle guard, backend boot) must pass.
-  Commit the bump, the release notes and the step 4/7 changes, and push to `main`. A push to `main` publishes nothing.
+  `run_release_tests.py` runs the backend suite, then `flutter test -j 4` (one after the other), prints both summaries, writes
+  `.release/tests_<HEAD sha>.json` and must exit 0 (skips are fine, a failing test is not). In `/release-check`, "Local tests" must
+  PASS; "Git tag" WARNs until step 15. Note: `/release-check` WARNs about the legacy `version.json` `installer_url`; that path is
+  retired (see "Inconsistencies" below). A push to `main` publishes nothing.
 
-- [ ] **15. Tag the release commit and push the tag.** The tag must equal `v` + `version.json` version, or "Publish update" stops.
-  The tag push only builds and creates the GitHub Release; it publishes nothing to the update host.
+- [ ] **15. Tag the tested commit and push the tag.** The tag must equal `v` + `version.json` version, or "Publish update" stops.
+  The tag push only builds (~15 min, no test suites) and creates the GitHub Release; it publishes nothing.
   ```bash
   git tag vX.Y.Z
-  git push origin vX.Y.Z
+  git push company main vX.Y.Z
   ```
 
 - [ ] **16. Publish (this is the approval).** Wait until Actions -> "Build & Release Sorour Logistics" -> the tag run is **green**.
@@ -226,7 +227,8 @@ Tick each box in order.
 - Plan section 4.2 shows a flat `previous {version, path, sha256, size_bytes}`; the signer writes the nested
   `previous {version, installer {path, size_bytes, sha256}}` (it still reads the flat form).
 - Plan section 4.3 has `publish` sign with `build_manifest.py --sign`; the workflow uses the stand-alone `sign_manifest.py` (as intended
-  by the later security review). The plan's `ci.yml` and "assert tag == version in the build job" do not exist: the tag check runs
+  by the later security review). The plan's `ci.yml` does not exist (tests run locally: `run_release_tests.py` + `/release-check`),
+  and there is no "assert tag == version in the build job": the tag check runs
   only in "Publish update" (`publish_update.yml`), after the full build.
 - Neither workflow passes `--key-id`, so CI always signs as `k2026a`; key rotation (plan section 4.2) needs a workflow change.
 - Plan section 4.3/4.4 put `publish` in the tag workflow behind a required reviewer. Private repos on Free/Team have no required

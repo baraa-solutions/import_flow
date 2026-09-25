@@ -546,3 +546,15 @@ def test_build_workflow_holds_no_publish_step_or_secret():
     for needle in ("production-updates", "HOSTINGER", "UPDATE_SIGNING_KEY_ED25519", "sftp", "sign_manifest.py"):
         assert needle not in WORKFLOW_TEXT, needle
     assert "name: update-payload" in WORKFLOW_TEXT
+
+
+def test_build_workflow_runs_no_test_suites():
+    """Tests run locally before tagging (scripts/release/run_release_tests.py); GitHub only builds and publishes."""
+    yaml = pytest.importorskip("yaml")
+    job = yaml.safe_load(WORKFLOW_TEXT)["jobs"]["build-and-release"]
+    for step in job["steps"]:
+        run = _run(step)
+        assert "pytest" not in run, step.get("name")
+        assert "flutter test" not in run, step.get("name")
+    assert "ci.yml" not in WORKFLOW_TEXT, "no gate on a CI workflow: there is none"
+    assert job["permissions"] == {"contents": "read"}
