@@ -31,7 +31,8 @@ metadata:
   verify_manifest) always loads from the real checkout; the signing key is read by AST from `modules/app_update/service.py`.
   Tests: `tests/unit/test_release_check.py` (tmp git repo fixture, build_manifest-signed manifest, MockTransport, `no_boot` stub).
 
-## CI (ci.yml, 2026-09-26)
-- Tests run only in `ci.yml` (PR + push to main): 4 windows shards via `scripts/ci/shard_tests.py` (greedy by file size,
-  no pytest-split dependency) + flutter job + `ci-ok` (required check). `build_and_release.yml` has no test steps; its first
-  step requires a green ci.yml push run on main for $GITHUB_SHA, so tags must point at a CI-green merge commit.
+## Tests are LOCAL only (CTO decision 2026-09-26)
+- No ci.yml: GitHub only builds/publishes (a PR-CI attempt was dropped to avoid push/fix/re-push cycles). Gate =
+  `scripts/release/run_release_tests.py` (clean tracked tree except .claude/, backend pytest THEN flutter test -j 4 - never
+  both at once, the dev box runs out of memory) -> `.release/tests_<HEAD>.json`; `/release-check` "Local tests" requires it green.
+- Windows-runner pitfall seen on the way: Python output is CRLF, so bash `mapfile` of a Python-printed file list needs `tr -d '\r'`.

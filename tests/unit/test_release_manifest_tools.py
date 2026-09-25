@@ -753,7 +753,7 @@ def test_sign_requirements_are_fully_hash_pinned():
 def test_build_job_is_read_only_and_does_not_persist_credentials(workflow):
     assert workflow["permissions"] == {"contents": "read"}
     build = workflow["jobs"]["build-and-release"]
-    assert build["permissions"] == {"contents": "read", "actions": "read"}  # actions: read for the CI gate
+    assert build["permissions"] == {"contents": "read"}
     assert not any("action-gh-release" in str(s.get("uses", "")) for s in build["steps"])
 
 
@@ -1105,91 +1105,3 @@ def test_upload_ssh_pins_the_host_key_and_protects_the_key_file(publish_workflow
     assert "install -m 600" in prepare and "umask 077" in prepare
     assert "HOSTINGER_KNOWN_HOSTS" in prepare
     assert not re.search(r"StrictHostKeyChecking[ =]+(no|accept-new)", PUBLISH_WORKFLOW_TEXT, re.IGNORECASE)
-
-
-# ─── ci.yml (tests before merge, in parallel) + deterministic sharding ───────
-
-CI_WORKFLOW_PATH = PROJECT_DIR / ".github" / "workflows" / "ci.yml"
-SHARD_PATH = PROJECT_DIR / "scripts" / "ci" / "shard_tests.py"
-shard_tests = _load(SHARD_PATH, "importflow_shard_tests_under_test")
-
-
-@pytest.fixture(scope="module")
-def ci_workflow():
-    yaml = pytest.importorskip("yaml")
-    return yaml.safe_load(CI_WORKFLOW_PATH.read_text(encoding="utf-8"))
-
-
-def test_ci_triggers_on_pull_requests_and_main(ci_workflow):
-    triggers = ci_workflow.get("on", ci_workflow.get(True))
-    assert set(triggers) == {"pull_request", "push", "workflow_dispatch"}
-    assert triggers["pull_request"]["branches"] == ["main"]
-    assert triggers["push"]["branches"] == ["main"]
-    assert ci_workflow["permissions"] == {"contents": "read"}
-
-
-def test_ci_runs_four_backend_shards_frontend_and_a_single_required_check(ci_workflow):
-    jobs = ci_workflow["jobs"]
-    assert set(jobs) == {"backend-tests", "frontend-tests", "ci-ok"}
-
-    backend = jobs["backend-tests"]
-    assert backend["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
-    assert backend["strategy"]["fail-fast"] is False
-    run = next(_run(s) for s in backend["steps"] if "python -m pytest" in _run(s))
-    assert "shard_tests.py --shards 4 --index" in run and "--junitxml=" in run
-    assert r"tr -d '\r'" in run, "Windows CRLF output must be stripped before mapfile"
-    assert any("upload-artifact" in str(s.get("uses", "")) and s.get("if") == "always()" for s in backend["steps"])
-
-    frontend = jobs["frontend-tests"]
-    runs = " ".join(_run(s) for s in frontend["steps"])
-    assert "flutter test -j 2" in runs
-    assert "flutter analyze --no-fatal-infos --no-fatal-warnings" in runs
-    flutter = next(s for s in frontend["steps"] if "flutter-action" in str(s.get("uses", "")))
-    assert flutter["with"]["flutter-version"] == "3.44.6" and flutter["with"]["cache"] is True
-
-    ok = jobs["ci-ok"]
-    assert ok["name"] == "ci-ok" and ok["if"] == "always()"
-    assert set(ok["needs"]) == {"backend-tests", "frontend-tests"}
-    assert '"success"' in _run(ok["steps"][0]) and "exit 1" in _run(ok["steps"][0])
-
-
-def test_ci_actions_pinned_and_checkouts_without_credentials(ci_workflow):
-    text = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
-    for job in ci_workflow["jobs"].values():
-        for step in job["steps"]:
-            if "uses" in step:
-                assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
-            if str(step.get("uses", "")).startswith("actions/checkout@"):
-                assert step["with"]["persist-credentials"] is False
-    for line in text.splitlines():
-        if re.search(r"uses: \S+@[0-9a-f]{40}", line):
-            assert re.search(r"# v\d+\.\d+\.\d+\s*$", line), line
-    assert "secrets." not in text
-
-
-def test_shards_are_deterministic_disjoint_and_complete():
-    files = shard_tests.collect_test_files()
-    assert files and all(f.startswith(("tests/unit/", "tests/integration/")) for f in files)
-    assert "tests/unit/test_release_manifest_tools.py" in files
-
-    first = shard_tests.split(files, 4)
-    assert first == shard_tests.split(list(reversed(files)), 4), "order of discovery must not matter"
-    flat = [f for shard in first for f in shard]
-    assert sorted(flat) == files and len(flat) == len(set(flat))
-    assert all(first), "every shard gets work"
-
-
-def test_shard_cli(tmp_path, capsys):
-    (tmp_path / "tests" / "unit").mkdir(parents=True)
-    for i, size in enumerate([500, 400, 300, 200, 100]):
-        (tmp_path / "tests" / "unit" / f"test_{i}.py").write_text("x" * size, encoding="utf-8")
-
-    printed = []
-    for index in (1, 2):
-        assert shard_tests.main(["--shards", "2", "--index", str(index)], root=tmp_path) == 0
-        printed.append(capsys.readouterr().out.split())
-    assert sorted(printed[0] + printed[1]) == [f"tests/unit/test_{i}.py" for i in range(5)]
-    assert printed[0] == ["tests/unit/test_0.py", "tests/unit/test_3.py", "tests/unit/test_4.py"]
-
-    assert shard_tests.main(["--shards", "2", "--index", "3"], root=tmp_path) == 2
-    assert shard_tests.main(["--shards", "2", "--index", "1"], root=tmp_path / "empty") == 2

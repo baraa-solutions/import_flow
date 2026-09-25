@@ -14,6 +14,8 @@ Checks (FAIL blocks the release, WARN / INFO are informational):
      embedded keys (same code path as the client, scripts/release/verify_manifest.py) and its installer answers
      HEAD 200 with the manifest size. WARN when nothing is published / the host is unreachable.
   8. The backend boots: `import main` against a throwaway database.
+  9. Local tests: .release/tests_<HEAD sha>.json (written by scripts/release/run_release_tests.py) exists for HEAD and
+     reports 0 failed / 0 errors for both the backend and the Flutter suite. Tests run locally only; CI only builds.
 
 Usage:  python .claude/skills/release-check/check_release.py [--offline]
 Exit code 0 = no FAIL-level check.
@@ -128,9 +130,52 @@ def check_git_tag(report: Report, project_dir: Path, version: str) -> None:
     elif not tagged:
         record(report, "WARN", "Git tag", f"{tag} does not exist locally yet - tag HEAD when the release commit is final")
     elif tagged != head:
-        record(report, "FAIL", "Git tag", f"{tag} points at {tagged[:12]}, HEAD is {head[:12]}: CI would build the tagged commit")
+        record(report, "FAIL", "Git tag", f"{tag} points at {tagged[:12]}, HEAD is {head[:12]}: the build would use the tagged commit")
     else:
         record(report, "PASS", "Git tag", f"{tag} points at HEAD ({head[:12]})")
+
+
+# ─── 9. local tests ───────────────────────────────────────────────────────────
+
+LOCAL_TESTS_HINT = "run python scripts/release/run_release_tests.py"
+
+
+def check_local_tests(report: Report, project_dir: Path) -> None:
+    name = "Local tests"
+    try:
+        head = _git(project_dir, "rev-parse", "HEAD")
+    except (OSError, subprocess.SubprocessError) as error:
+        record(report, "FAIL", name, f"cannot run git: {error}")
+        return
+    if not head:
+        record(report, "FAIL", name, f"cannot resolve HEAD; {LOCAL_TESTS_HINT}")
+        return
+    result_file = project_dir / ".release" / f"tests_{head}.json"
+    if not result_file.is_file():
+        record(report, "FAIL", name, f"no result for HEAD {head[:12]}; {LOCAL_TESTS_HINT}")
+        return
+    try:
+        data = json.loads(result_file.read_text(encoding="utf-8"))
+        backend, flutter = data["backend"], data["flutter"]
+        problems = []
+        if data.get("sha") != head:
+            problems.append("result belongs to another commit")
+        for suite_name, suite, total_key in (("backend", backend, "total"), ("flutter", flutter, "passed")):
+            failed, errors = int(suite.get("failed", 0)), int(suite.get("errors", 0))
+            if failed or errors or int(suite.get("exit_code", 1)) != 0:
+                problems.append(f"{suite_name}: {failed} failed, {errors} errors, exit {suite.get('exit_code')}")
+            if int(suite.get(total_key, 0)) <= 0:
+                problems.append(f"{suite_name}: no tests ran")
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        record(report, "FAIL", name, f"unreadable {result_file.name}: {error}; {LOCAL_TESTS_HINT}")
+        return
+    if problems:
+        record(report, "FAIL", name, "; ".join(problems) + f"; fix and {LOCAL_TESTS_HINT}")
+    else:
+        record(report, "PASS", name, (
+            f"HEAD {head[:12]}: backend {backend.get('passed')} passed / {backend.get('skipped')} skipped, "
+            f"flutter {flutter.get('passed')} passed / {flutter.get('skipped')} skipped ({data.get('finished_at')})"
+        ))
 
 
 # ─── 5. signing key ───────────────────────────────────────────────────────────
@@ -307,6 +352,7 @@ def run_checks(project_dir: Path, offline: bool = False, transport=None) -> Repo
     check_legacy_installer_url(report, version_info)
     check_release_notes(report, project_dir, version)
     check_git_tag(report, project_dir, version)
+    check_local_tests(report, project_dir)
     public_keys = check_signing_key(report, project_dir)
     check_bundle_guard(report, project_dir)
     if offline:

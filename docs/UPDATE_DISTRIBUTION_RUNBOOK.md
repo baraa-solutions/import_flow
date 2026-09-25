@@ -2,7 +2,8 @@
 
 > **ملخص سريع:**
 > - فيه لابتوب إنتاج **واحد** بس، والبرنامج متثبّت per-user في `C:\Users\Hp\AppData\Local\Programs\Sorour Logistics\` وقاعدة البيانات جنبه.
-> - الإصدار الجديد بيتعمل **بـ tag بس** (`vX.Y.Z`). الـ tag بيبني ويختبر ويعمل GitHub Release بس، **ومش بينشر حاجة** على سيرفر التحديثات.
+> - الاختبارات بتتعمل **على جهازك بس** قبل الـ tag: `python scripts/release/run_release_tests.py` وبعدها `/release-check`. GitHub بيبني وبينشر بس.
+> - الإصدار الجديد بيتعمل **بـ tag بس** (`vX.Y.Z`). الـ tag بيبني (حوالي 15 دقيقة) ويعمل GitHub Release بس، **ومش بينشر حاجة** على سيرفر التحديثات.
 > - النشر زرار يدوي: Actions -> **"Publish update"** -> Run workflow -> تكتب الـ tag. الضغطة دي هي الموافقة (الريبو private على GitHub Free/Team، فمفيش "Required reviewers").
 > - الـ workflow ده بيوقّع الـ manifest بمفتاح Ed25519 وبيرفع الـ installer الأول على Hostinger (`https://kamal-sroor.online/importflow/updates/`)، وبعدين الـ manifest آخر حاجة.
 > - الـ manifest فيه `expires_at` (90 يوم). فيه workflow شهري بيعيد توقيعه تلقائي لما يقرّب ينتهي (من `main` بس).
@@ -26,7 +27,7 @@ This runbook replaces the old multi-workstation / GitHub-download runbook. The o
 | Pre-install backups | `{app}\backups\pre_install_<old version>_<yyyymmdd_hhnnss>\` | Written by the installer before every install (section 5). |
 | Update data | `C:\Users\Hp\AppData\Local\SorourLogistics\updates\` | `last_manifest.json`, `update_history.jsonl`, `staging\` (downloads). Override: env `UPDATE_DATA_DIR`. |
 | Update host | `https://kamal-sroor.online/importflow/updates/` (Hostinger, static files) | Only allowed host in code (`modules/app_update/validators.py`). No credentials on the laptop. |
-| CI | Private repo `baraa-solutions/import_flow` (https://github.com/baraa-solutions/import_flow). GitHub Actions: `ci.yml` (tests on every PR and push to `main`), `build_and_release.yml` (build), `publish_update.yml` ("Publish update", manual), `resign_update_manifest.yml` (monthly) | The signing key and SFTP key live only in the secrets of environment `production-updates`. |
+| CI | Private repo `baraa-solutions/import_flow` (https://github.com/baraa-solutions/import_flow). GitHub Actions only build and publish (tests run locally, `scripts/release/run_release_tests.py`): `build_and_release.yml` (build), `publish_update.yml` ("Publish update", manual), `resign_update_manifest.yml` (monthly) | The signing key and SFTP key live only in the secrets of environment `production-updates`. |
 
 Hosted layout (`UPDATE_REMOTE_DIR`, default `domains/kamal-sroor.online/public_html/importflow/updates`):
 
@@ -57,11 +58,18 @@ importflow/updates/
 The repo is private on GitHub Free/Team, where environments have **no "Required reviewers"**. The approval is therefore a
 manual button: a tag push only builds; publishing to the update host happens only when you run **"Publish update"**.
 
-### 2.9 `.github/workflows/ci.yml` (pull request to `main`, push to `main`, `workflow_dispatch`)
+### 2.9 Tests run locally (`scripts/release/run_release_tests.py`)
 
-The test suites run **before merge and in parallel**: `backend-tests` = 4 shards of `tests/unit` + `tests/integration`
-(deterministic split by `scripts/ci/shard_tests.py`, JUnit XML per shard as artifact), `frontend-tests` = `flutter analyze`
-(errors only) + `flutter test -j 2` (the `perf` tag is skipped). `ci-ok` is the single required status check.
+GitHub does **not** run the test suites (no push/fix/re-push cycles). Before tagging, on the committed release HEAD:
+
+```bash
+python scripts/release/run_release_tests.py
+```
+
+It refuses when tracked files outside `.claude/` have uncommitted changes, runs the backend pytest suite (scratch
+`DATABASE_PATH`) and **then** `flutter test -j 4` (never both at once: the dev machine runs out of memory otherwise),
+prints both summaries, writes `.release/tests_<HEAD sha>.json` (git-ignored) and exits non-zero on any failed test or error.
+Skipped (environment-dependent) tests are fine. `/release-check` ("Local tests") requires that file, green, for HEAD.
 
 ### 3.0 `.github/workflows/build_and_release.yml` (tag `v*` or `workflow_dispatch`)
 
@@ -69,7 +77,7 @@ A push to `main` builds nothing. This workflow holds **no publish secrets** (no 
 
 | Job | Runner | Secrets | What it does |
 |-----|--------|---------|--------------|
-| `build-and-release` | windows | none | **First: the commit must have a successful `ci.yml` run (push to `main`)**, otherwise it stops with "Merge to main and wait for CI, then tag." No test suites here (they ran in CI). Then `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest, kept 30 days). |
+| `build-and-release` | windows | none | No test suites (they ran locally, section 2.9). `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest, kept 30 days). |
 | `release` | ubuntu | `GITHUB_TOKEN` | Tag runs only. Creates the (private-repo) GitHub Release with the installer, portable zip and `version.json`. Audit record only; the laptop never downloads from GitHub. |
 
 ### 3.0.1 `.github/workflows/publish_update.yml` ("Publish update", `workflow_dispatch` only)
@@ -109,34 +117,36 @@ clients can see anything:
 
 Daily work is Track 1 (`docs/DEV_WORKFLOW.md`): no version bumps, no packaging. A release is a deliberate Track 2 step.
 
-1. `main` is green (`/ci-status`), and `/release-check` passes.
-2. Bump the version on a release commit. `version_manager.py` updates `version.json`, `frontend/pubspec.yaml`,
+1. Bump the version on a release commit. `version_manager.py` updates `version.json`, `frontend/pubspec.yaml`,
    `installer/importflow_setup.iss` (`MyAppVersion`, `OutputBaseFilename`), `main.py`, `main.dart`, `home_screen.dart`,
    `main.cpp`, `api_constants.dart`:
    ```bash
    python version_manager.py bump patch      # or: bump minor | bump major
    python version_manager.py get             # prints: Current version: vX.Y.Z (Build N)
    ```
-   CI runs `package_production.py --no-bump`, so the version in the commit is the version that ships.
-3. Write the release notes (UTF-8, one note per line; blank lines and `#` lines ignored; a leading `- `, `* ` or `• ` is
+   The tag build runs `package_production.py --no-bump`, so the version in the commit is the version that ships.
+2. Write the release notes (UTF-8, one note per line; blank lines and `#` lines ignored; a leading `- `, `* ` or `• ` is
    stripped; max 50 notes of 500 characters per language):
    ```
    docs/release_notes/X.Y.Z.ar.txt
    docs/release_notes/X.Y.Z.en.txt
    ```
-4. Open a PR to `main`, wait for `ci-ok`, merge. Wait until the `CI` run for the merge commit on `main` is **green**.
-5. Tag **that merge commit** (it is what CI tested) and push the tag:
+3. Commit (or merge to `main`) the release commit. Then, on that committed HEAD, run the local tests and the gate:
    ```bash
-   git fetch company && git tag vX.Y.Z company/main
-   git push company vX.Y.Z
+   python scripts/release/run_release_tests.py            # backend, then flutter; must exit 0
+   python .claude/skills/release-check/check_release.py   # "Local tests" must PASS; no FAIL except "Git tag" before tagging
    ```
-   Wait until Actions -> "Build & Release Sorour Logistics" for the tag is **green** (~15 min; nothing is published yet).
-   If it stops at "Require Green CI For This Commit", the tag is not on a CI-green `main` commit: delete it, wait for CI, re-tag.
-6. Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag
+4. Tag **that commit** (the one the tests ran on) and push the tag:
+   ```bash
+   git tag vX.Y.Z
+   git push company main vX.Y.Z
+   ```
+   Wait until Actions -> "Build & Release Sorour Logistics" for the tag is **green** (~15 min, build only; nothing is published yet).
+5. Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag
    (`vX.Y.Z`) -> **Run workflow**. This click is the approval. The run must end green.
-7. Verify from any dev machine (section 7).
+6. Verify from any dev machine (section 7).
 
-**Mandatory update / `min_supported_version`:** set them as inputs of the same "Publish update" run (step 6). Use mandatory
+**Mandatory update / `min_supported_version`:** set them as inputs of the same "Publish update" run (step 5). Use mandatory
 only for security fixes or breaking DB changes. They do not require a rebuild.
 
 ## 4. Manifest expiry and the monthly re-sign (`.github/workflows/resign_update_manifest.yml`)
