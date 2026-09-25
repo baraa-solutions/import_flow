@@ -1137,7 +1137,7 @@ def test_ci_runs_four_backend_shards_frontend_and_a_single_required_check(ci_wor
     assert backend["strategy"]["fail-fast"] is False
     run = next(_run(s) for s in backend["steps"] if "python -m pytest" in _run(s))
     assert "shard_tests.py --shards 4 --index" in run and "--junitxml=" in run
-    assert "tr -d '\r'" in run, "Windows CRLF output must be stripped before mapfile"
+    assert r"tr -d '\r'" in run, "Windows CRLF output must be stripped before mapfile"
     assert any("upload-artifact" in str(s.get("uses", "")) and s.get("if") == "always()" for s in backend["steps"])
 
     frontend = jobs["frontend-tests"]
