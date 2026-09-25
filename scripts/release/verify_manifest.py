@@ -83,6 +83,12 @@ def verify_manifest_bytes(raw: bytes, public_keys: Optional[Dict[str, str]] = No
         raise VerificationError(f"manifest rejected: {exc}") from None
 
 
+def ensure_not_expired(manifest: VerifiedManifest) -> None:
+    expires_at = manifest.expires_at
+    if expires_at <= datetime.now(timezone.utc):
+        raise VerificationError(f"manifest expired at {expires_at.isoformat()}: clients reject it (re-sign it)")
+
+
 def verify_local_installer(manifest: VerifiedManifest, installer: Path) -> None:
     if not installer.is_file():
         raise VerificationError(f"installer not found: {installer}")
@@ -204,8 +210,7 @@ def main(argv: Optional[Sequence[str]] = None, transport: Optional[httpx.BaseTra
         expires_at = manifest.expires_at
         print(f"   expires_at {expires_at.isoformat()}"
               + (f"  previous={manifest.previous.version}" if manifest.previous else ""))
-        if expires_at <= datetime.now(timezone.utc):
-            raise VerificationError(f"manifest expired at {expires_at.isoformat()}: clients reject it (re-sign it)")
+        ensure_not_expired(manifest)
 
         if args.installer:
             verify_local_installer(manifest, Path(args.installer))

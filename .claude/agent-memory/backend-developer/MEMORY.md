@@ -40,6 +40,8 @@
 - Strict auth tests: small app + in-memory StaticPool engine + `seed_rbac`, real-role users, `create_access_token`
   bearer, `auth_permissions.ALLOW_DEV_AUTH_BYPASS=False`. Auth deps run before body validation: allowed user +
   invalid body = 422 proves auth passed. Example: `tests/unit/test_router_auth_tightening.py`.
+- `seed_rbac` role codes: ADMIN, GENERAL_MANAGER, LOGISTICS_OPERATOR, CUSTOMS_OFFICER, FINANCE_OFFICER, AUDITOR_VIEWER (no OPERATOR).
+  User read schemas (`UserResponse`) use plain `str` email; EmailStr only on UserCreate/UserUpdate (stored .local/.invalid emails).
 - `import modules.x.router as r` can yield the APIRouter object (package `__init__` re-exports `router`); use `importlib.import_module("modules.x.router")` in tests.
 - `modules/import_companies/router.py` contains a stray bare `\r` (git marks it -text): edit it byte-wise.
 
@@ -156,3 +158,8 @@
 - `backend_runner.run()` builds its startup Event itself (no `started=` param, no module global); tests capture it via a
   `start_watchdog` stub. Defaults come from `db_safety.is_frozen_build()/app_base_dir()` (resolved exe dir).
 - Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.
+
+## /release-check (2026-09-25)
+- `check_release.py` checks take `(report, project_dir, ...)`; `main(argv, project_dir=, transport=)`. Tooling (bundle_guard,
+  verify_manifest) always loads from the real checkout; the signing key is read by AST from `modules/app_update/service.py`.
+  Tests: `tests/unit/test_release_check.py` (tmp git repo fixture, build_manifest-signed manifest, MockTransport, `no_boot` stub).
