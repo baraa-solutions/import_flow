@@ -14,4 +14,8 @@
 - Slow tests: `tests/unit/test_cargox_standard_invoice.py` takes ~4.5 min alone (several tests 17-60 s).
 - Tests write into the repo (`dist/`, `logs/`, `backups/`); these are gitignored.
 - [Flutter test baseline](flutter_test_baseline.md) — 3.44.6 port: 1420 pass/94 perf skip; never run flutter test alongside build
-- Boot/uvicorn probes: set DATABASE_PATH to a scratch copy; schema upgrade still writes auto_pre_upgrade_*.db into repo `backups/`.
+- Boot/uvicorn probes: set DATABASE_PATH to a scratch copy. As of 2026-09-25 the auto_pre_upgrade_*.db snapshot lands in `backups/` next to DATABASE_PATH (scratch), not the repo.
+- 2026-09-25 cleanup-pass gate: backend 2006 tests (7 env skips, incl. POSIX-perm skip in test_release_manifest_tools), 39 min; flutter 393 files/1531 pass/94 perf skip, 18 min.
+  Production-sync tests (test_production_sync, test_db_safety_production_sync) sandbox DEV/PROD DBs in tmp - no exclusion needed; hash the real DB before/after to prove it.
+- 2026-09-25 launcher/no-VBScript gate: backend 2011 tests/7 env skips, 21 min; flutter -j 4 1531 pass/94 skip, 9.6 min (run after pytest, no OOM);
+  `flutter analyze` baseline 0 errors / 18 warnings / 1885 infos (count via `grep -oE '^ *(error|warning|info) - '`).

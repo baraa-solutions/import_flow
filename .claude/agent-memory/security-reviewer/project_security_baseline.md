@@ -92,11 +92,18 @@ rollback installed == to_version == manifest.version; /last-result flip only wit
 private file + re-verified before restore; share-deny-write handle held through Popen (apply + rollback); audit
 wrapped, UPDATE_APPLY after launch, *_FAILED entries; engine-file == DATABASE_PATH else maintenance; regexes \Z +
 fullmatch; conftest mkdtemp DB; /cancel only with a live download event (apply/_claim null it under the lock).
+RESOLVED (seen 2026-09-25): rollback_pending_reason now fails closed (lexists + unreadable/malformed ->
+ROLLBACK_BLOCK_UNREADABLE_REASON); schema_upgrade no longer swallows ImportError of the hook (-> maintenance).
+Cleanup pass 2026-09-25 (uncommitted): shared helpers utils/db_safety.same_file (False on error; used only where
+False = refuse or no-op) + unique_backup_name; db_script_guard.same_file_fail_closed (old _same_file renamed,
+body same; prepare_uat now resolves symlinks = stricter); auth merge_role_and_overrides (RBAC identical);
+rollback post-restore integrity now inside sqlite_online_backup(overwrite=True) (real duplicate). Nothing new.
+Re-verified 2026-09-25 (same pass, second look): _forget_used_admin_initial_password early return == old
+remove_env_key no-op; settings ENV_PATH/DATABASE_PATH defaults unchanged (env_file_path/default_db_path);
+schema_upgrade engine-file check now fails closed on resolve error; restore_database verify keeps missing-file=False
+(check_integrity never creates). Nothing new.
 OPEN:
-- MAJOR: repository.rollback_pending_reason (~316-342) is fail-OPEN: corrupt/non-dict/unreadable rollback_blocked.json
-  (_load_json_object -> None), missing db_path, or any exception -> None, so the caller's fail-closed except in
-  schema_upgrade_service (~226) is dead code; newer binary then migrates the restored older-schema DB.
-  Fix: existing-but-unparseable block or exception -> return a maintenance reason (or re-raise).
+- NIT (pre-existing): rollback_pending_reason returns None when same_file cannot resolve a path (theoretical).
 - MINOR: tests/conftest.py forces DATABASE_PATH but not DATABASE_URL; an exported DATABASE_URL makes create_all +
   stamp_head hit that DB. Fix: os.environ.pop("DATABASE_URL", None) before importing database.
 - NIT: validate_local_file suffix/size 400s come after the existence check (local-file oracle, system.update only);

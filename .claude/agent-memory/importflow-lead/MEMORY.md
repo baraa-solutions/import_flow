@@ -28,5 +28,8 @@
 ## Working conventions
 - User: CTO, prefers Egyptian Arabic, wants to stay on the current branch, Opus 5.5 at medium effort for agents.
 - Track 1 daily work: never bump versions or touch `version.json` / `package_production.py`.
-- Full backend suite takes ~8 minutes (930 tests on 2026-09-23).
+- Full backend suite: 2006 tests, ~39 min on 2026-09-25 (was ~8 min / 930 on 2026-09-23); flutter test ~18 min.
+- Subagents stop at 40 turns: on branch-wide reviews (>10k-line diff) give each reviewer a file subset or a report budget.
+- Known inconsistency (not fixed yet): ADMIN/MANAGER role checks mix case-sensitive and `.upper()` compares (modules/auth).
 - [Production laptop layout](project_production_laptop_layout.md) — per-user install path, DB/backups location, leftover dev scripts
+- [Parallel sessions](feedback_parallel_sessions.md) — CTO may run /simplify in the same worktree; verify foreign edits before commit

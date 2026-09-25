@@ -37,7 +37,11 @@ Test traps:
   (bank_form4 registry) use `Wrap`. DataTable heading labels get UNBOUNDED width: no `Expanded` there.
   MetricCard values scale via `FittedBox(scaleDown)` in a capped box, never truncated.
 - Titles in Type A / Dedicated headers truncate with ellipsis on purpose (83f71fc); tests assert that.
-- No Visual Studio on the dev box (2026-09): `flutter build windows` fails locally; CI builds Windows.
+- VS 2026 (toolset v145, CMake 4.3) is installed at D:\vsc (2026-09-25): `flutter build windows --release` works
+  locally (~6 min); dumpbin: D:\vsc\VC\Tools\MSVC\<ver>\bin\Hostx64\x64\dumpbin.exe. The MSVC CRT ships app-local
+  via InstallRequiredSystemLibraries in windows/CMakeLists.txt (a clean Windows lacked MSVCP140.dll).
+- Bash-tool heredocs collapse `\\` to `\` (and Python then turns `\b`/`\v` into control chars): write edit
+  scripts with the Write tool, and check Dart path literals with `od -c`.
 
 **Why:** 269 test files were silently failing to load before the pin; unmasking revealed these.
 **How to apply:** check these before debugging a newly failing widget test.

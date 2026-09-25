@@ -1,14 +1,12 @@
 # backend-developer memory
 
-- `import main` runs `SchemaUpgradeService.execute_safe_startup_upgrade` at import time (result in
-  `main.STARTUP_UPGRADE_RESULT`). For smoke checks set `DATABASE_PATH` to a temp file in an EXISTING folder and
+- `import main` runs `SchemaUpgradeService.execute_safe_startup_upgrade` at import time (result not kept; check
+  `is_maintenance_mode()`). For smoke checks set `DATABASE_PATH` to a temp file in an EXISTING folder and
   `SECRET_KEY` (32+ chars); a missing folder makes create_all fail -> the app boots in maintenance mode.
-- `settings.py` appends a generated `SECRET_KEY` to `<app_base_dir>/.env` when none is set.
-- tests: `tests/conftest.py` sets `DATABASE_PATH` to a temp DB and `ALLOW_DEV_AUTH_BYPASS=true`.
-- Undefined-name sweep that works: `python -m pyflakes modules database utils main.py` (install pyflakes to a
-  scratch dir with `pip install --target`). String annotations with function-local imports are false positives.
-- `modules/import_documentation/{router,service}.py` use `from ...schemas import *` — pyflakes cannot check
-  them; import models explicitly there (e.g. `CustomsDeclarationDraft` from `.model`).
+- `settings.py` appends a generated `SECRET_KEY` to `<app_base_dir>/.env` when none is set. `tests/conftest.py` sets
+  `DATABASE_PATH` to a temp DB and `ALLOW_DEV_AUTH_BYPASS=true`.
+- pyflakes sweep: `pip install --target <scratch>/pf pyflakes`, `PYTHONPATH=<scratch>/pf python -m pyflakes ...`.
+  `modules/import_documentation/{router,service}.py` use `import *`: import models explicitly there.
 
 ## Auth (since 2026-09-24)
 - Every route except `/`, `/health`, `/api/v1/health`, `/api/v1/system/{version,version-check,download-installer}`,
@@ -33,8 +31,8 @@
 
 ## Running tests
 - Full `tests/unit` takes more than 10 minutes: start it with `run_in_background` and wait for the notification.
-- Windows console is cp1252: call `sys.stdout.reconfigure(encoding="utf-8")` before printing Arabic junit messages.
-- Other agents may edit routers in the same worktree concurrently; attribute full-suite failures by module before fixing.
+- Console is cp1252: `sys.stdout.reconfigure(encoding="utf-8")` before printing Arabic. Other agents may edit the
+  same worktree concurrently: attribute full-suite failures by module before fixing.
 - Auth deps: `modules.auth.router` exports `get_current_user`, `require_admin`, `require_manager_or_admin`;
   `require_permission(code)` lives in `modules.auth.permissions` and calls `resolve_user` itself, so
   `dependency_overrides[get_current_user]` does NOT affect it. Importing `modules.auth.router` from module routers
@@ -99,7 +97,9 @@
 - `utils/db_safety.py` (stdlib only) is the single place for: `is_frozen_build()`, `app_base_dir()` (exe dir when
   frozen, never `_MEIPASS`), `version_file_path()`, `backups_dir_for(db)` (backups sit next to the DB),
   `is_protected_backup` / `select_prunable` (R9, keep floor 7), `sqlite_online_backup` (+integrity_check+sha256),
-  maintenance flag + `is_request_allowed_in_maintenance`. Reuse these; do not add new `Path(__file__)` runtime paths.
+  maintenance flag + `is_request_allowed_in_maintenance`, `same_file` (False on empty/unresolvable),
+  `unique_backup_name(stem, dir)` (`<stem>.db` / `<stem>_N.db`). Refusal guards use `db_script_guard.same_file_fail_closed`
+  (abspath fallback, never False on error). Auth merge: `permissions.merge_role_and_overrides`. Reuse these.
 - Maintenance mode is process-global: any test that triggers it must `clear_maintenance_mode()` in teardown, or every later POST in the session gets 503.
 - Startup snapshot only when `backups/.last_seen_version.json` differs from version.json.
 - production_sync: DEV_DB = `database.DB_PATH` (honours DATABASE_PATH), backups prefixed `psync_`, destructive
@@ -148,5 +148,6 @@
 ## Building installers outside the repo (rehearsal kit, 2026-09-25)
 - No global PyInstaller: `pip install --target <scratch>/pyi pyinstaller` + `PYTHONPATH=<scratch>/pyi python build_backend_exe.py`.
   Scratchpad paths break MSBuild (MAX_PATH): PowerShell `subst R: '<path>'`, build from R:, `subst R: /D`; `Path.resolve()` undoes subst.
-- Frozen backend with a `backups\pre_migration_*.db` path > ~255 chars fails that backup -> maintenance mode: smoke-test from a short dir.
-- Dev-box `C:\Program Files (x86)\Sorour Logistics` is v1.0.58, not 2.0.3. stage-local checks sha/size only, not the exe name.
+- Frozen backend with a `backups\pre_migration_*.db` path > ~255 chars fails that backup -> maintenance: smoke-test from a
+  short dir. Dev-box `C:\Program Files (x86)\Sorour Logistics` is v1.0.58. stage-local checks sha/size only, not exe name.
+- Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.

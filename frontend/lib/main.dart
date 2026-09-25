@@ -13,6 +13,7 @@ import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
 import 'core/providers/workspace_tabs_provider.dart';
 import 'core/services/backend_launcher.dart';
+import 'core/services/launcher_log.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/density_provider.dart';
 import 'core/theme/theme_provider.dart';
@@ -38,28 +39,45 @@ Future<BackendHealth> _probeBackendHealth() async {
   try {
     final res = await _healthDio.get('${ApiConstants.serverUrl}/health');
     return BackendHealth.fromResponse(res.statusCode, res.data);
-  } catch (_) {
-    return const BackendHealth.down();
+  } on DioException catch (e) {
+    // Type + low-level cause only (no headers; /health carries no token anyway).
+    return BackendHealth.down(
+        error: e.error == null ? e.type.name : '${e.type.name}: ${e.error}');
+  } catch (e) {
+    return BackendHealth.down(error: '$e');
   }
 }
 
 /// Windows desktop: starts `<exeDir>\backend.exe` (only for a local server URL)
 /// and waits for /health. Elsewhere: a disabled launcher that is ready at once.
+/// Decisions are logged to %LOCALAPPDATA%\SorourLogistics\logs\launcher.log.
 BackendLauncher _createBackendLauncher() {
   if (kIsWeb || !Platform.isWindows) return BackendLauncher.disabled();
+  final logPath = FileLauncherLog.defaultPath();
+  final LauncherLog log =
+      logPath == null ? const NullLauncherLog() : FileLauncherLog(logPath);
   String? backendPath;
+  var exe = '<unknown>';
+  final serverUrl = ApiConstants.serverUrl;
+  final loopback = isLoopbackServerUrl(serverUrl);
   try {
-    final exeDir = File(Platform.resolvedExecutable).parent.path;
-    if (isLoopbackServerUrl(ApiConstants.serverUrl)) {
-      backendPath = '$exeDir\\backend.exe';
-    }
-  } catch (_) {}
+    exe = Platform.resolvedExecutable;
+    final exeDir = File(exe).parent.path;
+    if (loopback) backendPath = '$exeDir\\backend.exe';
+  } catch (e) {
+    log.write('[config] could not resolve the executable: $e');
+  }
+  log.write('[config] frontend v${ApiConstants.clientVersion} exe=$exe '
+      'serverUrl=${redactUrl(serverUrl)} loopback=$loopback '
+      'backendExecutablePath=${backendPath ?? '<none>'} '
+      'fileExists=${backendPath != null && File(backendPath).existsSync()}');
   return BackendLauncher(
     healthCheck: _probeBackendHealth,
     startProcess: WindowsBackendProcess.start,
     listProcesses: WindowsBackendProcess.list,
     killProcess: WindowsBackendProcess.kill,
     backendExecutablePath: backendPath,
+    log: log,
   );
 }
 

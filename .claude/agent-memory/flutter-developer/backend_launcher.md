@@ -23,6 +23,9 @@ retired, 2026-09-25), so it must start backend.exe itself. The backend has its o
   only when status is ready.
 - Gate trap: after first ready, ALWAYS return the same `Stack([child, if (!ready) ...overlay])`. Switching between
   `child` and `Stack([child, ...])` reparents the child and drops its state (open tabs/unsaved forms).
+- Diagnostics: every decision goes to an injected `LauncherLog` (`launcher_log.dart`); prod writes
+  %LOCALAPPDATA%\SorourLogistics\logs\launcher.log (200 KB, one .1 rotation). Tests use `MemoryLauncherLog`.
+  A started backend.exe that vanishes from the process list is restarted (max 3 starts per attempt).
 - Tests: fake clock whose `delay` advances `now` instantly; widget tests need two `pump()`s. Real Win32 smoke
   tests in `test/backend_process_control_test.dart` (`@TestOn('windows')`).
 - Python-heredoc edit trap: `'$exeDir\backend.exe'` silently became a backspace escape; verify with `od -c`.

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/services/backend_launcher.dart';
+import 'package:frontend/core/services/launcher_log.dart';
 import 'package:frontend/core/widgets/backend_startup_gate.dart';
 import 'package:frontend/core/widgets/buttons/app_button.dart';
 
@@ -34,7 +36,16 @@ class _Harness {
     this.exeExists = true,
     List<BackendProcessInfo>? processes,
     this.listThrows = false,
+    this.startedStaysAlive = true,
+    this.startThrows = false,
   }) : processes = processes ?? [];
+
+  /// Whether a started backend.exe shows up in the process list (false = it
+  /// exits right away, e.g. crash / lost the single-instance mutex).
+  bool startedStaysAlive;
+  bool startThrows;
+  final log = MemoryLauncherLog();
+  final List<String> workingDirs = [];
 
   /// Probe index (1-based) from which /health answers; null = never.
   final int? upAfterProbes;
@@ -54,7 +65,14 @@ class _Harness {
           final up = upAfterProbes != null && probes >= upAfterProbes!;
           return up ? BackendHealth.up(maintenanceMode: maintenance) : const BackendHealth.down();
         },
-        startProcess: (path) async => started.add(path),
+        startProcess: (path, wd) async {
+          if (startThrows) throw const ProcessException('backend.exe', [], 'Access is denied.', 5);
+          started.add(path);
+          workingDirs.add(wd);
+          final pid = 1000 + started.length;
+          if (startedStaysAlive) processes = [...processes, (pid, path)];
+          return pid;
+        },
         listProcesses: () async {
           if (listThrows) throw StateError('EnumProcesses failed');
           return processes;
@@ -67,6 +85,7 @@ class _Harness {
         backendExecutablePath: exe,
         fileExists: (_) => exeExists,
         clock: clock,
+        log: log,
       );
 }
 
@@ -189,7 +208,10 @@ void main() {
           probes++;
           return const BackendHealth.foreign();
         },
-        startProcess: (p) async => started.add(p),
+        startProcess: (p, _) async {
+          started.add(p);
+          return 1;
+        },
         listProcesses: () async => const [],
         backendExecutablePath: _exe,
         fileExists: (_) => true,
@@ -207,7 +229,7 @@ void main() {
       final launcher = BackendLauncher(
         healthCheck: () async =>
             ++probes < 3 ? const BackendHealth.down() : const BackendHealth.foreign(),
-        startProcess: (_) async {},
+        startProcess: (_, __) async => 1,
         listProcesses: () async => const [],
         backendExecutablePath: _exe,
         fileExists: (_) => true,
@@ -255,7 +277,7 @@ void main() {
       final launcher = h.build();
       await launcher.ensureRunning();
       expect(h.started, hasLength(1));
-      // The started process never showed up in the process list (it died).
+      h.processes = []; // it died after the attempt
       await launcher.ensureRunning();
       expect(h.started, hasLength(2));
       expect(h.killed, isEmpty);
@@ -307,7 +329,10 @@ void main() {
         healthCheck: () async => const [1, 3].contains(++calls)
             ? const BackendHealth.down()
             : const BackendHealth.up(),
-        startProcess: (p) async => started.add(p),
+        startProcess: (p, _) async {
+          started.add(p);
+          return 1;
+        },
         listProcesses: () async => throw StateError('no snapshot'),
         backendExecutablePath: _exe,
         fileExists: (_) => true,
@@ -327,7 +352,7 @@ void main() {
           if (calls < 3) throw StateError('socket');
           return const BackendHealth.up();
         },
-        startProcess: (_) async {},
+        startProcess: (_, __) async => 1,
         backendExecutablePath: _exe,
         fileExists: (_) => true,
         clock: _FakeClock(),
@@ -341,6 +366,155 @@ void main() {
       expect(launcher.status.value.isReady, isTrue);
       expect((await launcher.ensureRunning()).isReady, isTrue);
     });
+  });
+
+  group('early exit, start failures and the diagnostic log', () {
+    test('started backend.exe that exits early is restarted, bounded to 3 starts', () async {
+      final h = _Harness(upAfterProbes: null, startedStaysAlive: false);
+      final launcher = h.build();
+      final result = await launcher.ensureRunning();
+      expect(result.failure, BackendLaunchFailure.timeout);
+      expect(h.started, hasLength(3));
+      expect(h.log.any('exited early'), isTrue);
+      expect(h.log.any('start limit 3 reached'), isTrue);
+    });
+
+    test('backend that exits once and then stays alive gets exactly one restart', () async {
+      final h = _Harness(upAfterProbes: 20, startedStaysAlive: false);
+      final launcher = h.build();
+      var sawStarting = false;
+      launcher.status.addListener(() {
+        if (!sawStarting && launcher.status.value.phase == BackendLaunchPhase.starting) {
+          sawStarting = true;
+          h.startedStaysAlive = true; // the restart will stay up
+        }
+      });
+      final result = await launcher.ensureRunning();
+      expect(result.isReady, isTrue);
+      expect(h.started, hasLength(2));
+    });
+
+    test('Process.start failure is logged with the exception, not swallowed', () async {
+      final h = _Harness(upAfterProbes: null, startThrows: true);
+      final launcher = h.build();
+      final result = await launcher.ensureRunning();
+      expect(result.isFailed, isTrue);
+      expect(launcher.startCount, 0);
+      expect(h.log.any('start: path=$_exe workingDirectory=C:\\ImportFlow'), isTrue);
+      expect(h.log.any(RegExp(r'start FAILED: ProcessException: .*Access is denied')), isTrue);
+    });
+
+    test('start passes the backend folder as working directory', () async {
+      final h = _Harness(upAfterProbes: 2);
+      await h.build().ensureRunning();
+      expect(h.workingDirs, [r'C:\ImportFlow']);
+    });
+
+    test('log covers config, every probe, process list, start, ready', () async {
+      final h = _Harness(upAfterProbes: 3);
+      await h.build().ensureRunning();
+      final lines = h.log.lines;
+      expect(lines.first, contains('backendExecutablePath=$_exe'));
+      expect(lines.first, contains('fileExists=true'));
+      expect(lines.where((l) => l.contains('probe ')), hasLength(3));
+      expect(h.log.any('probe 1: down'), isTrue);
+      expect(h.log.any('probe 3: up'), isTrue);
+      expect(h.log.any('process list: 0 processes, matched none'), isTrue);
+      expect(h.log.any('start OK pid=1001'), isTrue);
+      expect(h.log.any(RegExp(r'READY after \d+ ms startedProcess=true')), isTrue);
+    });
+
+    test('log covers foreign, maintenance, kills, list errors and failure reason', () async {
+      final foreignLog = MemoryLauncherLog();
+      await BackendLauncher(
+        healthCheck: () async => const BackendHealth.foreign(statusCode: 404),
+        clock: _FakeClock(),
+        log: foreignLog,
+      ).ensureRunning();
+      expect(foreignLog.any('probe 1: foreign 404'), isTrue);
+      expect(foreignLog.any('FAILED reason=portInUse'), isTrue);
+
+      final m = _Harness(upAfterProbes: 1, maintenance: true);
+      await m.build().ensureRunning();
+      expect(m.log.any('maintenance=true'), isTrue);
+
+      final k = _Harness(upAfterProbes: null, processes: [(42, _exe)]);
+      final launcher = k.build();
+      await launcher.ensureRunning();
+      expect(k.log.any('FAILED reason=timeout'), isTrue);
+      expect(k.log.any('already running, waiting'), isTrue);
+      await launcher.ensureRunning(restartIfStuck: true);
+      expect(k.log.any('kill pid=42 path=$_exe ok=true'), isTrue);
+
+      final e = _Harness(upAfterProbes: 2, listThrows: true);
+      await e.build().ensureRunning();
+      expect(e.log.any('process list ERROR: Bad state: EnumProcesses failed'), isTrue);
+    });
+
+    test('down probe carries the connection error text into the log', () {
+      const h = BackendHealth.down(error: 'connectionError: SocketException: refused');
+      expect(h.describe(), 'down (connectionError: SocketException: refused)');
+      expect(BackendHealth.fromResponse(503, const {'detail': 'x'}).describe(), 'down 503');
+    });
+  });
+
+  group('FileLauncherLog', () {
+    late Directory tmp;
+    setUp(() => tmp = Directory.systemTemp.createTempSync('launcher_log_test'));
+    tearDown(() => tmp.deleteSync(recursive: true));
+
+    String join(List<String> parts) => parts.join(Platform.pathSeparator);
+
+    test('creates missing folders and appends timestamped lines', () {
+      final path = join([tmp.path, 'a', 'b', 'launcher.log']);
+      final log = FileLauncherLog(path, now: () => DateTime(2026, 9, 25, 10, 30));
+      log.write('hello');
+      log.write('world');
+      final text = File(path).readAsStringSync();
+      expect(text, contains('2026-09-25T10:30:00.000 [pid $pid] hello'));
+      expect(text.trim().split('\n'), hasLength(2));
+    });
+
+    test('rotates once to .1 past maxBytes and keeps only one backup', () {
+      final path = join([tmp.path, 'launcher.log']);
+      final log = FileLauncherLog(path, maxBytes: 1000);
+      for (var i = 0; i < 200; i++) {
+        log.write('line $i ${'x' * 40}');
+      }
+      expect(File('$path.1').existsSync(), isTrue);
+      expect(File('$path.2').existsSync(), isFalse);
+      expect(File(path).lengthSync(), lessThan(1200));
+      expect(File(path).readAsStringSync(), contains('line 199'));
+    });
+
+    test('never throws on an unwritable path', () {
+      final log = FileLauncherLog(join([tmp.path, 'bad\u0000name']));
+      expect(() => log.write('x'), returnsNormally);
+    });
+
+    test('defaultPath uses LOCALAPPDATA', () {
+      expect(FileLauncherLog.defaultPath(const {'LOCALAPPDATA': r'C:\Users\u\AppData\Local'}),
+          r'C:\Users\u\AppData\Local\SorourLogistics\logs\launcher.log');
+      expect(FileLauncherLog.defaultPath(const {}), isNull);
+    });
+  });
+
+  test('redactUrl drops credentials and query strings', () {
+    expect(redactUrl('http://user:secret@127.0.0.1:28080/health?token=abc'),
+        'http://127.0.0.1:28080/health');
+    expect(redactUrl('http://127.0.0.1:28080'), 'http://127.0.0.1:28080');
+  });
+
+  test('parentDirectoryOf', () {
+    expect(parentDirectoryOf(r'C:\ImportFlow\backend.exe'), r'C:\ImportFlow');
+    expect(parentDirectoryOf('/opt/app/backend'), '/opt/app');
+  });
+
+  test('main.dart builds the backend path with an escaped backslash', () {
+    // A single backslash before "backend.exe" is a backspace (\b) escape in Dart.
+    final src = File('lib/main.dart').readAsStringSync();
+    expect(src, contains(r"'$exeDir\\backend.exe'"));
+    expect(src, isNot(contains(r"'$exeDir\backend.exe'")));
   });
 
   group('recoverBackendOnConnectionError', () {
@@ -422,7 +596,7 @@ void main() {
       var up = false;
       final launcher = BackendLauncher(
         healthCheck: () async => up ? const BackendHealth.up() : const BackendHealth.down(),
-        startProcess: (_) async {},
+        startProcess: (_, __) async => 1,
         listProcesses: () async => const [],
         backendExecutablePath: _exe,
         fileExists: (_) => true,

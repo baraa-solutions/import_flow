@@ -13,6 +13,11 @@ the old production_sync auto-updater + SystemUpdateBanner. Flutter never downloa
   widget state, NOT in the provider, so tests have no pending timers), `updateStatusProvider` (StateNotifier,
   chained one-shot Timer poll only while downloading/verifying/backing_up; interval via
   `updatePollIntervalProvider`, override to ms in tests), `resolveBannerMode` pure function + clock provider.
+- Mount freshness without a double GET: capture `ref.exists(provider)` in `initState` (before build creates it) and
+  only invalidate / `refresh()` post-frame when it already existed; a provider first created by the build (or
+  the StatusNotifier constructor) already fetches. Widget tests assert `checkCalls` / `statusCalls` for this.
+- `rollbackCandidateProvider` deliberately calls `service.lastResult()` itself instead of watching the shared
+  (non-autoDispose) `lastUpdateResultProvider`: watching would reuse a cached/errored last-result on dialog open.
 - `appExitProvider` wraps `exit(0)` and skips under FLUTTER_TEST / web; widget tests override it with a counter.
 - Admin gate = `canInstallUpdatesProvider` (user.isAdmin) as proxy for `system.update`; 403 -> localized
   `updateNoPermission` (backend 403 detail is English), other errors show backend `detail`.
