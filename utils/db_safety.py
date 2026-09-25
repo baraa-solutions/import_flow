@@ -21,7 +21,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Optional, Union
+from typing import Iterable, Mapping, MutableMapping, Optional, Union
 
 logger = logging.getLogger("db_safety")
 
@@ -74,20 +74,27 @@ _PYINSTALLER_ENV_PREFIXES = ("_PYI_", "_MEIPASS")
 PYINSTALLER_RESET_ENV = "PYINSTALLER_RESET_ENVIRONMENT"
 
 
+def reset_pyinstaller_environment(environ: Optional[MutableMapping[str, str]] = None) -> None:
+    """
+    In place (default ``os.environ``): drop every ``_PYI_*`` / ``_MEIPASS*`` key (case-insensitive, as
+    Windows env names are) and set ``PYINSTALLER_RESET_ENVIRONMENT=1``, so any PyInstaller bootloader
+    started from here (Setup -> frontend.exe -> backend.exe) runs as a fresh top-level process.
+    The frozen backend calls this once at startup, before anything can spawn a child.
+    """
+    target = os.environ if environ is None else environ
+    stale = [
+        key for key in target
+        if key.upper().startswith(_PYINSTALLER_ENV_PREFIXES) or key.upper() == PYINSTALLER_RESET_ENV
+    ]
+    for key in stale:
+        del target[key]
+    target[PYINSTALLER_RESET_ENV] = "1"
+
+
 def clean_child_environment(base: Optional[Mapping[str, str]] = None) -> dict:
-    """
-    Environment for any process we start that is (or may start) one of our executables: Setup,
-    frontend.exe, backend.exe, launcher scripts. Drops every ``_PYI_*`` / ``_MEIPASS*`` key
-    (case-insensitive, Windows env names are) and sets ``PYINSTALLER_RESET_ENVIRONMENT=1`` so a
-    PyInstaller bootloader down the chain always starts as a fresh top-level process.
-    """
-    source = os.environ if base is None else base
-    env = {
-        key: value
-        for key, value in source.items()
-        if not key.upper().startswith(_PYINSTALLER_ENV_PREFIXES) and key.upper() != PYINSTALLER_RESET_ENV
-    }
-    env[PYINSTALLER_RESET_ENV] = "1"
+    """A cleaned copy of ``base`` (default ``os.environ``) for an explicit ``env=`` on a critical launch."""
+    env = dict(os.environ if base is None else base)
+    reset_pyinstaller_environment(env)
     return env
 
 

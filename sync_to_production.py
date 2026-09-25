@@ -69,7 +69,7 @@ from scripts.db_script_guard import (  # noqa: E402
     run_guarded,
     take_verified_backup,
 )
-from utils.db_safety import clean_child_environment, sqlite_online_backup  # noqa: E402
+from utils.db_safety import sqlite_online_backup  # noqa: E402
 
 DIST_DIR = ROOT_DIR / "dist"
 STANDALONE_DIR = DIST_DIR / "Sorour_Logistics_Standalone"
@@ -709,10 +709,10 @@ def launch_production_app():
         bat_launcher = DIST_DIR / "Start_ImportFlow_Production.bat"
     
     if vbs_launcher.exists():
-        subprocess.Popen(["wscript.exe", str(vbs_launcher)], cwd=str(STANDALONE_DIR), env=clean_child_environment())
+        subprocess.Popen(["wscript.exe", str(vbs_launcher)], cwd=str(STANDALONE_DIR))
         print("[SUCCESS] تم إطلاق التطبيق بنجاح!")
     elif bat_launcher.exists():
-        subprocess.Popen([str(bat_launcher)], cwd=str(DIST_DIR), shell=True, env=clean_child_environment())
+        subprocess.Popen([str(bat_launcher)], cwd=str(DIST_DIR), shell=True)
         print("[SUCCESS] تم إطلاق التطبيق بنجاح!")
     else:
         print("[ERROR] لم يتم العثور على مشغل البرودكشن!")

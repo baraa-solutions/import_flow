@@ -6,20 +6,23 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/services/backend_launcher.dart';
 import 'package:frontend/core/services/backend_process_control.dart';
+import 'package:path/path.dart' as p;
 
 /// Smoke tests for the real Win32 process helpers (no tasklist child process).
 void main() {
-  test('lists the current process with its full image path', () {
-    final procs = listProcessImagePaths();
+  test('lists processes by image name (case-insensitive) with their full image paths', () {
+    final name = p.windows.basename(Platform.resolvedExecutable);
+    final procs = listProcessImagePaths(name.toUpperCase());
     expect(procs, isNotEmpty);
-    final me = procs.where((p) => p.$1 == pid).toList();
+    expect(procs.every((proc) => p.windows.basename(proc.$2).toLowerCase() == name.toLowerCase()), isTrue);
+    final me = procs.where((proc) => proc.$1 == pid).toList();
     expect(me, hasLength(1));
     expect(isSameExecutablePath(me.single.$2, Platform.resolvedExecutable), isTrue);
   });
 
   test('terminates a process by pid', () async {
     final child = await Process.start('ping', ['-n', '30', '127.0.0.1']);
-    final path = listProcessImagePaths().firstWhere((p) => p.$1 == child.pid).$2;
+    final path = listProcessImagePaths('ping.exe').firstWhere((proc) => proc.$1 == child.pid).$2;
     expect(path.toLowerCase(), endsWith('ping.exe'));
 
     expect(terminateProcessById(child.pid), isTrue);
@@ -31,14 +34,14 @@ void main() {
     // Same code path as backend.exe (no args: ping prints usage and exits), then a
     // long-running detached ping for the path-match + kill check.
     final shortPid = await WindowsBackendProcess.start(
-        ping, parentDirectoryOf(ping), sanitizeBackendEnvironment(Platform.environment).environment);
+        ping, p.windows.dirname(ping), sanitizeBackendEnvironment(Platform.environment).environment);
     expect(shortPid, isNotNull);
     expect(shortPid, greaterThan(0));
 
     final long = await Process.start(ping, ['-n', '30', '127.0.0.1'],
         mode: ProcessStartMode.detached);
-    final ours = matchBackendProcesses(await WindowsBackendProcess.list(), ping);
-    expect(ours.map((p) => p.$1), contains(long.pid));
+    final ours = matchBackendProcesses(await WindowsBackendProcess.list('PING.EXE'), ping);
+    expect(ours.map((proc) => proc.$1), contains(long.pid));
     expect(await WindowsBackendProcess.kill(long.pid), isTrue);
   });
 
@@ -68,6 +71,10 @@ void main() {
     expect(text, isNot(contains('_PYI_')));
     expect(text, isNot(contains('_MEIPASS')));
     expect(text, contains('SYSTEMROOT='));
+  });
+
+  test('an image name nobody runs yields an empty list', () {
+    expect(listProcessImagePaths('no_such_image_importflow.exe'), isEmpty);
   });
 
   test('terminating a non-existent pid returns false', () {

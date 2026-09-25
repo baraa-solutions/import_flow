@@ -100,32 +100,39 @@ def test_dev_and_non_windows_use_a_lock_file_outside_the_repo(monkeypatch, tmp_p
 # ------------------------------------------------------------------------------------------------
 def _run(tmp_path, lock_factory, **kwargs):
     events = kwargs.pop("events", [])
+    kwargs.setdefault("frozen", False)
     kwargs.setdefault("import_app", lambda: events.append("import_main") or "APP")
     kwargs.setdefault("serve", lambda app: events.append(("serve", app)))
-    return br.run(frozen=False, app_dir=tmp_path, lock_factory=lock_factory, **kwargs)
+    return br.run(app_dir=tmp_path, lock_factory=lock_factory, **kwargs)
+
+
+def _capture_watchdog(events, seen):
+    """start_watchdog stub that records the startup Event run() hands to the watchdog."""
+    def start(event):
+        seen["started"] = event
+        events.append("watchdog")
+    return start
 
 
 def test_second_instance_exits_quietly_without_importing_main(tmp_path, capsys):
     path = tmp_path / "backend.lock"
     holder = br.acquire_lock_file(path)  # the first instance
     events = []
-    started = threading.Event()
     try:
         code = _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(path), events=events,
-                    start_watchdog=lambda e: events.append("watchdog"), started=started)
+                    start_watchdog=lambda e: events.append("watchdog"))
     finally:
         holder.release()
 
     assert code == 0
     assert events == [], "a second instance must not import main, start the watchdog or serve"
-    assert not started.is_set()
     assert "another backend instance is already running" in capsys.readouterr().out
 
 
 def test_lock_is_taken_before_main_import_and_released_after_serve(tmp_path):
     path = tmp_path / "backend.lock"
     events = []
-    started = threading.Event()
+    seen = {}
     held = {}
 
     def lock_factory(app_dir, frozen):
@@ -133,13 +140,18 @@ def test_lock_is_taken_before_main_import_and_released_after_serve(tmp_path):
         held["lock"] = br.acquire_lock_file(path)
         return held["lock"]
 
+    def import_app():
+        assert not seen["started"].is_set(), "startup_done must not be set while main is imported"
+        events.append("import_main")
+        return "APP"
+
     def serve(app):
-        assert started.is_set(), "startup_done must be set before serving"
+        assert seen["started"].is_set(), "startup_done must be set before serving"
         assert br.acquire_lock_file(path) is None, "lock must be held while serving"
         events.append("serve")
 
-    code = _run(tmp_path, lock_factory, events=events, serve=serve,
-                start_watchdog=lambda e: events.append("watchdog"), started=started)
+    code = _run(tmp_path, lock_factory, events=events, import_app=import_app, serve=serve,
+                start_watchdog=_capture_watchdog(events, seen))
 
     assert code == 0
     assert events == ["lock", "watchdog", "import_main", "serve"]
@@ -152,7 +164,7 @@ def test_lock_is_taken_before_main_import_and_released_after_serve(tmp_path):
 def test_lock_is_released_when_startup_fails(tmp_path):
     path = tmp_path / "backend.lock"
     held = {}
-    started = threading.Event()
+    seen = {}
 
     def lock_factory(app_dir, frozen):
         held["lock"] = br.acquire_lock_file(path)
@@ -162,17 +174,104 @@ def test_lock_is_released_when_startup_fails(tmp_path):
         raise RuntimeError("boom")
 
     with pytest.raises(RuntimeError):
-        _run(tmp_path, lock_factory, import_app=failing_import, started=started)
+        _run(tmp_path, lock_factory, import_app=failing_import, start_watchdog=_capture_watchdog([], seen))
 
     assert held["lock"].released
-    assert not started.is_set()
+    assert not seen["started"].is_set()
+
+
+def test_each_run_gets_its_own_startup_event(tmp_path):
+    first, second = {}, {}
+    for seen in (first, second):
+        _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(tmp_path / "x.lock"),
+             start_watchdog=_capture_watchdog([], seen))
+    assert first["started"] is not second["started"]
 
 
 def test_dev_run_does_not_start_the_watchdog_by_default(tmp_path, monkeypatch):
     monkeypatch.setattr(br.threading, "Thread", lambda *a, **k: pytest.fail("watchdog thread started in dev"))
-    code = _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(tmp_path / "x.lock"),
-                started=threading.Event())
+    code = _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(tmp_path / "x.lock"))
     assert code == 0
+
+
+def test_frozen_run_starts_the_watchdog_thread_by_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(br, "_prepare_frozen_process", lambda app_dir: None)
+    monkeypatch.setattr(br, "reset_pyinstaller_environment", lambda: None)
+    started = []
+    monkeypatch.setattr(br, "start_watchdog_thread", lambda event: started.append(event))
+    code = _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(tmp_path / "x.lock"), frozen=True)
+    assert code == 0
+    assert len(started) == 1 and started[0].is_set()
+
+
+def test_run_defaults_come_from_db_safety(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(br, "is_frozen_build", lambda: False)
+    monkeypatch.setattr(br, "app_base_dir", lambda: tmp_path)
+
+    def lock_factory(app_dir, frozen):
+        seen["args"] = (app_dir, frozen)
+        return br.acquire_lock_file(tmp_path / "x.lock")
+
+    code = br.run(lock_factory=lock_factory, import_app=lambda: "APP", serve=lambda app: None)
+    assert code == 0
+    assert seen["args"] == (tmp_path, False)
+
+
+# ------------------------------------------------------------------------------------------------
+# S3 PyInstaller environment
+# ------------------------------------------------------------------------------------------------
+PYI_ENV = {
+    "_PYI_APPLICATION_HOME_DIR": r"C:\Temp\_MEI1",
+    "_PYI_ARCHIVE_FILE": r"C:\app\backend.exe",
+    "_PYI_PARENT_PROCESS_LEVEL": "1",
+    "_MEIPASS2": r"C:\Temp\_MEI1",
+}
+
+
+def _set_pyi_env(monkeypatch):
+    monkeypatch.setenv("PYINSTALLER_RESET_ENVIRONMENT", "0")  # recorded, so teardown removes it again
+    for key, value in PYI_ENV.items():
+        monkeypatch.setenv(key, value)
+
+
+def test_frozen_startup_cleans_the_pyinstaller_environment_before_the_lock(tmp_path, monkeypatch):
+    _set_pyi_env(monkeypatch)
+    monkeypatch.setattr(br, "_prepare_frozen_process", lambda app_dir: None)
+    seen = {}
+
+    def lock_factory(app_dir, frozen):
+        seen["env"] = dict(os.environ)
+        return br.acquire_lock_file(tmp_path / "x.lock")
+
+    code = _run(tmp_path, lock_factory, frozen=True, start_watchdog=lambda e: None)
+    assert code == 0
+    for env in (seen["env"], os.environ):
+        assert not [k for k in env if k.upper().startswith(("_PYI_", "_MEIPASS"))]
+        assert env["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+
+
+def test_dev_run_leaves_the_environment_alone(tmp_path, monkeypatch):
+    _set_pyi_env(monkeypatch)
+    _run(tmp_path, lambda app_dir, frozen: br.acquire_lock_file(tmp_path / "x.lock"))
+    assert os.environ["_PYI_ARCHIVE_FILE"] == PYI_ENV["_PYI_ARCHIVE_FILE"]
+    assert os.environ["PYINSTALLER_RESET_ENVIRONMENT"] == "0"
+
+
+def test_tasklist_check_runs_without_a_shell(monkeypatch):
+    calls = []
+
+    def fake_check_output(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return b"frontend.exe   1234 Console   1   10,000 K"
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+    assert br.is_frontend_running() is True
+    cmd, kwargs = calls[0]
+    assert cmd == ["tasklist", "/FI", "IMAGENAME eq frontend.exe"]
+    assert not kwargs.get("shell")
+    monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kw: b"INFO: No tasks are running")
+    assert br.is_frontend_running() is False
 
 
 def test_second_backend_process_exits_before_importing_main(tmp_path):

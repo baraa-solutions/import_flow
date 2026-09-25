@@ -69,8 +69,7 @@ BackendLauncher _createBackendLauncher() {
   }
   log.write('[config] frontend v${ApiConstants.clientVersion} exe=$exe '
       'serverUrl=${redactUrl(serverUrl)} loopback=$loopback '
-      'backendExecutablePath=${backendPath ?? '<none>'} '
-      'fileExists=${backendPath != null && File(backendPath).existsSync()}');
+      'backendExecutablePath=${backendPath ?? '<none>'}');
   return BackendLauncher(
     healthCheck: _probeBackendHealth,
     startProcess: WindowsBackendProcess.start,
@@ -80,8 +79,6 @@ BackendLauncher _createBackendLauncher() {
     log: log,
   );
 }
-
-late final BackendLauncher _backendLauncher;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -111,10 +108,9 @@ void main() async {
     } catch (_) {}
   }
 
-  // Start / wait for the local backend without blocking runApp; the
-  // BackendStartupGate shows progress and holds the login flow until ready.
-  _backendLauncher = _createBackendLauncher();
-  _backendLauncher.ensureRunning();
+  // Started (without blocking runApp) by backendStartupProvider when the
+  // BackendStartupGate first builds; it holds the login flow until ready.
+  final backendLauncher = _createBackendLauncher();
 
   // Custom friendly error widget — prevents red screen of death
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -184,7 +180,7 @@ void main() async {
                           horizontal: 24, vertical: 12),
                     ),
                     onPressed: () async {
-                      await _backendLauncher.ensureRunning();
+                      await ref.read(backendStartupProvider.notifier).retry();
                       ref.read(appReloadKeyProvider.notifier).state++;
                     },
                     icon: const Icon(Icons.refresh, color: Colors.white),
@@ -206,7 +202,7 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        backendLauncherProvider.overrideWithValue(_backendLauncher),
+        backendLauncherProvider.overrideWithValue(backendLauncher),
       ],
       child: const SorourLogisticsApp(),
     ),
@@ -316,9 +312,13 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
                 (_) => Response(requestOptions: RequestOptions(path: '')));
       } catch (_) {}
 
-      // 3. Kill backend process
+      // 3. Terminate OUR backend.exe (matched by full path; never another
+      //    install's backend, no console child process).
       try {
-        await Process.run('taskkill', ['/F', '/IM', 'backend.exe', '/T']);
+        await ref
+            .read(backendLauncherProvider)
+            .killOwnBackend()
+            .timeout(const Duration(seconds: 3));
       } catch (_) {}
 
       await windowManager.destroy();

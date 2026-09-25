@@ -11,6 +11,9 @@ DB safety (frontend.exe now starts backend.exe itself):
       The lock is held for the process lifetime; the OS drops it if the process dies.
   S2  The frontend watchdog never exits while the startup upgrade runs: it only acts once
       `startup_done` is set (after `from main import app` returned), then keeps its 3 s behaviour.
+  S3  The frozen backend drops the PyInstaller onefile bootloader state (_PYI_*, _MEIPASS*) from its
+      own environment before anything can spawn a child. Otherwise Setup -> frontend.exe -> the NEW
+      backend.exe inherits it and reuses the OLD _MEI extraction (old alembic/versions: no migration).
 """
 import sys
 import os
@@ -23,6 +26,8 @@ import warnings
 from pathlib import Path
 from typing import Callable, Optional
 
+from utils.db_safety import app_base_dir, is_frozen_build, reset_pyinstaller_environment
+
 # Suppress deprecation warnings on Windows
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -32,9 +37,7 @@ ERROR_ALREADY_EXISTS = 183
 WATCHDOG_POLL_SECONDS = 3.0
 WATCHDOG_GRACE_SECONDS = 120.0
 DEFAULT_PORT = int(os.getenv("PORT", "28080"))
-
-# Set by run() once `from main import app` (startup upgrade included) has returned.
-startup_done = threading.Event()
+TASKLIST_FRONTEND = ["tasklist", "/FI", "IMAGENAME eq frontend.exe"]
 
 
 class SafeLogStream:
@@ -176,9 +179,8 @@ def acquire_single_instance_lock(app_dir: Path, frozen: bool, platform: str = sy
 def is_frontend_running() -> bool:
     import subprocess
 
-    cmd = 'tasklist /FI "IMAGENAME eq frontend.exe"'
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-    output = subprocess.check_output(cmd, shell=True, creationflags=flags).decode("utf-8", errors="ignore")
+    output = subprocess.check_output(TASKLIST_FRONTEND, creationflags=flags).decode("utf-8", errors="ignore")
     return "frontend.exe" in output
 
 
@@ -230,6 +232,11 @@ def frontend_watchdog(started: threading.Event,
             return
 
 
+def start_watchdog_thread(started: threading.Event) -> None:
+    """Default watchdog starter for the frozen app."""
+    threading.Thread(target=frontend_watchdog, args=(started,), name="frontend-watchdog", daemon=True).start()
+
+
 # ------------------------------------------------------------------------------------------------
 # Entrypoint
 # ------------------------------------------------------------------------------------------------
@@ -270,12 +277,17 @@ def run(frozen: Optional[bool] = None,
         lock_factory: Callable[..., Optional[InstanceLock]] = acquire_single_instance_lock,
         import_app: Callable[[], object] = _import_app,
         serve: Callable[[object], None] = _serve,
-        start_watchdog: Optional[Callable[[threading.Event], None]] = None,
-        started: threading.Event = startup_done) -> int:
+        start_watchdog: Optional[Callable[[threading.Event], None]] = None) -> int:
+    """`start_watchdog` defaults to `start_watchdog_thread` when frozen and to none in dev."""
     if frozen is None:
-        frozen = bool(getattr(sys, "frozen", False))
+        frozen = is_frozen_build()
     if app_dir is None:
-        app_dir = Path(sys.executable).parent if frozen else Path(__file__).resolve().parent
+        app_dir = app_base_dir()
+    if start_watchdog is None and frozen:
+        start_watchdog = start_watchdog_thread
+
+    if frozen:
+        reset_pyinstaller_environment()  # S3: before anything can spawn a child
 
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -292,23 +304,17 @@ def run(frozen: Optional[bool] = None,
         return 0
 
     try:
-        if start_watchdog is None and frozen:
-            def start_watchdog(event: threading.Event) -> None:
-                threading.Thread(target=frontend_watchdog, args=(event,), daemon=True).start()
+        startup_done = threading.Event()  # set once `from main import app` (startup upgrade) returned
         if start_watchdog is not None:
-            start_watchdog(started)
+            start_watchdog(startup_done)
 
         app = import_app()
-        started.set()  # S2: from here on the watchdog may shut the process down
+        startup_done.set()  # S2: from here on the watchdog may shut the process down
         serve(app)
         return 0
     finally:
         lock.release()
 
 
-def main() -> int:
-    return run()
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())

@@ -4,18 +4,18 @@ Child processes must never inherit our PyInstaller onefile bootloader state (_PY
 Sandbox rehearsal bug: Setup (started by app_update with the backend's environment) relaunched frontend.exe,
 which started the NEW backend.exe with the old _PYI_* vars. Same path + old _MEI folder still on disk -> the new
 bootloader reused the OLD extraction: new code, old alembic/versions, migrations never ran.
+
+Fixed at the source (the frozen backend_runner resets its own os.environ at startup, see
+test_backend_runner_safety.py) plus an explicit env= on the installer launch (critical path).
 """
-import importlib
 import os
-import subprocess
 import sys
 import time
-from pathlib import Path
 
 import pytest
 
 import modules.app_update.service as update_service
-from utils.db_safety import PYINSTALLER_RESET_ENV, clean_child_environment
+from utils.db_safety import PYINSTALLER_RESET_ENV, clean_child_environment, reset_pyinstaller_environment
 
 PYI_ENV = {
     "_PYI_APPLICATION_HOME_DIR": r"C:\Users\x\AppData\Local\Temp\_MEI12345",
@@ -66,6 +66,20 @@ def test_clean_child_environment_defaults_to_os_environ_at_call_time(monkeypatch
     _assert_clean(env)
     assert env["IMPORTFLOW_ENV_PROBE"] == "kept"
     assert os.environ["_PYI_ARCHIVE_FILE"] == r"C:\app\backend.exe"  # our own process is untouched
+
+
+def test_reset_pyinstaller_environment_works_in_place():
+    env = {"PATH": "p", "Pyinstaller_Reset_Environment": "0", **PYI_ENV}
+    assert reset_pyinstaller_environment(env) is None
+    assert env == {"PATH": "p", PYINSTALLER_RESET_ENV: "1"}
+
+
+def test_reset_pyinstaller_environment_defaults_to_os_environ(monkeypatch):
+    monkeypatch.setenv(PYINSTALLER_RESET_ENV, "0")  # recorded, so teardown removes it again
+    monkeypatch.setenv("_PYI_ARCHIVE_FILE", r"C:\app\backend.exe")
+    reset_pyinstaller_environment()
+    assert "_PYI_ARCHIVE_FILE" not in os.environ
+    assert os.environ[PYINSTALLER_RESET_ENV] == "1"
 
 
 # ─── installer launch (app_update) ───────────────────────────────────────────
@@ -132,65 +146,3 @@ def test_real_detached_child_sees_no_pyinstaller_state(monkeypatch, tmp_path):
     assert keys, "child did not write its environment"
     assert not [k for k in keys if k.upper().startswith(("_PYI_", "_MEIPASS"))]
     assert PYINSTALLER_RESET_ENV in {k.upper() for k in keys}
-
-
-# ─── other launch sites (dev scripts that start the app / backend) ───────────
-
-def test_service_manager_start_passes_a_clean_environment(monkeypatch, tmp_path):
-    _with_pyi_env(monkeypatch)
-    manager = importlib.import_module("scripts.service_manager")
-    seen = []
-    monkeypatch.setattr(manager, "is_backend_healthy", lambda: bool(seen))
-    monkeypatch.setattr(manager, "get_backend_pid", lambda: 1)
-    monkeypatch.setattr(manager.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(manager.subprocess, "run", lambda *a, **kw: seen.append(("run", kw)))
-    monkeypatch.setattr(manager.subprocess, "Popen", lambda *a, **kw: seen.append(("popen", kw)))
-
-    vbs = tmp_path / "start_backend_service.vbs"
-    vbs.write_text("' vbs", encoding="utf-8")
-    monkeypatch.setattr(manager, "VBS_LAUNCHER", vbs)
-    assert manager.start_service() is True
-    monkeypatch.setattr(manager, "VBS_LAUNCHER", tmp_path / "missing.vbs")
-    seen_before = len(seen)
-    monkeypatch.setattr(manager, "is_backend_healthy", lambda: len(seen) > seen_before)
-    assert manager.start_service() is True
-
-    assert [kind for kind, _ in seen] == ["run", "popen"]
-    for _, kwargs in seen:
-        _assert_clean(kwargs["env"])
-
-
-@pytest.mark.parametrize("launcher", ["vbs", "bat"])
-def test_sync_to_production_launch_passes_a_clean_environment(monkeypatch, tmp_path, launcher):
-    _with_pyi_env(monkeypatch)
-    sync = importlib.import_module("sync_to_production")
-    standalone = tmp_path / "Sorour_Logistics_Standalone"
-    standalone.mkdir()
-    if launcher == "vbs":
-        (standalone / "Launch_Sorour_Logistics.vbs").write_text("' vbs", encoding="utf-8")
-    else:
-        (tmp_path / "Start_Sorour_Logistics_Production.bat").write_text("@echo off", encoding="utf-8")
-    monkeypatch.setattr(sync, "DIST_DIR", tmp_path)
-    monkeypatch.setattr(sync, "STANDALONE_DIR", standalone)
-    calls = []
-    monkeypatch.setattr(sync.subprocess, "Popen", lambda *a, **kw: calls.append(kw))
-
-    sync.launch_production_app()
-    assert len(calls) == 1
-    _assert_clean(calls[0]["env"])
-
-
-def test_no_other_backend_launch_site_forgets_the_clean_environment():
-    """Static guard: every Popen in the files that start Setup / the app / the backend passes env=."""
-    import ast
-
-    root = Path(__file__).resolve().parents[2]
-    for rel in ("modules/app_update/service.py", "scripts/service_manager.py"):
-        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
-        popens = [
-            node for node in ast.walk(tree)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "Popen"
-        ]
-        assert popens, rel
-        for node in popens:
-            assert any(kw.arg == "env" for kw in node.keywords), f"{rel}:{node.lineno} Popen without env="

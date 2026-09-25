@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import 'backend_process_control.dart' as native;
 import 'launcher_log.dart';
@@ -95,6 +96,13 @@ typedef BackendHealthChecker = Future<BackendHealth> Function();
 typedef BackendProcessStarter = Future<int?> Function(
     String executablePath, String workingDirectory, Map<String, String> environment);
 
+/// Lists running processes named [imageName] (e.g. `backend.exe`) with their
+/// full image paths.
+typedef BackendProcessLister = Future<List<BackendProcessInfo>> Function(String imageName);
+
+/// Terminates a process by id; true on success.
+typedef BackendProcessKiller = Future<bool> Function(int pid);
+
 /// Environment for a fresh PyInstaller onefile backend.exe.
 @immutable
 class BackendEnvironment {
@@ -113,28 +121,22 @@ class BackendEnvironment {
 /// backend's environment; if the new backend.exe inherits `_PYI_*` it reuses the
 /// old `_MEI` folder and runs the old bundled code (old Alembic files).
 BackendEnvironment sanitizeBackendEnvironment(Map<String, String> parent) {
+  const resetKey = 'PYINSTALLER_RESET_ENVIRONMENT';
   final env = <String, String>{};
   final removed = <String>[];
   for (final entry in parent.entries) {
     final upper = entry.key.toUpperCase();
-    if (upper.startsWith('_PYI_') ||
-        upper.startsWith('_MEIPASS') ||
-        upper == 'PYINSTALLER_RESET_ENVIRONMENT') {
-      if (upper != 'PYINSTALLER_RESET_ENVIRONMENT') removed.add(entry.key);
+    if (upper == resetKey) continue; // always overwritten below
+    if (upper.startsWith('_PYI_') || upper.startsWith('_MEIPASS')) {
+      removed.add(entry.key);
       continue;
     }
     env[entry.key] = entry.value;
   }
-  env['PYINSTALLER_RESET_ENVIRONMENT'] = '1';
+  env[resetKey] = '1';
   removed.sort();
   return BackendEnvironment(env, removed);
 }
-
-/// Lists running processes with their full image paths.
-typedef BackendProcessLister = Future<List<BackendProcessInfo>> Function();
-
-/// Terminates a process by id; true on success.
-typedef BackendProcessKiller = Future<bool> Function(int pid);
 
 /// Time source + delays, injectable so tests don't wait for real.
 abstract class LauncherClock {
@@ -154,13 +156,13 @@ class SystemLauncherClock implements LauncherClock {
 
 /// Normalises a Windows path for comparison: `\\?\` prefix, slashes, case.
 String normalizeWindowsPath(String path) {
-  var p = path.trim().replaceAll('/', r'\');
-  if (p.startsWith(r'\\?\')) p = p.substring(4);
-  while (p.contains(r'\\')) {
-    p = p.replaceAll(r'\\', r'\');
+  var s = path.trim().replaceAll('/', r'\');
+  if (s.startsWith(r'\\?\')) s = s.substring(4);
+  while (s.contains(r'\\')) {
+    s = s.replaceAll(r'\\', r'\');
   }
-  if (p.endsWith(r'\')) p = p.substring(0, p.length - 1);
-  return p.toLowerCase();
+  if (s.endsWith(r'\')) s = s.substring(0, s.length - 1);
+  return s.toLowerCase();
 }
 
 /// True when [processPath] is exactly [executablePath] (Windows semantics).
@@ -175,17 +177,8 @@ List<BackendProcessInfo> matchBackendProcesses(
 ) =>
     processes.where((p) => isSameExecutablePath(p.$2, executablePath)).toList();
 
-/// Directory part of a Windows (or POSIX) path.
-String parentDirectoryOf(String path) {
-  final i = path.lastIndexOf(RegExp(r'[\\/]'));
-  return i <= 0 ? path : path.substring(0, i);
-}
-
 enum BackendLaunchPhase {
-  /// First `/health` probe in progress.
-  checking,
-
-  /// Backend is down: it was started (or is starting) and we are polling.
+  /// Probing `/health`, starting backend.exe and waiting for it.
   starting,
 
   /// `/health` answered (maintenance mode included).
@@ -206,23 +199,14 @@ enum BackendLaunchFailure {
 @immutable
 class BackendLaunchStatus {
   final BackendLaunchPhase phase;
-
-  /// True when this launcher spawned backend.exe during the current attempt.
-  final bool startedProcess;
-  final bool maintenanceMode;
   final BackendLaunchFailure? failure;
 
-  const BackendLaunchStatus({
-    required this.phase,
-    this.startedProcess = false,
-    this.maintenanceMode = false,
-    this.failure,
-  });
+  const BackendLaunchStatus._(this.phase, [this.failure]);
 
-  static const BackendLaunchStatus initialChecking =
-      BackendLaunchStatus(phase: BackendLaunchPhase.checking);
-  static const BackendLaunchStatus alreadyReady =
-      BackendLaunchStatus(phase: BackendLaunchPhase.ready);
+  static const BackendLaunchStatus starting = BackendLaunchStatus._(BackendLaunchPhase.starting);
+  static const BackendLaunchStatus ready = BackendLaunchStatus._(BackendLaunchPhase.ready);
+  const BackendLaunchStatus.failed(BackendLaunchFailure reason)
+      : this._(BackendLaunchPhase.failed, reason);
 
   bool get isReady => phase == BackendLaunchPhase.ready;
   bool get isFailed => phase == BackendLaunchPhase.failed;
@@ -261,11 +245,11 @@ class BackendLauncher {
         _startProcess = startProcess,
         _listProcesses = listProcesses,
         _killProcess = killProcess,
-        _fileExists = fileExists ?? ((p) => File(p).existsSync()),
+        _fileExists = fileExists ?? ((path) => File(path).existsSync()),
         _clock = clock,
         _log = log,
         _disabled = false,
-        status = ValueNotifier(BackendLaunchStatus.initialChecking);
+        status = ValueNotifier(BackendLaunchStatus.starting);
 
   /// A launcher that never starts anything and is ready immediately
   /// (web, non-Windows, tests).
@@ -286,7 +270,7 @@ class BackendLauncher {
         aliveCheckInterval = Duration.zero,
         maxStartsPerAttempt = 0,
         _disabled = true,
-        status = ValueNotifier(BackendLaunchStatus.alreadyReady);
+        status = ValueNotifier(BackendLaunchStatus.ready);
 
   static Map<String, String> _platformEnvironment() =>
       Map<String, String>.of(Platform.environment);
@@ -333,7 +317,7 @@ class BackendLauncher {
   /// Number of times backend.exe was started by this launcher.
   int get startCount => _startCount;
 
-  /// Number of stuck backend processes terminated by this launcher.
+  /// Number of backend processes terminated by this launcher.
   int get killCount => _killCount;
 
   Future<BackendLaunchStatus> ensureRunning({bool restartIfStuck = false}) {
@@ -342,7 +326,20 @@ class BackendLauncher {
         _run(restartIfStuck: restartIfStuck).whenComplete(() => _inFlight = null);
   }
 
-  void _emit(BackendLaunchStatus next) => status.value = next;
+  /// Terminates every running process whose image is exactly
+  /// [backendExecutablePath] (never another install's backend.exe). Returns the
+  /// number terminated. Used when the app window closes.
+  Future<int> killOwnBackend() async {
+    final killer = _killProcess;
+    if (_disabled || backendExecutablePath == null || killer == null) return 0;
+    final ours = await _ourProcesses() ?? const <BackendProcessInfo>[];
+    var killed = 0;
+    for (final proc in ours) {
+      if (await _kill(killer, proc)) killed++;
+    }
+    _log.flush();
+    return killed;
+  }
 
   void _w(String message) {
     try {
@@ -355,51 +352,44 @@ class BackendLauncher {
     final t0 = _clock.now();
     final exe = backendExecutablePath;
     final exists = exe != null && _fileExists(exe);
-    final canStart = _canStartLocally();
+    final canStart = exists && _startProcess != null;
+    final deadline = t0.add(canStart ? startupDeadline : connectOnlyDeadline);
     _w('attempt start restartIfStuck=$restartIfStuck '
         'backendExecutablePath=${exe ?? '<none: remote server or not resolved>'} '
         'fileExists=$exists canStartLocally=$canStart '
-        'deadline=${(canStart ? startupDeadline : connectOnlyDeadline).inSeconds}s');
-    if (!status.value.isReady) _emit(BackendLaunchStatus.initialChecking);
+        'deadline=${deadline.difference(t0).inSeconds}s');
+    if (!status.value.isReady) status.value = BackendLaunchStatus.starting;
 
     var probeNo = 0;
     Future<BackendHealth> probe() async {
-      final h = await _probe();
+      final health = await _probe();
       probeNo++;
-      _w('probe $probeNo: ${h.describe()}');
-      return h;
-    }
-
-    final first = await probe();
-    if (first.isUp) return _ready(first, startedProcess: false, t0: t0);
-    if (first.isForeign) {
-      return _fail(BackendLaunchFailure.portInUse, startedProcess: false, t0: t0);
+      _w('probe $probeNo: ${health.describe()}');
+      return health;
     }
 
     var starts = 0;
-    var started = false;
-    if (await _startIfNeeded(restartIfStuck: restartIfStuck)) {
-      started = true;
+    final first = await probe();
+    if (first.isUp) return _ready(first, starts, t0);
+    if (first.isForeign) return _fail(BackendLaunchFailure.portInUse, starts, t0);
+
+    if (!canStart) {
+      _w('not starting: canStartLocally=false (waiting for an external backend)');
+    } else if (await _startIfNeeded(restartIfStuck: restartIfStuck)) {
       starts = 1;
     }
-    _emit(BackendLaunchStatus(
-      phase: BackendLaunchPhase.starting,
-      startedProcess: started,
-    ));
 
-    final deadline = t0.add(canStart ? startupDeadline : connectOnlyDeadline);
+    var limitLogged = false;
     var nextAliveCheck = _clock.now().add(aliveCheckInterval);
     while (true) {
       await _clock.delay(pollInterval);
       final health = await probe();
-      if (health.isUp) return _ready(health, startedProcess: started, t0: t0);
-      if (health.isForeign) {
-        return _fail(BackendLaunchFailure.portInUse, startedProcess: started, t0: t0);
-      }
+      if (health.isUp) return _ready(health, starts, t0);
+      if (health.isForeign) return _fail(BackendLaunchFailure.portInUse, starts, t0);
       if (!_clock.now().isBefore(deadline)) {
-        return _fail(BackendLaunchFailure.timeout, startedProcess: started, t0: t0);
+        return _fail(BackendLaunchFailure.timeout, starts, t0);
       }
-      if (started && !_clock.now().isBefore(nextAliveCheck)) {
+      if (starts > 0 && !_clock.now().isBefore(nextAliveCheck)) {
         nextAliveCheck = _clock.now().add(aliveCheckInterval);
         final ours = await _ourProcesses();
         if (ours != null && ours.isEmpty) {
@@ -407,40 +397,28 @@ class BackendLauncher {
             _w('started backend.exe is no longer running (exited early); '
                 'restarting ($starts/$maxStartsPerAttempt starts used)');
             if (await _start()) starts++;
-          } else if (starts == maxStartsPerAttempt) {
+          } else if (!limitLogged) {
+            limitLogged = true;
             _w('started backend.exe exited again; start limit '
                 '$maxStartsPerAttempt reached, waiting for the deadline');
-            starts++; // log once
           }
         }
       }
     }
   }
 
-  BackendLaunchStatus _ready(BackendHealth health,
-      {required bool startedProcess, required DateTime t0}) {
-    final ready = BackendLaunchStatus(
-      phase: BackendLaunchPhase.ready,
-      startedProcess: startedProcess,
-      maintenanceMode: health.maintenanceMode,
-    );
+  BackendLaunchStatus _ready(BackendHealth health, int starts, DateTime t0) {
     _w('READY after ${_clock.now().difference(t0).inMilliseconds} ms '
-        'startedProcess=$startedProcess maintenance=${health.maintenanceMode}');
-    _emit(ready);
-    return ready;
+        'starts=$starts maintenance=${health.maintenanceMode}');
+    _log.flush();
+    return status.value = BackendLaunchStatus.ready;
   }
 
-  BackendLaunchStatus _fail(BackendLaunchFailure failure,
-      {required bool startedProcess, required DateTime t0}) {
-    final failed = BackendLaunchStatus(
-      phase: BackendLaunchPhase.failed,
-      startedProcess: startedProcess,
-      failure: failure,
-    );
+  BackendLaunchStatus _fail(BackendLaunchFailure failure, int starts, DateTime t0) {
     _w('FAILED reason=${failure.name} after '
-        '${_clock.now().difference(t0).inMilliseconds} ms startedProcess=$startedProcess');
-    _emit(failed);
-    return failed;
+        '${_clock.now().difference(t0).inMilliseconds} ms starts=$starts');
+    _log.flush();
+    return status.value = BackendLaunchStatus.failed(failure);
   }
 
   Future<BackendHealth> _probe() async {
@@ -451,11 +429,6 @@ class BackendLauncher {
     }
   }
 
-  bool _canStartLocally() {
-    final path = backendExecutablePath;
-    return path != null && _startProcess != null && _fileExists(path);
-  }
-
   /// Our backend.exe processes (matched by full path), or null if the process
   /// list can't be read.
   Future<List<BackendProcessInfo>?> _ourProcesses() async {
@@ -464,11 +437,13 @@ class BackendLauncher {
       _w('process list: not available on this platform');
       return null;
     }
+    final exe = backendExecutablePath!;
+    final imageName = p.windows.basename(exe);
     try {
-      final all = await lister();
-      final ours = matchBackendProcesses(all, backendExecutablePath!);
-      _w('process list: ${all.length} processes, matched '
-          '${ours.isEmpty ? 'none' : ours.map((p) => '${p.$1} ${p.$2}').join('; ')}');
+      final named = await lister(imageName);
+      final ours = matchBackendProcesses(named, exe);
+      _w('process list: ${named.length} $imageName processes, matched '
+          '${ours.isEmpty ? 'none' : ours.map((proc) => '${proc.$1} ${proc.$2}').join('; ')}');
       return ours;
     } catch (e) {
       _w('process list ERROR: $e');
@@ -476,15 +451,22 @@ class BackendLauncher {
     }
   }
 
-  /// Starts backend.exe unless it can't be started here or our backend.exe is
-  /// already alive (slow first start). With [restartIfStuck], an alive but
-  /// unhealthy backend.exe is terminated first and a fresh one is started.
-  Future<bool> _startIfNeeded({required bool restartIfStuck}) async {
-    if (!_canStartLocally()) {
-      _w('not starting: canStartLocally=false (waiting for an external backend)');
+  Future<bool> _kill(BackendProcessKiller killer, BackendProcessInfo proc) async {
+    try {
+      final ok = await killer(proc.$1);
+      if (ok) _killCount++;
+      _w('kill pid=${proc.$1} path=${proc.$2} ok=$ok');
+      return ok;
+    } catch (e) {
+      _w('kill pid=${proc.$1} path=${proc.$2} ERROR: $e');
       return false;
     }
+  }
 
+  /// Starts backend.exe unless our backend.exe is already alive (slow first
+  /// start). With [restartIfStuck], an alive but unhealthy backend.exe is
+  /// terminated first and a fresh one is started. Caller checked it can start.
+  Future<bool> _startIfNeeded({required bool restartIfStuck}) async {
     final ours = await _ourProcesses();
     if (ours == null) {
       // Process list unavailable: fall back to "not twice within the window".
@@ -495,18 +477,13 @@ class BackendLauncher {
         return false;
       }
     } else if (ours.isNotEmpty) {
-      if (!restartIfStuck || _killProcess == null) {
+      final killer = _killProcess;
+      if (!restartIfStuck || killer == null) {
         _w('not starting: our backend.exe is already running, waiting for it');
         return false;
       }
-      for (final p in ours) {
-        try {
-          final ok = await _killProcess(p.$1);
-          if (ok) _killCount++;
-          _w('kill pid=${p.$1} path=${p.$2} ok=$ok');
-        } catch (e) {
-          _w('kill pid=${p.$1} path=${p.$2} ERROR: $e');
-        }
+      for (final proc in ours) {
+        await _kill(killer, proc);
       }
       await _clock.delay(killSettleDelay);
     }
@@ -515,7 +492,7 @@ class BackendLauncher {
 
   Future<bool> _start() async {
     final exe = backendExecutablePath!;
-    final wd = parentDirectoryOf(exe);
+    final wd = p.windows.dirname(exe);
     _w('start: path=$exe workingDirectory=$wd');
     try {
       final env = sanitizeBackendEnvironment(_parentEnvironment());
@@ -559,8 +536,10 @@ class WindowsBackendProcess {
     return process.pid;
   }
 
-  /// Win32 process snapshot (no tasklist child process, so no console flash).
-  static Future<List<BackendProcessInfo>> list() async => native.listProcessImagePaths();
+  /// Toolhelp32 snapshot filtered by image name (no tasklist child process, so
+  /// no console flash).
+  static Future<List<BackendProcessInfo>> list(String imageName) async =>
+      native.listProcessImagePaths(imageName);
 
   static Future<bool> kill(int pid) async => native.terminateProcessById(pid);
 }
@@ -576,9 +555,9 @@ final backendLauncherProvider = Provider<BackendLauncher>((ref) {
   return BackendLauncher.disabled();
 });
 
-/// Self-heal hook for the shared Dio clients: a connection-level failure after
-/// the backend was ready (e.g. it died or its watchdog stopped it) re-runs the
-/// launcher. Concurrent failures share one attempt.
+/// Self-heal: a connection-level failure after the backend was ready (it died,
+/// or its watchdog stopped it) re-runs the launcher. Concurrent failures share
+/// one attempt.
 void recoverBackendOnConnectionError(BackendLauncher launcher, DioException error) {
   const connectionTypes = {
     DioExceptionType.connectionError,
@@ -590,6 +569,27 @@ void recoverBackendOnConnectionError(BackendLauncher launcher, DioException erro
   unawaited(launcher.ensureRunning());
 }
 
+/// Shared by the Dio clients: runs [recoverBackendOnConnectionError] and passes
+/// the error on unchanged.
+class BackendRecoveryInterceptor extends Interceptor {
+  BackendRecoveryInterceptor(this._launcher);
+
+  final BackendLauncher Function() _launcher;
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    BackendLauncher? launcher;
+    try {
+      launcher = _launcher();
+    } catch (e) {
+      assert(false, 'backendLauncherProvider could not be read: $e');
+    }
+    if (launcher != null) recoverBackendOnConnectionError(launcher, err);
+    handler.next(err);
+  }
+}
+
+/// The single owner that starts the launcher (on first watch) and retries it.
 class BackendStartupNotifier extends StateNotifier<BackendLaunchStatus> {
   BackendStartupNotifier(this._launcher) : super(_launcher.status.value) {
     _launcher.status.addListener(_sync);
@@ -602,7 +602,8 @@ class BackendStartupNotifier extends StateNotifier<BackendLaunchStatus> {
     if (mounted) state = _launcher.status.value;
   }
 
-  /// User-initiated retry: a stuck (alive but unhealthy) backend is restarted.
+  /// Re-check (and start) the backend. After a failure this is the user's
+  /// Retry, so a stuck (alive but unhealthy) backend.exe is restarted.
   Future<void> retry() => _launcher.ensureRunning(restartIfStuck: state.isFailed);
 
   @override

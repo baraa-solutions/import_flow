@@ -33,6 +33,9 @@ final dioProvider = Provider<Dio>((ref) {
   // Configure TLS certificate validation for LAN / local HTTPS
   configureDioTls(dio);
 
+  // Self-heal the local backend on connection errors (see backend_launcher.dart).
+  dio.interceptors.add(BackendRecoveryInterceptor(() => ref.read(backendLauncherProvider)));
+
   // ── Auth Token & Role Header & X-Request-ID Interceptor ───────
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -102,8 +105,6 @@ final dioProvider = Provider<Dio>((ref) {
             error: error.message,
           );
         } catch (_) {}
-
-        _recoverBackend(ref, error);
 
         // Automatically handle 401 Unauthorized (Expired or invalid token)
         final statusCode = error.response?.statusCode;
@@ -181,6 +182,9 @@ final uploadDioProvider = Provider<Dio>((ref) {
   // Configure TLS certificate validation for LAN / local HTTPS
   configureDioTls(dio);
 
+  // Self-heal the local backend on connection errors (see backend_launcher.dart).
+  dio.interceptors.add(BackendRecoveryInterceptor(() => ref.read(backendLauncherProvider)));
+
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -197,7 +201,6 @@ final uploadDioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (DioException error, ErrorInterceptorHandler handler) async {
-        _recoverBackend(ref, error);
         if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
           await ref.read(authProvider.notifier).handleSessionExpired();
         }
@@ -208,12 +211,3 @@ final uploadDioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
-
-/// Connection-level failure after startup (backend died / watchdog stopped it):
-/// let the launcher bring the local backend back. No-op on web / remote servers
-/// where the launcher is disabled or can't start anything.
-void _recoverBackend(Ref ref, DioException error) {
-  try {
-    recoverBackendOnConnectionError(ref.read(backendLauncherProvider), error);
-  } catch (_) {}
-}
