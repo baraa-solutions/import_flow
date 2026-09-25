@@ -164,8 +164,11 @@ def test_manifest_over_size_cap_is_rejected(signing_key):
         ManifestVerifier().verify(_raw(_envelope(signing_key, payload)))
 
 
-def test_placeholder_key_is_not_usable():
-    # The shipped constant is a placeholder until the CTO generates the real key.
+def test_placeholder_key_is_not_usable(monkeypatch):
+    # A placeholder (non-base64) key must never count as usable.
+    import modules.app_update.service as update_service
+    monkeypatch.setattr(update_service, "UPDATE_SIGNING_PUBLIC_KEYS",
+                        {"k2026a": "REPLACE_WITH_REAL_ED25519_PUBLIC_KEY_BASE64"})
     assert ManifestVerifier().has_usable_key() is False
     with pytest.raises(ManifestError):
         ManifestVerifier().verify(_raw(_envelope(Ed25519PrivateKey.generate(), _payload(), key_id="k2026a")))

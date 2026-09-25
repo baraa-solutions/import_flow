@@ -129,7 +129,7 @@ logger = logging.getLogger(__name__)
 # (plan §9 step 5: `scripts/release/build_manifest.py --generate-key`). Until then no manifest can verify,
 # and /check reports check_status="disabled" without touching the network.
 UPDATE_SIGNING_PUBLIC_KEYS: Dict[str, str] = {
-    "k2026a": "REPLACE_WITH_REAL_ED25519_PUBLIC_KEY_BASE64",
+    "k2026a": "PyOCq8jGaONNNAdRRt8/h141hqb+qJ17aETLwCo8XFY=",
 }
 
 CACHE_TTL = timedelta(hours=1)

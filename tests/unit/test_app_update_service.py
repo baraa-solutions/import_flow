@@ -203,7 +203,10 @@ def test_check_oversized_manifest_rejected(signing_key, data_dir):
     assert _service(server, data_dir).check().check_status == "invalid_signature"
 
 
-def test_check_disabled_with_placeholder_key_does_not_hit_network(data_dir):
+def test_check_disabled_with_placeholder_key_does_not_hit_network(data_dir, monkeypatch):
+    import modules.app_update.service as update_service
+    monkeypatch.setattr(update_service, "UPDATE_SIGNING_PUBLIC_KEYS",
+                        {"k2026a": "REPLACE_WITH_REAL_ED25519_PUBLIC_KEY_BASE64"})
     server = FakeServer(b"{}")
     result = _service(server, data_dir).check()
     assert result.check_status == "disabled"
