@@ -10,6 +10,8 @@ R2  PrepareToInstall stops frontend.exe/backend.exe, copies .db + -wal + -shm in
 R3  uninstall keeps the data: data folders carry uninsneveruninstall, the DB is never a Setup file.
 C11 a silent install relaunches the app only with /RELAUNCH=1; the interactive checkbox is unchanged.
 K2  StopRunningApp kills by image name without /T (Setup is a child of backend.exe during an in-app update).
+L1  shortcuts, the launch checkbox and the silent relaunch start {app}\\frontend.exe directly; nothing in the
+    script references the .vbs/.bat launchers (Windows is removing VBScript).
 
 These are static checks on the script text; ISCC compiles it in CI (build_and_release.yml).
 """
@@ -299,9 +301,71 @@ def test_silent_install_relaunches_only_with_relaunch_param():
     flags = _param(silent[0], "Flags")
     assert "postinstall" not in flags and "skipifsilent" not in flags
     assert "{#MyAppExeName}" in _param(silent[0], "Filename")
+    assert _expand(_param(silent[0], "Filename")).lower() == "{app}\\frontend.exe"
+    assert _param(silent[0], "WorkingDir") == "{app}"
+    assert "nowait" in flags and "runasoriginaluser" in flags
 
     check = _pascal_routine("ShouldRelaunchAfterSilentInstall")
     assert "WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1')" in check
+
+
+# ------------------------------------------------------------------------------------------------
+# L1 launch target: frontend.exe, never VBScript
+# ------------------------------------------------------------------------------------------------
+SCRIPT_LAUNCHER_RE = re.compile(r"(\.vbs|\.vbe|\.wsf|\.wsh|\.js|\.bat|\.cmd)\b|wscript|cscript|Launch_Sorour_Logistics|Launch_ImportFlow", re.I)
+
+
+def _define(name: str) -> str:
+    match = re.search(rf'^#define\s+{name}\s+"([^"]*)"', ISS_TEXT, re.M)
+    assert match, f"no #define {name}"
+    return match.group(1)
+
+
+def _expand(value: str) -> str:
+    return re.sub(r"\{#(\w+)\}", lambda m: _define(m.group(1)), value)
+
+
+def _app_launch_entries() -> list:
+    """[Icons] and [Run] entries that start the app (the uninstall shortcut is not one)."""
+    icons = [e for e in _entries("icons") if _param(e, "Filename") != "{uninstallexe}"]
+    return icons + _entries("run")
+
+
+def test_app_exe_is_frontend_exe():
+    assert _define("MyAppExeName") == "frontend.exe"
+
+
+def test_no_icons_or_run_entry_references_a_script_launcher():
+    for section in ("icons", "run"):
+        entries = _entries(section)
+        assert entries, f"[{section}] is empty"
+        for entry in entries:
+            assert not SCRIPT_LAUNCHER_RE.search(_expand(entry)), f"[{section}] references a script launcher: {entry}"
+
+
+def test_script_never_references_the_vbs_launcher_outside_comments():
+    for line in ISS_TEXT.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(";") or stripped.startswith("//"):
+            continue
+        assert not SCRIPT_LAUNCHER_RE.search(stripped), line
+
+
+def test_every_app_launch_starts_frontend_exe_in_app_dir():
+    entries = _app_launch_entries()
+    # start menu + desktop shortcut + interactive checkbox + silent relaunch
+    assert len(entries) == 4, entries
+    for entry in entries:
+        assert _expand(_param(entry, "Filename")).lower() == "{app}\\frontend.exe", entry
+        assert _param(entry, "WorkingDir") == "{app}", entry
+        assert "shellexec" not in _param(entry, "Flags").lower(), f"an .exe needs no shellexec: {entry}"
+
+
+def test_start_menu_and_desktop_shortcuts_keep_their_names():
+    # same names as the shortcuts older installers created, so the upgrade overwrites them
+    names = {_param(e, "Name") for e in _entries("icons")}
+    assert "{group}\\{#MyAppName}" in names
+    assert "{autodesktop}\\{#MyAppName}" in names
 
 
 # ------------------------------------------------------------------------------------------------

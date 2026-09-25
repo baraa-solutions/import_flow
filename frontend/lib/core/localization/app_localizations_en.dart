@@ -10961,6 +10961,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cooEuRecommendationAlert => 'Country of origin is within EU-27 — EUR.1 Movement Certificate selected automatically for full preferential customs exemption.';
   @override String get cooAgadirGaftaRecommendationAlert => 'Country of origin is a member of both Agadir & GAFTA — Please select certificate type manually.';
 
+  // ── Backend startup (local backend.exe launch) ──
+  @override String get backendStartupStarting => 'Starting the system…';
+  @override String get backendStartupStartingHint => 'The first start after an update can take up to a minute while the database is backed up and upgraded.';
+  @override String get backendStartupFailedTitle => 'The system did not start';
+  @override String get backendStartupFailedMessage => 'The local server did not respond in time. Press Retry; if the problem persists, restart the computer or contact your system administrator.';
+  @override String backendStartupPortInUseMessage(String port) => 'Another program is using port $port, so the system server cannot run. Close that program (or change its port), then press Retry.';
+
   // ── In-app updates (app_update) ──
   @override String updateAvailableBanner(String version) => 'A new system update is available: v$version';
   @override String updateMandatoryBanner(String version) => 'Mandatory update required: v$version. Install it to continue working.';

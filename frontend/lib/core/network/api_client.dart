@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
 import '../performance/client_diagnostics_service.dart';
+import '../services/backend_launcher.dart';
 import 'network_security.dart';
 
 /// Centralized Dio HTTP client provider for Sorour Logistics ERP.
@@ -102,6 +103,8 @@ final dioProvider = Provider<Dio>((ref) {
           );
         } catch (_) {}
 
+        _recoverBackend(ref, error);
+
         // Automatically handle 401 Unauthorized (Expired or invalid token)
         final statusCode = error.response?.statusCode;
         final path = error.requestOptions.path;
@@ -194,6 +197,7 @@ final uploadDioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (DioException error, ErrorInterceptorHandler handler) async {
+        _recoverBackend(ref, error);
         if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
           await ref.read(authProvider.notifier).handleSessionExpired();
         }
@@ -205,3 +209,11 @@ final uploadDioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
+/// Connection-level failure after startup (backend died / watchdog stopped it):
+/// let the launcher bring the local backend back. No-op on web / remote servers
+/// where the launcher is disabled or can't start anything.
+void _recoverBackend(Ref ref, DioException error) {
+  try {
+    recoverBackendOnConnectionError(ref.read(backendLauncherProvider), error);
+  } catch (_) {}
+}

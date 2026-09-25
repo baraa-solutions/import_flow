@@ -8508,6 +8508,13 @@ abstract class AppLocalizations {
   String get cooEuRecommendationAlert;
   String get cooAgadirGaftaRecommendationAlert;
 
+  // ── Backend startup (local backend.exe launch) ──
+  String get backendStartupStarting;
+  String get backendStartupStartingHint;
+  String get backendStartupFailedTitle;
+  String get backendStartupFailedMessage;
+  String backendStartupPortInUseMessage(String port);
+
   // ── In-app updates (app_update) ──
   String updateAvailableBanner(String version);
   String updateMandatoryBanner(String version);

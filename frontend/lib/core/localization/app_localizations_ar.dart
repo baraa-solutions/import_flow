@@ -10962,6 +10962,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cooEuRecommendationAlert => 'بلد المنشأ ضمن دول الاتحاد الأوروبي (27 دولة) — تم اختيار شهادة الحركة EUR.1 تلقائياً للاستفادة من الإعفاء الجمركي التفضيلى الكامل.';
   @override String get cooAgadirGaftaRecommendationAlert => 'بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية (GAFTA) معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.';
 
+  // ── Backend startup (local backend.exe launch) ──
+  @override String get backendStartupStarting => 'جاري تشغيل النظام…';
+  @override String get backendStartupStartingHint => 'أول تشغيل بعد التحديث قد يستغرق حتى دقيقة أثناء أخذ نسخة احتياطية من قاعدة البيانات وترقيتها.';
+  @override String get backendStartupFailedTitle => 'لم يتم تشغيل النظام';
+  @override String get backendStartupFailedMessage => 'الخادم المحلي لم يستجب في الوقت المحدد. اضغط إعادة المحاولة؛ وإذا استمرت المشكلة أعد تشغيل الجهاز أو تواصل مع مسؤول النظام.';
+  @override String backendStartupPortInUseMessage(String port) => 'برنامج آخر يستخدم المنفذ $port، لذلك لا يمكن تشغيل خادم النظام. أغلق هذا البرنامج (أو غيّر المنفذ الخاص به) ثم اضغط إعادة المحاولة.';
+
   // ── In-app updates (app_update) ──
   @override String updateAvailableBanner(String version) => 'يتوفر تحديث جديد للنظام: الإصدار $version';
   @override String updateMandatoryBanner(String version) => 'تحديث إلزامي مطلوب: الإصدار $version. يجب تثبيته لمتابعة العمل.';

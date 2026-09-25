@@ -14,6 +14,11 @@
 - DANGER: modules/production_sync ignores DATABASE_PATH and always targets the real root/dist DBs — never click its
   buttons in automated runs, even with a scratch backend.
 - Locale bug: main.dart has no supportedLocales -> localeOf = en_US, Arabic users see English in ~84 files.
+- Update system (2026-09-25, commits 8e07f18..50679a1): DB safety phase 0, app_update check/download/apply/rollback/USB,
+  Alembic startup runner (baseline e1f2a3b4c5d6), Hostinger signed publishing. NOT yet released: pending Sandbox rehearsal,
+  CTO checklist (docs/plans/cto_first_release_checklist.md), and the laptop second-DB question.
+- Never run pytest and `flutter test -j 4` at the same time on this machine (out of memory → false failures).
+- Any `import main` without DATABASE_PATH now stamps the dev DB (backup first) — always use a scratch DATABASE_PATH.
 - `import main` runs SchemaUpgradeService on DATABASE_PATH and writes snapshots to `backups/`: always point
   DATABASE_PATH at a scratch copy for probes.
 - Auto-updater runs the downloaded installer with no SHA-256 / signature verification.

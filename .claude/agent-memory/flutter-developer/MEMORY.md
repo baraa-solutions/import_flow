@@ -11,3 +11,4 @@
 - [Flutter 3.44 pitfalls](flutter_344_pitfalls.md) — SDK pin, ListTile/DataTable asserts, en_US locale in tests, AsyncError.value, perf flakiness
 - [Localization edit pitfalls](l10n_edit_pitfalls.md) — scripted key inserts: apostrophes, abstract `get`, dialogs need provider above MaterialApp
 - [Production sync retired](production_sync_retired.md) — no dev->prod sync/pull/build/launch in the app; compare + backups only
+- [Backend launcher](backend_launcher.md) — frontend.exe starts/recovers backend.exe; /health system marker; Win32 path match; gate Stack trap

@@ -42,8 +42,7 @@
 - Strict auth tests: small app + in-memory StaticPool engine + `seed_rbac`, real-role users, `create_access_token`
   bearer, `auth_permissions.ALLOW_DEV_AUTH_BYPASS=False`. Auth deps run before body validation: allowed user +
   invalid body = 422 proves auth passed. Example: `tests/unit/test_router_auth_tightening.py`.
-- `import modules.x.router as r` can yield the APIRouter object (package `__init__` re-exports `router`); use
-  `importlib.import_module("modules.x.router")` in tests.
+- `import modules.x.router as r` can yield the APIRouter object (package `__init__` re-exports `router`); use `importlib.import_module("modules.x.router")` in tests.
 - `modules/import_companies/router.py` contains a stray bare `\r` (git marks it -text): edit it byte-wise.
 
 ## Release / installer (Phase 0b, 2026-09-24)
@@ -67,6 +66,8 @@
   exact-name `[InstallDelete]`.
 - Inno `Excludes`: a leading backslash anchors to the source root (`\dist\*` skips `<root>\dist\` but keeps
   `data\...\dist\`), verified by compiling. `sed -i` in the Bash tool rewrites CRLF files to LF - re-normalize.
+- `backend_runner.py` has no import-time side effects: `run()` takes the single-instance lock (frozen: mutex `Local\SorourLogisticsBackend`; dev: lock file in %TEMP%) BEFORE `from main import app`; watchdog waits for `startup_done`. Tests inject `lock_factory/import_app/serve`.
+- Launch target = `{app}\frontend.exe`, never .vbs (VBScript leaving Windows). Upgrades overwrite same-named shortcuts; silent upgrade keeps desktopicon task. Rehearse with test AppId+MyAppName, dummy taskkill names, `csc /target:winexe` marker exe.
 - Inno Pascal: `{...{app}...}` comments end at the first `}`: use `//`. Use `CopyFile`, not deprecated `FileCopy`.
 - `.github/workflows/build_and_release.yml` is owned by the release-tooling dev (separate `release`/`publish` jobs that
   `needs: build-and-release`); keep workflow tests structural, not tied to one job layout.
@@ -88,8 +89,7 @@
   `.github/workflows/resign_update_manifest.yml`), `previous` optional nested `{version, installer{path,size_bytes,sha256}}`.
 - `verify_manifest.main(argv, transport=)` takes an httpx transport for tests; hash with `iter_bytes` (MockTransport +
   `iter_raw` -> StreamConsumed). Build job is read-only; only the `release` job (tags only) has `contents: write`.
-- Workflow rule: no `python` in any step from "Prepare SSH Credentials" on (tests enforce it). First step of
-  publish/resign is a ref guard (v* tag / refs/heads/main).
+- Workflow rule: no `python` in any step from "Prepare SSH Credentials" on (tests enforce it). First step of publish/resign is a ref guard (v* tag / refs/heads/main).
 - `test_bundle_guard.py` hard-codes job id `build-and-release`. Action SHAs: `gh api repos/<o>/<r>/git/ref/tags/<tag>`
   (gh is logged in here); tests enforce SHA pins + `# vX.Y.Z` comments on every `uses:`.
 - Release notes required at `docs/release_notes/<version>.{ar,en}.txt`. CI always signs as `k2026a`. Keep
@@ -100,8 +100,7 @@
   frozen, never `_MEIPASS`), `version_file_path()`, `backups_dir_for(db)` (backups sit next to the DB),
   `is_protected_backup` / `select_prunable` (R9, keep floor 7), `sqlite_online_backup` (+integrity_check+sha256),
   maintenance flag + `is_request_allowed_in_maintenance`. Reuse these; do not add new `Path(__file__)` runtime paths.
-- Maintenance mode is process-global: any test that triggers it must `clear_maintenance_mode()` in teardown, or every
-  later POST in the session gets 503.
+- Maintenance mode is process-global: any test that triggers it must `clear_maintenance_mode()` in teardown, or every later POST in the session gets 503.
 - Startup snapshot only when `backups/.last_seen_version.json` differs from version.json.
 - production_sync: DEV_DB = `database.DB_PATH` (honours DATABASE_PATH), backups prefixed `psync_`, destructive
   routes 403 when frozen (checked in the service). `tests/unit/test_production_sync.py::test_sync_dev_to_prod`
@@ -114,27 +113,25 @@
   Tests monkeypatch `guard._registry_app_dirs` + env vars, or inject a fake `winreg` via `sys.modules`.
 - Lock probe that works on Windows: `mode=rw` URI, timeout 0, `PRAGMA locking_mode=EXCLUSIVE` + `BEGIN EXCLUSIVE`
   -> "database is locked" while any WAL connection is open (even idle). Does not detect idle rollback-journal conns.
-- Flutter `local_process_sync_io.dart` calls `sync_to_production.py` without --db/--confirm: exits 2 until fixed.
 - Frozen simulation: in-process patch `sys.frozen`/`sys.executable`; for module-level constants (settings, database,
   crypto_utils) run a subprocess that sets them before import (see `tests/unit/test_db_safety_frozen_paths.py`).
 - Mailbox passwords derive from SECRET_KEY; old frozen builds used `LEGACY_FALLBACK_SECRET` (decrypt-only, MultiFernet).
   Any SECRET_KEY rotation must keep the previous key in that decrypt list.
 - `settings.ALLOW_DEV_AUTH_BYPASS` is forced False when frozen. `ADMIN_INITIAL_PASSWORD` is written to .env only
   when seeding the admin, and removed from .env (frozen only) once the admin password was changed.
-- Tests calling `get_backup_encryption_key()`/settings helpers write os.environ: restore keys in a fixture.
 - A test file calling `MasterDataSyncService.sync_all()` must import every `modules/*/model.py` first, or it only
   passes when run after other files (missing `expense_catalog` etc. in Base.metadata).
 - Startup seed creates ONLY `admin` on an empty users table: never assume manager/operator1/operator2 exist in
   tests. Installed version: `utils.db_safety.read_installed_version()` ("unknown" fallback); never hard-code it.
-- `/api/v1/production-sync/check-updates` is local-only; update discovery belongs to `modules/app_update`.
+- `/production-sync/check-updates` is local-only (discovery = app_update). Settings-helper tests: restore os.environ.
+  Flutter `local_process_sync_io.dart` calls sync_to_production.py without --db/--confirm (exit 2).
 
 ## Startup migrations (Phase 2, 2026-09-24)
 - Startup order (`schema_upgrade_service`): preflight `inspect_db_state` (UNKNOWN/R10 -> maintenance before ANY write)
   -> auto snapshot -> `pre_migration_*` (UNSTAMPED/BEHIND) -> upgrade (BEHIND) -> create_all/ALTER -> stamp (FRESH/UNSTAMPED).
   Rule: models == head schema; post-baseline revisions defensive + `batch_alter_table`.
 - Patch `migration_runner.{upgrade_to_head,take_pre_migration_backup,sqlite_online_backup}` (sus calls them via the module).
-- `alembic/env.py` imports `database.models` (imported nowhere else): keep it a PyInstaller hidden import. Alembic
-  resolves revision PREFIXES, so `inspect_db_state` requires an exact match.
+- `alembic/env.py` imports `database.models` (imported nowhere else): keep it a PyInstaller hidden import. Alembic resolves revision PREFIXES, so `inspect_db_state` requires an exact match.
 - Any `import main` against the repo DB now stamps it (after a pre_migration backup). On 2026-09-24 the Phase 5 dev did
   that by forgetting DATABASE_PATH: ALWAYS smoke-import with `DATABASE_PATH=<scratch>/x.db`; record DB sha256 before/after.
 - Alembic runs on `engine.connect()` (NOT `engine.begin()`): an outer transaction makes transaction_per_migration a
@@ -148,3 +145,8 @@
 - Failure paths restore the maintenance snapshot (`_restore_maintenance`), never plain `clear_maintenance_mode()` (R8/R10).
 - `repository.rollback_pending_reason(db_path, installed_version=None, data_dir=None)`: startup guard, fails CLOSED on a
   broken `rollback_blocked.json`; the reason must start with "rollback pending" (Dev A's test matches it).
+## Building installers outside the repo (rehearsal kit, 2026-09-25)
+- No global PyInstaller: `pip install --target <scratch>/pyi pyinstaller` + `PYTHONPATH=<scratch>/pyi python build_backend_exe.py`.
+  Scratchpad paths break MSBuild (MAX_PATH): PowerShell `subst R: '<path>'`, build from R:, `subst R: /D`; `Path.resolve()` undoes subst.
+- Frozen backend with a `backups\pre_migration_*.db` path > ~255 chars fails that backup -> maintenance mode: smoke-test from a short dir.
+- Dev-box `C:\Program Files (x86)\Sorour Logistics` is v1.0.58, not 2.0.3. stage-local checks sha/size only, not the exe name.

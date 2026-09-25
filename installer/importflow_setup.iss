@@ -21,7 +21,11 @@
 #define MyAppVersion "2.0.3"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
-#define MyAppExeName "Launch_Sorour_Logistics.vbs"
+; The app is started through frontend.exe itself (it starts backend.exe and waits for /health).
+; Nothing in this script may point at the .vbs/.bat launchers: Windows is removing VBScript
+; (absent in Windows Sandbox), which left the silent-update relaunch on an empty "Choose an app"
+; dialog. The launchers are still shipped as a harmless manual fallback.
+#define MyAppExeName "frontend.exe"
 #define AppIconPath "app_icon.ico"
 
 [Setup]
@@ -82,15 +86,17 @@ Type: files; Name: "{app}\seed.py"
 ; entry targets it and the staging Excludes "\dist\*" keep a stray dist folder out of the installer.
 
 [Icons]
+; Shortcuts are re-created on every install, overwriting same-named ones, so an upgrade replaces
+; old shortcuts that pointed at Launch_Sorour_Logistics.vbs.
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 ; Interactive install: optional "Launch" checkbox on the last page (unchanged behaviour).
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec postinstall nowait skipifsilent
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: postinstall nowait skipifsilent
 ; Silent in-app update (plan C11): relaunch the app only when /RELAUNCH=1 is passed.
-Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Flags: shellexec nowait runasoriginaluser; Check: ShouldRelaunchAfterSilentInstall
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Flags: nowait runasoriginaluser; Check: ShouldRelaunchAfterSilentInstall
 
 ; R3: no [UninstallDelete] section on purpose. Uninstall removes only files Setup installed;
 ; sorour_logistics.db (+ -wal/-shm), .env, backups\ and updates\ stay on disk.
