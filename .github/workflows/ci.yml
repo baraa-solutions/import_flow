@@ -53,7 +53,8 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(python scripts/ci/shard_tests.py --shards 4 --index "$SHARD")
+          # Windows Python prints CRLF: strip the CR or pytest gets "file.py<CR>" (not found, exit 4).
+          mapfile -t files < <(python scripts/ci/shard_tests.py --shards 4 --index "$SHARD" | tr -d '\r')
           echo "Shard $SHARD/4: ${#files[@]} test files"
           python -m pytest "${files[@]}" -W ignore --junitxml="pytest-shard-$SHARD.xml"
 
