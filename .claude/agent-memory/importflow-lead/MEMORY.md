@@ -35,3 +35,4 @@
 - [Parallel sessions](feedback_parallel_sessions.md) — CTO may run /simplify in the same worktree; verify foreign edits before commit
 - Clean-machine lessons (2026-09-25): ship the MSVC runtime next to frontend.exe (CMake), never launch via VBScript,
   and start Setup/backend with clean_child_environment() (PyInstaller _PYI_* inheritance reuses the old _MEI → no migrations).
+- [Repo home](project_repo_home.md) — source of truth is private baraa-solutions/import_flow (remote company); origin is legacy

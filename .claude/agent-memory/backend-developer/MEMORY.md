@@ -45,33 +45,6 @@
 - `import modules.x.router as r` can yield the APIRouter object (package `__init__` re-exports `router`); use `importlib.import_module("modules.x.router")` in tests.
 - `modules/import_companies/router.py` contains a stray bare `\r` (git marks it -text): edit it byte-wise.
 
-## Release / installer (Phase 0b, 2026-09-24)
-- The bash guard hook blocks ANY Bash command whose text contains `package_production.py` (even `cat`/`grep`). Read it
-  with the Read/Grep tools; to hand the CTO a diff, build it with a scratchpad script + `difflib`, then
-  `git apply --check <patch>` (read-only). It is CRLF; LF patches apply fine (autocrlf).
-- `installer/importflow_setup.iss` is UTF-8 **with BOM** + CRLF (BOM needed for Arabic strings in `[Code]`).
-  `version_manager.py` regex-rewrites `#define MyAppVersion "..."` and the whole `OutputBaseFilename=` line on bumps,
-  so keep both as literal single lines. `tests/unit/test_installer_safety.py` pins the R1-R3 invariants.
-- `scripts/release/bundle_guard.py` (`--iss/--dir/--zip`) is the one place that lists forbidden bundle content;
-  CI and `/release-check` call it. `dist/Sorour_Logistics_Standalone/` in the worktree holds a stale `sorour_logistics.db`
-  from old packaging, so release-check's bundle guard FAILs locally until the CTO removes it.
-- ISCC 6.7.3 per-user at `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`. Compile/run-test in a scratch copy with a
-  test AppId GUID and `/VERYSILENT /NOICONS /DIR=<scratch>`. Never run the real-AppId setup on this machine.
-  Git Bash path-converts `/Q`-style flags: prefix `MSYS_NO_PATHCONV=1`.
-- This dev machine has an old ADMIN install in `C:\Program Files (x86)\Sorour Logistics` (with a DB). The per-user
-  installer therefore aborts here by design (the "DB in another install folder" check).
-- Production laptop (Q1, 2026-09-24): per-user install at `C:\Users\Hp\AppData\Local\Programs\Sorour Logistics\` with
-  the live DB (+ -wal/-shm), `backups\`, `data\` (= Flutter runtime: app.so, icudtl.dat, flutter_assets - [Files]
-  must overwrite these on update) and `dist\` (unknown, never touch). Legacy scripts incl. `seed.py` are removed by
-  exact-name `[InstallDelete]`.
-- Inno `Excludes`: a leading backslash anchors to the source root (`\dist\*` skips `<root>\dist\` but keeps
-  `data\...\dist\`), verified by compiling. `sed -i` in the Bash tool rewrites CRLF files to LF - re-normalize.
-- `backend_runner.py` has no import-time side effects: `run()` takes the single-instance lock (frozen: mutex `Local\SorourLogisticsBackend`; dev: lock file in %TEMP%) BEFORE `from main import app`; watchdog waits for `startup_done`. Tests inject `lock_factory/import_app/serve`.
-- Launch target = `{app}\frontend.exe`, never .vbs (VBScript leaving Windows). Upgrades overwrite same-named shortcuts; silent upgrade keeps desktopicon task. Rehearse with test AppId+MyAppName, dummy taskkill names, `csc /target:winexe` marker exe.
-- Inno Pascal: `{...{app}...}` comments end at the first `}`: use `//`. Use `CopyFile`, not deprecated `FileCopy`.
-- `.github/workflows/build_and_release.yml` is owned by the release-tooling dev (separate `release`/`publish` jobs that
-  `needs: build-and-release`); keep workflow tests structural, not tied to one job layout.
-
 ## app_update module (update core, 2026-09-24)
 - No tables: state is files under `UPDATE_DATA_DIR` (default `%LOCALAPPDATA%\SorourLogistics\updates`); tests MUST set
   it to tmp. `get_update_service` singleton: router tests override it with a service built from `httpx.MockTransport`,
@@ -80,20 +53,6 @@
   monkeypatch it with their own Ed25519 key (read at call time). Signed `expires_at` required; `highest_seen.json`
   refuses older manifests (`offline`). Bad version.json -> `disabled`. Checks throttled 1/60 s (advance a FakeClock).
 - Download is async (202 + poll `/status`): a hash mismatch is `state=failed, error_code=hash_mismatch`, not HTTP 422.
-
-## Release tooling / publish job (Phase 6, 2026-09-24)
-- Security rule (lead decision): ALL private-key code lives in `scripts/release/sign_manifest.py` (stdlib + cryptography,
-  AST test forbids app imports), run with `-I` from a `--require-hashes` venv (`requirements-sign.txt`, hashes from
-  the PyPI JSON API). `build_manifest.py` / `verify_manifest.py` (no secrets) may import the app.
-- Manifest contract: `expires_at` REQUIRED (default released_at + 90 d; re-sign = now + 90 d via
-  `.github/workflows/resign_update_manifest.yml`), `previous` optional nested `{version, installer{path,size_bytes,sha256}}`.
-- `verify_manifest.main(argv, transport=)` takes an httpx transport for tests; hash with `iter_bytes` (MockTransport +
-  `iter_raw` -> StreamConsumed). Build job is read-only; only the `release` job (tags only) has `contents: write`.
-- Workflow rule: no `python` in any step from "Prepare SSH Credentials" on (tests enforce it). First step of publish/resign is a ref guard (v* tag / refs/heads/main).
-- `test_bundle_guard.py` hard-codes job id `build-and-release`. Action SHAs: `gh api repos/<o>/<r>/git/ref/tags/<tag>`
-  (gh is logged in here); tests enforce SHA pins + `# vX.Y.Z` comments on every `uses:`.
-- Release notes required at `docs/release_notes/<version>.{ar,en}.txt`. CI always signs as `k2026a`. Keep
-  `docs/UPDATE_DISTRIBUTION_RUNBOOK.md` + `docs/plans/cto_first_release_checklist.md` in step with the workflows.
 
 ## DB safety (Phase 0a-runtime, 2026-09-24)
 - `utils/db_safety.py` (stdlib only) is the single place for: `is_frozen_build()`, `app_base_dir()` (exe dir when
@@ -147,19 +106,7 @@
 - Failure paths restore the maintenance snapshot (`_restore_maintenance`), never plain `clear_maintenance_mode()` (R8/R10).
 - `repository.rollback_pending_reason(db_path, installed_version=None, data_dir=None)`: startup guard, fails CLOSED on a
   broken `rollback_blocked.json`; the reason must start with "rollback pending" (Dev A's test matches it).
-## Building installers outside the repo (rehearsal kit, 2026-09-25)
-- No global PyInstaller: `pip install --target <scratch>/pyi pyinstaller` + `PYTHONPATH=<scratch>/pyi python build_backend_exe.py`.
-  Scratchpad paths break MSBuild (MAX_PATH): PowerShell `subst R: '<path>'`, build from R:, `subst R: /D`; `Path.resolve()` undoes subst.
-- Frozen backend with a `backups\pre_migration_*.db` path > ~255 chars fails that backup -> maintenance: smoke-test from a
-  short dir. Dev-box `C:\Program Files (x86)\Sorour Logistics` is v1.0.58. stage-local checks sha/size only, not exe name.
-- Inherited `_PYI_*`/`_MEIPASS*` made the new onefile backend.exe (via Setup -> frontend.exe) reuse the old _MEI dir (old
-  alembic/versions, no migration). Fixed at the source: frozen `backend_runner.run()` calls
-  `db_safety.reset_pyinstaller_environment()` first; the installer Popen also passes `env=clean_child_environment()`.
-- `backend_runner.run()` builds its startup Event itself (no `started=` param, no module global); tests capture it via a
-  `start_watchdog` stub. Defaults come from `db_safety.is_frozen_build()/app_base_dir()` (resolved exe dir).
-- Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.
 
-## /release-check (2026-09-25)
-- `check_release.py` checks take `(report, project_dir, ...)`; `main(argv, project_dir=, transport=)`. Tooling (bundle_guard,
-  verify_manifest) always loads from the real checkout; the signing key is read by AST from `modules/app_update/service.py`.
-  Tests: `tests/unit/test_release_check.py` (tmp git repo fixture, build_manifest-signed manifest, MockTransport, `no_boot` stub).
+## Release topic files
+- [release_installer.md](release_installer.md) — Inno .iss (BOM+CRLF), package_production guard hook, ISCC rehearsal, laptop layout.
+- [release_workflows.md](release_workflows.md) — signer isolation, manifest contract, publish_update.yml button (private repo), actionlint, /release-check.

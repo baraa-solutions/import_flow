@@ -2,9 +2,10 @@
 
 > **ملخص سريع:**
 > - فيه لابتوب إنتاج **واحد** بس، والبرنامج متثبّت per-user في `C:\Users\Hp\AppData\Local\Programs\Sorour Logistics\` وقاعدة البيانات جنبه.
-> - الإصدار الجديد بيتعمل **بـ tag بس** (`vX.Y.Z`). الـ CI بيبني ويختبر، وبعدين job الـ publish بيستنى **موافقتك** على environment اسمه `production-updates`.
-> - بعد الموافقة، الـ CI بيوقّع الـ manifest بمفتاح Ed25519 وبيرفع الـ installer الأول على Hostinger (`https://kamal-sroor.online/importflow/updates/`)، وبعدين الـ manifest آخر حاجة.
-> - الـ manifest فيه `expires_at` (90 يوم). فيه workflow شهري بيعيد توقيعه قبل ما ينتهي، ومحتاج موافقتك برضه.
+> - الإصدار الجديد بيتعمل **بـ tag بس** (`vX.Y.Z`). الـ tag بيبني ويختبر ويعمل GitHub Release بس، **ومش بينشر حاجة** على سيرفر التحديثات.
+> - النشر زرار يدوي: Actions -> **"Publish update"** -> Run workflow -> تكتب الـ tag. الضغطة دي هي الموافقة (الريبو private على GitHub Free/Team، فمفيش "Required reviewers").
+> - الـ workflow ده بيوقّع الـ manifest بمفتاح Ed25519 وبيرفع الـ installer الأول على Hostinger (`https://kamal-sroor.online/importflow/updates/`)، وبعدين الـ manifest آخر حاجة.
+> - الـ manifest فيه `expires_at` (90 يوم). فيه workflow شهري بيعيد توقيعه تلقائي لما يقرّب ينتهي (من `main` بس).
 > - الـ installer **عمره ما بيلمس قاعدة البيانات**. قبل التثبيت بيقفل البرنامج، وبياخد نسخة من الـ DB في `backups\pre_install_*`، ولو النسخة فشلت بيلغي التثبيت.
 > - على لابتوب الإنتاج **ممنوع**: تشغيل Python أو أي script، نسخ قاعدة بيانات من برّه فوق قاعدة اللابتوب، أو تثبيت installer قديم.
 > - أول تثبيت (bootstrap) بيتعمل بإيدك مرة واحدة بس، وبعد بروفة على VM. الخطوات بالترتيب في `docs/plans/cto_first_release_checklist.md`.
@@ -25,7 +26,7 @@ This runbook replaces the old multi-workstation / GitHub-download runbook. The o
 | Pre-install backups | `{app}\backups\pre_install_<old version>_<yyyymmdd_hhnnss>\` | Written by the installer before every install (section 5). |
 | Update data | `C:\Users\Hp\AppData\Local\SorourLogistics\updates\` | `last_manifest.json`, `update_history.jsonl`, `staging\` (downloads). Override: env `UPDATE_DATA_DIR`. |
 | Update host | `https://kamal-sroor.online/importflow/updates/` (Hostinger, static files) | Only allowed host in code (`modules/app_update/validators.py`). No credentials on the laptop. |
-| CI | GitHub Actions: `build_and_release.yml`, `resign_update_manifest.yml` | The signing key and SFTP key live only in GitHub secrets. |
+| CI | Private repo `baraa-solutions/import_flow` (https://github.com/baraa-solutions/import_flow). GitHub Actions: `build_and_release.yml` (build), `publish_update.yml` ("Publish update", manual), `resign_update_manifest.yml` (monthly) | The signing key and SFTP key live only in the secrets of environment `production-updates`. |
 
 Hosted layout (`UPDATE_REMOTE_DIR`, default `domains/kamal-sroor.online/public_html/importflow/updates`):
 
@@ -51,31 +52,50 @@ importflow/updates/
 - Installer integrity is the SHA-256 in the signed payload. The installer itself is not Authenticode-signed, so a manual
   install shows SmartScreen ("More info" -> "Run anyway"), which is only acceptable after the hash check in section 8.
 
-## 3. Release pipeline (`.github/workflows/build_and_release.yml`)
+## 3. Release pipeline (build on tag, publish by button)
 
-Trigger: `push` of a tag `v*`, or `workflow_dispatch` (inputs `mandatory`, `min_supported_version`, `expires_days`).
-A push to `main` publishes nothing.
+The repo is private on GitHub Free/Team, where environments have **no "Required reviewers"**. The approval is therefore a
+manual button: a tag push only builds; publishing to the update host happens only when you run **"Publish update"**.
+
+### 3.0 `.github/workflows/build_and_release.yml` (tag `v*` or `workflow_dispatch`)
+
+A push to `main` builds nothing. This workflow holds **no publish secrets** (no signing key, no SFTP key, no environment).
 
 | Job | Runner | Secrets | What it does |
 |-----|--------|---------|--------------|
-| `build-and-release` | windows | none | Full `pytest`, `flutter test`, `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest). |
+| `build-and-release` | windows | none | Full `pytest`, `flutter test`, `build_backend_exe.py`, `flutter build windows --release`, **bundle guard on the `.iss`**, `package_production.py --no-bump`, **bundle guard on the staged folder + portable zip**, then Inno Setup (`ISCC`). Reads `version.json`, requires `docs/release_notes/<ver>.ar.txt` and `.en.txt`, reads the Alembic head, and runs `build_manifest.py` -> `dist/update/manifest.unsigned.json`. Uploads artifact `update-payload` (installer + unsigned manifest, kept 30 days). |
 | `release` | ubuntu | `GITHUB_TOKEN` | Tag runs only. Creates the (private-repo) GitHub Release with the installer, portable zip and `version.json`. Audit record only; the laptop never downloads from GitHub. |
-| `publish` | ubuntu | `UPDATE_SIGNING_KEY_ED25519`, `HOSTINGER_SSH_KEY`, `HOSTINGER_KNOWN_HOSTS` | `environment: production-updates` -> **waits for the required reviewer**. Details below. |
 
-`publish`, in order (any failure stops before clients can see anything):
+### 3.0.1 `.github/workflows/publish_update.yml` ("Publish update", `workflow_dispatch` only)
 
-1. Guard: ref must be a `v*` tag; tag must equal `v` + `version.json` version; installer path/name sanity.
-2. Creates an isolated signer venv from `scripts/release/requirements-sign.txt` (`--require-hashes --only-binary :all: --no-deps`),
-   before any app dependency is installed.
-3. Fetches the live `manifest.json` (404 = first release) to build the signed `previous` block.
-4. Signs: `python -I scripts/release/sign_manifest.py --in ... --out ... --installer ... [--previous-from-manifest live-manifest.json]`.
-   `expires_at` comes from the build payload (`released_at + expires_days`, default 90).
-5. Installs `requirements.txt`, then `verify_manifest.py --manifest ... --installer ...` = the app's own `ManifestVerifier`
-   with the embedded public keys. **A placeholder or wrong public key in code stops the release here.**
-6. SFTP (pinned host key, `StrictHostKeyChecking yes`): installer -> `releases/<ver>/<file>.part` -> `posix-rename`.
-7. Public HTTPS check of the installer: HEAD `Content-Length` and full-download SHA-256 must match the manifest.
-8. Manifest -> `manifest.json.tmp` -> `posix-rename` to `manifest.json` (**last**), then re-download and byte-compare.
-9. Prunes `releases/` to the newest 3 versions (warning only), uploads artifact `signed-manifest-v<ver>` (90 days), shreds the SSH key.
+Run it **from `main` only** and type the tag. Inputs: `tag` (required, `vX.Y.Z`), `mandatory`, `min_supported_version`,
+`expires_days` (default 90). Environment `production-updates` (deployment rule: branch `main` only; env secrets
+`UPDATE_SIGNING_KEY_ED25519`, `HOSTINGER_SSH_KEY`, `HOSTINGER_KNOWN_HOSTS`; env vars `HOSTINGER_HOST` / `HOSTINGER_PORT` /
+`HOSTINGER_USER`). Three jobs, so no secret ever shares a runner with unhashed `pip install`s; any failure stops before
+clients can see anything:
+
+**`sign`** (environment `production-updates`, `contents: read` + `actions: read`)
+1. Guard: the run's ref is `refs/heads/main`; `tag` looks like `vX.Y.Z`, exists, and equals `v` + `version.json` at `refs/tags/<tag>`.
+2. Finds the latest **successful tag-push** (`event == push`) `build_and_release.yml` run for the tag's commit and downloads
+   its `update-payload` artifact (by run id). No green build = nothing to publish.
+3. Creates an isolated signer venv from `scripts/release/requirements-sign.txt` (`--require-hashes --only-binary :all: --no-deps`);
+   nothing else is installed in this job.
+4. Fetches the live `manifest.json` (404 = first release) to build the signed `previous` block.
+5. Signs: `python -I scripts/release/sign_manifest.py --in ... --out ... --installer ... --expires-days N [--mandatory]
+   [--min-supported-version X.Y.Z] [--previous-from-manifest live-manifest.json]`. The key is only in this step's env.
+6. Uploads artifact `signed-update` (manifest + installer, 30 days) and `signed-manifest-<tag>` (audit copy, 90 days).
+
+**`verify`** (no environment, no secrets)
+7. Checks out `refs/tags/<tag>`, installs `requirements.txt`, runs `verify_manifest.py --manifest ... --installer ...` = the
+   ManifestVerifier and embedded public keys **of the release being shipped**. A placeholder or wrong public key stops here.
+   Hands the verified installer sha256 / size / path to `upload`.
+
+**`upload`** (environment `production-updates`; no checkout, no Python, no pip: shell, `sftp`, `curl`, `sha256sum` only)
+8. Re-checks the artifact installer against the verified facts; writes the SSH credentials (0600, pinned host key,
+   `StrictHostKeyChecking yes`); installer -> `releases/<ver>/<file>.part` -> `posix-rename`.
+9. Public HTTPS check of the installer: HEAD `Content-Length` and full-download SHA-256 must match the verified facts.
+10. Manifest -> `manifest.json.tmp` -> `posix-rename` to `manifest.json` (**last**), then re-download and byte-compare.
+11. Prunes `releases/` to the newest 3 versions (warning only), then shreds the SSH key at once (an `always()` step is the backstop).
 
 `publish` and the re-sign job share the concurrency group `production-updates-publish`, so they never race.
 
@@ -103,26 +123,26 @@ Daily work is Track 1 (`docs/DEV_WORKFLOW.md`): no version bumps, no packaging. 
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-5. Actions -> the run -> `publish` shows "Waiting for review" -> **Review deployments** -> approve `production-updates`.
-6. Verify from any dev machine (section 7).
+5. Wait until Actions -> "Build & Release Sorour Logistics" for the tag is **green** (nothing is published yet).
+6. Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag
+   (`vX.Y.Z`) -> **Run workflow**. This click is the approval. The run must end green.
+7. Verify from any dev machine (section 7).
 
-**Mandatory update / `min_supported_version`:** these exist only as `workflow_dispatch` inputs. A tag push always builds a
-non-mandatory release. For a mandatory release: Actions -> "Build & Release Sorour Logistics" -> Run workflow ->
-**Use workflow from: Tags -> vX.Y.Z**, set `mandatory` / `min_supported_version`. The tag push starts its own run too;
-**reject** that run's `publish` deployment and approve only the dispatched one. Use mandatory only for security fixes or
-breaking DB changes.
+**Mandatory update / `min_supported_version`:** set them as inputs of the same "Publish update" run (step 6). Use mandatory
+only for security fixes or breaking DB changes. They do not require a rebuild.
 
 ## 4. Manifest expiry and the monthly re-sign (`.github/workflows/resign_update_manifest.yml`)
 
 - Every manifest expires (`expires_at`, default released_at + 90 days, max 365). An expired manifest is refused by the app:
   no update is offered, the app keeps working.
-- Schedule: 06:00 UTC on the 1st of each month. Job `check` (no secrets) reads `expires_at` from the live manifest and asks for a
-  re-sign only when fewer than 45 days remain (or `force`), so an approval request shows up roughly every second month.
+- Schedule: 06:00 UTC on the 1st of each month. Job `check` (no secrets) reads `expires_at` from the live manifest and runs
+  the re-sign only when fewer than 45 days remain (or `force`), roughly every second month. There is no approval step
+  (no required reviewers on a private Free/Team repo); the environment's branch rule limits it to `main`.
 - Job `resign` (environment `production-updates`, **main only**) re-verifies the live manifest with the signing key,
   changes **only** `expires_at` (now + 90 days), verifies with the client code path (`--head-only` installer check),
   re-fetches the live manifest and refuses to replace it if it changed meanwhile, then `manifest.json.tmp` -> `posix-rename`.
 - Manual run: Actions -> "Re-sign Update Manifest" -> Run workflow (branch `main`), inputs `force`, `expires_days`, `threshold_days`.
-- **An unapproved pending deployment expires after 30 days.** If you miss it, run the workflow manually with `force = true`.
+- If a scheduled re-sign failed (host down, key problem), fix the cause and run the workflow manually with `force = true`.
 
 Manual re-sign fallback (CI unavailable; key from the offline USB):
 
@@ -278,10 +298,11 @@ Check the copy (sizes, or `Get-FileHash` on both sides). Label the stick with th
 
 | Symptom | Likely cause | Action |
 |---------|--------------|--------|
-| `publish` fails at "Verify Signed Manifest" with "no usable public key" | `UPDATE_SIGNING_PUBLIC_KEYS` still the placeholder, or not the key in the secret | Put the right public key in code (checklist step 5), new version, new tag. |
+| "Publish update" fails at "Verify Signed Manifest" with "no usable public key" | `UPDATE_SIGNING_PUBLIC_KEYS` still the placeholder, or not the key in the secret | Put the right public key in code (checklist step 5), new version, new tag. |
 | "tag vA != version.json vB" | Tagged a commit without the version bump | Delete the tag (`git push origin :refs/tags/vA`), bump, re-tag. |
 | "Release notes missing" | `docs/release_notes/<ver>.{ar,en}.txt` absent | Nothing was published. Add both files in a new commit, delete the tag (`git push origin :refs/tags/vX.Y.Z`, `git tag -d vX.Y.Z`) and tag the new commit. |
-| `publish` waits forever | Nobody approved `production-updates` | Approve or reject; pending deployments expire after 30 days. |
+| "Publish update" fails at "Find Build Run For The Tag" | The tag's build is still running, failed, or older than the 30-day artifact retention | Wait for / fix the build (re-run it on the tag), then run "Publish update" again. |
+| "Publish update" fails at "Guard Ref And Tag" | Run from another branch or a tag, typo in the tag, or `version.json` at the tag differs | Run from `main` and type the exact tag. |
 | "HOSTINGER_* is not configured" | Variable/secret missing or not visible to the environment | `HOSTINGER_HOST`, `HOSTINGER_USER`, optional `HOSTINGER_PORT` (default 65002) are **variables**; `HOSTINGER_SSH_KEY`, `HOSTINGER_KNOWN_HOSTS` are **secrets**. |
 | Public HEAD `Content-Length` mismatch | CDN/compression on `.exe`, or `.htaccess` missing | Check `.htaccess`, add a CDN bypass for `/importflow/updates/`. |
 | App shows no update although one is published | Manifest expired, placeholder key in the installed build, older manifest than already seen, or offline | `verify_manifest.py --url ...`; re-sign if expired. |
@@ -296,6 +317,6 @@ manifest it cannot verify with the current key).
 Generate a new key with `sign_manifest.py --generate-key --key-id <new id> --key-out <path>` (it refuses to overwrite a file).
 
 Note: both workflows call `sign_manifest.py` **without `--key-id`**, so CI always signs as `k2026a` (`DEFAULT_KEY_ID`). Switching
-to a new key needs a reviewed change that passes `--key-id <new id>` in `build_and_release.yml` and `resign_update_manifest.yml`,
+to a new key needs a reviewed change that passes `--key-id <new id>` in `publish_update.yml` and `resign_update_manifest.yml`,
 together with the new `UPDATE_SIGNING_KEY_ED25519` value. The re-sign job fails (by design) while the live manifest still carries
 the old `key_id`; publish the first new-key release before the next re-sign is due.

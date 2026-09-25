@@ -5,8 +5,8 @@ name: Re-sign Update Manifest
 # manifest.json only. Installers are never touched. Plan docs/plans/update-system-plan.md sections 4.2, 4.4, 9.
 #
 # - Monthly schedule: the `check` job (no secrets, no environment) reads expires_at from the live manifest and asks
-#   for a re-sign only when fewer than `threshold_days` remain, so the `production-updates` approval is requested
-#   only when it is actually needed.
+#   for a re-sign only when fewer than `threshold_days` remain. The `production-updates` environment has no required
+#   reviewers (private repo on Free/Team); its branch rule `main` plus the guard step limit who can re-sign.
 # - Manual run: Actions -> "Re-sign Update Manifest" -> Run workflow (force = true re-signs regardless of expiry).
 on:
   schedule:
@@ -74,7 +74,7 @@ jobs:
     environment: production-updates
     permissions:
       contents: read
-    # Same group as the publish job in build_and_release.yml: a re-sign never races a release.
+    # Same group as the publish job in publish_update.yml: a re-sign never races a release.
     concurrency:
       group: production-updates-publish
       cancel-in-progress: false
@@ -89,7 +89,7 @@ jobs:
       # Signer code comes from the triggering ref: only main may re-sign (also enforced by the environment's
       # deployment rule "branch: main").
       # CTO setup: Settings > Environments > production-updates > Deployment branches and tags =
-      # "Selected branches and tags" with a TAG rule `v*` (publish) and a BRANCH rule `main` (re-sign).
+      # "Selected branches and tags" with ONLY the branch rule `main` (publish_update.yml and this job both run from main).
       - name: Guard Ref (main only)
         run: |
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "::error::re-sign must run on refs/heads/main, not $GITHUB_REF"; exit 1; }

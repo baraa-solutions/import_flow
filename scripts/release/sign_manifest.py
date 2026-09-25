@@ -10,7 +10,8 @@ secrets, with scripts/release/verify_manifest.py (the app's ManifestVerifier).
 Sign (CI publish job / manual fallback):
   python -I scripts/release/sign_manifest.py --in manifest.unsigned.json --out manifest.json \
       [--installer Sorour_Logistics_Setup_v2.1.0.exe] [--key-file key.pem] [--key-id k2026a] \
-      [--expires-days 90 | --expires-at 2027-01-01T00:00:00Z] [--previous-from-manifest live-manifest.json]
+      [--expires-days 90 | --expires-at 2027-01-01T00:00:00Z] [--previous-from-manifest live-manifest.json] \
+      [--mandatory] [--min-supported-version 2.0.0]
   The key comes from --key-file or the env var UPDATE_SIGNING_KEY_ED25519 (unencrypted PKCS#8 PEM, or base64 of the
   raw 32-byte seed). It is never printed, logged or echoed in an error.
 
@@ -398,14 +399,23 @@ def sign_file(
     expires_days: Optional[int] = None,
     expires_at: Optional[str] = None,
     live_manifest: Optional[str] = None,
+    mandatory: bool = False,
+    min_supported_version: Optional[str] = None,
 ) -> Tuple[bytes, str]:
     """
     Sign a build payload. expires_at: explicit > released_at + expires_days > the payload's own value >
-    released_at + DEFAULT_EXPIRES_DAYS.
+    released_at + DEFAULT_EXPIRES_DAYS. `mandatory` / `min_supported_version` are publish-time choices
+    (Publish update workflow inputs); when given they replace the build payload's values.
     """
     payload = read_unsigned(unsigned_path)
     if installer:
         check_installer(payload, installer)
+    if mandatory:
+        payload["mandatory"] = True
+    if min_supported_version:
+        if parse_version(min_supported_version) > parse_version(payload["version"]):
+            raise SignerError("--min-supported-version cannot be newer than the release version")
+        payload["min_supported_version"] = min_supported_version
     if expires_at or expires_days is not None or not payload.get("expires_at"):
         expiry = resolve_expires_at(released_at_of(payload), expires_days, expires_at)
     else:
@@ -468,6 +478,8 @@ def _parser() -> argparse.ArgumentParser:
                    help=f"--in: released_at + N days; --resign: now + N days (default {DEFAULT_EXPIRES_DAYS})")
     p.add_argument("--expires-at", help="explicit ISO-8601 UTC expiry (overrides --expires-days)")
     p.add_argument("--previous-from-manifest", help="with --in: currently published manifest.json (missing = none)")
+    p.add_argument("--mandatory", action="store_true", help="with --in: mark the update as mandatory")
+    p.add_argument("--min-supported-version", help="with --in: installs older than X.Y.Z must update")
     return p
 
 
@@ -494,6 +506,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.unsigned, args.out, key, key_id, installer=args.installer,
                 expires_days=args.expires_days, expires_at=args.expires_at,
                 live_manifest=args.previous_from_manifest,
+                mandatory=args.mandatory, min_supported_version=args.min_supported_version,
             )
         payload = json.loads(json.loads(raw.decode("utf-8"))["signed"])
         print(f"Signed manifest written to {args.out} (key_id {key_id}, {len(raw)} bytes)")

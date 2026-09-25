@@ -114,3 +114,13 @@ OPEN:
 ## Review gotchas
 - `import main` writes `backups/auto_pre_upgrade_*.db` into the worktree (gitignored) on every import.
 - The project Bash guard blocks any command that merely names the Track-2 packaging script, even a read-only grep.
+
+## Publish split review 2026-09-25 (uncommitted: publish_update.yml workflow_dispatch, build_and_release has no publish job)
+Verified live via gh api: repo baraa-solutions/import_flow private, org plan free; env production-updates exists with
+custom policies `main` (branch) + `v*` (tag); the 3 secrets are env-only (no repo/org secrets). Rulesets / branch & tag
+protection are unavailable on Free private, so ANY writer can push main or a v* tag with an edited workflow and reach the
+secrets: the guard step is a mistake-guard, not a boundary (only collaborator today: kamalsroor1 admin).
+Open (MINOR): env allows `v*` tags (unprotectable) -> drop it, dispatch from main only; pip install -r requirements.txt
+(no hashes, sudo runner) runs before SSH key is written -> split sign / verify / upload jobs; `commits/$TAG` and
+build-run lookup should use refs/tags/ + filter event==push (branch named like the tag); verify step uses main's
+ManifestVerifier when dispatched from main; upload-artifact runs before "Remove SSH Credentials".

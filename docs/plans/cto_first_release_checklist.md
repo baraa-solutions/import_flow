@@ -81,23 +81,24 @@ Tick each box in order.
   python -m pytest tests/unit -q -W ignore --junitxml=.pytest-report.xml; echo "exit=$?"
   ```
   The printed key must equal the one in `importflow_update_k2026a.pub.txt`, and the exit code must be 0. If the code still holds the
-  placeholder or a different key, the CI `publish` job stops at "Verify Signed Manifest (Client Code Path)" before uploading anything.
+  placeholder or a different key, the "Publish update" workflow stops at "Verify Signed Manifest (Client Code Path)" before uploading anything.
 
 ## C. GitHub (repo Settings)
 
-- [ ] **8. Environment `production-updates`.** Settings -> Environments -> New environment -> `production-updates`:
-  - **Required reviewers:** yourself (leave "Prevent self-review" off, since you push the tag and approve it).
-  - **Deployment branches and tags:** "Selected branches and tags", then add two rules:
-    - Ref type **Tag**, pattern `v*` (the `publish` job in `build_and_release.yml`)
-    - Ref type **Branch**, pattern `main` (the `resign` job in `resign_update_manifest.yml`)
-  - Optional: a tag ruleset so only you can create `v*` tags.
+- [x] **8. Environment `production-updates` (already configured).** Repo: https://github.com/baraa-solutions/import_flow (private).
+  Settings -> Environments -> `production-updates`:
+  - **No "Required reviewers":** GitHub does not offer them for private repos on Free/Team. The approval is the manual
+    **"Publish update"** workflow (step 16): nothing reaches the update host until you run it.
+  - **Deployment branches and tags:** "Selected branches and tags" with ONE rule: ref type **Branch**, pattern `main`
+    ("Publish update" and the `resign` job in `resign_update_manifest.yml` both run from `main`). No `v*` tag rule.
+  - Only people with write access can run workflows; optional: a tag ruleset so only you can create `v*` tags.
 
 - [ ] **9. Secret `UPDATE_SIGNING_KEY_ED25519`** as an **environment secret** of `production-updates` (not a repo secret, so only
-  approved jobs can read it). Value = the whole content of the `.pem` file, including the `-----BEGIN PRIVATE KEY-----` and
+  jobs in that environment, i.e. "Publish update" and the re-sign job, can read it). Value = the whole content of the `.pem` file, including the `-----BEGIN PRIVATE KEY-----` and
   `-----END PRIVATE KEY-----` lines. From Git Bash, reading straight from the USB so the key never hits the clipboard:
   ```bash
-  gh secret set UPDATE_SIGNING_KEY_ED25519 --env production-updates < /e/importflow-signing/importflow_update_k2026a.pem
-  gh secret list --env production-updates
+  gh secret set UPDATE_SIGNING_KEY_ED25519 --repo baraa-solutions/import_flow --env production-updates < /e/importflow-signing/importflow_update_k2026a.pem
+  gh secret list --repo baraa-solutions/import_flow --env production-updates
   ```
 
 - [x] **10. Hostinger CI access (already done).** Only check that the type and name match what the workflows read:
@@ -148,15 +149,19 @@ Tick each box in order.
   check (version consistency, bundle guard, backend boot) must pass.
   Commit the bump, the release notes and the step 4/7 changes, and push to `main`. A push to `main` publishes nothing.
 
-- [ ] **15. Tag the release commit and push the tag.** The tag must equal `v` + `version.json` version, or `publish` stops.
+- [ ] **15. Tag the release commit and push the tag.** The tag must equal `v` + `version.json` version, or "Publish update" stops.
+  The tag push only builds and creates the GitHub Release; it publishes nothing to the update host.
   ```bash
   git tag vX.Y.Z
   git push origin vX.Y.Z
   ```
 
-- [ ] **16. Approve.** Actions -> "Build & Release Sorour Logistics" -> the tag run. When `build-and-release` is green, `publish` shows
-  "Waiting for review" -> **Review deployments** -> tick `production-updates` -> **Approve and deploy**. `publish` must end green.
-  Download the artifact `signed-manifest-vX.Y.Z` (the audit copy of what was published).
+- [ ] **16. Publish (this is the approval).** Wait until Actions -> "Build & Release Sorour Logistics" -> the tag run is **green**.
+  Then Actions -> **"Publish update"** -> **Run workflow** -> "Use workflow from": **`main`** -> type the tag
+  `vX.Y.Z` in `tag` (leave `mandatory` off and `min_supported_version` empty for this first release, `expires_days` 90) ->
+  **Run workflow**. All three jobs (`sign`, `verify`, `upload`) must end green. It picks the latest successful tag-push build of
+  that tag (artifacts are kept 30 days). Download the artifact `signed-manifest-vX.Y.Z` from the "Publish update" run (the audit
+  copy of what was published).
 
 - [ ] **17. Verify the published release from the dev machine.**
   ```bash
@@ -200,8 +205,9 @@ Tick each box in order.
 
   On the laptop: no Python, no scripts, no copying databases onto it, no older installers (runbook section 11).
 
-- [ ] **21. Afterwards.** Keep both USB backups. On the 1st of each month `Re-sign Update Manifest` runs; approve its `production-updates`
-  deployment when it asks (roughly every second month, when fewer than 45 days remain before `expires_at`).
+- [ ] **21. Afterwards.** Keep both USB backups. On the 1st of each month `Re-sign Update Manifest` runs from `main` and re-signs by
+  itself when fewer than 45 days remain before `expires_at` (roughly every second month). No approval step; check that it ends green.
+  Every later release: push tag -> wait for the green build -> Actions -> "Publish update" -> Run workflow -> type the tag.
 
 ---
 
@@ -221,9 +227,9 @@ Tick each box in order.
   `previous {version, installer {path, size_bytes, sha256}}` (it still reads the flat form).
 - Plan section 4.3 has `publish` sign with `build_manifest.py --sign`; the workflow uses the stand-alone `sign_manifest.py` (as intended
   by the later security review). The plan's `ci.yml` and "assert tag == version in the build job" do not exist: the tag check runs
-  only in `publish`, after the full build.
+  only in "Publish update" (`publish_update.yml`), after the full build.
 - Neither workflow passes `--key-id`, so CI always signs as `k2026a`; key rotation (plan section 4.2) needs a workflow change.
-- `mandatory` / `min_supported_version` exist only as `workflow_dispatch` inputs; a tag push always publishes a non-mandatory release,
-  and a dispatched run on the same tag produces a second `publish` waiting for approval.
+- Plan section 4.3/4.4 put `publish` in the tag workflow behind a required reviewer. Private repos on Free/Team have no required
+  reviewers, so publishing is the separate manual `publish_update.yml`; `mandatory` / `min_supported_version` / `expires_days` are its inputs.
 - The `release` job body still advertises "Safe In-Place Auto-Update ... SQLite schema auto-migration"; startup Alembic (R6) is not
   implemented yet and `/apply` returns 501.

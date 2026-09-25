@@ -539,3 +539,10 @@ def test_workflow_trigger_block_has_no_branch_push_text_check():
     assert "branches" not in on_block
     assert "- 'v*'" in on_block
     assert "workflow_dispatch" in on_block
+
+
+def test_build_workflow_holds_no_publish_step_or_secret():
+    """Publishing is the manual publish_update.yml workflow; a tag build only builds + releases on GitHub."""
+    for needle in ("production-updates", "HOSTINGER", "UPDATE_SIGNING_KEY_ED25519", "sftp", "sign_manifest.py"):
+        assert needle not in WORKFLOW_TEXT, needle
+    assert "name: update-payload" in WORKFLOW_TEXT

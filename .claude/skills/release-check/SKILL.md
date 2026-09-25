@@ -8,7 +8,8 @@ disable-model-invocation: true
 
 Run this before tagging a release. Releases go through the signed-manifest update system
 (`docs/plans/update-system-plan.md` section 4, `docs/UPDATE_DISTRIBUTION_RUNBOOK.md`): pushing a `v*` tag builds the installer,
-and the `publish` job (after CTO approval) signs `manifest.json` and uploads it to `https://kamal-sroor.online/importflow/updates/`.
+and the CTO then runs Actions → "Publish update" (`publish_update.yml`, the manual approval button) which signs `manifest.json`
+and uploads it to `https://kamal-sroor.online/importflow/updates/`.
 The retired GitHub flow (`version.json` `installer_url` / `installer_sha256`) is no longer checked.
 
 ## Steps

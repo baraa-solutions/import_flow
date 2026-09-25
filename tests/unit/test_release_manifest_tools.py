@@ -5,8 +5,9 @@ Release tooling for the signed update manifest (docs/plans/update-system-plan.md
   cryptography only) signs it and adds expires_at / previous; scripts/release/verify_manifest.py verifies with the
   same ManifestVerifier as the app. Sign -> verify accepts; any byte change, wrong key or installer mismatch rejects.
 - The private key never reaches stdout/stderr.
-- .github/workflows/build_and_release.yml: the publish job needs the build job, runs in the protected
-  `production-updates` environment, and uploads manifest.json only after the public installer check.
+- .github/workflows/build_and_release.yml builds and uploads `update-payload` only (no publish secrets);
+  .github/workflows/publish_update.yml is the manual "Publish update" button: dispatch-only, environment
+  `production-updates`, ref/tag guard first, manifest.json uploaded only after the public installer check.
 """
 import ast
 import base64
@@ -31,6 +32,7 @@ SIGN_PATH = PROJECT_DIR / "scripts" / "release" / "sign_manifest.py"
 SIGN_REQUIREMENTS = PROJECT_DIR / "scripts" / "release" / "requirements-sign.txt"
 VERIFY_PATH = PROJECT_DIR / "scripts" / "release" / "verify_manifest.py"
 WORKFLOW_PATH = PROJECT_DIR / ".github" / "workflows" / "build_and_release.yml"
+PUBLISH_WORKFLOW_PATH = PROJECT_DIR / ".github" / "workflows" / "publish_update.yml"
 HTACCESS_PATH = PROJECT_DIR / "docs" / "plans" / "hostinger_htaccess.txt"
 
 BASE_URL = "https://kamal-sroor.online/importflow/updates/"
@@ -490,10 +492,19 @@ def test_verify_requires_an_input():
 WORKFLOW_TEXT = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
+PUBLISH_WORKFLOW_TEXT = PUBLISH_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+
 @pytest.fixture(scope="module")
 def workflow():
     yaml = pytest.importorskip("yaml")
     return yaml.safe_load(WORKFLOW_TEXT)
+
+
+@pytest.fixture(scope="module")
+def publish_workflow():
+    yaml = pytest.importorskip("yaml")
+    return yaml.safe_load(PUBLISH_WORKFLOW_TEXT)
 
 
 def _step_index(steps, predicate, description):
@@ -506,80 +517,37 @@ def _run(step) -> str:
     return str(step.get("run", ""))
 
 
-def test_publish_job_needs_build_and_uses_the_protected_environment(workflow):
-    jobs = workflow["jobs"]
-    publish = jobs["publish"]
-
-    assert publish["needs"] in ("build-and-release", ["build-and-release"])
-    assert "build-and-release" in jobs
-    env = publish["environment"]
-    assert (env if isinstance(env, str) else env["name"]) == "production-updates"
-    assert publish["permissions"] == {"contents": "read"}
-    assert "github.ref_type == 'tag'" in publish["if"]
+def test_build_workflow_never_publishes(workflow):
+    assert set(workflow["jobs"]) == {"build-and-release", "release"}
+    for job in workflow["jobs"].values():
+        assert "environment" not in job
+    for needle in ("UPDATE_SIGNING_KEY_ED25519", "HOSTINGER", "sftp", "sign_manifest.py", "production-updates"):
+        assert needle not in WORKFLOW_TEXT, needle
+    secrets = set(re.findall(r"secrets\.([A-Z0-9_]+)", WORKFLOW_TEXT))
+    assert secrets <= {"GITHUB_TOKEN"}
 
 
-def test_publish_uploads_manifest_last_after_public_installer_verification(workflow):
-    steps = workflow["jobs"]["publish"]["steps"]
-
-    sign = _step_index(steps, lambda s: "sign_manifest.py" in _run(s), "signs the manifest")
-    installer_upload = _step_index(
-        steps, lambda s: "sftp" in _run(s) and ".part" in _run(s) and "posix-rename" in _run(s),
-        "uploads the installer as .part then renames it",
-    )
-    client_verify = _step_index(steps, lambda s: "verify_manifest.py" in _run(s), "verifies with the client path")
-    prepare_ssh = _step_index(steps, lambda s: "HOSTINGER_SSH_KEY" in _run(s), "writes the SSH key")
-    public_check = _step_index(
-        steps, lambda s: "curl" in _run(s) and "sha256sum" in _run(s) and "$EXPECTED_SHA256" in _run(s),
-        "verifies the public HTTPS installer against the verified manifest",
-    )
-    manifest_upload = _step_index(
-        steps, lambda s: "manifest.json.tmp" in _run(s), "uploads manifest.json.tmp",
-    )
-    published = _step_index(steps, lambda s: "cmp -s" in _run(s), "compares the published manifest")
-    prune = _step_index(steps, lambda s: "ls -1" in _run(s) and "rmdir" in _run(s), "prunes old releases")
-    cleanup = _step_index(steps, lambda s: "shred" in _run(s), "removes the SSH key")
-
-    assert sign < client_verify < prepare_ssh < installer_upload < public_check < manifest_upload < published
-    assert published < prune < cleanup
-    assert "EXPECTED_SHA256=" in _run(steps[client_verify]) and "Content-Length" in _run(steps[public_check])
-    manifest_run = _run(steps[manifest_upload])
-    assert "posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in manifest_run
-    assert steps[cleanup].get("if") == "always()"
-    # nothing after the public check uploads an installer, nothing before it touches manifest.json
-    assert all("manifest.json.tmp" not in _run(s) for s in steps[:public_check])
 
 
-def test_publish_ssh_pins_the_host_key_and_protects_the_key_file(workflow):
-    steps = workflow["jobs"]["publish"]["steps"]
-    prepare = _run(steps[_step_index(steps, lambda s: "HOSTINGER_SSH_KEY" in _run(s), "writes the SSH key")])
-
-    assert "StrictHostKeyChecking yes" in prepare
-    assert "install -m 600" in prepare and "umask 077" in prepare
-    assert "HOSTINGER_KNOWN_HOSTS" in prepare
-    assert not re.search(r"StrictHostKeyChecking[ =]+(no|accept-new)", WORKFLOW_TEXT, re.IGNORECASE)
 
 
-def test_signing_key_secret_only_reaches_the_sign_step(workflow):
-    jobs = workflow["jobs"]
-    holders = [
-        step.get("name")
-        for job in jobs.values()
-        for step in job.get("steps", [])
-        if "UPDATE_SIGNING_KEY_ED25519" in json.dumps(step)
-    ]
-    assert holders == ["Sign Update Manifest"]
-    assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(jobs["publish"].get("env", {}))
-    assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(jobs["build-and-release"])
 
 
-def test_all_actions_are_pinned_by_commit_sha(workflow):
-    uses = [step["uses"] for job in workflow["jobs"].values() for step in job["steps"] if "uses" in step]
-    assert uses
-    for ref in uses:
-        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), f"not pinned by SHA: {ref}"
-    for line in WORKFLOW_TEXT.splitlines():
-        if re.search(r"uses: \S+@[0-9a-f]{40}", line):
-            assert re.search(r"# v\d+\.\d+\.\d+\s*$", line), f"missing version comment: {line.strip()}"
+
+
+
+
+
+
+def test_all_actions_are_pinned_by_commit_sha(workflow, publish_workflow):
+    for wf, text in ((workflow, WORKFLOW_TEXT), (publish_workflow, PUBLISH_WORKFLOW_TEXT)):
+        uses = [step["uses"] for job in wf["jobs"].values() for step in job["steps"] if "uses" in step]
+        assert uses
+        for ref in uses:
+            assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), f"not pinned by SHA: {ref}"
+        for line in text.splitlines():
+            if re.search(r"uses: \S+@[0-9a-f]{40}", line):
+                assert re.search(r"# v\d+\.\d+\.\d+\s*$", line), f"missing version comment: {line.strip()}"
 
 
 def test_build_job_ships_the_unsigned_payload_to_publish(workflow):
@@ -789,9 +757,9 @@ def test_build_job_is_read_only_and_does_not_persist_credentials(workflow):
     assert not any("action-gh-release" in str(s.get("uses", "")) for s in build["steps"])
 
 
-def test_every_checkout_disables_persisted_credentials(workflow):
+def test_every_checkout_disables_persisted_credentials(workflow, publish_workflow):
     checkouts = [
-        step for job in workflow["jobs"].values() for step in job["steps"]
+        step for wf in (workflow, publish_workflow) for job in wf["jobs"].values() for step in job["steps"]
         if str(step.get("uses", "")).startswith("actions/checkout@")
     ]
     assert checkouts
@@ -811,30 +779,8 @@ def test_only_the_release_job_can_write(workflow):
     assert any("action-gh-release" in str(s.get("uses", "")) for s in release["steps"])
 
 
-def test_signing_runs_in_the_hash_pinned_venv_before_app_dependencies(workflow):
-    publish = workflow["jobs"]["publish"]
-    steps = publish["steps"]
-    venv = _step_index(steps, lambda s: "requirements-sign.txt" in _run(s), "creates the signer venv")
-    sign = _step_index(steps, lambda s: "sign_manifest.py" in _run(s), "signs")
-    app_deps = _step_index(steps, lambda s: "requirements.txt" in _run(s) and "requirements-sign" not in _run(s),
-                           "installs app dependencies")
-    verify = _step_index(steps, lambda s: "verify_manifest.py" in _run(s), "verifies")
-
-    assert venv < sign < app_deps < verify
-    assert "--require-hashes" in _run(steps[venv]) and "--only-binary :all:" in _run(steps[venv])
-    assert '"$RUNNER_TEMP/signer-venv/bin/python" -I scripts/release/sign_manifest.py' in _run(steps[sign])
-    assert set(steps[sign]["env"]) == {"UPDATE_SIGNING_KEY_ED25519"}
-    for i, step in enumerate(steps):
-        if i != sign:
-            assert "secrets.UPDATE_SIGNING_KEY_ED25519" not in json.dumps(step)
-            assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(step.get("env", {}))
-    assert "secrets." not in json.dumps(steps[verify])
 
 
-def test_publish_job_uses_no_pip_cache(workflow):
-    publish = workflow["jobs"]["publish"]
-    for step in publish["steps"]:
-        assert "cache" not in step.get("with", {}), step.get("name")
 
 
 # ─── re-sign (expiry refresh) ─────────────────────────────────────────────────
@@ -977,19 +923,12 @@ def _no_python_after_ssh_key(steps):
         assert "setup-python" not in str(step.get("uses", ""))
 
 
-def test_publish_runs_no_python_while_the_ssh_key_exists(workflow):
-    _no_python_after_ssh_key(workflow["jobs"]["publish"]["steps"])
 
 
 def test_resign_runs_no_python_while_the_ssh_key_exists(resign_workflow):
     _no_python_after_ssh_key(resign_workflow["jobs"]["resign"]["steps"])
 
 
-def test_publish_guards_the_ref_before_any_code_runs(workflow):
-    steps = workflow["jobs"]["publish"]["steps"]
-    guard = _run(steps[0])
-    assert "refs/tags/v*" in guard and 'GITHUB_REF_TYPE" == "tag"' in guard and "exit 1" in guard
-    assert "uses" not in steps[0]
 
 
 def test_resign_guards_the_ref_before_any_code_runs(resign_workflow):
@@ -1001,3 +940,168 @@ def test_resign_guards_the_ref_before_any_code_runs(resign_workflow):
 
 def test_release_job_runs_for_tags_only(workflow):
     assert workflow["jobs"]["release"]["if"] == "github.ref_type == 'tag'"
+
+
+def test_publish_time_mandatory_and_min_supported_version(tmp_path, installer, key_file, signing_key):
+    from modules.app_update.service import ManifestVerifier
+
+    unsigned = _unsigned(tmp_path, installer)
+    out = _sign(tmp_path, unsigned, key_file, "--mandatory", "--min-supported-version", "2.0.0")
+    payload = _payload(out)
+    assert payload["mandatory"] is True and payload["min_supported_version"] == "2.0.0"
+    assert ManifestVerifier({KEY_ID: _pub(signing_key)}).verify(out.read_bytes()).mandatory is True
+
+    plain = _payload(_sign(tmp_path, unsigned, key_file, name="plain.json"))
+    assert plain["mandatory"] is False and plain["min_supported_version"] is None
+
+    code = sign_manifest.main(["--in", str(unsigned), "--key-file", str(key_file), "--out", str(tmp_path / "x.json"),
+                               "--min-supported-version", "9.0.0"])
+    assert code == 1
+
+
+# ─── publish_update.yml: sign / verify / upload ───────────────────────────────
+
+def _jobs(publish_workflow):
+    return publish_workflow["jobs"]
+
+
+def test_publish_workflow_is_a_dispatch_only_button_in_three_jobs(publish_workflow):
+    triggers = publish_workflow.get("on", publish_workflow.get(True))
+    assert set(triggers) == {"workflow_dispatch"}
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert inputs["tag"]["required"] is True
+    assert set(inputs) == {"tag", "mandatory", "min_supported_version", "expires_days"}
+    assert publish_workflow["permissions"] == {"contents": "read"}
+
+    jobs = _jobs(publish_workflow)
+    assert set(jobs) == {"sign", "verify", "upload"}
+    assert jobs["sign"]["environment"] == "production-updates"
+    assert jobs["upload"]["environment"] == "production-updates"
+    assert "environment" not in jobs["verify"], "verify installs unhashed packages: no environment, no secrets"
+    assert jobs["sign"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert jobs["verify"]["permissions"] == {"contents": "read"}
+    assert jobs["upload"]["permissions"] == {"contents": "read"}
+    assert jobs["verify"]["needs"] in ("sign", ["sign"])
+    assert "verify" in jobs["upload"]["needs"]
+
+
+def test_publish_and_resign_share_one_concurrency_group(publish_workflow, resign_workflow):
+    assert publish_workflow["concurrency"]["group"] == resign_workflow["jobs"]["resign"]["concurrency"]["group"]
+    assert publish_workflow["concurrency"]["cancel-in-progress"] is False
+
+
+def test_publish_guard_runs_first_main_only_and_checks_the_tag(publish_workflow):
+    steps = _jobs(publish_workflow)["sign"]["steps"]
+    guard = _run(steps[0])
+    assert "uses" not in steps[0]
+    assert '[[ "$GITHUB_REF" == "refs/heads/main" ]]' in guard
+    assert "refs/tags/$RELEASE_TAG\" ]]" not in guard and '== "refs/tags/' not in guard, "no run from a tag"
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in guard, "tag input must be v<semver>"
+    assert "git/ref/tags/$RELEASE_TAG" in guard, "tag must exist"
+    assert "contents/version.json?ref=refs/tags/$RELEASE_TAG" in guard, "tag must equal version.json at the tag"
+    assert guard.count("exit 1") >= 5
+    assert publish_workflow["env"]["RELEASE_TAG"] == "${{ inputs.tag }}"
+
+
+def test_publish_downloads_the_payload_of_the_green_tag_push_build(publish_workflow):
+    steps = _jobs(publish_workflow)["sign"]["steps"]
+    find = _step_index(steps, lambda s: "actions/workflows/build_and_release.yml/runs" in _run(s), "finds the build run")
+    download = _step_index(steps, lambda s: "download-artifact" in str(s.get("uses", "")), "downloads the payload")
+
+    assert 0 < find < download
+    run = _run(steps[find])
+    assert "commits/refs/tags/$RELEASE_TAG" in run
+    assert "status=success" in run and "head_sha=" in run
+    assert '.event == \\"push\\"' in run and '.head_branch == \\"$RELEASE_TAG\\"' in run
+    assert steps[find]["id"] == "build_run"
+    with_ = steps[download]["with"]
+    assert with_["name"] == "update-payload"
+    assert with_["run-id"] == "${{ steps.build_run.outputs.run_id }}"
+    assert with_["github-token"] == "${{ github.token }}"
+
+
+def test_sign_job_installs_only_the_hashed_signer_and_holds_the_key_in_one_step(publish_workflow):
+    steps = _jobs(publish_workflow)["sign"]["steps"]
+    venv = _step_index(steps, lambda s: "requirements-sign.txt" in _run(s), "creates the signer venv")
+    sign = _step_index(steps, lambda s: "sign_manifest.py" in _run(s), "signs")
+    upload = _step_index(steps, lambda s: s.get("with", {}).get("name") == "signed-update", "uploads the signed update")
+
+    assert venv < sign < upload
+    assert "--require-hashes" in _run(steps[venv]) and "--only-binary :all:" in _run(steps[venv])
+    assert '"$RUNNER_TEMP/signer-venv/bin/python" -I scripts/release/sign_manifest.py' in _run(steps[sign])
+    assert set(steps[sign]["env"]) == {"UPDATE_SIGNING_KEY_ED25519"}
+    assert "installer_name" in steps[upload]["with"]["path"] and "manifest.json" in steps[upload]["with"]["path"]
+    for step in steps:
+        assert "requirements.txt" not in _run(step).replace("requirements-sign.txt", ""), "no unhashed installs here"
+        assert "cache" not in step.get("with", {}), step.get("name")
+
+
+def test_signing_key_secret_only_reaches_the_sign_step(workflow, publish_workflow):
+    holders = [
+        (job_name, step.get("name"))
+        for job_name, job in _jobs(publish_workflow).items()
+        for step in job.get("steps", [])
+        if "UPDATE_SIGNING_KEY_ED25519" in json.dumps(step)
+    ]
+    assert holders == [("sign", "Sign Update Manifest")]
+    for job in _jobs(publish_workflow).values():
+        assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(job.get("env", {}))
+    assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(publish_workflow.get("env", {}))
+    assert "UPDATE_SIGNING_KEY_ED25519" not in json.dumps(workflow)
+
+
+def test_verify_job_uses_the_tag_code_and_no_secrets(publish_workflow):
+    verify = _jobs(publish_workflow)["verify"]
+    assert "secrets." not in json.dumps(verify)
+    steps = verify["steps"]
+    checkout = _step_index(steps, lambda s: str(s.get("uses", "")).startswith("actions/checkout@"), "checks out")
+    deps = _step_index(steps, lambda s: "requirements.txt" in _run(s), "installs app dependencies")
+    check = _step_index(steps, lambda s: "verify_manifest.py" in _run(s), "verifies")
+
+    assert checkout < deps < check
+    assert steps[checkout]["with"]["ref"] == "refs/tags/${{ inputs.tag }}"
+    assert "--installer" in _run(steps[check]) and "expected_sha256=" in _run(steps[check])
+
+
+def test_upload_job_is_shell_only(publish_workflow):
+    upload = _jobs(publish_workflow)["upload"]
+    for step in upload["steps"]:
+        uses = str(step.get("uses", ""))
+        assert not uses.startswith(("actions/checkout@", "actions/setup-python@")), step.get("name")
+        run = _run(step)
+        assert not re.search(r"(^|[\s;|&(\"/])(python3?|pip3?)(\s|$)", run), f"Python/pip in upload: {step.get('name')}"
+    secrets = set(re.findall(r"secrets\.([A-Z0-9_]+)", json.dumps(upload)))
+    assert secrets == {"HOSTINGER_SSH_KEY", "HOSTINGER_KNOWN_HOSTS"}
+
+
+def test_upload_publishes_manifest_last_after_public_installer_verification(publish_workflow):
+    steps = _jobs(publish_workflow)["upload"]["steps"]
+    prepare_ssh = _step_index(steps, lambda s: "HOSTINGER_SSH_KEY" in _run(s), "writes the SSH key")
+    installer_upload = _step_index(
+        steps, lambda s: "sftp" in _run(s) and ".part" in _run(s) and "posix-rename" in _run(s),
+        "uploads the installer as .part then renames it",
+    )
+    public_check = _step_index(
+        steps, lambda s: "curl" in _run(s) and "sha256sum" in _run(s) and "$EXPECTED_SHA256" in _run(s)
+        and "Content-Length" in _run(s), "verifies the public HTTPS installer against the verified manifest",
+    )
+    manifest_upload = _step_index(steps, lambda s: "manifest.json.tmp" in _run(s), "uploads manifest.json.tmp")
+    published = _step_index(steps, lambda s: "cmp -s" in _run(s), "compares the published manifest")
+    prune = _step_index(steps, lambda s: "ls -1" in _run(s) and "rmdir" in _run(s), "prunes old releases")
+    remove_now = _step_index(steps, lambda s: "shred" in _run(s) and "if" not in s, "removes the SSH key after prune")
+    backstop = _step_index(steps, lambda s: "shred" in _run(s) and s.get("if") == "always()", "always() cleanup")
+
+    assert prepare_ssh < installer_upload < public_check < manifest_upload < published < prune < remove_now < backstop
+    assert "posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json" in _run(steps[manifest_upload])
+    assert all("manifest.json.tmp" not in _run(s) for s in steps[:public_check])
+    assert not any("upload-artifact" in str(s.get("uses", "")) for s in steps[prepare_ssh:remove_now])
+
+
+def test_upload_ssh_pins_the_host_key_and_protects_the_key_file(publish_workflow):
+    steps = _jobs(publish_workflow)["upload"]["steps"]
+    prepare = _run(steps[_step_index(steps, lambda s: "HOSTINGER_SSH_KEY" in _run(s), "writes the SSH key")])
+
+    assert "StrictHostKeyChecking yes" in prepare
+    assert "install -m 600" in prepare and "umask 077" in prepare
+    assert "HOSTINGER_KNOWN_HOSTS" in prepare
+    assert not re.search(r"StrictHostKeyChecking[ =]+(no|accept-new)", PUBLISH_WORKFLOW_TEXT, re.IGNORECASE)
