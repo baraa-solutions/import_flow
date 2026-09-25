@@ -4,6 +4,7 @@ Freight Quotations REST Router (BP-008)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.freight_quotations.schemas import (
@@ -18,6 +19,7 @@ from modules.freight_quotations.service import FreightQuotationService
 router = APIRouter(
     prefix="/api/v1/freight-quotations",
     tags=["Freight Quotations (BP-008)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

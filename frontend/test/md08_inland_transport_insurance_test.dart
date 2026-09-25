@@ -94,8 +94,9 @@ void main() {
       expect(find.textContaining('Institute Cargo Clauses (A/B/C)'), findsWidgets);
 
       // Verify category chips
-      expect(find.widgetWithText(ChoiceChip, 'نقل بري'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, 'شركة تأمين'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('نقل بري'), findsWidgets); // category badge in the partner row
+      expect(find.text('شركة تأمين'), findsWidgets); // category badge in the partner row
     });
 
     testWidgets('Opening Partner Dialog shows Inland Transport and Insurance fields', (tester) async {

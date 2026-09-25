@@ -1,18 +1,21 @@
 {
   "major": 2,
-  "minor": 0,
-  "patch": 3,
-  "version": "2.0.3",
-  "build_number": 205,
+  "minor": 1,
+  "patch": 0,
+  "version": "2.1.0",
+  "build_number": 206,
   "min_compatible_version": "1.0.180",
-  "updated_at": "2026-09-20 14:25:06",
+  "updated_at": "2026-09-26 00:05:06",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v2.0.3/Sorour_Logistics_Setup_v2.0.3.exe",
   "installer_filename": "Sorour_Logistics_Setup_v2.0.3.exe",
   "installer_size_mb": 202.8,
   "release_notes": [
-    "POFormDialog: Dirty tracking on all controllers, barrierDismissible: false, UnsavedChangesGuard, maybePop on header ✕ and bottom Cancel, autosave badge (\"مسودة محفوظة\").",
-    "Checklist Item: #46 (The 46th and Final Task of ImportFlow ERP Checklist — إتمام كامل بنود النظام بنسبة 100%)",
-    "Stage: المرحلة 9: تكلفة الوصول والإغلاق (Stage 9/10: Landed Cost & File Closure)",
-    "CLO-04: Official File Closure & Digital Archive — الإغلاق الرسمي والأرشفة الرقمية المكتملة للملف"
+    "تحديث البرنامج تلقائياً من داخله: يظهر إشعار عند توفر نسخة جديدة، ويتم التنزيل والتحقق والتثبيت وإعادة التشغيل بضغطة واحدة.",
+    "نسخة احتياطية تلقائية لقاعدة البيانات قبل كل تحديث وقبل أي ترقية لها، مع إمكانية الرجوع للنسخة السابقة عند الحاجة.",
+    "حماية كاملة للبيانات: التثبيت والتحديث لا يستبدلان قاعدة البيانات أبداً، ويدخل النظام وضع الحماية (قراءة فقط) إذا فشلت أي ترقية.",
+    "التحقق من كل تحديث بتوقيع رقمي قبل تثبيته، ورفض أي ملف غير موثوق أو معدّل.",
+    "تشغيل أكثر ثباتاً على أجهزة Windows الجديدة، مع شاشة \"جاري تشغيل النظام\" عند بدء التشغيل.",
+    "تحسينات أمان: تسجيل الدخول مطلوب لكل وظائف النظام، وصلاحيات أدق للمستخدمين.",
+    "إصلاح تعذّر تسجيل الدخول لبعض المستخدمين، وإصلاح أخطاء في معاينة تقرير أمر الشراء وشاشتي العملات والتعريفة الجمركية، وتحسينات في تنسيق الشاشات."
   ]
 }

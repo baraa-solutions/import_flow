@@ -3,13 +3,12 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 import os
-import sys
 from pathlib import Path
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
-else:
-    BASE_DIR = Path(__file__).resolve().parent.parent
+from utils.db_safety import app_base_dir
+
+# Frozen build: the executable's folder (never sys._MEIPASS); dev: the repo root.
+BASE_DIR = app_base_dir()
 
 DB_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
 DATABASE_URL = os.getenv("DATABASE_URL")

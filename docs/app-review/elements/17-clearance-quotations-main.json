@@ -1,0 +1,1014 @@
+{
+ "screen_nn": "17",
+ "screen_slug": "clearance-quotations",
+ "state": "main",
+ "screenshot": "../screenshots/17-clearance-quotations-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Port Said Clearance Services / بورسعيد لخدمات التخليص",
+   "role": "cell"
+  },
+  {
+   "text": "6500 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "9000 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "1500 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "4200 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "0 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "21200 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "4 أيام",
+   "role": "cell"
+  },
+  {
+   "text": "El Nour Customs Brokerage / النور للتخليص الجمركي",
+   "role": "cell"
+  },
+  {
+   "text": "5800 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "11000 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "4600 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "22900 EGP",
+   "role": "cell"
+  },
+  {
+   "text": "5 أيام",
+   "role": "cell"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالدراسات والاستشارات الجمركية\n24H LIVE\nCustoms Broker Consultation & Inspection Workspace\nCustoms Studies\nOperations & Stages\nعروض ومقايسات التخليص الجمركي والاستخراج الذكي"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:37",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    581,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    707,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    814,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    844,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    870,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    898,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    945,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    971,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    999,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1090,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1118,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1144,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "دراسات ومفاضلة نولون الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مقارنة عروض أسعار الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    639,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الدراسات والاستشارات الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    666,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    797,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "Customs Workspace",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    195,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Consultations Log",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    235,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Broker Price Lists & Catalog",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    276,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Clearance Quotes & AI Extractor",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    316,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    96,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1013,
+    96,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    658,
+    100,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    100,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1312,
+    175,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استخراج ذكي لمقايسة تخليص",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    168,
+    224,
+    54
+   ]
+  },
+  {
+   "label": "جميع الحالات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1451,
+    327,
+    120,
+    48
+   ]
+  },
+  {
+   "label": "استخراج ذكي لمقايسة تخليص",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    492,
+    389,
+    206,
+    47
+   ]
+  },
+  {
+   "label": "إنشاء طلب عرض أسعار جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    707,
+    389,
+    201,
+    47
+   ]
+  },
+  {
+   "label": "تصدير جدول نصوص",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    919,
+    386,
+    163,
+    53
+   ]
+  },
+  {
+   "label": "تصدير إكسيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1090,
+    386,
+    128,
+    53
+   ]
+  },
+  {
+   "label": "طباعة تقرير بي دي إف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1226,
+    386,
+    167,
+    53
+   ]
+  },
+  {
+   "label": "نسخ ملخص المقايسات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1401,
+    386,
+    176,
+    53
+   ]
+  },
+  {
+   "label": "CRFQ-000002",
+   "tooltip": "إنشاء طلب عرض أسعار تخليص جمركي | مسودة | الميناء:  | Alexandria Port | نوع الشحنة:  | Ocean FCL (40HQ) (1) | الوزن:  | 10000 كجم | الحجم:  | 30 م³ | العروض المستلمة من المخلصين (0) | لم يتم إدخال عروض أسعار لهذا الطلب بعد.",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    488,
+    451,
+    1094,
+    230
+   ]
+  },
+  {
+   "label": "نسخ ملخص المقايسات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1461,
+    467,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استخراج ذكي للعرض",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1275,
+    559,
+    150,
+    40
+   ]
+  },
+  {
+   "label": "إضافة عرض يدوي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1433,
+    559,
+    133,
+    41
+   ]
+  },
+  {
+   "label": "CRFQ-000001",
+   "tooltip": "Clearance quote - LED lamps Port Said | عروض مستلمة | الميناء:  | Port Said West | نوع الشحنة:  | Ocean FCL (40HQ) (1) | بند التعريفة:  | 8539.52.00 | الوزن:  | 2400 كجم | الحجم:  | 27 م³ | أقل عرض:  | 21200.00 جنيه | أسرع مدة:  | 4 أيام | العروض المستلمة من المخلصين (2)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    488,
+    681,
+    1094,
+    301
+   ]
+  },
+  {
+   "label": "نسخ ملخص المقايسات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1422,
+    697,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استخراج ذكي للعرض",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1275,
+    789,
+    150,
+    40
+   ]
+  },
+  {
+   "label": "إضافة عرض يدوي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1433,
+    789,
+    133,
+    41
+   ]
+  },
+  {
+   "label": "نسخ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    520,
+    900,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "ترسية واعتماد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    560,
+    900,
+    80,
+    40
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    640,
+    900,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "نسخ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    520,
+    948,
+    40,
+    34
+   ]
+  },
+  {
+   "label": "ترسية واعتماد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    560,
+    948,
+    80,
+    34
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    640,
+    948,
+    40,
+    34
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود الطلب، العنوان، أو الميناء...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    488,
+    327,
+    950,
+    54
+   ]
+  }
+ ],
+ "tabs": [
+  {
+   "label": "طلب ومقارنة عروض التخليص الجمركي",
+   "selected": true
+  },
+  {
+   "label": "قوائم أسعار بنود التخليص الثابتة",
+   "selected": false
+  }
+ ],
+ "checkboxes_radios": [],
+ "table_column_headers": [
+  "الحالة والإجراءات",
+  "المخلص الجمركي",
+  "أتعاب التخليص",
+  "النقل الداخلي",
+  "فحص وعرض",
+  "موانئ وتخزين",
+  "نثريات",
+  "الإجمالي التقديري",
+  "المدة"
+ ],
+ "table_header_candidates": [
+  {
+   "y": 840,
+   "cells_left_to_right": [
+    "الحالة والإجراءات",
+    "المخلص الجمركي",
+    "أتعاب التخليص",
+    "النقل الداخلي",
+    "فحص وعرض",
+    "موانئ وتخزين",
+    "نثريات",
+    "الإجمالي التقديري",
+    "المدة"
+   ]
+  },
+  {
+   "y": 896,
+   "cells_left_to_right": [
+    "6500 EGP",
+    "9000 EGP",
+    "1500 EGP",
+    "4200 EGP",
+    "0 EGP",
+    "21200 EGP",
+    "4 أيام"
+   ]
+  },
+  {
+   "y": 944,
+   "cells_left_to_right": [
+    "5800 EGP",
+    "11000 EGP",
+    "1500 EGP",
+    "4600 EGP",
+    "0 EGP",
+    "22900 EGP",
+    "5 أيام"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 14,
+  "buttons": 70,
+  "fields": 2,
+  "tabs": 2,
+  "headers": 9,
+  "header_rows": 3
+ }
+}

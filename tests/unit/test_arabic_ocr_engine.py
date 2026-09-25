@@ -3,9 +3,15 @@ Unit tests for Arabic RapidOCR Engine (modules/import_documentation/arabic_ocr_e
 Verifies RTL text shaping, typo normalization, 2D box grouping, and scanned PDF extraction accuracy.
 """
 
+import importlib.util
 import os
 import pytest
 from pathlib import Path
+
+# rapidocr_onnxruntime is an optional runtime dependency (not in requirements.txt); the engine falls back
+# gracefully without it, so tests that need the real engine only run where it is installed.
+RAPIDOCR_INSTALLED = importlib.util.find_spec("rapidocr_onnxruntime") is not None
+requires_rapidocr = pytest.mark.skipif(not RAPIDOCR_INSTALLED, reason="rapidocr_onnxruntime is not installed")
 
 from modules.import_documentation.arabic_ocr_engine import (
     get_arabic_ocr_engine,
@@ -27,6 +33,7 @@ def test_arabic_ocr_model_files_exist():
     assert REC_KEYS_PATH.stat().st_size > 100, "Dictionary file size seems too small"
 
 
+@requires_rapidocr
 def test_arabic_ocr_engine_initialization():
     """Verifies that get_arabic_ocr_engine successfully initializes RapidOCR with the Arabic model."""
     engine = get_arabic_ocr_engine()

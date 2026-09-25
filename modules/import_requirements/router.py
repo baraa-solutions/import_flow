@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.import_requirements.schemas import (
@@ -7,7 +8,7 @@ from modules.import_requirements.schemas import (
 )
 import modules.import_requirements.service as service
 
-router = APIRouter(prefix="/api/v1/import-requirements", tags=["Import Requirements Assessment (BP-011)"])
+router = APIRouter(prefix="/api/v1/import-requirements", tags=["Import Requirements Assessment (BP-011)"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/prefill/{import_file_id}", response_model=service.ImportRequirementPrefillResponse,

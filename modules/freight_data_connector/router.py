@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -18,7 +19,8 @@ from .schemas import (
 
 freight_data_router = APIRouter(
     prefix="/api/v1/freight-data",
-    tags=["Freight & Demurrage External Data Connector (INT-DATA-015)"]
+    tags=["Freight & Demurrage External Data Connector (INT-DATA-015)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

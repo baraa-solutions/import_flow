@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
 import '../../features/smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../../features/smart_tasks/widgets/email_settings_dialog.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../providers/focus_mode_provider.dart';
 import 'ai_assistant_top_bar_button.dart';
 import 'command_palette_dialog.dart';
@@ -106,19 +107,20 @@ class GlobalHeaderShortcutsBar extends ConsumerWidget {
           onPressed: () => SmartEmailListenerDialog.show(context),
         ),
 
-        // 3. Email Server Settings (IMAP/SMTP)
-        IconButton(
-          tooltip: isArabic ? 'إعدادات ربط البريد (IMAP/SMTP)' : 'Email Server Settings (IMAP/SMTP)',
-          icon: Icon(
-            Icons.settings_suggest_rounded,
-            size: 16,
-            color: isDark ? Colors.cyanAccent.shade200 : Colors.teal.shade700,
+        // 3. Email Server Settings (IMAP/SMTP) — admin only (backend returns 403 otherwise)
+        if (EmailSettingsDialog.canAccess(ref.watch(authProvider).user))
+          IconButton(
+            tooltip: isArabic ? 'إعدادات ربط البريد (IMAP/SMTP)' : 'Email Server Settings (IMAP/SMTP)',
+            icon: Icon(
+              Icons.settings_suggest_rounded,
+              size: 16,
+              color: isDark ? Colors.cyanAccent.shade200 : Colors.teal.shade700,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+            splashRadius: 14,
+            onPressed: () => EmailSettingsDialog.show(context),
           ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-          splashRadius: 14,
-          onPressed: () => EmailSettingsDialog.show(context),
-        ),
         const SizedBox(width: 2),
 
         // 4. Language Switcher Pill (EN / عربي)

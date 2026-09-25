@@ -1,0 +1,890 @@
+{
+ "screen_nn": "40",
+ "screen_slug": "demurrage-detention",
+ "state": "tab-2-tiered-simulator-calculator",
+ "screenshot": "../screenshots/40-demurrage-detention-tab-2-tiered-simulator-calculator.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "إعدادات ومحددات الحساب"
+  },
+  {
+   "text": "فترات السماح الممنوحة"
+  },
+  {
+   "text": "المحطات الزمنية التشغيلية"
+  },
+  {
+   "text": "Demurrage (أرضيات الميناء)",
+   "role": "cell"
+  },
+  {
+   "text": "16 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "14 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "2 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "80 USD",
+   "role": "cell"
+  },
+  {
+   "text": "Detention (تأخير الحاوية الفارغة)",
+   "role": "cell"
+  },
+  {
+   "text": "0 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "7 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "0 USD",
+   "role": "cell"
+  },
+  {
+   "text": "Port Storage (تخزين ساحات الميناء)",
+   "role": "cell"
+  },
+  {
+   "text": "5 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "11 يوم",
+   "role": "cell"
+  },
+  {
+   "text": "2750 جنيه مصري",
+   "role": "cell"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nتتبع غرامات الأرضيات وحراسات الحاويات\n24H LIVE",
+  "ملخص التكلفة الإجمالية للغرامات والأرضيات\nغرامة أرضيات\n80.00 $\n2 يوم تأخير\nغرامة تأخير فارغ\n0.00 $\n0 يوم تأخير\nأرضيات الميناء\n2750.00 جنيه مصري\n11 يوم تأخير\nإجمالي التكلفة الشاملة المستحقة:\n6750.00 جنيه مصري",
+  "تفاصيل الشرائح التصاعدية المطبقة"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:56",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    623,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    750,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    856,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    886,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    912,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    940,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    988,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1014,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1042,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1132,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1160,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1186,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "متابعة الكشف والتثمين الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "تتبع غرامات الأرضيات وحراسات الحاويات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    638,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "توثيق فترات السماح (BK-02)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1182,
+    82,
+    187,
+    41
+   ]
+  },
+  {
+   "label": "موصل بيانات الشحن البحري والغرامات المجاني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1376,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1416,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1456,
+    82,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "جلسات تتبع الحاويات الحية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    130,
+    448,
+    46
+   ]
+  },
+  {
+   "label": "محاكي وحاسبة الشرائح التصاعدية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    703,
+    130,
+    448,
+    46
+   ]
+  },
+  {
+   "label": "سياسات تعريفة الخطوط الملاحية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1152,
+    130,
+    448,
+    46
+   ]
+  },
+  {
+   "label": "الخط الملاحي",
+   "tooltip": "MSC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    260,
+    536,
+    48
+   ]
+  },
+  {
+   "label": "نوع الحاوية",
+   "tooltip": "40ft High Cube",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    320,
+    536,
+    48
+   ]
+  },
+  {
+   "label": "انقر للنسخ للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    513,
+    382,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "انقر للنسخ للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    787,
+    382,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "انقر للنسخ للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    513,
+    478,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "انقر للنسخ للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    787,
+    478,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ تفريغ الحاويات من السفينة",
+   "tooltip": "2026-09-08",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    572,
+    536,
+    74
+   ]
+  },
+  {
+   "label": "تاريخ خروج الحاوية من بوابة الميناء",
+   "tooltip": "لم تخرج بعد (تحتسب حتى اليوم)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    654,
+    536,
+    74
+   ]
+  },
+  {
+   "label": "تاريخ إعادة الحاوية الفارغة لساحة الخط",
+   "tooltip": "لم تُعد بعد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    736,
+    536,
+    74
+   ]
+  },
+  {
+   "label": "إعادة احتساب الغرامات الآن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    826,
+    536,
+    58
+   ]
+  },
+  {
+   "label": "انقر للنسخ للحافظة",
+   "tooltip": "Demurrage charges incurred: 2 days overdue.",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    936,
+    218,
+    627,
+    20
+   ]
+  },
+  {
+   "label": "نسخ تفاصيل الحساب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1383,
+    552,
+    173,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "عدد الحاويات",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "فترات السماح الممنوحة",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    299,
+    380,
+    270,
+    58
+   ]
+  },
+  {
+   "label": "سعر الصرف مقابل الجنيه",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    573,
+    380,
+    270,
+    58
+   ]
+  },
+  {
+   "label": "سماح الأرضيات بالميناء (يوم)",
+   "label_above": "فترات السماح الممنوحة",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "المحطات الزمنية التشغيلية",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    299,
+    476,
+    270,
+    58
+   ]
+  },
+  {
+   "label": "سماح إعادة الفارغ (يوم)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    573,
+    476,
+    270,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [
+  "البند",
+  "الأيام المستهلكة",
+  "أيام السماح",
+  "أيام الغرامة",
+  "قيمة الغرامة"
+ ],
+ "table_header_candidates": [
+  {
+   "y": 604,
+   "cells_left_to_right": [
+    "البند",
+    "الأيام المستهلكة",
+    "أيام السماح",
+    "أيام الغرامة",
+    "قيمة الغرامة"
+   ]
+  },
+  {
+   "y": 660,
+   "cells_left_to_right": [
+    "Demurrage (أرضيات الميناء)",
+    "16 يوم",
+    "14 يوم",
+    "2 يوم",
+    "80 USD"
+   ]
+  },
+  {
+   "y": 708,
+   "cells_left_to_right": [
+    "Detention (تأخير الحاوية الفارغة)",
+    "0 يوم",
+    "7 يوم",
+    "0 يوم",
+    "0 USD"
+   ]
+  },
+  {
+   "y": 756,
+   "cells_left_to_right": [
+    "Port Storage (تخزين ساحات الميناء)",
+    "16 يوم",
+    "5 يوم",
+    "11 يوم",
+    "2750 جنيه مصري"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 16,
+  "buttons": 56,
+  "fields": 5,
+  "tabs": 0,
+  "headers": 5,
+  "header_rows": 4
+ }
+}

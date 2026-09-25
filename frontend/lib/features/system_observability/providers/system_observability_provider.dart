@@ -3,31 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_error.dart';
 import '../models/system_observability_model.dart';
 
 final autoRefreshObservabilityProvider = StateProvider<bool>((ref) => false);
 
 final systemMetricsProvider = FutureProvider.autoDispose<SystemMetricsModel>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/api/v1/system/observability/metrics');
+  final response = await dio.get('/system/observability/metrics');
   return SystemMetricsModel.fromJson(response.data);
 });
 
 final databaseHealthProvider = FutureProvider.autoDispose<DatabaseHealthModel>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/api/v1/system/observability/database');
+  final response = await dio.get('/system/observability/database');
   return DatabaseHealthModel.fromJson(response.data);
 });
 
 final domainRadarProvider = FutureProvider.autoDispose<DomainRadarModel>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/api/v1/system/observability/domain-radar');
+  final response = await dio.get('/system/observability/domain-radar');
   return DomainRadarModel.fromJson(response.data);
 });
 
 final recentTrafficProvider = FutureProvider.autoDispose<List<RecentTrafficItemModel>>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/api/v1/system/observability/recent-traffic', queryParameters: {'limit': 30});
+  final response = await dio.get('/system/observability/recent-traffic', queryParameters: {'limit': 30});
   final rawList = response.data as List<dynamic>? ?? [];
   return rawList.map((e) => RecentTrafficItemModel.fromJson(e)).toList();
 });
@@ -39,11 +40,12 @@ class DeepHealthStateNotifier extends StateNotifier<AsyncValue<DeepHealthCheckMo
   Future<void> runProbe() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get('/api/v1/system/health/deep');
+      final response = await _dio.get('/system/health/deep');
       final model = DeepHealthCheckModel.fromJson(response.data);
       state = AsyncValue.data(model);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Admin-only route: surface the backend detail (e.g. 403) as the error.
+      state = AsyncValue.error(ApiError.message(e), st);
     }
   }
 }

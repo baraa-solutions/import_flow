@@ -1,0 +1,824 @@
+{
+ "generated": "2026-09-24T10:13:21+00:00",
+ "notes": [
+  "Collected from the Flutter WEB build in Chromium: browser console errors/asserts, uncaught page errors, failed XHR/fetch requests and HTTP responses with status >= 400, bucketed per screen.",
+  "The release web build (flutter build web --release) strips debug asserts, so RenderFlex/layout OVERFLOW errors and most FlutterError reports are NOT emitted here. To catch overflows, build with `flutter build web --debug -o <dir>`, serve it and re-run with --base-url.",
+  "Windows-desktop-only issues (window_manager, file dialogs, platform channels) cannot appear on web."
+ ],
+ "base_url": "http://127.0.0.1:8088",
+ "by_screen": {
+  "session-login": [
+   {
+    "kind": "console.error",
+    "screen": "boot",
+    "time": "2026-09-24T10:10:39+00:00",
+    "text": "Null check operator used on a null value",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "boot",
+    "time": "2026-09-24T10:10:39+00:00",
+    "text": "    at a2_.bM (http://127.0.0.1:8088/main.dart.js:134379:13)\n    at a7v.gcT (http://127.0.0.1:8088/main.dart.js:148589:33)\n    at Object.esp (http://127.0.0.1:8088/main.dart.js:28711:5)\n    at Object.e_F (http://127.0.0.1:8088/main.dart.js:28675:5)\n    at bp1.aum (http://127.0.0.1:8088/main.dart.js:149047:11)\n    at bp1.bfS (http://127.0.0.1:8088/main.dart.js:149051:22)\n    at act.bQx (http://127.0.0.1:8088/main.dart.js:164106:45)\n    at atb.aLi (http://127.0.0.1:8088/main.dart.js:145699:7)\n    at tear_off.<anonymous> (http://127.0.0.1:8088/main.dart.js:4284:65)\n    at Object.CE (http://127.0.0.1:8088/main.dart.js:1206:15)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "login",
+    "time": "2026-09-24T10:10:52+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 5,
+    "last_time": "2026-09-24T10:10:52+00:00"
+   }
+  ],
+  "01-import-companies": [
+   {
+    "kind": "console.error",
+    "screen": "01-import-companies",
+    "time": "2026-09-24T09:24:01+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T09:24:07+00:00"
+   }
+  ],
+  "10-import-files": [
+   {
+    "kind": "console.error",
+    "screen": "10-import-files",
+    "time": "2026-09-24T09:31:53+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T09:31:53+00:00"
+   }
+  ],
+  "39-customs-clearance": [
+   {
+    "kind": "console.error",
+    "screen": "39-customs-clearance",
+    "time": "2026-09-24T09:54:42+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 6,
+    "last_time": "2026-09-24T09:54:57+00:00"
+   }
+  ],
+  "58-users-permissions": [
+   {
+    "kind": "console.error",
+    "screen": "58-users-permissions",
+    "time": "2026-09-24T10:05:20+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 15,
+    "last_time": "2026-09-24T10:05:35+00:00"
+   }
+  ],
+  "48-login": [
+   {
+    "kind": "console.error",
+    "screen": "boot",
+    "time": "2026-09-24T09:23:33+00:00",
+    "text": "Null check operator used on a null value",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "boot",
+    "time": "2026-09-24T09:23:33+00:00",
+    "text": "    at a2_.bM (http://127.0.0.1:8088/main.dart.js:134379:13)\n    at a7v.gcT (http://127.0.0.1:8088/main.dart.js:148589:33)\n    at Object.esp (http://127.0.0.1:8088/main.dart.js:28711:5)\n    at Object.e_F (http://127.0.0.1:8088/main.dart.js:28675:5)\n    at bp1.aum (http://127.0.0.1:8088/main.dart.js:149047:11)\n    at bp1.bfS (http://127.0.0.1:8088/main.dart.js:149051:22)\n    at act.bQx (http://127.0.0.1:8088/main.dart.js:164106:45)\n    at atb.aLi (http://127.0.0.1:8088/main.dart.js:145699:7)\n    at tear_off.<anonymous> (http://127.0.0.1:8088/main.dart.js:4284:65)\n    at Object.CE (http://127.0.0.1:8088/main.dart.js:1206:15)",
+    "count": 1
+   }
+  ],
+  "08-hs-code-explorer": [
+   {
+    "kind": "console.error",
+    "screen": "08-hs-code-explorer",
+    "time": "2026-09-24T09:29:39+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T09:30:00+00:00"
+   }
+  ],
+  "19-shipment-inquiry": [
+   {
+    "kind": "console.error",
+    "screen": "19-shipment-inquiry",
+    "time": "2026-09-24T09:38:32+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T09:38:32+00:00"
+   }
+  ],
+  "31-shipment-draft-docs-matrix": [
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:49:41+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 26,
+    "last_time": "2026-09-24T09:50:40+00:00"
+   },
+   {
+    "kind": "http",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:18+00:00",
+    "status": 500,
+    "method": "GET",
+    "url": "http://127.0.0.1:28080/api/v1/experience-guide",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:18+00:00",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:37+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:37+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   }
+  ],
+  "49-home-shell": [
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:15:19+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:15:19+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:15:22+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 8,
+    "last_time": "2026-09-24T09:15:29+00:00"
+   }
+  ],
+  "60-system-observability": [
+   {
+    "kind": "console.error",
+    "screen": "60-system-observability",
+    "time": "2026-09-24T10:06:53+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "60-system-observability",
+    "time": "2026-09-24T10:06:53+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "60-system-observability",
+    "time": "2026-09-24T10:06:55+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 5,
+    "last_time": "2026-09-24T10:06:55+00:00"
+   }
+  ],
+  "20-financial-approvals": [
+   {
+    "kind": "console.error",
+    "screen": "20-financial-approvals",
+    "time": "2026-09-24T09:38:46+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 8,
+    "last_time": "2026-09-24T09:39:37+00:00"
+   }
+  ],
+  "21-swift-reconciliation": [
+   {
+    "kind": "console.error",
+    "screen": "21-swift-reconciliation",
+    "time": "2026-09-24T09:40:11+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 2,
+    "last_time": "2026-09-24T09:40:11+00:00"
+   }
+  ],
+  "02-foreign-suppliers": [
+   {
+    "kind": "console.error",
+    "screen": "02-foreign-suppliers",
+    "time": "2026-09-24T09:24:38+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "03-partners-banks": [
+   {
+    "kind": "console.error",
+    "screen": "03-partners-banks",
+    "time": "2026-09-24T09:25:06+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 2,
+    "last_time": "2026-09-24T09:25:07+00:00"
+   }
+  ],
+  "04-projects": [
+   {
+    "kind": "console.error",
+    "screen": "04-projects",
+    "time": "2026-09-24T09:25:59+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T09:25:59+00:00"
+   }
+  ],
+  "05-ports-locations": [
+   {
+    "kind": "console.error",
+    "screen": "05-ports-locations",
+    "time": "2026-09-24T09:26:31+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "06-incoterms": [
+   {
+    "kind": "console.error",
+    "screen": "06-incoterms",
+    "time": "2026-09-24T09:27:22+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T09:27:22+00:00"
+   }
+  ],
+  "07-customs-tariff": [
+   {
+    "kind": "console.error",
+    "screen": "07-customs-tariff",
+    "time": "2026-09-24T09:28:24+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T09:28:57+00:00"
+   }
+  ],
+  "09-currencies": [
+   {
+    "kind": "console.error",
+    "screen": "09-currencies",
+    "time": "2026-09-24T09:30:49+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "11-purchase-orders": [
+   {
+    "kind": "console.error",
+    "screen": "11-purchase-orders",
+    "time": "2026-09-24T10:08:01+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 14,
+    "last_time": "2026-09-24T10:08:25+00:00"
+   },
+   {
+    "kind": "http",
+    "screen": "11-purchase-orders",
+    "time": "2026-09-24T10:08:25+00:00",
+    "status": 422,
+    "method": "POST",
+    "url": "http://127.0.0.1:28080/api/v1/purchase-orders",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "11-purchase-orders",
+    "time": "2026-09-24T10:08:25+00:00",
+    "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)",
+    "count": 1
+   }
+  ],
+  "12-cbm-calculator": [
+   {
+    "kind": "console.error",
+    "screen": "12-cbm-calculator",
+    "time": "2026-09-24T10:08:32+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "12-cbm-calculator",
+    "time": "2026-09-24T10:08:32+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "12-cbm-calculator",
+    "time": "2026-09-24T10:08:34+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 12,
+    "last_time": "2026-09-24T10:08:51+00:00"
+   }
+  ],
+  "13-shipping-scenarios": [
+   {
+    "kind": "console.error",
+    "screen": "13-shipping-scenarios",
+    "time": "2026-09-24T09:33:25+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 11,
+    "last_time": "2026-09-24T09:33:56+00:00"
+   }
+  ],
+  "14-freight-rfq-quotations": [
+   {
+    "kind": "console.error",
+    "screen": "14-freight-rfq-quotations",
+    "time": "2026-09-24T09:34:45+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 2,
+    "last_time": "2026-09-24T09:34:45+00:00"
+   }
+  ],
+  "16-customs-studies": [
+   {
+    "kind": "console.error",
+    "screen": "16-customs-studies",
+    "time": "2026-09-24T09:36:00+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 23,
+    "last_time": "2026-09-24T09:36:39+00:00"
+   }
+  ],
+  "17-clearance-quotations": [
+   {
+    "kind": "console.error",
+    "screen": "17-clearance-quotations",
+    "time": "2026-09-24T09:36:59+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 7,
+    "last_time": "2026-09-24T09:37:27+00:00"
+   },
+   {
+    "kind": "console.error",
+    "screen": "17-clearance-quotations",
+    "time": "2026-09-24T09:37:24+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "17-clearance-quotations",
+    "time": "2026-09-24T09:37:24+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   }
+  ],
+  "18-import-requirements": [
+   {
+    "kind": "console.error",
+    "screen": "18-import-requirements",
+    "time": "2026-09-24T09:37:32+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 9,
+    "last_time": "2026-09-24T09:37:46+00:00"
+   }
+  ],
+  "22-nafeza-acid": [
+   {
+    "kind": "console.error",
+    "screen": "22-nafeza-acid",
+    "time": "2026-09-24T09:41:03+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 12,
+    "last_time": "2026-09-24T09:41:49+00:00"
+   }
+  ],
+  "23-bank-form-4": [
+   {
+    "kind": "console.error",
+    "screen": "23-bank-form-4",
+    "time": "2026-09-24T09:42:22+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 9,
+    "last_time": "2026-09-24T09:43:09+00:00"
+   }
+  ],
+  "24-po-packing-reconciliation": [
+   {
+    "kind": "console.error",
+    "screen": "24-po-packing-reconciliation",
+    "time": "2026-09-24T09:43:50+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 8,
+    "last_time": "2026-09-24T09:44:25+00:00"
+   }
+  ],
+  "25-draft-bl-review": [
+   {
+    "kind": "console.error",
+    "screen": "25-draft-bl-review",
+    "time": "2026-09-24T09:44:50+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 6,
+    "last_time": "2026-09-24T09:45:21+00:00"
+   }
+  ],
+  "26-smart-invoice-bl-match": [
+   {
+    "kind": "console.error",
+    "screen": "26-smart-invoice-bl-match",
+    "time": "2026-09-24T09:46:20+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 7,
+    "last_time": "2026-09-24T09:46:25+00:00"
+   }
+  ],
+  "27-draft-coo-review": [
+   {
+    "kind": "console.error",
+    "screen": "27-draft-coo-review",
+    "time": "2026-09-24T09:47:08+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 7,
+    "last_time": "2026-09-24T09:47:14+00:00"
+   }
+  ],
+  "28-inspection-review": [
+   {
+    "kind": "console.error",
+    "screen": "28-inspection-review",
+    "time": "2026-09-24T09:47:22+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 18,
+    "last_time": "2026-09-24T09:47:45+00:00"
+   }
+  ],
+  "29-docs-customs-approval": [
+   {
+    "kind": "console.error",
+    "screen": "29-docs-customs-approval",
+    "time": "2026-09-24T09:48:39+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 20,
+    "last_time": "2026-09-24T09:48:43+00:00"
+   }
+  ],
+  "30-central-docs-archive": [
+   {
+    "kind": "console.error",
+    "screen": "30-central-docs-archive",
+    "time": "2026-09-24T09:49:25+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 18,
+    "last_time": "2026-09-24T09:49:28+00:00"
+   }
+  ],
+  "33-original-docs-cargox": [
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:44+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:44+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "31-shipment-draft-docs-matrix",
+    "time": "2026-09-24T09:50:46+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 46,
+    "last_time": "2026-09-24T09:51:47+00:00"
+   }
+  ],
+  "34-cargox-hub": [
+   {
+    "kind": "console.error",
+    "screen": "34-cargox-hub",
+    "time": "2026-09-24T09:52:02+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 5,
+    "last_time": "2026-09-24T09:52:10+00:00"
+   }
+  ],
+  "35-freight-booking": [
+   {
+    "kind": "console.error",
+    "screen": "35-freight-booking",
+    "time": "2026-09-24T09:52:33+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 9,
+    "last_time": "2026-09-24T09:53:08+00:00"
+   },
+   {
+    "kind": "http",
+    "screen": "35-freight-booking",
+    "time": "2026-09-24T09:53:08+00:00",
+    "status": 422,
+    "method": "POST",
+    "url": "http://127.0.0.1:28080/api/v1/freight-booking",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "35-freight-booking",
+    "time": "2026-09-24T09:53:08+00:00",
+    "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)",
+    "count": 1
+   }
+  ],
+  "36-cargo-shipping": [
+   {
+    "kind": "console.error",
+    "screen": "36-cargo-shipping",
+    "time": "2026-09-24T09:53:19+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T09:53:19+00:00"
+   }
+  ],
+  "37-cargo-insurance": [
+   {
+    "kind": "console.error",
+    "screen": "37-cargo-insurance",
+    "time": "2026-09-24T10:10:55+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 27,
+    "last_time": "2026-09-24T10:11:51+00:00"
+   },
+   {
+    "kind": "console.error",
+    "screen": "37-cargo-insurance",
+    "time": "2026-09-24T10:11:33+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 1
+   },
+   {
+    "kind": "console.error",
+    "screen": "37-cargo-insurance",
+    "time": "2026-09-24T10:11:33+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 1
+   }
+  ],
+  "38-customs-declaration-46": [
+   {
+    "kind": "console.error",
+    "screen": "38-customs-declaration-46",
+    "time": "2026-09-24T10:12:11+00:00",
+    "text": "Bad state: Cannot use \"ref\" after the widget was disposed.",
+    "count": 2,
+    "last_time": "2026-09-24T10:12:46+00:00"
+   },
+   {
+    "kind": "console.error",
+    "screen": "38-customs-declaration-46",
+    "time": "2026-09-24T10:12:11+00:00",
+    "text": "at Object.aM (http://127.0.0.1:8088/main.dart.js:4139:30)\n    at ah3.t (http://127.0.0.1:8088/main.dart.js:164617:28)\n    at cQd.$1 (http://127.0.0.1:8088/main.dart.js:192335:29)\n    at atb.biu (http://127.0.0.1:8088/main.dart.js:140702:7)\n    at atb.bit (http://127.0.0.1:8088/main.dart.js:140706:22)\n    at atb.c5B (http://127.0.0.1:8088/main.dart.js:140699:3)\n    at brz.$0 (http://127.0.0.1:8088/main.dart.js:140720:3)\n    at b0V.$0 (http://127.0.0.1:8088/main.dart.js:83924:12)\n    at dFM.$0 (http://127.0.0.1:8088/main.dart.js:93691:8)",
+    "count": 2,
+    "last_time": "2026-09-24T10:12:46+00:00"
+   },
+   {
+    "kind": "console.error",
+    "screen": "38-customs-declaration-46",
+    "time": "2026-09-24T10:12:12+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 34,
+    "last_time": "2026-09-24T10:13:04+00:00"
+   }
+  ],
+  "40-demurrage-detention": [
+   {
+    "kind": "console.error",
+    "screen": "40-demurrage-detention",
+    "time": "2026-09-24T09:55:51+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T09:56:08+00:00"
+   }
+  ],
+  "41-inbound-warehouse-hub": [
+   {
+    "kind": "console.error",
+    "screen": "41-inbound-warehouse-hub",
+    "time": "2026-09-24T09:56:35+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 6,
+    "last_time": "2026-09-24T09:57:08+00:00"
+   }
+  ],
+  "42-goods-in-transit": [
+   {
+    "kind": "console.error",
+    "screen": "42-goods-in-transit",
+    "time": "2026-09-24T09:57:36+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "43-warehouse-receiving-grn": [
+   {
+    "kind": "console.error",
+    "screen": "43-warehouse-receiving-grn",
+    "time": "2026-09-24T09:58:06+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "44-warehouse-received-report": [
+   {
+    "kind": "console.error",
+    "screen": "44-warehouse-received-report",
+    "time": "2026-09-24T09:58:38+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "45-financial-settlement": [
+   {
+    "kind": "console.error",
+    "screen": "45-financial-settlement",
+    "time": "2026-09-24T09:59:04+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T09:59:17+00:00"
+   }
+  ],
+  "46-landed-cost-comparison": [
+   {
+    "kind": "console.error",
+    "screen": "46-landed-cost-comparison",
+    "time": "2026-09-24T09:59:53+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "47-file-closure": [
+   {
+    "kind": "console.error",
+    "screen": "47-file-closure",
+    "time": "2026-09-24T10:00:16+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 2,
+    "last_time": "2026-09-24T10:00:16+00:00"
+   }
+  ],
+  "51-lifecycle-board": [
+   {
+    "kind": "console.error",
+    "screen": "51-lifecycle-board",
+    "time": "2026-09-24T10:01:50+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "52-master-shipment-report": [
+   {
+    "kind": "console.error",
+    "screen": "52-master-shipment-report",
+    "time": "2026-09-24T10:02:12+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 1
+   }
+  ],
+  "53-dynamic-report-builder": [
+   {
+    "kind": "console.error",
+    "screen": "53-dynamic-report-builder",
+    "time": "2026-09-24T10:02:36+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 3,
+    "last_time": "2026-09-24T10:02:36+00:00"
+   }
+  ],
+  "54-quick-update-engine": [
+   {
+    "kind": "console.error",
+    "screen": "54-quick-update-engine",
+    "time": "2026-09-24T10:02:51+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 4,
+    "last_time": "2026-09-24T10:03:06+00:00"
+   }
+  ],
+  "55-smart-tasks": [
+   {
+    "kind": "console.error",
+    "screen": "55-smart-tasks",
+    "time": "2026-09-24T10:03:41+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 12,
+    "last_time": "2026-09-24T10:03:47+00:00"
+   }
+  ],
+  "56-audit-logs": [
+   {
+    "kind": "console.error",
+    "screen": "56-audit-logs",
+    "time": "2026-09-24T10:04:19+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 11,
+    "last_time": "2026-09-24T10:04:22+00:00"
+   }
+  ],
+  "57-production-sync": [
+   {
+    "kind": "console.error",
+    "screen": "57-production-sync",
+    "time": "2026-09-24T10:04:37+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 19,
+    "last_time": "2026-09-24T10:05:08+00:00"
+   }
+  ],
+  "59-step-risk-config": [
+   {
+    "kind": "console.error",
+    "screen": "59-step-risk-config",
+    "time": "2026-09-24T10:05:59+00:00",
+    "text": "Refused to set unsafe header \"Accept-Encoding\"",
+    "count": 16,
+    "last_time": "2026-09-24T10:06:28+00:00"
+   }
+  ]
+ },
+ "counts": {
+  "session-login": 7,
+  "01-import-companies": 4,
+  "10-import-files": 4,
+  "39-customs-clearance": 6,
+  "58-users-permissions": 15,
+  "48-login": 2,
+  "08-hs-code-explorer": 3,
+  "19-shipment-inquiry": 3,
+  "31-shipment-draft-docs-matrix": 30,
+  "49-home-shell": 10,
+  "60-system-observability": 7,
+  "20-financial-approvals": 8,
+  "21-swift-reconciliation": 2,
+  "02-foreign-suppliers": 1,
+  "03-partners-banks": 2,
+  "04-projects": 4,
+  "05-ports-locations": 1,
+  "06-incoterms": 3,
+  "07-customs-tariff": 3,
+  "09-currencies": 1,
+  "11-purchase-orders": 16,
+  "12-cbm-calculator": 14,
+  "13-shipping-scenarios": 11,
+  "14-freight-rfq-quotations": 2,
+  "16-customs-studies": 23,
+  "17-clearance-quotations": 9,
+  "18-import-requirements": 9,
+  "22-nafeza-acid": 12,
+  "23-bank-form-4": 9,
+  "24-po-packing-reconciliation": 8,
+  "25-draft-bl-review": 6,
+  "26-smart-invoice-bl-match": 7,
+  "27-draft-coo-review": 7,
+  "28-inspection-review": 18,
+  "29-docs-customs-approval": 20,
+  "30-central-docs-archive": 18,
+  "33-original-docs-cargox": 48,
+  "34-cargox-hub": 5,
+  "35-freight-booking": 11,
+  "36-cargo-shipping": 4,
+  "37-cargo-insurance": 29,
+  "38-customs-declaration-46": 38,
+  "40-demurrage-detention": 4,
+  "41-inbound-warehouse-hub": 6,
+  "42-goods-in-transit": 1,
+  "43-warehouse-receiving-grn": 1,
+  "44-warehouse-received-report": 1,
+  "45-financial-settlement": 3,
+  "46-landed-cost-comparison": 1,
+  "47-file-closure": 2,
+  "51-lifecycle-board": 1,
+  "52-master-shipment-report": 1,
+  "53-dynamic-report-builder": 3,
+  "54-quick-update-engine": 4,
+  "55-smart-tasks": 12,
+  "56-audit-logs": 11,
+  "57-production-sync": 19,
+  "59-step-risk-config": 16
+ }
+}

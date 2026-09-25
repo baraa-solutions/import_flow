@@ -5,19 +5,9 @@ import '../models/production_sync_model.dart';
 class ProductionSyncService {
   final Dio _dio;
 
-  ProductionSyncService([Dio? dio])
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: ApiConstants.serverUrl,
-                connectTimeout: const Duration(seconds: 30),
-                receiveTimeout: const Duration(seconds: 180),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-              ),
-            );
+  /// [_dio] must be the authenticated client from `dioProvider`
+  /// (see `productionSyncServiceProvider`); every path below is absolute.
+  ProductionSyncService(this._dio);
 
   Future<SystemVersionInfoModel> getSystemVersionInfo() async {
     final response = await _dio.get('${ApiConstants.serverUrl}/api/v1/production-sync/version-info');
@@ -44,22 +34,6 @@ class ProductionSyncService {
       return SyncComparisonResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
     }
     throw Exception('فشل جلب مقارنة قاعدة البيانات: ${response.statusCode}');
-  }
-
-  Future<SyncActionResponseModel> syncDevToProd() async {
-    final response = await _dio.post('${ApiConstants.serverUrl}/api/v1/production-sync/sync-to-prod');
-    if (response.statusCode == 200) {
-      return SyncActionResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
-    }
-    throw Exception('فشل مزامنة قاعدة البيانات إلى الإنتاج: ${response.statusCode}');
-  }
-
-  Future<SyncActionResponseModel> pullProdToDev() async {
-    final response = await _dio.post('${ApiConstants.serverUrl}/api/v1/production-sync/pull-to-dev');
-    if (response.statusCode == 200) {
-      return SyncActionResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
-    }
-    throw Exception('فشل سحب قاعدة بيانات الإنتاج: ${response.statusCode}');
   }
 
   Future<BackupItemModel> createManualBackup({String target = 'dev'}) async {

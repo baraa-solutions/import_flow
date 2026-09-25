@@ -242,8 +242,10 @@ class TestRBACPermissionsBackend(unittest.TestCase):
     # ─── 7. Endpoint HTTP Enforcement & 403 / 401 Rejections ──────────────────
 
     def test_endpoint_rejection_missing_token_401(self):
-        """Direct API call with missing token returns 401 Unauthorized."""
-        response = self.client.get("/test-protected/view")
+        """Direct API call with missing token returns 401 Unauthorized (dev auth bypass disabled)."""
+        from unittest.mock import patch
+        with patch("modules.auth.permissions.ALLOW_DEV_AUTH_BYPASS", False):
+            response = self.client.get("/test-protected/view")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Missing Authorization header", response.json()["detail"])
 

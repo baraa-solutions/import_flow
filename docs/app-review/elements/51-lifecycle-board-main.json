@@ -1,0 +1,1441 @@
+{
+ "screen_nn": "51",
+ "screen_slug": "lifecycle-board",
+ "state": "main",
+ "screenshot": "../screenshots/51-lifecycle-board-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "المستويات الستة الكبرى — اضغط على أي مرحلة لعرض وتحديث شحناتها بالجدول أدناه:"
+  },
+  {
+   "text": "إجمالي الشحنات: 6 ملف (6 مرحلة)"
+  },
+  {
+   "text": "كافة الشحنات في جميع المراحل"
+  },
+  {
+   "text": "6 شحنة"
+  },
+  {
+   "text": "FILE-2026-0001",
+   "role": "cell"
+  },
+  {
+   "text": "-",
+   "role": "cell"
+  },
+  {
+   "text": "Freight Studies",
+   "role": "cell"
+  },
+  {
+   "text": "Customs Studies",
+   "role": "cell"
+  },
+  {
+   "text": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "role": "cell"
+  },
+  {
+   "text": "Shenzhen Brightway Electronics Co., Ltd",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-002",
+   "role": "cell"
+  },
+  {
+   "text": "Sea FCL | FOB",
+   "role": "cell"
+  },
+  {
+   "text": "26400 USD",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_01",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0002",
+   "role": "cell"
+  },
+  {
+   "text": "Budget Approval",
+   "role": "cell"
+  },
+  {
+   "text": "Nafeza ACID Issue",
+   "role": "cell"
+  },
+  {
+   "text": "Booking Confirmation",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-001",
+   "role": "cell"
+  },
+  {
+   "text": "44200 USD",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_05",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0003",
+   "role": "cell"
+  },
+  {
+   "text": "Draft Review",
+   "role": "cell"
+  },
+  {
+   "text": "Alexandria Home Furnishings / الإسكندرية للأثاث المنزلي",
+   "role": "cell"
+  },
+  {
+   "text": "Ningbo Oriental Furniture Manufacturing",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-003",
+   "role": "cell"
+  },
+  {
+   "text": "Sea FCL | CIF",
+   "role": "cell"
+  },
+  {
+   "text": "41600 USD",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_08_BL",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0004",
+   "role": "cell"
+  },
+  {
+   "text": "Bank Form 4",
+   "role": "cell"
+  },
+  {
+   "text": "Form 46 KM",
+   "role": "cell"
+  },
+  {
+   "text": "Sorour Trading & Import Co. / شركة سرور للتجارة والاستيراد",
+   "role": "cell"
+  },
+  {
+   "text": "Istanbul Tekstil Sanayi A.S.",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-004",
+   "role": "cell"
+  },
+  {
+   "text": "Sea FCL | CFR",
+   "role": "cell"
+  },
+  {
+   "text": "74000 EUR",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_12",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0005",
+   "role": "cell"
+  },
+  {
+   "text": "Duty Payment",
+   "role": "cell"
+  },
+  {
+   "text": "Demurrage & Guard",
+   "role": "cell"
+  },
+  {
+   "text": "Rhein Thermotechnik GmbH",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-005",
+   "role": "cell"
+  },
+  {
+   "text": "Sea FCL | FCA",
+   "role": "cell"
+  },
+  {
+   "text": "85200 EUR",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_17",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0006",
+   "role": "cell"
+  },
+  {
+   "text": "File Archive & Close",
+   "role": "cell"
+  },
+  {
+   "text": "Gujarat Polymers Pvt. Ltd",
+   "role": "cell"
+  },
+  {
+   "text": "PO-2026-006",
+   "role": "cell"
+  },
+  {
+   "text": "62000 USD",
+   "role": "cell"
+  },
+  {
+   "text": "نقطة البداية المحددة للشحنة: STEP_21",
+   "role": "cell"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nلوحة تتبع ومراحل الشحنات التفاعلية\n24H LIVE\nلوحة تتبع ومتابعة مراحل الشحنات التفاعلية المباشرة (6 مراحل و 25 خطوة)"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 13:01",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    598,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    725,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    831,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    861,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    887,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    915,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    989,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1017,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1107,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1135,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1161,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "متابعة الكشف والتثمين الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "تتبع غرامات الأرضيات وحراسات الحاويات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    639,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "إذن إضافة المخزن واستلام الشحنة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    666,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    798,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "حساب تكلفة الوصول النهائية للوحدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    957,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الإغلاق المالي والإداري لملف الاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    984,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1116,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "لوحة تتبع ومراحل الشحنات التفاعلية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1143,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1274,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "عرض مراحل العمليات (6 مراحل)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1055,
+    86,
+    182,
+    28
+   ]
+  },
+  {
+   "label": "رادار التتبع اللوجستي الحي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1237,
+    86,
+    152,
+    28
+   ]
+  },
+  {
+   "label": "تحديث البيانات المباشرة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1398,
+    80,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    80,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "دراسات الشحن والجمارك",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    269,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "اعتماد الميزانية وإجراءات التسجيل",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    489,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "الحجز الملاحي ومراجعة المسودات",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    709,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "التحويل الرقمي والإجراءات البنكية",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    928,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "التخليص الجمركي والكشف والتثمين",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1148,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "الاستلام المخزني والتكلفة الإجمالية",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1368,
+    167,
+    210,
+    28
+   ]
+  },
+  {
+   "label": "دراسات النولون",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    272,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "اعتماد الميزانية",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    492,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "تأكيد الحجز",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "رفع المستندات إلكترونياً",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    932,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "إقرار الإجراءات الجمركية",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "إذن الإضافة المخزني",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1371,
+    198,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "الدراسات الجمركية",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    272,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "إصدار الرقم المبدئي",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    492,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "تخصيص الحاويات",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "أصول المستندات والشحن",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    932,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "الكشف والتثمين الجمركي",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "تسوية التكلفة الإجمالية",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1371,
+    226,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "اشتراطات الاستيراد",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    272,
+    254,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "مطابقة الفاتورة وقائمة التعبئة",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    254,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "النموذج البنكي المعتمد",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    932,
+    254,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "سحب وفحص العينات",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    254,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "إغلاق وأرشفة الملف",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1371,
+    254,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "مراجعة مسودة بوليصة الشحن",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    282,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "محضر المعاينة والأضرار",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    282,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "المطابقة الذكية للفاتورة والبوليصة",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    310,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "سداد الرسوم والضرائب",
+   "tooltip": "1",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    310,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "مسودة شهادة المنشأ و EUR.1",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    338,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "الأرضيات وغرامات الحاويات",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    338,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "شهادات الفحص والمطابقة COC",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    366,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "الاعتماد النهائي للمستندات",
+   "tooltip": "0",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    394,
+    204,
+    28
+   ]
+  },
+  {
+   "label": "تصدير جدول نصوص",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    462,
+    129,
+    32
+   ]
+  },
+  {
+   "label": "تصدير إكسيل غير مدمج",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    632,
+    462,
+    141,
+    32
+   ]
+  },
+  {
+   "label": "طباعة تقرير أفقي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    777,
+    462,
+    110,
+    32
+   ]
+  },
+  {
+   "label": "نسخ ملف التتبع الشامل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    891,
+    462,
+    142,
+    32
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "IMP-2026-0001",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    562,
+    100,
+    19
+   ]
+  },
+  {
+   "label": "IMP-2026-0002",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    614,
+    100,
+    19
+   ]
+  },
+  {
+   "label": "IMP-2026-0003",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    666,
+    100,
+    19
+   ]
+  },
+  {
+   "label": "IMP-2026-0004",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    718,
+    100,
+    19
+   ]
+  },
+  {
+   "label": "IMP-2026-0005",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    770,
+    100,
+    19
+   ]
+  },
+  {
+   "label": "IMP-2026-0006",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    278,
+    822,
+    100,
+    19
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود الشحنة، المورد، أمر الشراء، أو الملاحظات...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "المورد الأجنبي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1049,
+    462,
+    228,
+    38
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [
+  "اسم الشحنة",
+  "المسار السابق",
+  "المسار الحالي",
+  "المسار التالي",
+  "الشركة المستوردة",
+  "المورد الأجنبي",
+  "أمر الشراء",
+  "نوع الشحن والشرط",
+  "القيمة التقديرية",
+  "الملاحظات والأنشطة"
+ ],
+ "table_header_candidates": [
+  {
+   "y": 503,
+   "cells_left_to_right": [
+    "اسم الشحنة",
+    "المسار السابق",
+    "المسار الحالي",
+    "المسار التالي",
+    "الشركة المستوردة",
+    "المورد الأجنبي",
+    "أمر الشراء",
+    "نوع الشحن والشرط",
+    "القيمة التقديرية",
+    "الملاحظات والأنشطة"
+   ]
+  },
+  {
+   "y": 537,
+   "cells_left_to_right": [
+    "FILE-2026-0001",
+    "-",
+    "Freight Studies",
+    "Customs Studies",
+    "Shenzhen Brightway Electronics Co., Ltd",
+    "PO-2026-002",
+    "Sea FCL | FOB",
+    "26400 USD",
+    "نقطة البداية المحددة للشحنة: STEP_01"
+   ]
+  },
+  {
+   "y": 589,
+   "cells_left_to_right": [
+    "FILE-2026-0002",
+    "Budget Approval",
+    "Nafeza ACID Issue",
+    "Booking Confirmation",
+    "Shenzhen Brightway Electronics Co., Ltd",
+    "PO-2026-001",
+    "Sea FCL | FOB",
+    "44200 USD",
+    "نقطة البداية المحددة للشحنة: STEP_05"
+   ]
+  },
+  {
+   "y": 641,
+   "cells_left_to_right": [
+    "FILE-2026-0003",
+    "Draft Review",
+    "Draft Review",
+    "Draft Review",
+    "Ningbo Oriental Furniture Manufacturing",
+    "PO-2026-003",
+    "Sea FCL | CIF",
+    "41600 USD",
+    "نقطة البداية المحددة للشحنة: STEP_08_BL"
+   ]
+  },
+  {
+   "y": 693,
+   "cells_left_to_right": [
+    "FILE-2026-0004",
+    "Draft Review",
+    "Bank Form 4",
+    "Form 46 KM",
+    "Istanbul Tekstil Sanayi A.S.",
+    "PO-2026-004",
+    "Sea FCL | CFR",
+    "74000 EUR",
+    "نقطة البداية المحددة للشحنة: STEP_12"
+   ]
+  },
+  {
+   "y": 745,
+   "cells_left_to_right": [
+    "FILE-2026-0005",
+    "Draft Review",
+    "Duty Payment",
+    "Demurrage & Guard",
+    "Rhein Thermotechnik GmbH",
+    "PO-2026-005",
+    "Sea FCL | FCA",
+    "85200 EUR",
+    "نقطة البداية المحددة للشحنة: STEP_17"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 52,
+  "buttons": 90,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 10,
+  "header_rows": 7
+ }
+}

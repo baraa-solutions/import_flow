@@ -170,12 +170,12 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       ],
                       moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
                         context: context,
-                        includeTsv: (tariffsAsync.value ?? []).isNotEmpty,
+                        includeTsv: (tariffsAsync.valueOrNull ?? []).isNotEmpty,
                       ),
                       onMoreActionSelected: (val) {
                         switch (val) {
                           case 'export_excel':
-                            final list = tariffsAsync.value ?? [];
+                            final list = tariffsAsync.valueOrNull ?? [];
                             MasterDataExportService.exportTariffsToExcel(context, list);
                             break;
                           case 'export_pdf':
@@ -189,7 +189,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                             );
                             break;
                           case 'copy_tsv':
-                            _copyTariffsTsv(context, tariffsAsync.value ?? []);
+                            _copyTariffsTsv(context, tariffsAsync.valueOrNull ?? []);
                             break;
                           case 'download_template':
                             MasterDataActionHelper.downloadFile(
@@ -248,7 +248,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                           ),
                           onPressed: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
                         ),
-                        if ((tariffsAsync.value ?? []).isNotEmpty)
+                        if ((tariffsAsync.valueOrNull ?? []).isNotEmpty)
                           IconButton(
                             icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
                             tooltip: l10n.customsTariffExportTsvBtn,
@@ -257,7 +257,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                               minWidth: density.buttonHeight,
                               minHeight: density.buttonHeight,
                             ),
-                            onPressed: () => _copyTariffsTsv(context, tariffsAsync.value ?? []),
+                            onPressed: () => _copyTariffsTsv(context, tariffsAsync.valueOrNull ?? []),
                           ),
                       ],
                     ),

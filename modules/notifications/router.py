@@ -1,19 +1,37 @@
+import asyncio
+import json
 import time
 import threading
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.auth.permissions import authenticate_ws_token
+from modules.auth.router import get_current_user
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .service import NotificationService
-from .websocket_manager import websocket_manager
+from .websocket_manager import parse_auth_frame, websocket_manager
 
 _LAST_EXPIRY_CHECK_TIMESTAMP: float = 0.0
 _EXPIRY_CHECK_LOCK = threading.Lock()
 _EXPIRY_CHECK_COOLDOWN_SECONDS: float = 120.0  # 2-minute cooldown between background scans
 
-router = APIRouter(prefix="/api/v1/notifications", tags=["System Notifications & Real-Time Expiry Engine"])
+# Seconds a freshly accepted WebSocket has to send its {"type": "auth", "token": ...} frame.
+WS_AUTH_TIMEOUT_SECONDS: float = 10.0
+# RFC 6455 "policy violation": used for missing, malformed or invalid auth frames.
+WS_POLICY_VIOLATION_CODE = 1008
+
+router = APIRouter(
+    prefix="/api/v1/notifications",
+    tags=["System Notifications & Real-Time Expiry Engine"],
+    dependencies=[Depends(get_current_user)],
+)
+
+# WebSocket routes cannot carry the Authorization header from browsers, so they live on a separate
+# router without HTTP auth dependencies and authenticate through the first message instead.
+ws_router = APIRouter(prefix="/api/v1/notifications", tags=["System Notifications & Real-Time Expiry Engine"])
 
 
 @router.get("", response_model=List[NotificationResponse])
@@ -109,9 +127,31 @@ async def trigger_expiry_check(
     return new_notifs
 
 
-@router.websocket("/ws")
+@ws_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket_manager.connect(websocket)
+    """
+    Protocol: the client connects, then must send {"type": "auth", "token": "<jwt>"} within
+    WS_AUTH_TIMEOUT_SECONDS. A valid token gets {"event": "auth_ok"} and the socket starts receiving
+    broadcasts; "ping" is answered with {"event": "pong"}. Anything else closes the socket with 1008.
+    """
+    await websocket_manager.accept(websocket)
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=WS_AUTH_TIMEOUT_SECONDS)
+    except WebSocketDisconnect:
+        return
+    except (asyncio.TimeoutError, KeyError, RuntimeError):
+        # Timeout, or a binary / non-text first frame.
+        await websocket.close(code=WS_POLICY_VIOLATION_CODE)
+        return
+
+    token = parse_auth_frame(raw)
+    user = await run_in_threadpool(authenticate_ws_token, token) if token else None
+    if user is None:
+        await websocket.close(code=WS_POLICY_VIOLATION_CODE)
+        return
+
+    await websocket.send_text(json.dumps({"event": "auth_ok"}))
+    websocket_manager.register(websocket)
     try:
         while True:
             # Keep connection open and receive ping messages
@@ -119,4 +159,6 @@ async def websocket_endpoint(websocket: WebSocket):
             if data == "ping":
                 await websocket.send_text('{"event": "pong"}')
     except WebSocketDisconnect:
+        pass
+    finally:
         websocket_manager.disconnect(websocket)

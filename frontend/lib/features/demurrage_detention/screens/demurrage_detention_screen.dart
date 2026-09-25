@@ -260,28 +260,35 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           children: [
             const Icon(Icons.timer_outlined, color: Colors.white),
             const SizedBox(width: 10),
-            Text(
-              l10n.demurrageScreenTitle,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: density.headerTitleFontSize,
-                fontWeight: FontWeight.bold,
+            // Flexible + ellipsis: the AppBar actions leave limited width for the title row.
+            Flexible(
+              child: Text(
+                l10n.demurrageScreenTitle,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: density.headerTitleFontSize,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD).withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.6)),
-              ),
-              child: Text(
-                DisplayNameResolver.resolveStageBadge('STEP_18', isArabic: Directionality.of(context) == TextDirection.rtl),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: DisplayDensityMode.clampFontSize(11.0),
-                  fontWeight: FontWeight.bold,
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8E44AD).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.6)),
+                ),
+                child: Text(
+                  DisplayNameResolver.resolveStageBadge('STEP_18', isArabic: Directionality.of(context) == TextDirection.rtl),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: DisplayDensityMode.clampFontSize(11.0),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),

@@ -1,24 +1,29 @@
 """
 Database Updates Script
-Executes user requested updates across all databases:
+Executes user requested updates on ONE explicit database:
 1. Deletes demo import companies, suppliers, external service providers, and CargoX envelopes/documents.
 2. Creates and populates `countries` table (250 countries).
 3. Populates `currencies` table (178 currencies).
 4. Creates and populates `cities` table (all requested cities).
 5. Populates `transport_locations` table (all sea ports, airports, dry ports, and land borders).
+
+DESTRUCTIVE (step 1 wipes companies/suppliers/providers). Safety (update-system-plan A13/R12):
+    python execute_user_database_updates.py --db <path/to/db> --confirm
+The target must not be in use, and a verified pre_migration_ backup is taken first (abort on failure).
 """
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-DATABASES = [
-    ROOT_DIR / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "ImportFlow_Standalone" / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "sorour_logistics.db",
-    ROOT_DIR / "dist_backend" / "sorour_logistics.db",
-]
+from scripts.db_script_guard import add_target_arguments, guard_target, run_cli_action  # noqa: E402
+
+SCRIPT_TAG = "execute_user_database_updates"
 
 RAW_COUNTRIES_TEXT = """
 AF	AFGHANISTAN.
@@ -560,10 +565,14 @@ def get_comprehensive_ports():
     ]
     return ports
 
-def execute_updates_on_db(db_path: Path):
-    if not db_path.exists():
-        print(f"[SKIP] Database does not exist: {db_path}")
-        return
+def execute_updates_on_db(db_path: Path, *, confirm: bool = False, backups_dir: Optional[Path] = None) -> bool:
+    """Apply the updates to ``db_path`` only.
+
+    confirm=True: target must not be in use; a verified backup is taken first (UnsafeTargetError otherwise).
+    confirm=False: refused for the live app database or a database in use.
+    """
+    db_path = Path(db_path)
+    guard_target(db_path, confirm=confirm, tag=SCRIPT_TAG, backups_dir=backups_dir)
 
     print(f"\n--- Executing updates on: {db_path} ---")
     conn = sqlite3.connect(db_path)
@@ -682,18 +691,30 @@ def execute_updates_on_db(db_path: Path):
             print(f"      - {tbl}: error ({e})")
 
     conn.close()
+    return True
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Wipe demo companies/suppliers/providers/CargoX data and expand master data on ONE database."
+    )
+    add_target_arguments(parser, target_help="Database file to update")
+    args = parser.parse_args(argv)
+
+    def _run(target: Path, backups_dir: Optional[Path]):
+        print("===============================================================================")
+        print("         ImportFlow ERP - Database Cleansing & Master Data Expansion          ")
+        print("===============================================================================")
+        if not (ROOT_DIR / "raw_cities.txt").exists():
+            print("Note: raw_cities.txt not found; the cities step will insert nothing.")
+        execute_updates_on_db(target, confirm=True, backups_dir=backups_dir)
+        print(f"\n[SUCCESS] Database modifications applied to {target}")
+        return True
+
+    return run_cli_action(args, _run)
+
 
 if __name__ == "__main__":
-    print("===============================================================================")
-    print("         ImportFlow ERP - Database Cleansing & Master Data Expansion          ")
-    print("===============================================================================")
-    
-    # Write raw cities file if not already present
-    cities_file = ROOT_DIR / "raw_cities.txt"
-    if not cities_file.exists():
-        print("Note: Creating raw_cities.txt from prompt data...")
-    
-    for db in DATABASES:
-        execute_updates_on_db(db)
-    
-    print("\n[SUCCESS] All database modifications applied successfully across all environments!")
+    sys.exit(main())

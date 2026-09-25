@@ -1,0 +1,143 @@
+{
+ "screen_nn": "09",
+ "screen_slug": "currencies",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/09-currencies-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "إضافة عملة جديدة"
+  },
+  {
+   "text": "3 characters remaining"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "نسخ القيمة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    952,
+    390,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    952,
+    474,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    952,
+    538,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    621,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "إضافة العملة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    890,
+    612,
+    110,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "كود العملة القياسي (3 أحرف) *",
+   "label_above": "إضافة عملة جديدة",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    600,
+    388,
+    408,
+    78
+   ]
+  },
+  {
+   "label": "اسم العملة *",
+   "label_above": "3 characters remaining",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    600,
+    472,
+    408,
+    58
+   ]
+  },
+  {
+   "label": "رمز العملة *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    600,
+    536,
+    408,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 3,
+  "buttons": 5,
+  "fields": 3,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

@@ -95,6 +95,9 @@ PERMISSIONS_CATALOG = [
     # 18. Reports & Analytics
     {"code": "reports.view", "module": "reports_and_analytics", "action": "view", "en": "View Reports & Dashboards", "ar": "استعراض التقارير الإدارية والتحليلات", "desc": "Can view operational KPIs and summary dashboards"},
     {"code": "reports.export", "module": "reports_and_analytics", "action": "export", "en": "Export Reports", "ar": "تصدير التقارير المالية والتشغيلية", "desc": "Can export reports to Excel, PDF, or CSV"},
+
+    # 19. System Updates (granted to ADMIN only, through the "*" wildcard)
+    {"code": "system.update", "module": "system", "action": "update", "en": "Install System Updates", "ar": "تنزيل وتثبيت تحديثات النظام", "desc": "Can download, install and roll back application updates"},
 ]
 
 

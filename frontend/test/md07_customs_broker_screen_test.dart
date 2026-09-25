@@ -76,7 +76,8 @@ void main() {
       expect(find.textContaining('Alexandria, Port Said, Damietta, Ain Sokhna'), findsWidgets);
 
       // Verify Customs Broker category choice chip exists
-      expect(find.widgetWithText(ChoiceChip, 'مخلص جمركي'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('مخلص جمركي'), findsWidgets); // category badge in the partner row
 
       // Verify add partner button exists
       expect(find.byIcon(Icons.add), findsWidgets);

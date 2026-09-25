@@ -1,0 +1,4052 @@
+{
+ "screen_nn": "07",
+ "screen_slug": "customs-tariff",
+ "state": "tab-1-customs-tariff-hs-codes",
+ "screenshot": "../screenshots/07-customs-tariff-tab-1-customs-tariff-hs-codes.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "عرض المتوقف:"
+  },
+  {
+   "text": "الإجراءات"
+  },
+  {
+   "text": "كود البند الجمركي"
+  },
+  {
+   "text": "الوصف والجهة الرقابية"
+  },
+  {
+   "text": "التصنيف"
+  },
+  {
+   "text": "تفاصيل الضرائب والرسوم"
+  },
+  {
+   "text": "الاشتراطات"
+  },
+  {
+   "text": "الحالة"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nجدول التعريفة الجمركية\n24H LIVE\nالتعريفة الجمركية وبنود التعريفة المنسقة\nفئات ضريبة الوارد المصرية، القيمة المضافة، ضريبة الجدول، رسم التنمية والاشتراطات الاستيرادية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:28",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    540,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    667,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    773,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    803,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    829,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    857,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    905,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    931,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    959,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1049,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1077,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1103,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    791,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "المشاريع ومراكز التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    950,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الموانئ والمنافذ الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1109,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشروط التجارية الدولية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1136,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1268,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "جدول التعريفة الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1295,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1426,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "التعريفة الجمركية وبنود التعريفة المنسقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    953,
+    80,
+    242,
+    32
+   ]
+  },
+  {
+   "label": "🔍 استعلام وبحث شامل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1194,
+    80,
+    242,
+    32
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "+ إضافة بند يدوي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    141,
+    39
+   ]
+  },
+  {
+   "label": "✨ نافذة الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    427,
+    131,
+    128,
+    39
+   ]
+  },
+  {
+   "label": "حاسبة الرسوم والضرائب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    561,
+    131,
+    175,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير جدول التعريفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    133,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    226,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    241,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    243,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    243,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    243,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    243,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    231,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    231,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "3901.10.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    243,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    251,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    226,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    226,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "Polyethylene, specific gravity < 0.94, primary forms / بولي إيثيلين خام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    238,
+    385,
+    38
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    235,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    235,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    235,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 2%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    235,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    235,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    235,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    234,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    234,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    288,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    303,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    305,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    305,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    305,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    305,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    293,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    293,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "3926.90.90",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    305,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    313,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    297,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    297,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Plastic Articles & Industrial Components (أصناف لدائن ومصنوعاتها)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    309,
+    384,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    297,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    297,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    297,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 10%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    297,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    297,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    297,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    296,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    296,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    350,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    365,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    367,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    367,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    367,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    367,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    355,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    355,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "6302.21.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    367,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    375,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    359,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    359,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Bed linen of cotton, printed / مفروشات أسرة قطنية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    371,
+    286,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    359,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    359,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    359,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 40%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    359,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    359,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    359,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    358,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    358,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    412,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    427,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    429,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    429,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    429,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    429,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    417,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    417,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "7318.15.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    429,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    437,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    421,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    421,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Steel Screws, Bolts & Nuts (براغي ومسامير صلب)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    433,
+    279,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    421,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    421,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    421,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 5%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    421,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    421,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    421,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    420,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    420,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    476,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    491,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    493,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    493,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    493,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    493,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    481,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    481,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8415.10.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    493,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    501,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    485,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    485,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Air Conditioning Machines (أجهزة تكييف الهواء)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    497,
+    267,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    485,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    485,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    474,
+    180,
+    66
+   ]
+  },
+  {
+   "label": "وارد: 40%",
+   "tooltip": "ق.م: 14% | جدول: 8%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    474,
+    180,
+    66
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    485,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    485,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    484,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    484,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    540,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    555,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    557,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    557,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    557,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    557,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    545,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    545,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8418.10.10",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    557,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    565,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    540,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    540,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "Combined refrigerator-freezers, household / ثلاجات منزلية",
+   "tooltip": "الجهة: GOEIC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    552,
+    336,
+    38
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    549,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    549,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    549,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 30%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    549,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    549,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    549,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    548,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    548,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    602,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    617,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    619,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    619,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    619,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    619,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    607,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    607,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8471.30.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    619,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    627,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    611,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    611,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Laptops & Portable Computers (أجهزة حاسب آلي محمولة)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    623,
+    325,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    611,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    611,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    611,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 0%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    611,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    611,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    611,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    610,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    610,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    664,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    679,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    681,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    681,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    681,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    681,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    669,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    669,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8471.50.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    681,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    689,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    664,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    664,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "Desktop Computers & Servers (وحدات معالجة رقمية وحواسب مكتبية)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    676,
+    385,
+    38
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    673,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    673,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    673,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 0%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    673,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    673,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    673,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    672,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    672,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    726,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    741,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    743,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    743,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    743,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    743,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    731,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    731,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8516.10.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    743,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    751,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    726,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    726,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "Electric water heaters / سخانات مياه كهربائية",
+   "tooltip": "الجهة: GOEIC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    738,
+    251,
+    38
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    735,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    735,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    735,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 20%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    735,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    735,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    735,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    734,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    734,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    788,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    803,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    805,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    805,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    805,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    805,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    793,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    793,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8517.13.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    805,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    813,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    797,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    797,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Smartphones & Mobile Devices (هواتف ذكية وأجهزة اتصالات خلوية)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    809,
+    375,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    797,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    797,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    797,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 0%",
+   "tooltip": "ق.م: 14% | تنمية: 5%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    797,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    797,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    797,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    796,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    796,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    850,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    865,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    867,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    867,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    867,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    867,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    855,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    855,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8528.52.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    867,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    875,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    859,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    859,
+    413,
+    43
+   ]
+  },
+  {
+   "label": "Computer Monitors & Screens (شاشات عرض حواسب)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    871,
+    310,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    859,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    859,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    859,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 5%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    859,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    859,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    859,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    858,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    858,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    912,
+    210,
+    62
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    927,
+    34,
+    32
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    929,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    929,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    929,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    929,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    917,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    917,
+    140,
+    51
+   ]
+  },
+  {
+   "label": "8539.52.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    929,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    937,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    912,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    912,
+    413,
+    62
+   ]
+  },
+  {
+   "label": "LED lamps / لمبات ليد",
+   "tooltip": "الجهة: GOEIC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    924,
+    127,
+    38
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    921,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    921,
+    140,
+    44
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    921,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "وارد: 20%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    921,
+    180,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    921,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    921,
+    140,
+    43
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    920,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    920,
+    88,
+    46
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    272,
+    974,
+    210,
+    17
+   ]
+  },
+  {
+   "label": "نسخ بطاقة البند الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    989,
+    34,
+    2
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    327,
+    991,
+    28,
+    0
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    359,
+    991,
+    28,
+    0
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    391,
+    991,
+    28,
+    0
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل البند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    423,
+    991,
+    28,
+    0
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    979,
+    140,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    482,
+    979,
+    140,
+    12
+   ]
+  },
+  {
+   "label": "9401.30.00",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    496,
+    991,
+    97,
+    27
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    572,
+    999,
+    12,
+    12
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    983,
+    413,
+    8
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    972,
+    983,
+    413,
+    8
+   ]
+  },
+  {
+   "label": "Swivel Seats / Office Chairs (مقاعد دوارة)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    986,
+    995,
+    238,
+    19
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1035,
+    983,
+    140,
+    8
+   ]
+  },
+  {
+   "label": "—",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    983,
+    140,
+    8
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1175,
+    983,
+    180,
+    8
+   ]
+  },
+  {
+   "label": "وارد: 30%",
+   "tooltip": "ق.م: 14%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1175,
+    983,
+    180,
+    8
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1355,
+    983,
+    140,
+    8
+   ]
+  },
+  {
+   "label": "ACID",
+   "tooltip": "COO | INSP",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1355,
+    983,
+    140,
+    8
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1495,
+    982,
+    88,
+    9
+   ]
+  },
+  {
+   "label": "نشطة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1495,
+    982,
+    88,
+    9
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود البند، الوصف، أو التصنيف...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "الوصف والجهة الرقابية",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    797,
+    133,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "switch",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 195,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "كود البند الجمركي",
+    "الوصف والجهة الرقابية",
+    "التصنيف",
+    "تفاصيل الضرائب والرسوم",
+    "الاشتراطات",
+    "الحالة"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 8,
+  "buttons": 329,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 1
+ }
+}

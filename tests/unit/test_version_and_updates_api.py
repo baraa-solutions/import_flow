@@ -43,7 +43,7 @@ def test_system_version_check_endpoint():
     data = response.json()
     assert data["status"] == "OK"
     assert data["system_name"] == "Sorour Logistics ERP"
-    assert any(data["current_version"].startswith(prefix) for prefix in ("1.0.", "2.0."))
+    assert data["current_version"] == load_version_json()["version"]
     assert "installer_url" in data
     assert "installer_filename" in data
     assert "installer_size_mb" in data
@@ -94,11 +94,11 @@ def test_system_version_check_via_x_client_version_header():
     assert data["has_update"] is True
 
 
-def test_download_system_installer_endpoint():
-    """Verifies that /api/v1/system/download-installer returns a 200 FileResponse or redirect."""
+def test_download_system_installer_endpoint_is_removed():
+    """The unauthenticated installer download was removed (updates come from app_update)."""
     response = client.get("/api/v1/system/download-installer", follow_redirects=False)
-    # Either returns 200 if installer file exists or 307 redirect to GitHub release
-    assert response.status_code in (200, 307)
+    assert response.status_code == 404
+    assert "local_download_url" not in client.get("/api/v1/system/version").json()
 
 
 def test_publish_release_script_zero_drift():
@@ -107,6 +107,10 @@ def test_publish_release_script_zero_drift():
     assert is_synchronized is True
 
 
+@pytest.mark.skipif(
+    not UAT_DB.exists(),
+    reason=f"UAT staging database not prepared on this machine ({UAT_DB}); run scripts/prepare_uat_environment.py",
+)
 def test_uat_environment_staging_integrity():
     """Verifies that the UAT staging database exists, has 0 operational rows, and passes integrity checks."""
     assert UAT_DB.exists()

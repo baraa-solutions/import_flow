@@ -101,7 +101,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify screen loaded
-    expect(find.textContaining('تخصيص وتوزيع الحاويات'), findsOneWidget);
+    // Header title (the stage badge also contains 'تخصيص وتوزيع الحاويات والبضائع').
+    expect(find.textContaining('تخصيص وتوزيع الحاويات والوزن الإجمالي'), findsOneWidget);
     
     // Tap Tab 2 (Saved Registry)
     await tester.tap(find.textContaining('سجل متابعة الشحنات والتحميل'));

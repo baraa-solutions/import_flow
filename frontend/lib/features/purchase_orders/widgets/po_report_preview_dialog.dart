@@ -888,7 +888,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                 ),
                 ...packageTypeSummaryMap.values.map((pkgSummary) {
                   final pkgType = '${pkgSummary['package_type']}';
-                  final count = pkgSummary['total_pkg'] as int;
+                  final count = pkgSummary['qty_pkg'] as int;
                   final net = pkgSummary['total_net'] as double;
                   final gross = pkgSummary['total_gross'] as double;
                   final cbm = pkgSummary['total_cbm'] as double;

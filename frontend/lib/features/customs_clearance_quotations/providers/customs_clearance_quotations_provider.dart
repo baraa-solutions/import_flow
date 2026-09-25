@@ -1,17 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/customs_clearance_quotation_model.dart';
 
 final customsClearanceQuotationsProvider =
     StateNotifierProvider<CustomsClearanceQuotationsNotifier, AsyncValue<List<CustomsClearanceRFQModel>>>((ref) {
-  return CustomsClearanceQuotationsNotifier();
+  return CustomsClearanceQuotationsNotifier(ref.watch(dioProvider));
 });
 
 class CustomsClearanceQuotationsNotifier extends StateNotifier<AsyncValue<List<CustomsClearanceRFQModel>>> {
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  CustomsClearanceQuotationsNotifier() : super(const AsyncValue.loading()) {
+  CustomsClearanceQuotationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRFQs();
   }
 
@@ -120,13 +121,13 @@ class CustomsClearanceQuotationsNotifier extends StateNotifier<AsyncValue<List<C
 
 final clearancePriceListProvider =
     StateNotifierProvider<ClearancePriceListNotifier, AsyncValue<List<ClearancePriceListItemModel>>>((ref) {
-  return ClearancePriceListNotifier();
+  return ClearancePriceListNotifier(ref.watch(dioProvider));
 });
 
 class ClearancePriceListNotifier extends StateNotifier<AsyncValue<List<ClearancePriceListItemModel>>> {
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  ClearancePriceListNotifier() : super(const AsyncValue.loading()) {
+  ClearancePriceListNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchPriceList();
   }
 

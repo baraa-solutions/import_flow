@@ -28,9 +28,13 @@ from modules.system_observability.schemas import (
     DeepHealthCheckResponse,
 )
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-DB_PATH = ROOT_DIR / "sorour_logistics.db"
-BACKUPS_DIR = ROOT_DIR / "backups"
+from database.database import DB_PATH as _LIVE_DB_PATH
+from utils.db_safety import app_base_dir, backups_dir_for
+
+# R11: runtime paths follow the live DB (DATABASE_PATH / exe folder when frozen), never __file__.
+ROOT_DIR = app_base_dir()
+DB_PATH = Path(_LIVE_DB_PATH).resolve()
+BACKUPS_DIR = backups_dir_for(DB_PATH)
 
 # ==============================================================================
 # Native Windows Memory & System Metrics Helpers (Zero External Dependencies)
@@ -574,7 +578,7 @@ class DeepHealthProbeService:
         free_gb = 0.0
         disk_status = "OK"
         try:
-            usage = shutil.disk_usage(str(ROOT_DIR))
+            usage = shutil.disk_usage(str(DB_PATH.parent))
             free_gb = round(usage.free / (1024 * 1024 * 1024), 2)
             if free_gb < 2.0:
                 disk_status = "CRITICAL"

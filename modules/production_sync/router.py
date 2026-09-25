@@ -2,12 +2,11 @@
 Production Sync & System Updates API Router
 Endpoints for live database comparison, updates check, and safety backups management.
 """
-from typing import Optional
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.production_sync.service import ProductionSyncService, DEV_DB, PROD_DB
+from modules.production_sync.service import ProductionSyncService
 from modules.production_sync.schemas import (
     SyncComparisonResponseSchema,
     SyncActionResponseSchema,
@@ -25,6 +24,7 @@ from modules.users.model import User
 router = APIRouter(
     prefix="/api/v1/production-sync",
     tags=["Production Synchronization & Deployment"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -47,12 +47,12 @@ def get_system_version_info(
     summary="فحص وتدقيق توفر إصدارات جديدة من النظام سحابياً",
 )
 def check_for_system_updates(
-    remote_url: Optional[str] = Query(None, description="رابط مخصص لفحص التحديثات (اختياري)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Local version info only; no outbound request (updates come from /api/v1/app-update).
     service = ProductionSyncService(db)
-    return service.check_for_updates(custom_remote_url=remote_url)
+    return service.check_for_updates()
 
 
 @router.get(
@@ -62,7 +62,7 @@ def check_for_system_updates(
 )
 def compare_databases(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     service = ProductionSyncService(db)
     return service.get_comparison()
@@ -108,8 +108,7 @@ def create_manual_backup(
     current_user: User = Depends(require_admin),
 ):
     service = ProductionSyncService(db)
-    target_path = PROD_DB if target == "prod" else DEV_DB
-    return service.create_safety_backup(target_path, tag=f"manual_{target}")
+    return service.create_manual_backup(target=target)
 
 
 @router.get(
@@ -119,7 +118,7 @@ def create_manual_backup(
 )
 def list_backups(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     service = ProductionSyncService(db)
     return service.list_backups()
@@ -137,8 +136,12 @@ def restore_backup(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    # Blocked (403) in the production build; only a bare file name inside the backups folder.
     service = ProductionSyncService(db)
-    return service.restore_backup(filename=filename, target=target)
+    try:
+        return service.restore_backup(filename=filename, target=target)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get(

@@ -17,6 +17,7 @@ from modules.import_documentation.model import (
     BankingDocumentSession,
     ShipmentDocumentItem,
     POPackingReconciliationSession,
+    CustomsDeclarationDraft,
     InvoiceBLMatchSession,
     DraftBLReviewSession,
     CertificateOfOriginReviewSession,

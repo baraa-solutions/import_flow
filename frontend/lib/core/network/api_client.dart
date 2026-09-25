@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
 import '../performance/client_diagnostics_service.dart';
+import '../services/backend_launcher.dart';
 import 'network_security.dart';
 
 /// Centralized Dio HTTP client provider for Sorour Logistics ERP.
@@ -31,6 +32,9 @@ final dioProvider = Provider<Dio>((ref) {
 
   // Configure TLS certificate validation for LAN / local HTTPS
   configureDioTls(dio);
+
+  // Self-heal the local backend on connection errors (see backend_launcher.dart).
+  dio.interceptors.add(BackendRecoveryInterceptor(() => ref.read(backendLauncherProvider)));
 
   // ── Auth Token & Role Header & X-Request-ID Interceptor ───────
   dio.interceptors.add(
@@ -73,6 +77,8 @@ final dioProvider = Provider<Dio>((ref) {
   // ── Logging Interceptor (debug only) ──────────────────────
   dio.interceptors.add(
     LogInterceptor(
+      // Never log headers: they carry the Bearer token (CORE_RULES: no tokens in logs).
+      requestHeader: false,
       requestBody: false,
       responseBody: false,
       logPrint: (obj) => debugPrintSynchronously('[DIO] $obj'),
@@ -176,6 +182,9 @@ final uploadDioProvider = Provider<Dio>((ref) {
   // Configure TLS certificate validation for LAN / local HTTPS
   configureDioTls(dio);
 
+  // Self-heal the local backend on connection errors (see backend_launcher.dart).
+  dio.interceptors.add(BackendRecoveryInterceptor(() => ref.read(backendLauncherProvider)));
+
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -202,4 +211,3 @@ final uploadDioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
-

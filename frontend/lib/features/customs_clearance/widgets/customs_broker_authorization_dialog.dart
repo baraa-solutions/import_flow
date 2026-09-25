@@ -460,7 +460,10 @@ class _CustomsBrokerAuthorizationDialogState
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.grey[300]!),
                         ),
-                        child: CheckboxListTile(
+                        // Own Material so the tile's ink is not hidden by the coloured box.
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: CheckboxListTile(
                           key: const Key('generateMandateLetterCheckbox'),
                           value: _generateMandateLetter,
                           onChanged: (val) {
@@ -476,6 +479,7 @@ class _CustomsBrokerAuthorizationDialogState
                           ),
                           activeColor: const Color(0xFF7C3AED),
                           controlAffinity: ListTileControlAffinity.leading,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 18),

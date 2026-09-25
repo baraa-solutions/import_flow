@@ -1,0 +1,1502 @@
+{
+ "screen_nn": "04",
+ "screen_slug": "projects",
+ "state": "main",
+ "screenshot": "../screenshots/04-projects-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "الإجراءات"
+  },
+  {
+   "text": "كود المشروع"
+  },
+  {
+   "text": "اسم المشروع والمسؤول"
+  },
+  {
+   "text": "الشركة المستوردة والمورد"
+  },
+  {
+   "text": "النوع والتصنيف"
+  },
+  {
+   "text": "الميزانية بالدولار"
+  },
+  {
+   "text": "المحددات والمزايا"
+  },
+  {
+   "text": "الحالة"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالمشاريع ومراكز التكلفة\n24H LIVE\nمشاريع الاستيراد ومراكز التكلفة\nالمرجع الأساسي لعمليات الاستيراد متعددة الشحنات ومتعددة الشركات"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:26",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    538,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    665,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    801,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    827,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    855,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    903,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    929,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    957,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1047,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1075,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1101,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    791,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "المشاريع ومراكز التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    949,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إنشاء مشروع جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    146,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    434,
+    132,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "جميع الحالات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    714,
+    133,
+    122,
+    34
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    132,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير المشاريع (جدول)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    132,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    285,
+    234,
+    138,
+    38
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    292,
+    239,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    324,
+    239,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    356,
+    239,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    239,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    455,
+    277,
+    92,
+    23
+   ]
+  },
+  {
+   "label": "PRJ-2026-005",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    463,
+    280,
+    76,
+    17
+   ]
+  },
+  {
+   "label": "المسؤول: Hany Sabry",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    234,
+    222,
+    38
+   ]
+  },
+  {
+   "label": "Plastic Raw Materials Supply / توريد خامات البلاستيك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    234,
+    222,
+    20
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": "المورد: Gujarat Polymers Pvt. Ltd",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    277,
+    180,
+    35
+   ]
+  },
+  {
+   "label": "تجاري مباشر",
+   "tooltip": "حاوية كاملة (CFR)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    277,
+    80,
+    35
+   ]
+  },
+  {
+   "label": "$95000.00",
+   "tooltip": "الالتزامات: $62000.00 | المتبقي: $33000.00 | 2027-03-31",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1200,
+    234,
+    98,
+    68
+   ]
+  },
+  {
+   "label": "متعدد الشحنات",
+   "tooltip": "متعدد الشركات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    234,
+    75,
+    41
+   ]
+  },
+  {
+   "label": "مفتوح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1490,
+    277,
+    44,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    285,
+    322,
+    138,
+    38
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    292,
+    327,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    324,
+    327,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    356,
+    327,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    327,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    455,
+    322,
+    92,
+    23
+   ]
+  },
+  {
+   "label": "PRJ-2026-004",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    463,
+    325,
+    76,
+    17
+   ]
+  },
+  {
+   "label": "المسؤول: Kamal Sroor",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    322,
+    222,
+    38
+   ]
+  },
+  {
+   "label": "Water Heaters Distribution / توزيع السخانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    322,
+    222,
+    20
+   ]
+  },
+  {
+   "label": "Sorour Trading & Import Co. / شركة سرور للتجارة والاستيراد",
+   "tooltip": "المورد: Rhein Thermotechnik GmbH",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    322,
+    180,
+    35
+   ]
+  },
+  {
+   "label": "تجاري مباشر",
+   "tooltip": "حاوية كاملة (FCA)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    322,
+    80,
+    35
+   ]
+  },
+  {
+   "label": "$310000.00",
+   "tooltip": "الالتزامات: $85200.00 | المتبقي: $224800.00 | 2026-11-30",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1200,
+    322,
+    98,
+    68
+   ]
+  },
+  {
+   "label": "متعدد الشحنات",
+   "tooltip": "متعدد الشركات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    322,
+    75,
+    41
+   ]
+  },
+  {
+   "label": "مفتوح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1490,
+    322,
+    44,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    285,
+    410,
+    138,
+    38
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    292,
+    415,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    324,
+    415,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    356,
+    415,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    415,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    455,
+    410,
+    92,
+    23
+   ]
+  },
+  {
+   "label": "PRJ-2026-003",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    463,
+    413,
+    76,
+    17
+   ]
+  },
+  {
+   "label": "المسؤول: Ahmed Fathy",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    410,
+    222,
+    38
+   ]
+  },
+  {
+   "label": "Textile Retail Collection 2027 / مجموعة المفروشات 2027",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    410,
+    222,
+    20
+   ]
+  },
+  {
+   "label": "Sorour Trading & Import Co. / شركة سرور للتجارة والاستيراد",
+   "tooltip": "المورد: Istanbul Tekstil Sanayi A.S.",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    410,
+    180,
+    35
+   ]
+  },
+  {
+   "label": "تجاري مباشر",
+   "tooltip": "حاوية كاملة (CFR)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    410,
+    80,
+    35
+   ]
+  },
+  {
+   "label": "$150000.00",
+   "tooltip": "الالتزامات: $74000.00 | المتبقي: $76000.00 | 2027-01-15",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1200,
+    410,
+    98,
+    68
+   ]
+  },
+  {
+   "label": "متعدد الشحنات",
+   "tooltip": "متعدد الشركات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    410,
+    75,
+    41
+   ]
+  },
+  {
+   "label": "مفتوح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1490,
+    410,
+    44,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    285,
+    498,
+    138,
+    38
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    292,
+    503,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    324,
+    503,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    356,
+    503,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    503,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    455,
+    498,
+    92,
+    23
+   ]
+  },
+  {
+   "label": "PRJ-2026-002",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    463,
+    501,
+    76,
+    17
+   ]
+  },
+  {
+   "label": "المسؤول: Mona Adel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    498,
+    222,
+    38
+   ]
+  },
+  {
+   "label": "Hotel Furniture Fit-out - New Capital / تجهيز فندق العاصمة الإدارية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    498,
+    222,
+    20
+   ]
+  },
+  {
+   "label": "Alexandria Home Furnishings / الإسكندرية للأثاث المنزلي",
+   "tooltip": "المورد: Ningbo Oriental Furniture Manufacturing",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    498,
+    180,
+    35
+   ]
+  },
+  {
+   "label": "تجاري مباشر",
+   "tooltip": "حاوية كاملة (CIF)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    498,
+    76,
+    35
+   ]
+  },
+  {
+   "label": "$260000.00",
+   "tooltip": "الالتزامات: $41600.00 | المتبقي: $218400.00 | 2027-02-28",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1200,
+    498,
+    98,
+    68
+   ]
+  },
+  {
+   "label": "متعدد الشحنات",
+   "tooltip": "متعدد الشركات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    498,
+    75,
+    41
+   ]
+  },
+  {
+   "label": "مفتوح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1490,
+    498,
+    44,
+    22
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    285,
+    586,
+    138,
+    38
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    292,
+    591,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    324,
+    591,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    356,
+    591,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل المشروع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    591,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    455,
+    586,
+    92,
+    23
+   ]
+  },
+  {
+   "label": "PRJ-2026-001",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    463,
+    589,
+    76,
+    17
+   ]
+  },
+  {
+   "label": "المسؤول: Kamal Sroor",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    586,
+    222,
+    38
+   ]
+  },
+  {
+   "label": "Home Appliances Q4 Import Program / برنامج استيراد الأجهزة المنزلية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    586,
+    222,
+    20
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": "المورد: Shenzhen Brightway Electronics Co., Ltd",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    586,
+    180,
+    35
+   ]
+  },
+  {
+   "label": "تجاري مباشر",
+   "tooltip": "حاوية كاملة (FOB)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1033,
+    586,
+    80,
+    35
+   ]
+  },
+  {
+   "label": "$420000.00",
+   "tooltip": "الالتزامات: $70600.00 | المتبقي: $349400.00 | 2026-12-31",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1200,
+    586,
+    98,
+    68
+   ]
+  },
+  {
+   "label": "متعدد الشحنات",
+   "tooltip": "متعدد الشركات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1360,
+    586,
+    75,
+    41
+   ]
+  },
+  {
+   "label": "مفتوح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1490,
+    586,
+    44,
+    22
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث بكود المشروع، الاسم، المسؤول...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "كود المشروع",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    487,
+    132,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 193,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "كود المشروع",
+    "اسم المشروع والمسؤول",
+    "الشركة المستوردة والمورد",
+    "النوع والتصنيف",
+    "الميزانية بالدولار",
+    "المحددات والمزايا",
+    "الحالة"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 8,
+  "buttons": 117,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 1
+ }
+}

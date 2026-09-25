@@ -4,6 +4,7 @@ FastAPI Router for AI Formal Letter Drafting (AI-DRAFT-014)
 
 from typing import List
 from fastapi import APIRouter, Depends, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 
@@ -19,7 +20,7 @@ from .service import (
     get_file_letter_history_service,
 )
 
-router = APIRouter(prefix="/api/v1/formal-letters", tags=["Formal Letter Drafting (AI-DRAFT-014)"])
+router = APIRouter(prefix="/api/v1/formal-letters", tags=["Formal Letter Drafting (AI-DRAFT-014)"], dependencies=[Depends(get_current_user)])
 
 
 @router.get(

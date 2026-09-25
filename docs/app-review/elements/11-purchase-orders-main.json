@@ -1,0 +1,1632 @@
+{
+ "screen_nn": "11",
+ "screen_slug": "purchase-orders",
+ "state": "main",
+ "screenshot": "../screenshots/11-purchase-orders-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nأوامر الشراء\n24H LIVE",
+  "أوامر الشراء والفواتير المبدئية\nالمرحلة الأولى: إدارة وتسجيل أوامر الشراء، الفواتير المبدئية، وحساب الـ CBM والأوزان الإجمالية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 13:08",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    486,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    613,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    720,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    750,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    776,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    804,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    851,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    877,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    905,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    995,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1023,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1049,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "أوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    116,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    436,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "🚀 استخراج الفاتورة والتعبئة الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1172,
+    76,
+    223,
+    42
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1402,
+    78,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1534,
+    78,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إجمالي أوامر الشراء",
+   "tooltip": ":  | 6",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    353,
+    133,
+    166,
+    28
+   ]
+  },
+  {
+   "label": "إجمالي قيمة البضاعة",
+   "tooltip": ":  | $333400.00",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    641,
+    133,
+    245,
+    28
+   ]
+  },
+  {
+   "label": "إجمالي الحجم CBM",
+   "tooltip": ":  | 562.42 m³",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    133,
+    229,
+    28
+   ]
+  },
+  {
+   "label": "إجمالي الوزن القائم",
+   "tooltip": ":  | 92960 kg",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1311,
+    133,
+    216,
+    28
+   ]
+  },
+  {
+   "label": "أمر شراء جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    175,
+    122,
+    39
+   ]
+  },
+  {
+   "label": "بحث واستنساخ أمر شراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    408,
+    175,
+    178,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    594,
+    176,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "جميع المشاريع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    865,
+    176,
+    140,
+    36
+   ]
+  },
+  {
+   "label": "جميع الحالات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1011,
+    176,
+    120,
+    36
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    176,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    279,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    285,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    285,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    285,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    285,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    285,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    269,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-NDE-2026-019",
+   "tooltip": "PO-2026-006",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    269,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-04-01",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    289,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    269,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "GP-PI-26-118",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    289,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Plastic Raw Materials Supply / توريد خامات البلاستيك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    289,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    289,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    339,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    345,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    345,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    345,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    345,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    345,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    329,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-SRR-2026-081",
+   "tooltip": "PO-2026-005",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    329,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-05-10",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    349,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    329,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "RT-2026-PI-3390",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    349,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Water Heaters Distribution / توزيع السخانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    349,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Sorour Trading & Import Co. / شركة سرور للتجارة والاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    349,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    399,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    405,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    405,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    405,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    405,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    405,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    389,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-SRR-2026-077",
+   "tooltip": "PO-2026-004",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    389,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-06-20",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    409,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    389,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "IST-PI-2026-554",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    409,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Textile Retail Collection 2027 / مجموعة المفروشات 2027",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    409,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Sorour Trading & Import Co. / شركة سرور للتجارة والاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    409,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    459,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    465,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    465,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    465,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    465,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    465,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    449,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-AHF-2026-012",
+   "tooltip": "PO-2026-003",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    449,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-07-15",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    469,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    449,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "ORF-PI-7781",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    469,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Hotel Furniture Fit-out - New Capital / تجهيز فندق العاصمة الإدارية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    469,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Alexandria Home Furnishings / الإسكندرية للأثاث المنزلي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    469,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    519,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    525,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    525,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    525,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    525,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    525,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    509,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-NDE-2026-044",
+   "tooltip": "PO-2026-002",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    509,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-09-05",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    529,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    509,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "BW-PI-26-1002",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    529,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Home Appliances Q4 Import Program / برنامج استيراد الأجهزة المنزلية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    529,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    529,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "ميزان أمر الشراء والشحنات الجزئية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    305,
+    579,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    352,
+    585,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    384,
+    585,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "استنساخ السطر (كنترول + د)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    416,
+    585,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    448,
+    585,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل أمر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    480,
+    585,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    553,
+    569,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "PO-NDE-2026-031",
+   "tooltip": "PO-2026-001",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    553,
+    569,
+    170,
+    60
+   ]
+  },
+  {
+   "label": "2026-08-02",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    741,
+    589,
+    110,
+    20
+   ]
+  },
+  {
+   "label": "-",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    869,
+    569,
+    180,
+    60
+   ]
+  },
+  {
+   "label": "BW-PI-26-0918",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1067,
+    589,
+    140,
+    20
+   ]
+  },
+  {
+   "label": "Home Appliances Q4 Import Program / برنامج استيراد الأجهزة المنزلية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1225,
+    589,
+    180,
+    20
+   ]
+  },
+  {
+   "label": "Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1423,
+    589,
+    177,
+    20
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث برقم أمر الشراء أو الفاتورة أو الملاحظات...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم أمر الشراء",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    647,
+    176,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [
+  "الإجراءات",
+  "رقم أمر الشراء",
+  "تاريخ الفاتورة",
+  "ملف الاستيراد",
+  "رقم الفاتورة المبدئية",
+  "المشاريع ومراكز التكلفة",
+  "الشركة المستوردة",
+  "المورد الأجنبي"
+ ],
+ "table_header_candidates": [
+  {
+   "y": 223,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "رقم أمر الشراء",
+    "تاريخ الفاتورة",
+    "ملف الاستيراد",
+    "رقم الفاتورة المبدئية",
+    "المشاريع ومراكز التكلفة",
+    "الشركة المستوردة",
+    "المورد الأجنبي"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 0,
+  "buttons": 126,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 8,
+  "header_rows": 1
+ }
+}

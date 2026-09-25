@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_error.dart';
 import '../models/email_settings_model.dart';
 import 'smart_tasks_provider.dart';
 
@@ -100,7 +101,7 @@ class EmailSettingsNotifier extends StateNotifier<EmailSettingsState> {
         state = state.copyWith(isLoading: false, settings: null);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e));
     }
   }
 
@@ -113,7 +114,7 @@ class EmailSettingsNotifier extends StateNotifier<EmailSettingsState> {
       state = state.copyWith(isSaving: false, settings: updatedModel);
       return true;
     } catch (e) {
-      state = state.copyWith(isSaving: false, error: e.toString());
+      state = state.copyWith(isSaving: false, error: ApiError.message(e));
       return false;
     }
   }
@@ -128,13 +129,13 @@ class EmailSettingsNotifier extends StateNotifier<EmailSettingsState> {
     } catch (e) {
       final fail = EmailConnectionTestResultModel(
         imapConnected: false,
-        imapMessage: 'خطأ أثناء اختبار الاتصال: ${e.toString()}',
+        imapMessage: 'خطأ أثناء اختبار الاتصال: ${ApiError.message(e)}',
         smtpConnected: false,
         smtpMessage: 'فشل إرسال طلب الاختبار',
         overallSuccess: false,
-        details: e.toString(),
+        details: ApiError.message(e),
       );
-      state = state.copyWith(isTesting: false, testResult: fail, error: e.toString());
+      state = state.copyWith(isTesting: false, testResult: fail, error: ApiError.message(e));
       return fail;
     }
   }
@@ -161,7 +162,7 @@ class EmailSettingsNotifier extends StateNotifier<EmailSettingsState> {
       fetchSettings();
       return res;
     } catch (e) {
-      state = state.copyWith(isFetching: false, error: e.toString());
+      state = state.copyWith(isFetching: false, error: ApiError.message(e));
       return null;
     }
   }
@@ -180,7 +181,7 @@ class EmailSettingsNotifier extends StateNotifier<EmailSettingsState> {
       _ref.read(smartTasksProvider.notifier).fetchTasks();
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ApiError.message(e));
       return false;
     }
   }

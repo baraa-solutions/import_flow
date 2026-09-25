@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -24,10 +25,7 @@ class WhatIfSimulatorDialog extends ConsumerStatefulWidget {
 class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  late final Dio _dio = ref.read(dioProvider);
 
   // Controls state
   int? _selectedImportFileId;

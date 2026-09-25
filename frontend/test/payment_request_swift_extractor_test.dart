@@ -11,7 +11,7 @@ import 'package:frontend/features/purchase_orders/providers/purchase_orders_prov
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 
 class _MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
-  _MockPaymentRequestsNotifier() : super() {
+  _MockPaymentRequestsNotifier() : super(Dio()) {
     state = const AsyncValue.data([]);
   }
   @override
@@ -27,7 +27,7 @@ class _MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
 }
 
 class _MockImportBudgetsNotifier extends ImportBudgetsNotifier {
-  _MockImportBudgetsNotifier() : super() {
+  _MockImportBudgetsNotifier() : super(Dio()) {
     state = const AsyncValue.data([]);
   }
   @override

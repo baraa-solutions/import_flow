@@ -1407,24 +1407,8 @@ abstract class AppLocalizations {
   String get prodSyncSystemUpToDateMsg;
   String get prodSyncCheckingCloudUpdates;
   String get prodSyncOfflineModeMsg;
-  String prodSyncInstallVersionNow(dynamic version);
-  String get prodSyncLaunchInstallerNow;
-  String get prodSyncInstallingStatus;
   String get prodSyncCheckUpdatesBtn;
-  String get prodSyncCancelBtn;
-  String prodSyncDownloadingProgress(dynamic percent, dynamic downloaded, dynamic total);
-  String get prodSyncAutoCloseNotice;
-  String get prodSyncDownloadCompleteNotice;
-  String get prodSyncDownloadFailedFallback;
-  String get prodSyncRetryBtn;
   String prodSyncWhatsNewInVersion(dynamic version);
-  String prodSyncInstallConfirmTitle(dynamic version);
-  String prodSyncInstallConfirmDesc(dynamic size);
-  String get prodSyncInstallSafeNotice1;
-  String get prodSyncInstallSafeNotice2;
-  String get prodSyncInstallSafeNotice3;
-  String get prodSyncLaterBtn;
-  String get prodSyncDownloadAndInstallNowBtn;
   String get prodSyncSchemaEngineTitle;
   String get prodSyncSchemaEngineDesc;
   String get prodSyncCreateInstantBackupBtn;
@@ -1434,11 +1418,7 @@ abstract class AppLocalizations {
   String get prodSyncAutoPreUpgradeTag;
   String get prodSyncManualBackupTag;
   String get prodSyncRestoreActionBtn;
-  String get prodSyncSyncDevToProdBtn;
   String get prodSyncCompareTablesBtn;
-  String get prodSyncPullProdToDevBtn;
-  String get prodSyncFullBuildBtn;
-  String get prodSyncLaunchProdAppBtn;
   String get prodSyncDbNotFoundNotice;
   String prodSyncDbLastModified(dynamic date);
   String prodSyncDbSizeLabel(dynamic size);
@@ -7866,6 +7846,7 @@ abstract class AppLocalizations {
   String get stepConfigSubtitle;
   String get stepConfigAccessDeniedTitle;
   String get stepConfigAccessDeniedDesc;
+  String get adminOnlyFeatureMessage;
   String get stepConfigDemoSwitchBtn;
   String get stepConfigRefreshTooltip;
   String get stepConfigSearchHint;
@@ -8510,6 +8491,60 @@ abstract class AppLocalizations {
   String get cooChinaGeneralExemptionNote;
   String get cooEuRecommendationAlert;
   String get cooAgadirGaftaRecommendationAlert;
+
+  // ── Backend startup (local backend.exe launch) ──
+  String get backendStartupStarting;
+  String get backendStartupStartingHint;
+  String get backendStartupFailedTitle;
+  String get backendStartupFailedMessage;
+  String backendStartupPortInUseMessage(String port);
+
+  // ── In-app updates (app_update) ──
+  String updateAvailableBanner(String version);
+  String updateMandatoryBanner(String version);
+  String get updateWhatsNew;
+  String updateSize(String mb);
+  String get updateInstallNow;
+  String get updateRemindLater;
+  String updateDownloading(String done, String total);
+  String get updateVerifying;
+  String get updateBackingUp;
+  String get updateInstalling;
+  String get updateCancel;
+  String updateSucceeded(String version);
+  String get updateFailed;
+  String get updateRollback;
+  String updateRollbackWarning(String backupTime);
+  String get updateFromFile;
+  String updateCheckOffline(String lastChecked);
+  String get updateDevModeDisabled;
+  String updateDialogTitle(String version);
+  String get updateDownloadNow;
+  String get updateReadyToInstall;
+  String get updateMandatoryNotice;
+  String get updateAdminOnlyNotice;
+  String get updateSignOut;
+  String get updateViewDetails;
+  String get updateRestartingHint;
+  String get updateRollbackTitle;
+  String get updateRollbackConfirmCheck;
+  String get updateRollbackConfirmBtn;
+  String get updateRollbackNoBackup;
+  String get updatePickManifest;
+  String get updatePickInstaller;
+  String get updateStagedFromFile;
+  String get updateSectionTitle;
+  String get updateCheckNow;
+  String updateUpToDate(String version);
+  String get updateInvalidSignature;
+  String get updateNeverChecked;
+  String get updateRetry;
+  String get updateClose;
+  String get updateFailedRollbackHint;
+  String updateCurrentVersion(String version);
+  String get updateNoPermission;
+  String updateRollbackSucceeded(String version);
+  String get updateRollbackFailed;
 }
 
 

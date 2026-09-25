@@ -951,9 +951,11 @@ class _SupplierAdvancePaymentDialogState
                 ),
               const SizedBox(height: 16),
 
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // Action Buttons (Wrap so long English labels never overflow the dialog width)
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 8,
                 children: [
                   TextButton(
                     onPressed: _isSubmitting ? null : () => Navigator.pop(context),

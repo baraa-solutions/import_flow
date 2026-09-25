@@ -1,0 +1,162 @@
+{
+ "screen_nn": "58",
+ "screen_slug": "users-permissions",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/58-users-permissions-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "إضافة مستخدم جديد"
+  },
+  {
+   "text": "أخصائي استيراد — صلاحيات تشغيلية"
+  },
+  {
+   "text": "إنشاء وتحديث ملفات الاستيراد والشحنات"
+  },
+  {
+   "text": "إدخال ومطابقة الفواتير وبيانات التعبئة ومسودات المستندات"
+  },
+  {
+   "text": "متابعة مراحل الكشف والتخليص الجمركي واستلام المخازن"
+  },
+  {
+   "text": "عرض التقارير التشغيلية المخصصة للمهام المسندة"
+  },
+  {
+   "text": "لا يملك صلاحية تعديل البيانات المرجعية أو الحسابات"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "الدور والصلاحيات *",
+   "tooltip": "أخصائي استيراد — إدخال البيانات ومتابعة العمليات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    560,
+    450,
+    480,
+    52
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    992,
+    518,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    814,
+    756,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "إنشاء المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    886,
+    748,
+    154,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "الاسم الكامل *",
+   "label_above": "إضافة مستخدم جديد",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    560,
+    252,
+    488,
+    58
+   ]
+  },
+  {
+   "label": "اسم المستخدم *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    560,
+    318,
+    488,
+    58
+   ]
+  },
+  {
+   "label": "البريد الإلكتروني *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    560,
+    384,
+    488,
+    58
+   ]
+  },
+  {
+   "label": "كلمة المرور *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "أخصائي استيراد — صلاحيات تشغيلية",
+   "type": "password",
+   "value": null,
+   "bounds": [
+    560,
+    516,
+    488,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 8,
+  "buttons": 4,
+  "fields": 4,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

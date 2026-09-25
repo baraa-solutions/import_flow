@@ -3,17 +3,40 @@ Sorour Logistics ERP — UAT Staging Environment Manager
 Creates, seeds, and resets an isolated UAT staging database (`sorour_logistics_uat.db`)
 with 100% verified master data (Tariffs, Incoterms, Currencies, Users) and zero operational records.
 Ensures zero pollution of production data during end-user acceptance testing.
+
+Safety (update-system-plan A14/R12): the UAT file is ONE explicit --db; it can never be the source or the
+live database. --reset overwrites an existing UAT file, so it needs --confirm, a target that is not in use,
+and takes a verified pre_migration_ backup of the old UAT copy first.
+    python scripts/prepare_uat_environment.py --init  --db sorour_logistics_uat.db
+    python scripts/prepare_uat_environment.py --reset --db sorour_logistics_uat.db --confirm
 """
-import os
 import sys
-import shutil
 import sqlite3
 import argparse
 from pathlib import Path
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from utils.db_safety import sqlite_online_backup  # noqa: E402
+from scripts.db_script_guard import (  # noqa: E402
+    UnsafeTargetError,
+    add_target_arguments,
+    guard_destructive_target,
+    is_live_db,
+    require_target,
+    run_cli_action,
+    run_guarded,
+    same_file_fail_closed,
+)
+
+# Default read-only source, and the conventional UAT file name (pass it explicitly with --db).
 PROD_DB = ROOT_DIR / "sorour_logistics.db"
 UAT_DB = ROOT_DIR / "sorour_logistics_uat.db"
+
+
 
 # Master data tables to preserve during UAT seeding
 MASTER_DATA_TABLES = {
@@ -52,31 +75,50 @@ MASTER_DATA_TABLES = {
 }
 
 
-def create_uat_database(force=False):
-    """Clones master data from live DB to UAT DB and truncates operational tables."""
-    if not PROD_DB.exists():
-        print(f"[ERROR] Production database {PROD_DB.name} not found.")
-        return False
+def create_uat_database(
+    target_db: Optional[Path] = None,
+    source_db: Optional[Path] = None,
+    *,
+    force: bool = False,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Clones master data from ``source_db`` (read-only) into ONE explicit UAT ``target_db`` and
+    truncates its operational tables.
 
-    if UAT_DB.exists() and not force:
-        print(f"[INFO] UAT database {UAT_DB.name} already exists. Use --reset to reinitialize.")
+    The target may never be the source or the live app database (A14). Overwriting an existing target
+    (``force``) requires ``confirm=True``, a target that is not in use, and a verified backup first.
+    """
+    source = Path(source_db) if source_db else PROD_DB
+    target = require_target(target_db, must_exist=False)
+
+    if not source.exists():
+        print(f"[ERROR] Source database {source} not found.")
+        return False
+    if same_file_fail_closed(target, source) or is_live_db(target):
+        raise UnsafeTargetError(
+            f"Refusing to use {target} as the UAT database: it is the source or the live database."
+        )
+
+    if target.exists() and not force:
+        print(f"[INFO] UAT database {target.name} already exists. Use --reset to reinitialize.")
         return True
+    if target.exists():
+        # Reset: the old UAT copy is overwritten, so the full guard (in use + verified backup) applies.
+        guard_destructive_target(target, confirm=confirm, tag="uat_reset", backups_dir=backups_dir, forbid=[source])
 
     print("================================================================================")
     print("      Sorour Logistics ERP — Preparing Isolated UAT Staging Database            ")
     print("================================================================================")
-    print(f" [1/4] Cloning live schema and baseline from: {PROD_DB.name} -> {UAT_DB.name}...")
-    shutil.copy2(PROD_DB, UAT_DB)
+    print(f" [1/4] Cloning live schema and baseline from: {source.name} -> {target.name}...")
+    # Online backup API: consistent copy of the (possibly open, WAL-mode) source; one transaction on target.
+    sqlite_online_backup(source, target, overwrite=target.exists())
 
-    # Clean WAL / SHM files for UAT if any
-    uat_wal = ROOT_DIR / "sorour_logistics_uat.db-wal"
-    uat_shm = ROOT_DIR / "sorour_logistics_uat.db-shm"
-    if uat_wal.exists():
-        uat_wal.unlink()
-    if uat_shm.exists():
-        uat_shm.unlink()
+    # Belt and braces (A14): never run the DELETEs below against anything but the UAT copy.
+    if same_file_fail_closed(target, source) or is_live_db(target):
+        raise UnsafeTargetError(f"UAT target {target} resolved to the source/live database; aborting.")
 
-    conn = sqlite3.connect(UAT_DB)
+    conn = sqlite3.connect(target)
     cursor = conn.cursor()
 
     print(" [2/4] Truncating operational tables to ensure 0 mock contamination...")
@@ -85,11 +127,9 @@ def create_uat_database(force=False):
     truncated_count = 0
     operational_tables = [t for t in existing_tables if t not in MASTER_DATA_TABLES and t != "sqlite_sequence"]
     for table in operational_tables:
-        cursor.execute(f"DELETE FROM {table};")
-        try:
-            cursor.execute(f"DELETE FROM sqlite_sequence WHERE name='{table}';")
-        except Exception:
-            pass
+        cursor.execute(f'DELETE FROM "{table}";')
+        if "sqlite_sequence" in existing_tables:
+            cursor.execute("DELETE FROM sqlite_sequence WHERE name = ?;", (table,))
         truncated_count += 1
 
     cursor.execute("PRAGMA foreign_keys = ON;")
@@ -100,7 +140,7 @@ def create_uat_database(force=False):
     counts_summary = {}
     for table in MASTER_DATA_TABLES:
         if table in existing_tables:
-            count = cursor.execute(f"SELECT COUNT(*) FROM {table};").fetchone()[0]
+            count = cursor.execute(f'SELECT COUNT(*) FROM "{table}";').fetchone()[0]
             counts_summary[table] = count
             print(f"       • Table {table:<30}: {count} rows")
 
@@ -116,34 +156,41 @@ def create_uat_database(force=False):
         print(f"[WARN] Foreign key check reported violations: {fk_check}")
 
     print("================================================================================")
-    print(" [SUCCESS] UAT STAGING DATABASE READY: sorour_logistics_uat.db")
+    print(f" [SUCCESS] UAT STAGING DATABASE READY: {target}")
     print(" - Zero operational shipments (0 records)")
     print(" - Full Egyptian Customs Tariffs & Incoterms preserved")
-    print(" - Zero risk to production database (sorour_logistics.db)")
+    print(f" - Zero risk to the source database ({source.name}): it is only read")
     print("================================================================================")
     return True
 
 
-def reset_uat_database():
-    """Resets UAT database by deleting it and recreating from fresh master baseline."""
+def reset_uat_database(
+    target_db: Optional[Path] = None,
+    source_db: Optional[Path] = None,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Resets the UAT database from a fresh master baseline (backs up the old UAT copy first)."""
     print("Resetting UAT database...")
-    return create_uat_database(force=True)
+    return create_uat_database(target_db, source_db, force=True, confirm=confirm, backups_dir=backups_dir)
 
 
-def status_uat():
-    if not UAT_DB.exists():
-        print(f"[STATUS] UAT Database ({UAT_DB.name}) DOES NOT EXIST. Run `py scripts/prepare_uat_environment.py --init`")
+def status_uat(uat_db: Optional[Path] = None):
+    uat_path = Path(uat_db) if uat_db else UAT_DB
+    if not uat_path.exists():
+        print(f"[STATUS] UAT Database ({uat_path.name}) DOES NOT EXIST. Run `py scripts/prepare_uat_environment.py --init --db <uat.db>`")
         return False
 
-    conn = sqlite3.connect(UAT_DB)
+    conn = sqlite3.connect(uat_path)
     cursor = conn.cursor()
     existing_tables = [r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
 
     print("================================================================================")
     print("              Sorour Logistics ERP — UAT Environment Status                     ")
     print("================================================================================")
-    print(f" File Location : {UAT_DB}")
-    print(f" Size          : {UAT_DB.stat().st_size:,} bytes")
+    print(f" File Location : {uat_path}")
+    print(f" Size          : {uat_path.stat().st_size:,} bytes")
     print("--------------------------------------------------------------------------------")
     print(" Operational Tables (Must be 0 for clean testing):")
     clean = True
@@ -168,23 +215,30 @@ def status_uat():
     return clean
 
 
-def main():
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Sorour Logistics ERP UAT Staging Manager")
-    parser.add_argument("--init", action="store_true", help="Initialize UAT database if not exists")
-    parser.add_argument("--reset", action="store_true", help="Force reset UAT database to clean baseline")
-    parser.add_argument("--status", action="store_true", help="Inspect UAT database row counts")
+    parser.add_argument("--init", action="store_true", help="Initialize the UAT database (--db) if it does not exist")
+    parser.add_argument("--reset", action="store_true", help="Force reset the UAT database (--db) to a clean baseline")
+    parser.add_argument("--status", action="store_true", help="Inspect UAT database row counts (read-only)")
+    parser.add_argument("--source", default=None, help=f"Master-data source DB, only read (default: {PROD_DB.name})")
+    add_target_arguments(parser, target_help="The UAT database file to create or reset")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    source = Path(args.source) if args.source else None
+    backups_dir = Path(args.backups_dir) if args.backups_dir else None
 
     if args.reset:
-        reset_uat_database()
-    elif args.status:
-        status_uat()
-    elif args.init:
-        create_uat_database(force=False)
-    else:
-        status_uat()
+        def _reset(target: Path, _backups_dir: Optional[Path]):
+            return reset_uat_database(target, source, confirm=True, backups_dir=_backups_dir)
+        return run_cli_action(args, _reset, must_exist=False)
+    if args.init:
+        # Creating a brand-new UAT file destroys nothing; an existing file is left untouched.
+        return run_guarded(lambda: create_uat_database(
+            require_target(args.db, must_exist=False), source, force=False, backups_dir=backups_dir
+        ))
+    status_uat(Path(args.db) if args.db else None)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

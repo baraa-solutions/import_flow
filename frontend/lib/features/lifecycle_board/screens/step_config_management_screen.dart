@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,6 +33,16 @@ class _StepConfigManagementScreenState
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final isAuthorized = user?.canManageStepConfig ?? false;
+
+    // Surface backend load errors (e.g. 403 detail) instead of failing silently.
+    ref.listen<StepConfigState>(stepConfigProvider, (prev, next) {
+      final loadFinished = (prev?.isLoading ?? false) && !next.isLoading;
+      if (loadFinished && next.errorMessage != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.errorMessage!), backgroundColor: AppTheme.crimson),
+        );
+      }
+    });
 
     return SelectionArea(
       child: Scaffold(
@@ -97,24 +108,27 @@ class _StepConfigManagementScreenState
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                // Switch to manager role if in demo mode
-                ref.read(authProvider.notifier).switchDemoRole('MANAGER');
-              },
-              icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-              label: Text(l.stepConfigDemoSwitchBtn),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.flatCobalt,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            // Demo role switching is a debug-only development aid.
+            if (kDebugMode) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Switch to manager role if in demo mode
+                  ref.read(authProvider.notifier).switchDemoRole('MANAGER');
+                },
+                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                label: Text(l.stepConfigDemoSwitchBtn),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.flatCobalt,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -910,7 +924,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
-                    child: SwitchListTile(
+                    child: Material(type: MaterialType.transparency, child: SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         l.stepConfigPendingRefToggleTitle,
@@ -926,7 +940,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       activeColor: AppTheme.flatCobalt,
                       onChanged: (val) =>
                           setState(() => _supportsPendingReference = val),
-                    ),
+                    )),
                   ),
                   const SizedBox(height: 16),
 
@@ -1071,6 +1085,13 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
           backgroundColor: const Color(0xFF27AE60),
         ),
       );
+    } else if (!success && mounted) {
+      final error = ref.read(stepConfigProvider).errorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: AppTheme.crimson),
+        );
+      }
     }
   }
 }

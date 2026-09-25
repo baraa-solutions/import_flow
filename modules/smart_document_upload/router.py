@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -23,6 +24,7 @@ import modules.smart_document_upload.service as service
 router = APIRouter(
     prefix="/api/v1/smart-upload",
     tags=["Smart Document Upload"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

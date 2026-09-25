@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from modules.auth.router import get_current_user
 from fastapi import HTTPException
 
 from sqlalchemy.orm import Session
@@ -25,7 +26,8 @@ from .service import restore_import_company
 
 import_router = APIRouter(
     prefix="/api/v1/import-companies",
-    tags=["Import Companies"]
+    tags=["Import Companies"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

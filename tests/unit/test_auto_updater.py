@@ -92,62 +92,29 @@ class TestGetLatestInstallerInfo(unittest.TestCase):
         mock_db = MagicMock()
         return ProductionSyncService(mock_db)
 
-    def test_returns_installer_info_from_remote(self):
-        """When GitHub responds, installer info is returned correctly."""
-        remote_data = json.dumps({
-            "version": "1.0.89",
-            "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.89/Sorour_Logistics_Setup_v1.0.89.exe",
-            "installer_filename": "Sorour_Logistics_Setup_v1.0.89.exe",
-            "installer_size_mb": 210.5,
-        }).encode("utf-8")
-
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.read.return_value = remote_data
-        mock_response.__enter__ = lambda s: s
-        mock_response.__exit__ = MagicMock(return_value=False)
-
-        with patch("urllib.request.urlopen", return_value=mock_response):
+    def test_installer_info_is_local_only(self):
+        """No installer is offered by production_sync any more (updates come from app_update)."""
+        with patch("urllib.request.urlopen") as mock_urlopen:
             service = self._get_service()
-            result = service.get_latest_installer_info()
-
-        self.assertTrue(result.is_available)
-        self.assertEqual(result.version, "1.0.89")
-        self.assertIn("v1.0.89", result.installer_url)
-        self.assertAlmostEqual(result.installer_size_mb, 210.5)
-
-    def test_returns_error_when_offline(self):
-        """When network is unavailable and local version.json has no installer_url, returns is_available=False."""
-        with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
-            # Also ensure local version.json has no installer_url
-            with patch("builtins.open", mock_open(read_data='{"version": "1.0.88"}')):
-                service = self._get_service()
+            with patch.object(service, "get_system_version_info") as mock_version:
+                mock_version.return_value = MagicMock(version="1.0.88")
                 result = service.get_latest_installer_info()
+
+        mock_urlopen.assert_not_called()
         self.assertFalse(result.is_available)
-
-    def test_fallback_to_local_version_json(self):
-        """When GitHub fails but local version.json has installer_url, it uses it."""
-        local_data = json.dumps({
-            "version": "1.0.88",
-            "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.88/Sorour_Logistics_Setup_v1.0.88.exe",
-            "installer_filename": "Sorour_Logistics_Setup_v1.0.88.exe",
-            "installer_size_mb": 202.14,
-        })
-
-        with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
-            service = self._get_service()
-            # Patch ROOT_DIR / version.json to exist
-            import modules.production_sync.service as svc_module
-            mock_path = MagicMock()
-            mock_path.exists.return_value = True
-            with patch.object(svc_module, "ROOT_DIR", MagicMock(__truediv__=lambda s, x: mock_path)):
-                m = mock_open(read_data=local_data)
-                with patch("builtins.open", m):
-                    result = service.get_latest_installer_info()
-
-        self.assertTrue(result.is_available)
         self.assertEqual(result.version, "1.0.88")
-        self.assertAlmostEqual(result.installer_size_mb, 202.14)
+        self.assertEqual(result.installer_url, "")
+        self.assertEqual(result.installer_filename, "")
+        self.assertTrue(result.error)
+
+    def test_installer_info_ignores_installer_url_in_local_version_json(self):
+        """Even a local version.json with installer_url no longer yields a download link."""
+        local_data = json.dumps({"version": "1.0.88", "installer_url": "https://example.com/setup.exe"})
+        with patch("urllib.request.urlopen") as mock_urlopen, patch("builtins.open", mock_open(read_data=local_data)):
+            result = self._get_service().get_latest_installer_info()
+        mock_urlopen.assert_not_called()
+        self.assertFalse(result.is_available)
+        self.assertEqual(result.installer_url, "")
 
 
 class TestCheckForUpdatesInstallerFields(unittest.TestCase):
@@ -158,34 +125,23 @@ class TestCheckForUpdatesInstallerFields(unittest.TestCase):
         mock_db = MagicMock()
         return ProductionSyncService(mock_db)
 
-    def test_check_for_updates_includes_installer_url_when_update_available(self):
-        remote_data = json.dumps({
-            "version": "1.0.89",
-            "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.89/Sorour_Logistics_Setup_v1.0.89.exe",
-            "installer_filename": "Sorour_Logistics_Setup_v1.0.89.exe",
-            "installer_size_mb": 210.5,
-            "release_notes": ["Improved document extraction"],
-        }).encode("utf-8")
-
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.read.return_value = remote_data
-        mock_response.__enter__ = lambda s: s
-        mock_response.__exit__ = MagicMock(return_value=False)
-
-        with patch("urllib.request.urlopen", return_value=mock_response):
+    def test_check_for_updates_is_local_only(self):
+        """check-updates no longer contacts any server (updates come from app_update)."""
+        with patch("urllib.request.urlopen") as mock_urlopen:
             service = self._get_service()
-            # Mock current version to be lower
             with patch.object(service, "get_system_version_info") as mock_version:
                 mock_version.return_value = MagicMock(version="1.0.88")
                 result = service.check_for_updates()
 
-        self.assertTrue(result.has_update)
-        self.assertIsNotNone(result.installer_url)
-        self.assertIn("v1.0.89", result.installer_url)
-        self.assertEqual(result.installer_filename, "Sorour_Logistics_Setup_v1.0.89.exe")
-        self.assertAlmostEqual(result.installer_size_mb, 210.5)
+        mock_urlopen.assert_not_called()
+        self.assertFalse(result.has_update)
+        self.assertEqual(result.current_version, "1.0.88")
+        self.assertEqual(result.latest_version, "1.0.88")
+        self.assertEqual(result.check_status, "UP_TO_DATE")
 
+    def test_check_for_updates_rejects_custom_remote_url_argument(self):
+        with self.assertRaises(TypeError):
+            self._get_service().check_for_updates(custom_remote_url="https://evil.example/version.json")
 
 if __name__ == "__main__":
     unittest.main()

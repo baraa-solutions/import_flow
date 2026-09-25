@@ -100,7 +100,7 @@ void main() {
 
       await tester.pumpWidget(_buildHarness(_createTestDio()));
       await _measureCycle(tester);
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg first-frame render <= 300ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -120,7 +120,7 @@ void main() {
       debugPrint('[TariffFormDialog] avg first-frame: ${avg}ms');
       expect(avg, lessThanOrEqualTo(300),
           reason: 'avg first-frame should be <= 300ms, got ${avg}ms');
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg settled render <= 350ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -140,7 +140,7 @@ void main() {
       debugPrint('[TariffFormDialog] avg settled: ${avg}ms');
       expect(avg, lessThanOrEqualTo(350),
           reason: 'avg settled should be <= 350ms, got ${avg}ms');
-    });
+    }, tags: ['perf']);
 
     testWidgets('avg disposal <= 150ms', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -160,7 +160,7 @@ void main() {
       debugPrint('[TariffFormDialog] avg disposal: ${avg}ms');
       expect(avg, lessThanOrEqualTo(150),
           reason: 'avg disposal should be <= 150ms, got ${avg}ms');
-    });
+    }, tags: ['perf']);
 
     testWidgets('dialog renders title and cancel button correctly in Add mode', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);

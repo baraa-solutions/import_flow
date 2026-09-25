@@ -1,0 +1,1775 @@
+{
+ "screen_nn": "03",
+ "screen_slug": "partners-banks",
+ "state": "main",
+ "screenshot": "../screenshots/03-partners-banks-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "عرض المتوقفين:"
+  },
+  {
+   "text": "الإجراءات"
+  },
+  {
+   "text": "الكود"
+  },
+  {
+   "text": "اسم الشريك والتصنيف"
+  },
+  {
+   "text": "بيانات القيد والترخيص"
+  },
+  {
+   "text": "بيانات التواصل"
+  },
+  {
+   "text": "الحالة"
+  },
+  {
+   "text": "هيئة فحص ومعاينة"
+  },
+  {
+   "text": "Cairo Pre-Shipment Inspection Services"
+  },
+  {
+   "text": "اعتماد: EGAC-IA-112"
+  },
+  {
+   "text": "14 يوم سماح"
+  },
+  {
+   "text": "الدولة: Egypt"
+  },
+  {
+   "text": "Pre-shipment, Quality"
+  },
+  {
+   "text": "لا يوجد بريد"
+  },
+  {
+   "text": "+20 2 2526 2000"
+  },
+  {
+   "text": "نشطة"
+  },
+  {
+   "text": "Misr Insurance / مصر للتأمين"
+  },
+  {
+   "text": "Insurance"
+  },
+  {
+   "text": "ترخيص: INS-0007"
+  },
+  {
+   "text": "تغطية: Marine Cargo ICC(A)"
+  },
+  {
+   "text": "+20 2 3335 5350"
+  },
+  {
+   "text": "Egyptian Trucking Co. / المصرية للنقل البري"
+  },
+  {
+   "text": "نقل بري"
+  },
+  {
+   "text": "ترخيص: TR-44120"
+  },
+  {
+   "text": "الأسطول: 40ft flatbed, 20ft"
+  },
+  {
+   "text": "التغطية: Alexandria, Cairo, 10th of Ramadan"
+  },
+  {
+   "text": "+20 2 2455 6600"
+  },
+  {
+   "text": "Sokhna Customs Agents / وكلاء السخنة للجمارك"
+  },
+  {
+   "text": "مخلص جمركي"
+  },
+  {
+   "text": "ترخيص: CB-SOK-7719"
+  },
+  {
+   "text": "الموانئ: Sokhna"
+  },
+  {
+   "text": "لا يوجد هاتف"
+  },
+  {
+   "text": "Port Said Clearance Services / بورسعيد لخدمات التخليص"
+  },
+  {
+   "text": "ترخيص: CB-PSD-3307"
+  },
+  {
+   "text": "الموانئ: Port Said East, Damietta"
+  },
+  {
+   "text": "+20 66 332 1900"
+  },
+  {
+   "text": "El Nour Customs Brokerage / النور للتخليص الجمركي"
+  },
+  {
+   "text": "ترخيص: CB-ALX-5521"
+  },
+  {
+   "text": "الموانئ: Alexandria, El Dekheila"
+  },
+  {
+   "text": "+20 3 391 7744"
+  },
+  {
+   "text": "Kuehne Line Logistics Egypt"
+  },
+  {
+   "text": "وكيل شحن"
+  },
+  {
+   "text": "فياتا: FIATA-EG-1180"
+  },
+  {
+   "text": "Sea FCL, Air"
+  },
+  {
+   "text": "+20 2 2267 9000"
+  },
+  {
+   "text": "Delta Freight Forwarding / دلتا للشحن الدولي"
+  },
+  {
+   "text": "فياتا: FIATA-EG-2231"
+  },
+  {
+   "text": "Sea FCL, Sea LCL, Air"
+  },
+  {
+   "text": "ops@deltafreight-eg.com"
+  },
+  {
+   "text": "+20 3 480 1122"
+  },
+  {
+   "text": "Banque Misr / بنك مصر"
+  },
+  {
+   "text": "السويفت: BMISEGCX"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالشركاء والبنوك ومقدمو الخدمات\n24H LIVE\nالشركاء ومقدمو الخدمات الخارجية\nإدارة البنوك التجارية، الخطوط الملاحية، المخلصين الجمركيين، وكلاء الشحن، وشركاء الخدمات اللوجستية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:25",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    585,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    712,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    848,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    874,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    902,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    950,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    976,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1004,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1094,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1122,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1148,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    790,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إضافة شريك خارجي جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    131,
+    181,
+    39
+   ]
+  },
+  {
+   "label": "تكويد شريك بالذكاء الاصطناعي ✨",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    467,
+    131,
+    227,
+    39
+   ]
+  },
+  {
+   "label": "إجراءات إضافية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    703,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "الكل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    982,
+    134,
+    137,
+    34
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1501,
+    133,
+    36,
+    36
+   ]
+  },
+  {
+   "label": "تصدير الشركاء (جدول بيانات) 📊",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1541,
+    133,
+    34,
+    36
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    261,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    261,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    261,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    261,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    261,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    261,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    261,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000042 (نسخ البيانات)",
+   "tooltip": "ESP-000042",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    260,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    300,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    351,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    351,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    351,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    351,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    351,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    351,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    351,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000041 (نسخ البيانات)",
+   "tooltip": "ESP-000041",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    350,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1109,
+    343,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    450,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    450,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    450,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    450,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    450,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    450,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    450,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000040 (نسخ البيانات)",
+   "tooltip": "ESP-000040",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    449,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    442,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    549,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    549,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    549,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    549,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    549,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    549,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    549,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000039 (نسخ البيانات)",
+   "tooltip": "ESP-000039",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    548,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    541,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    639,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    639,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    639,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    639,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    639,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    639,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    639,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000038 (نسخ البيانات)",
+   "tooltip": "ESP-000038",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    638,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    631,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    729,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    729,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    729,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    729,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    729,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    729,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    729,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000037 (نسخ البيانات)",
+   "tooltip": "ESP-000037",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    728,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    721,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    819,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    819,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    819,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    819,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    819,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    819,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    819,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000036 (نسخ البيانات)",
+   "tooltip": "ESP-000036",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    818,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1111,
+    811,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    909,
+    101,
+    28
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    909,
+    83,
+    28
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    909,
+    130,
+    28
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    909,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    909,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    909,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    909,
+    23,
+    28
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000035 (نسخ البيانات)",
+   "tooltip": "ESP-000035",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    908,
+    105,
+    29
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    901,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "كشف حساب الشريك والأرصدة بالعملات",
+   "tooltip": "كشف حساب",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    286,
+    990,
+    101,
+    1
+   ]
+  },
+  {
+   "label": "بطاقة تقييم مستوى أداء الخدمة",
+   "tooltip": "تقييم الأداء",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    393,
+    990,
+    83,
+    1
+   ]
+  },
+  {
+   "label": "نسخ ملخص الشريك",
+   "tooltip": "نسخ ملخص الشريك",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    482,
+    990,
+    130,
+    1
+   ]
+  },
+  {
+   "label": "عرض التفاصيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    619,
+    990,
+    28,
+    1
+   ]
+  },
+  {
+   "label": "تعديل السجل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    651,
+    990,
+    28,
+    1
+   ]
+  },
+  {
+   "label": "طباعة وتصدير PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    683,
+    990,
+    28,
+    1
+   ]
+  },
+  {
+   "label": "إيقاف تفعيل الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    715,
+    990,
+    23,
+    1
+   ]
+  },
+  {
+   "label": "كود الشريك: ESP-000034 (نسخ البيانات)",
+   "tooltip": "ESP-000034",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    989,
+    105,
+    2
+   ]
+  },
+  {
+   "label": "نسخ البيانات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1076,
+    982,
+    17,
+    9
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث باسم الشريك، الكود، كود السويفت، رقم الترخيص، البطاقة الضريبية، أو الدولة...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "الكود",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    756,
+    133,
+    218,
+    42
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "",
+   "role": "switch",
+   "checked": "true",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 197,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "الكود",
+    "اسم الشريك والتصنيف",
+    "بيانات القيد والترخيص",
+    "بيانات التواصل",
+    "الحالة"
+   ]
+  },
+  {
+   "y": 342,
+   "cells_left_to_right": [
+    "Misr Insurance / مصر للتأمين",
+    "ترخيص: INS-0007",
+    "لا يوجد بريد"
+   ]
+  },
+  {
+   "y": 810,
+   "cells_left_to_right": [
+    "Kuehne Line Logistics Egypt",
+    "فياتا: FIATA-EG-1180",
+    "لا يوجد بريد"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 52,
+  "buttons": 127,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 3
+ }
+}

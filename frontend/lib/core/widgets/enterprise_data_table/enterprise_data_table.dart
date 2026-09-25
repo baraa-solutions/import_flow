@@ -591,12 +591,17 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
               final isSorted = _sortColumnId == col.id;
               final colWidth = _columnWidths[col.id] ?? col.width;
 
+              // The InkWell fills the full header-cell height (and the full width for columns with
+              // an explicit width) so the sort tap target stays close to DataColumn.onSort's cell target.
               final headerContent = InkWell(
+                key: ValueKey('enterprise_table_header_${col.id}'),
                 onTap: col.isSortable ? () => _onSort(col.id) : null,
                 borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
+                child: SizedBox(
+                  height: widget.headerHeight,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Flexible(
@@ -624,6 +629,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                         ),
                       ],
                     ],
+                  ),
                   ),
                 ),
               );
@@ -673,6 +679,8 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                       ),
                     )
                   : Row(
+                      // DataTable gives heading labels unbounded width, so this row
+                      // shrink-wraps; the InkWell still spans the full cell height.
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         headerContent,
@@ -683,7 +691,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
 
               return DataColumn(
                 tooltip: col.tooltip,
-                onSort: col.isSortable ? (_, __) => _onSort(col.id) : null,
+                // Sorting is handled by the header InkWell above (with its own arrow icon).
+                // Setting DataColumn.onSort too nests two tap targets around the
+                // columnHeader semantics node, which Flutter >= 3.44 rejects.
                 label: labelWidget,
               );
             }),

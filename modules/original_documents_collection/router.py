@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from modules.auth.router import get_current_user
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import io
@@ -19,6 +20,7 @@ from .schemas import (
 router = APIRouter(
     prefix="/api/v1/original-documents-collection",
     tags=["Physical Original Documents Collection & Courier Tracking (BP-026 / DOC-ORIG-001)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'copyable_data_helper.dart';
@@ -162,7 +163,7 @@ class SmartUploadResult {
 /// 2. Uploads to /api/v1/smart-upload/parse/{module}
 /// 3. Shows a preview dialog with extracted fields
 /// 4. Calls [onDataExtracted] with confirmed fields
-class SmartUploadButton extends StatefulWidget {
+class SmartUploadButton extends ConsumerStatefulWidget {
   final SmartUploadModule module;
   final String? label;
   final void Function(SmartUploadResult result)? onDataExtracted;
@@ -177,10 +178,16 @@ class SmartUploadButton extends StatefulWidget {
   });
 
   @override
-  State<SmartUploadButton> createState() => _SmartUploadButtonState();
+  ConsumerState<SmartUploadButton> createState() => _SmartUploadButtonState();
 }
 
-class _SmartUploadButtonState extends State<SmartUploadButton> {
+class _SmartUploadButtonState extends ConsumerState<SmartUploadButton> {
+  /// AI extraction can be slow: keep the historical 180s send/receive window.
+  static final Options _aiExtractionOptions = Options(
+    sendTimeout: const Duration(seconds: 180),
+    receiveTimeout: const Duration(seconds: 180),
+  );
+
   bool _isLoading = false;
   double _progressPercent = 0.0;
   String _progressLabel = '';
@@ -309,13 +316,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
   }
 
   Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes, ExtractionProgressController progressCtrl, {CancelToken? cancelToken}) async {
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 180),
-        receiveTimeout: const Duration(seconds: 180),
-        sendTimeout: const Duration(seconds: 180),
-      ),
-    );
+    final dio = ref.read(uploadDioProvider);
     final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse/${widget.module.apiValue}';
 
     final formData = FormData.fromMap({
@@ -327,6 +328,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       endpoint,
       data: formData,
       cancelToken: cancelToken,
+      options: _aiExtractionOptions,
       onSendProgress: (sent, total) {
         if (total > 0 && mounted) {
           final uploadRatio = sent / total;
@@ -356,13 +358,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
   }
 
   Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files, ExtractionProgressController progressCtrl, {CancelToken? cancelToken}) async {
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 180),
-        receiveTimeout: const Duration(seconds: 180),
-        sendTimeout: const Duration(seconds: 180),
-      ),
-    );
+    final dio = ref.read(uploadDioProvider);
     final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse-multi/${widget.module.apiValue}';
 
     final multiFiles = files
@@ -377,6 +373,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     final response = await dio.post(
       endpoint,
       data: formData,
+      options: _aiExtractionOptions,
       onSendProgress: (sent, total) {
         if (total > 0 && mounted) {
           final uploadRatio = sent / total;

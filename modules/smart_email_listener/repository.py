@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from .model import InboundEmailLog, EmailSettings
-from .crypto import encrypt_email_password
+from .crypto import encrypt_email_password, is_encrypted_with_current_key
 from modules.import_files.model import ImportFile
 from modules.smart_tasks.model import SmartTask
 
@@ -341,8 +341,12 @@ def save_or_update_email_settings(db: Session, data: dict, user: str = "Admin") 
     else:
         for k, v in data.items():
             if hasattr(settings, k) and v is not None:
-                # If password is empty string in update, don't overwrite existing
+                # If password is empty string in update, don't overwrite existing, but move a value
+                # stored with an older key (or legacy plaintext) to the current SECRET_KEY.
                 if k == "password" and v == "":
+                    stored = settings._password
+                    if stored and not is_encrypted_with_current_key(stored):
+                        settings._password = encrypt_email_password(stored)
                     continue
                 setattr(settings, k, v)
         settings.updated_at = datetime.now(timezone.utc)
@@ -351,6 +355,24 @@ def save_or_update_email_settings(db: Session, data: dict, user: str = "Admin") 
     db.commit()
     db.refresh(settings)
     return settings
+
+
+def rotate_stored_email_passwords(db: Session) -> int:
+    """Move every stored mailbox password that is not on the current SECRET_KEY (legacy-key token or
+    legacy plaintext) to the current key. Idempotent; undecryptable values are left unchanged.
+    Returns the number of rows rewritten."""
+    rotated = 0
+    for row in db.query(EmailSettings).all():
+        stored = row._password
+        if not stored or is_encrypted_with_current_key(stored):
+            continue
+        new_value = encrypt_email_password(stored)
+        if new_value != stored:
+            row._password = new_value
+            rotated += 1
+    if rotated:
+        db.commit()
+    return rotated
 
 
 def update_email_settings_sync_status(

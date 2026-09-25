@@ -1,0 +1,1136 @@
+{
+ "screen_nn": "13",
+ "screen_slug": "shipping-scenarios",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/13-shipping-scenarios-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "متوسط موعد التوصيل للمخزن"
+  },
+  {
+   "text": "أسرع خط ملاحي وصولاً"
+  },
+  {
+   "text": "أبطأ خط ملاحي وصولاً"
+  },
+  {
+   "text": "الخط الموصى به رسمياً"
+  },
+  {
+   "text": "استخراج وقراءة عروض أسعار الشحن والنولون (Freight Quotation AI) ⚡"
+  },
+  {
+   "text": "d"
+  },
+  {
+   "text": "خيارات وعروض شحن الشركات"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nدراسات ومفاضلة نولون الشحن\n24H LIVE\nFreight Shipping Scenarios & Carrier Evaluation\nFreight Studies\nOperations & Stages",
+  "إعدادات ومعلمات دراسة الشحن",
+  "1"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:34",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    575,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    702,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    809,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    839,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    865,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    893,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    940,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    966,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    994,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1084,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1112,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1138,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "دراسات ومفاضلة نولون الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    479,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "Scenarios Evaluator",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    176,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Saved Evaluations Log",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    216,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "بحث واستنساخ دراسة شحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    86,
+    182,
+    41
+   ]
+  },
+  {
+   "label": "🚀 استخراج عروض أسعار النولون",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1154,
+    86,
+    197,
+    42
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1379,
+    86,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    658,
+    90,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    90,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1361,
+    86,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "2026-11-10",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    499,
+    194,
+    73,
+    20
+   ]
+  },
+  {
+   "label": "COSCO Shipping",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    776,
+    194,
+    107,
+    20
+   ]
+  },
+  {
+   "label": "Maersk Line",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1054,
+    194,
+    79,
+    20
+   ]
+  },
+  {
+   "label": "COSCO Shipping (COSCO UNIVERSE)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1332,
+    194,
+    238,
+    20
+   ]
+  },
+  {
+   "label": "خلال 42 يوم من الجاهزية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    499,
+    216,
+    97,
+    15
+   ]
+  },
+  {
+   "label": "تاريخ الوصول المتوقع (ETA): 2026-11-07",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    776,
+    216,
+    170,
+    15
+   ]
+  },
+  {
+   "label": "تاريخ الوصول المتوقع (ETA): 2026-11-15",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1054,
+    216,
+    170,
+    15
+   ]
+  },
+  {
+   "label": "متوسط موعد التوصيل للمخزن: 2026-11-07 (39 d)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1332,
+    216,
+    208,
+    15
+   ]
+  },
+  {
+   "label": "طي الأداة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1545,
+    271,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "لصق نص العرض",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    509,
+    406,
+    107,
+    24
+   ]
+  },
+  {
+   "label": "تفريغ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    622,
+    406,
+    54,
+    24
+   ]
+  },
+  {
+   "label": "نموذج تجريبي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    682,
+    405,
+    93,
+    26
+   ]
+  },
+  {
+   "label": "رفع مستند عرض السعر 📄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1349,
+    319,
+    220,
+    47
+   ]
+  },
+  {
+   "label": "استخراج وتحليل عروض السعر ⚡",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1349,
+    374,
+    220,
+    47
+   ]
+  },
+  {
+   "label": "تاريخ جاهزية البضاعة (CRD) *",
+   "tooltip": "2026-09-29",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1035,
+    524,
+    258,
+    48
+   ]
+  },
+  {
+   "label": "ربط بملف استيراد",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1306,
+    524,
+    258,
+    48
+   ]
+  },
+  {
+   "label": "ربط بأمر الشراء",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    506,
+    652,
+    256,
+    48
+   ]
+  },
+  {
+   "label": "ربط بمشروع",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    774,
+    652,
+    256,
+    48
+   ]
+  },
+  {
+   "label": "إضافة خيار شحن جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1394,
+    742,
+    190,
+    58
+   ]
+  },
+  {
+   "label": "وكيل الشحن / الناقل",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    536,
+    826,
+    251,
+    48
+   ]
+  },
+  {
+   "label": "الخط الملاحي *",
+   "tooltip": "★ COSCO Shipping (مقترح)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    797,
+    826,
+    251,
+    48
+   ]
+  },
+  {
+   "label": "تكويد خط ملاحي جديد بالذكاء الاصطناعي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1052,
+    830,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استنساخ خيار الناقل (Ctrl + D)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1488,
+    830,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1532,
+    830,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "ميناء السفر / التحميل (POL)",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    498,
+    886,
+    350,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الوصول / التفريغ (POD)",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    860,
+    886,
+    350,
+    48
+   ]
+  },
+  {
+   "label": "المخلص الجمركي:",
+   "tooltip": "غير محدد",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1222,
+    886,
+    350,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ الإبحار (ETD) *",
+   "tooltip": "2026-10-01",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    498,
+    948,
+    238,
+    45
+   ]
+  },
+  {
+   "label": "تاريخ الوصول المتوقع (ETA) *",
+   "tooltip": "2026-10-25",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    746,
+    948,
+    238,
+    45
+   ]
+  },
+  {
+   "label": "مستوى المخاطر",
+   "tooltip": "Low Risk 🟢",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1243,
+    946,
+    238,
+    48
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية 🔄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    494,
+    937,
+    150,
+    49
+   ]
+  },
+  {
+   "label": "تفريغ وبدء تسجيل جديد 🔄",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    652,
+    937,
+    183,
+    49
+   ]
+  },
+  {
+   "label": "حفظ مؤقت ومتابعة لاحقة 💾",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    842,
+    937,
+    199,
+    49
+   ]
+  },
+  {
+   "label": "حفظ الدراسة والنتائج ✅",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1375,
+    935,
+    201,
+    53
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...",
+   "label_above": "استخراج وقراءة عروض أسعار الشحن والنولون (Freight Quotation AI) ⚡",
+   "hint": "(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    501,
+    319,
+    840,
+    126
+   ]
+  },
+  {
+   "label": "مسمى دراسة خيارات الشحن *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    506,
+    522,
+    525,
+    58
+   ]
+  },
+  {
+   "label": "عنوان الاستلام / المصنع",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    506,
+    586,
+    1066,
+    58
+   ]
+  },
+  {
+   "label": "أيام نموذج 4 المتوقعة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1041,
+    650,
+    264,
+    58
+   ]
+  },
+  {
+   "label": "أيام التخليص الجمركي المتوقعة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1308,
+    650,
+    264,
+    58
+   ]
+  },
+  {
+   "label": "اسم الباخرة / الرحلة *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1098,
+    824,
+    259,
+    58
+   ]
+  },
+  {
+   "label": "رقم الرحلة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1359,
+    824,
+    133,
+    58
+   ]
+  },
+  {
+   "label": "أيام التأخير المتوقعة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    995,
+    944,
+    246,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "محتسب ✅",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 170,
+   "cells_left_to_right": [
+    "متوسط موعد التوصيل للمخزن",
+    "أسرع خط ملاحي وصولاً",
+    "أبطأ خط ملاحي وصولاً",
+    "الخط الموصى به رسمياً"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 7,
+  "buttons": 77,
+  "fields": 9,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 1
+ }
+}

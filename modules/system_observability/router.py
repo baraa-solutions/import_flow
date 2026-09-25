@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response, Header
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User
-from modules.auth.router import get_current_user
+from modules.auth.router import get_current_user, require_admin
 
 from modules.system_observability.schemas import (
     SystemMetricsResponse,
@@ -27,6 +27,7 @@ from modules.system_observability.service import (
 router = APIRouter(
     prefix="/api/v1/system",
     tags=["System Observability, Telemetry & Health Monitoring"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -55,7 +56,7 @@ def get_domain_radar(
     return DomainRadarService.get_radar(db)
 
 
-@router.get("/health/deep", response_model=DeepHealthCheckResponse)
+@router.get("/health/deep", response_model=DeepHealthCheckResponse, dependencies=[Depends(require_admin)])
 def run_deep_health_check(
     db: Session = Depends(get_db),
 ):
@@ -75,7 +76,7 @@ def get_recent_traffic(
 @router.get("/observability/export-bundle")
 def export_diagnostics_bundle(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     """Generates and downloads a complete, sanitized system diagnostics and health archive (ZIP)."""
     zip_bytes = DiagnosticsBundleService.generate_zip_bundle(db)
@@ -121,7 +122,7 @@ def trigger_test_alert(
     severity: str = "HIGH",
     target_tab: str = "deep-health",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     """Dispatches a test alert to verify delivery channel functionality."""
     channels = ["TOAST", "EMAIL"] if channel == "BOTH" else [channel]
@@ -160,7 +161,7 @@ def get_alert_history(
 @router.post("/observability/alerts/reset-cooldown")
 def reset_alert_cooldown(
     condition_key: str = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     """Resets cooldown timers for alert conditions."""
     alert_dispatcher.reset_cooldown(condition_key)
@@ -184,7 +185,7 @@ def get_latest_daily_report(
 def trigger_daily_report_generation(
     deliver: bool = True,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     """Manually triggers daily report generation and delivery via email and toast."""
     return DailyReportService.generate_report(db, deliver=deliver)

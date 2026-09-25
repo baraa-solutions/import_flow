@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
 import 'package:frontend/core/theme/density_provider.dart';
@@ -144,7 +145,10 @@ void main() {
       // Switch to Tab 4: Diagnostics
       await tester.tap(find.text('التشخيص والبيئة'));
       await tester.pumpAndSettle();
-      expect(find.text('Sorour Logistics ERP v1.0.194'), findsOneWidget);
+      expect(
+        find.text('Sorour Logistics ERP v${ApiConstants.clientVersion} (Build ${ApiConstants.clientBuildNumber})'),
+        findsOneWidget,
+      );
       expect(find.text('sorour_logistics.db (SQLite WAL Mode)'), findsOneWidget);
       expect(find.text('تحديث فوري'), findsOneWidget);
     });

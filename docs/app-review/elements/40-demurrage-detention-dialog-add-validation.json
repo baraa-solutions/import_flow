@@ -1,0 +1,139 @@
+{
+ "screen_nn": "40",
+ "screen_slug": "demurrage-detention",
+ "state": "dialog-add-validation",
+ "screenshot": "../screenshots/40-demurrage-detention-dialog-add-validation.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "بدء تتبع شحنة وحاويات جديدة"
+  },
+  {
+   "text": "حقل مطلوب"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "الخط الملاحي",
+   "tooltip": "MSC",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    525,
+    307,
+    550,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الوصول",
+   "tooltip": "Alexandria Port",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    525,
+    367,
+    550,
+    48
+   ]
+  },
+  {
+   "label": "نوع الحاوية",
+   "tooltip": "20ft Standard",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    806,
+    523,
+    269,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ تفريغ الحاويات بالميناء",
+   "tooltip": "2026-09-19",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    525,
+    595,
+    550,
+    74
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    876,
+    702,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "حفظ وبدء التتبع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    948,
+    693,
+    127,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "رقم بوليصة الشحن",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": true,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    525,
+    427,
+    558,
+    78
+   ]
+  },
+  {
+   "label": "رقم الحاوية",
+   "label_above": "حقل مطلوب",
+   "hint": "",
+   "required": false,
+   "invalid": true,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    525,
+    511,
+    277,
+    78
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 3,
+  "buttons": 6,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

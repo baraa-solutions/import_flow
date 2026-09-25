@@ -1,0 +1,346 @@
+{
+ "screen_nn": "03",
+ "screen_slug": "partners-banks",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/03-partners-banks-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "تصنيفات الشريك (اختر تصنيفاً واحداً أو أكثر) *"
+  },
+  {
+   "text": "اسم الشريك أو الشركة *"
+  },
+  {
+   "text": "*"
+  },
+  {
+   "text": "🛂 ترخيص التخليص الجمركي والموانئ المعتمدة"
+  },
+  {
+   "text": "رقم ترخيص مزاولة التخليص الجمركي *"
+  },
+  {
+   "text": "الموانئ والمنافذ الجمركية المعتمدة للعمل"
+  },
+  {
+   "text": "رقم التسجيل الضريبي"
+  },
+  {
+   "text": "رقم السجل التجاري"
+  },
+  {
+   "text": "البريد الإلكتروني الرئيسي"
+  },
+  {
+   "text": "بريد إلكتروني إضافي"
+  },
+  {
+   "text": "رقم الهاتف"
+  },
+  {
+   "text": "رقم المحمول"
+  },
+  {
+   "text": "رقم الفاكس"
+  },
+  {
+   "text": "الموقع الإلكتروني"
+  },
+  {
+   "text": "العنوان"
+  },
+  {
+   "text": "الدولة *"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "إغلاق النافذة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1056,
+    93,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إلغاء وإغلاق ✕",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    769,
+    847,
+    143,
+    58
+   ]
+  },
+  {
+   "label": "حفظ بيانات الشريك",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    924,
+    847,
+    176,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "مثال: البنك الأهلي المصري، ميرسك لاين، لوجستيات الشحن",
+   "label_above": "اسم الشريك أو الشركة *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "🛂 ترخيص التخليص الجمركي والموانئ المعتمدة",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    504,
+    328,
+    600,
+    55
+   ]
+  },
+  {
+   "label": "رقم رخصة التخليص الجمركي",
+   "label_above": "رقم ترخيص مزاولة التخليص الجمركي *",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": "الموانئ والمنافذ الجمركية المعتمدة للعمل",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    517,
+    462,
+    574,
+    55
+   ]
+  },
+  {
+   "label": "مثال: ميناء الإسكندرية، السخنة، بورسعيد، دمياط، مطار القاهرة",
+   "label_above": "الموانئ والمنافذ الجمركية المعتمدة للعمل",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم التسجيل الضريبي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    517,
+    546,
+    574,
+    55
+   ]
+  },
+  {
+   "label": "الرقم الضريبي",
+   "label_above": "رقم التسجيل الضريبي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "البريد الإلكتروني الرئيسي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    504,
+    649,
+    296,
+    55
+   ]
+  },
+  {
+   "label": "رقم السجل التجاري",
+   "label_above": "رقم السجل التجاري",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "بريد إلكتروني إضافي",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    649,
+    296,
+    55
+   ]
+  },
+  {
+   "label": "contact@partner.com",
+   "label_above": "البريد الإلكتروني الرئيسي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم الهاتف",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    504,
+    739,
+    296,
+    55
+   ]
+  },
+  {
+   "label": "trade@partner.com",
+   "label_above": "بريد إلكتروني إضافي",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "رقم الفاكس",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    808,
+    739,
+    296,
+    55
+   ]
+  },
+  {
+   "label": "رقم الهاتف مع كود المحافظة",
+   "label_above": "رقم الهاتف",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "الموقع الإلكتروني",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    504,
+    829,
+    195,
+    55
+   ]
+  },
+  {
+   "label": "رقم المحمول",
+   "label_above": "رقم المحمول",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    707,
+    829,
+    195,
+    55
+   ]
+  },
+  {
+   "label": "رقم الفاكس",
+   "label_above": "رقم الفاكس",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    909,
+    829,
+    195,
+    55
+   ]
+  },
+  {
+   "label": "www.partner.com",
+   "label_above": "الموقع الإلكتروني",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "العنوان",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    504,
+    919,
+    600,
+    55
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "بنك",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "خط ملاحي",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "مخلص جمركي",
+   "role": "checkbox",
+   "checked": "true",
+   "enabled": true
+  },
+  {
+   "label": "وكيل شحن",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "نقل بري",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "هيئة فحص ومعاينة",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "شركة تأمين",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [
+  {
+   "y": 804,
+   "cells_left_to_right": [
+    "رقم الهاتف",
+    "رقم المحمول",
+    "رقم الفاكس"
+   ]
+  },
+  {
+   "y": 984,
+   "cells_left_to_right": [
+    "العنوان",
+    "الدولة *",
+    "*"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 16,
+  "buttons": 3,
+  "fields": 11,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 2
+ }
+}

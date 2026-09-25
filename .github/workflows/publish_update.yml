@@ -1,0 +1,403 @@
+name: Publish update
+
+# Manual, approval-by-button publish of a built release to the update host (plan docs/plans/update-system-plan.md 4.4).
+# Private repo on GitHub Free/Team: environments have no "required reviewers", so pressing "Run workflow" here IS
+# the approval. Nothing is published by a tag push; build_and_release.yml only builds and uploads `update-payload`.
+#
+# Release = push tag vX.Y.Z -> wait for "Build & Release Sorour Logistics" to go green -> Actions -> "Publish update"
+# -> Run workflow from `main` -> type the tag -> Run.
+#
+# Three jobs, so no secret ever shares a runner with unhashed pip installs:
+#   sign   (environment production-updates) hashed signer venv; the signing key only in the sign step's env.
+#   verify (no environment, no secrets)     checks out refs/tags/<tag>, installs requirements.txt, verifies with
+#                                            THAT tag's ManifestVerifier + embedded public keys + installer hash.
+#   upload (environment production-updates) shell/sftp/curl only: SSH creds -> installer .part -> posix-rename ->
+#                                            public HTTPS hash check -> manifest.json.tmp -> posix-rename LAST -> prune.
+# Environment `production-updates` (deployment rule: branch main) holds UPDATE_SIGNING_KEY_ED25519, HOSTINGER_SSH_KEY,
+# HOSTINGER_KNOWN_HOSTS and vars HOSTINGER_HOST/PORT/USER.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish, e.g. v2.1.0 (must have a green build). Run from main.'
+        type: string
+        required: true
+      mandatory:
+        description: 'Mark this update as mandatory (security fix / breaking DB change only)'
+        type: boolean
+        default: false
+      min_supported_version:
+        description: 'Installs older than this X.Y.Z must update (empty = none)'
+        type: string
+        default: ''
+      expires_days:
+        description: 'expires_at = released_at + N days (default 90; refresh with resign_update_manifest.yml)'
+        type: string
+        default: '90'
+
+permissions:
+  contents: read
+
+# Same group as the resign job in resign_update_manifest.yml: a publish never races a re-sign.
+concurrency:
+  group: production-updates-publish
+  cancel-in-progress: false
+
+env:
+  UPDATE_BASE_URL: https://kamal-sroor.online/importflow/updates/
+  RELEASE_TAG: ${{ inputs.tag }}
+
+# Third-party actions are pinned by full commit SHA; the comment names the release.
+jobs:
+  sign:
+    name: Sign Manifest
+    runs-on: ubuntu-latest
+    environment: production-updates
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      installer_name: ${{ steps.resolve.outputs.installer_name }}
+    env:
+      MANDATORY: ${{ inputs.mandatory }}
+      MIN_SUPPORTED_VERSION: ${{ inputs.min_supported_version }}
+      EXPIRES_DAYS: ${{ inputs.expires_days || '90' }}
+
+    steps:
+      # Signer code comes from the dispatch ref, which must be main (also the environment's deployment rule).
+      # The tag must exist and match version.json at that tag.
+      - name: Guard Ref And Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "::error::run this workflow from main, not $GITHUB_REF"; exit 1; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::tag must look like v1.2.3, got '$RELEASE_TAG'"; exit 1; }
+          [[ "$EXPIRES_DAYS" =~ ^[0-9]+$ ]] || { echo "::error::expires_days must be a number"; exit 1; }
+          [[ -z "$MIN_SUPPORTED_VERSION" || "$MIN_SUPPORTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::min_supported_version must be X.Y.Z"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --silent \
+            || { echo "::error::tag $RELEASE_TAG does not exist"; exit 1; }
+          tag_version=$(gh api -H 'Accept: application/vnd.github.raw' \
+            "repos/$GITHUB_REPOSITORY/contents/version.json?ref=refs/tags/$RELEASE_TAG" | jq -r '.version')
+          [[ "v$tag_version" == "$RELEASE_TAG" ]] || { echo "::error::version.json at $RELEASE_TAG says $tag_version"; exit 1; }
+          echo "Publishing $RELEASE_TAG from $GITHUB_REF."
+
+      # Latest SUCCESSFUL tag-push build_and_release.yml run for the tag's commit (its update-payload is the input).
+      - name: Find Build Run For The Tag
+        id: build_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$RELEASE_TAG" --jq '.sha')
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build_and_release.yml/runs?head_sha=$sha&status=success&event=push&per_page=50" \
+            --jq "[.workflow_runs[] | select(.event == \"push\" and .head_branch == \"$RELEASE_TAG\" and .conclusion == \"success\")] | sort_by(.created_at) | last | .id // empty")
+          [[ "$run_id" =~ ^[0-9]+$ ]] || { echo "::error::no successful tag-push build_and_release run for $RELEASE_TAG ($sha); wait for the build"; exit 1; }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using build run $run_id for $RELEASE_TAG ($sha)."
+
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # No pip cache: nothing restored from a cache may run next to the signing key.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      # Isolated signer venv: only the hash-pinned wheels of cryptography (+ cffi, pycparser). This job installs
+      # nothing else.
+      - name: Create Signer Environment (hash-pinned)
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/signer-venv"
+          "$RUNNER_TEMP/signer-venv/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            --require-hashes --only-binary :all: --no-deps -r scripts/release/requirements-sign.txt
+
+      - name: Download Update Payload (from the tag's build run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: update-payload
+          path: payload
+          run-id: ${{ steps.build_run.outputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+
+      - name: Resolve Release
+        id: resolve
+        run: |
+          set -euo pipefail
+          payload_json=$(jq -r '.signed | fromjson' payload/update/manifest.unsigned.json)
+          VERSION=$(jq -r '.version' <<<"$payload_json")
+          INSTALLER_PATH=$(jq -r '.installer.path' <<<"$payload_json")
+          INSTALLER_NAME=${INSTALLER_PATH##*/}
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad version '$VERSION'"; exit 1; }
+          [[ "$INSTALLER_PATH" == "releases/$VERSION/$INSTALLER_NAME" ]] || { echo "::error::unexpected installer path"; exit 1; }
+          [[ "$INSTALLER_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.exe$ ]] || { echo "::error::bad installer name"; exit 1; }
+          [[ "$RELEASE_TAG" == "v$VERSION" ]] || { echo "::error::tag $RELEASE_TAG != payload version v$VERSION"; exit 1; }
+          test -f "payload/releases/$INSTALLER_NAME" || { echo "::error::installer missing from the payload"; exit 1; }
+          echo "INSTALLER_NAME=$INSTALLER_NAME" >> "$GITHUB_ENV"
+          { echo "version=$VERSION"; echo "installer_name=$INSTALLER_NAME"; } >> "$GITHUB_OUTPUT"
+
+      # The live manifest names the release currently installed in the field -> signed `previous` block
+      # (rollback). 404 = first release. Its signature is checked by the signer with the signing key.
+      - name: Fetch Live Manifest (previous release)
+        run: |
+          set -euo pipefail
+          code=$(curl -sS --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o payload/live-manifest.json -w '%{http_code}' "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)") || code=000
+          case "$code" in
+            200) echo "Live manifest fetched." ;;
+            404) rm -f payload/live-manifest.json; echo "No published manifest yet (first release)." ;;
+            *) echo "::error::GET live manifest returned HTTP $code"; exit 1 ;;
+          esac
+
+      # The key lives only in this step's environment. The signer imports stdlib + cryptography only and runs
+      # isolated (-I) from the hash-pinned venv; the key is never written to disk or printed.
+      - name: Sign Update Manifest
+        env:
+          UPDATE_SIGNING_KEY_ED25519: ${{ secrets.UPDATE_SIGNING_KEY_ED25519 }}
+        run: |
+          set -euo pipefail
+          # Publish-time choices come from the workflow inputs (job env); expires_at = released_at + EXPIRES_DAYS.
+          args=(--in payload/update/manifest.unsigned.json --out payload/update/manifest.json
+                --installer "payload/releases/$INSTALLER_NAME" --expires-days "$EXPIRES_DAYS")
+          if [[ "$MANDATORY" == "true" ]]; then args+=(--mandatory); fi
+          if [[ -n "$MIN_SUPPORTED_VERSION" ]]; then args+=(--min-supported-version "$MIN_SUPPORTED_VERSION"); fi
+          if [[ -f payload/live-manifest.json ]]; then args+=(--previous-from-manifest payload/live-manifest.json); fi
+          "$RUNNER_TEMP/signer-venv/bin/python" -I scripts/release/sign_manifest.py "${args[@]}"
+
+      - name: Upload Signed Update (manifest + installer)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-update
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            payload/update/manifest.json
+            payload/releases/${{ steps.resolve.outputs.installer_name }}
+
+      # Small audit record of exactly what was signed.
+      - name: Keep Signed Manifest (Audit Record)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-manifest-${{ inputs.tag }}
+          path: payload/update/manifest.json
+          retention-days: 90
+
+  verify:
+    name: Verify With The Tag's Client Code
+    needs: sign
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      expected_sha256: ${{ steps.facts.outputs.expected_sha256 }}
+      expected_size: ${{ steps.facts.outputs.expected_size }}
+      installer_rel_path: ${{ steps.facts.outputs.installer_rel_path }}
+    env:
+      VERSION: ${{ needs.sign.outputs.version }}
+      INSTALLER_NAME: ${{ needs.sign.outputs.installer_name }}
+
+    steps:
+      # The code that ships in this release: ManifestVerifier + the embedded UPDATE_SIGNING_PUBLIC_KEYS of the tag.
+      - name: Checkout The Release Tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Release Verification Dependencies
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir -r requirements.txt
+
+      - name: Download Signed Update
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-update
+          path: payload
+
+      # A key mismatch (or the placeholder still in the tag's code) stops the release here, before any upload.
+      - name: Verify Signed Manifest (Client Code Path)
+        id: facts
+        run: |
+          set -euo pipefail
+          python scripts/release/verify_manifest.py \
+            --manifest payload/update/manifest.json \
+            --installer "payload/releases/$INSTALLER_NAME"
+          # Facts of the manifest that just verified; the shell-only upload job compares against them.
+          signed=$(jq -r '.signed | fromjson' payload/update/manifest.json)
+          EXPECTED_SHA256=$(jq -r '.installer.sha256' <<<"$signed")
+          EXPECTED_SIZE=$(jq -r '.installer.size_bytes' <<<"$signed")
+          INSTALLER_REL_PATH=$(jq -r '.installer.path' <<<"$signed")
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ && "$EXPECTED_SIZE" =~ ^[0-9]+$ ]] || { echo "::error::bad installer facts"; exit 1; }
+          [[ "$INSTALLER_REL_PATH" == "releases/$VERSION/$INSTALLER_NAME" ]] || { echo "::error::unexpected installer path"; exit 1; }
+          { echo "expected_sha256=$EXPECTED_SHA256"; echo "expected_size=$EXPECTED_SIZE"; echo "installer_rel_path=$INSTALLER_REL_PATH"; } >> "$GITHUB_OUTPUT"
+
+  upload:
+    name: Upload To Hostinger
+    needs: [sign, verify]
+    runs-on: ubuntu-latest
+    environment: production-updates
+    permissions:
+      contents: read
+    env:
+      REMOTE_DIR: ${{ vars.UPDATE_REMOTE_DIR || 'domains/kamal-sroor.online/public_html/importflow/updates' }}
+      SSH_HOST: ${{ vars.HOSTINGER_HOST }}
+      SSH_PORT: ${{ vars.HOSTINGER_PORT || '65002' }}
+      SSH_USER: ${{ vars.HOSTINGER_USER }}
+      VERSION: ${{ needs.sign.outputs.version }}
+      INSTALLER_NAME: ${{ needs.sign.outputs.installer_name }}
+      EXPECTED_SHA256: ${{ needs.verify.outputs.expected_sha256 }}
+      EXPECTED_SIZE: ${{ needs.verify.outputs.expected_size }}
+      INSTALLER_REL_PATH: ${{ needs.verify.outputs.installer_rel_path }}
+
+    # No checkout, no Python, no pip in this job: only sftp/ssh/curl/sha256sum run while the SSH key exists.
+    steps:
+      - name: Download Signed Update
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-update
+          path: payload
+
+      - name: Check Inputs Against The Verified Facts
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$RELEASE_TAG" == "v$VERSION" ]] || { echo "::error::bad version"; exit 1; }
+          [[ "$INSTALLER_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.exe$ ]] || { echo "::error::bad installer name"; exit 1; }
+          [[ "$INSTALLER_REL_PATH" == "releases/$VERSION/$INSTALLER_NAME" ]] || { echo "::error::unexpected installer path"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ && "$EXPECTED_SIZE" =~ ^[0-9]+$ ]] || { echo "::error::bad installer facts"; exit 1; }
+          [[ "$REMOTE_DIR" =~ ^[A-Za-z0-9._/-]+$ && "$REMOTE_DIR" != *..* && "$REMOTE_DIR" != /* ]] || { echo "::error::UPDATE_REMOTE_DIR must be a plain relative path"; exit 1; }
+          f="payload/releases/$INSTALLER_NAME"
+          [[ "$(stat -c %s "$f")" == "$EXPECTED_SIZE" && "$(sha256sum "$f" | cut -d' ' -f1)" == "$EXPECTED_SHA256" ]] \
+            || { echo "::error::artifact installer differs from the verified facts"; exit 1; }
+
+      - name: Prepare SSH Credentials
+        env:
+          HOSTINGER_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          HOSTINGER_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in SSH_HOST SSH_PORT SSH_USER HOSTINGER_SSH_KEY HOSTINGER_KNOWN_HOSTS; do
+            [[ -n "${!name:-}" ]] || { echo "::error::$name is not configured"; exit 1; }
+          done
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || { echo "::error::HOSTINGER_PORT must be a number"; exit 1; }
+          umask 077
+          SSH_DIR="$RUNNER_TEMP/importflow-ssh"
+          mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR"
+          install -m 600 /dev/null "$SSH_DIR/id"
+          printf '%s\n' "$HOSTINGER_SSH_KEY" > "$SSH_DIR/id"
+          install -m 600 /dev/null "$SSH_DIR/known_hosts"
+          printf '%s\n' "$HOSTINGER_KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+          install -m 600 /dev/null "$SSH_DIR/config"
+          cat > "$SSH_DIR/config" <<EOF
+          Host importflow-updates
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile $SSH_DIR/id
+            IdentitiesOnly yes
+            UserKnownHostsFile $SSH_DIR/known_hosts
+            GlobalKnownHostsFile /dev/null
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 30
+          EOF
+          echo "SSH_DIR=$SSH_DIR" >> "$GITHUB_ENV"
+
+      - name: Upload Installer (releases/<version>/<file>.part, then rename)
+        run: |
+          set -euo pipefail
+          D="$REMOTE_DIR/releases/$VERSION"
+          sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
+          -mkdir $REMOTE_DIR/releases
+          -mkdir $D
+          -rm $D/$INSTALLER_NAME.part
+          put payload/releases/$INSTALLER_NAME $D/$INSTALLER_NAME.part
+          posix-rename $D/$INSTALLER_NAME.part $D/$INSTALLER_NAME
+          EOF
+
+      # What clients will actually receive: HTTPS HEAD (200 + Content-Length) and a full download sha256,
+      # compared with the facts of the manifest verified in the verify job (shell only).
+      - name: Verify Public Installer Download
+        run: |
+          set -euo pipefail
+          url="${UPDATE_BASE_URL}${INSTALLER_REL_PATH}?nocache=$(date +%s%N)"
+          len=$(curl -sS --fail --proto '=https' --max-redirs 0 -I -H 'Accept-Encoding: identity' "$url" \
+            | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -n1)
+          [[ "$len" == "$EXPECTED_SIZE" ]] || { echo "::error::HEAD Content-Length '$len' != manifest $EXPECTED_SIZE"; exit 1; }
+          out="$RUNNER_TEMP/public-installer.exe"
+          curl -sS --fail --proto '=https' --max-redirs 0 -H 'Accept-Encoding: identity' \
+            --max-filesize "$EXPECTED_SIZE" -o "$out" "$url"
+          size=$(stat -c %s "$out"); actual=$(sha256sum "$out" | cut -d' ' -f1); rm -f "$out"
+          [[ "$size" == "$EXPECTED_SIZE" ]] || { echo "::error::downloaded $size bytes, manifest says $EXPECTED_SIZE"; exit 1; }
+          [[ "$actual" == "$EXPECTED_SHA256" ]] || { echo "::error::public sha256 $actual != manifest $EXPECTED_SHA256"; exit 1; }
+          echo "Public installer matches the verified manifest (size $size, sha256 $actual)."
+
+      - name: Publish Manifest (manifest.json.tmp, then posix-rename LAST)
+        run: |
+          set -euo pipefail
+          sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
+          -rm $REMOTE_DIR/manifest.json.tmp
+          put payload/update/manifest.json $REMOTE_DIR/manifest.json.tmp
+          posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
+          EOF
+
+      # The served manifest must be byte-identical to the one verified above.
+      - name: Verify Published Manifest
+        run: |
+          set -euo pipefail
+          curl -sS --fail --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
+            -o "$RUNNER_TEMP/published-manifest.json" "${UPDATE_BASE_URL}manifest.json?nocache=$(date +%s%N)"
+          cmp -s "$RUNNER_TEMP/published-manifest.json" payload/update/manifest.json \
+            || { echo "::error::published manifest.json differs from the verified manifest"; exit 1; }
+          echo "Published manifest.json is byte-identical to the verified manifest."
+
+      # Keep the newest 3 release folders (rollback + inode budget). The release is already live, so a
+      # pruning failure only warns.
+      - name: Prune Old Releases (keep newest 3)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          listing=$(sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
+          ls -1 $REMOTE_DIR/releases
+          EOF
+          )
+          mapfile -t versions < <(printf '%s\n' "$listing" | grep -v '^sftp>' | sed 's#.*/##' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V -r -u)
+          batch=""
+          for v in "${versions[@]:3}"; do
+            [[ "$v" == "$VERSION" ]] && continue
+            batch+="-rm $REMOTE_DIR/releases/$v/*"$'\n'"rmdir $REMOTE_DIR/releases/$v"$'\n'
+          done
+          if [[ -z "$batch" ]]; then echo "Nothing to prune (${#versions[@]} release folders)."; exit 0; fi
+          printf '%s' "$batch"
+          printf '%s' "$batch" | sftp -F "$SSH_DIR/config" -b - importflow-updates
+
+      # The key is not needed after pruning: remove it now; the always() step below is only the backstop.
+      - name: Remove SSH Credentials Now
+        run: |
+          SSH_DIR="$RUNNER_TEMP/importflow-ssh"
+          find "$SSH_DIR" -type f -exec shred -u {} + 2>/dev/null || true
+          rm -rf "$SSH_DIR"
+          test ! -e "$SSH_DIR"
+
+      - name: Remove SSH Credentials
+        if: always()
+        run: |
+          SSH_DIR="$RUNNER_TEMP/importflow-ssh"
+          if [[ -d "$SSH_DIR" ]]; then
+            find "$SSH_DIR" -type f -exec shred -u {} + 2>/dev/null || true
+            rm -rf "$SSH_DIR"
+          fi
+          test ! -e "$SSH_DIR"

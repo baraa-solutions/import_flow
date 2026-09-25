@@ -49,7 +49,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
   void _copyCurrenciesTsv(BuildContext context) {
     final l10n = context.l10n;
-    final currencies = ref.read(currenciesProvider).value ?? [];
+    final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     if (currencies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.noCurrenciesFound), backgroundColor: AppTheme.crimson),
@@ -236,7 +236,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   const PopupMenuDivider(),
                   ...MasterDataActionHelper.buildStandardMoreActionItems(
                     context: context,
-                    includeTsv: (currenciesAsync.value ?? []).isNotEmpty,
+                    includeTsv: (currenciesAsync.valueOrNull ?? []).isNotEmpty,
                   ),
                 ],
                 onMoreActionSelected: (val) {
@@ -254,7 +254,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       _syncOfficialCustomsExchangeRates(context);
                       break;
                     case 'export_excel':
-                      final currencies = currenciesAsync.value ?? [];
+                      final currencies = currenciesAsync.valueOrNull ?? [];
                       if (currencies.isNotEmpty) {
                         MasterDataExportService.exportCurrenciesToExcel(context, currencies);
                       }
@@ -311,7 +311,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ),
                     onPressed: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
                   ),
-                  if ((currenciesAsync.value ?? []).isNotEmpty)
+                  if ((currenciesAsync.valueOrNull ?? []).isNotEmpty)
                     IconButton(
                       icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
                       tooltip: l10n.currenciesExportTsvBtn,
@@ -1244,7 +1244,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   void _showAddRateDialog(BuildContext context, {int? preSelectedCurrencyId}) {
     final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
-    final currencies = ref.read(currenciesProvider).value?.where((c) => !c.isBaseCurrency).toList() ?? [];
+    final currencies = ref.read(currenciesProvider).valueOrNull?.where((c) => !c.isBaseCurrency).toList() ?? [];
     if (currencies.isEmpty) return;
 
     int selectedCurrencyId = preSelectedCurrencyId ?? currencies.first.currencyId!;

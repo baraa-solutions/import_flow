@@ -1,18 +1,23 @@
 """
-Populate Package Types and Units of Measure across all databases.
+Populate Package Types and Units of Measure on ONE explicit database.
+
+Upserts (overwrites the names of existing codes). Safety (update-system-plan A13/R12):
+    python populate_package_types_and_uom.py --db <path/to/db> --confirm
+The target must not be in use, and a verified pre_migration_ backup is taken first (abort on failure).
 """
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-DATABASES = [
-    ROOT_DIR / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "ImportFlow_Standalone" / "sorour_logistics.db",
-    ROOT_DIR / "dist" / "sorour_logistics.db",
-    ROOT_DIR / "dist_backend" / "sorour_logistics.db",
-]
+from scripts.db_script_guard import add_target_arguments, guard_target, run_cli_action  # noqa: E402
+
+SCRIPT_TAG = "populate_package_types_and_uom"
 
 PACKAGE_TYPES = [
     ("B4", "Belt", "حزام / سير"),
@@ -61,9 +66,10 @@ UNITS_OF_MEASURE = [
     ("SQM", "Square Meter", "متر مربع"),
 ]
 
-def populate_db(db_path: Path):
-    if not db_path.exists():
-        return
+def populate_db(db_path: Path, *, confirm: bool = False, backups_dir: Optional[Path] = None) -> bool:
+    """confirm=True: in-use check + verified backup first. confirm=False: never the live app DB."""
+    db_path = Path(db_path)
+    guard_target(db_path, confirm=confirm, tag=SCRIPT_TAG, backups_dir=backups_dir)
 
     print(f"--- Updating Package Types & UOM on: {db_path} ---")
     conn = sqlite3.connect(db_path)
@@ -127,8 +133,23 @@ def populate_db(db_path: Path):
     uom_cnt = cur.fetchone()[0]
     print(f"   [OK] package_types: {pkg_cnt} records | units_of_measure: {uom_cnt} records")
     conn.close()
+    return True
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Populate package types and units of measure on ONE database.")
+    add_target_arguments(parser, target_help="Database file to update")
+    args = parser.parse_args(argv)
+
+    def _run(target: Path, backups_dir: Optional[Path]):
+        populate_db(target, confirm=True, backups_dir=backups_dir)
+        print("\n[SUCCESS] Package types and Units of measure successfully populated!")
+        return True
+
+    return run_cli_action(args, _run)
+
 
 if __name__ == "__main__":
-    for db in DATABASES:
-        populate_db(db)
-    print("\n[SUCCESS] Package types and Units of measure successfully populated!")
+    sys.exit(main())

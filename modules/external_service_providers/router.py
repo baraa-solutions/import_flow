@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse, PartnerScorecardResponse
@@ -10,7 +11,8 @@ from .service import ExternalServiceProviderService
 
 router = APIRouter(
     prefix="/api/v1/external-service-providers",
-    tags=["External Service Providers & Financial Partners (MD-003)"]
+    tags=["External Service Providers & Financial Partners (MD-003)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

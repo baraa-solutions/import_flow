@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/performance/client_diagnostics_service.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
@@ -59,7 +60,7 @@ class _SystemObservabilityScreenState
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get<List<int>>(
-        '/api/v1/system/observability/export-bundle',
+        '/system/observability/export-bundle',
         options: Options(responseType: ResponseType.bytes),
       );
 
@@ -77,7 +78,7 @@ class _SystemObservabilityScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to export bundle: $e'),
+            content: Text('Failed to export bundle: ${ApiError.message(e)}'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -104,7 +105,7 @@ class _SystemObservabilityScreenState
     try {
       final dio = ref.read(dioProvider);
       await dio.post(
-        '/api/v1/system/observability/alerts/test-trigger',
+        '/system/observability/alerts/test-trigger',
         queryParameters: {'channel': 'TOAST'},
       );
       if (mounted) {
@@ -120,7 +121,7 @@ class _SystemObservabilityScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل إرسال الإشعار الاختباري: $e'),
+            content: Text('فشل إرسال الإشعار الاختباري: ${ApiError.message(e)}'),
             backgroundColor: AppTheme.crimson,
           ),
         );

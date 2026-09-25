@@ -5,6 +5,7 @@ Customs Consultation & Broker Price Lists REST Router (BP-009)
 from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, Query, status, Header
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.auth.permissions import resolve_user
@@ -32,6 +33,7 @@ from modules.customs_consultation.service import (
 router = APIRouter(
     prefix="/api/v1/customs-consultations",
     tags=["Customs Consultation & Broker Price Lists (BP-009)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

@@ -610,12 +610,12 @@ class CommandPaletteRegistry {
     items.add(
       CommandPaletteItem(
         id: 'action_production_sync',
-        title: isArabic ? 'مركز مزامنة ونشر الإنتاج والتحقق' : 'Production Sync & Deployment Hub',
-        subtitle: isArabic ? 'فحص صحة البيئة ومزامنة جداول الإنتاج النظيفة' : 'Validate environment & deploy clean production database',
+        title: isArabic ? 'مركز حالة الإنتاج والنسخ الاحتياطية' : 'Production Status & Backups Hub',
+        subtitle: isArabic ? 'مقارنة قواعد البيانات (قراءة فقط) وعرض النسخ الاحتياطية' : 'Compare databases (read-only) & view backups',
         category: CommandPaletteCategory.actions,
         icon: Icons.cloud_done_rounded,
-        badge: 'Deploy',
-        keywords: ['production', 'deploy', 'sync', 'نشر', 'إنتاج', 'مزامنة'],
+        badge: 'Status',
+        keywords: ['production', 'sync', 'backup', 'compare', 'إنتاج', 'مزامنة', 'نسخ احتياطي'],
         onSelect: (ctx, r) => showDialog(
           context: ctx,
           builder: (_) => const ProductionSyncHubDialog(),

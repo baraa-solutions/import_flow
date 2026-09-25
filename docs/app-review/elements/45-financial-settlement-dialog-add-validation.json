@@ -1,0 +1,349 @@
+{
+ "screen_nn": "45",
+ "screen_slug": "financial-settlement",
+ "state": "dialog-add-validation",
+ "screenshot": "../screenshots/45-financial-settlement-dialog-add-validation.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "تسجيل مصاريف وبنود شحنة لاحتساب تكلفة الوصول"
+  },
+  {
+   "text": "يرجى اختيار ملف الشحنة"
+  },
+  {
+   "text": "بيانات فاتورة المصروف والخدمات اللوجستية:"
+  },
+  {
+   "text": "بيانات صنف الشحنة والاستيراد:"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "ملف الشحنة الاستيرادية *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    425,
+    272,
+    750,
+    68
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    748,
+    383,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "فئة المصروف *",
+   "tooltip": "نولون شحن",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    804,
+    383,
+    371,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    744,
+    443,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    936,
+    443,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1127,
+    443,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "قاعدة توزيع المصروف على الأصناف *",
+   "tooltip": "حسب الحجم",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    425,
+    501,
+    750,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    624,
+    594,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1127,
+    594,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    748,
+    654,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "نسخ القيمة للحافظة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1127,
+    654,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    532,
+    730,
+    142,
+    53
+   ]
+  },
+  {
+   "label": "تفريغ وبدء تسجيل جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    696,
+    730,
+    175,
+    53
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    893,
+    737,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "حفظ وتوزيع بنود المصروف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    965,
+    728,
+    210,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "رقم الفاتورة *",
+   "label_above": "بيانات فاتورة المصروف والخدمات اللوجستية:",
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    425,
+    381,
+    379,
+    58
+   ]
+  },
+  {
+   "label": "اسم مورد الخدمة *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    425,
+    441,
+    375,
+    58
+   ]
+  },
+  {
+   "label": "المبلغ بالعملة الأجنبية",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    800,
+    441,
+    192,
+    58
+   ]
+  },
+  {
+   "label": "سعر الصرف",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    992,
+    441,
+    192,
+    58
+   ]
+  },
+  {
+   "label": "كود الصنف",
+   "label_above": "بيانات صنف الشحنة والاستيراد:",
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    425,
+    592,
+    255,
+    58
+   ]
+  },
+  {
+   "label": "اسم الصنف",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    680,
+    592,
+    503,
+    58
+   ]
+  },
+  {
+   "label": "الكمية المستلمة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    425,
+    652,
+    379,
+    58
+   ]
+  },
+  {
+   "label": "سعر الفاتورة للوحدة بالجنيه",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    804,
+    652,
+    379,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 5,
+  "buttons": 15,
+  "fields": 8,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

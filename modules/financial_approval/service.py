@@ -20,6 +20,7 @@ from modules.users.model import User
 from modules.notifications.model import SystemNotification
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
+    PaymentRequestResponse,
     ClonePaymentRequestRequest,
     PaymentRequestUpdate,
     SwiftReconciliationRequest,

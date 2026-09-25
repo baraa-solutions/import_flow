@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -9,7 +10,11 @@ import '../../../main.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.showDemoLogins = kDebugMode});
+
+  /// Demo quick-login chips (with their demo passwords) are a developer aid
+  /// only. Defaults to [kDebugMode], so release builds never render them.
+  final bool showDemoLogins;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -122,6 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _quickFill(String user) {
+    if (!widget.showDemoLogins) return;
     _clearError();
     _usernameCtrl.text = user;
     _passwordCtrl.text = _demoSecretFor(user);
@@ -372,48 +378,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
 
-                          const SizedBox(height: 24),
-                          Divider(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                          const SizedBox(height: 12),
-
-                          // Quick Dev Logins
-                          Text(
-                            l.loginQuickDemoAccess,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          // Quick Dev Logins (debug builds only)
+                          if (widget.showDemoLogins) ...[
+                            const SizedBox(height: 24),
+                            Divider(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text(
+                              l.loginQuickDemoAccess,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              _buildQuickDemoChip(
-                                icon: Icons.admin_panel_settings_rounded,
-                                color: AppTheme.crimson,
-                                roleLabel: l.loginRoleAdmin,
-                                username: 'admin',
-                                l: l,
-                              ),
-                              _buildQuickDemoChip(
-                                icon: Icons.manage_accounts_rounded,
-                                color: AppTheme.cobalt,
-                                roleLabel: l.loginRoleManager,
-                                username: 'manager',
-                                l: l,
-                              ),
-                              _buildQuickDemoChip(
-                                icon: Icons.badge_rounded,
-                                color: AppTheme.emerald,
-                                roleLabel: l.loginRoleSpecialist,
-                                username: 'operator1',
-                                l: l,
-                              ),
-                            ],
-                          ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                _buildQuickDemoChip(
+                                  icon: Icons.admin_panel_settings_rounded,
+                                  color: AppTheme.crimson,
+                                  roleLabel: l.loginRoleAdmin,
+                                  username: 'admin',
+                                  l: l,
+                                ),
+                                _buildQuickDemoChip(
+                                  icon: Icons.manage_accounts_rounded,
+                                  color: AppTheme.cobalt,
+                                  roleLabel: l.loginRoleManager,
+                                  username: 'manager',
+                                  l: l,
+                                ),
+                                _buildQuickDemoChip(
+                                  icon: Icons.badge_rounded,
+                                  color: AppTheme.emerald,
+                                  roleLabel: l.loginRoleSpecialist,
+                                  username: 'operator1',
+                                  l: l,
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),

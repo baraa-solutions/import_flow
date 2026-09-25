@@ -24,7 +24,7 @@ class MockImportBudgetsNotifier extends ImportBudgetsNotifier {
   int cloneCallCount = 0;
   Map<String, dynamic>? lastClonePayload;
 
-  MockImportBudgetsNotifier(List<ImportBudgetModel> initialList) : super() {
+  MockImportBudgetsNotifier(List<ImportBudgetModel> initialList) : super(Dio()) {
     state = AsyncValue.data(initialList);
   }
 
@@ -105,7 +105,7 @@ class MockImportBudgetsNotifier extends ImportBudgetsNotifier {
 }
 
 class MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
-  MockPaymentRequestsNotifier() : super() {
+  MockPaymentRequestsNotifier() : super(Dio()) {
     state = const AsyncValue.data([]);
   }
 

@@ -1,0 +1,1009 @@
+{
+ "screen_nn": "22",
+ "screen_slug": "nafeza-acid",
+ "state": "tab-5-expiry-release-tracker",
+ "screenshot": "../screenshots/22-nafeza-acid-tab-5-expiry-release-tracker.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "إجمالي أرقام ACID"
+  },
+  {
+   "text": "ساري (> 14 يوم)"
+  },
+  {
+   "text": "أوشك على الانتهاء (≤ 14 يوم)"
+  },
+  {
+   "text": "منتهي الصلاحية"
+  },
+  {
+   "text": "4012026091800123",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0002\nأمر شراء: PO-2026-001",
+   "role": "cell"
+  },
+  {
+   "text": "Shenzhen Brightway Electronics Co., Ltd",
+   "role": "cell"
+  },
+  {
+   "text": "90",
+   "role": "cell"
+  },
+  {
+   "text": "رقم القيد الجمركي المبدئي ساري ومتبقي 90 يوم\nساري وصالح",
+   "role": "cell"
+  },
+  {
+   "text": "4012026082200456",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0003\nأمر شراء: PO-2026-003",
+   "role": "cell"
+  },
+  {
+   "text": "Ningbo Oriental Furniture Manufacturing",
+   "role": "cell"
+  },
+  {
+   "text": "2026-11-10",
+   "role": "cell"
+  },
+  {
+   "text": "47",
+   "role": "cell"
+  },
+  {
+   "text": "رقم القيد الجمركي المبدئي ساري ومتبقي 47 يوم\nساري وصالح",
+   "role": "cell"
+  },
+  {
+   "text": "4012026071500789",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0004\nأمر شراء: PO-2026-004",
+   "role": "cell"
+  },
+  {
+   "text": "Istanbul Tekstil Sanayi A.S.",
+   "role": "cell"
+  },
+  {
+   "text": "2026-09-30",
+   "role": "cell"
+  },
+  {
+   "text": "6",
+   "role": "cell"
+  },
+  {
+   "text": "تنبيه مهلة الـ 14 يوماً: متبقي 6 يوم قبل انتهاء صلاحية ACID\nأوشك على الانتهاء",
+   "role": "cell"
+  },
+  {
+   "text": "4012026060300991",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0005\nأمر شراء: PO-2026-005",
+   "role": "cell"
+  },
+  {
+   "text": "Rhein Thermotechnik GmbH",
+   "role": "cell"
+  },
+  {
+   "text": "2026-08-18",
+   "role": "cell"
+  },
+  {
+   "text": "-37",
+   "role": "cell"
+  },
+  {
+   "text": "انتهت صلاحية رقم القيد الجمركي المبدئي (ACID) ويجب تجديده فوراً\nمنتهي الصلاحية",
+   "role": "cell"
+  },
+  {
+   "text": "4012026040100222",
+   "role": "cell"
+  },
+  {
+   "text": "FILE-2026-0006\nأمر شراء: PO-2026-006",
+   "role": "cell"
+  },
+  {
+   "text": "Gujarat Polymers Pvt. Ltd",
+   "role": "cell"
+  },
+  {
+   "text": "2026-07-04",
+   "role": "cell"
+  },
+  {
+   "text": "-82",
+   "role": "cell"
+  },
+  {
+   "text": "تم الإفراج الجمركي الفعلي عن البضاعة\nمنتهي الصلاحية",
+   "role": "cell"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nالرقم التعريفي المبدئي للشحنة ACID\n24H LIVE\nNafeza Advance Cargo Information (ACID)\nNafeza ACID Issue\nOperations & Stages"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:41",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    600,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    727,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    833,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    863,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    889,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    917,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    965,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    991,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1019,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1109,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1137,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1163,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "متطلبات واشتراطات الاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الاستعلام الذكي عن الشحنات وسجل الأسعار",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    639,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "اعتمادات الميزانية وسداد الموردين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    666,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    798,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الرقم التعريفي المبدئي للشحنة ACID",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    956,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "ACID Request Form",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    176,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "MTS Smart AI Parser",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    216,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Discrepancy Matrix",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    257,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "ACID Issuance Registry",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    297,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "Expiry & Release Tracker",
+   "tooltip": "5",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    260,
+    338,
+    206,
+    40
+   ]
+  },
+  {
+   "label": "بحث واستنساخ طلب ACID",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    963,
+    86,
+    180,
+    41
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1151,
+    86,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    658,
+    90,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    771,
+    90,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1201,
+    86,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "5",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    551,
+    192,
+    10,
+    26
+   ]
+  },
+  {
+   "label": "2",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    827,
+    192,
+    10,
+    26
+   ]
+  },
+  {
+   "label": "1",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1103,
+    192,
+    10,
+    26
+   ]
+  },
+  {
+   "label": "1",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1379,
+    192,
+    10,
+    26
+   ]
+  },
+  {
+   "label": "Copy Table",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1193,
+    253,
+    121,
+    44
+   ]
+  },
+  {
+   "label": "Export Excel",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1322,
+    253,
+    129,
+    44
+   ]
+  },
+  {
+   "label": "Export PDF",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1458,
+    253,
+    122,
+    44
+   ]
+  },
+  {
+   "label": "استنساخ سجل ACID إلى مسودة جديدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    376,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استنساخ سجل ACID إلى مسودة جديدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    424,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استنساخ سجل ACID إلى مسودة جديدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    472,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استنساخ سجل ACID إلى مسودة جديدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    520,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "استنساخ سجل ACID إلى مسودة جديدة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    568,
+    40,
+    40
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "بحث في متتبع الصلاحيات والإفراج الجمركي...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "الإجراءات",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    490,
+    251,
+    703,
+    54
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [
+  "الإجراءات",
+  "رقم ACID",
+  "ملف الشحنة",
+  "المصدر الأجنبي",
+  "تاريخ الصلاحية",
+  "الأيام المتبقية",
+  "حالة الصلاحية"
+ ],
+ "table_header_candidates": [
+  {
+   "y": 174,
+   "cells_left_to_right": [
+    "إجمالي أرقام ACID",
+    "ساري (> 14 يوم)",
+    "أوشك على الانتهاء (≤ 14 يوم)",
+    "منتهي الصلاحية"
+   ]
+  },
+  {
+   "y": 316,
+   "cells_left_to_right": [
+    "الإجراءات",
+    "رقم ACID",
+    "ملف الشحنة",
+    "المصدر الأجنبي",
+    "تاريخ الصلاحية",
+    "الأيام المتبقية",
+    "حالة الصلاحية"
+   ]
+  },
+  {
+   "y": 372,
+   "cells_left_to_right": [
+    "4012026091800123",
+    "Shenzhen Brightway Electronics Co., Ltd",
+    "90"
+   ]
+  },
+  {
+   "y": 420,
+   "cells_left_to_right": [
+    "4012026082200456",
+    "Ningbo Oriental Furniture Manufacturing",
+    "2026-11-10",
+    "47"
+   ]
+  },
+  {
+   "y": 468,
+   "cells_left_to_right": [
+    "4012026071500789",
+    "Istanbul Tekstil Sanayi A.S.",
+    "2026-09-30",
+    "6"
+   ]
+  },
+  {
+   "y": 516,
+   "cells_left_to_right": [
+    "4012026060300991",
+    "Rhein Thermotechnik GmbH",
+    "2026-08-18",
+    "-37"
+   ]
+  }
+ ],
+ "counts": {
+  "texts": 33,
+  "buttons": 63,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 7,
+  "header_rows": 7
+ }
+}

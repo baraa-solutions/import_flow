@@ -4,6 +4,8 @@ FastAPI Router for Financial & Management Approval (BP-012 & BP-013)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Header, Query
+from modules.auth.router import get_current_user, require_admin
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -38,7 +40,7 @@ from modules.financial_approval.schemas import (
 )
 import modules.financial_approval.service as service
 
-router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"])
+router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"], dependencies=[Depends(get_current_user)])
 
 
 # --- SMART AI SWIFT MT103 EXTRACTION & RECONCILIATION ENDPOINTS ---
@@ -259,9 +261,9 @@ def update_payment_request(
     payment_id: int,
     payload: PaymentRequestUpdate,
     db: Session = Depends(get_db),
-    x_user_name: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
-    return service.update_payment_request_service(db, payment_id, payload, current_user_name=x_user_name)
+    return service.update_payment_request_service(db, payment_id, payload, current_user_name=current_user.username)
 
 
 @router.post(
@@ -450,6 +452,7 @@ def get_variance_threshold_setting(db: Session = Depends(get_db)):
     "/settings/variance-threshold",
     response_model=BudgetVarianceSettingResponse,
     summary="Update variance threshold percentage configuration",
+    dependencies=[Depends(require_admin)],
 )
 def update_variance_threshold_setting(
     payload: BudgetVarianceSettingUpdate,
@@ -485,9 +488,9 @@ def update_import_budget(
     budget_id: int,
     payload: ImportBudgetUpdate,
     db: Session = Depends(get_db),
-    x_user_name: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
-    return service.update_import_budget_service(db, budget_id, payload, current_user_name=x_user_name)
+    return service.update_import_budget_service(db, budget_id, payload, current_user_name=current_user.username)
 
 
 @router.delete("/import-budgets/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)

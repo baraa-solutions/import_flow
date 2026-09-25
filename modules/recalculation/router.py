@@ -9,10 +9,10 @@ Endpoints:
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Query
+from modules.auth.router import get_current_user, require_manager_or_admin
 from sqlalchemy.orm import Session
 from database.database import get_db
-from modules.auth.permissions import resolve_user
 from modules.users.model import User
 import modules.recalculation.service as svc
 import modules.recalculation.repository as repo
@@ -24,17 +24,8 @@ from modules.recalculation.schemas import (
     RecalculationLogResponse,
 )
 
-router = APIRouter(prefix="/api/v1/recalculation", tags=["Recalculation Engine"])
+router = APIRouter(prefix="/api/v1/recalculation", tags=["Recalculation Engine"], dependencies=[Depends(get_current_user)])
 
-
-
-def _get_current_user(
-    authorization: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-) -> User:
-    return resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
 
 
 @router.post(
@@ -47,7 +38,7 @@ def preview_recalculation(
     target_entity_id: int = Query(...),
     source_page: str = Query("API", description="Originating UI page name for audit"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Returns live variance comparison for the target entity.
@@ -70,7 +61,7 @@ def preview_recalculation(
 def apply_recalculation(
     request: RecalculationApplyRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(_get_current_user),
+    current_user: User = Depends(require_manager_or_admin),
 ):
     """
     Applies live upstream values to the target entity.
@@ -89,7 +80,7 @@ def get_entity_logs(
     target_entity_id: int = Query(...),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Returns recalculation audit log entries for a given entity."""
     return repo.get_logs_for_entity(db, target_entity_type, target_entity_id, limit)
@@ -103,7 +94,7 @@ def get_entity_logs(
 def get_dependencies(
     target_entity_type: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Returns all active dependency relationships. Optionally filtered by target_entity_type."""
     deps = repo.get_all_dependencies(db, include_inactive=False)

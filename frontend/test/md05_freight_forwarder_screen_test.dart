@@ -80,7 +80,8 @@ void main() {
       expect(find.textContaining('USD, EUR, EGP'), findsWidgets);
 
       // Verify Freight Forwarder category choice chip exists
-      expect(find.widgetWithText(ChoiceChip, 'وكيل شحن'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('وكيل شحن'), findsWidgets); // category badge in the partner row
 
       // Verify add partner button exists
       expect(find.byIcon(Icons.add), findsWidgets);

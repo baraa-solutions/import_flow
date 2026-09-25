@@ -4,6 +4,7 @@ FastAPI Router for Logistics What-If Simulation & FX Exposure Radar (SIM-WHATIF-
 
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -19,6 +20,7 @@ from modules.simulation import service
 router = APIRouter(
     prefix="/api/v1/simulation",
     tags=["Logistics What-If Simulation & FX Hedging (محاكي الأزمات وتحوط العملة)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

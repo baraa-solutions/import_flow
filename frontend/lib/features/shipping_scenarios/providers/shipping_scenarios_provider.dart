@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/shipping_scenario_model.dart';
 
 class ShippingScenariosState {
@@ -206,12 +206,9 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
   }
 }
 
+/// Authenticated shared client (Bearer token injected by the interceptor).
 final shippingScenariosDioProvider = Provider<Dio>((ref) {
-  return Dio(BaseOptions(
-    baseUrl: ApiConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  return ref.watch(dioProvider);
 });
 
 final shippingScenariosProvider =

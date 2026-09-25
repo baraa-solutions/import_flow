@@ -11,17 +11,24 @@ Features:
 - Standalone Package Updates (ImportFlow_Standalone).
 - Release ZIP Packaging & Manifest Generation.
 - 1-Click Production App Launcher.
+
+Safety (update-system-plan A4/R12): every action that writes a database (--db-only, --pull, --full)
+takes ONE explicit target (--db) and --confirm. The target must not be in use, a verified protected
+backup of it is taken first (abort on failure), and the source is only read. There is no implicit
+second target and no hard-coded workspace path any more.
+    python sync_to_production.py --db-only --db <prod.db> [--source <dev.db>] --confirm
+    python sync_to_production.py --pull --db <dev.db> [--source <prod.db>] --confirm
 """
 
 import os
 import sys
 import json
-import shutil
 import sqlite3
 import argparse
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 # Force UTF-8 on Windows stdout/stderr
 try:
@@ -46,47 +53,47 @@ def find_project_root() -> Path:
         if (parent / "frontend").exists() or (parent / "modules").exists():
             return parent
 
-    # 3. Check well-known workspace locations
-    candidates = [
-        Path.home() / "Desktop" / "ImportFlow",
-        Path.home() / "Desktop" / "import_flow",
-        Path("C:/Users/Hp/Desktop/ImportFlow"),
-        Path("C:/ImportFlow"),
-        Path("D:/ImportFlow"),
-        Path("E:/ImportFlow"),
-    ]
-    for cand in candidates:
-        if cand.exists() and ((cand / "sorour_logistics.db").exists() or (cand / "frontend").exists()):
-            return cand
-
+    # No guessing of well-known workspace folders: a wrong guess could point at a real database.
     return start_dir
 
 
 ROOT_DIR = find_project_root()
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from scripts.db_script_guard import (  # noqa: E402
+    UnsafeTargetError,
+    add_target_arguments,
+    guard_target,
+    require_target,
+    run_guarded,
+    take_verified_backup,
+)
+from utils.db_safety import sqlite_online_backup  # noqa: E402
+
 DIST_DIR = ROOT_DIR / "dist"
 STANDALONE_DIR = DIST_DIR / "Sorour_Logistics_Standalone"
 DESKTOP_DIR = DIST_DIR / "Sorour_Logistics_Desktop"
 WEB_DIR = DIST_DIR / "Sorour_Logistics_Web"
 BACKUPS_DIR = ROOT_DIR / "backups"
 
+# Defaults for the read-only source / compare paths only. Writes always need an explicit --db.
 DEV_DB = ROOT_DIR / "sorour_logistics.db"
 PROD_DB = STANDALONE_DIR / "sorour_logistics.db"
 BACKEND_EXE = ROOT_DIR / "dist_backend" / "backend.exe"
 FRONTEND_WINDOWS_RELEASE = ROOT_DIR / "frontend" / "build" / "windows" / "x64" / "runner" / "Release"
 
+SCRIPT_TAG = "sync_to_production"
 
 
-def create_backup(db_path: Path, tag: str = "backup") -> Path:
-    """Creates a timestamped backup of a SQLite database."""
+def create_backup(db_path: Path, tag: str = "backup", backups_dir: Optional[Path] = None) -> Optional[Path]:
+    """Verified online backup (protected pre_migration_ name) next to ``db_path``; raises on failure."""
     if not db_path.exists():
         return None
-    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = BACKUPS_DIR / f"{db_path.stem}_{tag}_{timestamp}.db"
-    shutil.copy2(db_path, backup_file)
-    size_kb = backup_file.stat().st_size / 1024
-    print(f"   [BACKUP] Safety backup created: {backup_file.name} ({size_kb:.1f} KB)")
-    return backup_file
+    result = take_verified_backup(db_path, tag=tag, backups_dir=backups_dir)
+    size_kb = result.size_bytes / 1024
+    print(f"   [BACKUP] Safety backup created: {result.path.name} ({size_kb:.1f} KB)")
+    return result.path
 
 
 
@@ -243,30 +250,32 @@ def get_db_diffs(src_db: Path, target_db: Path) -> dict:
     }
 
 
-def compare_databases():
-    """Compares Dev and Prod databases table by table and emits structured JSON diff."""
+def compare_databases(dev_db: Optional[Path] = None, prod_db: Optional[Path] = None):
+    """Compares Dev and Prod databases table by table and emits structured JSON diff (read-only)."""
+    dev_path = Path(dev_db) if dev_db else DEV_DB
+    prod_path = Path(prod_db) if prod_db else PROD_DB
     print("\n===============================================================================")
     print(" [CHECK] Database Comparison: Development (Dev) vs Production (Prod)")
     print("===============================================================================")
 
-    dev_stats = get_db_stats(DEV_DB)
-    prod_stats = get_db_stats(PROD_DB)
+    dev_stats = get_db_stats(dev_path)
+    prod_stats = get_db_stats(prod_path)
 
-    print(f"\n[DEV  DB] {DEV_DB}")
+    print(f"\n[DEV  DB] {dev_path}")
     if dev_stats.get("exists"):
         print(f"   - Size: {dev_stats['size_kb']} KB | Tables: {dev_stats['tables_count']} | Records: {dev_stats['total_records']}")
         print(f"   - Last Modified: {dev_stats['mtime']}")
     else:
         print("   [!] NOT FOUND")
 
-    print(f"\n[PROD DB] {PROD_DB}")
+    print(f"\n[PROD DB] {prod_path}")
     if prod_stats.get("exists"):
         print(f"   - Size: {prod_stats['size_kb']} KB | Tables: {prod_stats['tables_count']} | Records: {prod_stats['total_records']}")
         print(f"   - Last Modified: {prod_stats['mtime']}")
     else:
         print("   [!] Not found yet — will be created on first sync.")
 
-    diff_data = get_db_diffs(DEV_DB, PROD_DB)
+    diff_data = get_db_diffs(dev_path, prod_path)
     if diff_data.get("exists"):
         print(f"\n[DIFF_DATA] {json.dumps(diff_data, ensure_ascii=False)}")
         sys.stdout.flush()
@@ -299,22 +308,30 @@ def compare_databases():
 
 
 def smart_non_destructive_migrate(
-    src_db: Path, target_db: Path, dry_run: bool = False
+    src_db: Path, target_db: Path, dry_run: bool = False, *, guarded: bool = False
 ) -> dict:
     """
     Enterprise Non-Destructive Migration with Live Progress Streaming:
     1. Creates any missing tables from src in target.
     2. Adds any new columns via ALTER TABLE ADD COLUMN.
-    3. Merges new rows with INSERT OR REPLACE (never deletes user data).
+    3. Merges new rows with INSERT OR REPLACE (overwrites matching rows, never deletes rows).
     4. All changes are wrapped in a single transaction (atomic rollback on failure).
     5. Streams live progress JSON on stdout for Flutter UI progress bar.
+
+    ``guarded=True`` only from sync_db_to_prod / pull_prod_db_to_dev after their full guard ran;
+    otherwise the target may not be the live app database or a database in use.
     """
+    src_db = Path(src_db)
+    target_db = Path(target_db)
+    if not dry_run and not guarded:
+        guard_target(target_db, confirm=False, tag=SCRIPT_TAG, must_exist=False, forbid=[src_db])
     if not target_db.exists():
         if dry_run:
             print(f"   [DRY-RUN] Target does not exist — would create fresh copy: {target_db}")
             return {"status": "dry_run_fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
         target_db.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_db, target_db)
+        # Online backup API: a consistent copy even while the source is open in WAL mode.
+        sqlite_online_backup(src_db, target_db)
         print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'completed', 'table': 'ALL', 'current_index': 1, 'total_tables': 1, 'records_synced': 0, 'total_synced': 0, 'message': 'تم إنشاء نسخة البرودكشن الأولية بنجاح'})}")
         sys.stdout.flush()
         return {"status": "fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
@@ -500,42 +517,49 @@ def smart_non_destructive_migrate(
 
 
 
-def sync_db_to_prod():
-    """Syncs Dev DB -> Prod DB non-destructively with safety backup."""
+def _merge_into_target(
+    source_db: Path,
+    target_db: Path,
+    *,
+    confirm: bool,
+    tag: str,
+    backups_dir: Optional[Path],
+) -> Optional[dict]:
+    """Shared guard + merge for push and pull. Only ``target_db`` is written."""
+    source_db = Path(source_db)
+    target_db = require_target(target_db, must_exist=False)
+    if not source_db.exists():
+        print(f"[ERROR] Source database not found: {source_db}")
+        return None
+    # Target: explicit, confirmed, not in use, verified backup first (raises UnsafeTargetError otherwise).
+    guard_target(target_db, confirm=confirm, tag=tag, must_exist=False, backups_dir=backups_dir, forbid=[source_db])
+    target_db.parent.mkdir(parents=True, exist_ok=True)
+    return smart_non_destructive_migrate(source_db, target_db, guarded=True)
+
+
+def sync_db_to_prod(
+    target_db: Optional[Path] = None,
+    source_db: Optional[Path] = None,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Syncs Dev DB (source, read-only) -> ONE explicit Prod DB target, after a verified backup."""
     print("\n===============================================================================")
     print(" [SYNC] مزامنة وتحديث قاعدة بيانات الإنتاج (Non-Destructive Safe Sync) ")
     print("===============================================================================")
-    
-    if not DEV_DB.exists():
-        print(f"[ERROR] لم يتم العثور على قاعدة بيانات التطوير: {DEV_DB}")
+    source = Path(source_db) if source_db else DEV_DB
+    res = _merge_into_target(source, target_db, confirm=confirm, tag="prod_before_sync", backups_dir=backups_dir)
+    if res is None:
         return False
-
-    # 1. Backup Prod DB if exists
-    if PROD_DB.exists():
-        create_backup(PROD_DB, "prod_before_sync")
-    
-    # 2. Backup Dev DB as well
-    create_backup(DEV_DB, "dev_snapshot")
-
-    # 3. Ensure Standalone directory exists
-    STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
-
-    # 4. Smart Non-Destructive Migration
-    res = smart_non_destructive_migrate(DEV_DB, PROD_DB)
-    print(f"[SUCCESS] Sync applied safely to production: {PROD_DB}")
+    target = Path(target_db)
+    print(f"[SUCCESS] Sync applied safely to production: {target}")
     print(f"   - New tables added:   {res['tables_added']}")
     print(f"   - New columns added:  {res['columns_added']}")
     print(f"   - Rows merged:        {res['rows_merged']}")
     print(f"   - Integrity check:    {res.get('integrity', 'n/a')}")
 
-    # Also migrate to root dist if used
-    if (DIST_DIR / "sorour_logistics.db").exists() or DIST_DIR.exists():
-        try:
-            smart_non_destructive_migrate(DEV_DB, DIST_DIR / "sorour_logistics.db")
-        except Exception:
-            pass
-
-    stats = get_db_stats(PROD_DB)
+    stats = get_db_stats(target)
     print(f"\n[STATS] Production DB after sync:")
     print(f"   - Size:    {stats.get('size_kb')} KB")
     print(f"   - Tables:  {stats.get('tables_count')}")
@@ -544,31 +568,29 @@ def sync_db_to_prod():
     return True
 
 
-def pull_prod_db_to_dev():
-    """Pulls Prod DB -> Dev DB non-destructively with safety backup."""
+def pull_prod_db_to_dev(
+    target_db: Optional[Path] = None,
+    source_db: Optional[Path] = None,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Pulls Prod DB (source, read-only) -> ONE explicit Dev DB target, after a verified backup."""
     print("\n===============================================================================")
     print(" [PULL] Safe Pull: Production -> Development (non-destructive merge)")
     print("===============================================================================")
-
-    if not PROD_DB.exists():
-        print(f"[ERROR] Production database not found: {PROD_DB}")
+    source = Path(source_db) if source_db else PROD_DB
+    res = _merge_into_target(source, target_db, confirm=confirm, tag="dev_before_pull", backups_dir=backups_dir)
+    if res is None:
         return False
-
-    # 1. Backup Dev DB
-    create_backup(DEV_DB, "dev_before_pull")
-
-    # 2. Backup Prod DB
-    create_backup(PROD_DB, "prod_snapshot")
-
-    # 3. Smart Non-Destructive Migration Prod -> Dev
-    res = smart_non_destructive_migrate(PROD_DB, DEV_DB)
-    print(f"[SUCCESS] Production data merged into development DB: {DEV_DB}")
+    target = Path(target_db)
+    print(f"[SUCCESS] Production data merged into development DB: {target}")
     print(f"   - New tables:    {res['tables_added']}")
     print(f"   - New columns:   {res['columns_added']}")
     print(f"   - Rows merged:   {res['rows_merged']}")
     print(f"   - Integrity:     {res.get('integrity', 'n/a')}")
 
-    stats = get_db_stats(DEV_DB)
+    stats = get_db_stats(target)
     print(f"\n[STATS] Development DB after pull:")
     print(f"   - Size:    {stats.get('size_kb')} KB")
     print(f"   - Tables:  {stats.get('tables_count')}")
@@ -577,8 +599,18 @@ def pull_prod_db_to_dev():
     return True
 
 
-def full_production_build_and_sync():
-    """Executes full tests, compilation, packaging, and sync."""
+def full_production_build_and_sync(
+    target_db: Optional[Path] = None,
+    source_db: Optional[Path] = None,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Executes full tests, compilation, packaging, and sync into ONE explicit target DB."""
+    # Validate the DB target before the long build, so a refusal costs nothing.
+    target = require_target(target_db, must_exist=False)
+    if not confirm:
+        raise UnsafeTargetError(f"Refusing to sync into {target} without --confirm.")
     print("\n===============================================================================")
     print(" [FULL BUILD] بناء وتحديث الفرونت والباك إند بالكامل للبرودكشن ")
     print("===============================================================================")
@@ -636,7 +668,9 @@ def full_production_build_and_sync():
     print(f"[PROGRESS] {json.dumps({'percent': 85, 'stage': 'db_sync', 'table': 'sync_db', 'current_index': 5, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ مزامنة وتحديث قاعدة بيانات الإنتاج...'}, ensure_ascii=False)}")
     sys.stdout.flush()
     print("\n[5/6] [DB SYNC] مزامنة قاعدة البيانات الحالية إلى الإنتاج...")
-    sync_db_to_prod()
+    if not sync_db_to_prod(target, source_db, confirm=confirm, backups_dir=backups_dir):
+        print("[ERROR] فشلت مزامنة قاعدة البيانات! تم إيقاف عملية البناء.")
+        return False
 
     # 6. Create Release Bundle ZIP & Manifest
     print(f"[PROGRESS] {json.dumps({'percent': 95, 'stage': 'zip_bundle', 'table': 'release_zip', 'current_index': 6, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ إنشاء حزمة التوزيع المضغوطة (create_release_bundle)...'}, ensure_ascii=False)}")
@@ -684,6 +718,19 @@ def launch_production_app():
         print("[ERROR] لم يتم العثور على مشغل البرودكشن!")
 
 
+def _ask_confirmed_target(prompt: str) -> Optional[Path]:
+    """Interactive equivalent of --db + --confirm: an explicit path and a typed CONFIRM."""
+    raw = input(prompt).strip().strip('"')
+    if not raw:
+        print("[!] لم يتم إدخال مسار قاعدة البيانات المستهدفة. تم الإلغاء.")
+        return None
+    typed = input(f"⚠️ سيتم تعديل {raw} بعد أخذ نسخة احتياطية موثقة. اكتب CONFIRM للمتابعة: ").strip()
+    if typed != "CONFIRM":
+        print("[!] لم يتم التأكيد. تم الإلغاء.")
+        return None
+    return Path(raw)
+
+
 def interactive_menu():
     """Displays interactive CLI menu in Arabic/English."""
     while True:
@@ -698,54 +745,79 @@ def interactive_menu():
         print("  [6] تشغيل نسخة البرودكشن الآن (Launch Production App)")
         print("  [0] خروج (Exit)")
         print("-" * 65)
-        
+
         choice = input("👉 اختر رقم العملية المطلوبة (0-6): ").strip()
-        if choice == "1":
-            sync_db_to_prod()
-        elif choice == "2":
-            full_production_build_and_sync()
-        elif choice == "3":
-            pull_prod_db_to_dev()
-        elif choice == "4":
-            compare_databases()
-        elif choice == "5":
-            export_release_zip()
-        elif choice == "6":
-            launch_production_app()
-        elif choice in ["0", "q", "exit"]:
-            print("مع السلامة! 👋")
-            break
-        else:
-            print("[!] اختيار غير صحيح، يرجى إدخال رقم من 0 إلى 6.")
+        try:
+            if choice in ("1", "2", "3"):
+                target = _ask_confirmed_target("مسار قاعدة البيانات المستهدفة (--db): ")
+                if target is None:
+                    continue
+                if choice == "1":
+                    sync_db_to_prod(target, confirm=True)
+                elif choice == "2":
+                    full_production_build_and_sync(target, confirm=True)
+                else:
+                    pull_prod_db_to_dev(target, confirm=True)
+            elif choice == "4":
+                compare_databases()
+            elif choice == "5":
+                export_release_zip()
+            elif choice == "6":
+                launch_production_app()
+            elif choice in ["0", "q", "exit"]:
+                print("مع السلامة! 👋")
+                break
+            else:
+                print("[!] اختيار غير صحيح، يرجى إدخال رقم من 0 إلى 6.")
+        except UnsafeTargetError as exc:
+            print(f"[REFUSED] {exc}")
 
 
-def main():
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="ImportFlow ERP Production Sync & Deployment Tool")
-    parser.add_argument("--db-only", action="store_true", help="Sync Database from Dev to Prod with backup")
-    parser.add_argument("--full", action="store_true", help="Full compilation, test, and production packaging")
-    parser.add_argument("--pull", action="store_true", help="Pull Database from Prod to Dev with backup")
-    parser.add_argument("--compare", action="store_true", help="Compare Dev and Prod databases")
-    parser.add_argument("--diff", action="store_true", help="Emit structured diff data JSON")
+    parser.add_argument("--db-only", action="store_true", help="Sync Database from --source (Dev) into --db (Prod) with backup")
+    parser.add_argument("--full", action="store_true", help="Full compilation, test, and production packaging, then sync into --db")
+    parser.add_argument("--pull", action="store_true", help="Pull Database from --source (Prod) into --db (Dev) with backup")
+    parser.add_argument("--compare", action="store_true", help="Compare Dev and Prod databases (read-only)")
+    parser.add_argument("--diff", action="store_true", help="Emit structured diff data JSON (read-only)")
     parser.add_argument("--zip", action="store_true", help="Generate Release ZIP and manifest")
     parser.add_argument("--launch", action="store_true", help="Launch Production App")
+    parser.add_argument("--source", default=None, help="Database read from (default: dev DB for --db-only/--full, prod DB for --pull)")
+    add_target_arguments(parser, target_help="The ONE database written by --db-only / --pull / --full")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    source = Path(args.source) if args.source else None
+    backups_dir = Path(args.backups_dir) if args.backups_dir else None
+
+    def _write_action(fn):
+        def _run():
+            target = require_target(args.db, must_exist=False)
+            if not args.confirm:
+                raise UnsafeTargetError(
+                    f"Refusing to change {target} without --confirm (alias --i-understand-this-destroys-data)."
+                )
+            return fn(target, source, confirm=True, backups_dir=backups_dir)
+        return run_guarded(_run)
 
     if args.db_only:
-        sync_db_to_prod()
-    elif args.full:
-        full_production_build_and_sync()
-    elif args.pull:
-        pull_prod_db_to_dev()
-    elif args.compare or args.diff:
-        compare_databases()
-    elif args.zip:
+        return _write_action(sync_db_to_prod)
+    if args.full:
+        return _write_action(full_production_build_and_sync)
+    if args.pull:
+        return _write_action(pull_prod_db_to_dev)
+    if args.compare or args.diff:
+        # Read-only: --source = dev side, --db = prod side (defaults: DEV_DB / PROD_DB).
+        compare_databases(source, Path(args.db) if args.db else None)
+        return 0
+    if args.zip:
         export_release_zip()
-    elif args.launch:
+        return 0
+    if args.launch:
         launch_production_app()
-    else:
-        interactive_menu()
+        return 0
+    interactive_menu()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

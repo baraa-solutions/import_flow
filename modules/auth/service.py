@@ -1,6 +1,8 @@
-from typing import List, Optional, Dict, Any
+from typing import Iterable, List, Optional, Dict, Any, Set
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+import settings
+from utils.db_safety import is_frozen_build
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 from modules.audit_logs.service import AuditLogService
 from .schemas import UserCreate, UserUpdate, UserPermissionsUpdatePayload
@@ -9,14 +11,97 @@ from .permissions import (
     get_user_permissions_breakdown,
     get_user_effective_permissions,
     invalidate_permission_cache,
+    is_admin_user,
+    merge_role_and_overrides,
 )
+
+ADMIN_ROLE_CODE = "ADMIN"
+USERS_MANAGE_PERMISSION = "users.manage"
+MSG_ADMIN_ROLE_GRANT_FORBIDDEN = "لا يمكن منح دور مدير النظام إلا بواسطة مدير النظام."
+MSG_ADMIN_ACCOUNT_EDIT_FORBIDDEN = "لا يمكن تعديل حساب مدير النظام إلا بواسطة مدير النظام."
+MSG_PERMISSION_GRANT_FORBIDDEN = "لا يمكنك منح صلاحية لا تملكها."
+MSG_WIDER_TARGET_FORBIDDEN = "لا يمكنك تعديل مستخدم يملك صلاحيات أوسع من صلاحياتك."
+MANAGER_ROLE_CODES = {"MANAGER", "GENERAL_MANAGER"}
+INITIAL_ADMIN_USERNAME = "admin"
 
 
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def register_user(self, user_data: UserCreate) -> User:
+    # ─── Privilege-escalation guards (non-ADMIN actors) ──────────────────────
+
+    @staticmethod
+    def _forbid(detail: str) -> None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+
+    def _guard_admin_role_grant(self, actor: User, role_code: Optional[str]) -> None:
+        """Only an ADMIN may give the ADMIN role (by role_id or legacy role string)."""
+        if (role_code or "").strip().upper() == ADMIN_ROLE_CODE and not is_admin_user(actor):
+            self._forbid(MSG_ADMIN_ROLE_GRANT_FORBIDDEN)
+
+    def _guard_admin_target(self, actor: User, target: User) -> None:
+        """Only an ADMIN may modify, re-password, toggle or re-permission an existing ADMIN account."""
+        if is_admin_user(target) and not is_admin_user(actor):
+            self._forbid(MSG_ADMIN_ACCOUNT_EDIT_FORBIDDEN)
+
+    def _guard_permission_grant(self, actor: User, granted_codes: Iterable[str]) -> None:
+        """A non-ADMIN may not grant users.manage nor any permission code they do not hold."""
+        if is_admin_user(actor):
+            return
+        codes = {c for c in granted_codes if c}
+        if not codes:
+            return
+        if USERS_MANAGE_PERMISSION in codes:
+            self._forbid(MSG_PERMISSION_GRANT_FORBIDDEN)
+        held = get_user_effective_permissions(self.db, actor.user_id) if actor.user_id is not None else set()
+        if "*" in held:
+            return
+        if codes - held:
+            self._forbid(MSG_PERMISSION_GRANT_FORBIDDEN)
+
+    @staticmethod
+    def _compute_effective_codes(role_obj: Optional[Role], overrides: Dict[str, bool]) -> Set[str]:
+        """Same merge as get_user_effective_permissions for a non-ADMIN user, ignoring is_active."""
+        return merge_role_and_overrides(role_obj, overrides.items())
+
+    def _stored_overrides(self, user_id: int) -> Dict[str, bool]:
+        rows = self.db.query(UserPermission).filter(UserPermission.user_id == user_id).all()
+        return {up.permission.permission_code: bool(up.is_granted) for up in rows if up.permission}
+
+    def _actor_effective_codes(self, actor: User) -> Set[str]:
+        return get_user_effective_permissions(self.db, actor.user_id) if actor.user_id is not None else set()
+
+    def _guard_wider_target(self, actor: User, target: User) -> None:
+        """
+        A non-ADMIN may only re-password, re-role, re-email or (de)activate users whose permissions are a
+        subset of their own. Evaluated on the stored role + overrides, so an inactive target counts too.
+        """
+        if is_admin_user(actor):
+            return
+        self._guard_admin_target(actor, target)
+        actor_codes = self._actor_effective_codes(actor)
+        if "*" in actor_codes:
+            return
+        target_codes = self._compute_effective_codes(target.assigned_role, self._stored_overrides(target.user_id))
+        # Legacy role strings grant manager-level access through require_manager_or_admin.
+        target_is_manager = (target.role or "").strip().upper() in MANAGER_ROLE_CODES
+        actor_is_manager = (actor.role or "").strip().upper() in MANAGER_ROLE_CODES or getattr(
+            actor.assigned_role, "role_code", None
+        ) in MANAGER_ROLE_CODES
+        if (target_codes - actor_codes) or (target_is_manager and not actor_is_manager):
+            self._forbid(MSG_WIDER_TARGET_FORBIDDEN)
+
+    def _guard_role_assignment(self, actor: User, role_obj: Optional[Role], role_code: Optional[str]) -> None:
+        """Assigning a role grants its permission set: apply the ADMIN-role and permission-subset rules."""
+        self._guard_admin_role_grant(actor, role_obj.role_code if role_obj else role_code)
+        if role_obj is not None:
+            role_codes = [rp.permission.permission_code for rp in role_obj.role_permissions if rp.permission]
+            self._guard_permission_grant(actor, role_codes)
+
+    # ─── User management ─────────────────────────────────────────────────────
+
+    def register_user(self, user_data: UserCreate, actor: User) -> User:
         # Check existing username or email
         existing_username = self.db.query(User).filter(User.username == user_data.username).first()
         if existing_username:
@@ -49,7 +134,7 @@ class AuthService:
                     detail=f"معرف الدور '{user_data.role_id}' غير موجود."
                 )
         elif user_data.role:
-            role_input = user_data.role.upper()
+            role_input = user_data.role.strip().upper()
             # Map legacy names if needed
             if role_input == "MANAGER":
                 role_input = "GENERAL_MANAGER"
@@ -58,8 +143,9 @@ class AuthService:
 
             role_obj = self.db.query(Role).filter(Role.role_code == role_input).first()
 
-        role_code = role_obj.role_code if role_obj else (user_data.role.upper() if user_data.role else "LOGISTICS_OPERATOR")
+        role_code = role_obj.role_code if role_obj else (user_data.role.strip().upper() if user_data.role else "LOGISTICS_OPERATOR")
         role_id = role_obj.role_id if role_obj else None
+        self._guard_role_assignment(actor, role_obj, role_code)
 
         user = User(
             username=user_data.username,
@@ -83,10 +169,17 @@ class AuthService:
 
         return user
 
-    def update_user(self, user_id: int, update_data: UserUpdate) -> User:
+    def update_user(self, user_id: int, update_data: UserUpdate, actor: User) -> User:
         user = self.db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المستخدم غير موجود.")
+        self._guard_admin_target(actor, user)
+        touches_credentials_or_access = any(
+            value is not None
+            for value in (update_data.password, update_data.role, update_data.role_id, update_data.email)
+        )
+        if touches_credentials_or_access:
+            self._guard_wider_target(actor, user)
 
         old_data = {"role": user.role, "role_id": user.role_id, "full_name": user.full_name, "email": user.email}
 
@@ -112,16 +205,18 @@ class AuthService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"معرف الدور '{update_data.role_id}' غير موجود."
                 )
+            self._guard_role_assignment(actor, target_role, target_role.role_code)
             user.role_id = target_role.role_id
             user.role = target_role.role_code
         elif update_data.role is not None:
-            role_input = update_data.role.upper()
+            role_input = update_data.role.strip().upper()
             if role_input == "MANAGER":
                 role_input = "GENERAL_MANAGER"
             elif role_input == "OPERATOR":
                 role_input = "LOGISTICS_OPERATOR"
 
             target_role = self.db.query(Role).filter(Role.role_code == role_input).first()
+            self._guard_role_assignment(actor, target_role, role_input)
             if target_role:
                 user.role_id = target_role.role_id
                 user.role = target_role.role_code
@@ -140,6 +235,9 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
+        if update_data.password is not None:
+            self._forget_admin_initial_password(user, update_data.password)
+
         AuditLogService(self.db).log_activity(
             entity_type="User",
             entity_id=user.user_id,
@@ -152,16 +250,28 @@ class AuthService:
 
         return user
 
-    def toggle_user_status(self, user_id: int, admin_user_id: int) -> User:
+    @staticmethod
+    def _forget_admin_initial_password(user: User, new_password: str) -> bool:
+        """Production build only: once the seeded admin has a new password, drop the plaintext
+        ADMIN_INITIAL_PASSWORD line from the .env next to backend.exe right away. The developer's .env is never touched."""
+        if not is_frozen_build() or user.username != INITIAL_ADMIN_USERNAME:
+            return False
+        if new_password == settings.ADMIN_INITIAL_PASSWORD:
+            return False
+        return settings.remove_env_key(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD")
+
+    def toggle_user_status(self, user_id: int, actor: User) -> User:
         user = self.db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المستخدم غير موجود.")
 
-        if user.user_id == admin_user_id:
+        if actor.user_id is not None and user.user_id == actor.user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="لا يمكن تعطيل حسابك الخاص."
             )
+
+        self._guard_wider_target(actor, user)
 
         old_status = user.is_active
         user.is_active = not user.is_active
@@ -295,25 +405,45 @@ class AuthService:
         }
 
     def update_user_permissions(
-        self, user_id: int, payload: UserPermissionsUpdatePayload, admin_user: User
+        self, user_id: int, payload: UserPermissionsUpdatePayload, actor: User
     ) -> Dict[str, Any]:
         user = self.db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المستخدم غير موجود.")
+        self._guard_admin_target(actor, user)
+        self._guard_wider_target(actor, user)
 
         old_role_id = user.role_id
         old_role_code = user.role
 
-        # 1. Update role if specified
+        target_role: Optional[Role] = None
         if payload.role_id is not None:
             target_role = self.db.query(Role).filter(Role.role_id == payload.role_id).first()
             if not target_role:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="الدور المحدد غير موجود.")
+            self._guard_role_assignment(actor, target_role, target_role.role_code)
+
+        all_perms_map = {p.permission_code: p.permission_id for p in self.db.query(Permission).all()}
+
+        # The payload replaces the whole override set: omitted overrides (including denies) are deleted.
+        # For a non-ADMIN, everything the user would gain (explicit grants and removed denies) must be
+        # held by the actor.
+        if not is_admin_user(actor):
+            before = self._compute_effective_codes(user.assigned_role, self._stored_overrides(user.user_id))
+            after_overrides = {
+                item.permission_code: bool(item.is_granted)
+                for item in payload.permissions
+                if item.permission_code in all_perms_map
+            }
+            after = self._compute_effective_codes(target_role or user.assigned_role, after_overrides)
+            self._guard_permission_grant(actor, after - before)
+
+        # 1. Update role if specified
+        if target_role is not None:
             user.role_id = target_role.role_id
             user.role = target_role.role_code
 
         # 2. Update / replace UserPermission overrides
-        all_perms_map = {p.permission_code: p.permission_id for p in self.db.query(Permission).all()}
         existing_ups = {up.permission_id: up for up in self.db.query(UserPermission).filter(UserPermission.user_id == user_id).all()}
         new_requested_pids = set()
 
@@ -325,13 +455,13 @@ class AuthService:
             if pid in existing_ups:
                 up = existing_ups[pid]
                 up.is_granted = item.is_granted
-                up.granted_by = admin_user.user_id
+                up.granted_by = actor.user_id
             else:
                 up = UserPermission(
                     user_id=user.user_id,
                     permission_id=pid,
                     is_granted=item.is_granted,
-                    granted_by=admin_user.user_id,
+                    granted_by=actor.user_id,
                 )
                 self.db.add(up)
 

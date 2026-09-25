@@ -2366,7 +2366,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       ];
 
       final pkgRows = packageTypeSummaryMap.values.map((s) {
-        final double qty = s['qty_pkg'] as double;
+        final double qty = (s['qty_pkg'] as num).toDouble();
         final String qtyStr = qty % 1 == 0 ? qty.toInt().toString() : qty.toStringAsFixed(1);
         return [
           '${s['package_type']}',
@@ -2611,7 +2611,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       ];
 
       final pkgRows = packageTypeSummaryMap.values.map((s) {
-        final double qty = s['qty_pkg'] as double;
+        final double qty = (s['qty_pkg'] as num).toDouble();
         final String qtyStr = qty % 1 == 0 ? qty.toInt().toString() : qty.toStringAsFixed(1);
         return [
           '${s['package_type']}',
@@ -2730,7 +2730,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               ),
               ...packageTypeSummaryMap.values.map((summary) {
                 final String pkgType = '${summary['package_type']}';
-                final double qty = summary['qty_pkg'] as double;
+                final double qty = (summary['qty_pkg'] as num).toDouble();
                 final String qtyStr = qty % 1 == 0 ? qty.toInt().toString() : qty.toStringAsFixed(1);
                 final double net = summary['total_net'] as double;
                 final double gross = summary['total_gross'] as double;

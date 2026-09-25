@@ -102,6 +102,36 @@ install(CODE "
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
 
+# === MSVC runtime (app-local deployment) ===
+# A clean Windows has no Visual C++ Redistributable, so frontend.exe (and the
+# plugin DLLs) fail with "MSVCP140.dll was not found". Copy the release CRT of
+# the toolset that built us (msvcp140*.dll, vcruntime140*.dll, concrt140.dll)
+# next to the executable. The UCRT ships with Windows 10+, so it is not copied.
+# Guarded by tests/unit/test_frontend_msvc_runtime.py.
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+set(CMAKE_INSTALL_UCRT_LIBRARIES FALSE)
+include(InstallRequiredSystemLibraries)
+set(_REQUIRED_MSVC_RUNTIME "msvcp140.dll;vcruntime140.dll;vcruntime140_1.dll")
+foreach(_dll IN LISTS _REQUIRED_MSVC_RUNTIME)
+  set(_found FALSE)
+  foreach(_lib IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+    get_filename_component(_name "${_lib}" NAME)
+    string(TOLOWER "${_name}" _name)
+    if(_name STREQUAL _dll)
+      set(_found TRUE)
+    endif()
+  endforeach()
+  if(NOT _found)
+    message(FATAL_ERROR
+      "MSVC runtime ${_dll} not found by InstallRequiredSystemLibraries "
+      "(MSVC_REDIST_DIR='${MSVC_REDIST_DIR}'). Install the MSVC build tools "
+      "redistributable component; the app would not start on a clean Windows.")
+  endif()
+endforeach()
+install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
 # Install the AOT library on non-Debug builds only.
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release

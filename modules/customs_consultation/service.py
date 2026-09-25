@@ -3,7 +3,7 @@ Customs Consultation & Broker Price Lists Service Engine (BP-009)
 """
 
 from datetime import datetime, date, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from modules.customs_consultation.model import (

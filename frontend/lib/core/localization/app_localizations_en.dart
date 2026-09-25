@@ -1288,24 +1288,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get prodSyncSystemUpToDateMsg => 'System is up to date and running the latest version.';
   @override String get prodSyncCheckingCloudUpdates => 'Checking for cloud updates...';
   @override String get prodSyncOfflineModeMsg => 'System is operating in standalone offline mode.';
-  @override String prodSyncInstallVersionNow(dynamic version) => 'Install v$version Now';
-  @override String get prodSyncLaunchInstallerNow => 'Launch Installer Now';
-  @override String get prodSyncInstallingStatus => 'Installing...';
   @override String get prodSyncCheckUpdatesBtn => 'Check for Updates';
-  @override String get prodSyncCancelBtn => 'Cancel';
-  @override String prodSyncDownloadingProgress(dynamic percent, dynamic downloaded, dynamic total) => 'Downloading update... $percent% ($downloaded of $total MB)';
-  @override String get prodSyncAutoCloseNotice => 'The application will close automatically once the download finishes to apply the update.';
-  @override String get prodSyncDownloadCompleteNotice => 'Update downloaded successfully! Click Launch Installer Now to install.';
-  @override String get prodSyncDownloadFailedFallback => 'Download failed. Please try again.';
-  @override String get prodSyncRetryBtn => 'Retry';
   @override String prodSyncWhatsNewInVersion(dynamic version) => 'New features in version $version:';
-  @override String prodSyncInstallConfirmTitle(dynamic version) => 'Install Version $version';
-  @override String prodSyncInstallConfirmDesc(dynamic size) => 'Will download ($size) and install the new version automatically.';
-  @override String get prodSyncInstallSafeNotice1 => 'No data will be lost — database is fully protected';
-  @override String get prodSyncInstallSafeNotice2 => 'Application will close automatically during installation';
-  @override String get prodSyncInstallSafeNotice3 => 'Installation takes approximately 10 seconds';
-  @override String get prodSyncLaterBtn => 'Later';
-  @override String get prodSyncDownloadAndInstallNowBtn => 'Download & Install Now';
   @override String get prodSyncSchemaEngineTitle => 'In-Place Schema Upgrade Engine';
   @override String get prodSyncSchemaEngineDesc => 'The system automatically takes a safety snapshot before each upgrade, adding new tables and columns without touching operational data.';
   @override String get prodSyncCreateInstantBackupBtn => 'Create Instant Recovery Point';
@@ -1315,11 +1299,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get prodSyncAutoPreUpgradeTag => 'Auto Pre-Upgrade';
   @override String get prodSyncManualBackupTag => 'Manual Backup';
   @override String get prodSyncRestoreActionBtn => 'Restore';
-  @override String get prodSyncSyncDevToProdBtn => 'Sync to Production DB';
   @override String get prodSyncCompareTablesBtn => 'Inspect & Compare Tables';
-  @override String get prodSyncPullProdToDevBtn => 'Pull Production to Dev';
-  @override String get prodSyncFullBuildBtn => 'Full Production Build & Package';
-  @override String get prodSyncLaunchProdAppBtn => 'Launch Production App Now';
   @override String get prodSyncDbNotFoundNotice => 'File not found yet (will be created upon first sync)';
   @override String prodSyncDbLastModified(dynamic date) => 'Last modified: $date';
   @override String prodSyncDbSizeLabel(dynamic size) => 'Size: $size KB';
@@ -10318,6 +10298,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get stepConfigSubtitle => 'Central dynamic management for step skip policies and pending references without code changes';
   @override String get stepConfigAccessDeniedTitle => 'Insufficient Permissions — Manager Role Required';
   @override String get stepConfigAccessDeniedDesc => 'According to operational governance standards, operational users are restricted from viewing or modifying step skip policies. This screen is reserved exclusively for managers.';
+  @override String get adminOnlyFeatureMessage => 'This feature is available to system administrators only.';
   @override String get stepConfigDemoSwitchBtn => 'Switch to Manager Role (Demo)';
   @override String get stepConfigRefreshTooltip => 'Refresh Data';
   @override String get stepConfigSearchHint => 'Search by step code, name, or policy...';
@@ -10963,6 +10944,60 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cooChinaGeneralExemptionNote => 'Origin: China - Subject to standard Egyptian customs tariff import duty and 14% VAT.';
   @override String get cooEuRecommendationAlert => 'Country of origin is within EU-27 — EUR.1 Movement Certificate selected automatically for full preferential customs exemption.';
   @override String get cooAgadirGaftaRecommendationAlert => 'Country of origin is a member of both Agadir & GAFTA — Please select certificate type manually.';
+
+  // ── Backend startup (local backend.exe launch) ──
+  @override String get backendStartupStarting => 'Starting the system…';
+  @override String get backendStartupStartingHint => 'The first start after an update can take up to a minute while the database is backed up and upgraded.';
+  @override String get backendStartupFailedTitle => 'The system did not start';
+  @override String get backendStartupFailedMessage => 'The local server did not respond in time. Press Retry; if the problem persists, restart the computer or contact your system administrator.';
+  @override String backendStartupPortInUseMessage(String port) => 'Another program is using port $port, so the system server cannot run. Close that program (or change its port), then press Retry.';
+
+  // ── In-app updates (app_update) ──
+  @override String updateAvailableBanner(String version) => 'A new system update is available: v$version';
+  @override String updateMandatoryBanner(String version) => 'Mandatory update required: v$version. Install it to continue working.';
+  @override String get updateWhatsNew => "What's new in this version";
+  @override String updateSize(String mb) => '$mb MB';
+  @override String get updateInstallNow => 'Install now';
+  @override String get updateRemindLater => 'Remind me later';
+  @override String updateDownloading(String done, String total) => 'Downloading… $done of $total MB';
+  @override String get updateVerifying => "Verifying the update's digital fingerprint…";
+  @override String get updateBackingUp => 'Backing up the database…';
+  @override String get updateInstalling => 'Installing the update. The app will restart automatically';
+  @override String get updateCancel => 'Cancel download';
+  @override String updateSucceeded(String version) => 'The system was updated to v$version successfully';
+  @override String get updateFailed => 'The update failed';
+  @override String get updateRollback => 'Roll back to the previous version';
+  @override String updateRollbackWarning(String backupTime) => 'The database will be restored from the backup taken at $backupTime. All data entered after that time will be permanently lost.';
+  @override String get updateFromFile => 'Update from file (USB)';
+  @override String updateCheckOffline(String lastChecked) => 'Could not reach the update server. Last successful check: $lastChecked';
+  @override String get updateDevModeDisabled => 'Automatic updates are not available in development mode';
+  @override String updateDialogTitle(String version) => 'Update the system to v$version';
+  @override String get updateDownloadNow => 'Download update';
+  @override String get updateReadyToInstall => 'The update is downloaded, verified and ready to install. The database is backed up before installing.';
+  @override String get updateMandatoryNotice => "This update is mandatory (a security fix or a database change) and can't be postponed.";
+  @override String get updateAdminOnlyNotice => 'Only a system administrator can install updates. Please contact your administrator.';
+  @override String get updateSignOut => 'Sign out';
+  @override String get updateViewDetails => 'View details';
+  @override String get updateRestartingHint => "Don't turn off the computer while installing.";
+  @override String get updateRollbackTitle => 'Confirm update rollback';
+  @override String get updateRollbackConfirmCheck => 'I understand that data entered after the backup will be lost';
+  @override String get updateRollbackConfirmBtn => 'Confirm rollback';
+  @override String get updateRollbackNoBackup => 'No pre-update backup is available to roll back to';
+  @override String get updatePickManifest => 'Choose the release file (manifest.json)';
+  @override String get updatePickInstaller => 'Choose the installer file (.exe)';
+  @override String get updateStagedFromFile => 'The update files were verified and are ready to install';
+  @override String get updateSectionTitle => 'Application updates';
+  @override String get updateCheckNow => 'Check for updates';
+  @override String updateUpToDate(String version) => 'The system is up to date (v$version)';
+  @override String get updateInvalidSignature => 'The release file on the server was rejected: invalid signature';
+  @override String get updateNeverChecked => 'Not checked yet';
+  @override String get updateRetry => 'Retry';
+  @override String get updateClose => 'Close';
+  @override String get updateFailedRollbackHint => 'The post-update check did not pass. An administrator can roll back to the previous version.';
+  @override String updateCurrentVersion(String version) => 'Current version: $version';
+  @override String get updateNoPermission => 'You do not have permission to install system updates (administrator required)';
+  @override String updateRollbackSucceeded(String version) => 'Rolled back to v$version and restored the database from the backup';
+  @override String get updateRollbackFailed => 'The rollback failed';
 }
 
 

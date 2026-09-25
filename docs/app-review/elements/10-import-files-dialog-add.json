@@ -1,0 +1,456 @@
+{
+ "screen_nn": "10",
+ "screen_slug": "import-files",
+ "state": "dialog-add",
+ "screenshot": "../screenshots/10-import-files-dialog-add.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "عدد الفواتير وأرقامها (0 فواتير | 0 قوائم تعبئة)"
+  },
+  {
+   "text": "بيانات النقل وموانئ الشحن لطلب النولون"
+  },
+  {
+   "text": "إسناد الشحنة للمشاريع: 0"
+  }
+ ],
+ "merged_containers": [
+  "إضافة ملف استيراد شحنة جديد"
+ ],
+ "buttons": [
+  {
+   "label": "إغلاق وتراجع",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1185,
+    133,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "الشركة المستوردة *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    806,
+    191,
+    419,
+    48
+   ]
+  },
+  {
+   "label": "المورد الأجنبي *",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    375,
+    255,
+    204,
+    48
+   ]
+  },
+  {
+   "label": "المخلص الجمركي",
+   "tooltip": "-- المخلص الجمركي --",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    590,
+    255,
+    204,
+    48
+   ]
+  },
+  {
+   "label": "فحص توجيهات الخبرة لهذا الصنف",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    746,
+    319,
+    48,
+    48
+   ]
+  },
+  {
+   "label": "+ أمر الشراء / الفاتورة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    671,
+    394,
+    168,
+    40
+   ]
+  },
+  {
+   "label": "+ قوائم تعبئة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    839,
+    394,
+    123,
+    40
+   ]
+  },
+  {
+   "label": "وسيلة النقل / الشروط *",
+   "tooltip": "Sea FCL",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    375,
+    459,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "الشروط التجارية الدولية *",
+   "tooltip": "FOB",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    662,
+    459,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "الأولوية *",
+   "tooltip": "High",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    950,
+    459,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "تصنيف الشحنة *",
+   "tooltip": "New Purchase",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    375,
+    519,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "الوصول المتوقع (ETA) *",
+   "tooltip": "2026-10-24",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    662,
+    519,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ فتح الملف *",
+   "tooltip": "2026-09-24",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    950,
+    519,
+    275,
+    48
+   ]
+  },
+  {
+   "label": "المرحلة الحالية *",
+   "tooltip": "Freight Studies",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    420,
+    592,
+    792,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الشحن (POL)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    390,
+    710,
+    265,
+    48
+   ]
+  },
+  {
+   "label": "ميناء الوصول والتفريغ (POD)",
+   "tooltip": "El Dekheila Port (non TMT)",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    667,
+    710,
+    265,
+    48
+   ]
+  },
+  {
+   "label": "تاريخ جاهزية البضاعة (CRD)",
+   "tooltip": "2026-10-01",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    945,
+    710,
+    265,
+    48
+   ]
+  },
+  {
+   "label": "تفضيل مسار الخدمة",
+   "tooltip": "Direct Service",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    532,
+    770,
+    222,
+    19
+   ]
+  },
+  {
+   "label": "+ إسناد الشحنة للمشاريع",
+   "tooltip": "-- إسناد الشحنة للمشاريع --",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    388,
+    950,
+    824,
+    48
+   ]
+  },
+  {
+   "label": "إعادة تحميل حية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    533,
+    814,
+    142,
+    53
+   ]
+  },
+  {
+   "label": "تفريغ وبدء تسجيل جديد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    696,
+    814,
+    175,
+    53
+   ]
+  },
+  {
+   "label": "حفظ مؤقت",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    893,
+    814,
+    120,
+    53
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1036,
+    814,
+    85,
+    53
+   ]
+  },
+  {
+   "label": "حفظ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1128,
+    813,
+    97,
+    54
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "رقم ملف الاستيراد *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    375,
+    189,
+    427,
+    58
+   ]
+  },
+  {
+   "label": "أمر الشراء: *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    806,
+    253,
+    212,
+    58
+   ]
+  },
+  {
+   "label": "أمر الشراء / الفاتورة *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    1022,
+    253,
+    212,
+    58
+   ]
+  },
+  {
+   "label": "بند التعريفة الجمركية",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": "عدد الفواتير وأرقامها (0 فواتير | 0 قوائم تعبئة)",
+   "type": "text",
+   "value": "",
+   "bounds": [
+    375,
+    317,
+    427,
+    58
+   ]
+  },
+  {
+   "label": "تصنيف الصنف",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    806,
+    317,
+    427,
+    58
+   ]
+  },
+  {
+   "label": "أيام السماح المطلوبة (FT)",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    390,
+    768,
+    138,
+    27
+   ]
+  },
+  {
+   "label": "عنوان الاستلام / المصنع",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    766,
+    768,
+    452,
+    27
+   ]
+  },
+  {
+   "label": "تعليمات واشتراطات الشحن الخاصة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    390,
+    830,
+    828,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 4,
+  "buttons": 24,
+  "fields": 8,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

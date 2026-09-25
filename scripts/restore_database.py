@@ -5,43 +5,93 @@ Sorour Logistics ERP — Automated Database Restore Utility
 - Verifies integrity of backup (PRAGMA integrity_check) before proceeding.
 - Uses SQLite Online Backup API to safely restore data without file-lock collisions.
 - Validates restored database integrity post-restoration.
+
+Safety (docs/plans/update-system-plan.md A15 / R12):
+- the target is ONE explicit ``--db`` path, and ``--confirm`` is required;
+- the restore is refused while the backend (backend.exe / uvicorn) holds the target;
+- before anything is overwritten, the current target gets a verified, protected ``pre_restore_`` backup;
+  if that backup fails, nothing is restored.
+
+Usage:
+    python scripts/restore_database.py --list [--db <path>]
+    python scripts/restore_database.py --backup <file.db|file.db.enc> --db <target.db> --confirm
 """
 import sys
-import os
-import time
+import shutil
+import tempfile
 import argparse
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
-from utils.crypto_utils import (
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from utils.crypto_utils import (  # noqa: E402
     is_encrypted_backup,
     decrypt_backup_file,
-    get_backup_encryption_key,
 )
-
-DEFAULT_DB_PATH = ROOT_DIR / "sorour_logistics.db"
-BACKUPS_DIR = ROOT_DIR / "backups"
+from utils.db_safety import backups_dir_for, check_integrity, default_db_path, sqlite_online_backup  # noqa: E402
+from scripts.db_script_guard import (  # noqa: E402
+    PRE_RESTORE_BACKUP_PREFIX,
+    UnsafeTargetError,
+    add_target_arguments,
+    guard_destructive_target,
+    guard_programmatic_target,
+    require_target,
+    run_guarded,
+)
 
 
 def verify_sqlite_integrity(db_path: Path) -> bool:
-    if not db_path.exists():
-        return False
     try:
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        cur.execute("PRAGMA integrity_check;")
-        res = cur.fetchone()[0]
-        conn.close()
-        return res == "ok"
-    except Exception as e:
+        return check_integrity(db_path) == "ok"
+    except FileNotFoundError:
+        return False
+    except sqlite3.Error as e:
         print(f"[ERROR] Integrity check exception: {e}")
         return False
 
 
-def restore_database(backup_file: Path, target_db: Path = DEFAULT_DB_PATH) -> bool:
+def _guard_restore_target(
+    backup_file: Path, target_db: Path, *, confirm: bool, backups_dir: Optional[Path]
+) -> None:
+    """Refuse unsafe restores; back up an existing target first (protected pre_restore_ name)."""
+    if target_db.resolve() == backup_file.resolve():
+        raise UnsafeTargetError("The backup file and the target database are the same file.")
+    if not target_db.exists():
+        # Nothing to overwrite; still never recreate the live DB behind the app's back without confirm.
+        if not confirm:
+            guard_programmatic_target(target_db, must_exist=False)
+        return
+    if not confirm:
+        raise UnsafeTargetError(
+            f"Refusing to overwrite the existing database {target_db} without confirmation (--confirm)."
+        )
+    guard_destructive_target(
+        target_db,
+        confirm=True,
+        tag="restore",
+        backup_prefix=PRE_RESTORE_BACKUP_PREFIX,
+        backups_dir=backups_dir,
+    )
+
+
+def restore_database(
+    backup_file: Path,
+    target_db: Path,
+    *,
+    confirm: bool = False,
+    backups_dir: Optional[Path] = None,
+) -> bool:
+    """Restore ``backup_file`` into ``target_db``.
+
+    Overwriting an existing target requires ``confirm=True`` and first takes a verified pre_restore_
+    backup of it (raises UnsafeTargetError when refused, before anything is written).
+    """
+    backup_file = Path(backup_file)
+    target_db = require_target(target_db, must_exist=False)
     print("================================================================================")
     print("           Sorour Logistics ERP — Database Disaster Recovery Restore            ")
     print("================================================================================")
@@ -52,14 +102,16 @@ def restore_database(backup_file: Path, target_db: Path = DEFAULT_DB_PATH) -> bo
         print(f"[FAIL] Backup file does not exist: {backup_file}")
         return False
 
-    temp_decrypted_path = None
+    temp_decrypt_dir = None
     try:
         source_to_restore = backup_file
         # 0. Detect and decrypt if AES-256-GCM sealed backup
         if is_encrypted_backup(backup_file) or backup_file.name.endswith(".enc"):
-            print("[0/3] Authenticated AES-256-GCM encrypted backup detected.")
+            print("[0/4] Authenticated AES-256-GCM encrypted backup detected.")
             print("      Decrypting using local encryption key...")
-            temp_decrypted_path = backup_file.parent / f".tmp_restore_{backup_file.stem}_{int(time.time())}.db"
+            # Private local temp folder: never next to the .enc, which may sit in a cloud-synced folder.
+            temp_decrypt_dir = Path(tempfile.mkdtemp(prefix="sorour_restore_"))
+            temp_decrypted_path = temp_decrypt_dir / "decrypted_restore_source.db"
             try:
                 decrypt_backup_file(backup_file, temp_decrypted_path)
                 source_to_restore = temp_decrypted_path
@@ -69,27 +121,27 @@ def restore_database(backup_file: Path, target_db: Path = DEFAULT_DB_PATH) -> bo
                 return False
 
         # 1. Pre-restore backup verification
-        print("[1/3] Verifying source backup file integrity...")
+        print("[1/4] Verifying source backup file integrity...")
         if not verify_sqlite_integrity(source_to_restore):
-            print(f"[FAIL] Source backup integrity check failed or file is corrupted.")
+            print("[FAIL] Source backup integrity check failed or file is corrupted.")
             return False
         print("      Integrity: PASS (ok)")
 
-        # 2. Perform online restoration
-        print(f"[2/3] Performing online restoration to {target_db.name}...")
+        # 2. Safety: target not in use, verified pre_restore_ backup of the current target
+        print("[2/4] Checking the target and backing up the current database...")
+        _guard_restore_target(backup_file, target_db, confirm=confirm, backups_dir=backups_dir)
+
+        # 3. Perform online restoration (one transaction on the target: a failure leaves it unchanged)
+        print(f"[3/4] Performing online restoration to {target_db.name}...")
         try:
-            src_conn = sqlite3.connect(source_to_restore)
-            dst_conn = sqlite3.connect(target_db)
-            src_conn.backup(dst_conn)
-            dst_conn.close()
-            src_conn.close()
+            sqlite_online_backup(source_to_restore, target_db, overwrite=target_db.exists())
             print("      Restoration completed successfully.")
         except Exception as e:
             print(f"[FAIL] Error during restore operation: {e}")
             return False
 
-        # 3. Post-restore target database verification
-        print("[3/3] Verifying restored target database...")
+        # 4. Post-restore target database verification
+        print("[4/4] Verifying restored target database...")
         if not verify_sqlite_integrity(target_db):
             print("[FAIL] Post-restoration target integrity check failed.")
             return False
@@ -101,18 +153,19 @@ def restore_database(backup_file: Path, target_db: Path = DEFAULT_DB_PATH) -> bo
         return True
     finally:
         # Secure cleanup of temporary decrypted database copy
-        if temp_decrypted_path and temp_decrypted_path.exists():
-            temp_decrypted_path.unlink(missing_ok=True)
+        if temp_decrypt_dir is not None:
+            shutil.rmtree(temp_decrypt_dir, ignore_errors=True)
 
 
-def list_available_backups():
-    print("Available backups in backups directory:")
-    if not BACKUPS_DIR.exists():
+def list_available_backups(backups_dir: Optional[Path] = None):
+    backups_dir = Path(backups_dir) if backups_dir else backups_dir_for(default_db_path())
+    print(f"Available backups in {backups_dir}:")
+    if not backups_dir.exists():
         print("  No backups directory found.")
         return
     seen = set()
     all_files = []
-    for f in list(BACKUPS_DIR.glob("*.db")) + list(BACKUPS_DIR.glob("*.enc")):
+    for f in list(backups_dir.glob("*.db")) + list(backups_dir.glob("*.enc")):
         if f.name not in seen:
             seen.add(f.name)
             all_files.append(f)
@@ -128,27 +181,40 @@ def list_available_backups():
         print(f"  - {f.name} ({size_mb:.2f} MB){enc_label} - {mtime}")
 
 
-def main():
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Sorour Logistics ERP Database Restore Utility")
     parser.add_argument("--backup", type=str, help="Path to the backup file (.db or .db.enc) to restore from")
-    parser.add_argument("--target", type=str, default=str(DEFAULT_DB_PATH), help="Target database path (default: sorour_logistics.db)")
-    parser.add_argument("--list", action="store_true", help="List all available backups")
-    args = parser.parse_args()
+    parser.add_argument("--list", action="store_true", help="List available backups (next to --db, or the app DB)")
+    add_target_arguments(parser, target_help="Database file to restore into")
+    args = parser.parse_args(argv)
 
     if args.list:
-        list_available_backups()
-        return
+        if args.backups_dir:
+            folder = Path(args.backups_dir)
+        elif args.db:
+            folder = backups_dir_for(args.db)
+        else:
+            folder = None
+        list_available_backups(folder)
+        return 0
 
     if not args.backup:
-        print("[ERROR] Please provide --backup <path> or use --list to view available backups.")
-        sys.exit(1)
+        print("[ERROR] Please provide --backup <path> or use --list to view available backups.", file=sys.stderr)
+        return 1
 
-    backup_path = Path(args.backup)
-    target_path = Path(args.target)
-    success = restore_database(backup_path, target_path)
-    if not success:
-        sys.exit(1)
+    def _run():
+        require_target(args.db, must_exist=False)
+        if not args.confirm:
+            raise UnsafeTargetError("A restore overwrites the target database: pass --confirm to proceed.")
+        return restore_database(
+            Path(args.backup),
+            Path(args.db),
+            confirm=True,
+            backups_dir=Path(args.backups_dir) if args.backups_dir else None,
+        )
+
+    return run_guarded(_run)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

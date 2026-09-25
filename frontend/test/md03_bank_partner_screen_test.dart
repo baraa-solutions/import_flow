@@ -69,7 +69,8 @@ void main() {
       expect(find.textContaining('البنك الأهلي المصري'), findsWidgets);
 
       // Verify Bank category chip exists
-      expect(find.widgetWithText(ChoiceChip, 'بنك'), findsOneWidget);
+      expect(find.byType(DropdownButton<String>), findsOneWidget); // category filter is now a dropdown (was ChoiceChips)
+      expect(find.text('بنك'), findsWidgets); // category badge in the partner row
 
       // Verify add partner button exists
       expect(find.byIcon(Icons.add), findsWidgets);

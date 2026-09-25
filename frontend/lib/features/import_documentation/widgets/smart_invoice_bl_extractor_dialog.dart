@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/helpers/file_picker_helper.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -30,10 +31,8 @@ class _SmartInvoiceBLExtractorDialogState
     extends ConsumerState<SmartInvoiceBLExtractorDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  late final Dio _dio = ref.read(dioProvider);
+  late final Dio _uploadDio = ref.read(uploadDioProvider);
 
   // Tab 1: Invoice state
   final TextEditingController _invoiceTextCtrl = TextEditingController();
@@ -139,10 +138,10 @@ class _SmartInvoiceBLExtractorDialogState
           ),
           if (text.isNotEmpty) 'raw_text': text,
         });
-        resp = await _dio.post(url, data: formData);
+        resp = await _uploadDio.post(url, data: formData);
       } else {
         final formData = FormData.fromMap({'raw_text': text});
-        resp = await _dio.post(url, data: formData);
+        resp = await _uploadDio.post(url, data: formData);
       }
 
       if (resp.statusCode == 200 && resp.data != null) {
@@ -186,10 +185,10 @@ class _SmartInvoiceBLExtractorDialogState
           ),
           if (text.isNotEmpty) 'raw_text': text,
         });
-        resp = await _dio.post(url, data: formData);
+        resp = await _uploadDio.post(url, data: formData);
       } else {
         final formData = FormData.fromMap({'raw_text': text});
-        resp = await _dio.post(url, data: formData);
+        resp = await _uploadDio.post(url, data: formData);
       }
 
       if (resp.statusCode == 200 && resp.data != null) {

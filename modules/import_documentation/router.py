@@ -4,13 +4,14 @@ FastAPI Router for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.import_documentation.schemas import *
 import modules.import_documentation.service as service
 
-router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Documentation"])
+router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Documentation"], dependencies=[Depends(get_current_user)])
 
 
 # --- ACID REGISTRATION & TRACKER ENDPOINTS (BP-014) ---

@@ -1,0 +1,100 @@
+{
+ "screen_nn": "12",
+ "screen_slug": "cbm-calculator",
+ "state": "dialog-add-validation",
+ "screenshot": "../screenshots/12-cbm-calculator-dialog-add-validation.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "Alert"
+  },
+  {
+   "text": "حفظ الجلسة التشغيلية"
+  }
+ ],
+ "merged_containers": [],
+ "buttons": [
+  {
+   "label": "رقم ملف الاستيراد",
+   "tooltip": "-- جميع الحالات --",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    540,
+    388,
+    520,
+    48
+   ]
+  },
+  {
+   "label": "إلغاء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    840,
+    621,
+    64,
+    40
+   ]
+  },
+  {
+   "label": "حفظ التعديلات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    912,
+    612,
+    148,
+    58
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "عنوان جلسة الحساب *",
+   "label_above": null,
+   "hint": "",
+   "required": true,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    540,
+    448,
+    528,
+    58
+   ]
+  },
+  {
+   "label": "ملاحظات ومواصفات البضاعة",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "textarea",
+   "value": "",
+   "bounds": [
+    540,
+    512,
+    526,
+    82
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 2,
+  "buttons": 3,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

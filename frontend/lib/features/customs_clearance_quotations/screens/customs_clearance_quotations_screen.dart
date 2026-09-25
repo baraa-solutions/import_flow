@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -1933,7 +1934,7 @@ Future<void> showSmartClearanceExtractorDialog(
                                 if (text.isEmpty) return;
                                 setDState(() => isExtracting = true);
                                 try {
-                                  final dio = Dio();
+                                  final dio = ref.read(uploadDioProvider);
                                   final formData = FormData.fromMap({'raw_text': text});
                                   final resp = await dio.post(
                                     '${ApiConstants.baseUrl}/smart-upload/parse-text/clearance-quotation',
@@ -1992,7 +1993,7 @@ Future<void> showSmartClearanceExtractorDialog(
 
                           setDState(() => isExtracting = true);
                           try {
-                            final dio = Dio();
+                            final dio = ref.read(uploadDioProvider);
                             final formData = FormData.fromMap({
                               'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
                               'module_name': 'clearance-quotation',

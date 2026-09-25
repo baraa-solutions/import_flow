@@ -6,14 +6,13 @@ import os
 import sys
 import subprocess
 from pathlib import Path
+from typing import List
 
 ROOT_DIR = Path(__file__).resolve().parent
 
-def build_backend():
-    print("===============================================================================")
-    print("        Sorour Logistics ERP - Compiling Standalone Backend Executable         ")
-    print("===============================================================================")
 
+def build_pyinstaller_command() -> List[str]:
+    """The full PyInstaller command line (kept separate from the build so tests can inspect it)."""
     hidden_imports = [
         "uvicorn",
         "uvicorn.logging",
@@ -58,8 +57,24 @@ def build_backend():
         "database.database",
         "database.master_data_sync_service",
         "database.schema_upgrade_service",
+        # Startup migrations (update-system-phase2-5-spec.md A.6). alembic/env.py is bundled as data,
+        # so PyInstaller cannot see its imports: database.models must be listed explicitly.
+        "database.migration_runner",
+        "database.models",
         "utils.migration_linter",
         "utils.crypto_utils",
+        "utils.db_safety",
+        # In-app update (plan §6) and the verified daily backup it relies on (R5, §7)
+        "modules.app_update",
+        "modules.app_update.model",
+        "modules.app_update.schemas",
+        "modules.app_update.repository",
+        "modules.app_update.service",
+        "modules.app_update.validators",
+        "modules.app_update.router",
+        "scripts",
+        "scripts.daily_backup",
+        "scripts.db_script_guard",
         "modules.common.concurrency",
         "modules.system_observability.daily_report_service",
         "modules.smart_document_upload.extractors.purchase_order",
@@ -100,12 +115,29 @@ def build_backend():
         "--workpath", str(ROOT_DIR / "build_backend"),
     ]
 
+    # Code only: never --add-data / --add-binary anything data-bearing (*.db, .env, keys, backups, version
+    # state, alembic.ini). The backend creates its database next to backend.exe on first run (plan section 0, R1/R4).
+    # The one exception is the Alembic script folder (code): startup migrations load it from
+    # sys._MEIPASS/alembic (database/migration_runner.py). Alembic imports mako at load time.
+    cmd.extend(["--add-data", f"{ROOT_DIR / 'alembic'}{os.pathsep}alembic"])
+    cmd.extend(["--collect-submodules", "alembic"])
+    cmd.extend(["--collect-submodules", "mako"])
+
     # Add hidden imports
     for imp in hidden_imports:
         cmd.extend(["--hidden-import", imp])
 
     # Add app entrypoint
     cmd.append(str(ROOT_DIR / "backend_runner.py"))
+    return cmd
+
+
+def build_backend():
+    print("===============================================================================")
+    print("        Sorour Logistics ERP - Compiling Standalone Backend Executable         ")
+    print("===============================================================================")
+
+    cmd = build_pyinstaller_command()
 
     print("Running PyInstaller command...")
     result = subprocess.run(cmd, cwd=str(ROOT_DIR))

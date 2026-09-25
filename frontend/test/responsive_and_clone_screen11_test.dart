@@ -375,7 +375,8 @@ void main() {
       // Verify populated cloned values in form
       expect(find.textContaining('الشركة الهندسية للتوريدات'), findsWidgets);
       expect(find.textContaining('Shanghai Petrochem Industrial Co.'), findsWidgets);
-      expect(find.text('PI-2026-SH-09 (نسخة)'), findsOneWidget);
+      // Suffix language follows Localizations.localeOf (en_US without supportedLocales), hence ' (Copy)'.
+      expect(find.text('PI-2026-SH-09 (Copy)'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

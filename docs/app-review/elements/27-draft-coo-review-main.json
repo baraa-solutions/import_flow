@@ -1,0 +1,1016 @@
+{
+ "screen_nn": "27",
+ "screen_slug": "draft-coo-review",
+ "state": "main",
+ "screenshot": "../screenshots/27-draft-coo-review-main.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [
+  {
+   "text": "محرك اتخاذ القرار الجمركي لشهادات المنشأ"
+  },
+  {
+   "text": "توجيه ذكي لنوع الشهادة تلقائياً بناءً على بلد المنشأ المذكور في الفواتير والاتفاقيات الدولية"
+  },
+  {
+   "text": "مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) لدول المنشأ (India) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
+  },
+  {
+   "text": "لا يوجد تصنيف تفضيلي تلقائي لهذا المنشأ — يُترك الاختيار للمستخدم من القائمة الكاملة."
+  },
+  {
+   "text": "معاينة مسودة شهادة المنشأ الرسمية: EUR.1 Movement Certificate"
+  },
+  {
+   "text": "MOVEMENT CERTIFICATE"
+  },
+  {
+   "text": "1. Exporter (Name, full address, country)"
+  },
+  {
+   "text": "EUR.1"
+  },
+  {
+   "text": "See notes overleaf before completing this form."
+  },
+  {
+   "text": "2. Certificate used in preferential trade between"
+  },
+  {
+   "text": "EU"
+  }
+ ],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nمراجعة مسودات بوالص الشحن\n24H LIVE",
+  "Draft COO & EUR.1 Review\nDraft COO & EUR.1",
+  "توليد واستدعاء مسودة شهادة المنشأ الرسمية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:47",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    577,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    704,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    810,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    840,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    866,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    894,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    942,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    968,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    996,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1086,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1114,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1140,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "متطلبات واشتراطات الاستيراد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    480,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الاستعلام الذكي عن الشحنات وسجل الأسعار",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    507,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    639,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "اعتمادات الميزانية وسداد الموردين",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    666,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    798,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الرقم التعريفي المبدئي للشحنة ACID",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    825,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    957,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "النموذج الإحصائي والتحويل البنكي نموذج 4",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    984,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1116,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مراجعة مسودات بوالص الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1143,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1275,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مراجعة مسودات بوالص الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1302,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1434,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "مراجعة مسودات بوالص الشحن",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1461,
+    44,
+    89,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1593,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "تخطي المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    766,
+    86,
+    105,
+    32
+   ]
+  },
+  {
+   "label": "إيقاف الشحنة عند هذه المرحلة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    879,
+    86,
+    183,
+    32
+   ]
+  },
+  {
+   "label": "بحث واستنساخ مسودة شهادة منشأ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1070,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "توليد وميكنة المخاطبات والخطابات الرسمية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1116,
+    80,
+    271,
+    43
+   ]
+  },
+  {
+   "label": "تحديث",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1406,
+    82,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1454,
+    82,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "1. متطلبات شهادة المنشأ و EUR.1",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    523,
+    139,
+    228,
+    36
+   ]
+  },
+  {
+   "label": "2. إدخال واستخراج الدرافت",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    758,
+    139,
+    189,
+    36
+   ]
+  },
+  {
+   "label": "3. مصفوفة المقارنة والفروق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    955,
+    139,
+    192,
+    36
+   ]
+  },
+  {
+   "label": "4. سجل مراجعات المنشأ",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1155,
+    139,
+    177,
+    36
+   ]
+  },
+  {
+   "label": "إعادة فحص الاتفاقية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    748,
+    222,
+    149,
+    45
+   ]
+  },
+  {
+   "label": "🌍 بلد المنشأ بالفاتورة: India",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    302,
+    298,
+    139,
+    17
+   ]
+  },
+  {
+   "label": "⚠️ مطلوب اختيار يدوي (اتفاقيات متعددة)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    475,
+    298,
+    201,
+    17
+   ]
+  },
+  {
+   "label": "اختر ملف الشحنة *",
+   "tooltip": "FILE-2026-0006 (IMP-2026-0006) - Nile Delta Electronics S.A.E / الدلتا للإلكترونيات",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    299,
+    497,
+    392,
+    48
+   ]
+  },
+  {
+   "label": "نوع شهادة المنشأ *",
+   "tooltip": "EUR.1 Movement Certificate",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    707,
+    497,
+    392,
+    48
+   ]
+  },
+  {
+   "label": "⚡ فتح المعاينة المصورة والتصدير",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1115,
+    492,
+    250,
+    58
+   ]
+  },
+  {
+   "label": "التالي: إدخال الدرافت",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1377,
+    492,
+    179,
+    58
+   ]
+  },
+  {
+   "label": "لا يوجد تصنيف تفضيلي تلقائي لهذا المنشأ — يُترك الاختيار للمستخدم من القائمة الكاملة.",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    344,
+    582,
+    1199,
+    19
+   ]
+  },
+  {
+   "label": "تحديث حي للبيانات المستدعاة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    696,
+    754,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "نسخ البيانات 📋",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    736,
+    756,
+    134,
+    35
+   ]
+  },
+  {
+   "label": "حفظ إكسل (Excel) 📊",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    878,
+    756,
+    163,
+    35
+   ]
+  },
+  {
+   "label": "حفظ وطباعة PDF 🖨️",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1049,
+    756,
+    155,
+    35
+   ]
+  },
+  {
+   "label": "ملاحظة جمركية: في مرحلة التخليص الجمركي بمصر، يُشترط أن يحتوي البند 11 على ختم وتوقيع المصدر، وأن يحتوي البند 12 على الختم الرسمي للجهة المعتمدة (ختم الجمارك وختم الغرفة التجارية) أو رمز التحقق الإلكتروني (QR Code أو Barcode) في حال الشهادات الإلكترونية.",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    320,
+    828,
+    1247,
+    17
+   ]
+  },
+  {
+   "label": "GIDC Vapi, Gujarat",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    284,
+    954,
+    94,
+    14
+   ]
+  },
+  {
+   "label": "IN-AABCG4421K, Gujarat Polymers Pvt. Ltd",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    284,
+    936,
+    220,
+    16
+   ]
+  },
+  {
+   "label": "DRAFT-4012026040100222",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1418,
+    921,
+    152,
+    17
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "Standard COO",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "Form A / GSP",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "شهادة منشأ الصين (CCPIT - اتفاقية الصين ومصر)",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "شهادة اتفاقية أغادير",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "شهادة منطقة التجارة الحرة العربية الكبرى (GAFTA)",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 11,
+  "buttons": 75,
+  "fields": 1,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

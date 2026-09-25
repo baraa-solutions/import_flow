@@ -1,11 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, Query
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
 from .schemas import AuditLogResponse
 from .service import AuditLogService
 
-router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs Engine"])
+router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs Engine"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=List[AuditLogResponse])

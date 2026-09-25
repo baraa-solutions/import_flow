@@ -12,9 +12,12 @@ import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
 import 'core/providers/workspace_tabs_provider.dart';
+import 'core/services/backend_launcher.dart';
+import 'core/services/launcher_log.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/density_provider.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/widgets/backend_startup_gate.dart';
 import 'core/widgets/unsaved_changes_dialog.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
@@ -23,22 +26,58 @@ import 'features/home/home_screen.dart';
 final appReloadKeyProvider = StateProvider<int>((ref) => 0);
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-Future<void> _ensureBackendRunning() async {
-  if (!kIsWeb && Platform.isWindows) {
-    try {
-      final dio = Dio(BaseOptions(connectTimeout: const Duration(milliseconds: 500)));
-      await dio.get('${ApiConstants.serverUrl}/docs');
-    } catch (_) {
-      try {
-        final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final backendPath = '$exeDir\\backend.exe';
-        if (File(backendPath).existsSync()) {
-          Process.start(backendPath, [], mode: ProcessStartMode.detached);
-          await Future.delayed(const Duration(milliseconds: 1200));
-        }
-      } catch (_) {}
-    }
+/// Pre-auth liveness probe on the public /health route (allow-listed in
+/// test/no_bare_dio_test.dart). Short per-try timeouts; the launcher polls.
+final Dio _healthDio = Dio(BaseOptions(
+  connectTimeout: const Duration(milliseconds: 800),
+  receiveTimeout: const Duration(seconds: 2),
+  sendTimeout: const Duration(seconds: 2),
+  validateStatus: (_) => true,
+));
+
+Future<BackendHealth> _probeBackendHealth() async {
+  try {
+    final res = await _healthDio.get('${ApiConstants.serverUrl}/health');
+    return BackendHealth.fromResponse(res.statusCode, res.data);
+  } on DioException catch (e) {
+    // Type + low-level cause only (no headers; /health carries no token anyway).
+    return BackendHealth.down(
+        error: e.error == null ? e.type.name : '${e.type.name}: ${e.error}');
+  } catch (e) {
+    return BackendHealth.down(error: '$e');
   }
+}
+
+/// Windows desktop: starts `<exeDir>\backend.exe` (only for a local server URL)
+/// and waits for /health. Elsewhere: a disabled launcher that is ready at once.
+/// Decisions are logged to %LOCALAPPDATA%\SorourLogistics\logs\launcher.log.
+BackendLauncher _createBackendLauncher() {
+  if (kIsWeb || !Platform.isWindows) return BackendLauncher.disabled();
+  final logPath = FileLauncherLog.defaultPath();
+  final LauncherLog log =
+      logPath == null ? const NullLauncherLog() : FileLauncherLog(logPath);
+  String? backendPath;
+  var exe = '<unknown>';
+  final serverUrl = ApiConstants.serverUrl;
+  final loopback = isLoopbackServerUrl(serverUrl);
+  try {
+    exe = Platform.resolvedExecutable;
+    final exeDir = File(exe).parent.path;
+    if (loopback) backendPath = '$exeDir\\backend.exe';
+  } catch (e) {
+    log.write('[config] could not resolve the executable: $e');
+  }
+  log.write('[config] frontend v${ApiConstants.clientVersion} exe=$exe '
+      'serverUrl=${redactUrl(serverUrl)} loopback=$loopback '
+      'backendExecutablePath=${backendPath ?? '<none>'}');
+  return BackendLauncher(
+    healthCheck: _probeBackendHealth,
+    startProcess: WindowsBackendProcess.start,
+    listProcesses: WindowsBackendProcess.list,
+    killProcess: WindowsBackendProcess.kill,
+    backendExecutablePath: backendPath,
+    log: log,
+  );
 }
 
 void main() async {
@@ -67,9 +106,11 @@ void main() async {
         await windowManager.focus();
       });
     } catch (_) {}
-    // Asynchronously verify backend without blocking runApp or freezing UI
-    _ensureBackendRunning();
   }
+
+  // Started (without blocking runApp) by backendStartupProvider when the
+  // BackendStartupGate first builds; it holds the login flow until ready.
+  final backendLauncher = _createBackendLauncher();
 
   // Custom friendly error widget — prevents red screen of death
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -139,7 +180,7 @@ void main() async {
                           horizontal: 24, vertical: 12),
                     ),
                     onPressed: () async {
-                      await _ensureBackendRunning();
+                      await ref.read(backendStartupProvider.notifier).retry();
                       ref.read(appReloadKeyProvider.notifier).state++;
                     },
                     icon: const Icon(Icons.refresh, color: Colors.white),
@@ -159,8 +200,11 @@ void main() async {
   };
 
   runApp(
-    const ProviderScope(
-      child: SorourLogisticsApp(),
+    ProviderScope(
+      overrides: [
+        backendLauncherProvider.overrideWithValue(backendLauncher),
+      ],
+      child: const SorourLogisticsApp(),
     ),
   );
 }
@@ -268,9 +312,13 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
                 (_) => Response(requestOptions: RequestOptions(path: '')));
       } catch (_) {}
 
-      // 3. Kill backend process
+      // 3. Terminate OUR backend.exe (matched by full path; never another
+      //    install's backend, no console child process).
       try {
-        await Process.run('taskkill', ['/F', '/IM', 'backend.exe', '/T']);
+        await ref
+            .read(backendLauncherProvider)
+            .killOwnBackend()
+            .timeout(const Duration(seconds: 3));
       } catch (_) {}
 
       await windowManager.destroy();
@@ -304,7 +352,7 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
             locale: locale,
             navigatorObservers: [NavigationPerfTracker.instance],
             builder: (context, child) => child ?? const SizedBox.shrink(),
-            home: const AuthGate(),
+            home: const BackendStartupGate(child: AuthGate()),
           ),
         ),
       ),

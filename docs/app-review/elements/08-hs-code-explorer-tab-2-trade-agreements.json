@@ -1,0 +1,1152 @@
+{
+ "screen_nn": "08",
+ "screen_slug": "hs-code-explorer",
+ "state": "tab-2-trade-agreements",
+ "screenshot": "../screenshots/08-hs-code-explorer-tab-2-trade-agreements.png",
+ "source": "Flutter web semantics tree (flt-semantics / input nodes in viewport)",
+ "visible_texts": [],
+ "merged_containers": [
+  "Synchronized with 24-Hour Universal Live Time\nسرور للخدمات اللوجستية\nنظام إدارة الاستيراد\nReview Admin\nADMIN\nImportFlow\n / \nجدول التعريفة الجمركية\n24H LIVE\nمحرك البحث الجمركي الشامل وتاريخ البند\nاستعلام لحظي عن بنود التعريفة الجمركية المصرية، الضرائب، الاتفاقيات التفضيلية، الاشتراطات الرقابية وسجل التعديلات.\nأمثلة سريعة للبحث:\nنتائج البنود المطابقة\n15 بند\nPolyethylene, specific gravity < 0.94, primary forms / بولي إيثيلين خام\nساري من: 2026-01-01 (سجل معتمد)\nلا توجد اتفاقيات تفضيلية مسجلة لهذا البند (يطبق النظام الأساسي العام).\nالتعريفة الجمركية وبنود التعريفة المنسقة\nفئات ضريبة الوارد المصرية، القيمة المضافة، ضريبة الجدول، رسم التنمية والاشتراطات الاستيرادية"
+ ],
+ "buttons": [
+  {
+   "label": "إخفاء القائمة لتوسيع الشاشة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    223,
+    11,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "Home",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    374,
+    12,
+    38,
+    20
+   ]
+  },
+  {
+   "label": "World Clocks & Business Hours",
+   "tooltip": "Egypt 12:30",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    540,
+    10,
+    116,
+    23
+   ]
+  },
+  {
+   "label": "الأوامر",
+   "tooltip": "Ctrl+K",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    667,
+    9,
+    103,
+    26
+   ]
+  },
+  {
+   "label": "مساعد الاستيراد الذكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    773,
+    8,
+    28,
+    28
+   ]
+  },
+  {
+   "label": "المستمع الذكي للبريد وإشعارات الوصول",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    803,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ربط البريد (IMAP/SMTP)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    829,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل لغة الواجهة (English / العربية)",
+   "tooltip": "EN",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    857,
+    9,
+    48,
+    25
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    905,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    931,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "كثافة عرض الجدول",
+   "tooltip": "مريح",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    959,
+    6,
+    88,
+    32
+   ]
+  },
+  {
+   "label": "وضع التركيز (Ctrl+Shift+F)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1049,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "عرض دليل اختصارات لوحة المفاتيح",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1077,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تبديل وضع ملء الشاشة أو الاستعادة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1103,
+    8,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إشعارات النظام والتنبيهات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    60,
+    44,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "تبديل المظهر الداكن والنهاري",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    8,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "تغيير اللغة (عربي / إنجليزي)",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    34,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "إعدادات ومزامنة البريد الإلكتروني",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    100,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "الإعدادات الأساسية للنظام",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    126,
+    51,
+    26,
+    26
+   ]
+  },
+  {
+   "label": "لوحة التحكم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    255,
+    44,
+    93,
+    29
+   ]
+  },
+  {
+   "label": "الشركات المستوردة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    348,
+    44,
+    152,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    473,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "دليل الموردين الأجانب",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    500,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    632,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشركاء والبنوك ومقدمو الخدمات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    659,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    791,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "المشاريع ومراكز التكلفة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    818,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    950,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الموانئ والمنافذ الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    977,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1109,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "الشروط التجارية الدولية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1136,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1268,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "جدول التعريفة الجمركية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1295,
+    44,
+    159,
+    29
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    1426,
+    51,
+    17,
+    17
+   ]
+  },
+  {
+   "label": "التعريفة الجمركية وبنود التعريفة المنسقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    957,
+    80,
+    240,
+    32
+   ]
+  },
+  {
+   "label": "🔍 استعلام وبحث شامل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1196,
+    80,
+    240,
+    32
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1444,
+    76,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "خيارات النوافذ والتبويبات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1554,
+    44,
+    40,
+    29
+   ]
+  },
+  {
+   "label": "البيانات والجداول الأساسية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    123,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "تخطيط الشحنة وأوامر الشراء",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    186,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 1: التخطيط والدراسات المسبقة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    249,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 2: بداية الشحنة والتسجيل المسبق",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    312,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    375,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 4: التوثيق الرقمي والاعتماد البنكي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    438,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 5: الميناء والتخليص الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    501,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "المرحلة 6: الاستلام المخزني والتسوية المالية",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    564,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "استعلامات",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    627,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "لوحة القيادة والتقارير والرقابة",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    690,
+    255,
+    63
+   ]
+  },
+  {
+   "label": "v2.0.3 (Build 205)",
+   "tooltip": "Port: 28080",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    0,
+    967,
+    255,
+    33
+   ]
+  },
+  {
+   "label": "خيارات المستخدم",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    205,
+    919,
+    40,
+    40
+   ]
+  },
+  {
+   "label": "العودة للداش بورد",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    279,
+    211,
+    132,
+    40
+   ]
+  },
+  {
+   "label": "تصدير جدول نصوص",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    421,
+    211,
+    147,
+    45
+   ]
+  },
+  {
+   "label": "تصدير إكسيل",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    577,
+    211,
+    112,
+    45
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "3901.10.00",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    652,
+    446,
+    134,
+    35
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1053,
+    446,
+    154,
+    34
+   ]
+  },
+  {
+   "label": "طباعة وحفظ التقرير الجمركي",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1215,
+    446,
+    166,
+    34
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    461,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "3901.10.00 | Polyethylene, specific gravity < 0.94, primary forms / بولي إيثيلين خام | وارد: 2%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    461,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    483,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    530,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "3926.90.90 | Plastic Articles & Industrial Components (أصناف لدائن ومصنوعاتها) | وارد: 10%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    530,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    552,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    599,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "6302.21.00 | Bed linen of cotton, printed / مفروشات أسرة قطنية | وارد: 40%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    599,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    621,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    668,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "7318.15.00 | Steel Screws, Bolts & Nuts (براغي ومسامير صلب) | وارد: 5%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    668,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    690,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    737,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "8415.10.00 | Air Conditioning Machines (أجهزة تكييف الهواء) | وارد: 40%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    737,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    759,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    806,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "8418.10.10 | Combined refrigerator-freezers, household / ثلاجات منزلية | وارد: 30%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    806,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    828,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    875,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "8471.30.00 | Laptops & Portable Computers (أجهزة حاسب آلي محمولة) | وارد: 0%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    875,
+    338,
+    68
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    897,
+    24,
+    24
+   ]
+  },
+  {
+   "label": "",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": true,
+   "bounds": [
+    280,
+    944,
+    338,
+    31
+   ]
+  },
+  {
+   "label": "نسخ كود البند الجمركي",
+   "tooltip": "8471.50.00 | Desktop Computers & Servers (وحدات معالجة رقمية وحواسب مكتبية) | وارد: 0%",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    280,
+    944,
+    338,
+    31
+   ]
+  },
+  {
+   "label": "نسخ البطاقة الشاملة للبند",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    570,
+    966,
+    24,
+    9
+   ]
+  },
+  {
+   "label": "الضرائب والرسوم",
+   "tooltip": "الضرائب والرسوم",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    642,
+    517,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "الاتفاقيات التفضيلية",
+   "tooltip": "الاتفاقيات التفضيلية",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    642,
+    566,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "الاشتراطات الرقابية",
+   "tooltip": "الاشتراطات الرقابية",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    642,
+    616,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "سجل التحديثات والتاريخ",
+   "tooltip": "سجل التحديثات والتاريخ",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    642,
+    665,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "حاسبة فورية للبند",
+   "tooltip": "حاسبة فورية للبند",
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    642,
+    715,
+    206,
+    49
+   ]
+  },
+  {
+   "label": "تحليل الاختلافات والتاريخ ➔",
+   "tooltip": null,
+   "enabled": true,
+   "icon_only": false,
+   "bounds": [
+    1389,
+    446,
+    170,
+    35
+   ]
+  }
+ ],
+ "text_fields": [
+  {
+   "label": "بحث سريع...",
+   "label_above": null,
+   "hint": "بحث سريع...",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    8,
+    90,
+    247,
+    34
+   ]
+  },
+  {
+   "label": "ابحث برقم البند أو الوصف أو التصنيف أو كود المنشور...",
+   "label_above": null,
+   "hint": "",
+   "required": false,
+   "invalid": false,
+   "error_text_below": null,
+   "type": "text",
+   "value": "",
+   "bounds": [
+    295,
+    288,
+    1273,
+    58
+   ]
+  }
+ ],
+ "tabs": [],
+ "checkboxes_radios": [
+  {
+   "label": "8415820010",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "3925900090",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "0202300000",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "1001990000",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "1507100000",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "1701999000",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "تكييف",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "لدائن",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "لحوم",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  },
+  {
+   "label": "قمح",
+   "role": "checkbox",
+   "checked": "false",
+   "enabled": true
+  }
+ ],
+ "table_column_headers": [],
+ "table_header_candidates": [],
+ "counts": {
+  "texts": 0,
+  "buttons": 86,
+  "fields": 2,
+  "tabs": 0,
+  "headers": 0,
+  "header_rows": 0
+ }
+}

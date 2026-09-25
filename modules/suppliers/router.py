@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -20,7 +21,8 @@ from .service import (
 
 supplier_router = APIRouter(
     prefix="/api/v1/suppliers",
-    tags=["Suppliers & Foreign Exporters"]
+    tags=["Suppliers & Foreign Exporters"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

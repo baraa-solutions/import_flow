@@ -1043,16 +1043,20 @@ def skip_step_service(
             detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
         )
 
-    # Role validation if caller role provided
-    if current_user_role:
-        user_role_norm = current_user_role.strip().upper()
-        allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
-        is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
-        if not is_authorized:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"دورك '{current_user_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
-            )
+    # Role validation is mandatory: the caller role comes from the authenticated user (never a header)
+    if not current_user_role or not current_user_role.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="تعذر تحديد دور المستخدم."
+        )
+    user_role_norm = current_user_role.strip().upper()
+    allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
+    is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
+    if not is_authorized:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"دورك '{current_user_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
+        )
 
     # Auto-infer next step from sequence if not explicitly provided
     if not payload.next_step_codes:

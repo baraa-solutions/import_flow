@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../providers/production_sync_provider.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_export_service.dart';
-import '../services/production_sync_service.dart';
 import 'sync_console_widget.dart';
 import 'sync_progress_and_diff_widget.dart';
 
@@ -43,7 +43,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? LocalProcessSyncService();
+    _service = widget.service ??
+        LocalProcessSyncService(ref.read(productionSyncServiceProvider));
     _tabController = TabController(length: 2, vsync: this);
     _refreshLocalData();
     Future.microtask(() => _checkDiffsSilently());
@@ -122,7 +123,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
       final restoreActionLabel = '${l.prodSyncRestoreActionBtn} ${b.filename}';
       await _executeAction(restoreActionLabel, () async {
         try {
-          final api = ProductionSyncService();
+          final api = ref.read(productionSyncServiceProvider);
           final target = b.tag.contains('dev') ? 'dev' : 'prod';
           final res = await api.restoreBackup(filename: b.filename, target: target);
           _appendLog('✅ ${res.message}');
@@ -369,38 +370,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              // 1. Sync Dev -> Prod
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                ),
-                icon: _isRunning && _currentAction == l.prodSyncSyncDevToProdBtn
-                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.cloud_upload_rounded, size: 17),
-                label: Text(
-                  l.prodSyncSyncDevToProdBtn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncSyncDevToProdBtn,
-                          () => _service.syncDevToProd(
-                            onOutput: (msg) => _appendLog(msg),
-                            onError: (msg) => _appendLog(msg, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
-                          ),
-                        ),
-              ),
-
-              // 2. Compare DBs
+              // Compare DBs (read-only). Sync / pull / full build / launch were retired:
+              // the product never syncs a dev DB into production.
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.cobalt,
@@ -424,88 +395,6 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                             onDiffSummary: (d) {
                               if (mounted) setState(() => _diffSummary = d);
                             },
-                          ),
-                        ),
-              ),
-
-              // 3. Pull Prod -> Dev
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.charcoal,
-                  side: const BorderSide(color: AppTheme.charcoal),
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                ),
-                icon: _isRunning && _currentAction == l.prodSyncPullProdToDevBtn
-                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
-                    : const Icon(Icons.download_rounded, size: 17),
-                label: Text(
-                  l.prodSyncPullProdToDevBtn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncPullProdToDevBtn,
-                          () => _service.pullProdToDev(
-                            onOutput: (msg) => _appendLog(msg),
-                            onError: (msg) => _appendLog(msg, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                          ),
-                        ),
-              ),
-
-              // 4. Full Production Package
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                ),
-                icon: _isRunning && _currentAction == l.prodSyncFullBuildBtn
-                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.inventory_rounded, size: 17),
-                label: Text(
-                  l.prodSyncFullBuildBtn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncFullBuildBtn,
-                          () => _service.fullBuildAndSync(
-                            onOutput: (msg) => _appendLog(msg),
-                            onError: (msg) => _appendLog(msg, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
-                          ),
-                        ),
-              ),
-
-              // 5. Launch Standalone App
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1), // Indigo
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                ),
-                icon: const Icon(Icons.play_circle_filled_rounded, size: 17),
-                label: Text(
-                  l.prodSyncLaunchProdAppBtn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncLaunchProdAppBtn,
-                          () => _service.launchProductionApp(
-                            onOutput: (msg) => _appendLog(msg),
-                            onError: (msg) => _appendLog(msg, isError: true),
                           ),
                         ),
               ),

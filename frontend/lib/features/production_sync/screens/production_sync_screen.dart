@@ -4,13 +4,13 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/production_sync_model.dart';
 import '../providers/production_sync_provider.dart';
-import '../services/auto_updater_service.dart';
+import '../../app_update/widgets/app_update_panel.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_export_service.dart';
-import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
 import '../widgets/sync_progress_and_diff_widget.dart';
 
@@ -29,7 +29,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
   final List<ConsoleLogLine> _consoleLogs = [];
   bool _isRunning = false;
-  String _currentAction = '';
   SyncProgressEvent? _progress;
   SyncDiffSummary? _diffSummary;
 
@@ -40,7 +39,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? LocalProcessSyncService();
+    _service = widget.service ??
+        LocalProcessSyncService(ref.read(productionSyncServiceProvider));
     _tabController = TabController(length: 2, vsync: this);
     _initLocalStats();
     Future.microtask(() {
@@ -136,7 +136,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     if (confirmed == true) {
       await _executeAction(l.prodSyncRestoreActionBtn, () async {
         try {
-          final api = ProductionSyncService();
+          final api = ref.read(productionSyncServiceProvider);
           final target = b.tag.contains('dev') ? 'dev' : 'prod';
           final res = await api.restoreBackup(filename: b.filename, target: target);
           _appendLog('✅ ${res.message}');
@@ -155,7 +155,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
     setState(() {
       _isRunning = true;
-      _currentAction = actionName;
       _progress = SyncProgressEvent(
         percent: 5,
         stage: 'init',
@@ -194,7 +193,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
       if (mounted) {
         setState(() {
           _isRunning = false;
-          _currentAction = '';
         });
       }
     }
@@ -397,9 +395,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           message: bannerMsg,
           releaseNotes: result.releaseNotes,
           downloadUrl: result.downloadUrl,
-          installerUrl: result.installerUrl,
-          installerFilename: result.installerFilename,
-          installerSizeMb: result.installerSizeMb,
           l: l,
         );
       },
@@ -436,17 +431,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     required String message,
     List<String> releaseNotes = const [],
     String? downloadUrl,
-    String? installerUrl,
-    String? installerFilename,
-    double installerSizeMb = 0.0,
     required AppLocalizations l,
   }) {
-    final downloadState = ref.watch(downloadProgressProvider);
-    final isDownloading = downloadState.state == AutoUpdateState.downloading;
-    final isDone = downloadState.state == AutoUpdateState.done;
-    final isError = downloadState.state == AutoUpdateState.error;
-    final isLaunching = downloadState.state == AutoUpdateState.launching;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -510,55 +496,17 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              // ── Install Update Button (when update available) ──────────────
-              if (hasUpdate && installerUrl != null && !isDownloading && !isDone && !isLaunching)
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                  icon: const Icon(Icons.download_rounded, size: 15),
-                  label: Text(
-                    l.prodSyncInstallVersionNow(latestVersion ?? ''),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  onPressed: () => _confirmAndStartUpdate(
-                    installerUrl: installerUrl,
-                    installerFilename: installerFilename ?? 'Sorour_Logistics_Setup.exe',
-                    latestVersion: latestVersion ?? '',
-                    installerSizeMb: installerSizeMb,
-                    l: l,
-                  ),
-                ),
-              // ── Done → Launch installer ────────────────────────────────────
-              if (isDone)
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                  icon: const Icon(Icons.rocket_launch_rounded, size: 15),
-                  label: Text(l.prodSyncLaunchInstallerNow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  onPressed: () => ref.read(downloadProgressProvider.notifier).launchAndExit(),
-                ),
-              // ── Launching ─────────────────────────────────────────────────
-              if (isLaunching)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald)),
-                      const SizedBox(width: 8),
-                      Text(l.prodSyncInstallingStatus, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                    ],
-                  ),
-                ),
+              // ── In-app updates (verified download/install by the backend) ──
+              AppButton(
+                label: l.updateSectionTitle,
+                size: AppButtonSize.small,
+                variant: hasUpdate ? AppButtonVariant.success : AppButtonVariant.ghost,
+                icon: Icons.system_update_rounded,
+                onPressed: () => showAppUpdatePanelDialog(context),
+              ),
               const SizedBox(width: 8),
               // ── Check for Updates Button ───────────────────────────────────
-              if (!isDownloading && !isDone && !isLaunching)
-                ElevatedButton.icon(
+              ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.cobalt,
                     foregroundColor: Colors.white,
@@ -571,122 +519,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
                   },
                 ),
-              // ── Cancel download button ─────────────────────────────────────
-              if (isDownloading)
-                TextButton.icon(
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
-                  icon: const Icon(Icons.cancel_rounded, size: 15),
-                  label: Text(l.prodSyncCancelBtn, style: const TextStyle(fontSize: 12)),
-                  onPressed: () => ref.read(downloadProgressProvider.notifier).cancelDownload(),
-                ),
             ],
           ),
 
-          // ── Download Progress Bar ────────────────────────────────────────
-          if (isDownloading) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.download_rounded, color: AppTheme.cobalt, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          l.prodSyncDownloadingProgress(
-                            (downloadState.progress * 100).toStringAsFixed(0),
-                            downloadState.downloadedMb,
-                            downloadState.totalMb,
-                          ),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: downloadState.progress,
-                      minHeight: 8,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.cobalt),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.prodSyncAutoCloseNotice,
-                    style: const TextStyle(fontSize: 10.5, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Download Complete Banner ─────────────────────────────────────
-          if (isDone) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l.prodSyncDownloadCompleteNotice,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Error Banner ─────────────────────────────────────────────────
-          if (isError) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.crimson.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.crimson.withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_rounded, color: AppTheme.crimson, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      downloadState.errorMessage ?? l.prodSyncDownloadFailedFallback,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.crimson),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => ref.read(downloadProgressProvider.notifier).reset(),
-                    child: Text(l.prodSyncRetryBtn),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
           // ── Release Notes ────────────────────────────────────────────────
-          if (hasUpdate && releaseNotes.isNotEmpty && !isDownloading) ...[
+          if (hasUpdate && releaseNotes.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(10),
@@ -720,88 +557,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         ],
       ),
     );
-  }
-
-  /// Shows a confirmation dialog then starts the in-app update download.
-  Future<void> _confirmAndStartUpdate({
-    required String installerUrl,
-    required String installerFilename,
-    required String latestVersion,
-    double installerSizeMb = 0,
-    required AppLocalizations l,
-  }) async {
-    final sizeMbStr = installerSizeMb > 0 ? '${installerSizeMb.toStringAsFixed(0)} MB' : '';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.12), shape: BoxShape.circle),
-              child: const Icon(Icons.system_update_rounded, color: AppTheme.emerald, size: 22),
-            ),
-            const SizedBox(width: 10),
-            Text(l.prodSyncInstallConfirmTitle(latestVersion), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.prodSyncInstallConfirmDesc(sizeMbStr),
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.07),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.prodSyncInstallSafeNotice1, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                  const SizedBox(height: 3),
-                  Text(l.prodSyncInstallSafeNotice2, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                  const SizedBox(height: 3),
-                  Text(l.prodSyncInstallSafeNotice3, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.prodSyncLaterBtn, style: const TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            icon: const Icon(Icons.download_rounded, size: 16),
-            label: Text(l.prodSyncDownloadAndInstallNowBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      ref.read(downloadProgressProvider.notifier).startDownload(
-        installerUrl: installerUrl,
-        installerFilename: installerFilename,
-        installerSizeMb: installerSizeMb,
-      );
-    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1079,32 +834,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                          icon: _isRunning && _currentAction == l.prodSyncSyncDevToProdBtn
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.cloud_upload_rounded, size: 16),
-                          label: Text(l.prodSyncSyncDevToProdBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          onPressed: _isRunning
-                              ? null
-                              : () => _executeAction(
-                                    l.prodSyncSyncDevToProdBtn,
-                                    () => _service.syncDevToProd(
-                                      onOutput: (l) => _appendLog(l),
-                                      onError: (l) => _appendLog(l, isError: true),
-                                      onProgress: (p) {
-                                        if (mounted) setState(() => _progress = p);
-                                      },
-                                      onDiffSummary: (d) {
-                                        if (mounted) setState(() => _diffSummary = d);
-                                      },
-                                    ),
-                                  ),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.cobalt,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1118,51 +847,6 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                     () => _service.compareDatabases(
                                       onOutput: (l) => _appendLog(l),
                                       onError: (l) => _appendLog(l, isError: true),
-                                      onDiffSummary: (d) {
-                                        if (mounted) setState(() => _diffSummary = d);
-                                      },
-                                    ),
-                                  ),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.charcoal,
-                            side: const BorderSide(color: AppTheme.charcoal),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                          icon: const Icon(Icons.download_rounded, size: 16),
-                          label: Text(l.prodSyncPullProdToDevBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          onPressed: _isRunning
-                              ? null
-                              : () => _executeAction(
-                                    l.prodSyncPullProdToDevBtn,
-                                    () => _service.pullProdToDev(
-                                      onOutput: (l) => _appendLog(l),
-                                      onError: (l) => _appendLog(l, isError: true),
-                                      onProgress: (p) {
-                                        if (mounted) setState(() => _progress = p);
-                                      },
-                                    ),
-                                  ),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                          icon: const Icon(Icons.inventory_rounded, size: 16),
-                          label: Text(l.prodSyncFullBuildBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          onPressed: _isRunning
-                              ? null
-                              : () => _executeAction(
-                                    l.prodSyncFullBuildBtn,
-                                    () => _service.fullBuildAndSync(
-                                      onOutput: (l) => _appendLog(l),
-                                      onError: (l) => _appendLog(l, isError: true),
-                                      onProgress: (p) {
-                                        if (mounted) setState(() => _progress = p);
-                                      },
                                       onDiffSummary: (d) {
                                         if (mounted) setState(() => _diffSummary = d);
                                       },

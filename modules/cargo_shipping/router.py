@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -27,7 +28,7 @@ from .service import (
     restore_cargo_shipping_service,
 )
 
-router = APIRouter(prefix="/api/v1/cargo-shipping", tags=["Cargo Preparation & Shipping (Phase 5)"])
+router = APIRouter(prefix="/api/v1/cargo-shipping", tags=["Cargo Preparation & Shipping (Phase 5)"], dependencies=[Depends(get_current_user)])
 
 @router.post("", response_model=CargoShippingResponse, status_code=status.HTTP_201_CREATED)
 def create_cargo_shipping(

@@ -1,6 +1,8 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -17,7 +19,7 @@ from modules.currencies.schemas import (
 )
 from modules.currencies.service import CurrencyService
 
-router = APIRouter(prefix="/api/v1/currencies", tags=["Currencies & Exchange Rates (MD-004)"])
+router = APIRouter(prefix="/api/v1/currencies", tags=["Currencies & Exchange Rates (MD-004)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/convert", response_model=CurrencyConversionResponse, summary="Convert amount between currencies using commercial or customs rates")
@@ -107,7 +109,12 @@ def restore_currency(
     return service.restore_currency(currency_id)
 
 
-@router.post("/rates", response_model=ExchangeRateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/rates",
+    response_model=ExchangeRateResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("master_data.edit"))],
+)
 def add_exchange_rate(
     data: ExchangeRateCreate,
     db: Session = Depends(get_db),

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -22,6 +23,7 @@ from modules.expense_catalog.service import ExpenseCatalogService
 router = APIRouter(
     prefix="/api/v1/expense-catalog",
     tags=["Expense Catalog (AI-EXPENSE-CATALOG-002)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

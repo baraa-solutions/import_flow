@@ -5,6 +5,7 @@ from database.database import Base
 from modules.auth.schemas import UserCreate
 from modules.auth.security import hash_password, verify_password, create_access_token, decode_access_token
 from modules.auth.service import AuthService
+from modules.users.model import User
 
 
 class TestAuthAndRBAC(unittest.TestCase):
@@ -14,6 +15,8 @@ class TestAuthAndRBAC(unittest.TestCase):
         TestingSessionLocal = sessionmaker(bind=self.engine)
         self.db = TestingSessionLocal()
         self.auth_service = AuthService(self.db)
+        # Transient ADMIN actor: user management calls require the acting user (privilege-escalation guards).
+        self.actor = User(username="actor-admin", role="ADMIN", is_active=True)
 
     def tearDown(self):
         self.db.close()
@@ -40,7 +43,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             password="managerpass123",
             role="MANAGER",
         )
-        user = self.auth_service.register_user(user_in)
+        user = self.auth_service.register_user(user_in, actor=self.actor)
         self.assertIsNotNone(user.user_id)
         self.assertEqual(user.role, "MANAGER")
 
@@ -56,7 +59,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             password="Password123",
             role="OPERATOR",
         )
-        self.auth_service.register_user(user_in1)
+        self.auth_service.register_user(user_in1, actor=self.actor)
 
         user_in2 = UserCreate(
             username="dupuser",
@@ -66,7 +69,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             role="OPERATOR",
         )
         with self.assertRaises(Exception):
-            self.auth_service.register_user(user_in2)
+            self.auth_service.register_user(user_in2, actor=self.actor)
 
     def test_weak_password_rejected(self):
         from fastapi import HTTPException
@@ -79,7 +82,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             role="OPERATOR",
         )
         with self.assertRaises(HTTPException) as ctx:
-            self.auth_service.register_user(short_user)
+            self.auth_service.register_user(short_user, actor=self.actor)
         self.assertEqual(ctx.exception.status_code, 400)
 
         # No digits
@@ -91,7 +94,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             role="OPERATOR",
         )
         with self.assertRaises(HTTPException) as ctx:
-            self.auth_service.register_user(no_digits_user)
+            self.auth_service.register_user(no_digits_user, actor=self.actor)
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_resolve_user_with_token_and_headers_fallback(self):
@@ -105,7 +108,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             password="AdminPassword123",
             role="ADMIN",
         )
-        admin = self.auth_service.register_user(admin_in)
+        admin = self.auth_service.register_user(admin_in, actor=self.actor)
 
         op_in = UserCreate(
             username="op_user",
@@ -114,7 +117,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             password="OperatorPassword123",
             role="OPERATOR",
         )
-        op = self.auth_service.register_user(op_in)
+        op = self.auth_service.register_user(op_in, actor=self.actor)
 
         # 1. Resolve with valid Bearer token
         token = create_access_token({"sub": str(op.user_id), "role": "OPERATOR"})
@@ -132,6 +135,13 @@ class TestAuthAndRBAC(unittest.TestCase):
         # 4. Fallback to active ADMIN when no auth headers are provided (Desktop app support)
         fallback = resolve_user(self.db)
         self.assertEqual(fallback.role, "ADMIN")
+
+        # 5. A valid token whose user was deleted is rejected; it never falls through to the dev bypass
+        from fastapi import HTTPException
+        ghost_token = create_access_token({"sub": "999999", "role": "ADMIN"})
+        with self.assertRaises(HTTPException) as ctx:
+            resolve_user(self.db, authorization=f"Bearer {ghost_token}")
+        self.assertEqual(ctx.exception.status_code, 401)
 
     def test_login_rate_limiter(self):
         from unittest.mock import MagicMock
@@ -174,7 +184,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             password="Password123",
             role="OPERATOR",
         )
-        user = self.auth_service.register_user(user_in)
+        user = self.auth_service.register_user(user_in, actor=self.actor)
 
         # 1. Test unexpired token refresh
         token = self.auth_service.generate_user_token(user)

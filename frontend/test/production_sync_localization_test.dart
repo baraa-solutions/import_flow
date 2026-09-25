@@ -219,42 +219,10 @@ void main() {
       expect(en.prodSyncCheckingCloudUpdates.isNotEmpty, true);
       expect(ar.prodSyncOfflineModeMsg.isNotEmpty, true);
       expect(en.prodSyncOfflineModeMsg.isNotEmpty, true);
-      expect(ar.prodSyncInstallVersionNow('1.0.53'), contains('1.0.53'));
-      expect(en.prodSyncInstallVersionNow('1.0.53'), contains('1.0.53'));
-      expect(ar.prodSyncLaunchInstallerNow.isNotEmpty, true);
-      expect(en.prodSyncLaunchInstallerNow.isNotEmpty, true);
-      expect(ar.prodSyncInstallingStatus.isNotEmpty, true);
-      expect(en.prodSyncInstallingStatus.isNotEmpty, true);
       expect(ar.prodSyncCheckUpdatesBtn.isNotEmpty, true);
       expect(en.prodSyncCheckUpdatesBtn.isNotEmpty, true);
-      expect(ar.prodSyncCancelBtn.isNotEmpty, true);
-      expect(en.prodSyncCancelBtn.isNotEmpty, true);
-      expect(ar.prodSyncDownloadingProgress(50, 10, 20), contains('50'));
-      expect(en.prodSyncDownloadingProgress(50, 10, 20), contains('50'));
-      expect(ar.prodSyncAutoCloseNotice.isNotEmpty, true);
-      expect(en.prodSyncAutoCloseNotice.isNotEmpty, true);
-      expect(ar.prodSyncDownloadCompleteNotice.isNotEmpty, true);
-      expect(en.prodSyncDownloadCompleteNotice.isNotEmpty, true);
-      expect(ar.prodSyncDownloadFailedFallback.isNotEmpty, true);
-      expect(en.prodSyncDownloadFailedFallback.isNotEmpty, true);
-      expect(ar.prodSyncRetryBtn.isNotEmpty, true);
-      expect(en.prodSyncRetryBtn.isNotEmpty, true);
       expect(ar.prodSyncWhatsNewInVersion('1.0.53'), contains('1.0.53'));
       expect(en.prodSyncWhatsNewInVersion('1.0.53'), contains('1.0.53'));
-      expect(ar.prodSyncInstallConfirmTitle('1.0.53'), contains('1.0.53'));
-      expect(en.prodSyncInstallConfirmTitle('1.0.53'), contains('1.0.53'));
-      expect(ar.prodSyncInstallConfirmDesc('15 MB'), contains('15 MB'));
-      expect(en.prodSyncInstallConfirmDesc('15 MB'), contains('15 MB'));
-      expect(ar.prodSyncInstallSafeNotice1.isNotEmpty, true);
-      expect(en.prodSyncInstallSafeNotice1.isNotEmpty, true);
-      expect(ar.prodSyncInstallSafeNotice2.isNotEmpty, true);
-      expect(en.prodSyncInstallSafeNotice2.isNotEmpty, true);
-      expect(ar.prodSyncInstallSafeNotice3.isNotEmpty, true);
-      expect(en.prodSyncInstallSafeNotice3.isNotEmpty, true);
-      expect(ar.prodSyncLaterBtn.isNotEmpty, true);
-      expect(en.prodSyncLaterBtn.isNotEmpty, true);
-      expect(ar.prodSyncDownloadAndInstallNowBtn.isNotEmpty, true);
-      expect(en.prodSyncDownloadAndInstallNowBtn.isNotEmpty, true);
       expect(ar.prodSyncSchemaEngineTitle.isNotEmpty, true);
       expect(en.prodSyncSchemaEngineTitle.isNotEmpty, true);
       expect(ar.prodSyncSchemaEngineDesc.isNotEmpty, true);
@@ -273,16 +241,8 @@ void main() {
       expect(en.prodSyncManualBackupTag.isNotEmpty, true);
       expect(ar.prodSyncRestoreActionBtn.isNotEmpty, true);
       expect(en.prodSyncRestoreActionBtn.isNotEmpty, true);
-      expect(ar.prodSyncSyncDevToProdBtn.isNotEmpty, true);
-      expect(en.prodSyncSyncDevToProdBtn.isNotEmpty, true);
       expect(ar.prodSyncCompareTablesBtn.isNotEmpty, true);
       expect(en.prodSyncCompareTablesBtn.isNotEmpty, true);
-      expect(ar.prodSyncPullProdToDevBtn.isNotEmpty, true);
-      expect(en.prodSyncPullProdToDevBtn.isNotEmpty, true);
-      expect(ar.prodSyncFullBuildBtn.isNotEmpty, true);
-      expect(en.prodSyncFullBuildBtn.isNotEmpty, true);
-      expect(ar.prodSyncLaunchProdAppBtn.isNotEmpty, true);
-      expect(en.prodSyncLaunchProdAppBtn.isNotEmpty, true);
       expect(ar.prodSyncDbNotFoundNotice.isNotEmpty, true);
       expect(en.prodSyncDbNotFoundNotice.isNotEmpty, true);
       expect(ar.prodSyncDbLastModified('2026-09-08'), contains('2026-09-08'));
@@ -427,19 +387,7 @@ void main() {
         ar.prodSyncSystemUpToDateMsg,
         ar.prodSyncCheckingCloudUpdates,
         ar.prodSyncOfflineModeMsg,
-        ar.prodSyncLaunchInstallerNow,
-        ar.prodSyncInstallingStatus,
         ar.prodSyncCheckUpdatesBtn,
-        ar.prodSyncCancelBtn,
-        ar.prodSyncAutoCloseNotice,
-        ar.prodSyncDownloadCompleteNotice,
-        ar.prodSyncDownloadFailedFallback,
-        ar.prodSyncRetryBtn,
-        ar.prodSyncInstallSafeNotice1,
-        ar.prodSyncInstallSafeNotice2,
-        ar.prodSyncInstallSafeNotice3,
-        ar.prodSyncLaterBtn,
-        ar.prodSyncDownloadAndInstallNowBtn,
         ar.prodSyncSchemaEngineTitle,
         ar.prodSyncSchemaEngineDesc,
         ar.prodSyncCreateInstantBackupBtn,
@@ -448,11 +396,7 @@ void main() {
         ar.prodSyncAutoPreUpgradeTag,
         ar.prodSyncManualBackupTag,
         ar.prodSyncRestoreActionBtn,
-        ar.prodSyncSyncDevToProdBtn,
         ar.prodSyncCompareTablesBtn,
-        ar.prodSyncPullProdToDevBtn,
-        ar.prodSyncFullBuildBtn,
-        ar.prodSyncLaunchProdAppBtn,
         ar.prodSyncDbNotFoundNotice,
         ar.prodSyncConfirmRestoreTitleDialog,
         ar.prodSyncConfirmRestoreSafeNotice,

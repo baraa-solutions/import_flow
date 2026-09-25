@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -14,7 +15,7 @@ from modules.cbm_calculator.schemas import (
 )
 from modules.cbm_calculator.service import CBMService
 
-router = APIRouter(prefix="/api/v1/cbm-calculator", tags=["Cargo Measurement Engine & CBM Calculator"])
+router = APIRouter(prefix="/api/v1/cbm-calculator", tags=["Cargo Measurement Engine & CBM Calculator"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/quick-calculate", response_model=CBMQuickCalcResponse, status_code=status.HTTP_200_OK)

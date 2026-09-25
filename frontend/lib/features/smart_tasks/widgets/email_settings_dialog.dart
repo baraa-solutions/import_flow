@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/models/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/email_settings_model.dart';
 import '../providers/email_settings_provider.dart';
 import 'email_sync_review_dialog.dart';
@@ -9,7 +12,20 @@ import 'email_sync_review_dialog.dart';
 class EmailSettingsDialog extends ConsumerStatefulWidget {
   const EmailSettingsDialog({super.key});
 
-  static Future<void> show(BuildContext context) {
+  /// Email server settings are admin-only on the backend (403 otherwise).
+  static bool canAccess(UserModel? user) => user?.canManageEmailSettings ?? false;
+
+  static Future<void> show(BuildContext context) async {
+    final user = ProviderScope.containerOf(context, listen: false).read(authProvider).user;
+    if (!canAccess(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.adminOnlyFeatureMessage),
+          backgroundColor: AppTheme.orange,
+        ),
+      );
+      return;
+    }
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -181,6 +197,13 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
           backgroundColor: AppTheme.emerald,
         ),
       );
+    } else if (mounted) {
+      final error = ref.read(emailSettingsProvider).error;
+      if (error != null && error.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: AppTheme.crimson),
+        );
+      }
     }
   }
 

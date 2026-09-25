@@ -21,6 +21,7 @@ import '../../core/widgets/unified_top_bar.dart';
 import 'widgets/multi_tab_workspace_bar.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
 
+import '../auth/models/user_model.dart';
 import '../auth/providers/auth_provider.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
 import '../cbm_calculator/screens/cbm_calculator_screen.dart';
@@ -68,7 +69,8 @@ import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
-import '../production_sync/widgets/system_update_banner.dart';
+import '../app_update/widgets/post_update_notice.dart';
+import '../app_update/widgets/update_banner.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
 import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
@@ -390,7 +392,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               if (isMobile && !ref.watch(focusModeProvider)) _buildMobileTopNav(context),
                               if (!ref.watch(focusModeProvider)) const UnifiedTopBar(),
-                              if (!ref.watch(focusModeProvider)) const SystemUpdateBanner(),
+                              if (!ref.watch(focusModeProvider)) const UpdateBanner(),
+                              // One-time "updated to vX" / failed-update notice from /last-result.
+                              const PostUpdateNotice(),
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(
@@ -605,6 +609,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const Divider(color: Colors.white24, height: 8),
         const NotificationBellWidget(),
+        if (EmailSettingsDialog.canAccess(user as UserModel?))
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -763,6 +768,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => ref.read(localeProvider.notifier).toggleLocale(),
               ),
               const NotificationBellWidget(),
+              if (EmailSettingsDialog.canAccess(user as UserModel?))
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
@@ -999,6 +1005,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     color: AppTheme.cobalt,
                     onTap: () => SmartEmailListenerDialog.show(context),
                   ),
+                  // Email server settings — admin only (backend returns 403 otherwise)
+                  if (EmailSettingsDialog.canAccess(user))
                   _buildActionMenuItem(
                     icon: Icons.settings_suggest_rounded,
                     titleEn: 'Email Server Settings (IMAP/SMTP)',
@@ -1066,10 +1074,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     }
                   },
                   itemBuilder: (ctx) => [
-                    PopupMenuItem(value: 'ADMIN', child: Text(l.switchAsAdmin)),
-                    PopupMenuItem(value: 'MANAGER', child: Text(l.switchAsManager)),
-                    PopupMenuItem(value: 'OPERATOR', child: Text(l.switchAsSpecialist)),
-                    const PopupMenuDivider(),
+                    // Demo role switching is a debug-only development aid.
+                    if (kDebugMode) ...[
+                      PopupMenuItem(value: 'ADMIN', child: Text(l.switchAsAdmin)),
+                      PopupMenuItem(value: 'MANAGER', child: Text(l.switchAsManager)),
+                      PopupMenuItem(value: 'OPERATOR', child: Text(l.switchAsSpecialist)),
+                      const PopupMenuDivider(),
+                    ],
                     PopupMenuItem(
                       value: 'LOGOUT',
                       child: Row(

@@ -2,23 +2,30 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
 
 final paymentRequestsProvider =
     StateNotifierProvider<PaymentRequestsNotifier, AsyncValue<List<PaymentRequestModel>>>((ref) {
-  return PaymentRequestsNotifier(ref);
+  return PaymentRequestsNotifier(
+    ref.watch(dioProvider),
+    ref,
+    ref.watch(uploadDioProvider),
+  );
 });
 
 class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentRequestModel>>> {
   final Ref? ref;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
+  final Dio _uploadDio;
   CancelToken? _cancelToken;
 
-  PaymentRequestsNotifier([this.ref]) : super(const AsyncValue.loading()) {
+  /// The first argument must be the authenticated client from `dioProvider`;
+  /// [uploadDio] (multipart) defaults to it when omitted.
+  PaymentRequestsNotifier(this._dio, [this.ref, Dio? uploadDio])
+      : _uploadDio = uploadDio ?? _dio,
+        super(const AsyncValue.loading()) {
     fetchPaymentRequests();
   }
 
@@ -197,7 +204,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
         'file': MultipartFile.fromBytes(fileBytes, filename: filename),
         if (targetPaymentId != null) 'target_payment_id': targetPaymentId,
       });
-      final response = await _dio.post(
+      final response = await _uploadDio.post(
         '${ApiConstants.baseUrl}/financial-approval/swift/smart-extract-file',
         data: formData,
       );
@@ -377,18 +384,15 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
 final importBudgetsProvider =
     StateNotifierProvider<ImportBudgetsNotifier, AsyncValue<List<ImportBudgetModel>>>((ref) {
-  return ImportBudgetsNotifier(ref);
+  return ImportBudgetsNotifier(ref.watch(dioProvider), ref);
 });
 
 class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetModel>>> {
   final Ref? ref;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
   CancelToken? _cancelToken;
 
-  ImportBudgetsNotifier([this.ref]) : super(const AsyncValue.loading()) {
+  ImportBudgetsNotifier(this._dio, [this.ref]) : super(const AsyncValue.loading()) {
     fetchImportBudgets();
   }
 

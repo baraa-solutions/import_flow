@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 import asyncio
@@ -7,7 +8,6 @@ if sys.platform == "win32" and sys.version_info < (3, 8):
 
 from typing import Optional
 from fastapi import FastAPI, Request, Response, Depends, Query, Header, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # ==================================================
@@ -16,6 +16,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from database.database import Base
 from database.database import engine
+from database.database import DB_PATH
+from utils.db_safety import (
+    MAINTENANCE_DETAIL,
+    checkpoint_wal,
+    enter_maintenance_mode,
+    is_maintenance_mode,
+    is_request_allowed_in_maintenance,
+    read_installed_version,
+    version_file_path,
+)
 
 
 # ==================================================
@@ -108,7 +118,7 @@ from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
 from modules.audit_logs.router import router as audit_router
-from modules.auth.router import router as auth_router, get_current_user
+from modules.auth.router import router as auth_router, require_admin
 from modules.incoterms.router import incoterms_router
 from modules.customs_tariff.router import customs_tariff_router
 from modules.transport_locations.router import router as transport_locations_router
@@ -131,7 +141,7 @@ from modules.warehouse_receiving.router import router as warehouse_receiving_rou
 from modules.inland_transport.router import router as inland_transport_router
 from modules.financial_settlement.router import router as financial_settlement_router
 from modules.file_closure.router import router as file_closure_router
-from modules.notifications.router import router as notifications_router
+from modules.notifications.router import router as notifications_router, ws_router as notifications_ws_router
 from modules.integrations.router import router as integrations_router
 from modules.container_loader.router import container_loader_router
 from modules.smart_tasks.router import router as smart_tasks_router
@@ -154,6 +164,7 @@ from modules.experience_guide.router import router as experience_guide_router
 from modules.smart_checklists.router import router as smart_checklists_router
 from modules.recalculation.router import router as recalculation_router
 from modules.system_observability.router import router as system_observability_router
+from modules.app_update.router import router as app_update_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -164,10 +175,25 @@ setup_query_listener(engine)
 # Create FastAPI Application
 # ==================================================
 
+import logging as _logging
+import settings as _settings
+
+# Interactive API docs expose the full route map: served only when ENABLE_API_DOCS is set.
+INSTALLED_VERSION = read_installed_version()  # "unknown" when version.json is missing/malformed
+
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="2.0.3",
+    version=INSTALLED_VERSION,
+    docs_url="/docs" if _settings.ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if _settings.ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if _settings.ENABLE_API_DOCS else None,
 )
+
+if _settings.ALLOW_DEV_AUTH_BYPASS:
+    _logging.getLogger("main").warning(
+        "ALLOW_DEV_AUTH_BYPASS is enabled: requests without an Authorization header are resolved to "
+        "a local user. Never enable this on a networked or production deployment."
+    )
 
 # ==================================================
 # Observability & Request Correlation Middleware
@@ -180,6 +206,23 @@ app.add_middleware(ObservabilityMiddleware)
 from fastapi.middleware.gzip import GZipMiddleware
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# ==================================================
+# Maintenance Mode (writes blocked after a failed startup DB upgrade, R8/A11)
+# ==================================================
+# Registered before the CORS middleware so the CORS headers still wrap the 503 response.
+
+
+@app.middleware("http")
+async def maintenance_mode_middleware(request: Request, call_next):
+    if is_maintenance_mode() and not is_request_allowed_in_maintenance(request.method, request.url.path):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=503,
+            content={"detail": MAINTENANCE_DETAIL, "maintenance_mode": True},
+        )
+    return await call_next(request)
 
 # ==================================================
 # CORS & Private Network Access (PNA) Middleware
@@ -314,6 +357,7 @@ app.include_router(warehouse_receiving_router)
 app.include_router(financial_settlement_router)
 app.include_router(file_closure_router)
 app.include_router(notifications_router)
+app.include_router(notifications_ws_router)
 app.include_router(integrations_router)
 app.include_router(smart_tasks_router)
 app.include_router(shipment_updates_router)
@@ -336,6 +380,7 @@ app.include_router(experience_guide_router)
 app.include_router(smart_checklists_router)
 app.include_router(recalculation_router)
 app.include_router(system_observability_router)
+app.include_router(app_update_router)
 
 
 
@@ -345,11 +390,19 @@ app.include_router(system_observability_router)
 
 from database.schema_upgrade_service import SchemaUpgradeService
 
-# Automated Safe In-Place Schema Upgrade and Master Data Synchronization
-SchemaUpgradeService.execute_safe_startup_upgrade(
-    target_engine=engine,
-    metadata=Base.metadata,
-)
+# Automated Safe In-Place Schema Upgrade and Master Data Synchronization.
+# A failure never crashes the import silently or lets the app keep writing to a half-upgraded DB:
+# it is logged at CRITICAL level and the app starts in maintenance mode (writes return 503).
+try:
+    SchemaUpgradeService.execute_safe_startup_upgrade(
+        target_engine=engine,
+        metadata=Base.metadata,
+    )
+except Exception as _startup_exc:  # noqa: BLE001 - any failure must block writes, not crash silently
+    _logging.getLogger("main").critical(
+        "Startup database upgrade raised %s: %s", type(_startup_exc).__name__, _startup_exc, exc_info=True
+    )
+    enter_maintenance_mode(f"startup upgrade raised {type(_startup_exc).__name__}: {_startup_exc}")
 
 
 
@@ -362,7 +415,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "2.0.3",
+        "version": INSTALLED_VERSION,
         "status": "running",
     }
 
@@ -376,7 +429,7 @@ def dashboard():
 def health_check():
     import sqlite3
     import os
-    db_path = "sorour_logistics.db"
+    db_path = DB_PATH
     db_exists = os.path.exists(db_path)
     db_size_kb = round(os.path.getsize(db_path) / 1024, 1) if db_exists else 0
     tables_count = 0
@@ -393,12 +446,13 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "2.0.3",
+        "version": INSTALLED_VERSION,
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,
             "tables_count": tables_count,
         },
+        "maintenance_mode": is_maintenance_mode(),
     }
 
 
@@ -422,10 +476,7 @@ def system_version_check(
     client_version: Optional[str] = Query(None, description="Current client app semver"),
     x_client_version: Optional[str] = Header(None, alias="X-Client-Version"),
 ):
-    import json
-    from pathlib import Path
-
-    version_file = Path(__file__).resolve().parent / "version.json"
+    version_file = version_file_path()
     ver_data = {}
     if version_file.exists():
         try:
@@ -467,7 +518,6 @@ def system_version_check(
         "force_update": force_update,
         "check_status": "update_available" if has_update else "up_to_date",
         "installer_url": ver_data.get("installer_url", f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{ver_str}/Sorour_Logistics_Setup_v{ver_str}.exe"),
-        "local_download_url": "/api/v1/system/download-installer",
         "installer_filename": ver_data.get("installer_filename", f"Sorour_Logistics_Setup_v{ver_str}.exe"),
         "installer_size_mb": ver_data.get("installer_size_mb", 198.04),
         "release_notes": ver_data.get("release_notes", [
@@ -478,58 +528,20 @@ def system_version_check(
     }
 
 
-@app.get("/api/v1/system/download-installer")
-def download_system_installer():
-    from pathlib import Path
-
-    version_file = Path(__file__).resolve().parent / "version.json"
-    ver_data = {}
-    if version_file.exists():
-        try:
-            with open(version_file, "r", encoding="utf-8") as f:
-                ver_data = json.load(f)
-        except Exception:
-            pass
-
-    installer_filename = ver_data.get("installer_filename", "Sorour_Logistics_Setup_v1.0.198.exe")
-    installer_url = ver_data.get("installer_url", "")
-
-    # Look for local compiled installer in dist/releases/
-    releases_dir = Path(__file__).resolve().parent / "dist" / "releases"
-    target_path = releases_dir / installer_filename
-
-    # Fallback to any .exe in dist/releases if exact name not present
-    if not target_path.exists():
-        exe_candidates = list(releases_dir.glob("Sorour_Logistics_Setup_*.exe"))
-        if exe_candidates:
-            target_path = sorted(exe_candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
-
-    if target_path.exists():
-        return FileResponse(
-            path=str(target_path),
-            filename=target_path.name,
-            media_type="application/octet-stream",
-        )
-
-    if installer_url:
-        return RedirectResponse(installer_url)
-
-    raise HTTPException(status_code=404, detail="Installer file not found on server.")
-
-
 # ==================================================
 # Graceful System Shutdown
 # ==================================================
 
 @app.post("/shutdown")
 @app.post("/api/v1/shutdown")
-def shutdown_system(current_user: User = Depends(get_current_user)):
+def shutdown_system(current_user: User = Depends(require_admin)):
     import os
     import threading
     import time
 
     def _delayed_exit():
         time.sleep(0.3)
+        checkpoint_wal(DB_PATH)
         os._exit(0)
 
     threading.Thread(target=_delayed_exit, daemon=True).start()

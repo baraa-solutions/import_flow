@@ -280,17 +280,18 @@ void main() {
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
 
-      // Check dialog elements in Arabic
-      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsOneWidget);
-      expect(find.text('تحميل مثال نافذة الفعلي (2026-612-1-94731)'), findsOneWidget);
-      expect(find.text('محاكاة ملف الاستيراد (#42)'), findsOneWidget);
-      expect(find.text('إغلاق'), findsOneWidget);
+      // Dialog picks its language from Localizations.localeOf(), which resolves to en_US here
+      // (MaterialApp has no Arabic supportedLocales), so the English strings are rendered.
+      expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsOneWidget);
+      expect(find.text('Load Actual Nafeza Sample (2026-612-1-94731)'), findsOneWidget);
+      expect(find.text('Simulate File (#42)'), findsOneWidget);
+      expect(find.text('Close'), findsOneWidget);
 
       // Close dialog
-      await tester.tap(find.text('إغلاق'));
+      await tester.tap(find.text('Close'));
       await tester.pumpAndSettle();
 
-      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsNothing);
+      expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsNothing);
     });
   });
 }

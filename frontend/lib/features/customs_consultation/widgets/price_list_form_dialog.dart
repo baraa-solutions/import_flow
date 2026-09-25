@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
@@ -480,7 +481,7 @@ void showPriceListFormDialog(
               controller: progressCtrl,
             );
 
-            final dio = Dio();
+            final dio = ref.read(uploadDioProvider);
             final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
             final formData = FormData.fromMap({
               'file': multipartFile,

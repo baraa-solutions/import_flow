@@ -2,10 +2,13 @@ import 'local_process_sync_service.dart';
 import 'production_sync_service.dart';
 import '../models/production_sync_model.dart';
 
-LocalProcessSyncService createLocalProcessSyncService() => LocalProcessSyncServiceWebImpl();
+LocalProcessSyncService createLocalProcessSyncService(ProductionSyncService api) =>
+    LocalProcessSyncServiceWebImpl(api);
 
 class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
-  final ProductionSyncService _apiService = ProductionSyncService();
+  final ProductionSyncService _apiService;
+
+  LocalProcessSyncServiceWebImpl(this._apiService);
 
   SyncComparisonResponseModel? _cachedComparison;
   List<BackupItemModel> _cachedBackups = [];
@@ -57,110 +60,6 @@ class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
   }
 
   @override
-  Future<int> syncDevToProd({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-    void Function(SyncDiffSummary)? onDiffSummary,
-  }) async {
-    try {
-      onOutput('🚀 [API] بدء المزامنة الآمنة لقاعدة بيانات الإنتاج عبر السيرفر...');
-      onProgress?.call(const SyncProgressEvent(
-        percent: 20,
-        stage: 'init',
-        table: 'all',
-        currentIndex: 1,
-        totalTables: 10,
-        recordsSynced: 0,
-        totalSynced: 0,
-        message: 'جارٍ أخذ نسخة احتياطية فورية وتطبيق الترقية الآمنة...',
-      ));
-
-      final res = await _apiService.syncDevToProd();
-      onProgress?.call(const SyncProgressEvent(
-        percent: 80,
-        stage: 'merging',
-        table: 'done',
-        currentIndex: 10,
-        totalTables: 10,
-        recordsSynced: 0,
-        totalSynced: 0,
-        message: 'تمت ترقية الهيكل ومزامنة البيانات المرجعية بنجاح...',
-      ));
-
-      onOutput('✅ [SUCCESS] ${res.message}');
-      if (res.backupFile != null) {
-        onOutput('📦 [BACKUP] تم إنشاء نسخة أمان احتياطية: ${res.backupFile}');
-      }
-      onOutput('📊 عدد الجداول المحدثة: ${res.affectedTablesCount} | السجلات: ${res.totalRecordsSynced}');
-
-      await compareDatabases(
-        onOutput: onOutput,
-        onError: onError,
-        onDiffSummary: onDiffSummary,
-      );
-
-      onProgress?.call(const SyncProgressEvent(
-        percent: 100,
-        stage: 'completed',
-        table: 'done',
-        currentIndex: 10,
-        totalTables: 10,
-        recordsSynced: 0,
-        totalSynced: 0,
-        message: 'اكتملت المزامنة الآمنة بنجاح تام 100%',
-      ));
-
-      return 0;
-    } catch (e) {
-      onError('❌ [ERROR] فشل تنفيذ المزامنة عبر السيرفر: $e');
-      return 1;
-    }
-  }
-
-  @override
-  Future<int> pullProdToDev({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-  }) async {
-    try {
-      onOutput('🚀 [API] بدء سحب بيانات الإنتاج إلى بيئة التطوير...');
-      onProgress?.call(const SyncProgressEvent(
-        percent: 30,
-        stage: 'init',
-        table: 'all',
-        currentIndex: 1,
-        totalTables: 10,
-        recordsSynced: 0,
-        totalSynced: 0,
-        message: 'جارٍ سحب ودمج بيانات الإنتاج بأمان...',
-      ));
-
-      final res = await _apiService.pullProdToDev();
-      onOutput('✅ [SUCCESS] ${res.message}');
-      if (res.backupFile != null) {
-        onOutput('📦 [BACKUP] تم إنشاء نسخة أمان للتطوير: ${res.backupFile}');
-      }
-
-      onProgress?.call(const SyncProgressEvent(
-        percent: 100,
-        stage: 'completed',
-        table: 'done',
-        currentIndex: 10,
-        totalTables: 10,
-        recordsSynced: 0,
-        totalSynced: 0,
-        message: 'تم سحب ودمج البيانات بنجاح',
-      ));
-      return 0;
-    } catch (e) {
-      onError('❌ [ERROR] فشل سحب بيانات الإنتاج: $e');
-      return 1;
-    }
-  }
-
-  @override
   Future<int> compareDatabases({
     required void Function(String) onOutput,
     required void Function(String) onError,
@@ -176,38 +75,7 @@ class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
         _cachedBackups = await _apiService.listBackups();
       } catch (_) {}
 
-      final diffTables = comp.tables.map((t) {
-        String status = 'MATCH';
-        if (t.isNewTable) {
-          status = 'NEW_TABLE';
-        } else if (t.hasSchemaDiff) {
-          status = 'SCHEMA_DIFF';
-        } else if (t.diff > 0) {
-          status = 'NEW_DATA';
-        } else if (t.diff < 0) {
-          status = 'BEHIND';
-        }
-
-        return SyncTableDiff(
-          tableName: t.tableName,
-          devCount: t.devCount,
-          prodCount: t.prodCount,
-          diff: t.diff,
-          status: status,
-        );
-      }).toList();
-
-      final summary = SyncDiffSummary(
-        exists: true,
-        targetExists: comp.prodStats.exists,
-        totalNewRecords: comp.tables.where((t) => t.diff > 0).fold(0, (acc, t) => acc + t.diff),
-        tablesWithDiff: comp.differingTablesCount,
-        newTablesCount: comp.tables.where((t) => t.isNewTable).length,
-        newColumnsCount: comp.schemaDiffsCount,
-        tables: diffTables,
-      );
-
-      onDiffSummary?.call(summary);
+      onDiffSummary?.call(SyncDiffSummary.fromComparison(comp));
       onOutput('📊 نتائج الفحص: إجمالي الجداول (${comp.totalTables}) | متطابقة (${comp.matchedTablesCount}) | بحاجة لتحديث (${comp.differingTablesCount})');
       if (comp.isFullySynchronized) {
         onOutput('✅ قاعدتا البيانات متطابقتان تماماً بنسبة 100%');
@@ -220,31 +88,6 @@ class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
       onError('❌ [ERROR] فشل جلب مقارنة قاعدة البيانات: $e');
       return 1;
     }
-  }
-
-  @override
-  Future<int> fullBuildAndSync({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-    void Function(SyncProgressEvent)? onProgress,
-    void Function(SyncDiffSummary)? onDiffSummary,
-  }) async {
-    onOutput('📦 [BUILD] بدء التجميع والمزامنة الشاملة للإنتاج...');
-    return await syncDevToProd(
-      onOutput: onOutput,
-      onError: onError,
-      onProgress: onProgress,
-      onDiffSummary: onDiffSummary,
-    );
-  }
-
-  @override
-  Future<int> launchProductionApp({
-    required void Function(String) onOutput,
-    required void Function(String) onError,
-  }) async {
-    onOutput('🚀 [LAUNCH] لتشغيل تطبيق الإنتاج المستقل على ويندوز، استخدم الملف: dist/Start_Sorour_Logistics_Production.bat');
-    return 0;
   }
 
   @override

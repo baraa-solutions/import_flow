@@ -15,7 +15,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 VBS_LAUNCHER = SCRIPTS_DIR / "start_backend_service.vbs"
 PORT = 28080
-HEALTH_URL = f"http://127.0.0.1:{PORT}/docs"
+HEALTH_URL = f"http://127.0.0.1:{PORT}/api/v1/health"
 
 
 def get_backend_pid():
@@ -32,7 +32,7 @@ def get_backend_pid():
 
 
 def is_backend_healthy():
-    """Check if FastAPI returns HTTP 200 on /docs."""
+    """Check if FastAPI returns HTTP 200 on the public health endpoint."""
     try:
         with urllib.request.urlopen(HEALTH_URL, timeout=2) as response:
             return response.status == 200

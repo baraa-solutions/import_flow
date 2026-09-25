@@ -189,6 +189,11 @@ def test_prune_backups_in_dir(tmp_path):
     old_time = (now - timedelta(days=40)).timestamp()
     os.utime(b_old, (old_time, old_time))
 
+    # R9: the newest 7 daily backups are always kept, so add 5 more recent ones (8 in total);
+    # the 40-day-old file is then outside the floor and past the 30-day retention.
+    for i in range(5):
+        (backup_dir / f"daily_backup_recent_{i}.db").write_bytes(b"recent")
+
     # Prune with 30-day retention
     deleted_count = prune_backups_in_dir(backup_dir, retention_days=30)
     assert deleted_count == 1

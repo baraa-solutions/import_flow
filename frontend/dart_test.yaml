@@ -1,0 +1,8 @@
+# Test runner configuration (package:test / flutter test).
+tags:
+  # test/perf/* measure wall-clock navigation latency in debug mode against fixed
+  # millisecond thresholds. Results depend on machine load and parallelism, so they
+  # are skipped in the default run. Run them explicitly (ideally serially):
+  #   flutter test --run-skipped -t perf -j 1 test/perf
+  perf:
+    skip: "Machine-dependent debug-mode timing benchmarks. Run with: flutter test --run-skipped -t perf -j 1 test/perf"

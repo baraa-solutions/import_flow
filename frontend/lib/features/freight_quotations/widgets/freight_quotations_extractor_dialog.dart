@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -204,7 +205,7 @@ Other (21days+USD200/ctnr)
     progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 2));
 
     try {
-      final dio = Dio();
+      final dio = ref.read(uploadDioProvider);
       final response = await dio.post(
         '${ApiConstants.baseUrl}/smart-upload/parse-text/freight-quotation',
         data: FormData.fromMap({
@@ -284,7 +285,7 @@ Other (21days+USD200/ctnr)
     );
 
     try {
-      final dio = Dio();
+      final dio = ref.read(uploadDioProvider);
       final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
       final formData = FormData.fromMap({
         'file': multipartFile,

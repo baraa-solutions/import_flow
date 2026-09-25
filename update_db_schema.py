@@ -1,5 +1,29 @@
+"""
+Legacy additive schema upgrade (create_all + ALTER TABLE ADD COLUMN + one customs_tariffs table rebuild).
+
+``migrate_db()`` (used by seed.py / reset_clean_production_db.py) upgrades ``database.DB_PATH`` — the same
+file the SQLAlchemy engine uses — or an explicit ``db_path``. The customs_tariffs rebuild drops a table,
+so it first takes a verified pre_migration_ backup and aborts if that fails.
+
+CLI (update-system-plan A13/R12):
+    python update_db_schema.py --db <path/to/db> --confirm
+The target must not be in use, and a verified pre_migration_ backup is taken first (abort on failure).
+"""
 import sqlite3
-from database.database import Base, engine
+import sys
+from pathlib import Path
+from typing import List, Optional, Union
+
+from sqlalchemy import create_engine
+
+from database.database import Base, engine, DB_PATH
+from scripts.db_script_guard import (
+    add_target_arguments,
+    guard_destructive_target,
+    run_cli_action,
+    take_verified_backup,
+)
+from utils.db_safety import same_file
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -52,13 +76,29 @@ from modules.lifecycle_board.model import (
 )
 
 
-def migrate_db():
+SCRIPT_TAG = "update_db_schema"
+
+
+def migrate_db(db_path: Optional[Union[str, Path]] = None, *, backups_dir: Optional[Path] = None):
+    """Upgrade ``db_path`` (default: ``database.DB_PATH``, the engine's database)."""
+    target = Path(db_path) if db_path else Path(DB_PATH)
+    if same_file(target, DB_PATH):
+        target_engine = engine
+    else:
+        target_engine = create_engine(f"sqlite:///{target.resolve().as_posix()}")
+    try:
+        _migrate(target, target_engine, backups_dir)
+    finally:
+        if target_engine is not engine:
+            target_engine.dispose()
+
+
+def _migrate(db_path: Path, engine, backups_dir: Optional[Path]):
     # 1. Create any missing tables
     Base.metadata.create_all(bind=engine)
 
     # 2. Migration for columns
-    db_path = 'sorour_logistics.db'
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='external_service_providers'")
@@ -276,6 +316,9 @@ def migrate_db():
         table_sql = row[0]
         if "uq_customs_tariff_hs_code_eff_from" not in table_sql and ("uq_customs_tariff_hs_code" in table_sql or "UNIQUE (hs_code)" in table_sql):
             print("Migrating customs_tariffs table schema to support date-based versioning...")
+            # The rebuild drops tables: verified backup first, abort (raise) if it fails.
+            conn.commit()
+            take_verified_backup(db_path, tag=f"{SCRIPT_TAG}_customs_tariffs", backups_dir=backups_dir)
             cursor.execute("DROP INDEX IF EXISTS uq_customs_tariff_hs_code;")
             cursor.execute("DROP INDEX IF EXISTS ix_customs_tariffs_hs_code;")
             cursor.execute("DROP INDEX IF EXISTS ix_customs_tariffs_tariff_id;")
@@ -518,5 +561,20 @@ def migrate_db():
     print("Database migration and ACID sync completed successfully.")
 
 
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Apply the legacy additive schema upgrade to ONE database.")
+    add_target_arguments(parser, target_help="Database file to upgrade")
+    args = parser.parse_args(argv)
+
+    def _run(target: Path, backups_dir: Optional[Path]):
+        guard_destructive_target(target, confirm=True, tag=SCRIPT_TAG, backups_dir=backups_dir)
+        migrate_db(target, backups_dir=backups_dir)
+        return True
+
+    return run_cli_action(args, _run)
+
+
 if __name__ == "__main__":
-    migrate_db()
+    sys.exit(main())

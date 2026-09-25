@@ -25,6 +25,9 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
+    # Read models echo the stored value: strict EmailStr stays on UserCreate/UserUpdate only,
+    # so a legacy or reserved-domain address (x@host.local) can never make login/me/lists 500.
+    email: str
     user_id: int
     is_active: bool
     created_at: datetime

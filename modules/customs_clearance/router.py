@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -45,7 +46,7 @@ from .service import (
     delete_clearance_invoice_service,
 )
 
-router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"])
+router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"], dependencies=[Depends(get_current_user)])
 
 @router.get("", response_model=List[CustomsClearanceResponse])
 def list_customs_clearances(

@@ -90,9 +90,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
   @override
   void initState() {
     super.initState();
-    ref.invalidate(smartReferenceCardProvider(widget.file.importFileId));
-    ref.invalidate(similarShipmentsProvider(widget.file.importFileId));
-    ref.invalidate(detectedPatternsProvider);
+    // listen: false — resolving `ref` here would register an inherited dependency
+    // during initState, which Flutter asserts against.
+    final container = ProviderScope.containerOf(context, listen: false);
+    container.invalidate(smartReferenceCardProvider(widget.file.importFileId));
+    container.invalidate(similarShipmentsProvider(widget.file.importFileId));
+    container.invalidate(detectedPatternsProvider);
     _loadExperienceGuide();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final poState = ref.read(purchaseOrdersProvider);
