@@ -176,7 +176,7 @@ jobs:
           echo "SSH_DIR=$SSH_DIR" >> "$GITHUB_ENV"
 
       # Only if the live manifest is still the one that was re-signed (no release slipped in meanwhile).
-      - name: Publish Manifest (manifest.json.tmp, then posix-rename)
+      - name: Publish Manifest (manifest.json.tmp, then rename)
         run: |
           set -euo pipefail
           curl -sS --fail --proto '=https' --max-redirs 0 --max-filesize 65536 -H 'Cache-Control: no-cache' \
@@ -185,7 +185,7 @@ jobs:
           sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
           -rm $REMOTE_DIR/manifest.json.tmp
           put payload/manifest.json $REMOTE_DIR/manifest.json.tmp
-          posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
+          rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
           EOF
 
       # The served manifest must be byte-identical to the one verified above.

@@ -11,8 +11,8 @@ name: Publish update
 #   sign   (environment production-updates) hashed signer venv; the signing key only in the sign step's env.
 #   verify (no environment, no secrets)     checks out refs/tags/<tag>, installs requirements.txt, verifies with
 #                                            THAT tag's ManifestVerifier + embedded public keys + installer hash.
-#   upload (environment production-updates) shell/sftp/curl only: SSH creds -> installer .part -> posix-rename ->
-#                                            public HTTPS hash check -> manifest.json.tmp -> posix-rename LAST -> prune.
+#   upload (environment production-updates) shell/sftp/curl only: SSH creds -> installer .part -> rename (posix-rename ext) ->
+#                                            public HTTPS hash check -> manifest.json.tmp -> rename LAST -> prune.
 # Environment `production-updates` (deployment rule: branch main) holds UPDATE_SIGNING_KEY_ED25519, HOSTINGER_SSH_KEY,
 # HOSTINGER_KNOWN_HOSTS and vars HOSTINGER_HOST/PORT/USER.
 on:
@@ -324,7 +324,7 @@ jobs:
           -mkdir $D
           -rm $D/$INSTALLER_NAME.part
           put payload/releases/$INSTALLER_NAME $D/$INSTALLER_NAME.part
-          posix-rename $D/$INSTALLER_NAME.part $D/$INSTALLER_NAME
+          rename $D/$INSTALLER_NAME.part $D/$INSTALLER_NAME
           EOF
 
       # What clients will actually receive: HTTPS HEAD (200 + Content-Length) and a full download sha256,
@@ -344,13 +344,13 @@ jobs:
           [[ "$actual" == "$EXPECTED_SHA256" ]] || { echo "::error::public sha256 $actual != manifest $EXPECTED_SHA256"; exit 1; }
           echo "Public installer matches the verified manifest (size $size, sha256 $actual)."
 
-      - name: Publish Manifest (manifest.json.tmp, then posix-rename LAST)
+      - name: Publish Manifest (manifest.json.tmp, then rename LAST)
         run: |
           set -euo pipefail
           sftp -F "$SSH_DIR/config" -b - importflow-updates <<EOF
           -rm $REMOTE_DIR/manifest.json.tmp
           put payload/update/manifest.json $REMOTE_DIR/manifest.json.tmp
-          posix-rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
+          rename $REMOTE_DIR/manifest.json.tmp $REMOTE_DIR/manifest.json
           EOF
 
       # The served manifest must be byte-identical to the one verified above.
