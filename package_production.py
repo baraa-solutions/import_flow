@@ -254,7 +254,17 @@ def compile_installer_and_zip(version_info: dict):
     releases_dir.mkdir(parents=True, exist_ok=True)
     version = version_info.get("version", "1.0.4")
     build_no = version_info.get("build_number", 1)
-    
+
+    # 0. Bundle guard (plan section 0, R4): never build an installer or zip that ships data or secrets
+    guard = subprocess.run([
+        sys.executable, str(ROOT_DIR / "scripts" / "release" / "bundle_guard.py"),
+        "--iss", str(ROOT_DIR / "installer" / "importflow_setup.iss"),
+        "--dir", str(STANDALONE_DEST),
+    ])
+    if guard.returncode != 0:
+        print("[ERROR] Bundle guard failed: installer and portable zip were NOT built.")
+        return False
+
     # 1. Compile Inno Setup if ISCC is available
     iscc_paths = [
         r"C:\Users\Hp\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
@@ -340,6 +350,7 @@ def compile_installer_and_zip(version_info: dict):
             with open(standalone_version_json, "w", encoding="utf-8") as f:
                 json.dump(version_data, f, indent=2, ensure_ascii=False)
             print(f"      [SUCCESS] Updated dist/Sorour_Logistics_Standalone/version.json with installer_url")
+    return True
 
 
 def main():
@@ -379,9 +390,9 @@ def main():
     s2 = copy_desktop_release()
     s3 = copy_web_release()
     s4 = create_production_launchers()
-    compile_installer_and_zip(version_info)
+    s5 = compile_installer_and_zip(version_info) if s1 else False
 
-    if s1 and s2 and s4:
+    if s1 and s2 and s4 and s5:
         print("================================================================================")
         print(f"[SUCCESS] Production release v{version} (Build {build_no}) created at: {DIST_DIR}")
         print("================================================================================")
