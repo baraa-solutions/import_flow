@@ -1,0 +1,3 @@
+Installing on a computer with an old all-users installation now migrates the data automatically and safely, keeping a backup, instead of stopping Setup.
+The old installation is removed only after the new one installs successfully, and its old data files are never deleted.
+Update and publishing reliability improvements.
