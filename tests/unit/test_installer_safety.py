@@ -3,8 +3,13 @@ Installer safety invariants for installer/importflow_setup.iss (plan docs/plans/
 
 R1  no [Files] entry ships a database / .env, the wildcard entry excludes them, there is no
     [UninstallDelete], and [InstallDelete] only removes the 3 legacy destructive scripts by exact name.
-    One install mode only (no PrivilegesRequiredOverridesAllowed); PrepareToInstall aborts when the DB
-    lives in another install folder but not in the chosen {app}.
+    One install mode only (no PrivilegesRequiredOverridesAllowed).
+R2m chosen {app} without a DB + exactly one other install folder with a DB: the DB (+ -wal/-shm) is copied
+    read-only into {app}\\backups\\pre_migrate_*\\ (kept) and \\staging\\, verified by size + SHA-256, moved into
+    {app} with RenameFile (never overwrites, .db last, moved back on failure). Interactive installs only,
+    only from a still-registered install (App Path + unins###.exe), never twice for the same DB (HKCU marker).
+    The old install is retired in ssPostInstall (app stopped, source re-fingerprinted, uninstaller run
+    elevated with 'runas'). Several other folders with a DB, an unregistered one or a silent install: abort.
 R2  PrepareToInstall stops frontend.exe/backend.exe, copies .db + -wal + -shm into
     {app}\\backups\\pre_install_<version>_<timestamp>\\, verifies the copies and aborts on any failure.
 R3  uninstall keeps the data: data folders carry uninsneveruninstall, the DB is never a Setup file.
@@ -15,7 +20,9 @@ L1  shortcuts, the launch checkbox and the silent relaunch start {app}\\frontend
 
 These are static checks on the script text; ISCC compiles it in CI (build_and_release.yml).
 """
+import importlib.util
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -112,12 +119,52 @@ def test_install_delete_removes_only_the_legacy_destructive_scripts():
     assert all(_param(e, "Type").lower() == "files" for e in entries)
 
 
+# comment-free [Code] and call parsing come from the release guard, so both read the script the same way
+GUARD_PATH = PROJECT_DIR / "scripts" / "release" / "bundle_guard.py"
+
+
+def _load_guard():
+    spec = importlib.util.spec_from_file_location("importflow_bundle_guard_for_installer_tests", GUARD_PATH)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+guard = _load_guard()
+_split_arguments = guard._split_arguments
+CODE_ONLY = guard.strip_pascal_comments(CODE)
+
+
+def _calls(function: str) -> list:
+    """Argument text of every call to `function` in comment-free [Code]."""
+    return [args.strip() for args in guard._call_arguments(CODE_ONLY, function)]
+
+
 def test_code_deletes_only_its_tmp_scratch_file():
-    for match in re.finditer(r"\b(DeleteFile|DelTree|DelayDeleteFile|RemoveDir|RenameFile)\s*\(", CODE):
-        line = CODE[match.start():CODE.find("\n", match.start())]
-        if line.lstrip().startswith("//"):
-            continue
-        assert line.startswith("DeleteFile(ExpandConstant('{tmp}\\process_check_"), line
+    for args in _calls("DeleteFile") + _calls("DelTree") + _calls("DelayDeleteFile") + _calls("RemoveDir"):
+        assert args.startswith("ExpandConstant('{tmp}\\process_check_"), args
+
+
+def test_code_never_deletes_anything_but_the_tmp_scratch_file():
+    deletes = [a for f in ("DeleteFile", "DelTree", "DelayDeleteFile", "RemoveDir") for a in _calls(f)]
+    assert deletes == ["ExpandConstant('{tmp}\\process_check_' + ExeName + '.txt')"], deletes
+
+
+STAGED = "ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\staging\\{name}'"
+LIVE = "ExpandConstant('{app}\\{name}')"
+DB_NAMES = ("sorour_logistics.db", "sorour_logistics.db-wal", "sorour_logistics.db-shm")
+
+
+def test_rename_is_used_only_for_the_six_migration_moves():
+    """3 forward moves (staging -> {app}) in PlaceMigratedFile, 3 reverse ones only in UndoPlacedFiles."""
+    forward = sorted([STAGED.replace("{name}", n), LIVE.replace("{name}", n)] for n in DB_NAMES)
+    reverse = sorted([LIVE.replace("{name}", n), STAGED.replace("{name}", n)] for n in DB_NAMES)
+    assert sorted(_split_arguments(a) for a in _calls("RenameFile")) == sorted(forward + reverse)
+    place = _pascal_routine("PlaceMigratedFile")
+    undo = _pascal_routine("UndoPlacedFiles")
+    assert sorted(_split_arguments(a) for a in guard._call_arguments(place, "RenameFile")) == forward
+    assert sorted(_split_arguments(a) for a in guard._call_arguments(undo, "RenameFile")) == reverse
 
 
 def test_no_brace_comment_contains_a_constant():
@@ -147,17 +194,81 @@ def test_install_mode_cannot_be_switched():
     assert not re.search(r"^\s*PrivilegesRequiredOverridesAllowed", setup, re.M | re.I)
 
 
-def test_prepare_to_install_aborts_when_db_lives_in_another_install_folder():
+def _missing_db_branch() -> str:
     body = _pascal_routine("PrepareToInstall")
     missing = re.search(r"if not FileExists\(DbFile\) then\s*begin(.*?)\n  end;", body, re.S)
     assert missing, "no branch for a missing DB in {app}"
-    block = missing.group(1)
-    assert "OtherDir := FindDatabaseOutsideApp(AppDir);" in block
-    assert re.search(r"if OtherDir <> '' then\s*begin\s*Result := WrongFolderAbortMessage\(OtherDir, AppDir\);\s*Exit;", block)
+    return missing.group(1)
+
+
+def test_prepare_to_install_aborts_when_several_other_folders_hold_a_db():
+    """Ambiguous: more than one other folder has a DB and {app} has none -> abort, nothing copied."""
+    body = _pascal_routine("PrepareToInstall")
+    assert body.index("OtherDirs := FindDatabasesOutsideApp(AppDir);") < body.index("if not FileExists(DbFile) then")
+    block = _missing_db_branch()
+    ambiguous = re.search(
+        r"if GetArrayLength\(OtherDirs\) > 1 then\s*begin\s*"
+        r"Result := WrongFolderAbortMessage\(JoinFolders\(OtherDirs\), AppDir, '[^']+'\);\s*Exit;\s*end;", block)
+    assert ambiguous, block
+    assert ambiguous.start() < block.index("GetArrayLength(OtherDirs) = 1")
+
+
+def test_one_other_folder_is_migrated_only_when_allowed():
+    block = _missing_db_branch()
+    one = re.search(
+        r"if GetArrayLength\(OtherDirs\) = 1 then\s*begin\s*"
+        r"if not MigrationAllowed\(OtherDirs\[0\], Reason\) then\s*begin\s*"
+        r"Result := WrongFolderAbortMessage\(JoinFolders\(OtherDirs\), AppDir, Reason\);\s*Exit;\s*end;\s*"
+        r"Result := MigrateFromOldInstall\(OtherDirs\[0\], AppDir\);\s*Exit;\s*end;", block)
+    assert one, block
+    assert CODE_ONLY.count("MigrateFromOldInstall(") == 2  # definition + this single call
+
+
+def test_silent_installs_never_migrate():
+    """Migration (and the UAC prompt after it) is interactive-only; a silent install aborts instead."""
+    gate = _pascal_routine("MigrationAllowed")
+    silent = re.search(r"if WizardSilent then\s*begin(.*?)\n  end;", gate, re.S)
+    assert silent, gate
+    production = silent.group(1).split("#else", 1)[1].split("#endif", 1)[0]  # what a normal build compiles
+    assert "Reason := 'silent install:" in production and "Exit;" in production
+    assert "#ifdef RehearsalAllowSilentMigration" in silent.group(1)
+    assert gate.index("if WizardSilent then") < gate.index("FindOldUninstaller(")
+
+
+def test_only_a_registered_installation_is_migrated():
+    """A leftover DB in a folder that is no longer a registered install (e.g. after an earlier migration
+    and uninstall) goes back to the wrong-folder abort."""
+    gate = _pascal_routine("MigrationAllowed")
+    assert re.search(r"if not FindOldUninstaller\(OldDir, RootKey, Key, Exe, Elevate\) then\s*begin\s*"
+                     r"Reason := '[^']*not a registered installation[^']*';\s*Exit;", gate)
+    assert re.search(r"Result := True;\s*end;$", gate.strip())
+
+
+def test_the_same_database_is_never_migrated_twice():
+    migrate = _pascal_routine("MigrateDatabaseFromOtherFolder")
+    check = migrate.index("if AlreadyMigrated(Source.HashDb, Where) then")
+    assert migrate.index("ReadSourceFingerprint(SrcDb, Source, ErrorText)") < check < migrate.index("ForceDirectories(")
+    assert migrate.index("WriteMigrationMarker(OldDir, Source.HashDb);") > migrate.rindex("PlaceMigratedFile(")
+    marker = _pascal_routine("WriteMigrationMarker")
+    for value in ("'MigratedFrom', OldDir", "'SourceSha256', HashDb", "'MigratedTo'"):
+        assert f"RegWriteStringValue(HKCU, MigrationMarkerKey, {value}" in marker
+    already = _pascal_routine("AlreadyMigrated")
+    assert "RegQueryStringValue(HKCU, MigrationMarkerKey, 'SourceSha256', Stored)" in already
+    assert "CompareText(Stored, HashDb) <> 0" in already
+    assert re.search(r"^  MigrationMarkerKey = 'Software\\\{#MyAppPublisher\}\\\{#MyAppName\}\\InstallerMigration';", CODE, re.M)
+
+
+def test_target_with_db_continues_and_only_logs_other_folders():
+    body = _pascal_routine("PrepareToInstall")
+    after_branch = body[body.index("if not FileExists(DbFile) then"):]
+    assert after_branch.index("LogOtherDatabases(OtherDirs, DbFile);") < after_branch.index("StopRunningApp")
+    logger = _pascal_routine("LogOtherDatabases")
+    assert "continuing with it" in logger and "Log(" in logger
+    assert "Result" not in logger  # a procedure: it can never abort
 
 
 def test_other_install_folders_are_all_searched():
-    body = _pascal_routine("FindDatabaseOutsideApp")
+    body = _pascal_routine("FindDatabasesOutsideApp")
     for location in ("RegisteredAppPath(HKCU)", "RegisteredAppPath(HKLM32)", "RegisteredAppPath(HKLM64)",
                      "{userpf}\\{#MyAppName}", "{commonpf32}\\{#MyAppName}", "{commonpf64}\\{#MyAppName}"):
         assert location in body, location
@@ -166,12 +277,224 @@ def test_other_install_folders_are_all_searched():
     other = _pascal_routine("DatabaseFolderIfOther")
     assert "NormalizeDir(Dir) = NormalizeDir(AppDir)" in other  # the chosen {app} itself is not "another" folder
 
+    add = _pascal_routine("AddDatabaseFolder")  # the registered path and the Program Files default are one folder
+    assert "if NormalizeDir(Dirs[I]) = NormalizeDir(Found) then" in add
+
 
 def test_wrong_folder_message_is_arabic_and_english():
     body = _pascal_routine("WrongFolderAbortMessage")
-    assert re.search(r"[\u0600-\u06FF]", body)
+    assert re.search(r"[؀-ۿ]", body)
     assert "found in a different installation folder" in body
-    assert "Existing data: " in body and "Selected folder: " in body
+    assert "Reason: " in body and "Existing data: " in body and "Selected folder: " in body
+
+
+# ------------------------------------------------------------------------------------------------
+# R2m: migration from the one other install folder
+# ------------------------------------------------------------------------------------------------
+SOURCE_NAMES = ("OldDir", "SrcDb", "SourceFile")
+
+
+def test_old_folder_is_never_written_moved_or_deleted():
+    """The source DB (old install) is only read: no write/move/delete call takes a source path as target."""
+    targets = [_split_arguments(a)[1] for a in _calls("CopyFile")]
+    targets += [part for a in _calls("RenameFile") for part in _split_arguments(a)]  # both ends of a move
+    targets += [_split_arguments(a)[0] for f in ("SaveStringToFile", "SaveStringsToFile", "SaveStringsToUTF8File",
+                                                 "SaveStringToUTF8File", "DeleteFile", "DelTree", "RemoveDir",
+                                                 "DelayDeleteFile") for a in _calls(f)]
+    assert targets
+    for target in targets:
+        # ExtractFileName(SourceFile) only borrows the NAME of the source for the copy in {app}
+        folder_part = re.sub(r"ExtractFileName\(\w+\)", "", target)
+        assert not any(name in folder_part for name in SOURCE_NAMES), target
+        assert target.startswith(("ExpandConstant('{app}\\", "ExpandConstant('{tmp}\\")), target
+    assert "FileCopy(" not in CODE_ONLY and "MoveFile" not in CODE_ONLY
+
+
+def test_migration_never_overwrites():
+    for args in _calls("CopyFile"):
+        assert _split_arguments(args)[2] == "True", f"CopyFile must use FailIfExists=True: {args}"
+    migrate = _pascal_routine("MigrateDatabaseFromOtherFolder")
+    precheck = re.search(r"if FileExists\(ExpandConstant\('\{app\}\\sorour_logistics\.db'\)\) or "
+                         r"FileExists\(ExpandConstant\('\{app\}\\sorour_logistics\.db-wal'\)\)\s*"
+                         r"or FileExists\(ExpandConstant\('\{app\}\\sorour_logistics\.db-shm'\)\) then\s*begin\s*"
+                         r"ErrorText := .*?;\s*Exit;", migrate, re.S)
+    assert precheck
+    assert precheck.start() < migrate.index("ForceDirectories(")
+    assert "if DirExists(BackupDir) then" in migrate  # a fresh migration folder, never reused
+    copy = _pascal_routine("CopyToMigrationFolder")
+    assert copy.index("if FileExists(Target) then") < copy.index("CopyFile(")
+
+
+def test_migration_copies_are_verified_by_size_and_sha256():
+    size = _pascal_routine("FileSizeMatches")
+    assert "GetFileSizeParts(FileName, High, Low)" in size and "(High <> SizeHigh) or (Low <> SizeLow)" in size
+    matches = _pascal_routine("FileMatches")
+    assert "FileSizeMatches(FileName, SizeHigh, SizeLow, ErrorText)" in matches
+    assert "TryFileSha256(FileName, Actual, ErrorText)" in matches
+    assert "CompareText(Actual, Hash) <> 0" in matches
+    assert "GetSHA256OfFile(FileName)" in _pascal_routine("TryFileSha256")
+
+    copy = _pascal_routine("CopyToMigrationFolder")
+    assert ("if not CopyFile(SourceFile, ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + SubDir + "
+            "ExtractFileName(SourceFile), True) then") in copy
+    assert "if not FileMatches(Target, SizeHigh, SizeLow, Hash, ErrorText) then" in copy
+
+
+def test_source_fingerprint_covers_db_wal_and_shm():
+    read = _pascal_routine("ReadSourceFingerprint")
+    assert "F.HasWal := FileExists(SrcDb + '-wal');" in read and "F.HasShm := FileExists(SrcDb + '-shm');" in read
+    for call in ("ReadFileFingerprint(SrcDb, F.DbHigh, F.DbLow, F.HashDb, ErrorText)",
+                 "ReadFileFingerprint(SrcDb + '-wal', F.WalHigh, F.WalLow, F.HashWal, ErrorText)",
+                 "ReadFileFingerprint(SrcDb + '-shm', F.ShmHigh, F.ShmLow, F.HashShm, ErrorText)"):
+        assert f"if not {call} then" in read, call
+    same = _pascal_routine("SameFingerprint")
+    for part in ("A.HasWal = B.HasWal", "A.HasShm = B.HasShm", "CompareText(A.HashDb, B.HashDb) = 0",
+                 "CompareText(A.HashWal, B.HashWal) = 0", "CompareText(A.HashShm, B.HashShm) = 0"):
+        assert part in same, part
+
+
+def test_migration_copies_to_backup_and_staging_then_rechecks_the_source():
+    migrate = _pascal_routine("MigrateDatabaseFromOtherFolder")
+    assert "if not CopyAllToMigrationFolder(SrcDb, Stamp, '\\', Source, ErrorText) then" in migrate
+    assert "if not CopyAllToMigrationFolder(SrcDb, Stamp, '\\staging\\', Source, ErrorText) then" in migrate
+    copy_all = _pascal_routine("CopyAllToMigrationFolder")
+    for suffix, part in (("", "Db"), (" + '-wal'", "Wal"), (" + '-shm'", "Shm")):
+        assert f"CopyToMigrationFolder(SrcDb{suffix}, Stamp, SubDir, F.{part}High, F.{part}Low, F.Hash{part}, ErrorText)" in copy_all
+    assert "ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp" in migrate
+    assert "MakeFolderTag(OldDir) + '_' + GetDateTimeString('yyyymmdd_hhnnss'" in migrate
+    last_copy = migrate.rindex("CopyAllToMigrationFolder(")
+    recheck = migrate.index("ReadSourceFingerprint(SrcDb, Recheck, ErrorText)")
+    assert last_copy < recheck < migrate.index("PlaceMigratedFile(")
+    assert "if not SameFingerprint(Source, Recheck) then" in migrate
+
+
+def test_every_migration_failure_exits_with_an_error():
+    migrate = _pascal_routine("MigrateDatabaseFromOtherFolder")
+    checks = re.findall(r"if not (?:CopyAllToMigrationFolder|ReadSourceFingerprint|SameFingerprint|ForceDirectories|PlaceMigratedFile)"
+                        r"\((?:[^()]|\([^()]*\))*\) then\s*(begin.*?end;|Exit;)", migrate, re.S)
+    assert len(checks) == 9, len(checks)
+    for block in checks:
+        assert "Exit;" in block, block
+    assert re.search(r"Result := True;\s*end;$", migrate.strip())  # success only at the very end
+    assert migrate.count("Result := True;") == 1
+
+
+def test_migrated_files_are_placed_side_files_first_db_last_and_undone_on_failure():
+    migrate = _pascal_routine("MigrateDatabaseFromOtherFolder")
+    wal, shm, db = (migrate.index(f"PlaceMigratedFile(Stamp, {s})") for s in ("'-wal'", "'-shm'", "''"))
+    assert wal < shm < db
+    after = migrate[wal:]
+    assert after.count("UndoPlacedFiles(Stamp, PlacedDb, PlacedWal, PlacedShm)") == 4
+    # flags are set only after a successful move, so only files THIS run placed are moved back
+    for flag, call in (("PlacedWal", "'-wal'"), ("PlacedShm", "'-shm'"), ("PlacedDb", "''")):
+        assert migrate.index(f"PlaceMigratedFile(Stamp, {call})") < migrate.index(f"{flag} := True;")
+    undo = _pascal_routine("UndoPlacedFiles")
+    for flag, name in (("PlacedDb", "sorour_logistics.db'"), ("PlacedWal", "sorour_logistics.db-wal'"),
+                       ("PlacedShm", "sorour_logistics.db-shm'")):
+        assert re.search(rf"if {flag} then\s*if not RenameFile\(ExpandConstant\('\{{app\}}\\{re.escape(name)}\)", undo)
+    assert undo.index("PlacedDb") < undo.index("PlacedWal")  # the .db leaves first
+    # after a same-volume move only existence + size are re-checked
+    final = migrate[migrate.index("PlacedDb := True;"):]
+    assert final.count("FileSizeMatches(") == 3 and "FileMatches(" not in final.replace("FileSizeMatches(", "")
+
+
+def test_prepare_to_install_never_retires_the_old_install():
+    for routine in ("PrepareToInstall", "MigrateFromOldInstall", "MigrateDatabaseFromOtherFolder", "MigrationAllowed"):
+        body = _pascal_routine(routine)
+        assert "RetireOldInstall" not in body and "ShellExec" not in body, routine
+
+
+def test_old_install_is_retired_only_after_the_new_install():
+    step = _pascal_routine("CurStepChanged")
+    assert re.search(r"if \(CurStep = ssPostInstall\) and \(MigratedFromDir <> ''\) then\s*RetireOldInstallAfterInstall;", step)
+    assert CODE_ONLY.count("RetireOldInstallAfterInstall") == 2  # definition + the ssPostInstall call
+    assert CODE_ONLY.count("RetireOldInstall(") == 2  # definition + the call in RetireOldInstallAfterInstall
+    assert CODE_ONLY.count("ShellExec(") == 1
+    # MigratedFromDir is set only after a verified migration
+    migrate = _pascal_routine("MigrateFromOldInstall")
+    assert migrate.index("if not MigrateDatabaseFromOtherFolder(OldDir, MigratedSource, ErrorText) then") < \
+        migrate.index("MigratedFromDir := OldDir;")
+    failure = re.search(r"if not MigrateDatabaseFromOtherFolder\(OldDir, MigratedSource, ErrorText\) then\s*begin(.*?)end;",
+                        migrate, re.S).group(1)
+    assert "Result := MigrationAbortMessage(ErrorText, OldDir, AppDir);" in failure and "Exit;" in failure
+
+
+def test_retire_stops_the_app_and_rechecks_the_source_first():
+    retire = _pascal_routine("RetireOldInstallAfterInstall")
+    order = [retire.index(s) for s in ("StopRunningApp;", "if not WaitForAppExit then",
+                                       "ReadSourceFingerprint(AddBackslash(MigratedFromDir) + DbFileName, Current, Detail)",
+                                       "if not SameFingerprint(MigratedSource, Current) then",
+                                       "RetireOldInstall(MigratedFromDir, Detail)")]
+    assert order == sorted(order)
+    # every earlier check is an `else if` in front of the uninstall: a failed one skips it
+    assert re.search(r"if not WaitForAppExit then\s*Detail := .*?\s*else if not ReadSourceFingerprint.*?\s*"
+                     r"Detail := .*?\s*else if not SameFingerprint.*?\s*Detail := .*?\s*"
+                     r"else if RetireOldInstall\(MigratedFromDir, Detail\) then\s*Exit;", retire, re.S)
+    tail = retire[retire.index("else if RetireOldInstall"):]
+    assert "OldInstallStillPresent := True;" in tail
+    assert "Log('NOTICE: ' + OldInstallNotice(MigratedFromDir, Detail));" in tail
+    assert re.search(r"if not WizardSilent then\s*MsgBox\(OldInstallNotice\(MigratedFromDir, Detail\)", tail)
+
+
+def test_old_uninstaller_runs_elevated_and_silently():
+    retire = _pascal_routine("RetireOldInstall")
+    assert re.search(r"#else\s*Verb := 'runas';\s*#endif", retire)
+    assert ("ShellExec(Verb, Exe, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_SHOWNORMAL, "
+            "ewWaitUntilTerminated, ErrorCode)") in retire
+    find = _pascal_routine("FindOldUninstaller")
+    assert find.index("HKLM32") < find.index("Elevate := False;")  # all-users registrations need elevation
+
+
+def test_uninstaller_must_be_an_inno_uninstaller_inside_the_old_folder():
+    key = _pascal_routine("UninstallerFromKey")
+    assert "NormalizeDir(Path) <> NormalizeDir(OldDir)" in key
+    assert "NormalizeDir(ExtractFileDir(Value)) <> NormalizeDir(OldDir)" in key
+    assert "if not IsInnoUninstallerName(ExtractFileName(Value)) then" in key
+    name = _pascal_routine("IsInnoUninstallerName")
+    assert "(Length(Name) = 12) and (Copy(Name, 1, 5) = 'unins') and (Copy(Name, 9, 4) = '.exe')" in name
+    assert "for I := 6 to 8 do" in name and "(Name[I] < '0') or (Name[I] > '9')" in name
+
+
+def test_notices_and_messages_are_arabic_and_english():
+    notice = _pascal_routine("OldInstallNotice")
+    assert re.search(r"[؀-ۿ]", notice)
+    assert "Settings → Apps" in notice and "do not use it any more" in notice and "Details: " in notice
+    body = _pascal_routine("MigrationAbortMessage")
+    assert re.search(r"[؀-ۿ]", body)
+    assert "could not be migrated from the old installation" in body
+    assert "The database in the old folder was not changed." in body
+    assert "Details: " in body and "Existing data: " in body and "Selected folder: " in body
+
+
+def test_finish_page_and_log_state_where_the_data_came_from():
+    summary = _pascal_routine("MigrationSummary")
+    assert "'Data was migrated from: ' + AddBackslash(MigratedFromDir) + DbFileName" in summary
+    assert re.search(r"[؀-ۿ]", summary)
+    page = _pascal_routine("CurPageChanged")
+    assert "(CurPageID = wpFinished) and (MigratedFromDir <> '')" in page
+    assert "WizardForm.FinishedLabel.Caption + #13#10#13#10 + MigrationSummary" in page
+    assert "if OldInstallStillPresent then" in page
+    assert "Log(MigrationSummary);" in _pascal_routine("DeinitializeSetup")
+
+
+def test_rehearsal_hooks_exist_only_behind_ifdef():
+    """ISCC /DRehearsal... is for scratch rehearsals; the #else branch of such a block is production code."""
+    in_rehearsal = []  # stack: True while inside the #ifdef Rehearsal... branch
+    for line in CODE.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#if"):
+            in_rehearsal.append(stripped.startswith("#ifdef Rehearsal"))
+            continue
+        if stripped.startswith("#else"):
+            in_rehearsal[-1] = False  # production branch
+            continue
+        if stripped.startswith("#endif"):
+            in_rehearsal.pop()
+            continue
+        if "Rehearsal" in line and not stripped.startswith("//"):
+            assert in_rehearsal and in_rehearsal[-1], line
+    assert not in_rehearsal
+    assert not re.search(r"^#define\s+Rehearsal", ISS_TEXT, re.M)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -267,7 +590,9 @@ def test_abort_message_is_arabic_and_english():
 
 
 def test_old_silent_backup_is_removed():
-    assert "CurStepChanged" not in CODE
+    # CurStepChanged exists again, but only to retire the old install after a migration: it copies nothing
+    step = _pascal_routine("CurStepChanged")
+    assert "CopyFile" not in step and "Backup" not in step
     assert "sorour_logistics_backup_" not in CODE
 
 

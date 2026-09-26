@@ -108,5 +108,5 @@
   broken `rollback_blocked.json`; the reason must start with "rollback pending" (Dev A's test matches it).
 
 ## Release topic files
-- [release_installer.md](release_installer.md) — Inno .iss (BOM+CRLF), package_production guard hook, ISCC rehearsal, laptop layout.
+- [release_installer.md](release_installer.md) — Inno .iss (BOM+CRLF), guard hook, ISCC rehearsal, laptop layout, R2m old-install migration.
 - [release_workflows.md](release_workflows.md) — signer isolation, manifest contract, publish_update.yml button (private repo), actionlint, /release-check.

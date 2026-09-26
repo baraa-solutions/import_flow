@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -205,11 +207,24 @@ void main() {
     });
 
     test('LocalProcessSyncService retrieves db stats directly from filesystem', () {
+      // Hermetic: use a temp DB file instead of the machine's sorour_logistics.db,
+      // which does not exist on clean CI runners.
+      final tempDir = Directory.systemTemp.createTempSync('importflow_sync_test_');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final dbFile = File('${tempDir.path}${Platform.pathSeparator}sorour_logistics.db')
+        ..writeAsBytesSync(List<int>.filled(4096, 1));
+
       final service = LocalProcessSyncService(ProductionSyncService(Dio()));
-      final stats = service.getDbStats(service.devDbPath);
+      final stats = service.getDbStats(dbFile.path);
       expect(stats.exists, isTrue);
-      expect(stats.sizeKb, greaterThan(0));
+      expect(stats.dbPath, dbFile.path);
+      expect(stats.sizeKb, 4.0);
       expect(stats.mtime, isNotNull);
+
+      final missing = service.getDbStats(
+        '${tempDir.path}${Platform.pathSeparator}missing.db',
+      );
+      expect(missing.exists, isFalse);
 
       final backups = service.listBackups();
       expect(backups, isA<List<LocalBackupEntry>>());
