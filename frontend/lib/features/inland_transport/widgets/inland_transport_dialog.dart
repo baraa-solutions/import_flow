@@ -255,7 +255,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       'actual_departure_at': _actualDepartureDate.toIso8601String(),
       'tracking_notes': _gateOutNotesController.text.trim().isNotEmpty
           ? _gateOutNotesController.text.trim()
-          : 'تمت مغادرة الشاحنة بوابة الميناء بنجاح والتحرك باتجاه المخزن',
+          : 'Truck left the port gate and is moving to the warehouse',
     };
 
     setState(() => _isSubmitting = true);
@@ -294,7 +294,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       'actual_arrival_at': _actualArrivalDate.toIso8601String(),
       'tracking_notes': _arrivalNotesController.text.trim().isNotEmpty
           ? _arrivalNotesController.text.trim()
-          : 'وصلت الشاحنة إلى رصيف تفريغ المخزن وجاهزة لاستلام وفحص البضاعة',
+          : 'Truck arrived at the warehouse unloading dock, ready for receiving and inspection',
     };
 
     setState(() => _isSubmitting = true);

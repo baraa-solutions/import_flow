@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
@@ -12,7 +14,11 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
     final l10n = context.l10n;
     final hsCtrl = TextEditingController(text: tariff?.hsCode ?? '');
     final descCtrl = TextEditingController(text: tariff?.hsDescription ?? '');
-    final catCtrl = TextEditingController(text: tariff?.customsCategory ?? '');
+    // The category is a CUSTOMS_CATEGORY code; legacy labels preselect their code and an
+    // unknown legacy text stays selectable as an extra item. catCtrl holds the selected value.
+    final initialCategory =
+        DomainEnums.initialCode(DomainEnumType.customsCategory, tariff?.customsCategory, tariff?.customsCategory?.trim() ?? '');
+    final catCtrl = TextEditingController(text: initialCategory);
 
     final dutyCtrl = TextEditingController(
         text: tariff?.customsDutyRate.toString() ?? '0.00');
@@ -201,7 +207,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
           parsedTariffData = {
             'hs_code': hsCodeVal,
             'hs_description': descVal,
-            'customs_category': (descVal.contains('آلات') || descVal.contains('أجهزة') || descVal.contains('تكييف')) ? 'آلات وأجهزة وتجهيزات' : 'أصناف عامة',
+            'customs_category': (descVal.contains('آلات') || descVal.contains('أجهزة') || descVal.contains('تكييف')) ? 'MACHINERY_EQUIPMENT' : 'GENERAL_GOODS',
             'customs_duty_rate': dutyVal,
             'vat_rate': vatVal,
             'schedule_tax_rate': schedVal,
@@ -253,7 +259,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
       if (rawTextCtrl.text.trim().isNotEmpty) return true;
       if (hsCtrl.text.trim() != (tariff?.hsCode ?? '')) return true;
       if (descCtrl.text.trim() != (tariff?.hsDescription ?? '')) return true;
-      if (catCtrl.text.trim() != (tariff?.customsCategory ?? '')) return true;
+      if (catCtrl.text.trim() != initialCategory) return true;
       if (notesCtrl.text.trim() != (tariff?.notes ?? '')) return true;
       return false;
     }
@@ -750,17 +756,24 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: TextFormField(
-                                        controller: catCtrl,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.customsCategoryLabel,
-                                          hintText: l10n.customsCategoryHint,
-                                          suffixIcon: IconButton(
-                                            icon: const Icon(Icons.copy_rounded, size: 16),
-                                            tooltip: l10n.copyTooltip,
-                                            onPressed: () => CopyHelper.copy(context, catCtrl.text),
-                                          ),
-                                        ),
+                                      child: SearchableDropdownField<String>(
+                                        value: catCtrl.text.trim().isEmpty ? null : catCtrl.text.trim(),
+                                        labelText: l10n.customsCategoryLabel,
+                                        hintText: l10n.customsCategoryHint,
+                                        items: [
+                                          for (final code in DomainEnums.codesOf(DomainEnumType.customsCategory))
+                                            SearchableDropdownItem<String>(
+                                              value: code,
+                                              label: DomainEnums.label(l10n, DomainEnumType.customsCategory, code),
+                                            ),
+                                          if (catCtrl.text.trim().isNotEmpty &&
+                                              !DomainEnums.isCode(DomainEnumType.customsCategory, catCtrl.text.trim()))
+                                            SearchableDropdownItem<String>(
+                                              value: catCtrl.text.trim(),
+                                              label: catCtrl.text.trim(),
+                                            ),
+                                        ],
+                                        onChanged: (v) => setDialogState(() => catCtrl.text = v ?? ''),
                                       ),
                                     ),
                                   ],

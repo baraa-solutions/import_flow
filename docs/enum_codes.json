@@ -66,6 +66,27 @@
       "مصاريف الفحص والعرض": "INSPECTION_FEE"
     }
   },
+  "CUSTOMS_CATEGORY": {
+    "codes": {
+      "AUTOMOTIVE": "Automotive",
+      "AUTOMOTIVE_SPARE_PARTS": "Automotive Spare Parts",
+      "ELECTRONICS": "Electronics",
+      "FOOD_AGRICULTURAL": "Food & Agricultural",
+      "GENERAL_GOODS": "General goods",
+      "INDUSTRIAL_MACHINERY": "Industrial Machinery",
+      "MACHINERY_EQUIPMENT": "Machinery, appliances & equipment",
+      "PHARMACEUTICALS": "Pharmaceuticals",
+      "PLASTICS_POLYMERS": "Plastics & Polymers",
+      "RAW_MATERIALS_METALS": "Raw Materials & Metals",
+      "TELECOMMUNICATIONS": "Telecommunications",
+      "TEXTILES": "Textiles"
+    },
+    "legacy": {
+      "General": "GENERAL_GOODS",
+      "آلات وأجهزة وتجهيزات": "MACHINERY_EQUIPMENT",
+      "أصناف عامة": "GENERAL_GOODS"
+    }
+  },
   "CUSTOMS_CHANNEL": {
     "codes": {
       "GREEN": "Green Channel",
@@ -187,6 +208,20 @@
       "UNDER_BUDGET": "Under budget"
     },
     "legacy": {}
+  },
+  "MEASURE_UNIT": {
+    "codes": {
+      "CBM": "CBM",
+      "KG": "kg",
+      "PACKAGES": "packages",
+      "PACKAGES_PALLETS": "packages/pallets"
+    },
+    "legacy": {
+      "طرد": "PACKAGES",
+      "طرد/بالتة": "PACKAGES_PALLETS",
+      "كجم": "KG",
+      "م³": "CBM"
+    }
   },
   "PAYMENT_METHOD": {
     "codes": {
@@ -423,6 +458,42 @@
       "Heavy Low-bed (لوبد ثقيل للطرود الضخمة)": "LOW_BED",
       "Reefer Truck (شاحنة مبردة)": "REEFER",
       "Side-Drop Trailer (تريلا جوانب)": "SIDE_DROP"
+    }
+  },
+  "VALUE_PLACEHOLDER": {
+    "codes": {
+      "NOT_EXTRACTED": "Not extracted",
+      "NOT_IN_BL": "Not found in the B/L",
+      "NOT_IN_DOCUMENT": "Not found in the document",
+      "NOT_IN_INVOICE": "Not stated in the invoice",
+      "NOT_IN_PACKING_LIST": "Not included in the packing list",
+      "NOT_SET": "Not set in the system",
+      "NOT_SPECIFIED": "Not specified",
+      "OPTIONAL_NOT_INCLUDED": "Optional / not included"
+    },
+    "legacy": {
+      "اختياري / غير مدرج": "OPTIONAL_NOT_INCLUDED",
+      "غير متوفر": "NOT_IN_DOCUMENT",
+      "غير متوفر بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير متوفر بالبوليصة": "NOT_IN_BL",
+      "غير متوفر بالسستم": "NOT_SET",
+      "غير متوفر بالفاتورة": "NOT_IN_INVOICE",
+      "غير متوفر بالمستند": "NOT_IN_DOCUMENT",
+      "غير محدد": "NOT_SPECIFIED",
+      "غير محدد بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير محدد بالبوليصة": "NOT_IN_BL",
+      "غير محدد بالسستم": "NOT_SET",
+      "غير محدد بالفاتورة": "NOT_IN_INVOICE",
+      "غير مذكور بالفاتورة": "NOT_IN_INVOICE",
+      "غير مسجل": "NOT_SET",
+      "غير مسجل بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير مسجل بالسستم": "NOT_SET",
+      "غير موجود بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير موجود بالبوليصة": "NOT_IN_BL",
+      "غير موجود بالفاتورة": "NOT_IN_INVOICE",
+      "لم يتم الاستخراج": "NOT_EXTRACTED",
+      "— (غير مدرج بالباكينج)": "NOT_IN_PACKING_LIST",
+      "— (غير مدرج بالفاتورة)": "NOT_IN_INVOICE"
     }
   },
   "WAREHOUSE_INSPECTION_VERDICT": {

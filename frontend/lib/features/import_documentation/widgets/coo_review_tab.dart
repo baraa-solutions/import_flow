@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
@@ -1479,7 +1480,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       );
     }
 
-    final matrix = _comparisonResult!['comparison_matrix'] as List<dynamic>? ?? [];
+    final matrix = CodedItemText.localizeRows(
+        _comparisonResult!['comparison_matrix'] as List<dynamic>?, context.l10n);
     final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
     final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
 
@@ -2394,7 +2396,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   Text(context.l10n.cooDetailsMatrixTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ...r.comparisonMatrix.map((m) {
-                    final item = m is Map ? m : {};
+                    final item = m is Map ? CodedItemText.localizeRow(m, context.l10n) : {};
                     final fieldKey = item['field']?.toString() ?? '';
                     final fieldLabel = _getFieldLabel(fieldKey, item['field_label_ar']?.toString(), context.l10n);
                     final dText = '$fieldLabel: [${item['draft_value']}] vs [${item['system_value']}]';

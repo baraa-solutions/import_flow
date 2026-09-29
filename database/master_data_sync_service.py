@@ -30,6 +30,17 @@ from modules.common import enum_codes
 from modules.auth.seed_rbac import seed_rbac
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
 
+# Seeded master data is stored in English (single-language storage). Legacy Arabic values are kept
+# only to match rows seeded by older versions (never written again).
+CONTRACTUAL_RESPONSIBILITY_NOTE = "Contractual clause (not defined by ICC)"
+ACOUSTIC_GUIDE_SEED_TITLE = "Acoustic goods: inspection requirements and mandatory port"
+ACOUSTIC_GUIDE_SEED_CONTENT = (
+    "The port of arrival must be Alexandria only, because it has the specialised inspection labs. "
+    "A certified original certificate of origin must be attached before shipping to avoid a customs hold "
+    "or delay penalties."
+)
+LEGACY_ACOUSTIC_GUIDE_SEED_TITLE = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
+
 
 class MasterDataSyncService:
     def __init__(self, db: Session):
@@ -152,7 +163,7 @@ class MasterDataSyncService:
                 party = matrix.who_pays(term_code, cat.key)
                 expected_resp = "Importer" if party == Party.BUYER else "Exporter"
                 included = (party == Party.SELLER)
-                note = "بند تعاقدي (Contractual)" if not cat.is_icc_defined else None
+                note = CONTRACTUAL_RESPONSIBILITY_NOTE if not cat.is_icc_defined else None
 
                 existing = self.db.query(IncotermResponsibility).filter(
                     IncotermResponsibility.incoterm_id == inc_id,
@@ -493,12 +504,14 @@ class MasterDataSyncService:
     def sync_experience_guide_seeds(self) -> Dict[str, Any]:
         """Ensures default high-value logistics & customs rules exist in the Experience Guide."""
         added = 0
-        acoustic_title = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
-        existing = self.db.query(GuideEntry).filter(GuideEntry.title == acoustic_title).first()
+        # Stored text is English (single-language storage); the legacy Arabic title only matches old seeds.
+        existing = self.db.query(GuideEntry).filter(
+            GuideEntry.title.in_((ACOUSTIC_GUIDE_SEED_TITLE, LEGACY_ACOUSTIC_GUIDE_SEED_TITLE))
+        ).first()
         if not existing:
             entry = GuideEntry(
-                title=acoustic_title,
-                content="يجب أن يكون ميناء الوصول الإسكندرية حصراً لوجود معامل فحص متخصصة. مطلوب شهادة منشأ أصلية مصدقة ومرفقة قبل الشحن لتفادي التحفظ الجمركي أو فرض غرامات تأخير.",
+                title=ACOUSTIC_GUIDE_SEED_TITLE,
+                content=ACOUSTIC_GUIDE_SEED_CONTENT,
                 entry_type="required_document",
                 severity="critical",
                 created_by="System Seed",

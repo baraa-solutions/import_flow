@@ -378,7 +378,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                     'import_file_id': file.importFileId,
                                     'extraction_mode': selectedMode,
                                     'grouping_mode': selectedGrouping,
-                                    'notes': 'مسار جمركي تم اعتماده من واجهة الاستخلاص',
+                                    'notes': 'Customs track approved from the extraction screen',
                                   });
                                   final tracks = await notifier.fetchCustomsTracks(file.importFileId);
                                   setDialogState(() => isSavingCustomsTrack = false);

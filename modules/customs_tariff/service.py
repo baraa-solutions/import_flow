@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from . import repository
 from .model import CustomsTariff, PreferentialAgreement
+from .schemas import normalize_customs_category
 from .schemas import (
     CustomsDutyBreakdown,
     CustomsDutyEstimateRequest,
@@ -330,7 +331,7 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
                 continue
 
             desc_val = row.get(field_map["hs_description"], "").strip() or f"HS Code {hs_code_val}"
-            category_val = row.get(field_map.get("customs_category", ""), "").strip() or "General"
+            category_val = normalize_customs_category(row.get(field_map.get("customs_category", ""), "")) or "GENERAL_GOODS"
 
             duty_val = _parse_decimal(row.get(field_map.get("customs_duty_rate", ""), "0"))
             vat_val = _parse_decimal(row.get(field_map.get("vat_rate", ""), "0"))

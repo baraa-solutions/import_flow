@@ -205,7 +205,7 @@ def update_container_loading_tracking_service(
             history.append({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "updated_by": payload.updated_by,
-                "notes": payload.notes or "تحديث مرحلة تتبع الحاوية",
+                "notes": payload.notes or "Container tracking stage updated",
                 "status": calc_item.get("tracking_status"),
             })
             calc_item["tracking_history"] = history

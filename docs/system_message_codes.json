@@ -450,6 +450,174 @@
       "note"
     ]
   },
+  "DOC_CHK_ACID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_ACID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_AMOUNT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_AMOUNT_VARIANCE": {
+    "params": [
+      "currency",
+      "variance_amount",
+      "variance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CBM_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CBM_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CURRENCY_MISMATCH": {
+    "params": [
+      "document_currency",
+      "system_currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_GROSS_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_GROSS_WEIGHT_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_HS_CODE_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_HS_CODE_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_IMPORTER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_IMPORTER_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_INVOICE_NO_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_INVOICE_NO_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_NET_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_NET_WEIGHT_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_PACKAGES_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_PACKAGES_VARIANCE": {
+    "params": [
+      "difference_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_SUPPLIER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_SUPPLIER_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_TAX_ID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_TAX_ID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_COO_APPROVED": {
     "params": [
       "certificate_number",
@@ -459,9 +627,32 @@
       "note"
     ]
   },
+  "DOC_COO_SIMILARITY": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_COO_VALUE_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_CUSTOMS_APPROVAL_GRANTED": {
     "params": [
       "session_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_APPROVED_VALUE_MISMATCH": {
+    "params": [
+      "draft_value",
+      "system_value"
     ],
     "parts": [
       "note"
@@ -478,6 +669,227 @@
       "note"
     ]
   },
+  "DOC_DRAFT_FIELD_MISSING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_FUZZY_MATCH": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_MATCH": {
+    "params": [
+      "diff_pct",
+      "tolerance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_UNVERIFIABLE": {
+    "params": [
+      "draft_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_VARIANCE": {
+    "params": [
+      "diff_pct",
+      "draft_qty",
+      "system_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_TEXT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_VALUE_FROM_DRAFT": {
+    "params": [
+      "draft_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_VALUE_MISMATCH": {
+    "params": [
+      "draft_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONTAINERS_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONTAINERS_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_GROSS_WEIGHT_EXCEEDS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_GROSS_WEIGHT_MATCH": {
+    "params": [
+      "tolerance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_INCOTERMS_COHERENT": {
+    "params": [
+      "freight_terms",
+      "incoterm"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NET_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NET_WEIGHT_VARIANCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_PACKAGES_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_PACKAGES_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SEALS_CHECK": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SEALS_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_MATCH_RATE": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_INSPECTION_REVIEW_APPROVED": {
     "params": [
       "review_code"
@@ -490,6 +902,12 @@
     "params": [
       "review_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_VALUE_NOT_FOUND": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -549,6 +967,53 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "DOC_TOL_CONTAINERS_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_PACKAGES_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_SEAL_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_SIMILARITY": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_TERMS_COHERENCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_WEIGHT_DIFFERENCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "EMAIL_PARSE_MATCHED": {

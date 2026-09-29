@@ -561,6 +561,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         status: newStatus,
         requiredCorrection: correction ?? (newStatus == 'Correct' ? null : old.requiredCorrection),
         reason: reason ?? old.reason,
+        // A typed reason replaces the system message: keep the text, drop the code.
+        reasonCode: reason != null ? null : old.reasonCode,
+        reasonParams: reason != null ? null : old.reasonParams,
         notes: old.notes,
         responsibleParty: respParty ?? old.responsibleParty,
         isLocked: old.isLocked,
@@ -1727,7 +1730,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               SizedBox(
                                 width: 160,
                                 child: TextFormField(
-                                  initialValue: itm.reason ?? '',
+                                  initialValue: itm.displayReason(context.l10n),
                                   decoration: InputDecoration(
                                     isDense: true,
                                     hintText: context.l10n.draftBlEnterReasonHint,
@@ -1930,7 +1933,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 : itm.responsibleParty == 'Importer'
                                     ? context.l10n.draftBlPartyImporter
                                     : context.l10n.draftBlPartyCustomsBroker;
-                        final rsn = itm.reason ?? 'Mismatch with system master record';
+                        final rsn = itm.reason == null
+                            ? 'Mismatch with system master record'
+                            : itm.displayReason(context.l10n);
                         final rowSummary = [label, corr, resp, rsn].join('\t');
 
                         return DataRow(cells: [
@@ -3153,8 +3158,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       rows: matrix.map((item) {
                         return DataRow(cells: [
                           DataCell(Text(item.fieldLabelAr, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(item.systemValue?.toString() ?? '—')),
-                          DataCell(Text(item.draftValue?.toString() ?? '—')),
+                          DataCell(Text(item.displaySystemValue(context.l10n))),
+                          DataCell(Text(item.displayDraftValue(context.l10n))),
                           DataCell(
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/stored_text.dart';
+import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
@@ -536,12 +539,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final linkedPOs = allPOs.where((po) => po.importFileId == _selectedImportFileId).toList();
     final linkedPO = linkedPOs.firstOrNull;
 
-    final String sysInvNum = _finalInvNumberCtrl.text.trim().isNotEmpty
-        ? _finalInvNumberCtrl.text.trim()
-        : (linkedPO?.poNumber ?? 'غير محدد بالسستم');
-    final String sysAcid = (currentFile?.acidNumber?.trim().isNotEmpty == true)
-        ? currentFile!.acidNumber!.trim()
-        : 'غير محدد بالسستم';
+    String? nonEmpty(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
+    num? asNum(Object? v) => v is num ? v : num.tryParse('${v ?? ''}');
+
+    final String? sysInvNum = nonEmpty(_finalInvNumberCtrl.text) ?? nonEmpty(linkedPO?.poNumber);
+    final String? sysAcid = nonEmpty(currentFile?.acidNumber);
     final double sysTotalAmt = linkedPO?.totalAmountFob ?? 0.0;
     final String sysCurrency = linkedPO?.currencyCode ?? currentFile?.estimatedCostCurrency ?? 'USD';
     final double sysTotalPkgs = (linkedPO != null && linkedPO.totalPackagesCount > 0)
@@ -551,173 +553,226 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         ? linkedPO.totalGrossWeightKg
         : _packingItems.fold(0.0, (s, i) => s + i.initialGrossWeightKg);
 
+    // The items mirror the backend reconciliation (ai_document_parser.reconcile_po_documents_with_system):
+    // English text + `details_code` / `details_params` + `structured_values`, so the UI renders them in
+    // the user's language and nothing language-dependent is stored.
     final List<Map<String, dynamic>> headerDiscrepancies = [];
+    Object orPlaceholder(String? v, String placeholder) => v ?? CodedPlaceholder(placeholder);
+    final notSetText = DomainEnums.label(storedText, DomainEnumType.valuePlaceholder, 'NOT_SET');
+
+    void addCheck({
+      required String field,
+      required String fieldAr,
+      required String status,
+      required Object system,
+      required Object extracted,
+      Object? systemInvoice,
+      Object? systemPacking,
+      Object? uploadedInvoice,
+      Object? uploadedPacking,
+      required Map<String, dynamic> details,
+    }) {
+      headerDiscrepancies.add(CodedItemText.finalize({
+        'field_name': field,
+        'field_name_ar': fieldAr,
+        'system_value': system,
+        'extracted_value': extracted,
+        'system_invoice_value': systemInvoice ?? system,
+        'system_packing_value': systemPacking ?? system,
+        'uploaded_invoice_value': uploadedInvoice ?? extracted,
+        'uploaded_packing_value': uploadedPacking ?? extracted,
+        'status': status,
+        ...details,
+      }));
+    }
+
+    // Reading failures have no system message: the English text is stored as is.
+    Map<String, dynamic> unreadable(String english) => {'details': english};
+    bool contains(String a, String b) => a.toLowerCase().contains(b.toLowerCase());
 
     // Check Invoice Number
-    final extractedInvNum = invData['invoice_number'] as String?;
+    final extractedInvNum = nonEmpty(invData['invoice_number'] as String?);
     final bool invNumMatched = extractedInvNum != null &&
+        sysInvNum != null &&
         (extractedInvNum.toLowerCase() == sysInvNum.toLowerCase() ||
-         sysInvNum.toLowerCase().contains(extractedInvNum.toLowerCase()) ||
-         extractedInvNum.toLowerCase().contains(sysInvNum.toLowerCase()));
-    headerDiscrepancies.add({
-      'field_name': 'invoice_number',
-      'field_name_ar': 'رقم الفاتورة التجارية النهائية',
-      'system_value': sysInvNum,
-      'extracted_value': extractedInvNum ?? 'لم يتم الاستخراج',
-      'system_invoice_value': sysInvNum,
-      'system_packing_value': sysInvNum,
-      'uploaded_invoice_value': extractedInvNum ?? 'لم يتم الاستخراج',
-      'uploaded_packing_value': (plData['invoice_number'] as String?) ?? '—',
-      'status': extractedInvNum == null ? 'WARNING' : (invNumMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': extractedInvNum == null
-          ? 'تعذر قراءة رقم الفاتورة من الملف المرفوع'
-          : (invNumMatched ? 'تم استخراج وتطابق رقم الفاتورة بنجاح: $extractedInvNum' : 'رقم الفاتورة المستخرج ($extractedInvNum) يختلف عن المسجل بالسستم ($sysInvNum)'),
-    });
+            contains(sysInvNum, extractedInvNum) ||
+            contains(extractedInvNum, sysInvNum));
+    addCheck(
+      field: 'invoice_number',
+      fieldAr: 'رقم الفاتورة التجارية النهائية',
+      status: extractedInvNum == null ? 'WARNING' : (invNumMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: orPlaceholder(sysInvNum, 'NOT_SET'),
+      extracted: orPlaceholder(extractedInvNum, 'NOT_IN_DOCUMENT'),
+      uploadedPacking: orPlaceholder(nonEmpty(plData['invoice_number'] as String?), 'NOT_IN_DOCUMENT'),
+      details: extractedInvNum == null
+          ? unreadable('Could not read the invoice number from the uploaded file')
+          : CodedItemText.coded(
+              'details',
+              invNumMatched ? 'DOC_CHK_INVOICE_NO_MATCH' : 'DOC_CHK_INVOICE_NO_MISMATCH',
+              invNumMatched ? const {} : {'document_value': extractedInvNum, 'system_value': sysInvNum ?? notSetText}),
+    );
 
     // Check ACID
-    final extractedAcid = plData['acid_number'] as String? ?? invData['acid_number'] as String?;
-    final bool acidMatched = extractedAcid != null && sysAcid != 'غير محدد بالسستم' && extractedAcid == sysAcid;
-    headerDiscrepancies.add({
-      'field_name': 'acid_number',
-      'field_name_ar': 'رقم القيد الجمركي المبدئي (ACID)',
-      'system_value': sysAcid,
-      'extracted_value': extractedAcid ?? 'لم يتم الاستخراج',
-      'system_invoice_value': sysAcid,
-      'system_packing_value': sysAcid,
-      'uploaded_invoice_value': (invData['acid_number'] as String?) ?? 'لم يتم الاستخراج',
-      'uploaded_packing_value': (plData['acid_number'] as String?) ?? 'لم يتم الاستخراج',
-      'status': extractedAcid == null ? 'WARNING' : (acidMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': extractedAcid == null
-          ? 'تعذر قراءة رقم ACID من المستندات المرفوعة'
-          : (acidMatched ? 'رقم ACID متطابق تماماً بين المستندات وقاعدة البيانات' : 'رقم ACID المستخرج ($extractedAcid) يختلف عن المسجل بالسستم ($sysAcid)'),
-    });
+    final extractedAcid = nonEmpty(plData['acid_number'] as String?) ?? nonEmpty(invData['acid_number'] as String?);
+    final bool acidMatched = extractedAcid != null && sysAcid != null && extractedAcid == sysAcid;
+    addCheck(
+      field: 'acid_number',
+      fieldAr: 'رقم القيد الجمركي المبدئي (ACID)',
+      status: extractedAcid == null ? 'WARNING' : (acidMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: orPlaceholder(sysAcid, 'NOT_SET'),
+      extracted: orPlaceholder(extractedAcid, 'NOT_IN_DOCUMENT'),
+      uploadedInvoice: orPlaceholder(nonEmpty(invData['acid_number'] as String?), 'NOT_IN_DOCUMENT'),
+      uploadedPacking: orPlaceholder(nonEmpty(plData['acid_number'] as String?), 'NOT_IN_DOCUMENT'),
+      details: extractedAcid == null
+          ? unreadable('Could not read the ACID number from the uploaded documents')
+          : CodedItemText.coded('details', acidMatched ? 'DOC_CHK_ACID_MATCH' : 'DOC_CHK_ACID_MISMATCH'),
+    );
 
     // Check Currency & Total Amount
     final double? totalInvAmt = (invData['total_amount'] as num?)?.toDouble();
     final String extCurr = (invData['currency'] as String?) ?? sysCurrency;
-    final bool amtMatched = totalInvAmt != null && (totalInvAmt - sysTotalAmt).abs() < 1.0 && extCurr.toUpperCase() == sysCurrency.toUpperCase();
-    headerDiscrepancies.add({
-      'field_name': 'total_amount',
-      'field_name_ar': 'إجمالي قيمة الفاتورة التجارية',
-      'system_value': '${sysTotalAmt.toStringAsFixed(2)} $sysCurrency',
-      'extracted_value': totalInvAmt != null ? '${totalInvAmt.toStringAsFixed(2)} $extCurr' : 'لم يتم الاستخراج',
-      'system_invoice_value': '${sysTotalAmt.toStringAsFixed(2)} $sysCurrency',
-      'system_packing_value': '— (غير مدرج بالباكينج)',
-      'uploaded_invoice_value': totalInvAmt != null ? '${totalInvAmt.toStringAsFixed(2)} $extCurr' : 'لم يتم الاستخراج',
-      'uploaded_packing_value': '—',
-      'status': totalInvAmt == null ? 'WARNING' : (amtMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': totalInvAmt == null
-          ? 'تعذر قراءة إجمالي القيمة من المستند'
-          : (amtMatched ? 'إجمالي القيمة متطابق تماماً بنسبة 100%' : 'فارق في القيمة: المستخرج (${totalInvAmt.toStringAsFixed(2)} $extCurr) مقابل السستم (${sysTotalAmt.toStringAsFixed(2)} $sysCurrency)'),
-    });
+    final bool currencyMatched = extCurr.toUpperCase() == sysCurrency.toUpperCase();
+    final bool amtMatched = totalInvAmt != null && (totalInvAmt - sysTotalAmt).abs() < 1.0 && currencyMatched;
+    final double amtDiff = totalInvAmt == null ? 0 : (totalInvAmt - sysTotalAmt).abs();
+    final String sysAmountText = '${CodedItemText.formatGrouped(sysTotalAmt, 2)} $sysCurrency';
+    final String? extAmountText =
+        totalInvAmt == null ? null : '${CodedItemText.formatGrouped(totalInvAmt, 2)} $extCurr';
+    addCheck(
+      field: 'total_amount',
+      fieldAr: 'إجمالي قيمة الفاتورة التجارية',
+      status: totalInvAmt == null ? 'WARNING' : (amtMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: sysAmountText,
+      extracted: orPlaceholder(extAmountText, 'NOT_IN_DOCUMENT'),
+      systemPacking: const CodedPlaceholder('NOT_IN_PACKING_LIST'),
+      uploadedPacking: '—',
+      details: totalInvAmt == null
+          ? unreadable('Could not read the total amount from the document')
+          : (amtMatched
+              ? CodedItemText.coded('details', 'DOC_CHK_AMOUNT_MATCH')
+              : (!currencyMatched
+                  ? CodedItemText.coded('details', 'DOC_CHK_CURRENCY_MISMATCH',
+                      {'system_currency': sysCurrency, 'document_currency': extCurr})
+                  : CodedItemText.coded('details', 'DOC_CHK_AMOUNT_VARIANCE', {
+                      'variance_amount': double.parse(amtDiff.toStringAsFixed(2)),
+                      'currency': sysCurrency,
+                      'variance_pct': sysTotalAmt > 0 ? double.parse((amtDiff / sysTotalAmt * 100).toStringAsFixed(2)) : 0,
+                    }))),
+    );
 
     // Check Total Packages
     final double? totalPlPkgs = (plData['total_packages'] as num?)?.toDouble();
     final bool pkgsMatched = totalPlPkgs != null && (totalPlPkgs - sysTotalPkgs).abs() < 0.01;
-    headerDiscrepancies.add({
-      'field_name': 'total_packages',
-      'field_name_ar': 'إجمالي عدد الطرود',
-      'system_value': '${sysTotalPkgs.toInt()} طرد',
-      'extracted_value': totalPlPkgs != null ? '${totalPlPkgs.toInt()} طرد' : 'لم يتم الاستخراج',
-      'system_invoice_value': '${sysTotalPkgs.toInt()} طرد',
-      'system_packing_value': '${sysTotalPkgs.toInt()} طرد',
-      'uploaded_invoice_value': invData['qty_pkg'] != null ? '${invData['qty_pkg']} طرد' : '—',
-      'uploaded_packing_value': totalPlPkgs != null ? '${totalPlPkgs.toInt()} طرد' : 'لم يتم الاستخراج',
-      'status': totalPlPkgs == null ? 'WARNING' : (pkgsMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': totalPlPkgs == null
-          ? 'تعذر قراءة عدد الطرود من كشف التعبئة'
-          : (pkgsMatched ? 'عدد الطرود متطابق تماماً ($totalPlPkgs طرد)' : 'فارق في عدد الطرود: المستخرج ($totalPlPkgs) مقابل السستم ($sysTotalPkgs)'),
-    });
+    final num? invQtyPkg = asNum(invData['qty_pkg']);
+    addCheck(
+      field: 'total_packages',
+      fieldAr: 'إجمالي عدد الطرود',
+      status: totalPlPkgs == null ? 'WARNING' : (pkgsMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: CodedMeasure(sysTotalPkgs.toInt(), 'PACKAGES', decimals: null),
+      extracted: totalPlPkgs == null
+          ? const CodedPlaceholder('NOT_IN_DOCUMENT')
+          : CodedMeasure(totalPlPkgs.toInt(), 'PACKAGES', decimals: null),
+      uploadedInvoice: invQtyPkg == null
+          ? const CodedPlaceholder('NOT_IN_INVOICE')
+          : CodedMeasure(invQtyPkg, 'PACKAGES', decimals: null),
+      details: totalPlPkgs == null
+          ? unreadable('Could not read the package count from the packing list')
+          : (pkgsMatched
+              ? CodedItemText.coded('details', 'DOC_CHK_PACKAGES_MATCH')
+              : CodedItemText.coded('details', 'DOC_CHK_PACKAGES_VARIANCE', {
+                  'difference_count': (totalPlPkgs - sysTotalPkgs).abs().toInt(),
+                })),
+    );
 
     // Check Gross Weight
     final double? totalPlGross = (plData['total_gross_weight_kg'] as num?)?.toDouble();
     final bool grossMatched = totalPlGross != null && (totalPlGross - sysGrossWt).abs() < 1.0;
-    headerDiscrepancies.add({
-      'field_name': 'gross_weight',
-      'field_name_ar': 'الوزن الإجمالي القائم',
-      'system_value': '${_formatWeight(sysGrossWt)} كجم',
-      'extracted_value': totalPlGross != null ? '${_formatWeight(totalPlGross)} كجم' : 'لم يتم الاستخراج',
-      'system_invoice_value': '${_formatWeight(sysGrossWt)} كجم',
-      'system_packing_value': '${_formatWeight(sysGrossWt)} كجم',
-      'uploaded_invoice_value': invData['total_gross_weight_kg'] != null ? '${invData['total_gross_weight_kg']} كجم' : '—',
-      'uploaded_packing_value': totalPlGross != null ? '${_formatWeight(totalPlGross)} كجم' : 'لم يتم الاستخراج',
-      'status': totalPlGross == null ? 'WARNING' : (grossMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': totalPlGross == null
-          ? 'تعذر قراءة الوزن القائم من كشف التعبئة'
-          : (grossMatched ? 'الوزن القائم متطابق بنجاح' : 'فارق في الوزن القائم: المستخرج ($totalPlGross) مقابل السستم ($sysGrossWt)'),
-    });
+    final num? invGross = asNum(invData['total_gross_weight_kg']);
+    final double grossDiff = totalPlGross == null ? 0 : (totalPlGross - sysGrossWt).abs();
+    addCheck(
+      field: 'gross_weight',
+      fieldAr: 'الوزن الإجمالي القائم',
+      status: totalPlGross == null ? 'WARNING' : (grossMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: CodedMeasure(sysGrossWt, 'KG'),
+      extracted: totalPlGross == null ? const CodedPlaceholder('NOT_IN_DOCUMENT') : CodedMeasure(totalPlGross, 'KG'),
+      uploadedInvoice: invGross == null ? const CodedPlaceholder('NOT_IN_INVOICE') : CodedMeasure(invGross, 'KG'),
+      details: totalPlGross == null
+          ? unreadable('Could not read the gross weight from the packing list')
+          : (grossMatched
+              ? CodedItemText.coded('details', 'DOC_CHK_GROSS_WEIGHT_MATCH')
+              : CodedItemText.coded('details', 'DOC_CHK_GROSS_WEIGHT_VARIANCE', {
+                  'difference_qty': double.parse(grossDiff.toStringAsFixed(2)),
+                  'difference_pct': sysGrossWt > 0 ? double.parse((grossDiff / sysGrossWt * 100).toStringAsFixed(2)) : 0,
+                })),
+    );
 
     // Check Supplier Name
-    final String? extractedSupplier = (invData['supplier_name'] as String?)?.trim().isNotEmpty == true
-        ? invData['supplier_name'] as String
-        : (invData['shipper_name'] as String?)?.trim();
-    final String sysSupplier = linkedPO?.supplierName?.trim() ?? '';
-    final bool supplierMatched = extractedSupplier != null && sysSupplier.isNotEmpty
-        ? extractedSupplier.toLowerCase().contains(sysSupplier.toLowerCase()) ||
-          sysSupplier.toLowerCase().contains(extractedSupplier.toLowerCase())
+    final String? extractedSupplier =
+        nonEmpty(invData['supplier_name'] as String?) ?? nonEmpty(invData['shipper_name'] as String?);
+    final String? sysSupplier = nonEmpty(linkedPO?.supplierName);
+    final bool supplierMatched = extractedSupplier != null && sysSupplier != null
+        ? contains(extractedSupplier, sysSupplier) || contains(sysSupplier, extractedSupplier)
         : true;
-    headerDiscrepancies.add({
-      'field_name': 'supplier_name',
-      'field_name_ar': 'اسم المورد الأجنبي',
-      'system_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
-      'extracted_value': extractedSupplier ?? 'لم يتم الاستخراج',
-      'system_invoice_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
-      'system_packing_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
-      'uploaded_invoice_value': extractedSupplier ?? 'لم يتم الاستخراج',
-      'uploaded_packing_value': (plData['supplier_name'] ?? plData['shipper_name']) as String? ?? '—',
-      'status': extractedSupplier == null ? 'WARNING' : (supplierMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': extractedSupplier == null
-          ? 'تعذر قراءة اسم المورد من المستند'
-          : (supplierMatched ? 'اسم المورد متطابق' : 'اسم المورد المستخرج ($extractedSupplier) يختلف عن المسجل ($sysSupplier)'),
-    });
+    addCheck(
+      field: 'supplier_name',
+      fieldAr: 'اسم المورد الأجنبي',
+      status: extractedSupplier == null ? 'WARNING' : (supplierMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: orPlaceholder(sysSupplier, 'NOT_SET'),
+      extracted: orPlaceholder(extractedSupplier, 'NOT_IN_DOCUMENT'),
+      uploadedPacking:
+          orPlaceholder(nonEmpty((plData['supplier_name'] ?? plData['shipper_name']) as String?), 'NOT_IN_DOCUMENT'),
+      details: extractedSupplier == null
+          ? unreadable('Could not read the supplier name from the document')
+          : CodedItemText.coded(
+              'details',
+              supplierMatched ? 'DOC_CHK_SUPPLIER_MATCH' : 'DOC_CHK_SUPPLIER_MISMATCH',
+              supplierMatched ? const {} : {'document_value': extractedSupplier, 'system_value': sysSupplier}),
+    );
 
     // Check Importer Name
-    final String? extractedImporter = (invData['importer_name'] as String?)?.trim().isNotEmpty == true
-        ? invData['importer_name'] as String
-        : (invData['consignee_name'] as String?)?.trim();
-    final String sysImporter = currentFile?.companyName.trim() ?? '';
-    final bool importerMatched = extractedImporter != null && sysImporter.isNotEmpty
-        ? extractedImporter.toLowerCase().contains(sysImporter.toLowerCase()) ||
-          sysImporter.toLowerCase().contains(extractedImporter.toLowerCase())
+    final String? extractedImporter =
+        nonEmpty(invData['importer_name'] as String?) ?? nonEmpty(invData['consignee_name'] as String?);
+    final String? sysImporter = nonEmpty(currentFile?.companyName);
+    final bool importerMatched = extractedImporter != null && sysImporter != null
+        ? contains(extractedImporter, sysImporter) || contains(sysImporter, extractedImporter)
         : true;
-    headerDiscrepancies.add({
-      'field_name': 'importer_name',
-      'field_name_ar': 'اسم الشركة المستوردة',
-      'system_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
-      'extracted_value': extractedImporter ?? 'لم يتم الاستخراج',
-      'system_invoice_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
-      'system_packing_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
-      'uploaded_invoice_value': extractedImporter ?? 'لم يتم الاستخراج',
-      'uploaded_packing_value': (plData['importer_name'] ?? plData['consignee_name']) as String? ?? '—',
-      'status': extractedImporter == null ? 'WARNING' : (importerMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': extractedImporter == null
-          ? 'تعذر قراءة اسم المستورد من المستند'
-          : (importerMatched ? 'اسم المستورد متطابق' : 'اسم المستورد المستخرج ($extractedImporter) يختلف عن المسجل ($sysImporter)'),
-    });
+    addCheck(
+      field: 'importer_name',
+      fieldAr: 'اسم الشركة المستوردة',
+      status: extractedImporter == null ? 'WARNING' : (importerMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: orPlaceholder(sysImporter, 'NOT_SET'),
+      extracted: orPlaceholder(extractedImporter, 'NOT_IN_DOCUMENT'),
+      uploadedPacking:
+          orPlaceholder(nonEmpty((plData['importer_name'] ?? plData['consignee_name']) as String?), 'NOT_IN_DOCUMENT'),
+      details: extractedImporter == null
+          ? unreadable('Could not read the importer name from the document')
+          : CodedItemText.coded(
+              'details',
+              importerMatched ? 'DOC_CHK_IMPORTER_MATCH' : 'DOC_CHK_IMPORTER_MISMATCH',
+              importerMatched ? const {} : {'document_value': extractedImporter, 'system_value': sysImporter}),
+    );
 
     // Check HS Code
-    final String? extractedHs = (invData['hs_code'] as String?)?.trim().isNotEmpty == true
-        ? invData['hs_code'] as String
-        : null;
-    final String sysHs = _packingItems.isNotEmpty ? (_packingItems.first.hsCode?.trim() ?? '') : '';
-    final bool hsMatched = extractedHs != null && sysHs.isNotEmpty
+    final String? extractedHs = nonEmpty(invData['hs_code'] as String?);
+    final String? sysHs = _packingItems.isNotEmpty ? nonEmpty(_packingItems.first.hsCode) : null;
+    final bool hsMatched = extractedHs != null && sysHs != null
         ? extractedHs.replaceAll('.', '') == sysHs.replaceAll('.', '') ||
-          extractedHs.contains(sysHs) || sysHs.contains(extractedHs)
+            extractedHs.contains(sysHs) ||
+            sysHs.contains(extractedHs)
         : true;
-    headerDiscrepancies.add({
-      'field_name': 'hs_code',
-      'field_name_ar': 'البند الجمركي (HS Code)',
-      'system_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
-      'extracted_value': extractedHs ?? 'لم يتم الاستخراج',
-      'system_invoice_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
-      'system_packing_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
-      'uploaded_invoice_value': extractedHs ?? 'لم يتم الاستخراج',
-      'uploaded_packing_value': (plData['hs_code'] as String?) ?? '—',
-      'status': extractedHs == null ? 'WARNING' : (hsMatched ? 'MATCH' : 'DISCREPANCY'),
-      'message': extractedHs == null
-          ? 'تعذر قراءة البند الجمركي من المستند'
-          : (hsMatched ? 'البند الجمركي متطابق' : 'البند الجمركي المستخرج ($extractedHs) يختلف عن المسجل ($sysHs)'),
-    });
+    addCheck(
+      field: 'hs_code',
+      fieldAr: 'البند الجمركي (HS Code)',
+      status: extractedHs == null ? 'WARNING' : (hsMatched ? 'MATCH' : 'DISCREPANCY'),
+      system: orPlaceholder(sysHs, 'NOT_SET'),
+      extracted: orPlaceholder(extractedHs, 'NOT_IN_DOCUMENT'),
+      uploadedPacking: orPlaceholder(nonEmpty(plData['hs_code'] as String?), 'NOT_IN_DOCUMENT'),
+      details: extractedHs == null
+          ? unreadable('Could not read the HS code from the document')
+          : CodedItemText.coded(
+              'details',
+              hsMatched ? 'DOC_CHK_HS_CODE_MATCH' : 'DOC_CHK_HS_CODE_MISMATCH',
+              hsMatched ? const {} : {'document_value': extractedHs, 'system_value': sysHs}),
+    );
 
     // Reconciled items from loaded system data
     final List<Map<String, dynamic>> reconciledInvItems = _invoiceItems.map((i) => i.toJson()).toList();
@@ -4569,7 +4624,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 DataColumn(label: Text(l.poRecColDetails)),
               ],
               rows: headerDiscrepancies.map((d) {
-                final map = d as Map<String, dynamic>;
+                // Coded details / structured values render in the user's language; legacy rows keep their text.
+                final map = CodedItemText.localizeRow(d as Map, l);
                 final status = map['status'] as String? ?? 'MATCH';
                 final fieldName = map['field_name'] as String? ?? '';
                 final fieldNameAr = map['field_name_ar'] as String? ?? '';

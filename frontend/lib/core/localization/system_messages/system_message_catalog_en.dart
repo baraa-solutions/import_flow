@@ -911,4 +911,205 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'title': 'Technical inspection and shortage & damage reconciliation (TR-04) - {grn_code}',
     'body': 'Reconcile the quantities of GRN {grn_code} with the invoice and record any shortage or damage for {import_file_code}.',
   },
+  'DOC_CHK_ACID_MATCH': {
+    'note': 'ACID number matches exactly',
+  },
+  'DOC_CHK_ACID_MISMATCH': {
+    'note': 'The ACID number in the invoice differs from the ACID number recorded in the system!',
+  },
+  'DOC_CHK_AMOUNT_MATCH': {
+    'note': 'Total amount and currency match exactly',
+  },
+  'DOC_CHK_AMOUNT_VARIANCE': {
+    'note': 'Amount difference: {variance_amount} {currency} ({variance_pct}%)',
+  },
+  'DOC_CHK_CBM_MATCH': {
+    'note': 'Total volume matches',
+  },
+  'DOC_CHK_CBM_VARIANCE': {
+    'note': 'Volume difference: {difference_qty} CBM ({difference_pct}%)',
+  },
+  'DOC_CHK_CURRENCY_MISMATCH': {
+    'note': 'Currency mismatch: system ({system_currency}) vs document ({document_currency})',
+  },
+  'DOC_CHK_GROSS_WEIGHT_MATCH': {
+    'note': 'Gross weight matches',
+  },
+  'DOC_CHK_GROSS_WEIGHT_VARIANCE': {
+    'note': 'Weight difference: {difference_qty} kg ({difference_pct}%)',
+  },
+  'DOC_CHK_HS_CODE_MATCH': {
+    'note': 'HS code matches',
+  },
+  'DOC_CHK_HS_CODE_MISMATCH': {
+    'note': 'Extracted HS code ({document_value}) differs from the record ({system_value})',
+  },
+  'DOC_CHK_IMPORTER_MATCH': {
+    'note': 'Importer name matches',
+  },
+  'DOC_CHK_IMPORTER_MISMATCH': {
+    'note': 'Extracted importer name ({document_value}) differs from the record ({system_value})',
+  },
+  'DOC_CHK_INVOICE_NO_MATCH': {
+    'note': 'Invoice number matches the purchase order and the system',
+  },
+  'DOC_CHK_INVOICE_NO_MISMATCH': {
+    'note': 'Invoice number in the document ({document_value}) differs from the system invoice number ({system_value})!',
+  },
+  'DOC_CHK_NET_WEIGHT_MATCH': {
+    'note': 'Net weight matches',
+  },
+  'DOC_CHK_NET_WEIGHT_VARIANCE': {
+    'note': 'Net weight difference: {difference_qty} kg ({difference_pct}%)',
+  },
+  'DOC_CHK_PACKAGES_MATCH': {
+    'note': 'Number of packages matches',
+  },
+  'DOC_CHK_PACKAGES_VARIANCE': {
+    'note': 'Packages difference: {difference_count} packages',
+  },
+  'DOC_CHK_SUPPLIER_MATCH': {
+    'note': 'Supplier name matches',
+  },
+  'DOC_CHK_SUPPLIER_MISMATCH': {
+    'note': 'Extracted supplier name ({document_value}) differs from the system record ({system_value})',
+  },
+  'DOC_CHK_TAX_ID_MATCH': {
+    'note': 'Tax ID matches',
+  },
+  'DOC_CHK_TAX_ID_MISMATCH': {
+    'note': 'Importer tax ID mismatch.',
+  },
+  'DOC_COO_SIMILARITY': {
+    'note': 'Similarity: {match_pct}%',
+  },
+  'DOC_COO_VALUE_NOT_FOUND': {
+    'note': 'Value not found in the certificate of origin draft',
+  },
+  'DOC_DRAFT_APPROVED_VALUE_MISMATCH': {
+    'note': 'Mismatch! Approved value: \'{system_value}\' | Draft value: \'{draft_value}\'.',
+  },
+  'DOC_DRAFT_FIELD_MISSING': {
+    'note': 'Required field was not extracted or entered in the draft B/L data.',
+  },
+  'DOC_DRAFT_FUZZY_MATCH': {
+    'note': 'Smart match at {match_pct}%.',
+  },
+  'DOC_DRAFT_NUMERIC_MATCH': {
+    'note': 'Numeric match (difference {diff_pct}% within the {tolerance_pct}% tolerance).',
+  },
+  'DOC_DRAFT_NUMERIC_UNVERIFIABLE': {
+    'note': 'Could not verify the value numerically: {draft_value}',
+  },
+  'DOC_DRAFT_NUMERIC_VARIANCE': {
+    'note': 'Difference exceeds the tolerance ({diff_pct}%). System: {system_qty} | Draft: {draft_qty}.',
+  },
+  'DOC_DRAFT_TEXT_MATCH': {
+    'note': 'Exact text match (100%).',
+  },
+  'DOC_DRAFT_VALUE_FROM_DRAFT': {
+    'note': 'Value taken from the draft ({draft_value}).',
+  },
+  'DOC_DRAFT_VALUE_MISMATCH': {
+    'note': 'Mismatch! System value: \'{system_value}\' | Draft value: \'{draft_value}\'.',
+  },
+  'DOC_IBL_ACID_MATCH': {
+    'note': 'Customs ACID number matches 100%',
+  },
+  'DOC_IBL_ACID_MISMATCH': {
+    'note': 'ACID number mismatch blocks customs release and stops the shipment immediately.',
+  },
+  'DOC_IBL_ACID_NOT_EXTRACTED': {
+    'note': 'ACID number was not extracted from the invoice or the B/L.',
+  },
+  'DOC_IBL_CONSIGNEE_MATCH': {
+    'note': 'Importer name matches',
+  },
+  'DOC_IBL_CONSIGNEE_MISMATCH': {
+    'note': 'Importer name differs between the invoice and the B/L.',
+  },
+  'DOC_IBL_CONSIGNEE_NOT_EXTRACTED': {
+    'note': 'Could not extract the importer / consignee name.',
+  },
+  'DOC_IBL_CONTAINERS_MATCH': {
+    'note': 'Container numbers match exactly',
+  },
+  'DOC_IBL_CONTAINERS_MISMATCH': {
+    'note': 'Container numbers in the invoice do not match the B/L.',
+  },
+  'DOC_IBL_GROSS_WEIGHT_EXCEEDS': {
+    'note': 'Gross weight difference exceeds the customs tolerance.',
+  },
+  'DOC_IBL_GROSS_WEIGHT_MATCH': {
+    'note': 'Gross weight matches within the allowed range (<= {tolerance_pct}%)',
+  },
+  'DOC_IBL_INCOTERMS_COHERENT': {
+    'note': 'Incoterm {incoterm} is consistent with the freight payment ({freight_terms})',
+  },
+  'DOC_IBL_NET_WEIGHT_MATCH': {
+    'note': 'Net weight matches',
+  },
+  'DOC_IBL_NET_WEIGHT_VARIANCE': {
+    'note': 'Net weight differs between the invoice and the draft B/L.',
+  },
+  'DOC_IBL_PACKAGES_MATCH': {
+    'note': 'Package and pallet counts match exactly',
+  },
+  'DOC_IBL_PACKAGES_MISMATCH': {
+    'note': 'Package count or packing unit differs (carton vs pallet).',
+  },
+  'DOC_IBL_SEALS_CHECK': {
+    'note': 'Please verify the seal number fixed on the container.',
+  },
+  'DOC_IBL_SEALS_MATCH': {
+    'note': 'Seal numbers match',
+  },
+  'DOC_IBL_SHIPPER_MATCH': {
+    'note': 'Exporter name matches in the invoice and the B/L',
+  },
+  'DOC_IBL_SHIPPER_MISMATCH': {
+    'note': 'Exporter / shipper name differs between the invoice and the B/L.',
+  },
+  'DOC_IBL_SHIPPER_NOT_EXTRACTED': {
+    'note': 'Could not extract the shipper / exporter name.',
+  },
+  'DOC_IBL_TAX_ID_MATCH': {
+    'note': 'Importer tax registration number matches',
+  },
+  'DOC_IBL_TAX_ID_MISMATCH': {
+    'note': 'Tax ID mismatch blocks the Nafeza and Form 4 matching.',
+  },
+  'DOC_IBL_TAX_ID_NOT_EXTRACTED': {
+    'note': 'Importer tax ID was not extracted from the documents.',
+  },
+  'DOC_INSPECTION_MATCH_RATE': {
+    'note': 'Match rate: {match_pct}%',
+  },
+  'DOC_INSPECTION_OPTIONAL_NOT_INCLUDED': {
+    'note': 'Optional field not included in the inspection certificate draft',
+  },
+  'DOC_INSPECTION_VALUE_NOT_FOUND': {
+    'note': 'Value not found in the uploaded inspection certificate draft',
+  },
+  'DOC_TOL_CONTAINERS_EXACT': {
+    'note': '0% (exact container number match)',
+  },
+  'DOC_TOL_EXACT': {
+    'note': '0% (exact match required)',
+  },
+  'DOC_TOL_PACKAGES_EXACT': {
+    'note': '0% (package count match)',
+  },
+  'DOC_TOL_SEAL_MATCH': {
+    'note': 'Seal number match',
+  },
+  'DOC_TOL_SIMILARITY': {
+    'note': 'Similarity: {match_pct}%',
+  },
+  'DOC_TOL_TERMS_COHERENCE': {
+    'note': 'Commercial terms coherence',
+  },
+  'DOC_TOL_WEIGHT_DIFFERENCE': {
+    'note': 'Difference: {difference_qty} kg ({difference_pct}%)',
+  },
 };

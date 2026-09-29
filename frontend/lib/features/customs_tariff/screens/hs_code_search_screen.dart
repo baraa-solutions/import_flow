@@ -107,7 +107,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
       sb.writeln([
         t.hsCode,
         t.hsDescription.replaceAll('\t', ' ').replaceAll('\n', ' '),
-        t.customsCategory ?? '—',
+        t.categoryLabel(l) ?? '—',
         t.customsDutyRate,
         t.vatRate,
         t.scheduleTaxRate,
@@ -182,7 +182,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
         : allTariffs.where((t) {
             final hsClean = t.hsCode.toLowerCase().replaceAll('.', '');
             final desc = t.hsDescription.toLowerCase();
-            final cat = (t.customsCategory ?? '').toLowerCase();
+            final cat = t.categorySearchText;
             final auth = (t.regulatoryAuthority ?? '').toLowerCase();
             final note = (t.priorApprovalNote ?? '').toLowerCase();
             return hsClean.contains(query) ||
@@ -620,7 +620,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         children: [
                           if (tariff.customsCategory != null) ...[
                             Text(
-                              l.hsCategoryPrefix(tariff.customsCategory!),
+                              l.hsCategoryPrefix(tariff.categoryLabel(l) ?? tariff.customsCategory!),
                               style: TextStyle(color: Colors.grey.shade300, fontSize: 11),
                             ),
                             const SizedBox(width: 12),

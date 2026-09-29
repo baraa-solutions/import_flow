@@ -29,6 +29,9 @@ const _typeMap = <String, String>{
   'DB_HEALTH_VERDICT': DomainEnumType.dbHealthVerdict,
   'ALERT_SEVERITY': DomainEnumType.alertSeverity,
   'LANDED_COST_VARIANCE_STATUS': DomainEnumType.landedCostVarianceStatus,
+  'CUSTOMS_CATEGORY': DomainEnumType.customsCategory,
+  'VALUE_PLACEHOLDER': DomainEnumType.valuePlaceholder,
+  'MEASURE_UNIT': DomainEnumType.measureUnit,
 };
 
 /// Backend-only types that the Flutter UI does not pick from a list.

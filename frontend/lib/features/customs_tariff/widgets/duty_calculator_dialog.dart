@@ -1173,8 +1173,8 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                       final hsCodeStr = (m['hs'] as TextEditingController).text.trim();
                                       try {
                                         await ref.read(smartTasksProvider.notifier).createTask({
-                                          'title': 'مهمة إلزامية: يلزم استيفاء شروط الإعفاء للبند [$hsCodeStr] (توفير شهادة المنشأ المطابقة / استيفاء اشتراطات الاتفاقية / المستندات المطلوبة) لتفادي دفع ضريبة الوارد المقررة.',
-                                          'description': 'تم تفعيل خيار استيفاء شروط الإعفاء الجمركي في حاسبة ودراسة الجمارك للبند $hsCodeStr. يلزم استيفاء شروط الاتفاقية وتوفير شهادة المنشأ المطابقة وكافة المستندات المطلوبة لتفادي دفع ضريبة الوارد المقررة.',
+                                          'title': 'Mandatory task: meet the exemption conditions for HS [$hsCodeStr] (matching certificate of origin / agreement requirements / required documents) to avoid the import duty.',
+                                          'description': 'The customs exemption conditions option was enabled in the customs calculator for HS $hsCodeStr. Meet the agreement conditions and provide the matching certificate of origin and all required documents to avoid the import duty.',
                                           'task_type': 'System Generated',
                                           'priority': 'Critical',
                                           'reminder_type': 'Document',

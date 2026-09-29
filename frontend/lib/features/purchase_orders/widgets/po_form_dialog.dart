@@ -196,7 +196,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               if (query.isEmpty) return true;
               return t.hsCode.toLowerCase().contains(query) ||
                   t.hsDescription.toLowerCase().contains(query) ||
-                  (t.customsCategory?.toLowerCase().contains(query) ?? false);
+                  t.categorySearchText.contains(query);
             }).toList();
 
             return AlertDialog(
@@ -265,7 +265,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   subtitle: Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      'الفئة: ${item.customsCategory ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%',
+                                      'الفئة: ${item.categoryLabelArabic ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%',
                                       style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                                     ),
                                   ),

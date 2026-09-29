@@ -38,6 +38,12 @@ class DomainEnumType {
   static const dbHealthVerdict = 'db_health_verdict';
   static const alertSeverity = 'alert_severity';
   static const landedCostVarianceStatus = 'landed_cost_variance_status';
+  /// Tariff `customs_category` (goods classification).
+  static const customsCategory = 'customs_category';
+  /// Comparison-item placeholder standing where a value is missing (`structured_values`).
+  static const valuePlaceholder = 'value_placeholder';
+  /// Unit of a measured comparison value (`structured_values`).
+  static const measureUnit = 'measure_unit';
 }
 
 class DomainEnums {
@@ -250,6 +256,36 @@ class DomainEnums {
       'OVER_BUDGET',
       'UNDER_BUDGET',
     ],
+    DomainEnumType.customsCategory: [
+      'AUTOMOTIVE',
+      'AUTOMOTIVE_SPARE_PARTS',
+      'ELECTRONICS',
+      'FOOD_AGRICULTURAL',
+      'GENERAL_GOODS',
+      'INDUSTRIAL_MACHINERY',
+      'MACHINERY_EQUIPMENT',
+      'PHARMACEUTICALS',
+      'PLASTICS_POLYMERS',
+      'RAW_MATERIALS_METALS',
+      'TELECOMMUNICATIONS',
+      'TEXTILES',
+    ],
+    DomainEnumType.valuePlaceholder: [
+      'NOT_EXTRACTED',
+      'NOT_IN_BL',
+      'NOT_IN_DOCUMENT',
+      'NOT_IN_INVOICE',
+      'NOT_IN_PACKING_LIST',
+      'NOT_SET',
+      'NOT_SPECIFIED',
+      'OPTIONAL_NOT_INCLUDED',
+    ],
+    DomainEnumType.measureUnit: [
+      'CBM',
+      'KG',
+      'PACKAGES',
+      'PACKAGES_PALLETS',
+    ],
   };
 
   /// Labels written by older clients (and by older backend defaults/seeds),
@@ -460,6 +496,41 @@ class DomainEnums {
       'المرحلة الخامسة: عمليات الميناء والتخليص الجمركي': 'PHASE_5',
       'المرحلة الرابعة: التوثيق الرقمي والاعتماد البنكي': 'PHASE_4',
       'المرحلة السادسة: الاستلام المخزني والتسوية المالية': 'PHASE_6',
+    },
+    DomainEnumType.customsCategory: {
+      'General': 'GENERAL_GOODS',
+      'آلات وأجهزة وتجهيزات': 'MACHINERY_EQUIPMENT',
+      'أصناف عامة': 'GENERAL_GOODS',
+    },
+    DomainEnumType.valuePlaceholder: {
+      'اختياري / غير مدرج': 'OPTIONAL_NOT_INCLUDED',
+      'غير متوفر': 'NOT_IN_DOCUMENT',
+      'غير متوفر بالباكينج': 'NOT_IN_PACKING_LIST',
+      'غير متوفر بالبوليصة': 'NOT_IN_BL',
+      'غير متوفر بالسستم': 'NOT_SET',
+      'غير متوفر بالفاتورة': 'NOT_IN_INVOICE',
+      'غير متوفر بالمستند': 'NOT_IN_DOCUMENT',
+      'غير محدد': 'NOT_SPECIFIED',
+      'غير محدد بالباكينج': 'NOT_IN_PACKING_LIST',
+      'غير محدد بالبوليصة': 'NOT_IN_BL',
+      'غير محدد بالسستم': 'NOT_SET',
+      'غير محدد بالفاتورة': 'NOT_IN_INVOICE',
+      'غير مذكور بالفاتورة': 'NOT_IN_INVOICE',
+      'غير مسجل': 'NOT_SET',
+      'غير مسجل بالباكينج': 'NOT_IN_PACKING_LIST',
+      'غير مسجل بالسستم': 'NOT_SET',
+      'غير موجود بالباكينج': 'NOT_IN_PACKING_LIST',
+      'غير موجود بالبوليصة': 'NOT_IN_BL',
+      'غير موجود بالفاتورة': 'NOT_IN_INVOICE',
+      'لم يتم الاستخراج': 'NOT_EXTRACTED',
+      '— (غير مدرج بالباكينج)': 'NOT_IN_PACKING_LIST',
+      '— (غير مدرج بالفاتورة)': 'NOT_IN_INVOICE',
+    },
+    DomainEnumType.measureUnit: {
+      'طرد': 'PACKAGES',
+      'طرد/بالتة': 'PACKAGES_PALLETS',
+      'كجم': 'KG',
+      'م³': 'CBM',
     },
   };
 

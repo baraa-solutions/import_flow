@@ -33,7 +33,8 @@ from modules.import_documentation.validators import (
 )
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
-from modules.common.system_messages import msg, render_en
+from modules.common.system_messages import coded_text, msg, render_en
+from modules.common.enum_codes import Placeholder, finalize_structured_values
 from modules.common.file_tracking import set_file_tracking
 
 
@@ -1466,6 +1467,15 @@ def parse_draft_bl_raw_text(raw_text: str, spatial_boxes: Optional[dict] = None)
 
 
 
+def _drop_stale_reason_code(item_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """A checklist reason edited by the user no longer matches its system message: keep the text, drop the code."""
+    code = item_dict.get("reason_code")
+    if code and item_dict.get("reason") != render_en(code, item_dict.get("reason_params"), "note"):
+        item_dict["reason_code"] = None
+        item_dict["reason_params"] = None
+    return item_dict
+
+
 def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> dict:
     sys_data = _build_system_bl_snapshot(db, request.import_file_id)
     draft_fields = dict(request.draft_fields or {})
@@ -1523,14 +1533,14 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             match_status = "MISSING_IN_DRAFT"
             is_explicitly_empty = key in draft_fields and draft_fields[key] == ""
             severity = "BLOCKING" if (is_critical and is_explicitly_empty) else "WARNING"
-            details = "الحقل مطلوب ولم يتم استخراجه أو إدخاله في بيانات درافت البوليصة."
+            details_fields = coded_text("details", "DOC_DRAFT_FIELD_MISSING")
             if is_critical and is_explicitly_empty:
                 blocking_reasons.append(f"حقل حرج فارغ: {label_ar}")
             tolerance_pct = 0.0
         elif sys_val is None or str(sys_val).strip() == "":
             match_status = "MATCH"
             severity = "NONE"
-            details = f"تم استخراج القيمة من الدرافت ({draft_val})."
+            details_fields = coded_text("details", "DOC_DRAFT_VALUE_FROM_DRAFT", draft_value=draft_val)
             tolerance_pct = 0.0
         elif match_type == "fuzzy":
             matched, ratio = _fuzzy_match(sys_val, draft_val, threshold=0.85)
@@ -1538,11 +1548,13 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             if matched:
                 match_status = "MATCH"
                 severity = "NONE"
-                details = f"مطابقة ذكية ممتازة بنسبة {round(ratio * 100, 1)}%."
+                details_fields = coded_text("details", "DOC_DRAFT_FUZZY_MATCH", match_pct=round(ratio * 100, 1))
             else:
                 match_status = "MISMATCH_CRITICAL" if is_critical else "MISMATCH_MINOR"
                 severity = "BLOCKING" if is_critical else "WARNING"
-                details = f"عدم تطابق! قيمة النظام: '{sys_val}' | قيمة الدرافت: '{draft_val}'."
+                details_fields = coded_text(
+                    "details", "DOC_DRAFT_VALUE_MISMATCH", system_value=sys_val, draft_value=draft_val
+                )
                 if is_critical:
                     blocking_reasons.append(f"اختلاف حرج في {label_ar}")
         elif match_type == "numeric_05":
@@ -1555,26 +1567,32 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
                 if pct <= 0.5:
                     match_status = "MATCH"
                     severity = "NONE"
-                    details = f"مطابقة رقمية ممتازة (فرق {tolerance_pct}% ضمن نسبة السماح 0.5%)."
+                    details_fields = coded_text(
+                        "details", "DOC_DRAFT_NUMERIC_MATCH", diff_pct=tolerance_pct, tolerance_pct=0.5
+                    )
                 else:
                     match_status = "MISMATCH_MINOR"
                     severity = "WARNING"
-                    details = f"فرق أوزان يتجاوز نسبة السماح ({tolerance_pct}%). النظام: {s_num} | الدرافت: {d_num}."
+                    details_fields = coded_text(
+                        "details", "DOC_DRAFT_NUMERIC_VARIANCE", diff_pct=tolerance_pct, system_qty=s_num, draft_qty=d_num
+                    )
             except Exception:
                 match_status = "MISMATCH_MINOR"
                 severity = "WARNING"
-                details = f"تعذر التحقق الرقمي من القيمة: {draft_val}"
+                details_fields = coded_text("details", "DOC_DRAFT_NUMERIC_UNVERIFIABLE", draft_value=draft_val)
         else: # text
             s_clean = str(sys_val).strip().upper()
             d_clean = str(draft_val).strip().upper()
             if s_clean == d_clean:
                 match_status = "MATCH"
                 severity = "NONE"
-                details = "مطابقة نصية تامة 100%."
+                details_fields = coded_text("details", "DOC_DRAFT_TEXT_MATCH")
             else:
                 match_status = "MISMATCH_CRITICAL" if is_critical else "MISMATCH_MINOR"
                 severity = "BLOCKING" if is_critical else "WARNING"
-                details = f"عدم تطابق! القيمة المعتمدة: '{sys_val}' | قيمة المسودة: '{draft_val}'."
+                details_fields = coded_text(
+                    "details", "DOC_DRAFT_APPROVED_VALUE_MISMATCH", system_value=sys_val, draft_value=draft_val
+                )
                 if is_critical:
                     blocking_reasons.append(f"اختلاف حرج في {label_ar}")
 
@@ -1588,7 +1606,7 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             "match_status": match_status,
             "severity": severity,
             "tolerance_pct": tolerance_pct,
-            "details": details,
+            **details_fields,
         })
 
         is_match = (match_status == "MATCH")
@@ -1601,7 +1619,9 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             "draft_value": draft_val,
             "status": "Correct" if is_match else ("Missing" if (draft_val is None or str(draft_val).strip() == "") else "Incorrect"),
             "required_correction": f"Enter {label_en} (expected: {sys_val})" if (draft_val is None or str(draft_val).strip() == "") else f"Correct {label_en} to: {sys_val}",
-            "reason": details if not is_match else None,
+            "reason": details_fields["details"] if not is_match else None,
+            "reason_code": details_fields["details_code"] if not is_match else None,
+            "reason_params": details_fields["details_params"] if not is_match else None,
             "notes": None,
             "responsible_party": resp_default,
             "is_locked": False,
@@ -1833,6 +1853,8 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         open_count = 0
         for item in schema.checklist_data:
             item_dict = item.model_dump() if hasattr(item, "model_dump") else (item.dict() if hasattr(item, "dict") else item)
+            if isinstance(item_dict, dict):
+                _drop_stale_reason_code(item_dict)
             status_val = item_dict.get("status", "Correct")
             if status_val == "Incorrect":
                 open_count += 1
@@ -1961,7 +1983,7 @@ def update_draft_bl_checklist_service(db: Session, review_id: int, checklist_ite
     open_count = 0
 
     for item in checklist_items:
-        item_dict = item.model_dump()
+        item_dict = _drop_stale_reason_code(item.model_dump())
         if item.status == "Incorrect":
             if not item.required_correction or not item.reason:
                 raise HTTPException(
@@ -2250,15 +2272,15 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
                 has_discrepancies = True
                 if is_critical:
                     has_critical = True
-                matrix.append({
+                matrix.append(finalize_structured_values({
                     "field_key": key,
                     "field_label_ar": label_ar,
                     "system_value": sys_val,
-                    "draft_value": "لم يتم الاستخراج",
+                    "draft_value": Placeholder("NOT_EXTRACTED"),
                     "match_status": match_status,
                     "severity": severity,
-                    "details": "لم يتم العثور على القيمة في مسودة شهادة المنشأ",
-                })
+                    **coded_text("details", "DOC_COO_VALUE_NOT_FOUND"),
+                }))
                 continue
         elif key == "exporter_reg_id":
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
@@ -2299,7 +2321,7 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
             "draft_value": displayed_draft_val,
             "match_status": match_status,
             "severity": severity,
-            "details": f"نسبة التشابه: {round(ratio * 100, 1)}%",
+            **coded_text("details", "DOC_COO_SIMILARITY", match_pct=round(ratio * 100, 1)),
         })
 
     status_calc = "Verified" if not has_discrepancies else ("Discrepancy_Accepted" if not has_critical else "Correction Requested")
@@ -2465,15 +2487,15 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         # Smart Field Matching
         if drf_val is None or not str(drf_val).strip():
             if not is_critical:
-                matrix.append({
+                matrix.append(finalize_structured_values({
                     "field_key": key,
                     "field_label_ar": label_ar,
                     "system_value": sys_val,
-                    "draft_value": "اختياري / غير مدرج",
+                    "draft_value": Placeholder("OPTIONAL_NOT_INCLUDED"),
                     "match_status": "MATCH",
                     "severity": "NONE",
-                    "details": "حقل غير إلزامي لم يتم تضمينه في مسودة الفحص",
-                })
+                    **coded_text("details", "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED"),
+                }))
                 continue
             matched = False
             ratio = 0.0
@@ -2481,15 +2503,15 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
             severity = "BLOCKING"
             has_discrepancies = True
             has_critical = True
-            matrix.append({
+            matrix.append(finalize_structured_values({
                 "field_key": key,
                 "field_label_ar": label_ar,
                 "system_value": sys_val,
-                "draft_value": "لم يتم الاستخراج",
+                "draft_value": Placeholder("NOT_EXTRACTED"),
                 "match_status": match_status,
                 "severity": severity,
-                "details": "لم يتم العثور على القيمة في مسودة شهادة الفحص المرفوعة",
-            })
+                **coded_text("details", "DOC_INSPECTION_VALUE_NOT_FOUND"),
+            }))
             continue
         elif key == "regulatory_authority":
             sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
@@ -2547,7 +2569,7 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
             "draft_value": drf_val,
             "match_status": match_status,
             "severity": severity,
-            "details": f"نسبة التطابق: {round(ratio * 100, 1)}%",
+            **coded_text("details", "DOC_INSPECTION_MATCH_RATE", match_pct=round(ratio * 100, 1)),
         })
 
     status_calc = "Verified" if not has_discrepancies else ("Discrepancy_Accepted" if not has_critical else "Correction Requested")
@@ -4503,7 +4525,7 @@ def extract_and_compare_po_documents_service(
                         system_items.append({
                             "po_item_id": itm.item_id,
                             "item_code": itm.item_code or str(itm.item_id),
-                            "description": itm.description_ar or itm.description_en or itm.main_description or "بند أمر الشراء",
+                            "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
                             "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
                             "package_type": pkg_type,
                             "initial_quantity": float(itm.quantity),
@@ -4539,7 +4561,7 @@ def extract_and_compare_po_documents_service(
             system_items.append({
                 "po_item_id": idx,
                 "item_code": itm.get("item_code", f"ITEM-{idx}"),
-                "description": itm.get("description", f"بند {idx}"),
+                "description": itm.get("description", f"Item {idx}"),
                 "hs_code": itm.get("hs_code", ""),
                 "package_type": "Package",
                 "initial_quantity": itm.get("quantity", 1.0),

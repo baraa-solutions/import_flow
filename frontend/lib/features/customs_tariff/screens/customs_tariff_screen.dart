@@ -275,7 +275,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       : tariffs.where((t) {
                           final hsClean = t.hsCode.toLowerCase().replaceAll('.', '');
                           final desc = t.hsDescription.toLowerCase();
-                          final cat = (t.customsCategory ?? '').toLowerCase();
+                          final cat = t.categorySearchText;
                           final auth = (t.regulatoryAuthority ?? '').toLowerCase();
                           final note = (t.priorApprovalNote ?? '').toLowerCase();
                           return hsClean.contains(query) ||
@@ -314,7 +314,17 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 }
 
   Color _getCategoryColor(String? category) {
+    // CUSTOMS_CATEGORY codes first, then the older free-text names.
     switch (category) {
+      case 'ELECTRONICS':
+        return AppTheme.cobalt;
+      case 'AUTOMOTIVE':
+      case 'AUTOMOTIVE_SPARE_PARTS':
+        return AppTheme.orange;
+      case 'PHARMACEUTICALS':
+        return AppTheme.emerald;
+      case 'FOOD_AGRICULTURAL':
+        return const Color(0xFF27AE60);
       case 'Electronics':
         return AppTheme.cobalt;
       case 'Automotive':
@@ -561,7 +571,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Category
                         _cell(
-                          value: tariff.customsCategory ?? '—',
+                          value: tariff.categoryLabel(l10n) ?? '—',
                           rowSummary: rowSummary,
                           child: tariff.customsCategory != null
                               ? Container(
@@ -572,7 +582,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Text(
-                                    tariff.customsCategory!,
+                                    tariff.categoryLabel(l10n) ?? tariff.customsCategory!,
                                     style: TextStyle(
                                       color: catColor,
                                       fontWeight: FontWeight.bold,
@@ -745,7 +755,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
       return [
         t.hsCode,
         t.hsDescription,
-        t.customsCategory ?? '',
+        t.categoryLabel(l10n) ?? '',
         '${t.customsDutyRate}%',
         '${t.vatRate}%',
         '${t.scheduleTaxRate}%',
@@ -769,7 +779,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     b.writeln('${l10n.tariffCodeBadgeLabel}${t.hsCode}');
     b.writeln('${l10n.tariffTsvHeaderDescription}: ${t.hsDescription}');
     if (t.customsCategory != null && t.customsCategory!.isNotEmpty) {
-      b.writeln('${l10n.tariffTsvHeaderCategory}: ${t.customsCategory}');
+      b.writeln('${l10n.tariffTsvHeaderCategory}: ${t.categoryLabel(l10n)}');
     }
     b.writeln('${l10n.taxRatesBreakdownSection}:');
     b.writeln('  • ${l10n.tariffTsvHeaderDutyRate}: ${t.customsDutyRate}%');

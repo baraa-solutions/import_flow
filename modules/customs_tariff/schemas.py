@@ -4,6 +4,15 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from modules.common import enum_codes
+
+
+def normalize_customs_category(value: Optional[str]) -> Optional[str]:
+    """CUSTOMS_CATEGORY enum code for a known label; unknown free text is kept (trimmed)."""
+    if value is None:
+        return None
+    return enum_codes.normalize(enum_codes.CUSTOMS_CATEGORY, value.strip())
+
 
 # ==================================================
 # Customs Tariff Schemas (MD-008)
@@ -47,6 +56,12 @@ class CustomsTariffCreate(BaseModel):
         """Normalize HS Code — trim whitespace, keep as-is (dots are valid in HS codes)."""
         return v.strip()
 
+    @field_validator("customs_category")
+    @classmethod
+    def normalize_customs_category(cls, v: Optional[str]) -> Optional[str]:
+        """Store the CUSTOMS_CATEGORY code (legacy Arabic / English labels are mapped; free text passes through)."""
+        return normalize_customs_category(v)
+
     @model_validator(mode="after")
     def validate_effective_dates(self) -> "CustomsTariffCreate":
         if self.effective_to and self.effective_from:
@@ -80,6 +95,11 @@ class CustomsTariffUpdate(BaseModel):
     verified_by: Optional[str] = None
     confidence: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("customs_category")
+    @classmethod
+    def normalize_customs_category(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_customs_category(v)
 
     @model_validator(mode="after")
     def validate_effective_dates(self) -> "CustomsTariffUpdate":

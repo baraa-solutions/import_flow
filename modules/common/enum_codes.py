@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -43,6 +44,9 @@ WAREHOUSE_INSPECTION_VERDICT = "WAREHOUSE_INSPECTION_VERDICT"
 DB_HEALTH_VERDICT = "DB_HEALTH_VERDICT"
 ALERT_SEVERITY = "ALERT_SEVERITY"
 LANDED_COST_VARIANCE_STATUS = "LANDED_COST_VARIANCE_STATUS"
+CUSTOMS_CATEGORY = "CUSTOMS_CATEGORY"
+VALUE_PLACEHOLDER = "VALUE_PLACEHOLDER"
+MEASURE_UNIT = "MEASURE_UNIT"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -266,6 +270,39 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "ON_BUDGET": "On budget",
         "OVER_BUDGET": "Over budget",
     },
+    # customs_tariff.customs_category (free text before; unknown values still pass through)
+    CUSTOMS_CATEGORY: {
+        "MACHINERY_EQUIPMENT": "Machinery, appliances & equipment",
+        "GENERAL_GOODS": "General goods",
+        "ELECTRONICS": "Electronics",
+        "AUTOMOTIVE": "Automotive",
+        "AUTOMOTIVE_SPARE_PARTS": "Automotive Spare Parts",
+        "TELECOMMUNICATIONS": "Telecommunications",
+        "INDUSTRIAL_MACHINERY": "Industrial Machinery",
+        "TEXTILES": "Textiles",
+        "RAW_MATERIALS_METALS": "Raw Materials & Metals",
+        "PHARMACEUTICALS": "Pharmaceuticals",
+        "FOOD_AGRICULTURAL": "Food & Agricultural",
+        "PLASTICS_POLYMERS": "Plastics & Polymers",
+    },
+    # Placeholder shown instead of a value in document comparison items (structured_values[].placeholder)
+    VALUE_PLACEHOLDER: {
+        "NOT_SET": "Not set in the system",
+        "NOT_IN_DOCUMENT": "Not found in the document",
+        "NOT_IN_INVOICE": "Not stated in the invoice",
+        "NOT_IN_PACKING_LIST": "Not included in the packing list",
+        "NOT_EXTRACTED": "Not extracted",
+        "OPTIONAL_NOT_INCLUDED": "Optional / not included",
+        "NOT_IN_BL": "Not found in the B/L",
+        "NOT_SPECIFIED": "Not specified",
+    },
+    # Unit of a numeric value in document comparison items (structured_values[].unit)
+    MEASURE_UNIT: {
+        "PACKAGES": "packages",
+        "KG": "kg",
+        "CBM": "CBM",
+        "PACKAGES_PALLETS": "packages/pallets",
+    },
 }
 
 # Legacy labels exactly as older clients / defaults sent them -> code.
@@ -440,6 +477,41 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "ساحة الفحص بالميناء الجاف بمدينة العاشر من رمضان": "TENTH_RAMADAN_DRY_PORT",
         "قرية البضائع - مطار القاهرة الدولي": "CAIRO_AIRPORT_CARGO",
         "ساحة الفحص المشترك - ميناء الأدبية بالسويس": "ADABIYA",
+    },
+    CUSTOMS_CATEGORY: {
+        "آلات وأجهزة وتجهيزات": "MACHINERY_EQUIPMENT",
+        "أصناف عامة": "GENERAL_GOODS",
+        "General": "GENERAL_GOODS",
+    },
+    VALUE_PLACEHOLDER: {
+        "غير مسجل بالسستم": "NOT_SET",
+        "غير محدد بالسستم": "NOT_SET",
+        "غير مسجل": "NOT_SET",
+        "غير متوفر بالسستم": "NOT_SET",
+        "غير متوفر بالمستند": "NOT_IN_DOCUMENT",
+        "غير متوفر": "NOT_IN_DOCUMENT",
+        "غير مذكور بالفاتورة": "NOT_IN_INVOICE",
+        "— (غير مدرج بالفاتورة)": "NOT_IN_INVOICE",
+        "غير موجود بالفاتورة": "NOT_IN_INVOICE",
+        "غير متوفر بالفاتورة": "NOT_IN_INVOICE",
+        "غير محدد بالفاتورة": "NOT_IN_INVOICE",
+        "غير موجود بالباكينج": "NOT_IN_PACKING_LIST",
+        "غير متوفر بالباكينج": "NOT_IN_PACKING_LIST",
+        "غير محدد بالباكينج": "NOT_IN_PACKING_LIST",
+        "غير مسجل بالباكينج": "NOT_IN_PACKING_LIST",
+        "غير موجود بالبوليصة": "NOT_IN_BL",
+        "غير متوفر بالبوليصة": "NOT_IN_BL",
+        "غير محدد بالبوليصة": "NOT_IN_BL",
+        "غير محدد": "NOT_SPECIFIED",
+        "— (غير مدرج بالباكينج)": "NOT_IN_PACKING_LIST",
+        "لم يتم الاستخراج": "NOT_EXTRACTED",
+        "اختياري / غير مدرج": "OPTIONAL_NOT_INCLUDED",
+    },
+    MEASURE_UNIT: {
+        "طرد": "PACKAGES",
+        "كجم": "KG",
+        "م³": "CBM",
+        "طرد/بالتة": "PACKAGES_PALLETS",
     },
 }
 
@@ -649,6 +721,62 @@ def parse_stage_reference(value: Optional[str]) -> Tuple[Optional[int], Optional
 
 def contains_arabic(value: Optional[str]) -> bool:
     return bool(value) and bool(_ARABIC_RE.search(value))
+
+
+# ── Structured values of document comparison items (single-language storage) ──
+@dataclass(frozen=True)
+class Placeholder:
+    """A VALUE_PLACEHOLDER code standing where a comparison item has no value."""
+    code: str
+
+
+@dataclass(frozen=True)
+class Measure:
+    """A number with a MEASURE_UNIT code (``decimals=None``: integers stay integers)."""
+    number: Any
+    unit: str
+    decimals: Optional[int] = 2
+
+
+def _as_number(value: Any) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def finalize_structured_values(item: Dict[str, Any]) -> Dict[str, Any]:
+    """Replace ``Placeholder`` / ``Measure`` values of a JSON payload item by their English text and record
+    the structure under ``item["structured_values"][key]``:
+    ``{"placeholder": CODE}`` or ``{"number": n, "unit": CODE}``. Plain values are left untouched."""
+    structured: Dict[str, Dict[str, Any]] = dict(item.get("structured_values") or {})
+    for key, value in list(item.items()):
+        if isinstance(value, Placeholder):
+            if value.code not in LABELS_EN[VALUE_PLACEHOLDER]:
+                raise KeyError(f"unknown {VALUE_PLACEHOLDER} code {value.code}")
+            item[key] = LABELS_EN[VALUE_PLACEHOLDER][value.code]
+            structured[key] = {"placeholder": value.code}
+        elif isinstance(value, Measure):
+            if value.unit not in LABELS_EN[MEASURE_UNIT]:
+                raise KeyError(f"unknown {MEASURE_UNIT} code {value.unit}")
+            unit_label = LABELS_EN[MEASURE_UNIT][value.unit]
+            number = _as_number(value.number)
+            if number is None:
+                item[key] = f"{value.number} {unit_label}"
+                structured[key] = {"number": None, "raw": str(value.number), "unit": value.unit}
+                continue
+            if value.decimals is None:
+                shown: Any = int(number) if number.is_integer() else number
+                item[key] = f"{shown} {unit_label}"
+            else:
+                shown = round(number, value.decimals)
+                item[key] = f"{number:,.{value.decimals}f} {unit_label}"
+            structured[key] = {"number": shown, "unit": value.unit}
+    if structured:
+        item["structured_values"] = structured
+    return item
 
 
 # ── Flutter contract: docs/enum_codes.json ──

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
@@ -993,7 +994,10 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       );
     }
 
-    final matrix = _comparisonResult!['comparison_matrix'] as List<dynamic>? ?? [];
+    final rawMatrix = _comparisonResult!['comparison_matrix'] as List<dynamic>?;
+    final matrix = CodedItemText.localizeRows(rawMatrix, l10n);
+    // Exports (CSV / TSV / PDF / clipboard) carry no bidi isolates.
+    final exportMatrix = CodedItemText.localizeRows(rawMatrix, l10n, forExport: true);
     final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
     final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
 
@@ -1048,7 +1052,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           certType: _inspType,
                           acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
-                          comparisonMatrix: matrix,
+                          comparisonMatrix: exportMatrix,
                         );
                       },
                     ),
@@ -1078,7 +1082,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           certType: _inspType,
                           acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
-                          comparisonMatrix: matrix,
+                          comparisonMatrix: exportMatrix,
                         );
                       },
                     ),
@@ -1108,7 +1112,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           certType: _inspType,
                           acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
-                          comparisonMatrix: matrix,
+                          comparisonMatrix: exportMatrix,
                         );
                       },
                     ),
@@ -1138,7 +1142,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           certType: _inspType,
                           acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
-                          comparisonMatrix: matrix,
+                          comparisonMatrix: exportMatrix,
                           overrideReason: _overrideReasonCtrl.text.trim().isNotEmpty ? _overrideReasonCtrl.text.trim() : null,
                         );
                       },
@@ -1578,7 +1582,7 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
                     Text(l10n.sectionInspDiscrepancyMatrix, style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     ...r.comparisonMatrix.map((m) {
-                      final item = m is Map ? m : {};
+                      final item = m is Map ? CodedItemText.localizeRow(m, l10n) : {};
                       final rowText = '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]';
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 3),

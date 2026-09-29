@@ -178,7 +178,7 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
     tariff = CustomsTariffCreate(
         hs_code=hs_code,
         hs_description=hs_desc,
-        customs_category="آلات وأجهزة وتجهيزات" if "آلات" in hs_desc or "أجهزة" in hs_desc or "تكييف" in hs_desc else "أصناف عامة",
+        customs_category="MACHINERY_EQUIPMENT" if "آلات" in hs_desc or "أجهزة" in hs_desc or "تكييف" in hs_desc else "GENERAL_GOODS",
         customs_duty_rate=customs_duty_rate,
         vat_rate=vat_rate,
         schedule_tax_rate=schedule_tax_rate,

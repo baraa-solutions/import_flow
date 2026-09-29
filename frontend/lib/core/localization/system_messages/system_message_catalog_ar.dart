@@ -911,4 +911,205 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'title': 'الفحص الفني ومطابقة العجز والتلف (TR-04) — {grn_code}',
     'body': 'مطابقة كميات إذن الإضافة {grn_code} مع الفاتورة وتسجيل أي عجز أو تلف للشحنة {import_file_code}.',
   },
+  'DOC_CHK_ACID_MATCH': {
+    'note': 'رقم ACID مطابق تماماً',
+  },
+  'DOC_CHK_ACID_MISMATCH': {
+    'note': 'رقم ACID في الفاتورة يختلف عن رقم ACID المسجل بالسستم!',
+  },
+  'DOC_CHK_AMOUNT_MATCH': {
+    'note': 'القيمة الإجمالية والعملة متطابقة تماماً',
+  },
+  'DOC_CHK_AMOUNT_VARIANCE': {
+    'note': 'فارق القيمة: {variance_amount} {currency} ({variance_pct}%)',
+  },
+  'DOC_CHK_CBM_MATCH': {
+    'note': 'الحجم الإجمالي متطابق',
+  },
+  'DOC_CHK_CBM_VARIANCE': {
+    'note': 'فارق الحجم: {difference_qty} م³ ({difference_pct}%)',
+  },
+  'DOC_CHK_CURRENCY_MISMATCH': {
+    'note': 'اختلاف في العملة: مسجل بالسستم ({system_currency}) والمستخرج بالمستند ({document_currency})',
+  },
+  'DOC_CHK_GROSS_WEIGHT_MATCH': {
+    'note': 'الوزن القائم متطابق',
+  },
+  'DOC_CHK_GROSS_WEIGHT_VARIANCE': {
+    'note': 'فارق الوزن: {difference_qty} كجم ({difference_pct}%)',
+  },
+  'DOC_CHK_HS_CODE_MATCH': {
+    'note': 'البند الجمركي مطابق',
+  },
+  'DOC_CHK_HS_CODE_MISMATCH': {
+    'note': 'البند الجمركي المستخرج ({document_value}) يختلف عن المسجل ({system_value})',
+  },
+  'DOC_CHK_IMPORTER_MATCH': {
+    'note': 'اسم المستورد مطابق',
+  },
+  'DOC_CHK_IMPORTER_MISMATCH': {
+    'note': 'اسم المستورد المستخرج ({document_value}) يختلف عن المسجل ({system_value})',
+  },
+  'DOC_CHK_INVOICE_NO_MATCH': {
+    'note': 'رقم الفاتورة مطابق تماماً لأمر الشراء والمنظومة',
+  },
+  'DOC_CHK_INVOICE_NO_MISMATCH': {
+    'note': 'رقم الفاتورة بالمستند ({document_value}) يختلف عن رقم الفاتورة بالسستم ({system_value})!',
+  },
+  'DOC_CHK_NET_WEIGHT_MATCH': {
+    'note': 'الوزن الصافي متطابق',
+  },
+  'DOC_CHK_NET_WEIGHT_VARIANCE': {
+    'note': 'فارق الوزن الصافي: {difference_qty} كجم ({difference_pct}%)',
+  },
+  'DOC_CHK_PACKAGES_MATCH': {
+    'note': 'عدد الطرود متطابق',
+  },
+  'DOC_CHK_PACKAGES_VARIANCE': {
+    'note': 'فارق عدد الطرود: {difference_count} طرد',
+  },
+  'DOC_CHK_SUPPLIER_MATCH': {
+    'note': 'اسم المورد مطابق',
+  },
+  'DOC_CHK_SUPPLIER_MISMATCH': {
+    'note': 'اسم المورد المستخرج ({document_value}) يختلف عن المسجل بالسستم ({system_value})',
+  },
+  'DOC_CHK_TAX_ID_MATCH': {
+    'note': 'الرقم الضريبي مطابق',
+  },
+  'DOC_CHK_TAX_ID_MISMATCH': {
+    'note': 'اختلاف في الرقم الضريبي للمستورد.',
+  },
+  'DOC_COO_SIMILARITY': {
+    'note': 'نسبة التشابه: {match_pct}%',
+  },
+  'DOC_COO_VALUE_NOT_FOUND': {
+    'note': 'لم يتم العثور على القيمة في مسودة شهادة المنشأ',
+  },
+  'DOC_DRAFT_APPROVED_VALUE_MISMATCH': {
+    'note': 'عدم تطابق! القيمة المعتمدة: \'{system_value}\' | قيمة المسودة: \'{draft_value}\'.',
+  },
+  'DOC_DRAFT_FIELD_MISSING': {
+    'note': 'الحقل مطلوب ولم يتم استخراجه أو إدخاله في بيانات درافت البوليصة.',
+  },
+  'DOC_DRAFT_FUZZY_MATCH': {
+    'note': 'مطابقة ذكية ممتازة بنسبة {match_pct}%.',
+  },
+  'DOC_DRAFT_NUMERIC_MATCH': {
+    'note': 'مطابقة رقمية ممتازة (فرق {diff_pct}% ضمن نسبة السماح {tolerance_pct}%).',
+  },
+  'DOC_DRAFT_NUMERIC_UNVERIFIABLE': {
+    'note': 'تعذر التحقق الرقمي من القيمة: {draft_value}',
+  },
+  'DOC_DRAFT_NUMERIC_VARIANCE': {
+    'note': 'فرق أوزان يتجاوز نسبة السماح ({diff_pct}%). النظام: {system_qty} | الدرافت: {draft_qty}.',
+  },
+  'DOC_DRAFT_TEXT_MATCH': {
+    'note': 'مطابقة نصية تامة 100%.',
+  },
+  'DOC_DRAFT_VALUE_FROM_DRAFT': {
+    'note': 'تم استخراج القيمة من الدرافت ({draft_value}).',
+  },
+  'DOC_DRAFT_VALUE_MISMATCH': {
+    'note': 'عدم تطابق! قيمة النظام: \'{system_value}\' | قيمة الدرافت: \'{draft_value}\'.',
+  },
+  'DOC_IBL_ACID_MATCH': {
+    'note': 'رقم ACID الجمركي مطابق بنسبة 100%',
+  },
+  'DOC_IBL_ACID_MISMATCH': {
+    'note': 'عدم تطابق رقم ACID يمنع الإفراج الجمركي ويوقف الشحنة فوراً.',
+  },
+  'DOC_IBL_ACID_NOT_EXTRACTED': {
+    'note': 'لم يتم استخراج رقم ACID من الفاتورة أو البوليصة.',
+  },
+  'DOC_IBL_CONSIGNEE_MATCH': {
+    'note': 'اسم المستورد متطابق قانونياً',
+  },
+  'DOC_IBL_CONSIGNEE_MISMATCH': {
+    'note': 'اسم المستورد غير متطابق بين الفاتورة والبوليصة.',
+  },
+  'DOC_IBL_CONSIGNEE_NOT_EXTRACTED': {
+    'note': 'تعذر استخراج اسم المستورد/المرسل إليه.',
+  },
+  'DOC_IBL_CONTAINERS_MATCH': {
+    'note': 'أرقام الحاويات مطابقة تماماً',
+  },
+  'DOC_IBL_CONTAINERS_MISMATCH': {
+    'note': 'عدم تطابق في أرقام الحاويات المسجلة بالفاتورة مع البوليصة.',
+  },
+  'DOC_IBL_GROSS_WEIGHT_EXCEEDS': {
+    'note': 'فارق الوزن القائم يتجاوز نسبة التسامح المسموحة جمركياً.',
+  },
+  'DOC_IBL_GROSS_WEIGHT_MATCH': {
+    'note': 'الوزن القائم متطابق وضمن النطاق المسموح به (<= {tolerance_pct}%)',
+  },
+  'DOC_IBL_INCOTERMS_COHERENT': {
+    'note': 'شرط التسليم {incoterm} متوافق مع سداد النولون ({freight_terms})',
+  },
+  'DOC_IBL_NET_WEIGHT_MATCH': {
+    'note': 'الوزن الصافي متطابق',
+  },
+  'DOC_IBL_NET_WEIGHT_VARIANCE': {
+    'note': 'يوجد فارق في الوزن الصافي بين الفاتورة ومسودة البوليصة.',
+  },
+  'DOC_IBL_PACKAGES_MATCH': {
+    'note': 'عدد الطرود والبالتات متطابق تماماً',
+  },
+  'DOC_IBL_PACKAGES_MISMATCH': {
+    'note': 'اختلاف في عدد الطرود أو وحدة التعبئة (كرتونة vs بالتة).',
+  },
+  'DOC_IBL_SEALS_CHECK': {
+    'note': 'يرجى التأكد من رقم الرصاص الملاحي المثبت على الحاوية.',
+  },
+  'DOC_IBL_SEALS_MATCH': {
+    'note': 'أرقام الرصاص الملاحي متطابقة',
+  },
+  'DOC_IBL_SHIPPER_MATCH': {
+    'note': 'اسم المصدر متطابق في الفاتورة وبوليصة الشحن',
+  },
+  'DOC_IBL_SHIPPER_MISMATCH': {
+    'note': 'اختلاف في اسم المصدر أو الشاحن بين الفاتورة والبوليصة.',
+  },
+  'DOC_IBL_SHIPPER_NOT_EXTRACTED': {
+    'note': 'تعذر استخراج اسم الشاحن/المصدر.',
+  },
+  'DOC_IBL_TAX_ID_MATCH': {
+    'note': 'رقم التسجيل الضريبي للمستورد مطابق',
+  },
+  'DOC_IBL_TAX_ID_MISMATCH': {
+    'note': 'عدم تطابق البطاقة الضريبية يمنع مطابقة نافذة ونموذج 4.',
+  },
+  'DOC_IBL_TAX_ID_NOT_EXTRACTED': {
+    'note': 'لم يتم استخراج البطاقة الضريبية للمستورد من المستندات.',
+  },
+  'DOC_INSPECTION_MATCH_RATE': {
+    'note': 'نسبة التطابق: {match_pct}%',
+  },
+  'DOC_INSPECTION_OPTIONAL_NOT_INCLUDED': {
+    'note': 'حقل غير إلزامي لم يتم تضمينه في مسودة الفحص',
+  },
+  'DOC_INSPECTION_VALUE_NOT_FOUND': {
+    'note': 'لم يتم العثور على القيمة في مسودة شهادة الفحص المرفوعة',
+  },
+  'DOC_TOL_CONTAINERS_EXACT': {
+    'note': '0% (مطابقة تامة لأرقام الحاويات)',
+  },
+  'DOC_TOL_EXACT': {
+    'note': '0% (مطابقة حتمية تامة)',
+  },
+  'DOC_TOL_PACKAGES_EXACT': {
+    'note': '0% (مطابقة عدد الطرود)',
+  },
+  'DOC_TOL_SEAL_MATCH': {
+    'note': 'مطابقة رقم الرصاص',
+  },
+  'DOC_TOL_SIMILARITY': {
+    'note': 'نسبة التشابه: {match_pct}%',
+  },
+  'DOC_TOL_TERMS_COHERENCE': {
+    'note': 'توافق الشروط التجارية',
+  },
+  'DOC_TOL_WEIGHT_DIFFERENCE': {
+    'note': 'الفرق: {difference_qty} كجم ({difference_pct}%)',
+  },
 };

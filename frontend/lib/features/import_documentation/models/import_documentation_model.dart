@@ -1,3 +1,7 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/coded_item_text.dart';
+import '../../../core/localization/system_messages/system_message_renderer.dart';
+
 class AcidDiscrepancyItem {
   final String field;
   final String labelAr;
@@ -927,7 +931,10 @@ class DraftBLDiscrepancyItemModel {
   final String matchStatus; // MATCH, MISMATCH_CRITICAL, MISMATCH_MINOR, MISSING_IN_DRAFT
   final String severity; // NONE, WARNING, BLOCKING
   final double tolerancePercentage;
-  final String details;
+  final String details; // English render of detailsCode (legacy rows: Arabic text, no code)
+  final String? detailsCode;
+  final Map<String, dynamic>? detailsParams;
+  final Map<String, dynamic>? structuredValues;
 
   DraftBLDiscrepancyItemModel({
     required this.fieldKey,
@@ -940,7 +947,30 @@ class DraftBLDiscrepancyItemModel {
     required this.severity,
     this.tolerancePercentage = 0.0,
     required this.details,
+    this.detailsCode,
+    this.detailsParams,
+    this.structuredValues,
   });
+
+  /// The details in the language of [l10n] (stored text for legacy rows).
+  String displayDetails(AppLocalizations l10n) => CodedItemText.text(_asItem(), 'details', l10n);
+
+  /// The system value in the language of [l10n].
+  String displaySystemValue(AppLocalizations l10n) =>
+      CodedItemText.value(_asItem(), 'system_value', l10n, fallback: '—');
+
+  /// The draft value in the language of [l10n].
+  String displayDraftValue(AppLocalizations l10n) =>
+      CodedItemText.value(_asItem(), 'draft_value', l10n, fallback: '—');
+
+  Map<String, dynamic> _asItem() => {
+        'details': details,
+        'details_code': detailsCode,
+        'details_params': detailsParams,
+        'system_value': systemValue,
+        'draft_value': draftValue,
+        CodedItemText.structuredKey: structuredValues,
+      };
 
   factory DraftBLDiscrepancyItemModel.fromJson(Map<String, dynamic> json) {
     return DraftBLDiscrepancyItemModel(
@@ -954,6 +984,9 @@ class DraftBLDiscrepancyItemModel {
       severity: json['severity'] ?? 'NONE',
       tolerancePercentage: (json['tolerance_percentage'] as num?)?.toDouble() ?? 0.0,
       details: json['details'] ?? '',
+      detailsCode: SystemMessageRenderer.parseCode(json['details_code']),
+      detailsParams: SystemMessageRenderer.parseParams(json['details_params']),
+      structuredValues: SystemMessageRenderer.parseParams(json[CodedItemText.structuredKey]),
     );
   }
 
@@ -969,6 +1002,9 @@ class DraftBLDiscrepancyItemModel {
     'severity': severity,
     'tolerance_percentage': tolerancePercentage,
     'details': details,
+    'details_code': detailsCode,
+    'details_params': detailsParams,
+    if (structuredValues != null) CodedItemText.structuredKey: structuredValues,
   };
 }
 
@@ -981,7 +1017,9 @@ class DraftBLChecklistItemModel {
   final dynamic draftValue;
   String status; // 'Correct', 'Incorrect', 'N/A'
   String? requiredCorrection;
-  String? reason;
+  String? reason; // English render of reasonCode; the user's own text once edited
+  String? reasonCode; // cleared when the user edits the reason
+  Map<String, dynamic>? reasonParams;
   String? notes;
   String? responsibleParty;
   bool isLocked;
@@ -997,11 +1035,18 @@ class DraftBLChecklistItemModel {
     this.status = 'Correct',
     this.requiredCorrection,
     this.reason,
+    this.reasonCode,
+    this.reasonParams,
     this.notes,
     this.responsibleParty,
     this.isLocked = false,
     this.previousStatus,
   });
+
+  /// The reason in the language of [l10n]: the system message while the code is
+  /// set, the user's typed text otherwise.
+  String displayReason(AppLocalizations l10n) =>
+      CodedItemText.text({'reason': reason, 'reason_code': reasonCode, 'reason_params': reasonParams}, 'reason', l10n);
 
   factory DraftBLChecklistItemModel.fromJson(Map<String, dynamic> json) {
     return DraftBLChecklistItemModel(
@@ -1014,6 +1059,8 @@ class DraftBLChecklistItemModel {
       status: json['status'] ?? 'Correct',
       requiredCorrection: json['required_correction'],
       reason: json['reason'],
+      reasonCode: SystemMessageRenderer.parseCode(json['reason_code']),
+      reasonParams: SystemMessageRenderer.parseParams(json['reason_params']),
       notes: json['notes'],
       responsibleParty: json['responsible_party'],
       isLocked: json['is_locked'] ?? false,
@@ -1031,6 +1078,8 @@ class DraftBLChecklistItemModel {
     'status': status,
     'required_correction': requiredCorrection,
     'reason': reason,
+    'reason_code': reasonCode,
+    'reason_params': reasonParams,
     'notes': notes,
     'responsible_party': responsibleParty,
     'is_locked': isLocked,
