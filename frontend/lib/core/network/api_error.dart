@@ -12,6 +12,19 @@ class ApiError {
   static bool isForbidden(Object? error) =>
       error is DioException && error.response?.statusCode == 403;
 
+  /// Backend error code sent while the signed-in account must replace its
+  /// password: `403 {"detail": {"code": "PASSWORD_CHANGE_REQUIRED", ...}}`.
+  static const String passwordChangeRequiredCode = 'PASSWORD_CHANGE_REQUIRED';
+
+  /// True when [error] is the backend's "change your password first" 403.
+  static bool isPasswordChangeRequired(Object? error) {
+    if (error is! DioException || error.response?.statusCode != 403) return false;
+    final data = error.response?.data;
+    if (data is! Map) return false;
+    final detail = data['detail'];
+    return detail is Map && detail['code'] == passwordChangeRequiredCode;
+  }
+
   /// Backend `detail` when present, otherwise the Dio message, otherwise
   /// [fallback] / `error.toString()`.
   static String message(Object? error, {String? fallback}) {
@@ -23,6 +36,8 @@ class ApiError {
           final first = detail.first;
           if (first is Map && first['msg'] != null) return first['msg'].toString();
         }
+        // Structured detail: {"code": "...", "message": "..."}.
+        if (detail is Map && detail['message'] != null) return detail['message'].toString();
         return detail.toString();
       }
       final msg = error.message;

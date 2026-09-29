@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 class UserBase(BaseModel):
@@ -30,15 +30,28 @@ class UserResponse(UserBase):
     email: str
     user_id: int
     is_active: bool
+    must_change_password: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("must_change_password", mode="before")
+    @classmethod
+    def _null_flag_is_false(cls, value):
+        """A row whose column was added without a default reads NULL: that user was never forced."""
+        return False if value is None else value
+
 
 class LoginRequest(BaseModel):
     username_or_email: str
     password: str
+
+
+class ChangeOwnPasswordRequest(BaseModel):
+    """POST /api/v1/auth/me/change-password."""
+    current_password: str
+    new_password: str
 
 
 class TokenResponse(BaseModel):

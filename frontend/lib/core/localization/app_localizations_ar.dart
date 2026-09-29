@@ -6947,6 +6947,44 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get loginDemoCredentialsTooltip => 'نسخ بيانات الحساب التجريبي';
 
+  // ── Forced password change (first login) ──
+  @override
+  String get forcePwdTitle => 'تغيير كلمة المرور مطلوب';
+  @override
+  String get forcePwdSubtitle => 'لحماية حسابك، يجب تعيين كلمة مرور جديدة عند أول تسجيل دخول قبل متابعة استخدام النظام.';
+  @override
+  String get forcePwdAccountLabel => 'الحساب';
+  @override
+  String get forcePwdCurrentLabel => 'كلمة المرور الحالية';
+  @override
+  String get forcePwdNewLabel => 'كلمة المرور الجديدة';
+  @override
+  String get forcePwdConfirmLabel => 'تأكيد كلمة المرور الجديدة';
+  @override
+  String get forcePwdPolicyHint => 'استخدم 8 أحرف على الأقل، ويُفضَّل المزج بين الحروف والأرقام والرموز.';
+  @override
+  String get forcePwdCurrentRequired => 'يرجى إدخال كلمة المرور الحالية';
+  @override
+  String get forcePwdNewRequired => 'يرجى إدخال كلمة المرور الجديدة';
+  @override
+  String get forcePwdConfirmRequired => 'يرجى تأكيد كلمة المرور الجديدة';
+  @override
+  String get forcePwdTooShort => 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف';
+  @override
+  String get forcePwdSameAsCurrent => 'كلمة المرور الجديدة يجب أن تختلف عن الحالية';
+  @override
+  String get forcePwdMismatch => 'كلمتا المرور غير متطابقتين';
+  @override
+  String get forcePwdSubmit => 'تغيير كلمة المرور والمتابعة';
+  @override
+  String get forcePwdSuccess => 'تم تغيير كلمة المرور بنجاح';
+  @override
+  String get forcePwdFailed => 'تعذر تغيير كلمة المرور. حاول مرة أخرى.';
+  @override
+  String get forcePwdShowPassword => 'إظهار كلمة المرور';
+  @override
+  String get forcePwdHidePassword => 'إخفاء كلمة المرور';
+
   // ── Shipping Scenarios & Cargo Stacking ────────────────────────────────────
   @override
   String get multiLayerStacking => 'رص متعدد الطبقات';

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -87,6 +88,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
             user: user,
             isAuthenticated: true,
           );
+          // The stored profile may predate a password reset (or an older
+          // backend): re-read /auth/me so must_change_password is current.
+          unawaited(refreshCurrentUser());
           return;
         }
 
@@ -161,6 +165,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Re-reads the signed-in user from `GET /auth/me` (allowed by the backend
+  /// even while a password change is pending) so flags such as
+  /// [UserModel.mustChangePassword] reflect the server. Best effort: network
+  /// or auth failures keep the current user and return `false`.
+  Future<bool> refreshCurrentUser() async {
+    final token = state.token;
+    if (!state.isAuthenticated || token == null || token.isEmpty) return false;
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final data = response.data;
+      // Ignore the answer if the session changed while the call was in flight.
+      if (data is Map<String, dynamic> && state.token == token && state.isAuthenticated) {
+        await applyUserJson(data);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Replaces the signed-in user with a backend `UserResponse` (e.g. the body
+  /// of `POST /auth/me/change-password`) and persists it.
+  Future<void> applyUserJson(Map<String, dynamic> userJson) async {
+    if (!state.isAuthenticated) return;
+    final user = UserModel.fromJson(userJson);
+    state = state.copyWith(user: user);
+    await _persistUser(user);
+  }
+
+  /// Called by the HTTP layer when the backend answers
+  /// `403 PASSWORD_CHANGE_REQUIRED`: flags the current user so the
+  /// password-change gate takes over. Idempotent.
+  void markPasswordChangeRequired() {
+    final user = state.user;
+    if (!state.isAuthenticated || user == null || user.mustChangePassword) return;
+    final flagged = user.copyWith(mustChangePassword: true);
+    state = state.copyWith(user: flagged);
+    unawaited(_persistUser(flagged));
+  }
+
+  Future<void> _persistUser(UserModel user) async {
+    try {
+      await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
+    } catch (_) {}
   }
 
   Future<void> handleSessionExpired() async {

@@ -26,6 +26,8 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
+# Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
+HEAD_REVISION = "f7a1c3e5b9d2"
 
 
 class _SpyMasterData:
@@ -155,8 +157,10 @@ def test_inspect_db_state_classifies_every_state(tmp_path):
     _set_revisions(legacy)  # table present but empty
     assert _state(legacy) == DbState.UNSTAMPED
 
-    _set_revisions(legacy, BASELINE_REVISION)
+    _set_revisions(legacy, HEAD_REVISION)
     assert _state(legacy) == DbState.AT_HEAD
+    _set_revisions(legacy, BASELINE_REVISION)
+    assert _state(legacy) == DbState.BEHIND
     _set_revisions(legacy, PREVIOUS_HEAD)
     assert _state(legacy) == DbState.BEHIND
     _set_revisions(legacy, "ffffffffffff")
@@ -182,7 +186,7 @@ def test_1_fresh_db_is_stamped_without_backup(tmp_path):
     assert res["status"] == "upgraded_successfully"
     assert res["migration"]["state"] == "fresh"
     assert res["migration"]["action"] == "stamped"
-    assert res["migration"]["to_revision"] == BASELINE_REVISION
+    assert res["migration"]["to_revision"] == HEAD_REVISION
     assert _revisions(db_file) == [migration_runner.get_head_revision()]
     assert _pre_migration_files(db_file) == []
 
@@ -199,16 +203,16 @@ def test_2_legacy_unstamped_db_gets_verified_backup_then_stamp(tmp_path):
         "state": "unstamped",
         "action": "stamped",
         "from_revision": None,
-        "to_revision": BASELINE_REVISION,
+        "to_revision": HEAD_REVISION,
         "backup_file": res["migration"]["backup_file"],
     }
     backups = _pre_migration_files(db_file)
     assert len(backups) == 1
     assert backups[0].name == res["migration"]["backup_file"]
-    assert backups[0].name.startswith(f"pre_migration_unstamped_to_{BASELINE_REVISION}_")
+    assert backups[0].name.startswith(f"pre_migration_unstamped_to_{HEAD_REVISION}_")
     assert db_safety.check_integrity(backups[0]) == "ok"
     assert _row_counts(backups[0]) == counts_before
-    assert _revisions(db_file) == [BASELINE_REVISION]
+    assert _revisions(db_file) == [HEAD_REVISION]
     assert _row_counts(db_file) == counts_before
     assert _SpyMasterData.calls == 1
 
@@ -245,12 +249,12 @@ def test_4_behind_db_is_backed_up_and_upgraded_without_schema_change(tmp_path):
     assert res["migration"]["state"] == "behind"
     assert res["migration"]["action"] == "upgraded"
     assert res["migration"]["from_revision"] == PREVIOUS_HEAD
-    assert res["migration"]["to_revision"] == BASELINE_REVISION
+    assert res["migration"]["to_revision"] == HEAD_REVISION
     backups = _pre_migration_files(db_file)
     assert [b.name for b in backups] == [res["migration"]["backup_file"]]
-    assert backups[0].name.startswith(f"pre_migration_{PREVIOUS_HEAD}_to_{BASELINE_REVISION}_")
+    assert backups[0].name.startswith(f"pre_migration_{PREVIOUS_HEAD}_to_{HEAD_REVISION}_")
     assert _revisions(backups[0]) == [PREVIOUS_HEAD]
-    assert _revisions(db_file) == [BASELINE_REVISION]
+    assert _revisions(db_file) == [HEAD_REVISION]
     assert _schema_sql(db_file) == schema_before
     assert _row_counts(db_file) == counts_before
 
@@ -367,12 +371,13 @@ def test_source_script_location_is_repo_alembic():
     assert cfg.attributes["configure_logger"] is False
 
 
-def test_11_single_head_is_the_baseline_and_linter_passes():
+def test_11_single_head_follows_the_baseline_and_linter_passes():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migration_runner.build_alembic_config())
-    assert script.get_heads() == [BASELINE_REVISION]
-    assert migration_runner.get_head_revision() == BASELINE_REVISION
+    assert script.get_heads() == [HEAD_REVISION]
+    assert migration_runner.get_head_revision() == HEAD_REVISION
+    assert script.get_revision(HEAD_REVISION).down_revision == BASELINE_REVISION
     assert script.get_revision(BASELINE_REVISION).down_revision == PREVIOUS_HEAD
     is_safe, issues = MigrationLinter.lint_directory(REPO_ROOT / "alembic" / "versions")
     assert is_safe, issues
@@ -390,7 +395,7 @@ def test_12_alembic_cli_honours_database_path(tmp_path):
         cwd=str(REPO_ROOT), env=env, capture_output=True, text=True, timeout=600,
     )
     assert proc.returncode == 0, proc.stdout[-2000:] + proc.stderr[-2000:]
-    assert _revisions(db_file) == [BASELINE_REVISION]
+    assert _revisions(db_file) == [HEAD_REVISION]
     if repo_mtime is not None:
         assert repo_db.stat().st_mtime_ns == repo_mtime
 
@@ -545,7 +550,7 @@ def test_session_db_has_its_own_folder_so_backups_do_not_leak_into_temp():
     assert session_db.parent.name.startswith("importflow_test_db_")
     assert db_safety.backups_dir_for(session_db) == (session_db.parent / "backups").resolve()
     # conftest stamps the session DB right after create_all, so `import main` takes no pre_migration backup.
-    assert _revisions(session_db) == [BASELINE_REVISION]
+    assert _revisions(session_db) == [HEAD_REVISION]
     assert _pre_migration_files(session_db) == []
 
 

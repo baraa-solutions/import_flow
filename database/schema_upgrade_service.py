@@ -50,6 +50,37 @@ logger = logging.getLogger("schema_upgrade")
 DEFAULT_VERSION_TAG = "1.0.52"
 VERSION_STATE_FILENAME = ".last_seen_version.json"
 _SNAPSHOT_TS_RE = re.compile(r"_(\d{8}_\d{6})(?:_\d+)?\.db$")
+# SQLite refuses these as the DEFAULT of ADD COLUMN ("Cannot add a column with non-constant default").
+_NON_CONSTANT_DEFAULT_RE = re.compile(r"^\s*(\(|CURRENT_TIME|CURRENT_DATE|CURRENT_TIMESTAMP)", re.IGNORECASE)
+
+
+def _constant_server_default_sql(col: Any) -> Optional[str]:
+    """SQL literal of a column's server_default when SQLite accepts it in ALTER TABLE ADD COLUMN,
+    else None (no server_default, or a non-constant one)."""
+    server_default = getattr(col, "server_default", None)
+    arg = getattr(server_default, "arg", None)
+    if arg is None:
+        return None
+    if isinstance(arg, str):
+        return "'" + arg.replace("'", "''") + "'"
+    sql = str(getattr(arg, "text", "")).strip()
+    if not sql or _NON_CONSTANT_DEFAULT_RE.match(sql):
+        return None
+    return sql
+
+
+def add_column_ddl(table_name: str, col: Any, dialect: Any) -> str:
+    """ALTER TABLE ADD COLUMN for step 4b. A column with a constant server_default keeps it, plus NOT NULL
+    when the model says so, so existing rows get the default instead of NULL (a NOT NULL model column with
+    NULLs breaks response models). Without a usable default the column is added nullable, as before
+    (SQLite cannot add a NOT NULL column without a default)."""
+    ddl = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col.type.compile(dialect)}'
+    default_sql = _constant_server_default_sql(col)
+    if default_sql is None:
+        return ddl
+    if not col.nullable:
+        ddl += " NOT NULL"
+    return ddl + f" DEFAULT {default_sql}"
 
 
 class SchemaUpgradeService:
@@ -321,7 +352,7 @@ class SchemaUpgradeService:
                             continue
                         col_type = col.type.compile(engine_to_use.dialect)
                         try:
-                            conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}'))
+                            conn.execute(text(add_column_ddl(table_name, col, engine_to_use.dialect)))
                             conn.commit()
                             result["columns_added"].append(f"{table_name}.{col.name}")
                             logger.warning("Added missing column: %s.%s (%s)", table_name, col.name, col_type)

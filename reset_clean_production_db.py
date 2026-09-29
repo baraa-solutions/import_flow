@@ -8,7 +8,8 @@ Creates a pristine production database containing ONLY core standard reference t
 - Package Types & Units of Measure (24 Package types, 15 Units of measure)
 - Incoterms 2020 & Responsibility Matrix & Cost Items (11 Incoterms, 17 Cost items, 187 Rules - MD-006)
 - Clearance Expense Types & Coded Expense Catalog (53 Clearance types, 54 Catalog items)
-- Core System User: the single admin (password from ADMIN_INITIAL_PASSWORD; no demo accounts)
+- Core System User: the single admin, admin / settings.DEFAULT_ADMIN_PASSWORD with a forced password change on
+  first login (must_change_password=1); no demo accounts
 - Core International Shipping Lines (32 Lines - MD-009B)
 
 All demo companies, suppliers, service providers (except shipping lines), shipments,
@@ -145,14 +146,16 @@ def _load_all_models() -> None:
 
 
 def seed_core_users(cur, admin_password_hash: str) -> None:
-    """Replace all users with the single admin (password from ADMIN_INITIAL_PASSWORD, never a fixed
-    default). No demo manager/operator accounts with well-known passwords in a production database."""
+    """Replace all users with the single admin. Like the startup seed of a new installation it gets the
+    documented default password (settings.DEFAULT_ADMIN_PASSWORD) and must_change_password=1, so the
+    first login has to set a new password before anything else works. No demo manager/operator accounts."""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("DELETE FROM main.users;")
     cur.execute(
         "INSERT INTO main.users (user_id, username, email, full_name, hashed_password, role, role_id, is_active, "
-        "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-        (1, "admin", "admin@sorourlogistics.com", "System Admin", admin_password_hash, "ADMIN", 1, 1, now_str, now_str),
+        "must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        (1, "admin", "admin@sorourlogistics.com", "System Admin", admin_password_hash, "ADMIN", 1, 1, 1,
+         now_str, now_str),
     )
 
 
@@ -172,7 +175,7 @@ def build_clean_production_db(
 
     from database.database import Base
     from modules.auth.security import hash_password
-    from settings import ADMIN_INITIAL_PASSWORD
+    from settings import DEFAULT_ADMIN_PASSWORD
     from update_db_schema import migrate_db
 
     target_db = Path(target_db)
@@ -248,7 +251,7 @@ def build_clean_production_db(
 
     # 6. Seed Core System Users with Secure Production Credentials
     print("[3/5] Seeding Core System Users (RBAC)...")
-    seed_core_users(cur, hash_password(ADMIN_INITIAL_PASSWORD))
+    seed_core_users(cur, hash_password(DEFAULT_ADMIN_PASSWORD))
     conn.commit()
 
     cur.execute("DETACH DATABASE snapshot;")

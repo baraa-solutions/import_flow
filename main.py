@@ -242,10 +242,17 @@ CORS_ALLOWED_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1
 LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 
 
+def is_cors_origin_allowed(origin: str) -> bool:
+    """True only for an http(s) origin on localhost / a private network address (CORS_ALLOWED_ORIGIN_REGEX)."""
+    return bool(origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, origin))
+
+
 @app.middleware("http")
 async def cors_and_pna_middleware(request: Request, call_next):
     raw_origin = request.headers.get("origin", "")
-    is_allowed = bool(raw_origin and (_re.match(CORS_ALLOWED_ORIGIN_REGEX, raw_origin) or raw_origin in ("null", "*")))
+    # Only real local / LAN origins. "null" (sandboxed iframes, file:// pages) and "*" are never echoed back
+    # with credentials: any web page could otherwise drive this API (e.g. log in with the default admin).
+    is_allowed = is_cors_origin_allowed(raw_origin)
 
     # Security headers applied system-wide
     sec_headers = {

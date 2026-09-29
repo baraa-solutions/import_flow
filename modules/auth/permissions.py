@@ -1,6 +1,6 @@
 import os
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from database.database import get_db, SessionLocal
 from modules.users.model import User, Role, Permission, UserPermission, RolePermission
@@ -291,6 +291,40 @@ def resolve_user(
     )
 
 
+PASSWORD_CHANGE_REQUIRED_CODE = "PASSWORD_CHANGE_REQUIRED"
+MSG_PASSWORD_CHANGE_REQUIRED = "يجب تغيير كلمة المرور قبل المتابعة."
+AUTH_PREFIX = "/api/v1/auth"
+# The only authenticated routes a user with must_change_password=True may call.
+PASSWORD_CHANGE_EXEMPT_ROUTES = frozenset({
+    ("POST", f"{AUTH_PREFIX}/login"),
+    ("POST", f"{AUTH_PREFIX}/refresh"),
+    ("GET", f"{AUTH_PREFIX}/me"),
+    ("GET", f"{AUTH_PREFIX}/me/permissions"),
+    ("POST", f"{AUTH_PREFIX}/logout"),
+    ("POST", f"{AUTH_PREFIX}/me/change-password"),
+    # App exit (main.shutdown_system, require_admin): must still checkpoint the WAL for a flagged admin.
+    ("POST", "/shutdown"),
+    ("POST", "/api/v1/shutdown"),
+})
+
+
+def enforce_password_change(request: Optional[Request], user: Optional[User], authorization: Optional[str]) -> None:
+    """403 PASSWORD_CHANGE_REQUIRED while a token-authenticated user still has to change the password,
+    except on PASSWORD_CHANGE_EXEMPT_ROUTES. Called by every auth dependency (get_current_user and
+    require_permission). A dev-bypass user (no Authorization header, never in the frozen build) is not
+    authenticated at all, so the forced change does not apply to it."""
+    if not authorization or user is None or not getattr(user, "must_change_password", False):
+        return
+    if request is not None:
+        path = request.url.path.rstrip("/") or "/"
+        if (request.method.upper(), path) in PASSWORD_CHANGE_EXEMPT_ROUTES:
+            return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": PASSWORD_CHANGE_REQUIRED_CODE, "message": MSG_PASSWORD_CHANGE_REQUIRED},
+    )
+
+
 def authenticate_ws_token(token: Optional[str]) -> Optional[User]:
     """
     Validates a raw JWT for a WebSocket handshake. Returns the active user or None.
@@ -300,7 +334,11 @@ def authenticate_ws_token(token: Optional[str]) -> Optional[User]:
         return None
     db = SessionLocal()
     try:
-        return resolve_user(db, authorization=f"Bearer {token.strip()}")
+        user = resolve_user(db, authorization=f"Bearer {token.strip()}")
+        # A user who still has to change the password gets no live channel either.
+        if getattr(user, "must_change_password", False):
+            return None
+        return user
     except HTTPException:
         return None
     finally:
@@ -313,6 +351,7 @@ def require_permission(permission_code: str):
     Supports JWT Bearer authorization and desktop client headers.
     """
     def dependency(
+        request: Request,
         authorization: Optional[str] = Header(None),
         x_user_role: Optional[str] = Header(None),
         x_user_name: Optional[str] = Header(None),
@@ -324,6 +363,7 @@ def require_permission(permission_code: str):
             x_user_role=x_user_role,
             x_user_name=x_user_name
         )
+        enforce_password_change(request, user, authorization)
 
         if not has_user_permission(db, user, permission_code):
             raise HTTPException(

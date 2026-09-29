@@ -26,7 +26,10 @@ class LoginRateLimiter:
         return "127.0.0.1"
 
     def check_rate_limit(self, request: Request):
-        client_ip = self._get_client_ip(request)
+        self.check_key(self._get_client_ip(request))
+
+    def check_key(self, client_ip: str):
+        """Raise 429 while `client_ip` (an IP, or any other key such as a user id) is locked out."""
         now = time.time()
 
         with self._lock:
@@ -53,16 +56,20 @@ class LoginRateLimiter:
                 )
 
     def record_failure(self, request: Request):
-        client_ip = self._get_client_ip(request)
-        now = time.time()
-        with self._lock:
-            self._failures[client_ip].append(now)
+        self.record_failure_key(self._get_client_ip(request))
 
     def record_success(self, request: Request):
-        client_ip = self._get_client_ip(request)
+        self.record_success_key(self._get_client_ip(request))
+
+    def record_failure_key(self, key: str):
+        now = time.time()
         with self._lock:
-            self._failures.pop(client_ip, None)
-            self._lockouts.pop(client_ip, None)
+            self._failures[key].append(now)
+
+    def record_success_key(self, key: str):
+        with self._lock:
+            self._failures.pop(key, None)
+            self._lockouts.pop(key, None)
 
     def reset_all(self):
         """For testing cleanup"""

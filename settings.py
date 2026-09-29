@@ -10,8 +10,9 @@ import logging
 import os
 import secrets
 from pathlib import Path
+from typing import Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 from utils.db_safety import default_db_path, env_file_path, is_frozen_build
 
@@ -63,23 +64,39 @@ def load_or_create_secret_key(env_path: Path) -> str:
     return secret
 
 
-def load_or_create_admin_password() -> str:
-    """Initial admin password, kept in memory only. It is written to .env only when it is actually
-    used to seed the first admin user (persist_admin_initial_password), and removed from .env in the
-    frozen build once the admin has changed it (remove_env_key)."""
-    password = os.getenv("ADMIN_INITIAL_PASSWORD", "")
-    if password:
-        return password
-    password = secrets.token_urlsafe(16) + "A1!"
-    os.environ["ADMIN_INITIAL_PASSWORD"] = password
-    return password
+# Known first-login password of the admin seeded on an empty users table (CTO decision 2026-09-29).
+# The seeded account has must_change_password=True, so it cannot use anything but the auth/me routes
+# until the password is changed. Never written to .env.
+DEFAULT_ADMIN_PASSWORD = "Admin@123"
 
 
-def persist_admin_initial_password(env_path: Path, password: str) -> bool:
-    """Record the seeded admin password in .env (once) so the operator can read it for first login."""
+def resolve_admin_initial_password(is_production_build: bool) -> str:
+    """Password used to seed the first admin on an empty users table.
+
+    Production build: always DEFAULT_ADMIN_PASSWORD. An old 2.1.x install left a random
+    ADMIN_INITIAL_PASSWORD in its .env; a fresh DB next to it must still start with the documented default.
+    Development: ADMIN_INITIAL_PASSWORD from env/.env when set, DEFAULT_ADMIN_PASSWORD otherwise."""
+    if is_production_build:
+        return DEFAULT_ADMIN_PASSWORD
+    return os.getenv("ADMIN_INITIAL_PASSWORD", "") or DEFAULT_ADMIN_PASSWORD
+
+
+def env_admin_initial_password(env_path: Path) -> Optional[str]:
+    """The plaintext ADMIN_INITIAL_PASSWORD an old 2.1.x install wrote to .env.
+
+    Used only by the leftover-line cleanup, which must compare against this value (not the seed default):
+    an admin still using that generated password must keep the line, it is the only place it is written.
+    Reads the .env file itself, falling back to the process environment ("" when neither has it).
+    None when the .env line exists but cannot be read: callers then keep the line (fail closed)."""
     if env_file_defines(env_path, "ADMIN_INITIAL_PASSWORD"):
-        return True
-    return _append_env_lines(env_path, {"ADMIN_INITIAL_PASSWORD": password})
+        try:
+            value = dotenv_values(env_path).get("ADMIN_INITIAL_PASSWORD")
+        except (OSError, UnicodeDecodeError) as exc:
+            _logger.error("Could not read ADMIN_INITIAL_PASSWORD from %s: %s", env_path, exc)
+            return None
+        if value is not None:
+            return value
+    return os.getenv("ADMIN_INITIAL_PASSWORD", "")
 
 
 def remove_env_key(env_path: Path, key: str) -> bool:
@@ -126,7 +143,7 @@ DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1")
 ENABLE_API_DOCS = os.getenv("ENABLE_API_DOCS", "false").lower() in ("true", "1")
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(default_db_path()))
 
-ADMIN_INITIAL_PASSWORD = load_or_create_admin_password()
+ADMIN_INITIAL_PASSWORD = resolve_admin_initial_password(IS_PRODUCTION_BUILD)
 
 # Authentication & Session Lifetime (7 days for Desktop ERP, 14 days refresh grace period)
 JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(86400 * 7)))

@@ -23,6 +23,8 @@ import '../audit_logs/screens/audit_logs_screen.dart';
 
 import '../auth/models/user_model.dart';
 import '../auth/providers/auth_provider.dart';
+import '../auth/providers/auth_route_guard.dart';
+import '../auth/screens/force_change_password_screen.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
 import '../cbm_calculator/screens/cbm_calculator_screen.dart';
 import '../comprehensive_report/screens/import_file_comprehensive_report_screen.dart';
@@ -282,6 +284,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Route guard: an account flagged must_change_password sees only the
+    // password-change screen (logout allowed) until the flag is cleared.
+    if (requiresPasswordChange(ref.watch(authProvider))) {
+      return const ForceChangePasswordScreen();
+    }
     final selectedIndex = ref.watch(navigationIndexProvider);
     final tabsState = ref.watch(workspaceTabsProvider);
     final activeTab = tabsState.activeTab;

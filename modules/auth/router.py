@@ -5,6 +5,7 @@ from database.database import get_db
 from modules.users.model import User
 from .rate_limiter import login_limiter
 from .schemas import (
+    ChangeOwnPasswordRequest,
     LoginRequest,
     TokenResponse,
     UserCreate,
@@ -24,6 +25,7 @@ from .permissions import (
     get_user_permissions_breakdown,
     resolve_user,
     is_admin_user,
+    enforce_password_change,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & User Access Control (RBAC)"])
@@ -32,17 +34,21 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & User Access Co
 # ─── Dependency: Current User ─────────────────────────────────────────────────
 
 def get_current_user(
+    request: Request,
     authorization: str = Header(None),
     x_user_role: str = Header(None),
     x_user_name: str = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
-    return resolve_user(
+    user = resolve_user(
         db,
         authorization=authorization,
         x_user_role=x_user_role,
         x_user_name=x_user_name
     )
+    # Forced password change: 403 PASSWORD_CHANGE_REQUIRED outside the auth/me routes.
+    enforce_password_change(request, user, authorization)
+    return user
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -134,6 +140,17 @@ def refresh_token(
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/me/change-password", response_model=UserResponse)
+def change_my_password(
+    payload: ChangeOwnPasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the logged-in user's own password; clears must_change_password."""
+    service = AuthService(db)
+    return service.change_own_password(current_user, payload.current_password, payload.new_password)
 
 
 @router.post("/logout")
