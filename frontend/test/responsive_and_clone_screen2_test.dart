@@ -338,7 +338,7 @@ void main() {
 
       // Verify CloneEntityReviewDialog appears with reset badges
       expect(find.byType(CloneEntityReviewDialog), findsOneWidget);
-      expect(find.text('PO-2026-0001-CLONE'), findsOneWidget);
+      expect(find.text('PO-2026-0001-COPY'), findsOneWidget);
       expect(find.text('الحالة: تعود تلقائياً إلى مسودة'), findsOneWidget);
       expect(find.text('فك الارتباط بملف الاستيراد السابق'), findsOneWidget);
       expect(find.text('تصفير تخصيصات الشحن الجزئي'), findsOneWidget);
@@ -362,7 +362,7 @@ void main() {
 
       // Verify CloneEntityReviewDialog opened directly for row
       expect(find.byType(CloneEntityReviewDialog), findsOneWidget);
-      expect(find.text('PO-2026-0001-CLONE'), findsOneWidget);
+      expect(find.text('PO-2026-0001-COPY'), findsOneWidget);
     });
 
     testWidgets('7. POFormDialog item row-level clone: duplicates line item and packing item', (tester) async {

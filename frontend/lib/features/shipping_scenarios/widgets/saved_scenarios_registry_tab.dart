@@ -19,6 +19,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../screens/shipping_scenarios_screen.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -1409,8 +1410,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+    final initialName = '${source.title ?? source.sessionCode}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.shippingCarrierOptions: '${source.items.length}',

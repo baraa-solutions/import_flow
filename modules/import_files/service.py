@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime, timezone, date
 from typing import List, Optional, Dict, Any
@@ -16,6 +17,11 @@ from modules.import_files.schemas import (
 from modules.import_files.model import ImportFile
 import modules.import_files.repository as repo
 import modules.import_files.validators as validators
+from modules.audit_logs.service import AuditLogService
+from modules.common import enum_codes
+from modules.common.system_messages import msg, render_en
+
+logger = logging.getLogger(__name__)
 
 
 STEP_INITIAL_CONFIG = {
@@ -956,7 +962,15 @@ def hold_import_file_service(
     hold_notes: Optional[str] = None,
     stage_name: Optional[str] = None,
     step_name: Optional[str] = None,
+    hold_reason_code: Optional[str] = None,
+    performed_by: str = "System",
 ) -> ImportFile:
+    """Put a shipment on hold.
+
+    The file's user ``notes`` are never touched: the system text goes to the lifecycle activity notes
+    (``LC_STEP_ON_HOLD*``) and to an ``audit_logs`` HOLD entry (which also keeps ``hold_notes``).
+    ``hold_reason_code`` must be a HOLD_REASON code; a legacy chip label in ``hold_reason`` is mapped to
+    its code. ``paused_at_stage`` holds an English title resolved from the stage code when possible."""
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
         raise HTTPException(
@@ -970,34 +984,69 @@ def hold_import_file_service(
             detail="يلزم إدخال سبب إيقاف وتعليق الشحنة.",
         )
 
+    reason_text = hold_reason.strip()
+    if hold_reason_code:
+        reason_code = enum_codes.normalize(enum_codes.HOLD_REASON, hold_reason_code)
+        if not enum_codes.is_code(enum_codes.HOLD_REASON, reason_code):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="رمز سبب الإيقاف غير معروف",
+            )
+    else:
+        derived = enum_codes.normalize(enum_codes.HOLD_REASON, reason_text)
+        reason_code = derived if enum_codes.is_code(enum_codes.HOLD_REASON, derived) else None
+
+    from modules.lifecycle_board.service import hold_shipment_activities_service, resolve_hold_stage
+
     now_dt = datetime.now()
-    stage = stage_name or existing.current_stage
-    step = step_name or existing.current_module
+    resolved = resolve_hold_stage(stage_name, step_name)
+    stage = resolved["stage_title"] or stage_name or existing.current_stage
+    step = resolved["step_code"] or step_name or existing.current_step_code or existing.current_module
 
     update_dict = {
         "status": "On Hold",
         "paused_at_stage": stage,
         "paused_at_step": step,
-        "hold_reason": hold_reason.strip(),
+        "hold_reason": reason_text,
+        "hold_reason_code": reason_code,
         "hold_date": now_dt,
-        "notes": f"تم إيقاف الشحنة عند مرحلة [{stage}]: {hold_reason.strip()}" + (f" | {hold_notes}" if hold_notes else ""),
     }
 
-    # Update lifecycle board activities
+    # Lifecycle board activities get the system note; a failure must not block the hold itself.
     try:
-        from modules.lifecycle_board.service import hold_shipment_activities_service
-        hold_shipment_activities_service(db, existing.import_file_code, hold_reason.strip())
-    except Exception:
-        pass
+        hold_shipment_activities_service(db, existing.import_file_code, reason_text, reason_code)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Hold: lifecycle activities of %s not updated: %s", existing.import_file_code, exc, exc_info=True)
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    updated = repo.update_import_file(db, import_file_id, update_dict)
+
+    reason_en = enum_codes.label_en(enum_codes.HOLD_REASON, reason_code) if reason_code else reason_text
+    note = (
+        msg("LC_FILE_ON_HOLD_WITH_NOTES", stage=stage, reason=reason_en, notes=hold_notes.strip())
+        if hold_notes and hold_notes.strip()
+        else msg("LC_FILE_ON_HOLD", stage=stage, reason=reason_en)
+    )
+    AuditLogService(db).log_activity(
+        entity_type="ImportFile",
+        entity_id=existing.import_file_id,
+        entity_code=existing.import_file_code,
+        action="HOLD",
+        new_data={"msg_code": note.code, "msg_params": note.params, "hold_reason_code": reason_code},
+        performed_by=performed_by,
+        changes_summary=render_en(note.code, note.params, "note"),
+    )
+    return updated
 
 
 def resume_import_file_service(
     db: Session,
     import_file_id: int,
     resume_notes: Optional[str] = None,
+    performed_by: str = "System",
 ) -> ImportFile:
+    """Resume a held shipment. Like hold, the file's user ``notes`` are left untouched: the system text goes
+    to the lifecycle activities and an ``audit_logs`` RESUME entry."""
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
         raise HTTPException(
@@ -1014,18 +1063,35 @@ def resume_import_file_service(
     update_dict = {
         "status": "In Progress",
         "hold_reason": None,
+        "hold_reason_code": None,
         "hold_date": None,
-        "notes": f"تم استئناف العمل: {resume_notes or 'استئناف تشغيل الشحنة'}",
     }
 
-    # Resume lifecycle board activities
-    try:
-        from modules.lifecycle_board.service import resume_shipment_activities_service
-        resume_shipment_activities_service(db, existing.import_file_code, resume_notes)
-    except Exception:
-        pass
+    from modules.lifecycle_board.service import resume_shipment_activities_service
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    try:
+        resume_shipment_activities_service(db, existing.import_file_code, resume_notes)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Resume: lifecycle activities of %s not updated: %s", existing.import_file_code, exc, exc_info=True)
+
+    updated = repo.update_import_file(db, import_file_id, update_dict)
+
+    note = (
+        msg("LC_FILE_RESUMED", notes=resume_notes.strip())
+        if resume_notes and resume_notes.strip()
+        else msg("LC_FILE_RESUMED_DEFAULT")
+    )
+    AuditLogService(db).log_activity(
+        entity_type="ImportFile",
+        entity_id=existing.import_file_id,
+        entity_code=existing.import_file_code,
+        action="RESUME",
+        new_data={"msg_code": note.code, "msg_params": note.params},
+        performed_by=performed_by,
+        changes_summary=render_en(note.code, note.params, "note"),
+    )
+    return updated
 
 
 def clone_import_file_service(
@@ -1137,7 +1203,7 @@ def clone_import_file_service(
         "initial_starting_stage": "Draft",
         "status": "Draft",
         "owner": original.owner or current_user,
-        "notes": payload.notes or f"مستنسخ من الشحنة: {original.import_file_code}",
+        "notes": payload.notes or f"Cloned from: {original.import_file_code}",
         "is_active": True,
         "created_by": current_user,
         "updated_by": current_user,

@@ -2,7 +2,7 @@
 Pydantic Schemas for Smart Task Management & Reminder Engine (Feature 2.4 & 2.5)
 """
 
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -50,6 +50,9 @@ class SmartTaskResponse(SmartTaskBase):
     task_code: str
     is_auto_closed: bool
     is_active: bool
+    msg_code: Optional[str] = None
+    msg_params: Optional[Dict[str, Any]] = None
+    step_code: Optional[str] = None
     created_at: datetime
     created_by: str
     updated_at: datetime

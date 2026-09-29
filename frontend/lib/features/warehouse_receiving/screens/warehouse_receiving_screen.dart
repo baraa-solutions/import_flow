@@ -20,6 +20,7 @@ import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/search_and_clone_warehouse_receiving_dialog.dart';
 import '../widgets/warehouse_inspection_dialog.dart';
+import '../../../core/localization/stored_text.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -412,7 +413,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       try {
         final payload = {
           'status': 'Goods Received',
-          'discrepancy_notes': l10n.warehouseReceivingStatusGoodsReceived,
+          'discrepancy_notes': storedText.warehouseReceivingStatusGoodsReceived,
         };
         await ref.read(warehouseReceivingProvider.notifier).updateRecord(record.receivingId, payload);
         ref.read(goodsInTransitProvider.notifier).confirmWarehouseReceipt(record.importFileId);

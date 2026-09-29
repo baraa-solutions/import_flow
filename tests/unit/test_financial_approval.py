@@ -641,6 +641,8 @@ class TestFinancialApprovalBackend:
         assert cloned.payment_id != orig.payment_id
         assert cloned.payment_code != orig.payment_code
         assert cloned.title == "Cloned Advance Payment - Second Batch"
+        default_clone = service.clone_payment_request_service(db_session, orig.payment_id, ClonePaymentRequestRequest())
+        assert default_clone.title == "Original Advance Payment for Machinery (Copy)"
         assert cloned.status == "Draft"  # Invariant: Status MUST reset to Draft
         assert cloned.swift_reference_no is None  # Invariant: SWIFT reference MUST be cleared
         assert cloned.swift_receipt_date is None
@@ -692,6 +694,8 @@ class TestFinancialApprovalBackend:
         assert cloned.budget_id != orig.budget_id
         assert cloned.budget_code != orig.budget_code
         assert cloned.title == "Cloned Machinery Budget - 2027 Expansion"
+        default_clone = service.clone_import_budget_service(db_session, orig.budget_id, CloneImportBudgetRequest())
+        assert default_clone.title == "Original Machinery Import Budget 2026 (Copy)"
         assert cloned.budget_status == "Pending Review"  # Invariant: Status MUST reset to Pending Review / Draft
         assert cloned.approved_by is None  # Invariant: Approval signatures MUST be cleared
         assert cloned.approved_date is None

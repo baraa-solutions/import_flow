@@ -7,6 +7,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modal dialog for CL-01: Customs Inspection & Samples GOEIC Report
 /// تسجيل الكشف والمعاينة وسحب العينات ومطابقة الرقابة على الصادرات والواردات
@@ -45,29 +47,16 @@ class _CustomsInspectionSamplingDialogState
   DateTime _samplingDate = DateTime.now();
 
   String _selectedInspectionType = 'Physical & Sampling';
-  String _selectedYard = 'ساحة الفحص المشترك - ميناء الإسكندرية (رصيف 42)';
+  String _selectedYard = 'ALEXANDRIA_BERTH_42';
   String _selectedResult = 'Conforming';
   bool _isSampleDrawn = true;
   String _selectedSampleTestStatus = 'Samples Under Testing';
 
-  final Set<String> _selectedSampledBodies = {
-    'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
-  };
+  final Set<String> _selectedSampledBodies = {'GOEIC'};
 
   bool _isSubmitting = false;
 
-  final List<String> _inspectionYards = [
-    'ساحة الفحص المشترك - ميناء الإسكندرية (رصيف 42)',
-    'ساحة الفحص المشترك - ميناء الدخيلة',
-    'ساحة الفحص والكشف المشترك - ميناء العين السخنة',
-    'ساحة المعاينة والكشف - ميناء دمياط البحري',
-    'ساحة المعاينة والفحص - ميناء غرب بورسعيد',
-    'ساحة الفحص الجمركي - ميناء شرق بورسعيد',
-    'ساحة الفحص المشترك بالميناء الجاف بمدينة 6 أكتوبر',
-    'ساحة الفحص بالميناء الجاف بمدينة العاشر من رمضان',
-    'قرية البضائع - مطار القاهرة الدولي',
-    'ساحة الفحص المشترك - ميناء الأدبية بالسويس',
-  ];
+  final List<String> _inspectionYards = DomainEnums.codesOf(DomainEnumType.inspectionYard);
 
   final List<Map<String, String>> _inspectionTypes = [
     {
@@ -128,23 +117,23 @@ class _CustomsInspectionSamplingDialogState
     },
   ];
 
-  final List<String> _regulatoryAgencyOptions = [
-    'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
-    'الهيئة القومية لسلامة الغذاء (NFSA)',
-    'مصلحة الكيمياء المصرية (Chemistry Dept)',
-    'إدارة الوقاية الإشعاعية وهيئة الطاقة الذرية',
-    'الحجر الزراعي المصري',
-    'الحجر البيطري',
-    'الجهاز القومي لتنظيم الاتصالات (NTRA)',
-    'مصلحة الموازين والدمغة',
-    'هيئة الدواء المصرية (EDA)',
+  final List<String> _regulatoryAgencyOptions = const [
+    'GOEIC',
+    'NFSA',
+    'CHEMISTRY_DEPT',
+    'ATOMIC_ENERGY',
+    'AGRICULTURAL_QUARANTINE',
+    'VETERINARY_QUARANTINE',
+    'NTRA',
+    'WEIGHTS_MEASURES',
+    'EDA',
   ];
 
   @override
   void initState() {
     super.initState();
     _inspectorController = TextEditingController(
-      text: 'لجنة الفحص والمعاينة الجمركية المشتركة',
+      text: 'Joint Customs Inspection Committee',
     );
     _samplingRecordController = TextEditingController(
       text: _generateSamplingRecordNo(),
@@ -401,7 +390,7 @@ class _CustomsInspectionSamplingDialogState
                                   .map(
                                     (yard) => SearchableDropdownItem<String>(
                                       value: yard,
-                                      label: yard,
+                                      label: DomainEnums.label(context.l10n, DomainEnumType.inspectionYard, yard),
                                     ),
                                   )
                                   .toList(),
@@ -660,7 +649,7 @@ class _CustomsInspectionSamplingDialogState
                           children: _regulatoryAgencyOptions.map((agency) {
                             final isSelected = _selectedSampledBodies.contains(agency);
                             return FilterChip(
-                              label: Text(agency, style: const TextStyle(fontSize: 12)),
+                              label: Text(DomainEnums.label(context.l10n, DomainEnumType.regulatoryBody, agency), style: const TextStyle(fontSize: 12)),
                               selected: isSelected,
                               selectedColor: AppTheme.cobalt.withOpacity(0.15),
                               checkmarkColor: AppTheme.cobalt,

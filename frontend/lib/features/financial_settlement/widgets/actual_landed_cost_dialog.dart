@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../models/actual_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ActualLandedCostDialog extends ConsumerStatefulWidget {
   final int importFileId;
@@ -44,8 +45,8 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
   String _selectedAllocationPreference = 'Value-Based';
   late TabController _tabController;
 
-  final _approvedByController =
-      TextEditingController(text: 'أحمد كمال (مدير الحسابات الختامية)');
+  final _approvedByController = TextEditingController();
+  String _defaultApprovedBy = '';
   final _notesController = TextEditingController();
 
   final List<Map<String, String>> _allocationOptions = [
@@ -58,6 +59,9 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
   @override
   void initState() {
     super.initState();
+    // Default to the signed-in user (no hard-coded sample name).
+    _defaultApprovedBy = ref.read(authProvider).user?.fullName ?? '';
+    _approvedByController.text = _defaultApprovedBy;
     _tabController = TabController(length: 2, vsync: this);
     _loadCalculation();
   }
@@ -153,7 +157,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
   bool get _isDirty {
     if (_notesController.text.trim().isNotEmpty) return true;
     if (_selectedAllocationPreference != 'Value-Based') return true;
-    if (_approvedByController.text.trim() != 'أحمد كمال (مدير الحسابات الختامية)') return true;
+    if (_approvedByController.text.trim() != _defaultApprovedBy) return true;
     return false;
   }
 

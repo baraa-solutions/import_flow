@@ -283,9 +283,11 @@ class TestImportFilesBackend:
             step_name="STEP-09",
         )
         assert held.status == "On Hold"
-        assert held.paused_at_stage == "مراجعة وتدقيق مسودات مستندات الشحن وكارجو إكس"
-        assert held.paused_at_step == "STEP-09"
-        assert "تم إيقاف الشحنة عند مرحلة" in held.notes
+        # Single-language storage: the Arabic title resolves to the English phase title of the step code,
+        # and the file's user notes are no longer overwritten by the system hold text.
+        assert held.paused_at_stage == "3. Booking & Doc Prep"
+        assert held.paused_at_step == "STEP_09"
+        assert held.notes == created.notes
 
         resumed = service.resume_import_file_service(
             db_session,

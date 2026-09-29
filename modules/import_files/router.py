@@ -386,6 +386,8 @@ def hold_shipment(
         hold_notes=payload.hold_notes,
         stage_name=payload.stage_name,
         step_name=payload.step_name,
+        hold_reason_code=payload.hold_reason_code,
+        performed_by=getattr(current_user, "username", None) or "System",
     )
 
 
@@ -404,6 +406,7 @@ def resume_shipment(
         db,
         import_file_id=import_file_id,
         resume_notes=payload.resume_notes,
+        performed_by=getattr(current_user, "username", None) or "System",
     )
 
 

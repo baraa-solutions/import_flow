@@ -145,7 +145,7 @@ class ClearancePriceListItemCreate(BaseModel):
     provider_id: int
     provider_name: str
     port_name: str
-    service_category: str = "Clearance Fee"
+    service_category: str = "CLEARANCE_FEE"
     container_type: str = "40HQ"
     unit_price: float = Field(gt=0)
     currency: str = "EGP"

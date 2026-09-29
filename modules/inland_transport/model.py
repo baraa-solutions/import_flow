@@ -32,7 +32,7 @@ class InlandTransportBooking(Base):
 
     # Truck & Driver details
     truck_plate_number = Column(String(50), nullable=False) # رقم لوحة الشاحنة
-    truck_type = Column(String(100), default="Flatbed Trailer (تريلا مسطح)", nullable=False)
+    truck_type = Column(String(100), default="FLATBED", nullable=False)
     driver_name = Column(String(100), nullable=False)
     driver_phone = Column(String(50), nullable=False)
     driver_national_id = Column(String(50), nullable=True)

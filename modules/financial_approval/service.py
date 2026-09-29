@@ -450,7 +450,7 @@ def clone_payment_request_service(
     - Dates are set to current date: request_date=date.today(), due_date=date.today() + 12 days.
     - If unlink_import_file is True, import_file_id and po_id are reset to None.
     - If target_supplier_id is specified, supplier is updated.
-    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    - Title is set to schema.new_title or f"{orig.title} (Copy)".
     """
     from datetime import timedelta
 
@@ -465,7 +465,7 @@ def clone_payment_request_service(
     req_date = date.today()
     due_date = date.today() + timedelta(days=12)
 
-    title = schema.new_title or f"{orig.title} (نسخة)"
+    title = schema.new_title or f"{orig.title} (Copy)"
     supplier_id = schema.target_supplier_id or orig.supplier_id
     supplier_name = orig.supplier_name
     beneficiary_name = orig.beneficiary_name
@@ -637,7 +637,7 @@ def clone_import_budget_service(
     - If unlink_import_file is True, import_file_id is set to None.
     - If target_import_file_id is provided, validates that no existing budget conflicts.
     - If new_exchange_rate is provided, recalculates invoice_amount_egp and freight_cost_egp.
-    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    - Title is set to schema.new_title or f"{orig.title} (Copy)".
     - total_budget_egp is recalculated dynamically.
     - Notes append remarks if provided.
     """
@@ -664,7 +664,7 @@ def clone_import_budget_service(
             target_file_id = None
 
     code = repo.generate_budget_code(db)
-    title = schema.new_title or f"{orig.title} (نسخة)"
+    title = schema.new_title or f"{orig.title} (Copy)"
     rate = schema.new_exchange_rate if (schema.new_exchange_rate and schema.new_exchange_rate > 0) else orig.exchange_rate
 
     inv_foreign = orig.invoice_amount_foreign

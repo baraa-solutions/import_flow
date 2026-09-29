@@ -14,6 +14,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    JSON,
 )
 from sqlalchemy.orm import relationship
 
@@ -57,6 +58,9 @@ class GuideEntry(Base):
     rejected_by = Column(String(100), nullable=True)
     rejected_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    # Single-language storage: system-inferred entries render title/content/evidence_summary/reason_why from a code
+    msg_code = Column(String(80), nullable=True)
+    msg_params = Column(JSON, nullable=True)
 
     # Relationships
     scopes = relationship("GuideEntryScope", back_populates="guide_entry", cascade="all, delete-orphan", lazy="joined")

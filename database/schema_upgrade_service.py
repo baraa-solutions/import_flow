@@ -197,6 +197,53 @@ class SchemaUpgradeService:
         return rollback_pending_reason(db_file_path)
 
     @staticmethod
+    def _create_missing_indexes(
+        engine_to_use: Engine, metadata_to_use: Any, columns_added: List[str], all_tables: bool = False
+    ) -> List[str]:
+        """CREATE INDEX IF NOT EXISTS for missing non-unique model indexes.
+
+        ``all_tables=True`` (FRESH / UNSTAMPED: the DB is stamped at head next, so no revision will ever create
+        them): every table of the metadata. Otherwise only indexes that reference a column added by step 4b.
+        Unique indexes are never created here (existing rows may violate them), nor indexes whose columns are
+        missing. A failure is logged and skipped: an index is a performance aid, not a correctness requirement.
+        Returns the names of the indexes actually created."""
+        added: Dict[str, set] = {}
+        for entry in columns_added:
+            table_name, _, col_name = entry.partition(".")
+            added.setdefault(table_name, set()).add(col_name.lower())
+        created: List[str] = []
+        if not added and not all_tables:
+            return created
+        inspector = inspect(engine_to_use)
+        existing_tables = set(inspector.get_table_names())
+        targets = existing_tables if all_tables else set(added) & existing_tables
+        with engine_to_use.connect() as conn:
+            for table_name in sorted(targets):
+                table = metadata_to_use.tables.get(table_name)
+                if table is None:
+                    continue
+                present_indexes = {ix["name"] for ix in inspector.get_indexes(table_name)}
+                present_cols = {c["name"].lower() for c in inspector.get_columns(table_name)}
+                new_cols = added.get(table_name, set())
+                for index in table.indexes:
+                    if index.unique or not index.name or index.name in present_indexes:
+                        continue
+                    cols = [c.name for c in index.columns]
+                    if not cols or not all(c.lower() in present_cols for c in cols):
+                        continue
+                    if not all_tables and not any(c.lower() in new_cols for c in cols):
+                        continue
+                    col_sql = ", ".join(f'"{c}"' for c in cols)
+                    try:
+                        conn.execute(text(f'CREATE INDEX IF NOT EXISTS "{index.name}" ON "{table_name}" ({col_sql})'))
+                        conn.commit()
+                        created.append(index.name)
+                    except Exception as exc:
+                        conn.rollback()
+                        logger.error("Could not create index %s on %s: %s", index.name, table_name, exc)
+        return created
+
+    @staticmethod
     def _migration_dict(migration: MigrationResult) -> Dict[str, Any]:
         data = asdict(migration)
         data["state"] = migration.state.value
@@ -240,6 +287,7 @@ class SchemaUpgradeService:
             "backups_pruned": [],
             "tables_added": [],
             "columns_added": [],
+            "indexes_added": [],
             "master_data_summary": {},
             "migration": None,
         }
@@ -363,6 +411,15 @@ class SchemaUpgradeService:
             return cls._fail(f"schema introspection failed ({type(exc).__name__}: {exc})", result)
         if failed_columns:
             return cls._fail("could not add columns: " + "; ".join(failed_columns), result)
+
+        # 4c. Missing non-unique model indexes (models == head: a FRESH / UNSTAMPED DB is stamped next, so the
+        #     revisions that create indexes never run on it -> all tables; otherwise only 4b's new columns).
+        result["indexes_added"] = cls._create_missing_indexes(
+            engine_to_use,
+            metadata_to_use,
+            result["columns_added"],
+            all_tables=report.state in (DbState.FRESH, DbState.UNSTAMPED),
+        )
 
         # 5. Fresh / unstamped: the schema now equals the models, which equal head -> stamp head.
         if report.state in (DbState.FRESH, DbState.UNSTAMPED):

@@ -19,6 +19,7 @@ import 'visual_draft_bl_sheet.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -57,7 +58,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // Dual Approval Controllers
   final TextEditingController _importerApproverCtrl = TextEditingController(text: 'Kamal (Import Manager)');
   final TextEditingController _importerNotesCtrl = TextEditingController();
-  final TextEditingController _brokerApproverCtrl = TextEditingController(text: 'Ahmed (Customs Broker)');
+  final TextEditingController _brokerApproverCtrl = TextEditingController();
   final TextEditingController _brokerNotesCtrl = TextEditingController();
 
   bool _isLoading = false;
@@ -79,6 +80,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   @override
   void initState() {
     super.initState();
+    // Default approver = the signed-in user (no hard-coded sample name).
+    _brokerApproverCtrl.text = ref.read(authProvider).user?.fullName ?? '';
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(importFilesProvider).isLoading) {

@@ -6,6 +6,7 @@ from datetime import datetime, date, timezone
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from modules.common import enum_codes
 from modules.customs_consultation.model import (
     ClearanceExpenseType,
     BrokerPriceList,
@@ -40,12 +41,39 @@ from modules.customs_consultation.validators import (
 # Clearance Expense Types Service
 # ==============================================================================
 
+def _normalize_expense_type(schema):
+    """Tier-3: expense type category / default unit -> enum codes (unknown values unchanged)."""
+    changes = {}
+    if getattr(schema, "category", None) is not None:
+        changes["category"] = enum_codes.normalize(enum_codes.BROKER_EXPENSE_CATEGORY, schema.category)
+    if getattr(schema, "default_unit", None) is not None:
+        changes["default_unit"] = enum_codes.normalize(enum_codes.PRICING_UNIT, schema.default_unit)
+    return schema.model_copy(update=changes) if changes else schema
+
+
+def _normalize_price_list(schema):
+    """Tier-3: broker price list item category / unit -> enum codes (unknown values unchanged)."""
+    items = getattr(schema, "items", None)
+    if not items:
+        return schema
+    normalized = [
+        item.model_copy(
+            update={
+                "category": enum_codes.normalize(enum_codes.BROKER_EXPENSE_CATEGORY, item.category),
+                "unit_type": enum_codes.normalize(enum_codes.PRICING_UNIT, item.unit_type),
+            }
+        )
+        for item in items
+    ]
+    return schema.model_copy(update={"items": normalized})
+
+
 class ClearanceExpenseTypeService:
 
     @staticmethod
     def create_expense_type(db: Session, schema: ClearanceExpenseTypeCreate) -> ClearanceExpenseTypeResponse:
         validate_expense_code_unique(db, schema.expense_code)
-        obj = ClearanceExpenseTypeRepository.create(db, schema)
+        obj = ClearanceExpenseTypeRepository.create(db, _normalize_expense_type(schema))
         return ClearanceExpenseTypeResponse.model_validate(obj)
 
     @staticmethod
@@ -65,8 +93,17 @@ class ClearanceExpenseTypeService:
         category: Optional[str] = None,
         search: Optional[str] = None,
     ) -> List[ClearanceExpenseTypeResponse]:
+        categories: Optional[List[str]] = None
+        if category:
+            code = enum_codes.normalize(enum_codes.BROKER_EXPENSE_CATEGORY, category)
+            # Seeds only insert missing rows: existing rows keep legacy labels, so a code matches them too.
+            categories = (
+                enum_codes.legacy_values(enum_codes.BROKER_EXPENSE_CATEGORY, code)
+                if enum_codes.is_code(enum_codes.BROKER_EXPENSE_CATEGORY, code)
+                else [category]
+            )
         items = ClearanceExpenseTypeRepository.get_all(
-            db, include_inactive=include_inactive, category=category, search=search
+            db, include_inactive=include_inactive, categories=categories, search=search
         )
         return [ClearanceExpenseTypeResponse.model_validate(i) for i in items]
 
@@ -82,7 +119,7 @@ class ClearanceExpenseTypeService:
             )
         if schema.expense_code and schema.expense_code != obj.expense_code:
             validate_expense_code_unique(db, schema.expense_code, current_id=expense_id)
-        updated = ClearanceExpenseTypeRepository.update(db, obj, schema)
+        updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema))
         return ClearanceExpenseTypeResponse.model_validate(updated)
 
     @staticmethod
@@ -106,7 +143,7 @@ class BrokerPriceListService:
     @staticmethod
     def create_price_list(db: Session, schema: BrokerPriceListCreate) -> BrokerPriceListResponse:
         validate_broker_exists(db, schema.broker_id)
-        pl = BrokerPriceListRepository.create(db, schema)
+        pl = BrokerPriceListRepository.create(db, _normalize_price_list(schema))
         return BrokerPriceListResponse.model_validate(pl)
 
     @staticmethod
@@ -153,7 +190,7 @@ class BrokerPriceListService:
             )
         if schema.broker_id:
             validate_broker_exists(db, schema.broker_id)
-        updated = BrokerPriceListRepository.update(db, pl, schema)
+        updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema))
         return BrokerPriceListResponse.model_validate(updated)
 
     @staticmethod
@@ -180,10 +217,10 @@ class BrokerPriceListService:
 
         target_code = schema.new_price_list_code
         if not target_code:
-            target_code = f"{original.price_list_code}-CLONE"
-            idx = 1
+            target_code = f"{original.price_list_code}-COPY"
+            idx = 2
             while db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == target_code).first():
-                target_code = f"{original.price_list_code}-CLONE{idx}"
+                target_code = f"{original.price_list_code}-COPY{idx}"
                 idx += 1
         else:
             existing = db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == target_code).first()
@@ -203,7 +240,7 @@ class BrokerPriceListService:
             effective_to=schema.effective_to,
             version=original.version + 1,
             is_active=True,
-            notes=schema.notes or f"مستنسخة من: {original.price_list_code}",
+            notes=schema.notes or f"Cloned from: {original.price_list_code}",
             cloned_from_id=original.price_list_id,
             cloned_from_code=original.price_list_code,
         )
@@ -465,10 +502,10 @@ class CustomsConsultationService:
 
         target_code = schema.new_consultation_code
         if not target_code:
-            target_code = f"{original.consultation_code}-CLONE"
-            idx = 1
+            target_code = f"{original.consultation_code}-COPY"
+            idx = 2
             while db.query(CustomsConsultationSession).filter(CustomsConsultationSession.consultation_code == target_code).first():
-                target_code = f"{original.consultation_code}-CLONE{idx}"
+                target_code = f"{original.consultation_code}-COPY{idx}"
                 idx += 1
         else:
             existing = db.query(CustomsConsultationSession).filter(CustomsConsultationSession.consultation_code == target_code).first()
@@ -493,7 +530,7 @@ class CustomsConsultationService:
             readiness_percentage=0.0,
             estimated_duties_egp=original.estimated_duties_egp,
             total_broker_fees_egp=original.total_broker_fees_egp,
-            notes=schema.notes or f"مستنسخة من: {original.consultation_code}",
+            notes=schema.notes or f"Cloned from: {original.consultation_code}",
             is_active=True,
             cloned_from_id=original.consultation_id,
             cloned_from_code=original.consultation_code,

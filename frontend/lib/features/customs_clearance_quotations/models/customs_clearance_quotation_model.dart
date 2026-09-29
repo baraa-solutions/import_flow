@@ -224,7 +224,7 @@ class ClearancePriceListItemModel {
       providerId: json['provider_id'] ?? 0,
       providerName: json['provider_name'] ?? '',
       portName: json['port_name'] ?? '',
-      serviceCategory: json['service_category'] ?? 'Clearance Fee',
+      serviceCategory: json['service_category'] ?? 'CLEARANCE_FEE',
       containerType: json['container_type'] ?? '40HQ',
       unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'] ?? 'EGP',

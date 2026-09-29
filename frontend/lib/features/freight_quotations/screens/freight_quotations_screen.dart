@@ -392,7 +392,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   void _resetRFQForm() {
     final isArabic = context.l10n.isArabic;
     setState(() {
-      _titleController.text = isArabic ? 'طلب عرض سعر شحن جديد' : 'New Freight RFQ Request';
+      _titleController.text = 'New Freight RFQ Request';
       _titleModifiedByUser = false;
       _cbmController.text = '0.0';
       _weightController.text = '0.0';
@@ -1777,9 +1777,7 @@ Best regards,
         (_titleController.text.isEmpty ||
             _titleController.text == 'طلب عرض سعر شحن حاويات لمعدات وآلات خط الإنتاج' ||
             _titleController.text == 'Container Freight Quotation Request for Production Line Equipment')) {
-      _titleController.text = isArabic
-          ? 'طلب عرض سعر شحن حاويات لمعدات وآلات خط الإنتاج'
-          : 'Container Freight Quotation Request for Production Line Equipment';
+      _titleController.text = 'Container Freight Quotation Request for Production Line Equipment';
     }
 
     return Scaffold(

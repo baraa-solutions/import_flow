@@ -245,15 +245,14 @@ class _SupplierAdvancePaymentDialogState
   }
 
   void _calculateAndApplyAmount(double percentage) {
-    final isAr = mounted ? Localizations.localeOf(context).languageCode == 'ar' : true;
     setState(() {
       _selectedPercentage = percentage;
       _isCustomPercentage = !_standardPercentages.contains(percentage);
       final calculated = _basePoAmount * (percentage / 100.0);
       _amountController.text = calculated > 0 ? calculated.toStringAsFixed(2) : '';
-      _titleController.text = isAr
-          ? 'طلب دفعة مقدمة (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}'
-          : 'Advance Payment (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}';
+      // Stored title: English regardless of the UI language.
+      _titleController.text =
+          'Advance Payment (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}';
     });
   }
 

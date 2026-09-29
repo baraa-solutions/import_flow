@@ -36,6 +36,7 @@ from .repository import (
 )
 from .validators import validate_bank_receipt_no, validate_release_permit
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
 
 def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate) -> CustomsClearanceRecord:
     # Check import file exists
@@ -628,7 +629,7 @@ def register_customs_declaration_46_service(
     dec_dt = payload.declaration_46_date or datetime.now(timezone.utc)
     channel = payload.channel_type or "Red Channel"
     office = (payload.customs_office_name or "").strip() or "Alexandria Port Customs"
-    reg_bodies = payload.regulatory_bodies if payload.regulatory_bodies is not None else []
+    reg_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.regulatory_bodies) or []
     tariff_count = payload.customs_tariff_items_count if payload.customs_tariff_items_count and payload.customs_tariff_items_count > 0 else 1
     mts_cert = payload.mts_certificate_number.strip() if payload.mts_certificate_number else None
 
@@ -835,11 +836,12 @@ def record_customs_inspection_sampling_service(
 
     insp_dt = payload.inspection_date or datetime.now(timezone.utc)
     sampling_dt = payload.sampling_date or (insp_dt if payload.is_sample_drawn else None)
-    insp_yard = (payload.inspection_yard or "").strip() or "ساحة الفحص المشترك"
+    # INSPECTION_YARD code when picked from the list (legacy Arabic names mapped); free text stays as typed.
+    insp_yard = enum_codes.normalize(enum_codes.INSPECTION_YARD, (payload.inspection_yard or "").strip()) or "Joint Inspection Yard"
     insp_type = (payload.inspection_type or "").strip() or "Physical & Sampling"
     insp_result = (payload.inspection_result or "").strip() or "Conforming"
     sample_status = payload.sample_test_status or ("Samples Under Testing" if payload.is_sample_drawn else "None")
-    sampled_bodies = payload.sampled_regulatory_bodies if payload.sampled_regulatory_bodies is not None else []
+    sampled_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.sampled_regulatory_bodies) or []
     goeic_cert = (payload.goeic_certificate_no or "").strip() if payload.goeic_certificate_no else None
     lab_fees = float(payload.lab_service_fees or 0.0)
 
@@ -1320,9 +1322,9 @@ def record_customs_duty_payment_service(
     pay_dt = payload.payment_date or datetime.now(timezone.utc)
     record.bank_receipt_no = receipt_no
     record.sadad_number = sadad_no
-    record.paying_bank_name = payload.paying_bank_name.strip()
+    record.paying_bank_name = enum_codes.normalize(enum_codes.DUTY_BANK, payload.paying_bank_name.strip())
     record.payment_date = pay_dt
-    record.payment_method = payload.payment_method or "Sadad / E-Finance"
+    record.payment_method = enum_codes.normalize(enum_codes.PAYMENT_METHOD, payload.payment_method) or "SADAD_EFINANCE"
     record.duty_paid_amount = payload.duty_paid_amount
     record.actual_duty_total = payload.duty_paid_amount
     if payload.receipt_file_url:
@@ -1461,7 +1463,7 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
     
     record = get_customs_clearance_service(db, record_id)
     record.bank_receipt_no = payload.bank_receipt_no
-    record.paying_bank_name = payload.paying_bank_name
+    record.paying_bank_name = enum_codes.normalize(enum_codes.DUTY_BANK, payload.paying_bank_name)
     record.payment_date = payload.payment_date
     record.payment_notes = payload.payment_notes
     
@@ -1607,7 +1609,7 @@ def issue_final_customs_release_service(
     record.release_date = rel_dt
     if payload.release_officer_name:
         record.release_officer_name = payload.release_officer_name
-    record.release_type = payload.release_type or "نهائي وبات (Final Green Release)"
+    record.release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type) or "FINAL_GREEN"
     if payload.release_document_url:
         record.release_document_url = payload.release_document_url
     if payload.gate_pass_number:
@@ -1629,7 +1631,7 @@ def issue_final_customs_release_service(
     imp_file.is_customs_released = True
     imp_file.customs_released_at = rel_dt
     imp_file.customs_release_permit_no = permit_no
-    imp_file.customs_release_type = payload.release_type or "نهائي وبات (Final Green Release)"
+    imp_file.customs_release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type) or "FINAL_GREEN"
     if payload.release_officer_name:
         imp_file.customs_release_officer = payload.release_officer_name
     if payload.gate_pass_number:
@@ -1792,7 +1794,7 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     if payload.release_officer_name:
         record.release_officer_name = payload.release_officer_name
     if payload.release_type:
-        record.release_type = payload.release_type
+        record.release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type)
     if payload.release_document_url:
         record.release_document_url = payload.release_document_url
     if payload.gate_pass_number:
@@ -1816,7 +1818,7 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
         imp_file.customs_released_at = rel_dt
         imp_file.customs_release_permit_no = payload.release_permit_no
         if payload.release_type:
-            imp_file.customs_release_type = payload.release_type
+            imp_file.customs_release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type)
         if payload.release_officer_name:
             imp_file.customs_release_officer = payload.release_officer_name
         if payload.gate_pass_number:
@@ -1852,8 +1854,27 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     return record
 
 
+def _normalize_clearance_update(schema: CustomsClearanceUpdate) -> CustomsClearanceUpdate:
+    """Tier-3 fields of a generic update: legacy labels -> enum codes (unknown values unchanged)."""
+    changes = {}
+    for field_name, enum_type in (
+        ("release_type", enum_codes.RELEASE_TYPE),
+        ("payment_method", enum_codes.PAYMENT_METHOD),
+        ("paying_bank_name", enum_codes.DUTY_BANK),
+    ):
+        value = getattr(schema, field_name, None)
+        if value is not None:
+            changes[field_name] = enum_codes.normalize(enum_type, value)
+    for field_name in ("regulatory_bodies", "sampled_regulatory_bodies"):
+        value = getattr(schema, field_name, None)
+        if value is not None:
+            changes[field_name] = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, value)
+    return schema.model_copy(update=changes) if changes else schema
+
+
 def update_customs_clearance_service(db: Session, record_id: int, schema: CustomsClearanceUpdate) -> CustomsClearanceRecord:
     existing = get_customs_clearance_service(db, record_id)
+    schema = _normalize_clearance_update(schema)
     update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
 
@@ -2040,7 +2061,7 @@ def _recalculate_clearance_expenses_aggregates(db: Session, import_file_id: int,
                 current_invoices.append({
                     "invoice_no": inv.invoice_number,
                     "invoice_code": inv.invoice_code,
-                    "category": f"Clearance / {inv.expense_category}",
+                    "category": f"Clearance / {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, inv.expense_category)}",
                     "provider_name": inv.provider_name,
                     "currency": inv.currency,
                     "amount_fx": inv.amount_fx,
@@ -2099,7 +2120,7 @@ def record_clearance_invoice_service(
         invoice_date=payload.invoice_date or datetime.now(timezone.utc),
         provider_id=payload.provider_id,
         provider_name=payload.provider_name.strip(),
-        expense_category=payload.expense_category.strip(),
+        expense_category=enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, payload.expense_category.strip()),
         currency=payload.currency or "EGP",
         amount_fx=payload.amount_fx or 0.0,
         exchange_rate=payload.exchange_rate or 1.0,
@@ -2152,7 +2173,7 @@ def record_clearance_invoice_service(
             SystemNotificationCreate(
                 recipient_role="Accounting & Operations",
                 title="تسجيل فاتورة تخليص ومصاريف موانئ (CL-05)",
-                message=f"تم تسجيل فاتورة {new_invoice.expense_category} برقم ({new_invoice.invoice_number}) بمبلغ {new_invoice.net_payable_egp:,.2f} ج.م للمقدم {new_invoice.provider_name} للشحنة {imp_file.import_file_code}.",
+                message=f"تم تسجيل فاتورة {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, new_invoice.expense_category)} برقم ({new_invoice.invoice_number}) بمبلغ {new_invoice.net_payable_egp:,.2f} ج.م للمقدم {new_invoice.provider_name} للشحنة {imp_file.import_file_code}.",
                 priority="NORMAL",
                 reference_type="CustomsClearanceInvoice",
                 reference_id=str(new_invoice.invoice_id),

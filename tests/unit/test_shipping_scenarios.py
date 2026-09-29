@@ -437,6 +437,9 @@ class TestShippingScenariosBackend:
         assert cloned_res.session_code != source_session.session_code
         assert cloned_res.session_code.startswith("SCE-")
         assert cloned_res.title == "Mediterranean Fast Express Cloned Study"
+        # Default clone title: language-independent English suffix
+        default_clone = ShippingScenarioService.clone_session_service(db, source_id, CloneShippingEvaluationRequest())
+        assert default_clone.title == "Mediterranean Fast Express Study (Copy)"
         assert cloned_res.import_file_id is None
         assert cloned_res.po_id is None
         assert "[Clone Note]: Cloned for alternative port comparison" in cloned_res.notes

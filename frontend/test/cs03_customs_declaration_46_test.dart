@@ -143,8 +143,8 @@ void main() {
       expect(find.text('المسار الأصفر'), findsOneWidget);
       expect(find.text('المسار الأخضر'), findsOneWidget);
 
-      // Verify Regulatory Body Chips
-      expect(find.textContaining('GOEIC'), findsWidgets);
+      // Verify Regulatory Body Chips (value is the GOEIC code, label is localized)
+      expect(find.text('الهيئة العامة للرقابة على الصادرات والواردات'), findsOneWidget);
     });
   });
 }

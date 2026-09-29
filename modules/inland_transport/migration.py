@@ -15,7 +15,7 @@ def run_migration():
         carrier_id INTEGER,
         carrier_name VARCHAR(255) NOT NULL,
         truck_plate_number VARCHAR(50) NOT NULL,
-        truck_type VARCHAR(100) DEFAULT 'Flatbed Trailer (تريلا مسطح)',
+        truck_type VARCHAR(100) DEFAULT 'FLATBED',
         driver_name VARCHAR(100) NOT NULL,
         driver_phone VARCHAR(50) NOT NULL,
         driver_national_id VARCHAR(50),

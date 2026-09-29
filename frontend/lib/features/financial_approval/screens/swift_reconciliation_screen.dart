@@ -13,6 +13,7 @@ import '../widgets/swift_extraction_review_widget.dart';
 import 'package:flutter/services.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/display_name_resolver.dart';
+import '../../../core/localization/stored_text.dart';
 
 const String kSampleSwiftMT103 = '''{1:F01ARAIECXXXXX.SN...ISN.}{2:I103CITIUS33XXXXN}{3:{108:xxxxx}}{4:
 :20/TRANSACTION REFERENCE NUMBER       : FT/26228/KZ70Q
@@ -369,7 +370,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         updated = await ref.read(paymentRequestsProvider.notifier).reconcileReviewedSwiftBatch(
           batchId: _currentBatch!.batchId,
           paymentId: pay.paymentId,
-          notes: l10n.swiftScreenSubtitle,
+          notes: storedText.swiftScreenSubtitle,
         );
       } else {
         updated = await ref.read(paymentRequestsProvider.notifier).smartReconcileSwift(

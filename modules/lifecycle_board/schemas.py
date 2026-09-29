@@ -41,6 +41,8 @@ class StageActivityUpdate(BaseModel):
 
 class StageActivityResponse(StageActivityBase):
     id: int
+    msg_code: Optional[str] = None
+    msg_params: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

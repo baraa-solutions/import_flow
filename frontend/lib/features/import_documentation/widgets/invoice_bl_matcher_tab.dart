@@ -467,7 +467,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     try {
       final payload = {
         'import_file_id': _activeFileId,
-        'session_title': isDraft ? 'مسودة فحص مطابقة الفاتورة والبوليصة' : 'اعتماد نهائي لمطابقة الفاتورة والبوليصة',
+        'session_title': isDraft ? 'Invoice & B/L match check (draft)' : 'Invoice & B/L match final approval',
         'is_draft': isDraft,
         'invoice_raw_text': _invoiceTextCtrl.text.isNotEmpty ? _invoiceTextCtrl.text : null,
         'bl_raw_text': _blTextCtrl.text.isNotEmpty ? _blTextCtrl.text : null,
@@ -484,7 +484,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         'invoice_extracted_data': _matchResult?['invoice_data'],
         'bl_extracted_data': _matchResult?['bl_data'],
         'packing_extracted_data': _matchResult?['packing_list_data'],
-        'session_notes': isDraft ? 'حفظ مؤقت لمتابعة التدقيق لاحقاً' : 'تم الاعتماد النهائي وتحديث الموافقة الجمركية',
+        'session_notes': isDraft ? 'Saved as draft to continue the review later' : 'Final approval saved; customs approval updated',
         'created_by': 'system',
       };
 

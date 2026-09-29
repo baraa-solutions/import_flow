@@ -28,6 +28,7 @@ import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'swift_reconciliation_screen.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/widgets/recalculate_button.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -1108,13 +1109,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   void _cloneLinkedPoItem(LinkedPOItemModel po) {
     if (_payPrefillData == null) return;
     final l = context.l10n;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final suffix = isAr ? ' (نسخة)' : ' (Copy)';
 
     final clonedItem = LinkedPOItemModel(
       poId: 0,
-      poNumber: '${po.poNumber}$suffix',
-      poReference: po.poReference != null ? '${po.poReference}$suffix' : null,
+      poNumber: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
+      poReference: TableRowCloneHelper.withCodeSuffix(po.poReference),
       piNumber: po.piNumber,
       projectId: po.projectId,
       projectName: po.projectName,

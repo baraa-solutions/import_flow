@@ -32,6 +32,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/directional_icon.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
@@ -94,11 +95,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     if (idx < 0 || idx >= _evalItems.length) return;
     final source = _evalItems[idx];
     final l = context.l10n;
-    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
-    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    // The vessel name is a real-world name and is kept as is on the clone.
     final clonedItem = source.copyWith(
-      vesselName: '${source.vesselName}$copySuffix',
       isRecommended: false,
       isSelected: false,
     );
@@ -119,8 +117,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+    final initialName = '${source.title ?? source.sessionCode}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.shippingCarrierOptions: '${source.items.length}',

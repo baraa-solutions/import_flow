@@ -154,7 +154,7 @@ class ClearanceServicePriceListItem(Base):
     provider_name: Mapped[str] = mapped_column(String(200), nullable=False)
     port_name: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    service_category: Mapped[str] = mapped_column(String(100), default="Clearance Fee")
+    service_category: Mapped[str] = mapped_column(String(100), default="CLEARANCE_FEE")  # CLEARANCE_QUOTE_SERVICE_CATEGORY code
     container_type: Mapped[str] = mapped_column(String(50), default="40HQ")
     unit_price: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="EGP", nullable=False)

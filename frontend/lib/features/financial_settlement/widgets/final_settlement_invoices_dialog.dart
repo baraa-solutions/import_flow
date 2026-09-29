@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/invoices_aggregation_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class FinalSettlementInvoicesDialog extends ConsumerStatefulWidget {
   final int importFileId;
@@ -42,13 +43,14 @@ class _FinalSettlementInvoicesDialogState
   InvoicesAggregationResponseModel? _aggregationData;
 
   String _selectedPartyFilter = 'ALL';
-  final _settledByController =
-      TextEditingController(text: 'أحمد كمال (أخصائي التكاليف والتسويات)');
+  final _settledByController = TextEditingController();
   final _notesController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    // Default to the signed-in user (no hard-coded sample name).
+    _settledByController.text = ref.read(authProvider).user?.fullName ?? '';
     _loadData();
   }
 

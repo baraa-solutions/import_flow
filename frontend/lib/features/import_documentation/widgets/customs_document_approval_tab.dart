@@ -16,6 +16,7 @@ import '../models/docs_customs_approval_model.dart';
 import '../providers/docs_customs_approval_provider.dart';
 import '../screens/central_docs_archive_screen.dart';
 import 'search_and_clone_customs_approval_dialog.dart';
+import '../../../core/localization/stored_text.dart';
 
 class CustomsDocumentApprovalTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -1341,7 +1342,7 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _nameCtrl.text = context.l10n.customsApprovalDefaultCommercialReviewer;
+      _nameCtrl.text = storedText.customsApprovalDefaultCommercialReviewer;
     }
   }
 
@@ -1491,8 +1492,8 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _brokerCtrl.text = context.l10n.customsApprovalDefaultBrokerOffice;
-      _reviewerCtrl.text = context.l10n.customsApprovalDefaultLegalOfficer;
+      _brokerCtrl.text = storedText.customsApprovalDefaultBrokerOffice;
+      _reviewerCtrl.text = storedText.customsApprovalDefaultLegalOfficer;
     }
   }
 
@@ -1814,7 +1815,7 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _resolverCtrl.text = context.l10n.customsApprovalDefaultComplianceOfficer;
+      _resolverCtrl.text = storedText.customsApprovalDefaultComplianceOfficer;
     }
   }
 

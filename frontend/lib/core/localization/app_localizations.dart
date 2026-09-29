@@ -8577,6 +8577,9 @@ abstract class AppLocalizations {
   String updateReadyBanner(String version);
   String get updateAdminRequiredTooltip;
   String get updateAboutSectionTitle;
+
+  /// Label of a T3 domain code (see DomainEnums); null when [code] is unknown.
+  String? domainEnumLabel(String type, String code);
 }
 
 

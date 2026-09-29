@@ -182,6 +182,8 @@ class ImportFileModel {
   final String? pausedAtStage;
   final String? pausedAtStep;
   final String? holdReason;
+  /// HOLD_REASON code when the hold used a predefined reason (null for free text / legacy rows).
+  final String? holdReasonCode;
   final String? holdDate;
   final List<String> skippedStages;
   final String status;
@@ -320,6 +322,7 @@ class ImportFileModel {
     this.pausedAtStage,
     this.pausedAtStep,
     this.holdReason,
+    this.holdReasonCode,
     this.holdDate,
     this.skippedStages = const [],
     this.status = 'Open',
@@ -450,6 +453,7 @@ class ImportFileModel {
       pausedAtStage: json['paused_at_stage'],
       pausedAtStep: json['paused_at_step'],
       holdReason: json['hold_reason'],
+      holdReasonCode: json['hold_reason_code'] as String?,
       holdDate: json['hold_date'],
       skippedStages: rawSkipped.map((s) => s.toString()).toList(),
       status: json['status'] ?? 'Open',
@@ -576,6 +580,7 @@ class ImportFileModel {
       if (pausedAtStage != null) 'paused_at_stage': pausedAtStage,
       if (pausedAtStep != null) 'paused_at_step': pausedAtStep,
       if (holdReason != null) 'hold_reason': holdReason,
+      if (holdReasonCode != null) 'hold_reason_code': holdReasonCode,
       if (holdDate != null) 'hold_date': holdDate,
       'skipped_stages': skippedStages,
       'status': status,

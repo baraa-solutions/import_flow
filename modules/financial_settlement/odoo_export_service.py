@@ -15,6 +15,37 @@ from .schemas import (
     OdooExportConfig,
 )
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+
+
+CLEARANCE_PREFIX = "Clearance / "
+
+
+def classify_odoo_cost_category(category: str) -> str:
+    """Odoo cost bucket of an expense category. Enum codes / English labels of CLEARANCE_EXPENSE_CATEGORY
+    are matched through their legacy label so they land exactly where the legacy text landed."""
+    text = category or ""
+    if text.startswith(CLEARANCE_PREFIX):
+        # Settlement snapshot rows written by customs_clearance: the label/code after the prefix is translated.
+        body = text[len(CLEARANCE_PREFIX):]
+        text = CLEARANCE_PREFIX + enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, body)
+    elif enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text):
+        # A bare code (only new code writes one). Manual rows with free text / English labels stay as typed.
+        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+    cat_lower = text.lower()
+    if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
+        return "Freight"
+    if "customs" in cat_lower or "duty" in cat_lower or "جمارك" in cat_lower or "ضرائب" in cat_lower or "vat" in cat_lower:
+        return "Customs"
+    if "broker" in cat_lower or "clearance" in cat_lower or "تخليص" in cat_lower:
+        return "Clearance"
+    if "transport" in cat_lower or "truck" in cat_lower or "نقل" in cat_lower:
+        return "Transport"
+    if "demurrage" in cat_lower or "storage" in cat_lower or "ارضيات" in cat_lower or "أرضيات" in cat_lower or "غرامات" in cat_lower:
+        return "Demurrage"
+    if "adjustment" in cat_lower or "price" in cat_lower or "تعديل" in cat_lower or "فرق" in cat_lower:
+        return "Price_Adjustment"
+    return "Other"
 
 def generate_odoo_journal_entry_service(
     db: Session,
@@ -104,42 +135,35 @@ def generate_odoo_journal_entry_service(
         if amount_egp <= 0:
             continue
 
-        cat_lower = category.lower()
-        if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
+        cost_cat = classify_odoo_cost_category(category)
+        if cost_cat == "Freight":
             acct_code = config.freight_account_code
             acct_name = f"موردو خدمات الشحن والنولون - {provider}"
-            cost_cat = "Freight"
             desc_label = f"فاتورة نولون شحن رقم {inv_no} - شركة {provider}"
-        elif "customs" in cat_lower or "duty" in cat_lower or "جمارك" in cat_lower or "ضرائب" in cat_lower or "vat" in cat_lower:
+        elif cost_cat == "Customs":
             acct_code = config.customs_authority_account_code
             acct_name = f"مصلحة الجمارك والضرائب - {provider}"
-            cost_cat = "Customs"
             desc_label = f"مطالبة جمركية ورسوم إقرار 46 رقم {inv_no} - {provider}"
-        elif "broker" in cat_lower or "clearance" in cat_lower or "تخليص" in cat_lower:
+        elif cost_cat == "Clearance":
             acct_code = config.customs_broker_account_code
             acct_name = f"مستخلصو الجمارك والأتعاب - {provider}"
-            cost_cat = "Clearance"
             desc_label = f"أتعاب ومصاريف تخليص جمركي فاتورة {inv_no} - {provider}"
-        elif "transport" in cat_lower or "truck" in cat_lower or "نقل" in cat_lower:
+        elif cost_cat == "Transport":
             acct_code = config.transport_account_code
             acct_name = f"مقاولو النقل الداخلي - {provider}"
-            cost_cat = "Transport"
             desc_label = f"فاتورة نقل داخلي وتعتيق رقم {inv_no} - {provider}"
-        elif "demurrage" in cat_lower or "storage" in cat_lower or "ارضيات" in cat_lower or "أرضيات" in cat_lower or "غرامات" in cat_lower:
+        elif cost_cat == "Demurrage":
             acct_code = config.demurrage_account_code
             acct_name = f"غرامات أرضيات وتأخير حاويات - {provider}"
-            cost_cat = "Demurrage"
             desc_label = f"غرامات أرضيات وتأخير حاويات فاتورة {inv_no} - {provider}"
-        elif "adjustment" in cat_lower or "price" in cat_lower or "تعديل" in cat_lower or "فرق" in cat_lower:
+        elif cost_cat == "Price_Adjustment":
             acct_code = config.price_adjustment_account_code
             acct_name = f"فروق وغرامات تسوية أسعار - {provider}"
-            cost_cat = "Price_Adjustment"
             desc_label = f"غرامة وفروق تسوية قيمة استيرادية رقم {inv_no} - {provider}"
         else:
             acct_code = config.other_expenses_account_code
             acct_name = f"مصروفات استيراد متنوعة - {provider}"
-            cost_cat = "Other"
-            desc_label = f"مصروفات استيرادية {category} فاتورة {inv_no} - {provider}"
+            desc_label = f"مصروفات استيرادية {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, category)} فاتورة {inv_no} - {provider}"
 
         lines.append(
             OdooJournalLineItem(

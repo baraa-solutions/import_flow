@@ -11,6 +11,18 @@ class TableRowCloneHelper {
   /// is saved to the database.
   static const String copySuffix = ' (Copy)';
 
+  /// Appended to cloned business codes (item code, PO number, reference no.).
+  /// Language-independent and free of spaces/brackets so the code stays a code.
+  static const String copyCodeSuffix = '-COPY';
+
+  /// `'$text (Copy)'`; null/blank input stays as is (null or the blank text).
+  static String? withCopySuffix(String? text) =>
+      (text == null || text.trim().isEmpty) ? text : '$text$copySuffix';
+
+  /// `'$code-COPY'`; null/blank input stays as is (null or the blank code).
+  static String? withCodeSuffix(String? code) =>
+      (code == null || code.trim().isEmpty) ? code : '$code$copyCodeSuffix';
+
   /// Duplicates a map-based row item at [sourceIndex] and inserts it at [sourceIndex + 1].
   ///
   /// - [keysToReset]: Keys that will be set to `null` on the cloned copy (e.g. `['id', 'item_id']`).

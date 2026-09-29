@@ -108,7 +108,7 @@ class CustomsInspectionSamplingSubmit(BaseModel):
     import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
     inspection_date: Optional[datetime] = Field(None, description="تاريخ الكشف والمعاينة الفنية")
     inspection_type: str = Field("Physical & Sampling", description="نوع الكشف (Physical & Sampling, 100% Full, Random Sample, X-Ray Scan, Document Review)")
-    inspection_yard: Optional[str] = Field("ساحة الفحص المشترك", description="ساحة أو رصيف المعاينة والكشف بالميناء")
+    inspection_yard: Optional[str] = Field(None, description="INSPECTION_YARD code (legacy yard names are normalized) or free text")
     inspector_name: Optional[str] = Field(None, description="اسم المفتش أو رئيس لجنة الفحص الجمركي المشترك")
     inspection_result: str = Field("Conforming", description="نتيجة المعاينة (Conforming, Shortage, Surplus, Discrepancy)")
     is_sample_drawn: bool = Field(True, description="هل تم سحب عينات للفحص والتحليل المعملي؟")
@@ -146,7 +146,7 @@ class CustomsDutyPaymentSubmit(BaseModel):
     sadad_number: str = Field(..., min_length=3, description="رقم السداد الإلكتروني / سداد E-Finance")
     paying_bank_name: str = Field(..., min_length=2, description="اسم البنك المسدد من خلاله")
     payment_date: Optional[datetime] = Field(None, description="تاريخ ووقت السداد")
-    payment_method: str = Field("Sadad / E-Finance", description="طريقة ومنظومة السداد (Sadad / E-Finance, Bank CPS, Direct Debit)")
+    payment_method: str = Field("SADAD_EFINANCE", description="طريقة ومنظومة السداد (Sadad / E-Finance, Bank CPS, Direct Debit)")
     duty_paid_amount: float = Field(..., gt=0.0, description="المبلغ المسدد فعلياً بالجنيه المصري")
     receipt_file_url: Optional[str] = Field(None, description="رابط صورة إيصال السداد")
     payment_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل عملية السداد")
@@ -161,7 +161,7 @@ class DutyPaymentSubmit(BaseModel):
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     payment_notes: Optional[str] = None
     sadad_number: Optional[str] = None
-    payment_method: Optional[str] = "Sadad / E-Finance"
+    payment_method: Optional[str] = "SADAD_EFINANCE"
     duty_paid_amount: Optional[float] = None
     receipt_file_url: Optional[str] = None
 
@@ -169,7 +169,7 @@ class CompleteReleaseSubmit(BaseModel):
     release_permit_no: str
     release_date: datetime
     release_officer_name: Optional[str] = None
-    release_type: Optional[str] = "نهائي وبات (Final Green Release)"
+    release_type: Optional[str] = "FINAL_GREEN"
     release_document_url: Optional[str] = None
     gate_pass_number: Optional[str] = None
     port_gate_out_date: Optional[datetime] = None
@@ -184,7 +184,7 @@ class CustomsFinalReleaseSubmit(BaseModel):
     release_permit_no: str = Field(..., min_length=3, description="رقم إذن الإفراج الجمركي الأخضر النهائي")
     release_date: Optional[datetime] = None
     release_officer_name: Optional[str] = None
-    release_type: str = "نهائي وبات (Final Green Release)"
+    release_type: str = "FINAL_GREEN"
     release_document_url: Optional[str] = None
     gate_pass_number: Optional[str] = None
     port_gate_out_date: Optional[datetime] = None
@@ -430,13 +430,13 @@ class CustomsClearanceResponse(BaseModel):
     payment_date: Optional[datetime] = None
     payment_notes: Optional[str] = None
     sadad_number: Optional[str] = None
-    payment_method: Optional[str] = "Sadad / E-Finance"
+    payment_method: Optional[str] = "SADAD_EFINANCE"
     duty_paid_amount: float = 0.0
     receipt_file_url: Optional[str] = None
     release_permit_no: Optional[str] = None
     release_date: Optional[datetime] = None
     release_officer_name: Optional[str] = None
-    release_type: Optional[str] = "نهائي وبات (Final Green Release)"
+    release_type: Optional[str] = "FINAL_GREEN"
     release_document_url: Optional[str] = None
     gate_pass_number: Optional[str] = None
     demurrage_storage_fees: float

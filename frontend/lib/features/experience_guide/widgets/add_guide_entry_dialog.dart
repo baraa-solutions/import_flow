@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/experience_guide_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class AddGuideEntryDialog extends ConsumerStatefulWidget {
   final String? initialHsCode;
@@ -171,7 +172,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
         'severity': _severity,
         'department': _department,
         if (_expiresAt != null) 'expires_at': _expiresAt!.toIso8601String(),
-        'created_by': 'المستخدم الحالي',
+        'created_by': ref.read(authProvider).user?.fullName ?? 'system',
         'scopes': validScopes,
       };
 

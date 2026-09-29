@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Text,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -169,6 +170,14 @@ class ImportFile(Base):
     hold_reason = Column(Text, nullable=True)
     hold_date = Column(DateTime, nullable=True)
     skipped_stages = Column(JSON, default=list, nullable=True) # e.g. ["STEP_01", "STEP_06"]
+    hold_reason_code = Column(String(50), nullable=True)  # HOLD_REASON enum code (hold_reason keeps the label/text)
+
+    # Single-language storage: structured tracking next to the legacy English text columns
+    current_step_code = Column(String(50), nullable=True)  # e.g. STEP_13
+    current_phase_id = Column(Integer, nullable=True, index=False)  # 1..6
+    current_stage_code = Column(String(50), nullable=True)  # PHASE_n or a special STAGE code (CUSTOMS_RELEASED)
+    next_action_code = Column(String(80), nullable=True)  # NA_* system message code
+    next_action_params = Column(JSON, nullable=True)
 
     status = Column(String(50), nullable=False, default="Open", index=True) # Open, In Progress, On Hold, Closed, Archived
     owner = Column(String(100), nullable=False, default="Kamal") # Operational owner e.g. Kamal
@@ -187,6 +196,10 @@ class ImportFile(Base):
     # Traceability & Cloning (UX-CLONE-011)
     cloned_from_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True)
     cloned_from_code = Column(String(50), nullable=True)
+
+    __table_args__ = (
+        Index("idx_import_files_current_phase_id", "current_phase_id"),
+    )
 
     # Relationships
     company = relationship("ImportCompany", foreign_keys=[company_id])

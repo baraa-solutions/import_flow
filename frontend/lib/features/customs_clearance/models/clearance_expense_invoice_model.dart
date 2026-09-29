@@ -69,7 +69,7 @@ class ClearanceExpenseInvoiceModel {
       invoiceDate: json['invoice_date'] ?? '',
       providerId: json['provider_id'],
       providerName: json['provider_name'] ?? '',
-      expenseCategory: json['expense_category'] ?? 'Customs Broker Fees (أتعاب التخليص الجمركي)',
+      expenseCategory: json['expense_category'] ?? 'BROKER_FEES',
       currency: json['currency'] ?? 'EGP',
       amountFx: (json['amount_fx'] as num?)?.toDouble() ?? 0.0,
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 1.0,

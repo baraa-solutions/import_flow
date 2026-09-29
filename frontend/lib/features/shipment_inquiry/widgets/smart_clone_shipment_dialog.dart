@@ -6,6 +6,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/widgets/import_file_form_dialog.dart';
+import '../../../core/localization/stored_text.dart';
 
 class SmartCloneShipmentDialog extends ConsumerStatefulWidget {
   final ImportFileModel sourceFile;
@@ -59,15 +60,14 @@ class _SmartCloneShipmentDialogState extends ConsumerState<SmartCloneShipmentDia
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      final l = context.l10n;
       final src = widget.sourceFile;
       if (_newNameController.text.isEmpty) {
         _newNameController.text = src.notes != null && src.notes!.isNotEmpty
-            ? '${src.notes!.split("\n").first} ${l.inqCloneNewShipmentSuffix}'
-            : '${src.importFileCode} ${l.inqCloneNewShipmentSuffix}';
+            ? '${src.notes!.split("\n").first} ${storedText.inqCloneNewShipmentSuffix}'
+            : '${src.importFileCode} ${storedText.inqCloneNewShipmentSuffix}';
       }
       if (_notesController.text.isEmpty) {
-        _notesController.text = l.inqCloneTemplateDefaultNote(src.importFileCode);
+        _notesController.text = storedText.inqCloneTemplateDefaultNote(src.importFileCode);
       }
     }
   }

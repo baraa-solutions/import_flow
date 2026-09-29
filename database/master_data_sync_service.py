@@ -26,6 +26,7 @@ from modules.incoterms.incoterms_matrix import IncotermsMatrix, Party
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_consultation.model import ClearanceExpenseType
+from modules.common import enum_codes
 from modules.auth.seed_rbac import seed_rbac
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
 
@@ -366,8 +367,8 @@ class MasterDataSyncService:
                     expense_code=code,
                     name_ar=name_ar,
                     name_en=name_en,
-                    category=cat,
-                    default_unit=unit,
+                    category=enum_codes.normalize(enum_codes.BROKER_EXPENSE_CATEGORY, cat),
+                    default_unit=enum_codes.normalize(enum_codes.PRICING_UNIT, unit),
                     default_currency=curr,
                     display_order=order,
                     is_active=True,

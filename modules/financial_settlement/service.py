@@ -33,6 +33,32 @@ from .repository import (
 )
 from .validators import validate_expense_invoice, validate_items_allocation_readiness
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+
+
+def actual_expense_bucket(category: Optional[str], party_type: Optional[str] = None) -> str:
+    """Actual landed-cost bucket of an aggregated expense invoice. For broker (clearance) invoices a
+    CLEARANCE_EXPENSE_CATEGORY code or English label is matched through its legacy label, so coded rows land
+    exactly where the legacy text landed."""
+    text = category or ""
+    if (party_type or "").upper() == "BROKER":
+        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+    cat_lower = text.lower()
+    if any(w in cat_lower for w in ["freight", "ocean", "air", "نولون", "شحن"]):
+        return "Freight"
+    if any(w in cat_lower for w in ["insurance", "تأمين"]):
+        return "Insurance"
+    if any(w in cat_lower for w in ["duty", "duties", "46", "وارد", "جمرك"]) and "vat" not in cat_lower and "قيمة مضافة" not in cat_lower and "broker" not in cat_lower and "clearance" not in cat_lower:
+        return "Customs Duty"
+    if any(w in cat_lower for w in ["vat", "قيمة مضافة", "جدول", "schedule", "خدمات جمركية"]):
+        return "VAT & Taxes"
+    if any(w in cat_lower for w in ["clearance", "broker", "delivery order", "d/o", "تخليص", "إذن تسليم"]):
+        return "Clearance & Port"
+    if any(w in cat_lower for w in ["transport", "truck", "inland", "نقل"]):
+        return "Inland Transport"
+    if any(w in cat_lower for w in ["demurrage", "detention", "storage", "أرضيات", "غرامات", "eir"]):
+        return "Demurrage & Storage"
+    return "Other & Admin"
 
 def calculate_landed_cost_engine(
     expenses: List[Dict[str, Any]],
@@ -1114,8 +1140,14 @@ def aggregate_shipment_invoices_service(
             party_type="BROKER",
             party_type_ar="المخلص الجمركي / هيئة الميناء",
             party_name=cl_inv.provider_name or "المخلص الجمركي",
-            category=cl_inv.expense_category or "Clearance & Port Expenses",
-            category_ar=cl_inv.expense_category or "أتعاب التخليص ومصاريف الميناء والعتالة",
+            # Labels, never raw codes; the stored value is exposed additively as category_code.
+            category=enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, cl_inv.expense_category)
+            or "Clearance & Port Expenses",
+            category_ar=enum_codes.label_ar(enum_codes.CLEARANCE_EXPENSE_CATEGORY, cl_inv.expense_category)
+            or "أتعاب التخليص ومصاريف الميناء والعتالة",
+            category_code=cl_inv.expense_category
+            if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, cl_inv.expense_category)
+            else None,
             currency=cl_inv.currency or "EGP",
             exchange_rate=float(cl_inv.exchange_rate or 1.0),
             amount_fc=float(cl_inv.amount_fx or amt),
@@ -1473,32 +1505,9 @@ def calculate_actual_landed_cost_service(
     }
 
     for inv in expense_invoices:
-        cat_lower = (inv.category or "").lower()
-        amt = float(inv.amount_egp or 0.0)
-        if any(w in cat_lower for w in ["freight", "ocean", "air", "نولون", "شحن"]):
-            cat_expenses["Freight"]["actual"] += amt
-            cat_expenses["Freight"]["count"] += 1
-        elif any(w in cat_lower for w in ["insurance", "تأمين"]):
-            cat_expenses["Insurance"]["actual"] += amt
-            cat_expenses["Insurance"]["count"] += 1
-        elif any(w in cat_lower for w in ["duty", "duties", "46", "وارد", "جمرك"]) and "vat" not in cat_lower and "قيمة مضافة" not in cat_lower and "broker" not in cat_lower and "clearance" not in cat_lower:
-            cat_expenses["Customs Duty"]["actual"] += amt
-            cat_expenses["Customs Duty"]["count"] += 1
-        elif any(w in cat_lower for w in ["vat", "قيمة مضافة", "جدول", "schedule", "خدمات جمركية"]):
-            cat_expenses["VAT & Taxes"]["actual"] += amt
-            cat_expenses["VAT & Taxes"]["count"] += 1
-        elif any(w in cat_lower for w in ["clearance", "broker", "delivery order", "d/o", "تخليص", "إذن تسليم"]):
-            cat_expenses["Clearance & Port"]["actual"] += amt
-            cat_expenses["Clearance & Port"]["count"] += 1
-        elif any(w in cat_lower for w in ["transport", "truck", "inland", "نقل"]):
-            cat_expenses["Inland Transport"]["actual"] += amt
-            cat_expenses["Inland Transport"]["count"] += 1
-        elif any(w in cat_lower for w in ["demurrage", "detention", "storage", "أرضيات", "غرامات", "eir"]):
-            cat_expenses["Demurrage & Storage"]["actual"] += amt
-            cat_expenses["Demurrage & Storage"]["count"] += 1
-        else:
-            cat_expenses["Other & Admin"]["actual"] += amt
-            cat_expenses["Other & Admin"]["count"] += 1
+        bucket = actual_expense_bucket(inv.category, inv.party_type)
+        cat_expenses[bucket]["actual"] += float(inv.amount_egp or 0.0)
+        cat_expenses[bucket]["count"] += 1
 
     actual_total_expenses_egp = sum(c["actual"] for c in cat_expenses.values())
     actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp

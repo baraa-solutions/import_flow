@@ -17,6 +17,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
@@ -50,8 +51,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialTitle = '${source.title}$copySuffix';
+    final initialTitle = '${source.title}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.customsBrokerLabel: source.brokerName.isNotEmpty ? source.brokerName : '—',

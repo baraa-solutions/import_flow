@@ -33,6 +33,7 @@ import '../widgets/clearance_expenses_dialog.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
+import '../../auth/providers/auth_provider.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -245,7 +246,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 dispatchAuthorized: false,
                 dispatchDate: null,
                 status: 'Inspection In Progress',
-                owner: 'Current User',
+                owner: ref.read(authProvider).user?.fullName ?? '',
                 notes: notes ?? 'Cloned from ${rec.clearanceCode}',
                 isActive: true,
                 createdAt: DateTime.now().toIso8601String(),

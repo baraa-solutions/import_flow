@@ -42,6 +42,7 @@ import '../../projects/models/project_model.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class PurchaseOrdersScreen extends ConsumerStatefulWidget {
   const PurchaseOrdersScreen({super.key});
@@ -4151,7 +4152,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       context,
       entityType: isAr ? 'أمر شراء' : 'Purchase Order',
       sourceCode: po.poNumber,
-      suggestedNewCode: '${po.poNumber}-CLONE',
+      suggestedNewCode: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
       sourceTitle: po.displayName,
       copiedFieldsSummary: {
         isAr ? 'الشركة المستوردة' : 'Importer': po.companyName ?? '-',

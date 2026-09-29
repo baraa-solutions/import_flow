@@ -156,7 +156,8 @@ class ReopenShipmentSubmit(BaseModel):
 
 
 class HoldShipmentPayload(BaseModel):
-    hold_reason: str = Field(..., min_length=3, description="Reason for placing shipment on hold")
+    hold_reason: str = Field(..., min_length=3, description="Reason for placing shipment on hold (English label or user text)")
+    hold_reason_code: Optional[str] = Field(None, max_length=50, description="HOLD_REASON enum code (modules/common/enum_codes.py)")
     hold_notes: Optional[str] = None
     stage_name: Optional[str] = None
     step_name: Optional[str] = None
@@ -320,6 +321,13 @@ class ImportFileResponse(ImportFileBase):
     current_stage: str
     progress_percent: float
     next_action: str
+    # Single-language storage (additive, nullable): codes next to the English text columns
+    current_step_code: Optional[str] = None
+    current_phase_id: Optional[int] = None
+    current_stage_code: Optional[str] = None
+    next_action_code: Optional[str] = None
+    next_action_params: Optional[Dict[str, Any]] = None
+    hold_reason_code: Optional[str] = None
     is_active: bool = True
     cloned_from_id: Optional[int] = None
     cloned_from_code: Optional[str] = None

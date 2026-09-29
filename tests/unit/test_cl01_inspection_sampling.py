@@ -190,6 +190,26 @@ def test_record_customs_inspection_sampling_service_success(db_session, sample_d
     assert "تم تسجيل الكشف والمعاينة" in notif.title
 
 
+@pytest.mark.parametrize(
+    "sent,stored",
+    [
+        ("ساحة الفحص المشترك - ميناء الدخيلة", "DEKHEILA"),  # legacy Arabic yard name from old clients
+        ("OCTOBER_DRY_PORT", "OCTOBER_DRY_PORT"),  # new clients send the code
+        ("Private bonded yard 7", "Private bonded yard 7"),  # free text stays as typed
+        (None, "Joint Inspection Yard"),  # no yard -> English fallback
+    ],
+)
+def test_inspection_yard_is_stored_as_code(db_session, sample_data, sent, stored):
+    payload = CustomsInspectionSamplingSubmit(
+        import_file_id=sample_data["import_file"].import_file_id,
+        inspection_yard=sent,
+        inspection_result="Conforming",
+        is_sample_drawn=False,
+    )
+    record = record_customs_inspection_sampling_service(db_session, payload, user="TestBroker")
+    assert record.inspection_yard == stored
+
+
 def test_record_customs_inspection_sampling_validation_errors(db_session, sample_data):
     """Test validation errors for CL-01."""
     imp_file = sample_data["import_file"]

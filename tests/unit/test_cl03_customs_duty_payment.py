@@ -149,7 +149,7 @@ def test_record_customs_duty_payment_service_success(db_session, sample_data):
     assert record.bank_receipt_no == "RCP-BM-2026-991122"
     assert record.sadad_number == "SADAD-2026-MTS-882200"
     assert record.paying_bank_name == "Banque Misr - Corporate Branch"
-    assert record.payment_method == "Sadad / E-Finance"
+    assert record.payment_method == "SADAD_EFINANCE"  # legacy label normalized to the enum code
     assert record.duty_paid_amount == 190500.0
     assert record.actual_duty_total == 190500.0
     assert record.payment_status == "Paid & Verified"
@@ -259,7 +259,7 @@ def test_record_duty_payment_api_endpoint(client, sample_data):
     data = res.json()
     assert data["bank_receipt_no"] == "RCP-API-2026-7788"
     assert data["sadad_number"] == "SADAD-API-2026-4433"
-    assert data["paying_bank_name"] == "Commercial International Bank (CIB)"
+    assert data["paying_bank_name"] == "CIB"  # known bank label normalized to its code
     assert data["duty_paid_amount"] == 190500.0
     assert data["payment_status"] == "Paid & Verified"
     assert data["status"] == "Duty Paid - Ready for Final Release"

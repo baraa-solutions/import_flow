@@ -21,6 +21,8 @@ import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
 import '../widgets/final_settlement_invoices_dialog.dart';
 import '../widgets/actual_landed_cost_dialog.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
@@ -156,7 +158,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                   ? source.itemLandedCosts
                       .map((i) => ItemLandedCostModel(
                             itemCode: i.itemCode,
-                            itemName: '${i.itemName} (نسخة)',
+                            itemName: '${i.itemName}${TableRowCloneHelper.copySuffix}',
                             qty: i.qty,
                             grossWeightKg: i.grossWeightKg,
                             cbm: i.cbm,
@@ -412,7 +414,8 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
       case 'Storage':
         return context.l10n.financialSettlementCategoryStorage;
       default:
-        return cat;
+        // Clearance invoices carry an expense_category code (or a legacy label).
+        return DomainEnums.labelIfKnown(context.l10n, DomainEnumType.clearanceExpenseCategory, cat) ?? cat;
     }
   }
 

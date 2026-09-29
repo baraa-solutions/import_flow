@@ -24,6 +24,7 @@ from .validators import (
     validate_import_file_for_transport,
 )
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
 
 def create_transport_booking_service(
     db: Session,
@@ -32,6 +33,7 @@ def create_transport_booking_service(
 ) -> InlandTransportBooking:
     validate_transport_booking_input(schema)
     imp_file = validate_import_file_for_transport(db, schema.import_file_id)
+    schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
 
     code = generate_transport_code(db)
     booking = create_transport_booking(db, schema, code, user)
@@ -190,6 +192,8 @@ def update_transport_booking_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
+    if schema.truck_type is not None:
+        schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
     return update_transport_booking(db, booking, schema, user)
 
 def soft_delete_transport_booking_service(

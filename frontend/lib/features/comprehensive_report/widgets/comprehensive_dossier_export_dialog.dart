@@ -7,6 +7,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/comprehensive_dossier_model.dart';
 import '../services/comprehensive_dossier_service.dart';
 import '../services/comprehensive_report_export_service.dart';
+import '../../auth/providers/auth_provider.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -43,8 +44,7 @@ class _ComprehensiveDossierExportDialogState
   ComprehensiveShipmentDossierModel? _dossier;
 
   final _formKey = GlobalKey<FormState>();
-  final _exportedByController =
-      TextEditingController(text: 'أحمد كمال (المراقب المالي وسلاسل الإمداد)');
+  final _exportedByController = TextEditingController();
   final _notesController = TextEditingController();
   String _selectedFormat = 'PDF & Excel Full Bundle';
 
@@ -58,6 +58,8 @@ class _ComprehensiveDossierExportDialogState
   @override
   void initState() {
     super.initState();
+    // Default to the signed-in user (no hard-coded sample name).
+    _exportedByController.text = ref.read(authProvider).user?.fullName ?? '';
     _loadDossier();
   }
 

@@ -36,6 +36,7 @@ import '../utils/po_packing_matcher.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 
 class POFormDialog extends ConsumerStatefulWidget {
@@ -132,11 +133,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (index < 0 || index >= _dialogItems.length) return;
     final original = _dialogItems[index];
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
+    const copySuffix = TableRowCloneHelper.copySuffix;
     final duplicated = original.copyWith(
       itemId: null,
       itemCode: original.itemCode != null && original.itemCode!.trim().isNotEmpty
-          ? '${original.itemCode}$copySuffix'
+          ? '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}'
           : null,
       mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
           ? '${original.mainDescription}$copySuffix'
@@ -160,10 +161,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (index < 0 || index >= _dialogPackingItems.length) return;
     final original = _dialogPackingItems[index];
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
+    const copySuffix = TableRowCloneHelper.copySuffix;
     final duplicated = original.copyWith(
       packingItemId: null,
-      itemCode: '${original.itemCode}$copySuffix',
+      itemCode: '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}',
       mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
           ? '${original.mainDescription}$copySuffix'
           : null,

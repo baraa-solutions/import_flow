@@ -107,7 +107,7 @@ class CustomsClearanceRecord(Base):
     payment_date = Column(DateTime, nullable=True)
     payment_notes = Column(Text, nullable=True)
     sadad_number = Column(String(100), nullable=True, index=True)
-    payment_method = Column(String(50), default="Sadad / E-Finance", nullable=True)
+    payment_method = Column(String(50), default="SADAD_EFINANCE", nullable=True)  # PAYMENT_METHOD code
     duty_paid_amount = Column(Float, default=0.0)
     receipt_file_url = Column(String(500), nullable=True)
 
@@ -115,7 +115,7 @@ class CustomsClearanceRecord(Base):
     release_permit_no = Column(String(100), nullable=True, index=True)
     release_date = Column(DateTime, nullable=True)
     release_officer_name = Column(String(255), nullable=True)
-    release_type = Column(String(100), default="نهائي وبات (Final Green Release)", nullable=True)
+    release_type = Column(String(100), default="FINAL_GREEN", nullable=True)  # RELEASE_TYPE code
     release_document_url = Column(String(500), nullable=True)
     gate_pass_number = Column(String(100), nullable=True)
     demurrage_storage_fees = Column(Float, default=0.0)

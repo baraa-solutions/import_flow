@@ -136,7 +136,7 @@ class PurchaseOrderBase(BaseModel):
     order_date: Optional[datetime] = Field(None, description="Invoice Date / تاريخ الفاتورة")
     expected_delivery_date: Optional[datetime] = None
     exchange_rate: float = Field(1.0, gt=0)
-    payment_terms: Optional[str] = Field("LC at Sight / اعتماد مستندي", max_length=100)
+    payment_terms: Optional[str] = Field("LC at Sight", max_length=100)
     notes: Optional[str] = None
     pallet_count: Optional[int] = Field(0, ge=0, description="عدد البالتات الكلي")
     pallet_type: Optional[str] = Field("Euro Pallet (120x80)", max_length=100)

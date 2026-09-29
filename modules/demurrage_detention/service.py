@@ -27,6 +27,7 @@ from .schemas import (
 )
 from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
 from . import repository
+from modules.common import enum_codes
 
 logger = logging.getLogger(__name__)
 
@@ -1194,6 +1195,10 @@ def record_empty_container_return_service(
     - Dispatches downstream TSK-0901 SmartTask (CLO-01 Final Settlement) to Finance Specialist.
     - Emits system-wide notification.
     """
+    # A depot picked from the popular list is stored as its code; free text stays as typed.
+    payload = payload.model_copy(
+        update={"depot_name": enum_codes.normalize(enum_codes.EMPTY_CONTAINER_DEPOT, payload.depot_name)}
+    )
     from modules.import_files.model import ImportFile
     from modules.inland_transport.model import InlandTransportBooking
     from modules.smart_tasks.model import SmartTask

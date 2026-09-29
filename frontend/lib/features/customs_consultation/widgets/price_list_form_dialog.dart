@@ -11,6 +11,7 @@ import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 String getCategoryLabel(String category, BuildContext context) {
   final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -98,8 +99,8 @@ void showPriceListFormDialog(
 
   final isEditing = existingPriceList != null;
   int? selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : null);
-  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? (isAr ? 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026' : 'Customs Clearance & Inland Transport Price List 2026')));
-  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? (isAr ? 'ميناء الإسكندرية والدخيلة' : 'Alexandria & El-Dekheila Port')));
+  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? 'Customs Clearance & Inland Transport Price List 2026'));
+  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? 'Alexandria & El-Dekheila Port'));
   final notesCtrl = TextEditingController(text: existingPriceList?.notes ?? (initialExtractedData?['notes'] ?? ''));
   final dateCtrl = TextEditingController(text: existingPriceList?.effectiveFrom ?? (initialExtractedData?['effective_from'] ?? DateTime.now().toIso8601String().split('T').first));
   int version = existingPriceList?.version ?? 1;
@@ -1187,11 +1188,10 @@ void showPriceListFormDialog(
           cloned['item_id'] = null;
           cloned['expense_type_id'] = null;
           final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
-          final suffix = isAr ? ' (نسخة)' : ' (Copy)';
-          cloned['expense_name'] = '${orig['expense_name']}$suffix';
+          cloned['expense_name'] = '${orig['expense_name']}${TableRowCloneHelper.copySuffix}';
           cloned['notes'] = orig['notes'] != null && orig['notes'].toString().isNotEmpty
-              ? '${orig['notes']} | مستنسخ'
-              : (isAr ? 'مستنسخ' : 'Cloned');
+              ? '${orig['notes']} | Cloned'
+              : 'Cloned';
           setDlgState(() {
             itemsState.insert(realIdx + 1, cloned);
             activeRowIndex = realIdx + 1;

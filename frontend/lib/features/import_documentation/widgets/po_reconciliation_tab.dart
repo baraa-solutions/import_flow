@@ -27,6 +27,7 @@ import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_po_reconciliation_dialog.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -1643,8 +1644,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       _activeSessionId = null; // Strict invariant: new session!
       _activeSessionCode = newCode;
       _selectedImportFileId = session.importFileId;
-      _finalInvNumberCtrl.text = session.finalInvoiceNumber != null ? '${session.finalInvoiceNumber}-COPY' : '';
-      _finalPLNumberCtrl.text = session.finalPackingListNumber != null ? '${session.finalPackingListNumber}-COPY' : '';
+      _finalInvNumberCtrl.text = session.finalInvoiceNumber != null ? '${session.finalInvoiceNumber}${TableRowCloneHelper.copyCodeSuffix}' : '';
+      _finalPLNumberCtrl.text = session.finalPackingListNumber != null ? '${session.finalPackingListNumber}${TableRowCloneHelper.copyCodeSuffix}' : '';
 
       if (copyLineItems) {
         if (session.reconciledInvoiceItems != null && session.reconciledInvoiceItems!.isNotEmpty) {
@@ -1691,8 +1692,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   void _cloneInvoiceItem(POReconciliationItemModel item) {
     final index = _invoiceItems.indexOf(item);
     final cloned = item.copyWith(
-      itemCode: '${item.itemCode}-COPY',
-      description: '${item.description} (نسخة)',
+      itemCode: '${item.itemCode}${TableRowCloneHelper.copyCodeSuffix}',
+      description: '${item.description}${TableRowCloneHelper.copySuffix}',
     );
     setState(() {
       if (index >= 0) {
@@ -1713,8 +1714,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   void _clonePackingItem(POReconciliationItemModel item) {
     final index = _packingItems.indexOf(item);
     final cloned = item.copyWith(
-      itemCode: '${item.itemCode}-COPY',
-      description: '${item.description} (نسخة)',
+      itemCode: '${item.itemCode}${TableRowCloneHelper.copyCodeSuffix}',
+      description: '${item.description}${TableRowCloneHelper.copySuffix}',
     );
     setState(() {
       if (index >= 0) {

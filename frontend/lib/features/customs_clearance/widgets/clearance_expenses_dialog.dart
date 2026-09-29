@@ -6,6 +6,8 @@ import '../../import_files/models/import_file_model.dart';
 import '../models/clearance_expense_invoice_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// CL-05 Modal Dialog: Clearance Fees & Port Invoices
 /// تسجيل فواتير المخلص ومصاريف العتالة ونولون الميناء
@@ -56,22 +58,14 @@ class _ClearanceExpensesDialogState
   late TextEditingController _whtAmountController;
   late TextEditingController _notesController;
 
-  String _expenseCategory = 'Customs Broker Fees (أتعاب التخليص الجمركي)';
+  String _expenseCategory = 'BROKER_FEES';
   DateTime _invoiceDate = DateTime.now();
   bool _vatIncluded = false;
   bool _whtDeducted = false;
   String _allocationRule = 'Equal';
   final String _currency = 'EGP';
 
-  final List<String> _expenseCategories = [
-    'Customs Broker Fees (أتعاب التخليص الجمركي)',
-    'Port Dues & Wharfage (نولون ورسوم الميناء والرصيف)',
-    'Stevedoring & Handling (مصاريف العتالة والشحن والتفريغ)',
-    'Inspection & Weighing (رسوم الفحص والوزن والمعاينة)',
-    'Laboratory & Testing Fees (مصاريف التحاليل والمعامل)',
-    'Storage & Demurrage (رسوم الأرضيات وغرامات التأخير)',
-    'Other Clearance Expenses (مصاريف تخليص أخرى)',
-  ];
+  final List<String> _expenseCategories = DomainEnums.codesOf(DomainEnumType.clearanceExpenseCategory);
 
   final List<Map<String, String>> _allocationRules = [
     {'value': 'Equal', 'label': 'بالتساوي (Equal)'},
@@ -135,7 +129,7 @@ class _ClearanceExpensesDialogState
     _whtAmountController.text = '0.00';
     _notesController.clear();
     setState(() {
-      _expenseCategory = 'Customs Broker Fees (أتعاب التخليص الجمركي)';
+      _expenseCategory = 'BROKER_FEES';
       _invoiceDate = DateTime.now();
       _vatIncluded = false;
       _whtDeducted = false;
@@ -210,7 +204,7 @@ class _ClearanceExpensesDialogState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'تم تسجيل فاتورة ${_expenseCategory.split(' ')[0]} بنجاح وترحيلها لتكلفة البضاعة (Landed Cost)',
+              'تم تسجيل فاتورة ${DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, _expenseCategory)} بنجاح وترحيلها لتكلفة البضاعة (Landed Cost)',
             ),
             backgroundColor: AppTheme.emerald,
           ),
@@ -292,11 +286,18 @@ class _ClearanceExpensesDialogState
   }
 
   Color _getCategoryColor(String category) {
-    if (category.contains('Broker')) return AppTheme.cobalt;
-    if (category.contains('Port Dues')) return AppTheme.flatOrange;
-    if (category.contains('Stevedoring')) return Colors.purple.shade600;
-    if (category.contains('Laboratory')) return Colors.teal.shade700;
-    if (category.contains('Storage')) return AppTheme.crimson;
+    switch (DomainEnums.legacyToCode(DomainEnumType.clearanceExpenseCategory, category)) {
+      case 'BROKER_FEES':
+        return AppTheme.cobalt;
+      case 'PORT_DUES_WHARFAGE':
+        return AppTheme.flatOrange;
+      case 'STEVEDORING_HANDLING':
+        return Colors.purple.shade600;
+      case 'LABORATORY_TESTING':
+        return Colors.teal.shade700;
+      case 'STORAGE_DEMURRAGE':
+        return AppTheme.crimson;
+    }
     return AppTheme.charcoal;
   }
 
@@ -700,7 +701,7 @@ class _ClearanceExpensesDialogState
                       return DropdownMenuItem(
                         value: cat,
                         child: Text(
-                          cat,
+                          DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, cat),
                           style: const TextStyle(fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1001,7 +1002,7 @@ class _ClearanceExpensesDialogState
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        invoice.expenseCategory.split(' ')[0],
+                        DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, invoice.expenseCategory),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,

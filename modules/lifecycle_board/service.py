@@ -3,6 +3,7 @@ Business Service for Shipment Stage Activity & 6-Phase Lifecycle Board
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -30,6 +31,10 @@ from modules.lifecycle_board.schemas import (
     SkipStepPayload,
 )
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg, render_en
+
+logger = logging.getLogger(__name__)
 
 PHASES_DEFINITION = [
     {
@@ -776,12 +781,9 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
 
 # ─── Configurable Step Risk & Settings Service (Addendum: Section 10) ───
 
-DEFAULT_REASON_CATEGORIES = [
-    "Client Agreement / العميل يتولى الإجراء حسب الاتفاقية",
-    "Not Applicable to Mode / لا تنطبق على نمط الشحن",
-    "Regulatory Exemption / إعفاء رسمي أو رقابي",
-    "Other / أخرى",
-]
+# SKIP_REASON_CATEGORY codes (modules/common/enum_codes.py). Existing step_configs rows keep their legacy
+# bilingual strings; the UI maps them with DomainEnums.legacyToCode.
+DEFAULT_REASON_CATEGORIES = enum_codes.codes(enum_codes.SKIP_REASON_CATEGORY)
 
 
 def _ensure_step_configs(db: Session):
@@ -892,7 +894,7 @@ def update_step_config_service(
     if payload.skip_policy is not None:
         cfg.skip_policy = payload.skip_policy
     if payload.reason_categories is not None:
-        cfg.reason_categories = payload.reason_categories
+        cfg.reason_categories = enum_codes.normalize_list(enum_codes.SKIP_REASON_CATEGORY, payload.reason_categories)
     if payload.approver_roles is not None:
         cfg.approver_roles = payload.approver_roles
     if payload.supports_pending_reference is not None:
@@ -1181,15 +1183,57 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
     )
 
 
-def hold_shipment_activities_service(db: Session, import_file_code: str, hold_reason: str) -> None:
+def _append_system_note(act: Any, message: SysMsg) -> None:
+    """Append the English render of a system message to an activity's notes and keep its code/params
+    as the latest event (earlier system text stays in ``notes``)."""
+    text = render_en(message.code, message.params, "note")
+    act.notes = f"{act.notes} | {text}" if act.notes else text
+    act.msg_code = message.code
+    act.msg_params = dict(message.params)
+
+
+def resolve_hold_stage(stage_name: Optional[str], step_name: Optional[str]) -> Dict[str, Any]:
+    """Language-independent stage reference for hold/pause.
+
+    Clients send ``stage_name`` (a title, possibly Arabic, or a code) and ``step_name`` (a stage code such
+    as 'STEP_08_BL', 'PHASE-4: STEP_11', 'PHASE-5'). Returns ``phase_id``, ``step_code`` and the English
+    ``stage_title`` (None when nothing resolves, so the caller keeps its fallback)."""
+    phase_id, step_code = enum_codes.parse_stage_reference(step_name)
+    name_phase, name_step = enum_codes.parse_stage_reference(stage_name)
+    step_code = step_code or name_step
+    if step_code and step_code not in STEP_TO_PHASE_MAP:
+        step_code = None
+    phase_id = phase_id or name_phase or (STEP_TO_PHASE_MAP.get(step_code) if step_code else None)
+    titles = {p["phase_id"]: p["title_en"] for p in PHASES_DEFINITION}
+    if phase_id not in titles:
+        phase_id = STEP_TO_PHASE_MAP.get(step_code) if step_code else None
+
+    stage_title: Optional[str] = None
+    explicit = (stage_name or "").strip()
+    is_code_like = bool(name_phase or name_step)
+    if explicit and not is_code_like and not enum_codes.contains_arabic(explicit):
+        stage_title = explicit  # an English title chosen by the client
+    elif phase_id in titles:
+        stage_title = titles[phase_id]
+    return {"phase_id": phase_id, "step_code": step_code, "stage_title": stage_title}
+
+
+def hold_shipment_activities_service(
+    db: Session, import_file_code: str, hold_reason: str, hold_reason_code: Optional[str] = None
+) -> None:
     activities = db.query(repo.ShipmentStageActivity).filter(
         repo.ShipmentStageActivity.import_file_code == import_file_code,
         repo.ShipmentStageActivity.status == "In-Progress",
     ).all()
 
+    message = (
+        msg("LC_STEP_ON_HOLD_CODED", reason_enum_hold_reason=hold_reason_code)
+        if hold_reason_code
+        else msg("LC_STEP_ON_HOLD", reason=hold_reason)
+    )
     for act in activities:
         act.status = "On-Hold"
-        act.notes = f"معلقة مؤقتاً: {hold_reason}"
+        _append_system_note(act, message)
     db.commit()
 
 
@@ -1199,9 +1243,10 @@ def resume_shipment_activities_service(db: Session, import_file_code: str, resum
         repo.ShipmentStageActivity.status == "On-Hold",
     ).all()
 
+    message = msg("LC_STEP_RESUMED", notes=resume_notes) if resume_notes else msg("LC_STEP_RESUMED_DEFAULT")
     for act in activities:
         act.status = "In-Progress"
-        act.notes = f"تم الاستئناف: {resume_notes or 'استئناف تشغيل الشحنة'}"
+        _append_system_note(act, message)
     db.commit()
 
 

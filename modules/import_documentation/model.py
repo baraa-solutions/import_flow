@@ -453,7 +453,7 @@ class InspectionCertificateReviewSession(Base):
     expiry_date: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Regulatory Authority: 'GOEIC (الرقابة على الصادرات والواردات)', 'NFSA (سلامة الغذاء)', 'EDA (هيئة الدواء المصرية)', 'Atomic Energy Authority (هيئة الطاقة الذرية)'
-    regulatory_authority: Mapped[str] = mapped_column(String(150), default="GOEIC (الرقابة على الصادرات والواردات)", nullable=False)
+    regulatory_authority: Mapped[str] = mapped_column(String(150), default="GOEIC", nullable=False)
     standard_specification: Mapped[str] = mapped_column(String(200), default="Egyptian Standard ES Egyptian Conformity", nullable=True)
 
     raw_input_text: Mapped[str] = mapped_column(Text, nullable=True)

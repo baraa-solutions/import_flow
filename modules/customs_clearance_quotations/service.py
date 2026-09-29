@@ -25,6 +25,18 @@ from modules.customs_clearance_quotations.schemas import (
 )
 import modules.customs_clearance_quotations.repository as repo
 import modules.customs_clearance_quotations.validators as val
+from modules.common import enum_codes
+
+
+def _normalize_quote_fields(data: dict) -> dict:
+    """Tier-3 fields: service_category -> CLEARANCE_QUOTE_SERVICE_CATEGORY code, currency -> ISO code."""
+    if data.get("service_category") is not None:
+        data["service_category"] = enum_codes.normalize(
+            enum_codes.CLEARANCE_QUOTE_SERVICE_CATEGORY, data["service_category"]
+        )
+    if data.get("currency") is not None:
+        data["currency"] = enum_codes.normalize_currency(data["currency"])
+    return data
 
 
 def generate_rfq_code(db: Session) -> str:
@@ -131,7 +143,7 @@ def add_quotation_service(
         )
 
     val.validate_quotation_create(data)
-    q_data = data.model_dump()
+    q_data = _normalize_quote_fields(data.model_dump())
     if not q_data.get("total_cost"):
         q_data["total_cost"] = (
             (q_data.get("clearance_fee") or 0.0)
@@ -153,7 +165,7 @@ def update_quotation_service(
     if not q:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عرض السعر غير موجود")
 
-    q_data = data.model_dump(exclude_unset=True)
+    q_data = _normalize_quote_fields(data.model_dump(exclude_unset=True))
     updated = repo.update_quotation(db, quotation_id, q_data)
 
     # Recalculate total cost if cost elements changed
@@ -222,11 +234,20 @@ def get_price_list_service(
     service_category: Optional[str] = None,
     include_inactive: bool = False,
 ) -> List[ClearanceServicePriceListItem]:
+    categories: Optional[List[str]] = None
+    if service_category:
+        code = enum_codes.normalize(enum_codes.CLEARANCE_QUOTE_SERVICE_CATEGORY, service_category)
+        # A code also matches legacy rows stored with its Arabic/English label.
+        categories = (
+            enum_codes.legacy_values(enum_codes.CLEARANCE_QUOTE_SERVICE_CATEGORY, code)
+            if enum_codes.is_code(enum_codes.CLEARANCE_QUOTE_SERVICE_CATEGORY, code)
+            else [service_category]
+        )
     return repo.get_price_list_items(
         db,
         provider_id=provider_id,
         port_name=port_name,
-        service_category=service_category,
+        service_categories=categories,
         include_inactive=include_inactive,
     )
 
@@ -235,13 +256,13 @@ def create_price_item_service(
     db: Session, data: ClearancePriceListItemCreate
 ) -> ClearanceServicePriceListItem:
     val.validate_price_item_create(data)
-    return repo.create_price_item(db, data.model_dump())
+    return repo.create_price_item(db, _normalize_quote_fields(data.model_dump()))
 
 
 def update_price_item_service(
     db: Session, item_id: int, data: ClearancePriceListItemUpdate
 ) -> ClearanceServicePriceListItem:
-    updated = repo.update_price_item(db, item_id, data.model_dump(exclude_unset=True))
+    updated = repo.update_price_item(db, item_id, _normalize_quote_fields(data.model_dump(exclude_unset=True)))
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="بند قائمة الأسعار غير موجود")
     return updated

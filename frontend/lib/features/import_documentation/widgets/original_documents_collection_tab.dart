@@ -11,6 +11,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/original_documents_collection_model.dart';
 import '../providers/original_documents_collection_provider.dart';
 import '../services/original_docs_export_service.dart';
+import '../../../core/localization/stored_text.dart';
 
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
@@ -152,12 +153,11 @@ class _OriginalDocumentsCollectionTabState
   }
 
   void _addCustomDocument() {
-    final l = context.l10n;
     setState(() {
       _documents.add(
         OriginalDocumentItemModel(
           category: 'Commercial',
-          documentName: l.defaultNewCustomDocName,
+          documentName: storedText.defaultNewCustomDocName,
           isRequired: 'Yes',
           responsibleParty: 'Supplier',
           status: 'Pending',
