@@ -65,7 +65,23 @@ def auth_client():
     assert res.status_code == 200
     token = res.json()["access_token"]
     client.headers = {"Authorization": f"Bearer {token}"}
-    return client
+    if not res.json()["user"]["must_change_password"]:
+        yield client
+        return
+    # The seeded admin must change its password before any other route works: change it for this test
+    # and put the initial password back afterwards (the flag stays cleared).
+    temp_password = "Obs-Report-Admin-7"
+    changed = client.post(
+        "/api/v1/auth/me/change-password",
+        json={"current_password": ADMIN_INITIAL_PASSWORD, "new_password": temp_password},
+    )
+    assert changed.status_code == 200
+    yield client
+    restored = client.post(
+        "/api/v1/auth/me/change-password",
+        json={"current_password": temp_password, "new_password": ADMIN_INITIAL_PASSWORD},
+    )
+    assert restored.status_code == 200
 
 
 def test_daily_report_generation_healthy(isolated_db):

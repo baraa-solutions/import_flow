@@ -6947,6 +6947,44 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get loginDemoCredentialsTooltip => 'Copy Demo Credentials';
 
+  // ── Forced password change (first login) ──
+  @override
+  String get forcePwdTitle => 'Password change required';
+  @override
+  String get forcePwdSubtitle => 'To protect your account, you must set a new password on your first sign-in before you can continue.';
+  @override
+  String get forcePwdAccountLabel => 'Account';
+  @override
+  String get forcePwdCurrentLabel => 'Current password';
+  @override
+  String get forcePwdNewLabel => 'New password';
+  @override
+  String get forcePwdConfirmLabel => 'Confirm new password';
+  @override
+  String get forcePwdPolicyHint => 'Use at least 8 characters; mixing letters, numbers and symbols is recommended.';
+  @override
+  String get forcePwdCurrentRequired => 'Please enter your current password';
+  @override
+  String get forcePwdNewRequired => 'Please enter a new password';
+  @override
+  String get forcePwdConfirmRequired => 'Please confirm the new password';
+  @override
+  String get forcePwdTooShort => 'The new password must be at least 8 characters';
+  @override
+  String get forcePwdSameAsCurrent => 'The new password must be different from the current one';
+  @override
+  String get forcePwdMismatch => 'The passwords do not match';
+  @override
+  String get forcePwdSubmit => 'Save and continue';
+  @override
+  String get forcePwdSuccess => 'Password changed successfully';
+  @override
+  String get forcePwdFailed => 'Could not change the password. Please try again.';
+  @override
+  String get forcePwdShowPassword => 'Show password';
+  @override
+  String get forcePwdHidePassword => 'Hide password';
+
   // ── Shipping Scenarios & Cargo Stacking ────────────────────────────────────
   @override
   String get multiLayerStacking => 'Multi-layer Stacking';

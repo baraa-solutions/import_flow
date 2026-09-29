@@ -177,6 +177,22 @@ def test_frozen_settings_keeps_existing_env_values(tmp_path):
     assert (app_dir / ".env").read_text(encoding="utf-8").count("SECRET_KEY=") == 1
 
 
+def test_frozen_seed_password_is_the_default_despite_a_2_1_env_line(tmp_path):
+    """An old 2.1.x .env keeps its random ADMIN_INITIAL_PASSWORD: the frozen build still seeds Admin@123,
+    while the cleanup keeps reading the .env value."""
+    app_dir, meipass = tmp_path / "app", tmp_path / "_MEI996"
+    app_dir.mkdir()
+    meipass.mkdir()
+    (app_dir / ".env").write_text("SECRET_KEY=" + "r" * 40 + "\nADMIN_INITIAL_PASSWORD=Rnd-2.1.x-7\n", encoding="utf-8")
+    body = (
+        "import settings\n"
+        "print(json.dumps({'seed': settings.ADMIN_INITIAL_PASSWORD, 'default': settings.DEFAULT_ADMIN_PASSWORD,"
+        " 'env': settings.env_admin_initial_password(settings.ENV_PATH)}))\n"
+    )
+    result = _frozen_subprocess(app_dir, meipass, body)
+    assert result == {"seed": "Admin@123", "default": "Admin@123", "env": "Rnd-2.1.x-7"}
+
+
 def test_frozen_build_ignores_dev_auth_bypass_in_env(tmp_path):
     app_dir, meipass = tmp_path / "app", tmp_path / "_MEI995"
     app_dir.mkdir()

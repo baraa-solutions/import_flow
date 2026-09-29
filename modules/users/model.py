@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 from database.database import Base
 
@@ -83,6 +83,9 @@ class User(Base):
     role = Column(String(30), nullable=False, default="OPERATOR")  # ADMIN, MANAGER, OPERATOR
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    # True for the seeded default admin: every authenticated route except the auth/me ones answers
+    # 403 PASSWORD_CHANGE_REQUIRED until POST /api/v1/auth/me/change-password clears it.
+    must_change_password = Column(Boolean, default=False, server_default=text("0"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

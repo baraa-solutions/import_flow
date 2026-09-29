@@ -36,7 +36,9 @@ class MasterDataSyncService:
 
     def sync_system_users(self) -> int:
         """Seed ONLY the initial admin, and only when the users table is empty. Existing users are
-        never touched. No other accounts with well-known passwords are ever created."""
+        never touched. The admin gets the known ADMIN_INITIAL_PASSWORD (settings.DEFAULT_ADMIN_PASSWORD
+        unless overridden by env) and must_change_password=True, so it has to pick its own password on
+        first login before anything else works. No other accounts are ever created."""
         added = 0
         if self.db.query(User).count() == 0:
             self.db.add(
@@ -47,19 +49,20 @@ class MasterDataSyncService:
                     hashed_password=hash_password(ADMIN_INITIAL_PASSWORD),
                     role="ADMIN",
                     is_active=True,
+                    must_change_password=True,
                 )
             )
             self.db.commit()
             added = 1
-            # The seeded password is recorded in .env only now that it is actually in use.
-            settings.persist_admin_initial_password(settings.ENV_PATH, ADMIN_INITIAL_PASSWORD)
         else:
             self._forget_used_admin_initial_password()
         return added
 
     def _forget_used_admin_initial_password(self) -> bool:
-        """Frozen build only: once the admin no longer logs in with ADMIN_INITIAL_PASSWORD (it was
-        changed), drop the plaintext line from .env. Dev .env files are left to the developer."""
+        """Frozen build only: once the admin no longer logs in with the ADMIN_INITIAL_PASSWORD an old 2.1.x
+        install wrote to .env (it was changed), drop that plaintext line. Compared against the .env value,
+        not the seed default: an admin still using the generated password keeps the line. Dev .env files
+        are left to the developer."""
         if not is_frozen_build():
             return False
         if not settings.env_file_defines(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD"):
@@ -67,7 +70,10 @@ class MasterDataSyncService:
         admin = self.db.query(User).filter(User.username == "admin").first()
         if admin is None or not admin.hashed_password:
             return False
-        if verify_password(ADMIN_INITIAL_PASSWORD, admin.hashed_password):
+        env_password = settings.env_admin_initial_password(settings.ENV_PATH)
+        if env_password is None:
+            return False  # unreadable line: keep it (fail closed)
+        if env_password and verify_password(env_password, admin.hashed_password):
             return False
         return settings.remove_env_key(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD")
 

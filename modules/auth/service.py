@@ -7,6 +7,7 @@ from modules.users.model import User, Role, Permission, RolePermission, UserPerm
 from modules.audit_logs.service import AuditLogService
 from .schemas import UserCreate, UserUpdate, UserPermissionsUpdatePayload
 from .security import hash_password, verify_password, create_access_token, validate_password_strength
+from .rate_limiter import login_limiter
 from .permissions import (
     get_user_permissions_breakdown,
     get_user_effective_permissions,
@@ -23,6 +24,14 @@ MSG_PERMISSION_GRANT_FORBIDDEN = "لا يمكنك منح صلاحية لا تم�
 MSG_WIDER_TARGET_FORBIDDEN = "لا يمكنك تعديل مستخدم يملك صلاحيات أوسع من صلاحياتك."
 MANAGER_ROLE_CODES = {"MANAGER", "GENERAL_MANAGER"}
 INITIAL_ADMIN_USERNAME = "admin"
+MSG_CURRENT_PASSWORD_WRONG = "كلمة المرور الحالية غير صحيحة."
+MSG_NEW_PASSWORD_SAME = "كلمة المرور الجديدة يجب أن تختلف عن كلمة المرور الحالية."
+MSG_PASSWORD_CHANGE_NO_ACCOUNT = "لا يمكن تغيير كلمة المرور لهذا الحساب."
+
+
+def change_password_limiter_key(user_id: int) -> str:
+    """login_limiter key for POST /auth/me/change-password (never collides with the IP keys of /login)."""
+    return f"change-password:user:{user_id}"
 
 
 class AuthService:
@@ -250,14 +259,54 @@ class AuthService:
 
         return user
 
+    def change_own_password(self, user: User, current_password: str, new_password: str) -> User:
+        """Self-service password change (POST /auth/me/change-password). Verifies the current password,
+        rejects an unchanged or weak new one, then stores the new hash and clears must_change_password."""
+        db_user = self.db.get(User, user.user_id) if user is not None and user.user_id is not None else None
+        if db_user is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MSG_PASSWORD_CHANGE_NO_ACCOUNT)
+        # Wrong current passwords are throttled per user with the login limiter (429 after 5 in 60 s).
+        limiter_key = change_password_limiter_key(db_user.user_id)
+        login_limiter.check_key(limiter_key)
+        if not current_password or not verify_password(current_password, db_user.hashed_password):
+            login_limiter.record_failure_key(limiter_key)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MSG_CURRENT_PASSWORD_WRONG)
+        login_limiter.record_success_key(limiter_key)
+        if new_password == current_password:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MSG_NEW_PASSWORD_SAME)
+        is_valid, err_msg = validate_password_strength(new_password)
+        if not is_valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+
+        was_forced = bool(db_user.must_change_password)
+        db_user.hashed_password = hash_password(new_password)
+        db_user.must_change_password = False
+        self.db.commit()
+        self.db.refresh(db_user)
+
+        self._forget_admin_initial_password(db_user, new_password)
+        AuditLogService(self.db).log_activity(
+            entity_type="User",
+            entity_id=db_user.user_id,
+            entity_code=db_user.username,
+            action="UPDATE",
+            old_data={"must_change_password": was_forced},
+            new_data={"password_changed": True, "must_change_password": False},
+            performed_by=db_user.username,
+            changes_summary="Password changed by the user (self-service).",
+        )
+        invalidate_permission_cache(db_user.user_id)
+        return db_user
+
     @staticmethod
     def _forget_admin_initial_password(user: User, new_password: str) -> bool:
         """Production build only: once the seeded admin has a new password, drop the plaintext
         ADMIN_INITIAL_PASSWORD line from the .env next to backend.exe right away. The developer's .env is never touched."""
         if not is_frozen_build() or user.username != INITIAL_ADMIN_USERNAME:
             return False
-        if new_password == settings.ADMIN_INITIAL_PASSWORD:
-            return False
+        env_password = settings.env_admin_initial_password(settings.ENV_PATH)
+        if env_password is None or new_password == env_password:
+            return False  # unreadable line (fail closed), or the admin re-set the .env password itself
         return settings.remove_env_key(settings.ENV_PATH, "ADMIN_INITIAL_PASSWORD")
 
     def toggle_user_status(self, user_id: int, actor: User) -> User:

@@ -5,7 +5,8 @@ DB safety follow-ups (docs/plans/update-system-plan.md section 0):
   (SECRET_KEY never reached os.environ there). Now that SECRET_KEY is a persisted random key they must
   still decrypt (MultiFernet current + legacy) and move to the current key on the next save.
 - ALLOW_DEV_AUTH_BYPASS is ignored in the production build even if {app}\\.env sets it.
-- ADMIN_INITIAL_PASSWORD is written to .env only when used to seed the admin, and removed from .env
+- ADMIN_INITIAL_PASSWORD is never written to .env any more (the seeded admin gets a known default and
+  must change it on first login). A leftover line from an old 2.1.x install is still removed from .env
   in the frozen build once the admin has changed the password.
 - system_observability paths follow the live DB (R11).
 """
@@ -135,19 +136,26 @@ def user_db(tmp_path, monkeypatch):
     engine.dispose()
 
 
-def test_admin_password_written_to_env_only_when_seeding(user_db):
+def _add_leftover_env_line(env_file) -> None:
+    """What an old 2.1.x install left in .env after seeding its random admin password."""
+    with open(env_file, "a", encoding="utf-8") as fh:
+        fh.write("ADMIN_INITIAL_PASSWORD=Initial-Admin-1!\n")
+
+
+def test_seeding_never_writes_admin_password_to_env(user_db):
     session, env_file = user_db
-    assert "ADMIN_INITIAL_PASSWORD" not in env_file.read_text(encoding="utf-8")
+    before = env_file.read_text(encoding="utf-8")
     assert mds.MasterDataSyncService(session).sync_system_users() == 1
-    text = env_file.read_text(encoding="utf-8")
-    assert text.count("ADMIN_INITIAL_PASSWORD=Initial-Admin-1!") == 1
-    mds.MasterDataSyncService(session).sync_system_users()  # second start: no duplicate line
-    assert env_file.read_text(encoding="utf-8").count("ADMIN_INITIAL_PASSWORD=") == 1
+    assert mds.MasterDataSyncService(session).sync_system_users() == 0  # second start: nothing seeded
+    assert env_file.read_text(encoding="utf-8") == before
+    assert not hasattr(settings, "persist_admin_initial_password")
+    assert not hasattr(settings, "load_or_create_admin_password")
 
 
 def test_frozen_build_removes_admin_password_after_it_was_changed(user_db, monkeypatch):
     session, env_file = user_db
     mds.MasterDataSyncService(session).sync_system_users()
+    _add_leftover_env_line(env_file)
     monkeypatch.setattr(sys, "frozen", True, raising=False)
 
     mds.MasterDataSyncService(session).sync_system_users()  # unchanged password: line kept
@@ -167,6 +175,7 @@ def test_dev_build_never_rewrites_the_developer_env(user_db, monkeypatch):
     session, env_file = user_db
     monkeypatch.delattr(sys, "frozen", raising=False)
     mds.MasterDataSyncService(session).sync_system_users()
+    _add_leftover_env_line(env_file)
     admin = session.query(User).filter(User.username == "admin").one()
     admin.hashed_password = hash_password("Changed-By-Admin-9!")
     session.commit()

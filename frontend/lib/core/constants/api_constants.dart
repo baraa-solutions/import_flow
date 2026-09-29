@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  static const String clientVersion = '2.1.1';
-  static const int clientBuildNumber = 207;
+  static const String clientVersion = '2.1.2';
+  static const int clientBuildNumber = 208;
 
   // ── Server & Base ─────────────────────────────────────────
   static String customServerUrl = '';
@@ -102,5 +102,6 @@ class ApiConstants {
   static String get auth => '$baseUrl/auth';
   static String get login => '$auth/token';
   static String get currentUser => '$auth/me';
+  static String get changeMyPassword => '$auth/me/change-password';
   static String get users => '$auth/users';
 }

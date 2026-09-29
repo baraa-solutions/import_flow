@@ -806,13 +806,15 @@ def test_reset_seeds_only_the_admin(workspace, monkeypatch):
     conn = sqlite3.connect(":memory:")
     conn.execute(
         "CREATE TABLE users (user_id INTEGER PRIMARY KEY, username TEXT, email TEXT, full_name TEXT, "
-        "hashed_password TEXT, role TEXT, role_id INTEGER, is_active BOOLEAN, created_at TEXT, updated_at TEXT)"
+        "hashed_password TEXT, role TEXT, role_id INTEGER, is_active BOOLEAN, "
+        "must_change_password BOOLEAN NOT NULL DEFAULT 0, created_at TEXT, updated_at TEXT)"
     )
     conn.execute("INSERT INTO users (user_id, username) VALUES (7, 'old_demo_user')")
     module.seed_core_users(conn.cursor(), "HASH-FROM-ENV")
-    rows = conn.execute("SELECT user_id, username, role, hashed_password FROM users").fetchall()
+    rows = conn.execute("SELECT user_id, username, role, hashed_password, must_change_password FROM users").fetchall()
     conn.close()
-    assert rows == [(1, "admin", "ADMIN", "HASH-FROM-ENV")]
+    assert rows == [(1, "admin", "ADMIN", "HASH-FROM-ENV", 1)]  # forced password change on first login
     source = (REPO_ROOT / "reset_clean_production_db.py").read_text(encoding="utf-8")
+    assert "hash_password(DEFAULT_ADMIN_PASSWORD)" in source
     for fixed in ("manager123", "operator123", '"operator1"', '"operator2"'):
         assert fixed not in source

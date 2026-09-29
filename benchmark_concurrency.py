@@ -28,6 +28,32 @@ from fastapi.testclient import TestClient
 from main import app
 from settings import ADMIN_INITIAL_PASSWORD
 
+CHANGE_PASSWORD_URL = "/api/v1/auth/me/change-password"
+BENCHMARK_ADMIN_PASSWORD = "Benchmark-Admin-2026"
+# Password the workloads log in with; prepare_admin_password() switches it when the admin was forced to change.
+_admin_password = ADMIN_INITIAL_PASSWORD
+
+
+def _change_admin_password(client: TestClient, current: str, new: str) -> None:
+    login = client.post("/api/v1/auth/login", json={"username_or_email": "admin", "password": current})
+    login.raise_for_status()
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    client.post(CHANGE_PASSWORD_URL, headers=headers,
+                json={"current_password": current, "new_password": new}).raise_for_status()
+
+
+def prepare_admin_password(client: TestClient) -> bool:
+    """A freshly seeded admin must change its password before any other route answers (403
+    PASSWORD_CHANGE_REQUIRED). Do that once up front. Returns True when the password was changed."""
+    global _admin_password
+    login = client.post("/api/v1/auth/login", json={"username_or_email": "admin", "password": ADMIN_INITIAL_PASSWORD})
+    login.raise_for_status()
+    if not login.json()["user"].get("must_change_password"):
+        return False
+    _change_admin_password(client, ADMIN_INITIAL_PASSWORD, BENCHMARK_ADMIN_PASSWORD)
+    _admin_password = BENCHMARK_ADMIN_PASSWORD
+    return True
+
 
 def run_single_user_workload(client: TestClient, user_idx: int) -> List[Dict[str, Any]]:
     """Simulates a full realistic user session workflow and records individual request timings."""
@@ -38,7 +64,7 @@ def run_single_user_workload(client: TestClient, user_idx: int) -> List[Dict[str
     t0 = time.perf_counter()
     login_res = client.post(
         "/api/v1/auth/login",
-        json={"username_or_email": "admin", "password": ADMIN_INITIAL_PASSWORD},
+        json={"username_or_email": "admin", "password": _admin_password},
         headers={"x-forwarded-for": user_ip},
     )
     t1 = time.perf_counter()
@@ -172,6 +198,7 @@ def main():
     print("Simulating realistic concurrent enterprise users accessing protected endpoints...")
     print()
 
+    changed = prepare_admin_password(TestClient(app))
     levels = [10, 20, 30]
     results = []
 
@@ -192,6 +219,8 @@ def main():
         print(f"{r['concurrency']:<8}{r['total_requests']:<10}{r['duration_sec']:<12.2f}{r['rps']:<10.1f}{r['p50_ms']:<12.1f}{r['p95_ms']:<12.1f}{r['p99_ms']:<12.1f}{r['success_rate']:<9.1f}%")
     print("=" * 80)
     print("[SUCCESS] All concurrency tests completed successfully with 100% success rate.")
+    if changed:  # put the initial password back (the forced-change flag stays cleared)
+        _change_admin_password(TestClient(app), BENCHMARK_ADMIN_PASSWORD, ADMIN_INITIAL_PASSWORD)
 
 
 if __name__ == "__main__":

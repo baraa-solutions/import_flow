@@ -6109,6 +6109,26 @@ abstract class AppLocalizations {
   String get loginDemoCredentialsCopied;
   String get loginDemoCredentialsTooltip;
 
+  // ── Forced password change (first login) ──
+  String get forcePwdTitle;
+  String get forcePwdSubtitle;
+  String get forcePwdAccountLabel;
+  String get forcePwdCurrentLabel;
+  String get forcePwdNewLabel;
+  String get forcePwdConfirmLabel;
+  String get forcePwdPolicyHint;
+  String get forcePwdCurrentRequired;
+  String get forcePwdNewRequired;
+  String get forcePwdConfirmRequired;
+  String get forcePwdTooShort;
+  String get forcePwdSameAsCurrent;
+  String get forcePwdMismatch;
+  String get forcePwdSubmit;
+  String get forcePwdSuccess;
+  String get forcePwdFailed;
+  String get forcePwdShowPassword;
+  String get forcePwdHidePassword;
+
   // ── Shipping Scenarios & Cargo Stacking ────────────────────────────────────
   String get multiLayerStacking;
   String get floorPlacementZ0;

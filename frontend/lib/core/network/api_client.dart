@@ -5,6 +5,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
 import '../performance/client_diagnostics_service.dart';
 import '../services/backend_launcher.dart';
+import 'api_error.dart';
 import 'network_security.dart';
 
 /// Centralized Dio HTTP client provider for Sorour Logistics ERP.
@@ -150,12 +151,21 @@ final dioProvider = Provider<Dio>((ref) {
           await authNotifier.handleSessionExpired();
         }
 
+        // 403 PASSWORD_CHANGE_REQUIRED: flag the user so the password-change
+        // gate replaces the app shell (the screens that fired the call unmount).
+        if (ApiError.isPasswordChangeRequired(error)) {
+          ref.read(authProvider.notifier).markPasswordChangeRequired();
+        }
+
         // Normalize error messages for UI display
         if (error.response != null) {
           final data = error.response!.data;
           if (data is Map && data.containsKey('detail')) {
             error = error.copyWith(
-              message: data['detail'].toString(),
+              // Structured details ({code, message}) surface their message.
+              message: ApiError.isPasswordChangeRequired(error)
+                  ? ApiError.message(error)
+                  : data['detail'].toString(),
             );
           }
         }
@@ -203,6 +213,9 @@ final uploadDioProvider = Provider<Dio>((ref) {
       onError: (DioException error, ErrorInterceptorHandler handler) async {
         if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
           await ref.read(authProvider.notifier).handleSessionExpired();
+        }
+        if (ApiError.isPasswordChangeRequired(error)) {
+          ref.read(authProvider.notifier).markPasswordChangeRequired();
         }
         handler.next(error);
       },
