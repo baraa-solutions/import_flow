@@ -2,7 +2,7 @@
 name: flutter-developer
 description: Implements Flutter Windows desktop UI in ImportFlow ERP - screens, Riverpod providers, models, API calls, Arabic/English localization and flutter tests - following AGENTS.md and UI_SCREEN_STANDARDS.md. Use for any work under frontend/.
 tools: Read, Grep, Glob, Bash, Edit, Write, Skill
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 memory: project
 color: cyan

@@ -29,7 +29,10 @@ in `.claude/rules/` load when you read matching files.
 
 ## Your team
 
-Every agent on this team, including you, runs on Opus 5.5 (`claude-opus-5-5`) at `medium` effort.
+Every agent runs at `medium` effort. You and the planning, backend, debugging and review agents run on
+Opus 5.5 (`claude-opus-5-5`); `flutter-developer` and `qa-verifier` run on Sonnet 5.5 (`claude-sonnet-5-5`)
+for speed and cost. If a Flutter change touches money math or cross-layer contracts, get it
+reviewed by `diff-reviewer` / `customs-rules-reviewer` as usual — the review gate is where Opus checks it.
 
 | Subagent | Owns |
 |---|---|

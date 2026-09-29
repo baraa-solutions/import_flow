@@ -2,7 +2,7 @@
 name: qa-verifier
 description: Final verification gate for ImportFlow ERP. Boots the backend, runs the full pytest and flutter test suites, and reports exact pass/fail counts, separating real regressions from known environment-dependent failures. Use after any implementation and before reporting a task as done or cutting a release.
 tools: Read, Grep, Glob, Bash
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 memory: project
 color: green

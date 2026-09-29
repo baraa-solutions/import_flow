@@ -4,7 +4,8 @@
 # Claude Code setup
 
 The main session runs as the `importflow-lead` agent (`"agent"` in `.claude/settings.json`); it plans and
-delegates to the subagents in `.claude/agents/`. All agents run on Opus 5.5 at medium effort.
+delegates to the subagents in `.claude/agents/`. All agents run at medium effort, pinned to
+Opus 5.5 (`claude-opus-5-5`) except `flutter-developer` and `qa-verifier`, which run on Sonnet 5.5 (`claude-sonnet-5-5`).
 
 - Subagents: `solution-architect`, `backend-developer`, `flutter-developer`, `debugger`, `diff-reviewer`,
   `customs-rules-reviewer`, `security-reviewer`, `qa-verifier`. Their persistent memory lives in
