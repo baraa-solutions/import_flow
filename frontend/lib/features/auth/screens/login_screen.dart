@@ -274,6 +274,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           // Username Field
                           TextFormField(
                             controller: _usernameCtrl,
+                            // Usernames are Latin: LTR island inside Arabic.
+                            textDirection: TextDirection.ltr,
                             onChanged: (_) => _clearError(),
                             decoration: InputDecoration(
                               labelText: l.loginUsernameLabel,
@@ -308,6 +310,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           // Password Field
                           TextFormField(
                             controller: _passwordCtrl,
+                            textDirection: TextDirection.ltr,
                             obscureText: _obscurePassword,
                             onChanged: (_) => _clearError(),
                             decoration: InputDecoration(
@@ -452,10 +455,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           InkWell(
             onTap: () => _quickFill(username),
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(20),
-              right: Radius.circular(4),
-            ),
+            // InkWell takes a physical BorderRadius: resolve the directional one.
+            borderRadius: const BorderRadiusDirectional.horizontal(
+              start: Radius.circular(20),
+              end: Radius.circular(4),
+            ).resolve(Directionality.of(context)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Row(
@@ -481,10 +485,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               '$username (${_demoSecretFor(username)})',
               customMessage: l.loginDemoCredentialsCopied,
             ),
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(4),
-              right: Radius.circular(20),
-            ),
+            // InkWell takes a physical BorderRadius: resolve the directional one.
+            borderRadius: const BorderRadiusDirectional.horizontal(
+              start: Radius.circular(4),
+              end: Radius.circular(20),
+            ).resolve(Directionality.of(context)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Tooltip(

@@ -540,6 +540,7 @@ abstract class AppLocalizations {
   String get hsCode;
   String get quantityMetric;
   String get requiredField;
+  String enterFieldHint(String label);
   String get saveChanges;
   String get noDataFound;
   String get statusDraft;
@@ -8565,6 +8566,17 @@ abstract class AppLocalizations {
   String get updateNoPermission;
   String updateRollbackSucceeded(String version);
   String get updateRollbackFailed;
+  String updatePreparingRollbackCopy(String done, String total);
+  String get updatePreparingRollbackCopyShort;
+  String updatePillAvailable(String version);
+  String updatePillMandatory(String version);
+  String updatePillDownloading(String percent);
+  String get updatePillWorking;
+  String get updatePillReady;
+  String updateReadySnack(String version);
+  String updateReadyBanner(String version);
+  String get updateAdminRequiredTooltip;
+  String get updateAboutSectionTitle;
 }
 
 

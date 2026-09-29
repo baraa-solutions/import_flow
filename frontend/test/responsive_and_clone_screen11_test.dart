@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/localization/app_locales.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/theme/app_theme.dart';
@@ -246,6 +247,8 @@ void main() {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         locale: locale,
+        supportedLocales: AppLocales.supportedLocales,
+        localizationsDelegates: AppLocales.localizationsDelegates,
         home: AppLocalizationsProvider(
           locale: locale,
           child: Directionality(
@@ -375,7 +378,7 @@ void main() {
       // Verify populated cloned values in form
       expect(find.textContaining('الشركة الهندسية للتوريدات'), findsWidgets);
       expect(find.textContaining('Shanghai Petrochem Industrial Co.'), findsWidgets);
-      // Suffix language follows Localizations.localeOf (en_US without supportedLocales), hence ' (Copy)'.
+      // The stored clone suffix is language-independent (business references stay English), even in Arabic.
       expect(find.text('PI-2026-SH-09 (Copy)'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

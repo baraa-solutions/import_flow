@@ -63,6 +63,10 @@ class CopyableText extends StatelessWidget {
   final String? tooltip;
   final String? copyMessage;
 
+  /// Direction of [text]. Pass [TextDirection.ltr] for codes and numbers
+  /// (LTR island inside Arabic); null follows the ambient [Directionality].
+  final TextDirection? textDirection;
+
   const CopyableText(
     this.text, {
     super.key,
@@ -74,6 +78,7 @@ class CopyableText extends StatelessWidget {
     this.isSelectable = false,
     this.tooltip,
     this.copyMessage,
+    this.textDirection,
   });
 
   @override
@@ -83,12 +88,14 @@ class CopyableText extends StatelessWidget {
             text,
             style: style,
             textAlign: textAlign,
+            textDirection: textDirection,
             maxLines: maxLines,
           )
         : Text(
             text,
             style: style,
             textAlign: textAlign,
+            textDirection: textDirection,
             overflow: overflow ?? TextOverflow.ellipsis,
             maxLines: maxLines,
           );

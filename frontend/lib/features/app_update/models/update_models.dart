@@ -176,6 +176,27 @@ enum UpdateState {
       this == UpdateState.backingUp;
 }
 
+/// `phase` of `UpdateStatusResponse`: which file a running download job is
+/// fetching. Null outside a running job and on older backends.
+enum UpdatePhase {
+  /// The new installer (state `downloading`).
+  installer,
+
+  /// The previous installer, pre-fetched for rollback (state stays `verifying`).
+  rollbackCopy;
+
+  static UpdatePhase? parse(Object? raw) {
+    switch (raw) {
+      case 'installer':
+        return UpdatePhase.installer;
+      case 'rollback_copy':
+        return UpdatePhase.rollbackCopy;
+      default:
+        return null;
+    }
+  }
+}
+
 /// `UpdateStatusResponse` of `GET /status`, `POST /download`, `/cancel`, `/stage-local`.
 class UpdateStatus {
   final UpdateState state;
@@ -185,6 +206,10 @@ class UpdateStatus {
   final String? errorCode;
   final String? errorDetail;
 
+  /// Which file the running job fetches; `downloadedBytes` / `totalBytes`
+  /// always describe that file.
+  final UpdatePhase? phase;
+
   const UpdateStatus({
     this.state = UpdateState.idle,
     this.version,
@@ -192,6 +217,7 @@ class UpdateStatus {
     this.totalBytes = 0,
     this.errorCode,
     this.errorDetail,
+    this.phase,
   });
 
   static const idle = UpdateStatus();
@@ -204,6 +230,7 @@ class UpdateStatus {
       totalBytes: _parseInt(json['total_bytes']) ?? 0,
       errorCode: _parseString(json['error_code']),
       errorDetail: _parseString(json['error_detail']),
+      phase: UpdatePhase.parse(json['phase']),
     );
   }
 
@@ -211,6 +238,35 @@ class UpdateStatus {
   double? get progress {
     if (totalBytes <= 0) return null;
     return (downloadedBytes / totalBytes).clamp(0.0, 1.0);
+  }
+
+  /// Verifying while the rollback copy (previous installer) is fetched.
+  bool get isPreparingRollbackCopy =>
+      state == UpdateState.verifying && phase == UpdatePhase.rollbackCopy;
+
+  /// Size shown for the installer download. Older backends reported the new
+  /// installer plus the rollback copy as one total (212 MB instead of the
+  /// installer's size); when the check knows the installer size and the
+  /// reported total is larger (or unknown), the installer size wins.
+  int displayTotalBytes({int? installerSizeBytes}) {
+    if (phase == UpdatePhase.rollbackCopy) return totalBytes;
+    final installer = installerSizeBytes ?? 0;
+    if (installer > 0 && (totalBytes <= 0 || totalBytes > installer)) return installer;
+    return totalBytes;
+  }
+
+  /// Downloaded bytes capped at [displayTotalBytes].
+  int displayDownloadedBytes({int? installerSizeBytes}) {
+    final total = displayTotalBytes(installerSizeBytes: installerSizeBytes);
+    if (total <= 0) return downloadedBytes;
+    return downloadedBytes > total ? total : downloadedBytes;
+  }
+
+  /// 0.0-1.0 against [displayTotalBytes], or null when unknown.
+  double? displayProgress({int? installerSizeBytes}) {
+    final total = displayTotalBytes(installerSizeBytes: installerSizeBytes);
+    if (total <= 0) return null;
+    return (downloadedBytes / total).clamp(0.0, 1.0);
   }
 }
 

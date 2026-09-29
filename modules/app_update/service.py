@@ -607,6 +607,7 @@ class UpdateService:
         self._version: Optional[str] = None
         self._downloaded = 0
         self._total = 0
+        self._phase: Optional[str] = None  # "installer" / "rollback_copy" while a download job runs
         self._error_code: Optional[str] = None
         self._error_detail: Optional[str] = None
         self._job_id = 0
@@ -825,6 +826,7 @@ class UpdateService:
                 total_bytes=self._total,
                 error_code=self._error_code,
                 error_detail=self._error_detail,
+                phase=self._phase,
             )
 
     # ─── download ─────────────────────────────────────────────────────────
@@ -879,9 +881,9 @@ class UpdateService:
             self._state = "downloading"
             self._version = version
             self._downloaded = 0
-            self._total = manifest.installer.size_bytes + (
-                manifest.previous.installer.size_bytes if fetch_previous and manifest.previous else 0
-            )
+            # The rollback copy is a separate phase with its own total: never sum the two files.
+            self._total = manifest.installer.size_bytes
+            self._phase = "installer"
             self._error_code = None
             self._error_detail = None
 
@@ -920,6 +922,7 @@ class UpdateService:
         with self._lock:
             if self._is_current(job_id, cancel_event):
                 self._state = "failed"
+                self._phase = None
                 self._error_code = code
                 self._error_detail = detail
 
@@ -988,7 +991,8 @@ class UpdateService:
                 if not self._is_current(job_id, cancel_event):
                     raise _Cancelled()
                 self._state = "ready"
-                self._downloaded = self._total
+                self._phase = None
+                self._downloaded = self._total = installer.size_bytes
         except _Cancelled:
             repo.remove_file(part)
             repo.remove_file(final)
@@ -1035,13 +1039,18 @@ class UpdateService:
         previous = manifest.previous
         assert previous is not None
         info = previous.installer
+        with self._lock:
+            if not self._is_current(job_id, cancel_event):
+                raise _Cancelled()
+            # A visible phase of its own (state stays `verifying`): progress restarts at 0 of the previous size.
+            self._phase = "rollback_copy"
+            self._downloaded = 0
+            self._total = info.size_bytes
         repo.ensure_installers_dir()
         part = repo.installer_part_file(info.filename)
         try:
             url = build_installer_url(base_url, info.path)
-            self._stream_installer(
-                client, url, part, info, job_id, cancel_event, manifest.installer.size_bytes
-            )
+            self._stream_installer(client, url, part, info, job_id, cancel_event, 0)
             os.replace(part, repo.installer_path(info.filename))
         except _Cancelled:
             repo.remove_file(part)
@@ -1085,6 +1094,7 @@ class UpdateService:
         with self._lock:
             self._job_id += 1
             self._state = "failed"
+            self._phase = None
             self._error_code = code
             self._error_detail = detail
 
@@ -1104,6 +1114,7 @@ class UpdateService:
             self._job_id += 1
             self._cancel_event = None
             self._state = new_state
+            self._phase = None
             self._error_code = None
             self._error_detail = None
             return previous
@@ -1113,6 +1124,7 @@ class UpdateService:
         self._state = state
         self._version = version
         self._downloaded = self._total = size_bytes
+        self._phase = None
         self._error_code = self._error_detail = None
 
     def _ensure_not_busy(self) -> None:
@@ -1177,6 +1189,7 @@ class UpdateService:
             self._job_id += 1
             self._cancel_event = None
             self._state = "verifying"
+            self._phase = None
 
         # 3. the staged manifest must still verify and still be an upgrade
         installed = self._installed_version()

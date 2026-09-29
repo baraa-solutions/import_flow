@@ -28,6 +28,7 @@ Widget _app(FakeAppUpdateService fake, Widget child, {_MemoryNoticeStore? store}
     overrides: [
       appUpdateServiceProvider.overrideWithValue(fake),
       canInstallUpdatesProvider.overrideWithValue(true),
+      updateUserIdProvider.overrideWithValue(1),
       updateNoticeStoreProvider.overrideWithValue(store ?? _MemoryNoticeStore()),
     ],
     child: AppLocalizationsProvider(

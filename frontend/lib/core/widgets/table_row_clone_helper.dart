@@ -7,10 +7,16 @@ import '../theme/app_theme.dart';
 /// and sensitive columns, appending localized copy suffixes, and triggering
 /// user confirmation.
 class TableRowCloneHelper {
+  /// Appended to the cloned title. Language-independent on purpose: the value
+  /// is saved to the database.
+  static const String copySuffix = ' (Copy)';
+
   /// Duplicates a map-based row item at [sourceIndex] and inserts it at [sourceIndex + 1].
   ///
   /// - [keysToReset]: Keys that will be set to `null` on the cloned copy (e.g. `['id', 'item_id']`).
-  /// - [titleKey]: Optional string field to append ` (نسخة)` / ` (Copy)` to.
+  /// - [titleKey]: Optional string field to append [copySuffix] to. The suffix is
+  ///   stored with the record, so it is the same in every UI language (business
+  ///   references stay English in the database).
   /// - [customizeClonedItem]: Optional hook to adjust values (e.g. recalculate line number).
   static void cloneMapRow({
     required BuildContext context,
@@ -30,10 +36,9 @@ class TableRowCloneHelper {
     }
 
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final suffix = isAr ? ' (نسخة)' : ' (Copy)';
 
     if (titleKey != null && cloned.containsKey(titleKey) && cloned[titleKey] != null) {
-      cloned[titleKey] = '${cloned[titleKey]}$suffix';
+      cloned[titleKey] = '${cloned[titleKey]}$copySuffix';
     }
 
     customizeClonedItem?.call(cloned);

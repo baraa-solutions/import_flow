@@ -532,6 +532,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get hsCode => 'HS Code';
   @override String get quantityMetric => 'Quantity';
   @override String get requiredField => 'This field is required';
+  @override String enterFieldHint(String label) => 'Enter $label...';
   @override String get saveChanges => 'Save Changes';
   @override String get noDataFound => 'No data found';
   @override String get statusDraft => 'Draft';
@@ -11036,6 +11037,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get updateNoPermission => 'You do not have permission to install system updates (administrator required)';
   @override String updateRollbackSucceeded(String version) => 'Rolled back to v$version and restored the database from the backup';
   @override String get updateRollbackFailed => 'The rollback failed';
+  @override String updatePreparingRollbackCopy(String done, String total) => 'Preparing rollback copy… $done of $total MB';
+  @override String get updatePreparingRollbackCopyShort => 'Preparing rollback copy…';
+  @override String updatePillAvailable(String version) => 'Update v$version';
+  @override String updatePillMandatory(String version) => 'Required v$version';
+  @override String updatePillDownloading(String percent) => 'Downloading $percent%';
+  @override String get updatePillWorking => 'Preparing update…';
+  @override String get updatePillReady => 'Install';
+  @override String updateReadySnack(String version) => 'Update v$version is ready to install';
+  @override String updateReadyBanner(String version) => 'Update v$version is downloaded and ready to install';
+  @override String get updateAdminRequiredTooltip => 'An administrator must install this update';
+  @override String get updateAboutSectionTitle => 'Updates';
 }
 
 

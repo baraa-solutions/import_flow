@@ -62,8 +62,10 @@ def test_prefetch_when_missing(env):
     server = Server(sign(env.key, payload()))
     status = _service(env, server).start_download(NEW_VERSION, actor="admin")
     assert status.state == "ready"
-    assert status.total_bytes == len(NEW_INSTALLER) + len(OLD_INSTALLER)
+    # the rollback copy is its own phase: `ready` reports the new installer only, never the sum of both files
+    assert status.total_bytes == len(NEW_INSTALLER)
     assert status.downloaded_bytes == status.total_bytes
+    assert status.phase is None
     kept = env.data_dir / "installers" / installer_name(OLD_VERSION)
     assert kept.read_bytes() == OLD_INSTALLER
     assert not (env.data_dir / "installers" / (installer_name(OLD_VERSION) + ".part")).exists()
@@ -116,6 +118,8 @@ def test_failure_is_non_blocking(env, failure):
     status = _service(env, server).start_download(NEW_VERSION, actor="admin")
     assert status.state == "ready"  # Decision 3
     assert status.error_code is None
+    assert status.phase is None
+    assert status.downloaded_bytes == status.total_bytes == len(NEW_INSTALLER)
     assert (env.data_dir / "staging" / installer_name(NEW_VERSION)).read_bytes() == NEW_INSTALLER
     installers = env.data_dir / "installers"
     assert not (installers / installer_name(OLD_VERSION)).exists()
@@ -159,3 +163,141 @@ def test_cancel_during_prefetch_cancels_the_job(env):
     assert service.get_status().state == "idle"
     assert not (env.data_dir / "staging" / installer_name(NEW_VERSION)).exists()
     assert not (env.data_dir / "installers" / (installer_name(OLD_VERSION) + ".part")).exists()
+
+
+# ─── progress phases: installer -> rollback_copy -> None ─────────────────────
+
+PIECE = 4096
+
+
+def _pieces(data: bytes, on_resume):
+    """Yield `data` in PIECE-sized parts; `on_resume` runs after the service consumed the first part."""
+    yield data[:PIECE]
+    on_resume()
+    for start in range(PIECE, len(data), PIECE):
+        yield data[start:start + PIECE]
+
+
+class PausingServer(Server):
+    """Snapshots the service status when each installer is requested and again mid-stream."""
+
+    def __init__(self, manifest: bytes):
+        super().__init__(manifest)
+        self.service = None
+        self.at_request = {}
+        self.mid_stream = {}
+        self.on_old_request = None
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path in (NEW_PATH, OLD_PATH):
+            self.requests.append(path)
+            key = "installer" if path == NEW_PATH else "rollback_copy"
+            self.at_request[key] = self.service.get_status()
+            if path == OLD_PATH and self.on_old_request is not None:
+                self.on_old_request()
+            data = NEW_INSTALLER if path == NEW_PATH else self.old_installer
+            status_code = 200 if path == NEW_PATH else self.old_status
+
+            def snap():
+                self.mid_stream[key] = self.service.get_status()
+
+            return httpx.Response(status_code, content=_pieces(data, snap))
+        return super().handler(request)
+
+
+@pytest.fixture
+def small_chunks(monkeypatch):
+    import modules.app_update.service as update_service
+
+    monkeypatch.setattr(update_service, "DOWNLOAD_CHUNK_BYTES", PIECE)
+
+
+def _pausing_service(env, server):
+    service = _service(env, server)
+    server.service = service
+    return service
+
+
+def test_phase_sequence_installer_then_rollback_copy_then_none(env, small_chunks):
+    server = PausingServer(sign(env.key, payload()))
+    service = _pausing_service(env, server)
+    status = service.start_download(NEW_VERSION, actor="admin")
+
+    installer = server.at_request["installer"]
+    assert (installer.state, installer.phase) == ("downloading", "installer")
+    assert installer.total_bytes == len(NEW_INSTALLER)
+    assert installer.downloaded_bytes == 0
+    mid = server.mid_stream["installer"]
+    assert mid.phase == "installer" and mid.total_bytes == len(NEW_INSTALLER)
+    assert 0 < mid.downloaded_bytes < len(NEW_INSTALLER)
+
+    copy = server.at_request["rollback_copy"]
+    assert (copy.state, copy.phase) == ("verifying", "rollback_copy")
+    assert copy.downloaded_bytes == 0  # the progress restarts, no offset of the new installer
+    assert copy.total_bytes == len(OLD_INSTALLER)
+    mid = server.mid_stream["rollback_copy"]
+    assert (mid.state, mid.phase) == ("verifying", "rollback_copy")
+    assert mid.total_bytes == len(OLD_INSTALLER)
+    assert 0 < mid.downloaded_bytes < len(OLD_INSTALLER)
+
+    assert (status.state, status.phase) == ("ready", None)
+    assert status.downloaded_bytes == status.total_bytes == len(NEW_INSTALLER)
+    assert service.get_status() == status
+
+
+def test_no_rollback_copy_phase_when_previous_is_kept(env, small_chunks):
+    env.keep_previous_installer()
+    server = PausingServer(sign(env.key, payload()))
+    status = _pausing_service(env, server).start_download(NEW_VERSION, actor="admin")
+    assert set(server.at_request) == {"installer"}
+    assert server.at_request["installer"].phase == "installer"
+    assert (status.state, status.phase, status.total_bytes) == ("ready", None, len(NEW_INSTALLER))
+
+
+def test_cancel_during_rollback_copy_phase_returns_to_idle(env, small_chunks):
+    server = PausingServer(sign(env.key, payload()))
+    service = _pausing_service(env, server)
+    cancelled = {}
+
+    def cancel_now():
+        cancelled["response"] = service.cancel(actor="admin")
+
+    server.on_old_request = cancel_now
+    service.start_download(NEW_VERSION, actor="admin")
+
+    assert server.at_request["rollback_copy"].phase == "rollback_copy"
+    response = cancelled["response"]
+    assert (response.state, response.phase) == ("idle", None)
+    assert response.downloaded_bytes == response.total_bytes == 0
+    final = service.get_status()
+    assert (final.state, final.phase, final.error_code) == ("idle", None, None)
+    assert not (env.data_dir / "staging" / installer_name(NEW_VERSION)).exists()
+    assert not (env.data_dir / "installers" / (installer_name(OLD_VERSION) + ".part")).exists()
+    assert not (env.data_dir / "installers" / installer_name(OLD_VERSION)).exists()
+
+
+def test_failed_rollback_copy_still_ends_ready_with_installer_bytes(env, small_chunks):
+    server = PausingServer(sign(env.key, payload()))
+    server.old_installer = b"X" * len(OLD_INSTALLER)  # hash mismatch on the rollback copy
+    status = _pausing_service(env, server).start_download(NEW_VERSION, actor="admin")
+    assert server.at_request["rollback_copy"].phase == "rollback_copy"
+    assert (status.state, status.phase, status.error_code) == ("ready", None, None)
+    assert status.downloaded_bytes == status.total_bytes == len(NEW_INSTALLER)
+    assert "previous_download_failed" in events(env.data_dir)
+
+
+def test_failed_installer_download_clears_the_phase(env, small_chunks):
+    server = PausingServer(sign(env.key, payload()))
+    original = server.handler
+
+    def broken_new(request):
+        if request.url.path == NEW_PATH:
+            return httpx.Response(500)
+        return original(request)
+
+    service = _service(env, server)
+    server.service = service
+    service._transport = httpx.MockTransport(broken_new)
+    status = service.start_download(NEW_VERSION, actor="admin")
+    assert (status.state, status.phase, status.error_code) == ("failed", None, "download_failed")

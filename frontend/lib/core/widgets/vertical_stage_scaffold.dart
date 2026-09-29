@@ -269,7 +269,7 @@ class VerticalStageScaffold extends StatelessWidget {
                             final tab = tabs[index];
                             final isSelected = selectedIndex == index;
                             return Padding(
-                              padding: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsetsDirectional.only(end: 6),
                               child: ChoiceChip(
                                 label: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -309,8 +309,8 @@ class VerticalStageScaffold extends StatelessWidget {
                       width: 215,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: Border(
-                      left: BorderSide(color: Colors.grey.shade300, width: 1),
+                    border: BorderDirectional(
+                      start: BorderSide(color: Colors.grey.shade300, width: 1),
                     ),
                     boxShadow: [
                       BoxShadow(

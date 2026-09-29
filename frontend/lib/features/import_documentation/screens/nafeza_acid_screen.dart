@@ -12,6 +12,7 @@ import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/live_pulse_badge.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 import '../widgets/search_and_clone_acid_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -395,7 +396,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 _exporterRegType = session.exporterRegType ?? 'VAT Number';
                 _selectedPoId = session.poId;
                 _poNoCtrl.text = session.poNumber ?? '';
-                _proformaNoCtrl.text = isAr ? '${session.proformaInvoiceNo} (نسخة)' : '${session.proformaInvoiceNo} (Copy)';
+                // Business reference: stored suffix is English in every UI language.
+                _proformaNoCtrl.text = '${session.proformaInvoiceNo}${TableRowCloneHelper.copySuffix}';
                 _proformaDateCtrl.text = session.proformaInvoiceDate ?? DateTime.now().toString().substring(0, 10);
                 _invoiceType = session.invoiceType ?? 'Proforma Invoice';
                 _polCtrl.text = session.polName;

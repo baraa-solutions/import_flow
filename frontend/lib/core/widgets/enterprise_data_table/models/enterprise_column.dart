@@ -35,8 +35,15 @@ class EnterpriseColumn<T> {
   /// Builder for rendering the cell widget.
   final Widget Function(BuildContext context, T item, int index) cellBuilder;
 
-  /// Cell content alignment.
-  final Alignment alignment;
+  /// Cell content alignment. Defaults to the reading start (left in LTR,
+  /// right in RTL); pass a physical [Alignment] only when the side must not
+  /// follow the language.
+  final AlignmentGeometry alignment;
+
+  /// Numbers, amounts, dates and codes: the cell renders left-to-right even
+  /// in Arabic, so "-1,250.00" keeps its minus sign in front and
+  /// "10 - 20" is not reversed. The cell position still follows [alignment].
+  final bool isNumeric;
 
   /// Text alignment in the header and cell.
   final TextAlign textAlign;
@@ -59,7 +66,8 @@ class EnterpriseColumn<T> {
     this.isSearchable = true,
     this.searchValue,
     this.exportValue,
-    this.alignment = Alignment.centerLeft,
+    this.alignment = AlignmentDirectional.centerStart,
+    this.isNumeric = false,
     this.textAlign = TextAlign.start,
     this.isVisible = true,
     this.isLocked = false,
@@ -78,7 +86,8 @@ class EnterpriseColumn<T> {
     String Function(T item)? searchValue,
     String Function(T item)? exportValue,
     Widget Function(BuildContext context, T item, int index)? cellBuilder,
-    Alignment? alignment,
+    AlignmentGeometry? alignment,
+    bool? isNumeric,
     TextAlign? textAlign,
     bool? isVisible,
     bool? isLocked,
@@ -96,6 +105,7 @@ class EnterpriseColumn<T> {
       exportValue: exportValue ?? this.exportValue,
       cellBuilder: cellBuilder ?? this.cellBuilder,
       alignment: alignment ?? this.alignment,
+      isNumeric: isNumeric ?? this.isNumeric,
       textAlign: textAlign ?? this.textAlign,
       isVisible: isVisible ?? this.isVisible,
       isLocked: isLocked ?? this.isLocked,

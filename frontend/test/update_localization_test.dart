@@ -26,6 +26,13 @@ const _planKeys = <String>[
   'updateFromFile',
   'updateCheckOffline',
   'updateDevModeDisabled',
+  // Update notice redesign (2026-09-29).
+  'updatePreparingRollbackCopy',
+  'updatePillAvailable',
+  'updatePillReady',
+  'updateReadySnack',
+  'updateAdminRequiredTooltip',
+  'updateAboutSectionTitle',
 ];
 
 /// Every getter / method declared in the "In-app updates" section of the

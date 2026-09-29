@@ -69,10 +69,7 @@ class _EnterpriseTableShimmerSkeletonState
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(8),
-                    topRight: Radius.circular(8),
-                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                   border: Border(
                     bottom: BorderSide(
                       color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
@@ -120,7 +117,7 @@ class _EnterpriseTableShimmerSkeletonState
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Align(
-                            alignment: Alignment.centerLeft,
+                            alignment: AlignmentDirectional.centerStart,
                             child: _buildShimmerBox(
                               height: 13,
                               width: 120 * factor,

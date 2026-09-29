@@ -5,30 +5,34 @@ import '../../../core/theme/app_theme.dart';
 import '../models/update_format.dart';
 import '../models/update_models.dart';
 
-/// Renders one `GET /status` snapshot: progress bar while downloading,
-/// indeterminate bar while verifying / backing up, ready / failed notices.
+/// Renders one `GET /status` snapshot: progress bar while downloading (sized
+/// by the installer), determinate "preparing rollback copy" bar, indeterminate
+/// bar while verifying / backing up / installing, ready / failed notices.
 /// Idle and unknown render nothing.
 class UpdateProgressSection extends StatelessWidget {
   final UpdateStatus status;
 
-  const UpdateProgressSection({super.key, required this.status});
+  /// `installer_size_bytes` of the check, used for the download total.
+  final int? installerSizeBytes;
+
+  const UpdateProgressSection({super.key, required this.status, this.installerSizeBytes});
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final busyText = updateBusyText(l, status, installerSizeBytes: installerSizeBytes);
+    if (busyText != null) {
+      return _bar(
+        text: busyText,
+        value: updateBusyProgress(status, installerSizeBytes: installerSizeBytes),
+        color: switch (status.state) {
+          UpdateState.backingUp => AppTheme.orange,
+          UpdateState.installing => AppTheme.emerald,
+          _ => AppTheme.cobalt,
+        },
+      );
+    }
     switch (status.state) {
-      case UpdateState.downloading:
-        return _bar(
-          text: formatUpdateProgress(l, status.downloadedBytes, status.totalBytes),
-          value: status.progress,
-          color: AppTheme.cobalt,
-        );
-      case UpdateState.verifying:
-        return _bar(text: l.updateVerifying, value: null, color: AppTheme.cobalt);
-      case UpdateState.backingUp:
-        return _bar(text: l.updateBackingUp, value: null, color: AppTheme.orange);
-      case UpdateState.installing:
-        return _bar(text: l.updateInstalling, value: null, color: AppTheme.emerald);
       case UpdateState.ready:
         return _notice(l.updateReadyToInstall, AppTheme.emerald, Icons.verified_rounded);
       case UpdateState.failed:
@@ -40,15 +44,14 @@ class UpdateProgressSection extends StatelessWidget {
           AppTheme.crimson,
           Icons.error_rounded,
         );
-      case UpdateState.idle:
-      case UpdateState.unknown:
+      default:
         return const SizedBox.shrink();
     }
   }
 
   Widget _bar({required String text, required double? value, required Color color}) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsetsDirectional.only(top: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -70,8 +73,8 @@ class UpdateProgressSection extends StatelessWidget {
 
   Widget _notice(String text, Color color, IconData icon) {
     return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsetsDirectional.only(top: 12),
+      padding: const EdgeInsetsDirectional.all(10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),

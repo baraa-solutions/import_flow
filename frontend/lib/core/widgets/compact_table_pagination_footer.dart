@@ -59,10 +59,7 @@ class CompactTablePaginationFooter extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardBackground : Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
-        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
         border: Border(
           top: BorderSide(
             color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,

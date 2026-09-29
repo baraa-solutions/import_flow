@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/api_constants.dart';
+import 'core/localization/app_locales.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
@@ -331,29 +332,28 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
     final density = ref.watch(displayDensityProvider);
-    final isRtl = locale.languageCode == 'ar';
 
     return KeyedSubtree(
       key: ValueKey(
           '${reloadKey}_${locale.languageCode}_${density.name}'),
       child: AppLocalizationsProvider(
         locale: locale,
-        child: Directionality(
-          // Auto RTL for Arabic, LTR for English
-          textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-          child: MaterialApp(
-            navigatorKey: rootNavigatorKey,
-            debugShowCheckedModeBanner: false,
-            title: 'Sorour Logistics ERP (v${ApiConstants.clientVersion})',
-            theme: AppTheme.lightTheme.copyWith(visualDensity: density.visualDensity),
-            darkTheme: AppTheme.darkTheme.copyWith(visualDensity: density.visualDensity),
-            themeMode: themeMode,
-            scrollBehavior: AppCustomScrollBehavior(),
-            locale: locale,
-            navigatorObservers: [NavigationPerfTracker.instance],
-            builder: (context, child) => child ?? const SizedBox.shrink(),
-            home: const BackendStartupGate(child: AuthGate()),
-          ),
+        // No outer Directionality: MaterialApp's Localizations sets RTL for
+        // `ar` itself now that `ar` is a supported locale.
+        child: MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'Sorour Logistics ERP (v${ApiConstants.clientVersion})',
+          theme: AppTheme.lightTheme.copyWith(visualDensity: density.visualDensity),
+          darkTheme: AppTheme.darkTheme.copyWith(visualDensity: density.visualDensity),
+          themeMode: themeMode,
+          scrollBehavior: AppCustomScrollBehavior(),
+          locale: locale,
+          supportedLocales: AppLocales.supportedLocales,
+          localizationsDelegates: AppLocales.localizationsDelegates,
+          navigatorObservers: [NavigationPerfTracker.instance],
+          builder: (context, child) => child ?? const SizedBox.shrink(),
+          home: const BackendStartupGate(child: AuthGate()),
         ),
       ),
     );

@@ -283,7 +283,11 @@ void main() {
       final directionalFinder = find.byType(DirectionalIcon);
       expect(directionalFinder, findsOneWidget);
 
-      final Transform transformWidget = tester.firstWidget(find.descendant(of: directionalFinder, matching: find.byType(Transform)));
+      // arrow_forward has matchTextDirection: Icon mirrors it itself (one flip).
+      // DirectionalIcon must not add a second flip around the Icon.
+      final transforms = find.descendant(of: directionalFinder, matching: find.byType(Transform));
+      expect(transforms, findsOneWidget, reason: 'two flips would render the LTR glyph again');
+      final Transform transformWidget = tester.widget(transforms);
       expect(transformWidget.transform.storage[0], equals(-1.0)); // scaleX == -1 in RTL
     });
 

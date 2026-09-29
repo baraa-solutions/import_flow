@@ -247,8 +247,31 @@ def test_status_contract(client, operator):
     body = client.get(PREFIX + "/status", headers=_bearer(operator)).json()
     assert body == {
         "state": "idle", "version": None, "downloaded_bytes": 0, "total_bytes": 0,
-        "error_code": None, "error_detail": None,
+        "error_code": None, "error_detail": None, "phase": None,
     }
+
+
+def test_status_reports_installer_phase_while_downloading(client, admin, operator, tmp_path, monkeypatch):
+    """The worker never runs here, so the job stays in its first phase: total = the new installer only."""
+    running = UpdateService(
+        data_dir=tmp_path / "updates-running",
+        transport=client.app.dependency_overrides[get_update_service]()._transport,
+        installed_version_provider=lambda: ("2.0.3", 205),
+        apply_supported_provider=lambda: True,
+        run_in_background=lambda fn: None,
+    )
+    client.app.dependency_overrides[get_update_service] = lambda: running
+    started = client.post(PREFIX + "/download", headers=_bearer(admin), json={"version": "2.1.0"})
+    assert started.status_code == 202
+    assert started.json()["phase"] == "installer"
+    body = client.get(PREFIX + "/status", headers=_bearer(operator)).json()
+    assert body == {
+        "state": "downloading", "version": "2.1.0", "downloaded_bytes": 0, "total_bytes": len(INSTALLER_BYTES),
+        "error_code": None, "error_detail": None, "phase": "installer",
+    }
+    cancelled = client.post(PREFIX + "/cancel", headers=_bearer(admin))
+    assert cancelled.status_code == 200
+    assert (cancelled.json()["state"], cancelled.json()["phase"]) == ("idle", None)
 
 
 def test_last_result_contract(client, operator):

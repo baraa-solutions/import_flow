@@ -656,7 +656,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             // ── Search & Filter Bar ────────────────────────────────────────
             if (totalCount > 0)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 20, 4),
                 child: TextField(
                   controller: _searchController,
                   style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),

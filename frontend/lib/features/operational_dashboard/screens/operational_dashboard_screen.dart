@@ -202,7 +202,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(
+                padding: EdgeInsetsDirectional.fromSTEB(
                   context.isMobile ? 12.0 : 20.0,
                   context.isMobile ? 12.0 : 20.0,
                   context.isMobile ? 12.0 : 20.0,
@@ -263,13 +263,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 if (shipments.isEmpty) {
                   return SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                      padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 40),
                       child: _buildEmptyStateCard(l, notifier),
                     ),
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 20),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, idx) {
@@ -638,7 +638,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(color: AppTheme.wcagCobalt.withOpacity(isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
-                        child: CopyableText(s.importFileCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
+                        child: CopyableText(s.importFileCode, textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
                       ),
                     CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800)),
                     CopyableText('${DirectionalArrow.symbolForArabic(isArabic)} ${s.supplierName}', style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
@@ -2279,8 +2279,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           borderRadius: BorderRadius.circular(10),
           gradient: const LinearGradient(
             colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
           ),
         ),
         child: LayoutBuilder(

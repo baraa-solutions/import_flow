@@ -29,8 +29,15 @@ class FakeAppUpdateService implements AppUpdateService {
     return checkResult;
   }
 
+  /// Thrown by status() when set (e.g. a 401 after logout, or a network error).
+  Object? statusError;
+
   @override
   Future<UpdateStatus> status() async {
+    if (statusError != null) {
+      statusCalls++;
+      throw statusError!;
+    }
     final s = statuses[statusCalls < statuses.length ? statusCalls : statuses.length - 1];
     statusCalls++;
     return s;

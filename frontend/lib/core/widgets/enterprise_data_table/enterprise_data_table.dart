@@ -737,6 +737,13 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                 ...activeCols.map((col) {
                   final colWidth = _columnWidths[col.id] ?? col.width;
                   Widget cellContent = col.cellBuilder(context, item, index);
+                  if (col.isNumeric) {
+                    // LTR island: keeps signs, ranges and codes in order under RTL.
+                    cellContent = Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: cellContent,
+                    );
+                  }
                   if (colWidth != null) {
                     cellContent = SizedBox(
                       width: colWidth,

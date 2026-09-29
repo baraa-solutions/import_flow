@@ -532,6 +532,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get hsCode => 'البند الجمركي';
   @override String get quantityMetric => 'الكمية';
   @override String get requiredField => 'هذا الحقل مطلوب';
+  @override String enterFieldHint(String label) => 'أدخل $label...';
   @override String get saveChanges => 'حفظ التعديلات';
   @override String get noDataFound => 'لا توجد بيانات مسجلة';
   @override String get statusDraft => 'مسودة';
@@ -11037,6 +11038,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get updateNoPermission => 'ليس لديك صلاحية تثبيت تحديثات النظام (مطلوب صلاحية مدير النظام)';
   @override String updateRollbackSucceeded(String version) => 'تم التراجع بنجاح إلى الإصدار $version واسترجاع قاعدة البيانات من النسخة الاحتياطية';
   @override String get updateRollbackFailed => 'فشل التراجع عن التحديث';
+  @override String updatePreparingRollbackCopy(String done, String total) => 'جاري تجهيز نسخة التراجع… $done من $total ميجابايت';
+  @override String get updatePreparingRollbackCopyShort => 'جاري تجهيز نسخة التراجع…';
+  @override String updatePillAvailable(String version) => 'تحديث $version';
+  @override String updatePillMandatory(String version) => 'إلزامي $version';
+  @override String updatePillDownloading(String percent) => 'تنزيل $percent%';
+  @override String get updatePillWorking => 'جاري تجهيز التحديث…';
+  @override String get updatePillReady => 'تثبيت';
+  @override String updateReadySnack(String version) => 'التحديث $version جاهز للتثبيت';
+  @override String updateReadyBanner(String version) => 'تم تنزيل التحديث $version وهو جاهز للتثبيت';
+  @override String get updateAdminRequiredTooltip => 'يجب أن يقوم مدير النظام بتثبيت هذا التحديث';
+  @override String get updateAboutSectionTitle => 'التحديثات';
 }
 
 

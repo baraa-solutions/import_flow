@@ -11,7 +11,7 @@ Rules:
   - Refuses (exit 2) when tracked files outside .claude/ have uncommitted changes: the result must describe HEAD.
     Untracked files are ignored. HEAD must not change while the tests run.
   - Backend: `python -m pytest` with a scratch DATABASE_PATH and --junitxml; counts come from the XML.
-  - Flutter: `flutter test -j 4 --reporter json` in frontend/; counts come from the testDone events.
+  - Flutter: `flutter test -j 2 --timeout 120s --reporter json` in frontend/; counts come from the testDone events.
   - Skipped tests are fine (environment-dependent). Any failed test, error or non-zero exit code fails the gate.
 
 Result file: {sha, version, backend {total, passed, failed, errors, skipped, exit_code}, flutter {passed, failed,
@@ -34,7 +34,10 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 RESULT_DIR = ".release"
 ALLOWED_DIRTY_PREFIXES = (".claude/",)
-FLUTTER_CONCURRENCY = "4"
+# 2 workers: -j 4 exhausted commit memory on this machine and the runner hung (2026-09-29).
+FLUTTER_CONCURRENCY = os.environ.get("FLUTTER_CONCURRENCY", "2")
+# A hung test fails fast with its name instead of stalling the gate.
+FLUTTER_TEST_TIMEOUT = os.environ.get("FLUTTER_TEST_TIMEOUT", "120s")
 
 Runner = Callable[..., "subprocess.CompletedProcess"]
 
@@ -133,7 +136,7 @@ def run_flutter(project_dir: Path, scratch: Path, run: Runner) -> Dict[str, int]
     print(f"== Flutter: flutter test -j {FLUTTER_CONCURRENCY} ==", flush=True)
     with open(report, "w", encoding="utf-8") as out:
         result = run(
-            [flutter, "test", "-j", FLUTTER_CONCURRENCY, "--reporter", "json"],
+            [flutter, "test", "-j", FLUTTER_CONCURRENCY, "--timeout", FLUTTER_TEST_TIMEOUT, "--reporter", "json"],
             cwd=project_dir / "frontend", stdout=out, stderr=subprocess.STDOUT, text=True,
         )
     counts = parse_flutter_json(report.read_text(encoding="utf-8", errors="replace").splitlines())
