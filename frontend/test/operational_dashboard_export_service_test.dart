@@ -17,10 +17,17 @@ void main() {
         brokerName: 'Al-Ameen Customs Office',
         poNumber: 'PO-99123',
         priority: 'High',
-        currentModule: 'Customs Clearance',
-        currentStage: 'Duty Payment',
+        // Shape written by modules/common/file_tracking.set_file_tracking (single-language
+        // storage): step/phase codes + English legacy text (current_module = step,
+        // current_stage = phase title).
+        currentModule: 'STEP_17 Duty Payment',
+        currentStage: 'Phase 5: Port Operations & Clearance',
+        currentStepCode: 'STEP_17',
+        currentPhaseId: 5,
+        currentStageCode: 'PHASE_5',
         progressPercent: 65.0,
-        nextAction: 'Review Inspection Sample',
+        nextAction: 'Customs valuation, inspection & sampling',
+        nextActionCode: 'NA_VALUATION_INSPECTION_SAMPLING',
         status: 'Open',
         isActive: true,
         createdAt: '2026-08-01T10:00:00Z',
@@ -57,12 +64,14 @@ void main() {
       expect(row1.companyName, 'Al-Amal Trading Co');
       expect(row1.supplierName, 'Shenzhen Tech Ltd');
       expect(row1.priority, lAr.priorityHigh);
-      expect(row1.currentPhase, 'المرحلة الخامسة: التخليص الجمركي والإفراج');
+      // Coded rows: phase title from the backend 6-phase catalog (SystemMessageRenderer.phaseTitle).
+      expect(row1.currentPhase, 'المرحلة الخامسة: عمليات الميناء والتخليص الجمركي');
       expect(row1.operationalStep, 'سداد الضرائب والرسوم الجمركية');
       expect(row1.brokerName, 'Al-Ameen Customs Office');
       expect(row1.poNumber, 'PO-99123');
       expect(row1.progressPercent, 65.0);
-      expect(row1.nextAction, 'الكشف والمعاينة والتثمين');
+      // Coded next action rendered from the system-message catalog in the UI language.
+      expect(row1.nextAction, 'التثمين الجمركي والكشف وسحب العينات');
       expect(row1.status, lAr.statusOpen);
 
       final row2 = OperationalDashboardReportRow.fromImportFile(sampleShipments[1], lAr, true);
@@ -83,9 +92,9 @@ void main() {
       expect(row1.shipmentName, 'CUST-8899');
       expect(row1.shipmentTitle, 'CUST-8899 (IMP-2026-0101)');
       expect(row1.priority, 'High');
-      expect(row1.currentPhase, 'Phase 5: Clearance & Release');
+      expect(row1.currentPhase, '5. Port Operations & Clearance');
       expect(row1.operationalStep, 'Duty Payment');
-      expect(row1.nextAction, 'Inspection & Valuation');
+      expect(row1.nextAction, 'Customs valuation, inspection & sampling');
       expect(row1.status, 'Open');
       expect(row1.brokerName, 'Al-Ameen Customs Office');
 

@@ -262,6 +262,9 @@ def test_import_main_on_corrupt_db_boots_in_maintenance_mode(tmp_path):
     env["DATABASE_PATH"] = str(db_file)
     env["SECRET_KEY"] = "subprocess-secret-key-0123456789abcdef-xyz"
     env["ADMIN_INITIAL_PASSWORD"] = "Subprocess-Admin-1!"
+    # `import main` pulls in numpy; OpenBLAS pre-allocates one buffer per core and aborts with
+    # "Memory allocation still failed" when the full suite has exhausted commit memory.
+    env.setdefault("OPENBLAS_NUM_THREADS", "1")
     code = "import main; print('MAINT=' + str(main.is_maintenance_mode()))"
     proc = subprocess.run(
         [sys.executable, "-c", code], cwd=str(REPO_ROOT), env=env,
