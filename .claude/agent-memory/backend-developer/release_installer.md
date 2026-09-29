@@ -1,6 +1,6 @@
 ---
 name: release-installer
-description: Inno Setup installer, packaging guard, rehearsal builds and production-laptop layout quirks for ImportFlow releases
+description: Inno Setup installer, packaging guard, rehearsal builds, production-laptop layout quirks and the old-install DB migration (R2m) for ImportFlow releases
 metadata:
   type: project
 ---
@@ -43,3 +43,23 @@ metadata:
 - `backend_runner.run()` builds its startup Event itself (no `started=` param, no module global); tests capture it via a
   `start_watchdog` stub. Defaults come from `db_safety.is_frozen_build()/app_base_dir()` (resolved exe dir).
 - Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.
+
+## R2m migration from an old install folder (v2.1.1, 2026-09-26, after review round 2)
+- PrepareToInstall: {app} has DB -> pre_install backup (other DB folders only logged); none + exactly 1 other folder ->
+  migrate ONLY if interactive (WizardSilent aborts), the folder is still registered (App Path + unins###.exe) and the
+  HKCU marker `Software\<Publisher>\<AppName>\InstallerMigration` SourceSha256 differs; else WrongFolderAbortMessage.
+  Copy read-only to `backups\pre_migrate_<tag>_<ts>\` + `\staging\` (size+SHA-256), RenameFile .db LAST, undo = move back.
+- The old uninstaller runs in CurStepChanged(ssPostInstall) (after re-stop + source re-fingerprint), never in PrepareToInstall:
+  a cancel after migration leaves old install registered + data in {app}. Same-AppId HKCU old install: key is rewritten by
+  the new install, so post-install lookup fails -> notice only (running it would unregister the new install).
+- bundle_guard allows exactly this: CopyFile(...,True) into pre_migrate_, RenameFile staging<->live with literal `+ Stamp +`.
+- Rehearsal defines (ISCC /D, `#ifdef` only): RehearsalOldInstallDir(2), RehearsalOldUninstallKey, RehearsalElevateVerb,
+  RehearsalAllowSilentMigration, RehearsalAbortAfterPrepare (Abort in ssInstall -> exit 3).
+  Kit: `D:/importflow_rehearsal/build/migrate_rehearsal/rehearse.py <repo>` (10 scenarios, cleans HKCU keys/markers).
+- Rehearsal copies MUST change MyAppName too: `{commonpf32}\{#MyAppName}` otherwise finds this box's real Program Files DB.
+  "[Code]" also appears in the .iss header comment: anchor `^\[Code\]`; `#define ... "x"$` fails on CRLF (match with a negated class that excludes the quote, CR and LF).
+- Inno uninstaller launched with wait returns in <1 s with its uninstall key already gone; unins000.exe disappears a
+  few seconds later. Poll the key, not the exe. A lowest-priv fake "old" .iss gives a real HKCU key + uninstaller;
+  whoami.exe copied as unins000.exe = an uninstaller that "fails" (key stays).
+- Pascal: `GetSHA256OfFile` raises on a locked file (wrap try/except); `FileExists` is False for a folder; records
+  (`type T = record`) work in [Code]. Installer tests import strip_pascal_comments/_call_arguments from bundle_guard.

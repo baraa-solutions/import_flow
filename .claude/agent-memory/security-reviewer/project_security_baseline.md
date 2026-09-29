@@ -115,6 +115,17 @@ OPEN:
 - `import main` writes `backups/auto_pre_upgrade_*.db` into the worktree (gitignored) on every import.
 - The project Bash guard blocks any command that merely names the Track-2 packaging script, even a read-only grep.
 
+## v2.1.1 installer R2m migration review 2026-09-26 (release/2.1.1, uncommitted)
+OK: old folder only read (CopyFile FailIfExists, RenameFile never overwrites, {app} db/-wal/-shm pre-check),
+size+SHA-256 on both copies + source re-hash (db, wal, wal presence), .db placed last, undo = move back (no delete),
+UninstallString confined to OldDir via ExtractFileDir + FileExists (quotes/args/.. fail), Rehearsal #ifdefs tested absent.
+In-app apply always passes /DIR=app_base_dir, so migration only fires there when DATABASE_PATH is outside {app}.
+OPEN (reported): MAJOR leftover old DB (never marked, {commonpf} scanned unconditionally) re-migrates a stale copy
+on any later fresh per-user install / other Windows user; MAJOR silent mode still migrates + runas UAC (DATABASE_PATH
+override case); MINOR uninstaller name not pinned to unins###.exe (user-writable custom all-users dir -> elevated
+planted exe); MINOR bundle_guard reverse RenameFile (live -> pre_migrate_ + anything) allowed anywhere, can relocate
+the live DB; MINOR no re-kill/recheck between rename and RetireOldInstall (old-app writes lost).
+
 ## Publish split review 2026-09-25 (uncommitted: publish_update.yml workflow_dispatch, build_and_release has no publish job)
 Verified live via gh api: repo baraa-solutions/import_flow private, org plan free; env production-updates exists with
 custom policies `main` (branch) + `v*` (tag); the 3 secrets are env-only (no repo/org secrets). Rulesets / branch & tag

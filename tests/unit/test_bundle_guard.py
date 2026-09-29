@@ -390,6 +390,65 @@ def test_code_writes_into_tmp_or_pre_install_backup_pass(statement):
     assert guard.check_iss_text(_with_code(statement)) == []
 
 
+# ------------------------------------------------------------------------------------------------
+# R2m migration from an old install folder (v2.1.1): the one precise exception
+# ------------------------------------------------------------------------------------------------
+STAGED = "ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\staging\\"
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "CopyFile(SourceFile, ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + SubDir + ExtractFileName(SourceFile), True);",
+        "CopyFile( Src , ExpandConstant( '{app}\\backups\\pre_migrate_' ) + Stamp , TRUE );",
+        # place a verified staging copy into {app} (MoveFile never overwrites) ...
+        f"RenameFile({STAGED}sorour_logistics.db', ExpandConstant('{{app}}\\sorour_logistics.db'));",
+        f"RenameFile({STAGED}sorour_logistics.db-wal', ExpandConstant('{{app}}\\sorour_logistics.db-wal'));",
+        f"RenameFile({STAGED}sorour_logistics.db-shm', ExpandConstant('{{app}}\\sorour_logistics.db-shm'));",
+        # ... or move it back into the staging folder when the migration fails
+        f"RenameFile(ExpandConstant('{{app}}\\sorour_logistics.db'), {STAGED}sorour_logistics.db');",
+        f"RenameFile(ExpandConstant('{{app}}\\sorour_logistics.db-wal'), {STAGED}sorour_logistics.db-wal');",
+    ],
+)
+def test_migration_copy_and_moves_pass(statement):
+    assert guard.check_iss_text(_with_code(statement)) == []
+
+
+@pytest.mark.parametrize(
+    "statement,count",
+    [
+        # overwriting copy into the migration folder
+        ("CopyFile(Src, ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp, False);", 1),
+        ("CopyFile(Src, ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp, Overwrite);", 1),
+        ("CopyFile(Src, ExpandConstant('{app}\\backups\\pre_migrate_') + '..\\..\\sorour_logistics.db', True);", 1),
+        # a copy (not a move) onto the live DB, even with FailIfExists
+        ("CopyFile(Src, ExpandConstant('{app}\\sorour_logistics.db'), True);", 1),
+        ("SaveStringToFile(ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp, 'x', False);", 1),
+        # moves with a different file name, another folder or a variable path
+        (f"RenameFile({STAGED}sorour_logistics.db', ExpandConstant('{{app}}\\sorour_logistics.db-wal'));", 2),
+        (f"RenameFile({STAGED}evil.db', ExpandConstant('{{app}}\\sorour_logistics.db'));", 2),
+        ("RenameFile(ExpandConstant('{tmp}\\x.db'), ExpandConstant('{app}\\sorour_logistics.db'));", 1),
+        ("RenameFile(ExpandConstant('{app}\\sorour_logistics.db'), ExpandConstant('{app}\\backups\\pre_install_') + Stamp + '\\staging\\sorour_logistics.db');", 1),
+        ("RenameFile(ExpandConstant('{app}\\sorour_logistics.db'), ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\sorour_logistics.db');", 2),
+        (f"RenameFile(DbFile, {STAGED}sorour_logistics.db');", 2),
+        (f"RenameFile({STAGED}sorour_logistics.db', DbFile);", 2),
+        (f"RenameFile({STAGED}..\\..\\x\\sorour_logistics.db', ExpandConstant('{{app}}\\sorour_logistics.db'));", 2),
+        # the middle token must be exactly `+ Stamp +`: no other variable or extra path piece
+        ("RenameFile(ExpandConstant('{app}\\sorour_logistics.db'), ExpandConstant('{app}\\backups\\pre_migrate_') + Other + '\\staging\\sorour_logistics.db');", 2),
+        ("RenameFile(ExpandConstant('{app}\\sorour_logistics.db'), ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + Sub + '\\staging\\sorour_logistics.db');", 2),
+        ("RenameFile(ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\staging\\' + Name, ExpandConstant('{app}\\sorour_logistics.db'));", 2),
+        ("RenameFile(ExpandConstant('{app}\\.env'), ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\staging\\.env');", 2),
+        # deleting the live DB stays forbidden
+        ("DeleteFile(ExpandConstant('{app}\\sorour_logistics.db'));", 1),
+        ("DelTree(ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp, True, True, True);", 1),
+    ],
+)
+def test_anything_beyond_the_migration_exception_fails(statement, count):
+    violations = guard.check_iss_text(_with_code(statement))
+
+    assert len(violations) == count, (statement, violations)
+
+
 @pytest.mark.parametrize(
     "command",
     [

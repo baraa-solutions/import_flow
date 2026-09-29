@@ -18,6 +18,9 @@ Three inputs, any combination:
                    DelayDeleteFile), may only write (CopyFile/FileCopy/RenameFile/SaveString(s)ToFile)
                    under {tmp} or {app}\\backups\\pre_install_*, and must not Exec/ShellExec a command that
                    deletes, moves or overwrites files (del, rd, move, copy, robocopy, sqlite3, ...)
+                 - R2m (migration from an old install folder) only: CopyFile(..., True) into
+                   {app}\\backups\\pre_migrate_*, and RenameFile between a pre_migrate_ staging file and the
+                   same-named live DB file in {app} (MoveFile never overwrites) - nothing else
                  - [Run]/[UninstallRun] must not run a delete command or a destructive script
 
 Usage:
@@ -98,6 +101,14 @@ CODE_EXEC_FUNCTIONS: tuple[str, ...] = ("Exec", "ExecAsOriginalUser", "ShellExec
 # backup folder. Arguments must START with one of these literal expressions (whitespace/case ignored).
 DELETE_ALLOWED_PREFIXES: tuple[str, ...] = ("expandconstant('{tmp}\\",)
 WRITE_ALLOWED_PREFIXES: tuple[str, ...] = ("expandconstant('{tmp}\\", "expandconstant('{app}\\backups\\pre_install_')")
+# R2m migration from an old install folder (installer PrepareToInstall): a fresh
+# {app}\backups\pre_migrate_<tag>_<ts>\ folder receives verified READ-ONLY copies of the old database.
+# CopyFile/FileCopy may write there only with FailIfExists=True (never overwrite).
+MIGRATION_PREFIX = "expandconstant('{app}\\backups\\pre_migrate_')"
+# The live database files in {app}. The ONLY operation allowed on them is a RenameFile (MoveFile: atomic,
+# fails when the target exists, so it never overwrites) between the same-named file in a pre_migrate_
+# staging folder and {app} - in either direction (place the migrated copy / move it back on failure).
+LIVE_DB_NAMES: tuple[str, ...] = ("sorour_logistics.db", "sorour_logistics.db-wal", "sorour_logistics.db-shm")
 # Shell commands that delete, move, rename, overwrite or rewrite files, as a separate word.
 DELETE_COMMAND_RE = re.compile(
     r"(?<![\w.-])(del|erase|rd|rmdir|remove-item|rm|ri|deltree"
@@ -415,13 +426,52 @@ def _path_allowed(expression: str, prefixes: Sequence[str]) -> bool:
     return any(normalized.startswith(prefix) for prefix in prefixes)
 
 
+def _normalize_expression(expression: str) -> str:
+    return re.sub(r"\s+", "", expression).lower()
+
+
+def _is_migration_copy(function: str, parts: Sequence[str]) -> bool:
+    """CopyFile/FileCopy(Src, ExpandConstant('{app}\\backups\\pre_migrate_') + ..., True)."""
+    if function not in ("CopyFile", "FileCopy") or len(parts) != 3:
+        return False
+    return _path_allowed(parts[1], (MIGRATION_PREFIX,)) and _normalize_expression(parts[2]) == "true"
+
+
+def _live_db_expression(name: str) -> str:
+    return f"expandconstant('{{app}}\\{name}')"
+
+
+def _staged_db_expression(name: str) -> str:
+    """The one accepted spelling (whitespace/case ignored) of a staging file: no other variable, no '..'."""
+    return f"{MIGRATION_PREFIX}+stamp+'\\staging\\{name}'"
+
+
+def _is_migration_move(args: str) -> bool:
+    """RenameFile between {app}\\<live db file> and the SAME file name in a pre_migrate_ staging folder:
+    ExpandConstant('{app}\\backups\\pre_migrate_') + Stamp + '\\staging\\sorour_logistics.db' <-> ExpandConstant('{app}\\sorour_logistics.db')."""
+    parts = _split_arguments(args)
+    if len(parts) != 2:
+        return False
+    source, destination = (_normalize_expression(p) for p in parts)
+    return any(
+        (source, destination) in ((_staged_db_expression(name), _live_db_expression(name)),
+                                  (_live_db_expression(name), _staged_db_expression(name)))
+        for name in LIVE_DB_NAMES
+    )
+
+
 def check_iss_code(code: str, label: str = "installer") -> List[Violation]:
     """[Code] may delete/move only under {tmp}, write only under {tmp} or {app}\\backups\\pre_install_*,
-    and may never shell out to a delete / move / copy / sqlite3 command."""
+    and may never shell out to a delete / move / copy / sqlite3 command.
+    R2m exception (database migration from an old install folder): CopyFile(..., True) into
+    {app}\\backups\\pre_migrate_*, and RenameFile between a pre_migrate_ staging file and the same-named
+    live database file in {app} (MoveFile never overwrites)."""
     violations: List[Violation] = []
     code = strip_pascal_comments(code)
     for function in CODE_DELETE_FUNCTIONS:
         for args in _call_arguments(code, function):
+            if function == "RenameFile" and _is_migration_move(args):
+                continue
             if not _path_allowed(_split_arguments(args)[0], DELETE_ALLOWED_PREFIXES):
                 violations.append(
                     Violation(
@@ -433,6 +483,8 @@ def check_iss_code(code: str, label: str = "installer") -> List[Violation]:
     for function, index in CODE_WRITE_FUNCTIONS.items():
         for args in _call_arguments(code, function):
             parts = _split_arguments(args)
+            if (function == "RenameFile" and _is_migration_move(args)) or _is_migration_copy(function, parts):
+                continue
             destination = parts[index] if index < len(parts) else ""
             if not _path_allowed(destination, WRITE_ALLOWED_PREFIXES):
                 violations.append(
