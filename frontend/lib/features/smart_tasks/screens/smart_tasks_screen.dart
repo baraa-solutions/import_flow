@@ -78,13 +78,8 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final shipments = ref.read(importFilesProvider).value ?? [];
-    final cleanTitle = DisplayNameResolver.cleanTaskTitle(task.title, isArabic: isAr);
-    final cleanDesc = DisplayNameResolver.resolveTaskDescription(
-      task.description,
-      isArabic: isAr,
-      shipmentCode: task.importFileCode,
-      shipments: shipments,
-    );
+    final cleanTitle = task.displayTitle(context.l10n);
+    final cleanDesc = task.displayDescription(context.l10n, shipments: shipments);
     final shipmentTitle = task.importFileCode != null
         ? DisplayNameResolver.resolveShipmentTitleByCode(task.importFileCode, shipments: shipments, isArabic: isAr)
         : null;
@@ -105,8 +100,9 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     }
     b.writeln('🚦 ${l.smartTasksColStatus}: ${DisplayNameResolver.resolveTaskStatus(task.status, isArabic: isAr)}');
     b.writeln('👤 ${l.smartTasksTsvHeaderAssignedUser}: ${task.assignedUser}');
-    if (task.notes != null && task.notes!.isNotEmpty) {
-      b.writeln('🗒️ ${l.smartTaskFieldNotes}: ${task.notes}');
+    final notes = task.localizedNotes(l);
+    if (notes != null && notes.isNotEmpty) {
+      b.writeln('🗒️ ${l.smartTaskFieldNotes}: $notes');
     }
     return b.toString().trim();
   }
@@ -131,19 +127,14 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
 
     for (final t in tasks) {
       final typeLabel = DisplayNameResolver.resolveTaskType(t.taskType, isArabic: isAr);
-      final cleanTitle = DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
+      final cleanTitle = t.displayTitle(context.l10n);
       final shipment = t.importFileCode != null
           ? DisplayNameResolver.resolveShipmentTitleByCode(t.importFileCode, shipments: shipments, isArabic: isAr)
           : l.smartTasksGeneralBadge;
       final priority = l.smartTaskPriorityLabel(t.priority);
       final reminder = l.smartTaskReminderTypeLabel(t.reminderType);
       final status = DisplayNameResolver.resolveTaskStatus(t.status, isArabic: isAr);
-      final desc = DisplayNameResolver.resolveTaskDescription(
-        t.description,
-        isArabic: isAr,
-        shipmentCode: t.importFileCode,
-        shipments: shipments,
-      ).replaceAll('\t', ' ').replaceAll('\n', ' ');
+      final desc = t.displayDescription(context.l10n, shipments: shipments).replaceAll('\t', ' ').replaceAll('\n', ' ');
 
       buffer.writeln(
         '${t.taskCode}\t'
@@ -249,21 +240,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
         id: 'title',
         title: l.smartTasksColTitle,
         flex: 2,
-        searchValue: (t) => '${t.title} ${t.description ?? ""}',
-        exportValue: (t) {
-          final isAr = Localizations.localeOf(context).languageCode == 'ar';
-          return DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
-        },
+        searchValue: (t) => '${t.displayTitle(context.l10n)} ${t.title} ${t.description ?? ""}',
+        exportValue: (t) => t.displayTitle(context.l10n),
         cellBuilder: (ctx, t, idx) {
-          final isAr = Localizations.localeOf(context).languageCode == 'ar';
           final shipments = ref.watch(importFilesProvider).value ?? [];
-          final cleanTitle = DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
-          final cleanDesc = DisplayNameResolver.resolveTaskDescription(
-            t.description,
-            isArabic: isAr,
-            shipmentCode: t.importFileCode,
-            shipments: shipments,
-          );
+          final cleanTitle = t.displayTitle(context.l10n);
+          final cleanDesc = t.displayDescription(context.l10n, shipments: shipments);
           final rowSummary = _buildSmartTaskRowSummary(t);
           return _wrapCell(
             value: '$cleanTitle $cleanDesc'.trim(),

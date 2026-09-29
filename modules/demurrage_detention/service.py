@@ -28,6 +28,12 @@ from .schemas import (
 from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
 from . import repository
 from modules.common import enum_codes
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
+
+# Prefix of the free-days agreement note kept in ImportFile.shipping_instructions_notes.
+FREE_DAYS_NOTE_PREFIX = "Free days agreement: "
+LEGACY_FREE_DAYS_NOTE_PREFIX = "اتفاقية فترات السماح: "
 
 logger = logging.getLogger(__name__)
 
@@ -547,7 +553,7 @@ def push_demurrage_to_financial_settlement_service(
             import_file_id=file_id,
             completed_step_code="STEP_18",
             target_step_codes=["STEP_19"],
-            notes=f"تم ترحيل غرامات وفترات سماح الحاويات ({tracking.tracking_code}) إلى التسوية المالية. الانتقال إلى مرحلة استلام المخزن.",
+            notes_msg=msg("DD_CHARGES_POSTED", tracking_code=tracking.tracking_code),
             assigned_user=user,
         )
     except Exception as e:
@@ -827,7 +833,7 @@ def register_free_days_agreement_service(
     # 1. Update ImportFile
     file_rec.target_free_days = payload.agreed_demurrage_free_days
     if payload.agreement_reference:
-        ref_note = f"اتفاقية فترات السماح: {payload.agreement_reference} ({payload.agreed_demurrage_free_days}D DEM / {payload.agreed_detention_free_days}D DET)"
+        ref_note = f"{FREE_DAYS_NOTE_PREFIX}{payload.agreement_reference} ({payload.agreed_demurrage_free_days}D DEM / {payload.agreed_detention_free_days}D DET)"
         if file_rec.shipping_instructions_notes:
             if ref_note not in file_rec.shipping_instructions_notes:
                 file_rec.shipping_instructions_notes += f" | {ref_note}"
@@ -920,15 +926,19 @@ def register_free_days_agreement_service(
 
     # 6. Dispatch SystemNotification
     try:
+        notif_msg = msg(
+            "DD_FREE_DAYS_RECORDED",
+            demurrage_free_days=payload.agreed_demurrage_free_days,
+            import_file_code=file_code,
+            detention_free_days=payload.agreed_detention_free_days,
+            agreement_reference=payload.agreement_reference or "N/A",
+            estimated_saving_amount=round(float(estimated_cost_avoidance), 2),
+        )
         notif = SystemNotification(
-            title=f"🟢 تم توثيق فترات السماح المجانية ({payload.agreed_demurrage_free_days} يوم) (BK-02)",
-            message=(
-                f"تم تسجيل وتثبيت فترات السماح المجانية للشحنة ({file_code}) بنجاح. "
-                f"أيام سماح الأرضيات: {payload.agreed_demurrage_free_days} يوم، "
-                f"أيام سماح الحاوية الفارغة: {payload.agreed_detention_free_days} يوم. "
-                f"المرجع: {payload.agreement_reference or 'N/A'}. "
-                f"تم تحديث رادار الغرامات تلقائياً وتوفير متوقع: ${estimated_cost_avoidance:,.2f} USD."
-            ),
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
             severity="INFO",
             category="FREE_DAYS_AGREEMENT_REGISTERED",
             entity_type="ImportFile",
@@ -995,11 +1005,14 @@ def get_free_days_agreement_service(
     estimated_cost_avoidance = round(additional_days * 70.0 * containers_count, 2)
 
     agreement_reference = None
-    if file_rec.shipping_instructions_notes and "اتفاقية فترات السماح: " in file_rec.shipping_instructions_notes:
-        for part in file_rec.shipping_instructions_notes.split("|"):
+    notes_text = file_rec.shipping_instructions_notes or ""
+    for prefix in (FREE_DAYS_NOTE_PREFIX, LEGACY_FREE_DAYS_NOTE_PREFIX):
+        if agreement_reference is not None or prefix not in notes_text:
+            continue
+        for part in notes_text.split("|"):
             part = part.strip()
-            if "اتفاقية فترات السماح: " in part:
-                after = part.split("اتفاقية فترات السماح: ")[1].strip()
+            if prefix in part:
+                after = part.split(prefix)[1].strip()
                 if " (" in after:
                     agreement_reference = after.split(" (")[0].strip()
                 else:
@@ -1335,7 +1348,7 @@ def record_empty_container_return_service(
     ).all()
     for tb in transport_bookings:
         tb.status = "Completed"
-        tb.tracking_notes = f"{tb.tracking_notes or ''}\n[TR-05] تم تسليم الحاويات الفارغة للخط بموجب EIR #{payload.eir_number}".strip()
+        tb.tracking_notes = f"{tb.tracking_notes or ''}\n[TR-05] Empty containers returned to the carrier under EIR #{payload.eir_number}".strip()
 
     # 4. Synchronize Import File
     return_status_code = "ALL_RETURNED" if all_returned else "PARTIALLY_RETURNED"
@@ -1347,9 +1360,7 @@ def record_empty_container_return_service(
 
     if all_returned:
         imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
-        imp_file.current_stage = "Phase 9 - Financial Settlement & File Closure"
-        imp_file.current_module = "STEP_20 تسوية تكلفة الوصول وإغلاق الملف / Landed Cost & File Closure"
-        imp_file.next_action = "تجميع وتسوية الفواتير الختامية للملف (CLO-01) - المرحلة التاسعة والأخيرة"
+        set_file_tracking(imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
 
     # 5. Synchronize LifecycleBoard
     try:
@@ -1359,10 +1370,13 @@ def record_empty_container_return_service(
             import_file_id=payload.import_file_id,
             to_step="STEP_20_SETTLEMENT",
             user=user,
-            notes=f"تم إرجاع الحاويات الفارغة بموجب إيصال EIR #{payload.eir_number} وإيقاف عدادات الغرامات بالكامل.",
+            notes=render_en("DD_EMPTY_CONTAINERS_RETURNED", {"eir_number": payload.eir_number}, "note"),
         )
     except Exception as e:
         logger.warning(f"LifecycleBoard transition skipped or already aligned: {e}")
+    if all_returned:
+        # Re-apply after the board transition, which writes its own generic next action.
+        set_file_tracking(imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
 
     # 6. Auto-close pending TR-05 SmartTasks
     try:
@@ -1376,18 +1390,22 @@ def record_empty_container_return_service(
             if "tr-05" in title_lower or "tr-05" in code_lower or "eir" in title_lower or "إرجاع" in title_lower or "حاويات" in title_lower:
                 tsk.status = "Completed"
                 tsk.is_auto_closed = True
-                tsk.notes = f"{tsk.notes or ''}\n[TR-05] أغلقت آلياً بصدور إيصال EIR #{payload.eir_number}".strip()
+                tsk.notes = f"{tsk.notes or ''}\n[TR-05] Auto-closed on EIR #{payload.eir_number}".strip()
     except Exception as e:
         logger.warning(f"SmartTasks auto-closure skipped: {e}")
 
     # 7. Auto-generate downstream SmartTask for Phase 9 (CLO-01 Final Settlement)
     try:
+        task_msg = msg("DD_TASK_SETTLE_FINAL_INVOICES", eir_number=payload.eir_number)
         clo01_task = SmartTask(
             task_code=f"TSK-0901-{payload.import_file_id}",
             import_file_id=payload.import_file_id,
             import_file_code=imp_file.import_file_code,
-            title="تجميع وتسوية الفواتير الختامية وتكلفة الوصول (CLO-01)",
-            description=f"تم استلام إيصال EIR #{payload.eir_number} وإغلاق ملف الخط الملاحي بسلام. يرجى تجميع فواتير المورد، النولون، المخلص، والنقل، واحتساب تكلفة الوصول النهائية للشحنة.",
+            title=render_en(task_msg.code, task_msg.params, "title"),
+            description=render_en(task_msg.code, task_msg.params, "body"),
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_20",
             task_type="FINANCIAL_SETTLEMENT",
             phase_name="Phase 9 - Financial Settlement & File Closure",
             assigned_user="Finance Team",
@@ -1402,9 +1420,18 @@ def record_empty_container_return_service(
 
     # 8. Dispatch Central SystemNotification
     try:
+        notif_msg = msg(
+            "DD_EMPTY_CONTAINERS_RETURNED",
+            import_file_code=imp_file.import_file_code,
+            container_count=len(returned_container_numbers),
+            eir_number=payload.eir_number,
+            depot_enum_empty_container_depot=payload.depot_name or "Carrier Depot",
+        )
         notif = SystemNotification(
-            title=f"إرجاع الحاويات الفارغة بسلام — {imp_file.import_file_code}",
-            message=f"تم تأكيد إرجاع {len(returned_container_numbers)} حاوية بموجب إيصال EIR #{payload.eir_number} إلى {payload.depot_name or 'مستودع الخط'} وإيقاف عدادات الغرامات. الشحنة جاهزة للمرحلة التاسعة (التسوية الختامية).",
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
             category="STAGE_PROGRESSION",
             severity="SUCCESS",
             entity_type="ImportFile",

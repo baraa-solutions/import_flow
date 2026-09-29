@@ -3,7 +3,7 @@ SQLAlchemy Model for Inbound Email Logs (INT-EMAIL-010)
 """
 
 from datetime import datetime, timezone, date
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Boolean, ForeignKey
+from sqlalchemy import JSON, Column, Integer, String, Text, Date, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import synonym
 from database.database import Base
 from .crypto import encrypt_email_password, decrypt_email_password
@@ -31,6 +31,8 @@ class InboundEmailLog(Base):
     processing_status = Column(String(50), default="Processed", nullable=False)  # Matched, Unmatched, Task_Created
     task_id = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
+    msg_code = Column(String(80), nullable=True)  # system message code of notes (English render in notes)
+    msg_params = Column(JSON, nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -72,6 +74,8 @@ class EmailSettings(Base):
     last_sync_at = Column(DateTime, nullable=True)
     last_sync_status = Column(String(50), nullable=True)  # SUCCESS, ERROR, IDLE
     last_sync_message = Column(Text, nullable=True)
+    msg_code = Column(String(80), nullable=True)  # system message code of last_sync_message
+    msg_params = Column(JSON, nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

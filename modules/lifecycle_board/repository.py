@@ -2,7 +2,7 @@
 Repository for Shipment Stage Activity & Lifecycle Board Queries
 """
 
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from modules.lifecycle_board.model import ShipmentStageActivity
@@ -39,7 +39,11 @@ def save_or_update_activity(
     assigned_user: Optional[str] = None,
     action_data: Optional[str] = None,
     notes: Optional[str] = None,
+    msg_code: Optional[str] = None,
+    msg_params: Optional[Dict[str, Any]] = None,
 ) -> ShipmentStageActivity:
+    """``msg_code`` / ``msg_params`` describe ``notes`` (system message code + params, English render in
+    ``notes``). Whenever ``notes`` is written they are written too, so user text clears a stale code."""
     rec = get_activity(db, import_file_code, step_code)
     if not rec:
         rec = ShipmentStageActivity(
@@ -51,6 +55,8 @@ def save_or_update_activity(
             assigned_user=assigned_user,
             action_data=action_data,
             notes=notes,
+            msg_code=msg_code if notes else None,
+            msg_params=msg_params if notes else None,
         )
         db.add(rec)
     else:
@@ -65,6 +71,8 @@ def save_or_update_activity(
             rec.action_data = action_data
         if notes:
             rec.notes = notes
+            rec.msg_code = msg_code
+            rec.msg_params = msg_params
     db.commit()
     db.refresh(rec)
     return rec

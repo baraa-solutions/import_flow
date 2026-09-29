@@ -655,7 +655,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       onPressed: () {
                         final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic, includeCodeSecondary: true);
                         final arrow = DirectionalArrow.symbolForArabic(isArabic);
-                        final text = '$shipmentTitle | ${s.companyName} $arrow ${s.supplierName} | ${_formatStageName(s.currentModule, isArabic)}';
+                        final text = '$shipmentTitle | ${s.companyName} $arrow ${s.supplierName} | ${_formatStageName(s.displayStepKey, isArabic)}';
                         CopyHelper.copy(context, text);
                       },
                     ),
@@ -670,8 +670,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 final phaseColumn = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CopyableText('${l.currentPhase}: ${_formatStageName(s.currentModule, isArabic)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
-                    CopyableText('${l.operationalStep}: ${_formatStageName(s.currentStage, isArabic)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                    CopyableText('${l.currentPhase}: ${_formatStageName(s.displayStepKey, isArabic)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
+                    CopyableText('${l.operationalStep}: ${s.displayStage(l, (t) => _formatStageName(t, isArabic))}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
                   ],
                 );
                 final brokerColumn = Column(
@@ -765,7 +765,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const Icon(Icons.bolt, size: 13, color: AppTheme.wcagCobalt),
                         const SizedBox(width: 4),
                         CopyableText(
-                          '${l.pathwayCurrent}: ${_formatStageName(s.currentModule, isArabic)}',
+                          '${l.pathwayCurrent}: ${_formatStageName(s.displayStepKey, isArabic)}',
                           style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt),
                         ),
                       ],
@@ -786,7 +786,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const SizedBox(width: 4),
                         Flexible(
                           child: CopyableText(
-                            '${l.pathwayNext}: ${s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs}',
+                            '${l.pathwayNext}: ${s.renderedNextAction(l) ?? (s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs)}',
                             style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -856,7 +856,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     const SizedBox(width: 8),
                     Expanded(
                       child: CopyableText(
-                        '🚫 ${l.closedShipment} [${_formatStageName(s.closedAtPhase ?? s.currentModule, isArabic)}] — ${s.closureReason ?? _formatStageName(s.currentStage, isArabic)}',
+                        '🚫 ${l.closedShipment} [${_formatStageName(s.closedAtPhase ?? s.displayStepKey, isArabic)}] — ${s.closureReason ?? s.displayStage(l, (t) => _formatStageName(t, isArabic))}',
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12),
                       ),
                     ),
@@ -899,8 +899,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       context: context,
                       ref: ref,
                       importFileCode: s.importFileCode,
-                      currentStepCode: s.currentStage,
-                      currentStepName: _formatStageName(s.currentModule, isArabic),
+                      currentStepCode: s.currentStepCode ?? s.currentStage,
+                      currentStepName: _formatStageName(s.displayStepKey, isArabic),
                       onSuccess: () => ref.read(operationalDashboardProvider.notifier).fetchDashboard(),
                     ),
                   ),
@@ -919,7 +919,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         builder: (c) => CloseShipmentDialog(
                           importFileId: s.importFileId,
                           importFileCode: DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic),
-                          currentPhaseName: DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic),
+                          currentPhaseName: s.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic),
                         ),
                       );
                       if (closed == true) {
@@ -944,7 +944,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     int targetNavIndex = 1;
     IconData actionIcon = Icons.arrow_forward;
 
-    final mod = s.currentModule.toString();
+    final mod = '${s.currentStepCode ?? ''} ${s.currentModule}';
     final stg = s.currentStage.toString();
     if (mod.contains('STEP_07') || mod.contains('تخصيص') || mod.contains('Container Allocation')) {
       nextStepTitle = isArabic ? 'تدقيق أوزان VGM واعتماد مسودات مستندات الشحن' : 'VGM Verification & Shipping Draft Approval';
@@ -1207,7 +1207,6 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildLinkedTasksSection(ImportFileModel s, List<SmartTaskModel> linkedTasks, AppLocalizations l) {
     if (linkedTasks.isEmpty) return const SizedBox.shrink();
-    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final isDark = AppTheme.isDark(context);
 
     return Container(
@@ -1254,7 +1253,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('${l.taskCompletedSuccessfully}: ${DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic)}'),
+                                content: Text('${l.taskCompletedSuccessfully}: ${t.displayTitle(context.l10n)}'),
                                 backgroundColor: AppTheme.emerald,
                                 duration: const Duration(seconds: 2),
                               ),
@@ -1275,7 +1274,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ),
                   Expanded(
                     child: CopyableText(
-                      DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic),
+                      t.displayTitle(context.l10n),
                       style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900),
                     ),
                   ),
@@ -1818,7 +1817,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   runSpacing: 8,
                   children: [
                     ...regTasks.take(3).map((t) {
-                      final title = _cleanTaskTitle(t.title, isArabic);
+                      final title = t.displayTitle(context.l10n);
                       return GestureDetector(
                         onDoubleTap: () => CopyHelper.copy(context, title),
                         onSecondaryTap: () => CopyHelper.copy(context, title),
@@ -1852,7 +1851,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       );
                     }),
                     ...criticals.take(3).map((s) {
-                      final text = '${s.primaryNameWithCode} — ${_formatStageName(s.currentStage, isArabic)}';
+                      final text = '${s.primaryNameWithCode} — ${s.displayStage(context.l10n, (t) => _formatStageName(t, isArabic))}';
                       return GestureDetector(
                         onDoubleTap: () => CopyHelper.copy(context, text),
                         onSecondaryTap: () => CopyHelper.copy(context, text),
@@ -1893,10 +1892,6 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         ),
       ),
     );
-  }
-
-  String _cleanTaskTitle(String title, bool isArabic) {
-    return DisplayNameResolver.cleanTaskTitle(title, isArabic: isArabic);
   }
 
   String _formatStageName(String? stage, bool isArabic) {

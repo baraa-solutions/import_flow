@@ -5,6 +5,7 @@ import '../models/guide_entry_model.dart';
 import '../providers/experience_guide_provider.dart';
 import 'add_guide_entry_dialog.dart';
 import 'autonomous_evidence_trail_dialog.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class ExperienceGuideAlertBanner extends ConsumerStatefulWidget {
   final GuideMatchResultModel matchResult;
@@ -292,7 +293,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  entry.title,
+                  entry.localizedTitle(context.l10n),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -317,7 +318,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
           _buildSourceBadge(entry),
           const SizedBox(height: 6),
           Text(
-            entry.content,
+            entry.localizedContent(context.l10n),
             style: const TextStyle(fontSize: 12, color: AppTheme.flatCharcoal, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -414,7 +415,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  entry.title,
+                  entry.localizedTitle(context.l10n),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -439,7 +440,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
           _buildSourceBadge(entry),
           const SizedBox(height: 6),
           Text(
-            entry.content,
+            entry.localizedContent(context.l10n),
             style: const TextStyle(fontSize: 12, color: AppTheme.flatCharcoal, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -512,7 +513,9 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
     AutonomousEvidenceTrailDialog.show(
       context,
       entryId: entry.entryId,
-      initialTitle: entry.title,
+      initialTitle: entry.localizedTitle(context.l10n),
+      initialEvidence: entry.localizedEvidence(context.l10n),
+      initialReason: entry.localizedReason(context.l10n),
       onStateChanged: () {
         ref.read(experienceGuideProvider.notifier).fetchEntries();
       },

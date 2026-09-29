@@ -183,7 +183,7 @@ def test_record_customs_duty_payment_service_success(db_session, sample_data):
     )
     assert task_cl04 is not None
     assert "CL-04" in task_cl04.title
-    assert "الإفراج" in task_cl04.title
+    assert "green customs release" in task_cl04.title
     assert task_cl04.status == "Pending"
 
     # 5. Assert SystemNotification Emitted
@@ -197,7 +197,8 @@ def test_record_customs_duty_payment_service_success(db_session, sample_data):
         .first()
     )
     assert notif is not None
-    assert "تم سداد الرسوم الجمركية" in notif.title
+    assert "Customs duties paid" in notif.title
+    assert notif.msg_code == "CC_DUTIES_PAID"
     assert "SADAD-2026-MTS-882200" in notif.message
 
 

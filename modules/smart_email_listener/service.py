@@ -38,6 +38,7 @@ from .schemas import (
 )
 from .validators import validate_email_payload
 from . import repository
+from modules.common.system_messages import msg as sys_msg, render_en
 
 
 def parse_date_string(date_str: str) -> Optional[date]:
@@ -228,19 +229,29 @@ def process_inbound_email_service(
         task_created = True
         status_str = "Task_Created"
         msg = f"تم مطابقة الإيميل بنجاح استناداً إلى {match_reason} مع الشحنة [{matched_file.import_file_code}] وتوليد مهمة المتابعة/السداد (#{created_task.task_code})."
+        log_msg = sys_msg(
+            "EMAIL_PARSE_MATCHED",
+            import_file_code=matched_file.import_file_code,
+            reference=bl_number or repository._reference_value(match_reason) or matched_file.import_file_code,
+            task_code=created_task.task_code,
+        )
     else:
         if bl_number:
             status_str = "Unmatched_BL"
             msg = f"تم استخراج البوليصة [{bl_number}] ولكن لم يتم العثور على شحنة نشطة مسجلة بهذا الرقم."
+            log_msg = sys_msg("EMAIL_PARSE_UNMATCHED_BL", bl_number=bl_number)
         elif acid_number:
             status_str = "Unmatched_ACID"
             msg = f"تم استخراج رقم ACID [{acid_number}] ولكن لم يتم العثور على شحنة نشطة مسجلة به."
+            log_msg = sys_msg("EMAIL_PARSE_UNMATCHED_ACID", acid_number=acid_number)
         elif po_number:
             status_str = "Unmatched_PO"
             msg = f"تم استخراج أمر الشراء [{po_number}] ولم يتم العثور على شحنة نشطة مرتبطة به."
+            log_msg = sys_msg("EMAIL_PARSE_UNMATCHED_PO", po_number=po_number)
         else:
             status_str = "No_Shipment_Reference"
             msg = "تم استلام الإيميل ولم يُعثر على رقم بوليصة أو ACID أو أمر شراء أو مشروع لشحنة مسجلة."
+            log_msg = sys_msg("EMAIL_PARSE_NO_REFERENCE")
 
     # Save Inbound Log
     log_record = repository.create_email_log(
@@ -258,7 +269,9 @@ def process_inbound_email_service(
             "import_file_id": matched_file.import_file_id if matched_file else None,
             "processing_status": status_str,
             "task_id": task_id,
-            "notes": msg,
+            "notes": render_en(log_msg.code, log_msg.params, "note"),
+            "msg_code": log_msg.code,
+            "msg_params": log_msg.params,
         },
         user=user,
     )
@@ -566,7 +579,12 @@ def fetch_from_local_outlook_service(
                     continue
 
             summary_msg = f"تم فحص {len(parse_results)} إيميل من تطبيق Microsoft Outlook، ومطابقة {matched_count} شحنة، وتوليد {tasks_count} مهمة سداد."
-            repository.update_email_settings_sync_status(db, "SUCCESS", summary_msg)
+            repository.update_email_settings_sync_status(
+                db,
+                "SUCCESS",
+                sys_msg("EMAIL_SYNC_SUMMARY_OUTLOOK", count=len(parse_results), matched_count=matched_count,
+                        tasks_count=tasks_count),
+            )
 
             return InboxFetchResult(
                 total_fetched=len(parse_results),
@@ -579,7 +597,7 @@ def fetch_from_local_outlook_service(
             pythoncom.CoUninitialize()
     except Exception as e:
         err_msg = f"خطأ أثناء جلب الرسائل من تطبيق Microsoft Outlook: {str(e)}"
-        repository.update_email_settings_sync_status(db, "ERROR", err_msg)
+        repository.update_email_settings_sync_status(db, "ERROR", sys_msg("EMAIL_SYNC_ERROR_OUTLOOK", error=str(e)))
         return InboxFetchResult(
             total_fetched=0,
             matched_files_count=0,
@@ -634,7 +652,7 @@ def fetch_and_process_inbox_service(
 
         if status_code != "OK" or not messages or not messages[0]:
             client.logout()
-            repository.update_email_settings_sync_status(db, "SUCCESS", "تم فحص الصندوق ولا توجد رسائل جديدة.")
+            repository.update_email_settings_sync_status(db, "SUCCESS", sys_msg("EMAIL_SYNC_EMPTY"))
             return InboxFetchResult(
                 total_fetched=0,
                 matched_files_count=0,
@@ -695,7 +713,11 @@ def fetch_and_process_inbox_service(
         client.logout()
 
         summary_msg = f"تم فحص {len(parse_results)} إيميل، ومطابقة {matched_count} شحنة، وتوليد {tasks_count} مهمة سداد."
-        repository.update_email_settings_sync_status(db, "SUCCESS", summary_msg)
+        repository.update_email_settings_sync_status(
+            db,
+            "SUCCESS",
+            sys_msg("EMAIL_SYNC_SUMMARY", count=len(parse_results), matched_count=matched_count, tasks_count=tasks_count),
+        )
 
         return InboxFetchResult(
             total_fetched=len(parse_results),
@@ -706,7 +728,7 @@ def fetch_and_process_inbox_service(
         )
     except Exception as e:
         err_msg = f"خطأ أثناء جلب الإيميلات من الخادم: {str(e)}"
-        repository.update_email_settings_sync_status(db, "ERROR", err_msg)
+        repository.update_email_settings_sync_status(db, "ERROR", sys_msg("EMAIL_SYNC_ERROR", error=str(e)))
         return InboxFetchResult(
             total_fetched=0,
             matched_files_count=0,

@@ -318,7 +318,7 @@ class TestFreightBookingBackend:
         assert booking.total_freight_cost_usd == 2500.0
         assert booking.cost_savings_usd == 0.0
         assert booking.cost_variance_usd == -500.0
-        assert "زيادة في تكلفة الشحن" in booking.savings_notes
+        assert "Freight cost increase" in booking.savings_notes
 
 
 

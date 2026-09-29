@@ -2,7 +2,7 @@
 Database Operations for Smart Tasks Repository
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
@@ -17,7 +17,20 @@ def generate_task_code(db: Session) -> str:
     return f"TSK-{year}-{(count + 1):04d}"
 
 
-def create_task(db: Session, schema: SmartTaskCreate, created_by: str = "System") -> SmartTask:
+def create_task(
+    db: Session,
+    schema: SmartTaskCreate,
+    created_by: str = "System",
+    msg_code: Optional[str] = None,
+    msg_params: Optional[Dict[str, Any]] = None,
+    step_code: Optional[str] = None,
+    commit: bool = True,
+) -> SmartTask:
+    """``msg_code`` / ``msg_params`` / ``step_code`` are server-only (system tasks): the request schema never
+    carries them, so user tasks never get a code.
+
+    ``commit=False`` only flushes (the task gets its id): use it inside a larger service transaction so a later
+    failure rolls the task back together with the caller's own writes."""
     task_code = generate_task_code(db)
     db_obj = SmartTask(
         task_code=task_code,
@@ -35,12 +48,18 @@ def create_task(db: Session, schema: SmartTaskCreate, created_by: str = "System"
         status=schema.status,
         notes=schema.notes,
         attachment_url=schema.attachment_url,
+        msg_code=msg_code,
+        msg_params=dict(msg_params) if msg_params else None,
+        step_code=step_code,
         created_by=created_by,
         updated_by=created_by,
     )
     db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
+    if commit:
+        db.commit()
+        db.refresh(db_obj)
+    else:
+        db.flush()
     return db_obj
 
 

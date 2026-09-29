@@ -233,3 +233,34 @@ def test_cl05_rest_api_endpoints(sample_clearance_setup):
     res_del = client.delete(f"/api/v1/customs-clearance/invoices/{invoice_id}")
     assert res_del.status_code == 200
     assert res_del.json()["status"] == "success"
+
+
+def test_cl05_invoice_creates_exactly_one_coded_notification(db_session, sample_clearance_setup):
+    """Phase B review: recording a CL-05 invoice saves the invoice and emits exactly one coded notification."""
+    from modules.notifications.model import SystemNotification
+
+    imp_file, clearance = sample_clearance_setup
+    payload = ClearanceExpenseInvoiceCreate(
+        import_file_id=imp_file.import_file_id,
+        customs_clearance_id=clearance.customs_clearance_id,
+        invoice_number="INV-PORT-NOTIF-1",
+        invoice_date=datetime.now(timezone.utc),
+        provider_name="Alexandria Port Authority",
+        expense_category="PORT_DUES_WHARFAGE",
+        currency="EGP",
+        amount_egp=1200.0,
+    )
+    inv = record_clearance_invoice_service(db_session, payload, current_user="Kamal")
+    assert inv.invoice_id is not None
+    assert db_session.query(ClearanceExpenseInvoice).filter(ClearanceExpenseInvoice.invoice_id == inv.invoice_id).count() == 1
+
+    notifs = db_session.query(SystemNotification).filter(
+        SystemNotification.entity_type == "ImportFile",
+        SystemNotification.entity_id == imp_file.import_file_id,
+        SystemNotification.msg_code == "CC_CLEARANCE_INVOICE_RECORDED",
+    ).all()
+    assert len(notifs) == 1
+    n = notifs[0]
+    assert n.msg_params["invoice_number"] == "INV-PORT-NOTIF-1"
+    assert n.msg_params["import_file_code"] == imp_file.import_file_code
+    assert "INV-PORT-NOTIF-1" in n.message

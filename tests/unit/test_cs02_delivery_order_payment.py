@@ -190,7 +190,8 @@ def test_record_delivery_order_payment_service_full_workflow(db_session, sample_
     )
     assert len(notifications) >= 1
     latest_notif = notifications[-1]
-    assert "إذن التسليم" in latest_notif.title
+    assert "Delivery order paid" in latest_notif.title
+    assert latest_notif.msg_code == "CC_DELIVERY_ORDER_PAID"
     assert latest_notif.category == "STAGE_PROGRESSION"
 
 

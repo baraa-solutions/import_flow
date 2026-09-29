@@ -101,9 +101,9 @@ def test_hold_with_code_keeps_user_notes_and_writes_system_notes(db):
     [log] = _audit(db, created.import_file_id, "HOLD")
     assert log.performed_by == "ops1"
     assert log.changes_summary == (
-        "Shipment put on hold at [Docs Customs Approval]: Temporary administrative hold | Waiting for GM"
+        "Shipment put on hold at [3. Booking & Doc Prep]: Temporary administrative hold | Waiting for GM"
     )
-    assert "LC_FILE_ON_HOLD_WITH_NOTES" in log.new_values
+    assert "LC_FILE_ON_HOLD_CODED_WITH_NOTES" in log.new_values
 
 
 def test_hold_with_legacy_arabic_label_derives_code_and_resolves_english_stage(db):

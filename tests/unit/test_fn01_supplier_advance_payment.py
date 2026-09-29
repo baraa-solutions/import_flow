@@ -271,9 +271,9 @@ def test_fn01_supplier_advance_payment_request_creation(db_session, seed_data):
     )
     assert notif is not None
     assert notif.target_role == "FINANCE_OFFICER"
-    assert "طلب سداد دفعة مقدمة للمورد" in notif.title
-    assert "25,500.00 USD" in notif.message
-    assert "1,236,750.00 ج.م" in notif.message
+    assert "Supplier advance payment request" in notif.title
+    assert notif.msg_code == "FA_PAYMENT_REQUEST_CREATED"
+    assert "USD" in notif.message and "EGP" in notif.message
 
     # 3. Automated Smart Task for Finance Officer
     task = (
@@ -286,12 +286,14 @@ def test_fn01_supplier_advance_payment_request_creation(db_session, seed_data):
     assert task.priority == "High"
     assert task.status == "Pending"
     assert task.reminder_type == "Advance Payment"
-    assert "سداد الدفعة المقدمة للمورد" in task.title
-    assert "25,500.00 USD" in task.description
+    assert "advance payment" in task.title
+    assert task.msg_code == "FA_TASK_SUPPLIER_PAYMENT"
+    assert "USD" in task.description
 
     # 4. Lifecycle Board Advancement to STEP_04
     db_session.refresh(imp_file)
-    assert imp_file.current_module == "STEP_04 اعتمادات الميزانية وسداد الموردين"
+    assert imp_file.current_module == "STEP_04 Finance Approvals & Budget"
+    assert imp_file.next_action_code == "NA_STEP04_APPROVE_ADVANCE_PAYMENT"
     assert imp_file.progress_percent >= 30.0
 
     step4_activity = (

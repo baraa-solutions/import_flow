@@ -33,6 +33,8 @@ from modules.import_documentation.validators import (
 )
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 
 
 from modules.import_documentation.nafeza_acid_parser import (
@@ -250,11 +252,9 @@ def _handle_acid_verification_workflow(
                 target_step_codes=["STEP_06"],
                 auto_complete_prior=True,
                 assigned_user="Logistics Officer",
-                notes=f"تم قيد وتدقيق الرقم التعريفي المبدئي بنجاح (ACID: {acid_num}) للشحنة ({file_code}).",
+                notes_msg=msg("DOC_ACID_REGISTERED", acid_number=acid_num, import_file_code=file_code),
+                next_action_msg=msg("NA_STEP06_CONFIRM_BOOKING"),
                 source_module="ACID Verification Engine",
-                custom_stage_title="المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي",
-                custom_module_name="STEP_06 حجز النولون وتأكيد الخط الملاحي",
-                custom_next_action="STEP_06 تأكيد حجز الشحن مع الخط الملاحي أو وكيل الشحن الفائز",
                 min_progress_percent=40.0,
             )
         except Exception as e:
@@ -274,7 +274,7 @@ def _handle_acid_verification_workflow(
             for t in pending_acid_tasks:
                 if any(k in (t.title or "") + (t.description or "") for k in ["ACID", "نافذة", "STEP_05", "رقم القيد"]):
                     t.status = "Completed"
-                    t.completion_notes = f"تم استخراج وتدقيق رقم ACID ({acid_num}) بنجاح عبر نافذة."
+                    t.completion_notes = f"ACID {acid_num} obtained and verified via Nafeza."
             db.commit()
         except Exception as e:
             logger.warning("Failed to complete prior ACID smart tasks: %s", e)
@@ -284,11 +284,9 @@ def _handle_acid_verification_workflow(
             from modules.smart_tasks.repository import create_task as create_smart_task
             from modules.smart_tasks.schemas import SmartTaskCreate
 
-            task_title = f"تأكيد حجز النولون وتحديد الخط الملاحي: {file_code} (BK-01)"
-            task_desc = (
-                f"تم إصدار وتدقيق رقم الـ ACID ({acid_num}). يجب تأكيد حجز النولون (Booking No) مع الخط الملاحي "
-                f"أو وكيل الشحن وتحديد مواعيد الإبحار المتوقعة (ETD) والوصول (ETA) وتثبيت فترات السماح (Free Days)."
-            )
+            booking_task_msg = msg("DOC_TASK_FREIGHT_BOOKING", import_file_code=file_code, acid_number=acid_num)
+            task_title = render_en(booking_task_msg.code, booking_task_msg.params, "title")
+            task_desc = render_en(booking_task_msg.code, booking_task_msg.params, "body")
             booking_due = date.today() + timedelta(days=3)
             task_schema = SmartTaskCreate(
                 title=task_title,
@@ -296,7 +294,7 @@ def _handle_acid_verification_workflow(
                 task_type="System Generated",
                 import_file_id=imp.import_file_id,
                 import_file_code=file_code,
-                phase_name="المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي",
+                phase_name="Phase 3: Booking & Doc Prep",
                 assigned_user="Logistics Officer",
                 priority="High",
                 reminder_type="Freight Booking",
@@ -304,19 +302,24 @@ def _handle_acid_verification_workflow(
                 status="Pending",
                 notes=f"ACTION:FREIGHT_BOOKING | File: {file_code} | ACID: {acid_num}",
             )
-            create_smart_task(db, task_schema, created_by="ACID Verification Engine")
+            create_smart_task(db, task_schema, commit=False, msg_code=booking_task_msg.code, msg_params=booking_task_msg.params, created_by="ACID Verification Engine")
         except Exception as e:
             logger.warning("Failed to create freight booking smart task: %s", e)
 
         # 5. Emit SystemNotification
         try:
             from modules.notifications.model import SystemNotification
+            acid_msg = msg(
+                "DOC_ACID_REGISTERED",
+                acid_number=acid_num,
+                import_file_code=file_code,
+                expiry_date=str(db_item.expiry_date) if db_item.expiry_date else None,
+            )
             notif = SystemNotification(
-                title=f"🟢 تم قيد وتدقيق رقم ACID: {acid_num}",
-                message=(
-                    f"تم قيد وتدقيق الرقم التعريفي المبدئي (ACID: {acid_num}) بنجاح للشحنة ({file_code}). "
-                    f"صلاحية الرقم حتى {db_item.expiry_date}. تم نقل الشحنة إلى مرحلة حجز النولون (STEP_06)."
-                ),
+                title=render_en(acid_msg.code, acid_msg.params, "title"),
+                message=render_en(acid_msg.code, acid_msg.params, "body"),
+                msg_code=acid_msg.code,
+                msg_params=acid_msg.params,
                 severity="INFO",
                 category="ACID_VERIFICATION",
                 entity_type="AcidRegistrationSession",
@@ -701,11 +704,14 @@ def _handle_banking_document_verification_workflow(
                 target_step_codes=["STEP_13"],
                 auto_complete_prior=True,
                 assigned_user="Customs Broker",
-                notes=f"تم استلام وتوثيق المستند البنكي ({db_item.doc_type}) برقم ({ref_num}) للشحنة ({file_code}).",
+                notes_msg=msg(
+                    "DOC_BANK_DOCUMENT_RECORDED",
+                    doc_type=db_item.doc_type,
+                    reference_no=ref_num,
+                    import_file_code=file_code,
+                ),
+                next_action_msg=msg("NA_CS_REGISTER_DECLARATION_46"),
                 source_module="Banking Documents Engine",
-                custom_stage_title="المرحلة الرابعة: الإجراءات الجمركية والإقرار 46",
-                custom_module_name="STEP_13 فتح الإقرار الجمركي 46 ك.م",
-                custom_next_action="STEP_13 قيد الإقرار الجمركي ونموذج 46 ك.م الموحد (CS-03)",
                 min_progress_percent=65.0,
             )
         except Exception as e:
@@ -726,7 +732,7 @@ def _handle_banking_document_verification_workflow(
                 combined_text = (t.title or "") + " " + (t.description or "") + " " + (t.reminder_type or "")
                 if any(k in combined_text for k in ["نموذج 4", "اعتماد", "Form 4", "L/C", "STEP_12", "مستند بنكي", "المصادقة البنكية"]):
                     t.status = "Completed"
-                    t.completion_notes = f"تم استلام واعتماد {db_item.doc_type} برقم ({ref_num}) عبر {db_item.bank_name}."
+                    t.completion_notes = f"{db_item.doc_type} no. {ref_num} received and approved via {db_item.bank_name}."
             db.commit()
         except Exception as e:
             logger.warning("Failed to complete prior banking smart tasks: %s", e)
@@ -736,11 +742,15 @@ def _handle_banking_document_verification_workflow(
             from modules.smart_tasks.repository import create_task as create_smart_task
             from modules.smart_tasks.schemas import SmartTaskCreate
 
-            task_title = f"قيد الإقرار الجمركي ونموذج 46 ك.م: {file_code} (CS-03)"
-            task_desc = (
-                f"تم اعتماد وتوثيق المستند البنكي ({db_item.doc_type}) برقم المرجع ({ref_num}) من بنك ({db_item.bank_name}). "
-                f"يرجى استكمال تقديم نموذج 46 ك.م وبدء إجراءات الكشف والمطابقة الجمركية عبر نافذة."
+            decl_task_msg = msg(
+                "DOC_TASK_DECLARATION_46",
+                import_file_code=file_code,
+                doc_type=db_item.doc_type,
+                reference_no=ref_num,
+                bank_name=db_item.bank_name,
             )
+            task_title = render_en(decl_task_msg.code, decl_task_msg.params, "title")
+            task_desc = render_en(decl_task_msg.code, decl_task_msg.params, "body")
             decl_due = date.today() + timedelta(days=2)
             task_schema = SmartTaskCreate(
                 title=task_title,
@@ -748,7 +758,7 @@ def _handle_banking_document_verification_workflow(
                 task_type="System Generated",
                 import_file_id=imp.import_file_id,
                 import_file_code=file_code,
-                phase_name="المرحلة الرابعة: الإجراءات الجمركية والإقرار 46",
+                phase_name="Phase 5: Port Operations & Clearance",
                 assigned_user="Customs Broker",
                 priority="High",
                 reminder_type="Customs Declaration 46",
@@ -756,19 +766,28 @@ def _handle_banking_document_verification_workflow(
                 status="Pending",
                 notes=f"ACTION:DECLARATION_46 | File: {file_code} | BankDoc: {ref_num}",
             )
-            create_smart_task(db, task_schema, created_by="Banking Documents Engine")
+            create_smart_task(
+                db, task_schema, created_by="Banking Documents Engine",
+                msg_code=decl_task_msg.code, msg_params=decl_task_msg.params, commit=False,
+            )
         except Exception as e:
             logger.warning("Failed to create Customs Declaration 46 smart task: %s", e)
 
         # 5. Emit SystemNotification
         try:
             from modules.notifications.model import SystemNotification
+            bank_msg = msg(
+                "DOC_BANK_DOCUMENT_RECORDED",
+                doc_type=db_item.doc_type,
+                reference_no=ref_num,
+                bank_name=db_item.bank_name,
+                import_file_code=file_code,
+            )
             notif = SystemNotification(
-                title=f"🟢 اعتماد وتوثيق {db_item.doc_type}: {ref_num}",
-                message=(
-                    f"تم توثيق واعتماد {db_item.doc_type} برقم ({ref_num}) عبر بنك {db_item.bank_name} للشحنة ({file_code}). "
-                    f"تم نقل الشحنة إلى مرحلة الإجراءات الجمركية ونموذج 46 (STEP_13)."
-                ),
+                title=render_en(bank_msg.code, bank_msg.params, "title"),
+                message=render_en(bank_msg.code, bank_msg.params, "body"),
+                msg_code=bank_msg.code,
+                msg_params=bank_msg.params,
                 severity="INFO",
                 category="BANKING_DOCUMENT_VERIFICATION",
                 entity_type="BankingDocumentSession",
@@ -1666,8 +1685,8 @@ def _complete_draft_bl_review_workflow(
                 imp_file.booking_no = session.booking_no
             if hasattr(imp_file, "vessel_name") and session.vessel_name:
                 imp_file.vessel_name = session.vessel_name
-            imp_file.current_module = "STEP_09 منصة النقل الرقمي CargoX واعتماد الملفات (SH-03)"
-            imp_file.next_action = "STEP_09 رفع واعتماد المظروف الرقمي وختم الوثائق عبر CargoX (SH-03)"
+            imp_file.current_module = "STEP_09 CargoX Digital Transfer (SH-03)"
+            set_file_tracking(imp_file, next_action=msg("NA_STEP09_CARGOX_ENVELOPE"))
             if (imp_file.progress_percent or 0.0) < 65.0:
                 imp_file.progress_percent = 65.0
             db.commit()
@@ -1701,7 +1720,7 @@ def _complete_draft_bl_review_workflow(
                 bl_app.commercial_status = "Approved"
                 bl_app.commercial_reviewed_by = approver
                 bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                bl_app.commercial_notes = f"تم اعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) بنجاح (SH-02 / STEP_08_BL)."
+                bl_app.commercial_notes = f"Draft B/L {session.draft_bl_number} approved (SH-02 / STEP_08_BL)."
                 if bl_app.customs_status == "Approved":
                     bl_app.overall_status = "Approved for Clearance"
                 else:
@@ -1718,7 +1737,7 @@ def _complete_draft_bl_review_workflow(
                 import_file_id=session.import_file_id,
                 completed_step_code="STEP_08_BL",
                 target_step_codes=["STEP_08_COO"],
-                notes=f"اكتمال واعتماد مراجعة مسودة بوليصة الشحن ({session.draft_bl_number}) وتحديث الموافقة الجمركية بنجاح (SH-02).",
+                notes_msg=msg("DOC_DRAFT_BL_REVIEWED", draft_bl_number=session.draft_bl_number),
                 assigned_user=approver,
             )
         except Exception as e_lc:
@@ -1755,12 +1774,11 @@ def _complete_draft_bl_review_workflow(
             ).all()
             has_sh03 = any("SH-03" in (t.notes or "") or "SH-03" in (t.title or "") for t in existing_sh03)
             if not has_sh03:
-                task_title = f"منصة النقل الرقمي CargoX واعتماد الملفات: {file_code} (SH-03)"
-                task_desc = (
-                    f"تمت المراجعة المزدوجة واعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) بنجاح "
-                    f"والتأكد من مطابقتها التامة مع أمر الشراء والفاتورة لمنع غرامات التعديل الجمركي. "
-                    f"يجب الآن قيام المصدر برفع حزمة المستندات واعتماد المظروف الرقمي (Envelope ID) عبر منصة CargoX لربطه بنافذة."
+                cargox_task_msg = msg(
+                    "DOC_TASK_CARGOX_TRANSFER", import_file_code=file_code, draft_bl_number=session.draft_bl_number
                 )
+                task_title = render_en(cargox_task_msg.code, cargox_task_msg.params, "title")
+                task_desc = render_en(cargox_task_msg.code, cargox_task_msg.params, "body")
                 due_dt = date.today() + timedelta(days=3)
                 task_schema = SmartTaskCreate(
                     title=task_title,
@@ -1768,7 +1786,7 @@ def _complete_draft_bl_review_workflow(
                     task_type="System Generated",
                     import_file_id=session.import_file_id,
                     import_file_code=file_code,
-                    phase_name="المرحلة الخامسة: الإبحار و CargoX",
+                    phase_name="Phase 3: Booking & Doc Prep",
                     assigned_user="Logistics Officer",
                     priority="High",
                     reminder_type="CargoX Digital Transfer",
@@ -1776,20 +1794,22 @@ def _complete_draft_bl_review_workflow(
                     status="Pending",
                     notes=f"ACTION:CARGOX_SEAL | File: {file_code} | BL: {session.draft_bl_number}",
                 )
-                create_task_service(db, task_schema, user_name="Draft B/L Dual Review Engine")
+                create_task_service(
+                    db, task_schema, user_name="Draft B/L Dual Review Engine",
+                    msg_code=cargox_task_msg.code, msg_params=cargox_task_msg.params, commit=False,
+                )
         except Exception as e_sh03:
             logger.warning("Failed to dispatch SH-03 smart task: %s", e_sh03)
 
         # Dispatch SystemNotification
         try:
             from modules.notifications.model import SystemNotification
+            bl_msg = msg("DOC_DRAFT_BL_REVIEWED", import_file_code=file_code, draft_bl_number=session.draft_bl_number)
             db.add(SystemNotification(
-                title=f"اكتمال المراجعة المزدوجة لمسودة بوليصة الشحن: {file_code} (SH-02)",
-                message=(
-                    f"تمت مطابقة واعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) لملف الشحنة ({file_code}) "
-                    f"بنجاح والتأكد من تطابقها الكامل مع أمر الشراء والفاتورة التجارية لمنع أخطاء التعديل الجمركي. "
-                    f"تم تجهيز الملف لمرحلة CargoX (SH-03)."
-                ),
+                title=render_en(bl_msg.code, bl_msg.params, "title"),
+                message=render_en(bl_msg.code, bl_msg.params, "body"),
+                msg_code=bl_msg.code,
+                msg_params=bl_msg.params,
                 severity="INFO",
                 category="STAGE_PROGRESSION",
                 entity_type="ImportFile",
@@ -2355,7 +2375,7 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
                 coo_app.commercial_status = "Approved"
                 coo_app.commercial_reviewed_by = schema.reviewed_by or "Draft COO Review Engine"
                 coo_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                coo_app.commercial_notes = f"تم اعتماد شهادة المنشأ ({schema.certificate_type} - {schema.certificate_number}) بنجاح (STEP_08_COO)."
+                coo_app.commercial_notes = f"Certificate of origin {schema.certificate_type} - {schema.certificate_number} approved (STEP_08_COO)."
                 if coo_app.customs_status == "Approved":
                     coo_app.overall_status = "Approved for Clearance"
                 else:
@@ -2369,14 +2389,18 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
                 import_file_id=schema.import_file_id,
                 completed_step_code="STEP_08_COO",
                 target_step_codes=["STEP_09"],
-                notes=f"اكتمال واعتماد شهادة المنشأ ({schema.certificate_type} - {schema.certificate_number}) وتحديث الموافقة الجمركية بنجاح.",
+                notes_msg=msg(
+                    "DOC_COO_APPROVED",
+                    certificate_type=schema.certificate_type,
+                    certificate_number=schema.certificate_number,
+                ),
+                next_action_msg=msg("NA_STEP09_FINAL_DOCS_APPROVAL"),
                 assigned_user=schema.reviewed_by or "Compliance Officer",
             )
 
             imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
             if imp_file:
-                imp_file.current_module = "STEP_09 الموافقة الجمركية على الأوراق"
-                imp_file.next_action = "STEP_09 تدقيق ومراجعة الاعتماد الجمركي النهائي للأوراق"
+                set_file_tracking(imp_file, step_code="STEP_09", next_action=msg("NA_STEP09_FINAL_DOCS_APPROVAL"))
                 if (imp_file.progress_percent or 0.0) < 58.0:
                     imp_file.progress_percent = 58.0
                 db.commit()
@@ -2579,7 +2603,7 @@ def create_inspection_review_service(db: Session, schema: InspectionCertificateR
                 import_file_id=saved.import_file_id,
                 completed_step_code="STEP_08_COC",
                 target_step_codes=["STEP_09"],
-                notes=f"تم اعتماد مراجعة مسودة شهادة الفحص والتفتيش ({saved.inspection_review_code}). الانتقال إلى مرحلة الاعتماد الجمركي النهائي للأوراق.",
+                notes_msg=msg("DOC_INSPECTION_REVIEW_APPROVED", review_code=saved.inspection_review_code),
                 assigned_user="Compliance Officer",
             )
         except Exception as e:
@@ -2601,7 +2625,7 @@ def update_inspection_review_service(db: Session, review_id: int, schema: Inspec
                 import_file_id=saved.import_file_id,
                 completed_step_code="STEP_08_COC",
                 target_step_codes=["STEP_09"],
-                notes=f"تم تحديث واعتماد مراجعة شهادة الفحص ({saved.inspection_review_code}). الانتقال إلى مرحلة الاعتماد الجمركي للأوراق.",
+                notes_msg=msg("DOC_INSPECTION_REVIEW_UPDATED", review_code=saved.inspection_review_code),
                 assigned_user="Compliance Officer",
             )
         except Exception as e:
@@ -4240,7 +4264,7 @@ def sync_certified_invoice_bl_to_file_service(
                 inv_app.commercial_status = "Approved"
                 inv_app.commercial_reviewed_by = "Smart Match Engine"
                 inv_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                inv_app.commercial_notes = "تمت المطابقة والاعتماد الذكي بنجاح مع بوليصة الشحن (STEP_08_MATCH)."
+                inv_app.commercial_notes = "Smart match with the B/L completed and approved (STEP_08_MATCH)."
                 if inv_app.customs_status == "Approved":
                     inv_app.overall_status = "Approved for Clearance"
                 else:
@@ -4254,7 +4278,7 @@ def sync_certified_invoice_bl_to_file_service(
                 bl_app.commercial_status = "Approved"
                 bl_app.commercial_reviewed_by = "Smart Match Engine"
                 bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                bl_app.commercial_notes = "تمت المطابقة والاعتماد الذكي بنجاح مع الفاتورة التجارية (STEP_08_MATCH)."
+                bl_app.commercial_notes = "Smart match with the commercial invoice completed and approved (STEP_08_MATCH)."
                 if bl_app.customs_status == "Approved":
                     bl_app.overall_status = "Approved for Clearance"
                 else:
@@ -4269,7 +4293,7 @@ def sync_certified_invoice_bl_to_file_service(
                 pl_app.commercial_status = "Approved"
                 pl_app.commercial_reviewed_by = "Smart Match Engine"
                 pl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                pl_app.commercial_notes = "تمت مطابقة قياسات قائمة التعبئة واعتمادها (STEP_08_MATCH)."
+                pl_app.commercial_notes = "Packing list measurements matched and approved (STEP_08_MATCH)."
     except Exception as e:
         logger.warning("Failed to sync customs document approval from match: %s", e)
 
@@ -4281,14 +4305,17 @@ def sync_certified_invoice_bl_to_file_service(
             import_file_id=request.import_file_id,
             completed_step_code="STEP_08_MATCH",
             target_step_codes=["STEP_08_COO"],
-            notes=f"اكتمال المطابقة الذكية بين الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) وتحديث مصفوفة الموافقة الجمركية للأوراق بنجاح.",
+            notes=render_en(
+                "DOC_INVOICE_BL_MATCH_DONE",
+                {"invoice_number": inv.get("invoice_number", "N/A"), "draft_bl_number": bl.get("draft_bl_number", "N/A")},
+                "note",
+            ),
             performed_by="Compliance Officer",
         )
     except Exception as e:
         logger.warning("Lifecycle sync in invoice-bl match skipped: %s", e)
 
-    imp_file.current_module = "STEP_08_COO مسودة شهادة المنشأ و EUR.1"
-    imp_file.next_action = "STEP_08_COO مراجعة مسودة شهادة المنشأ والاتفاقيات التفضيلية"
+    set_file_tracking(imp_file, step_code="STEP_08_COO", next_action=msg("NA_STEP08COO_REVIEW_COO"))
     if (imp_file.progress_percent or 0.0) < 54.0:
         imp_file.progress_percent = 54.0
 
@@ -4639,7 +4666,7 @@ def create_po_reconciliation_session_service(
                 import_file_id=session.import_file_id,
                 completed_step_code="STEP_08_PO",
                 target_step_codes=["STEP_08_BL"],
-                notes=f"تم إتمام مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء ({session.session_code}). الانتقال إلى مراجعة مسودة بوليصة الشحن.",
+                notes_msg=msg("DOC_PO_RECONCILIATION_DONE", session_code=session.session_code),
                 assigned_user=session.certified_by or "Documentation Auditor",
             )
         except Exception as e:
@@ -4712,7 +4739,7 @@ def update_po_reconciliation_session_service(
                 import_file_id=updated.import_file_id,
                 completed_step_code="STEP_08_PO",
                 target_step_codes=["STEP_08_BL"],
-                notes=f"تم تحديث واعتماد مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء ({updated.session_code}). الانتقال إلى مسودة بوليصة الشحن.",
+                notes_msg=msg("DOC_PO_RECONCILIATION_UPDATED", session_code=updated.session_code),
                 assigned_user=updated.certified_by or "Documentation Auditor",
             )
         except Exception as e:

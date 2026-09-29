@@ -273,7 +273,8 @@ class TestSH04OriginalDocumentsReceipt:
         )
         assert notif is not None
         assert notif.category == "STAGE_PROGRESSION"
-        assert "أصول المستندات" in notif.title
+        assert "Original bank documents" in notif.title
+        assert notif.msg_code == "ODC_ORIGINALS_RECEIVED"
 
         # 5. Verify CustomsDocumentApproval Created
         approval = (

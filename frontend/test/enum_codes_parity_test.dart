@@ -21,10 +21,18 @@ const _typeMap = <String, String>{
   'SKIP_REASON_CATEGORY': DomainEnumType.skipReasonCategory,
   'HOLD_REASON': DomainEnumType.holdReason,
   'INSPECTION_YARD': DomainEnumType.inspectionYard,
+  'STAGE': DomainEnumType.stage,
+  'CUSTOMS_CHANNEL': DomainEnumType.customsChannel,
+  'INSPECTION_RESULT': DomainEnumType.inspectionResult,
+  'REQUIREMENT_STATUS': DomainEnumType.requirementStatus,
+  'WAREHOUSE_INSPECTION_VERDICT': DomainEnumType.warehouseInspectionVerdict,
+  'DB_HEALTH_VERDICT': DomainEnumType.dbHealthVerdict,
+  'ALERT_SEVERITY': DomainEnumType.alertSeverity,
+  'LANDED_COST_VARIANCE_STATUS': DomainEnumType.landedCostVarianceStatus,
 };
 
 /// Backend-only types that the Flutter UI does not pick from a list.
-const _backendOnly = {'STAGE', 'PHASE_FOLLOW_UP_TASK'};
+const _backendOnly = {'PHASE_FOLLOW_UP_TASK'};
 
 void main() {
   final file = File('../docs/enum_codes.json');

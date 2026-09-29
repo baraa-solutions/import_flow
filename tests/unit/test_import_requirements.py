@@ -315,8 +315,13 @@ def test_optional_acid_and_smart_tasks_generation():
     tasks = db.query(SmartTask).filter(SmartTask.import_file_id == file_obj.import_file_id).all()
     assert len(tasks) >= 2
     task_titles = [t.title for t in tasks]
-    assert any("قرار 43" in t for t in task_titles)
-    assert any("EEAA" in t or "موافقة" in t for t in task_titles)
+    assert any("Decree 43" in t for t in task_titles)
+    assert any("EEAA" in t or "approval" in t for t in task_titles)
+    req_tasks = [t for t in tasks if "REQ_TYPE:" in (t.notes or "")]
+    assert req_tasks
+    assert all(t.msg_code and t.msg_code.startswith("REQ_TASK_") for t in req_tasks)
+    assert all(t.step_code == "STEP_03" for t in req_tasks)
+    assert all(t.msg_params.get("acid_number") == "PENDING" for t in req_tasks)
 
     # 4. Now simulate updating the import file with the 19-digit ACID issued later
     from modules.import_files.service import update_import_file_service

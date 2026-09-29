@@ -1066,9 +1066,9 @@ def save_tariff_with_agreements_service(
 
     action_name = "UPDATE" if is_update else "CREATE"
     summary_text = (
-        f"تحديث البند الجمركي {tariff.hs_code} مع ربط {len(created_agreements)} اتفاقية تفضيلية"
+        f"Updated customs tariff line {tariff.hs_code} with {len(created_agreements)} preferential agreements"
         if is_update
-        else f"إنشاء وتسجيل بند جمركي جديد {tariff.hs_code} مع {len(created_agreements)} اتفاقية تفضيلية"
+        else f"Created customs tariff line {tariff.hs_code} with {len(created_agreements)} preferential agreements"
     )
 
     AuditLogService(db).log_activity(
@@ -1454,11 +1454,11 @@ def simulate_import_file_customs_duty_service(
                 .first()
             )
             broker_id = broker.provider_id if broker else (import_file.broker_id or 1)
-            broker_name = broker.partner_name if broker else (import_file.broker_name or "المخلص الجمركي المعتمد")
+            broker_name = broker.partner_name if broker else (import_file.broker_name or "Approved Customs Broker")
 
             consultation = CustomsConsultationSession(
                 consultation_code=f"CONS-{import_file.import_file_code}",
-                title=f"دراسة استشارة جمركية — {import_file.import_file_code}",
+                title=f"Customs consultation study - {import_file.import_file_code}",
                 broker_id=broker_id,
                 broker_name=broker_name,
                 import_file_id=import_file_id,
@@ -1481,7 +1481,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Importer Team",
                         regulatory_agency="Nafeza / CargoX",
                         status="Pending",
-                        remarks="رقم القيد الجمركي المبدئي إلزامي لإصدار بوليصة الشحن.",
+                        remarks="The advance ACID number is mandatory before the B/L is issued.",
                     )
                 )
 
@@ -1496,7 +1496,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Supplier / Exporter",
                         regulatory_agency="Chamber of Commerce / Customs",
                         status="Pending",
-                        remarks="شهادة المنشأ الرسمية لتطبيق الإعفاءات الجمركية.",
+                        remarks="Official certificate of origin required to apply customs exemptions.",
                     )
                 )
 
@@ -1511,7 +1511,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Customs Broker",
                         regulatory_agency="GOEIC",
                         status="Pending",
-                        remarks="فحص ظاهري وسحب عينات معملية لهيئة الرقابة على الصادرات والواردات.",
+                        remarks="Physical inspection and lab sampling by GOEIC.",
                     )
                 )
 

@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 
 import '../helpers/table_copy_helper.dart';
 import 'file_save_helper.dart';
+import '../utils/bidi_text.dart';
 
 /// Optional section for additional summary tables in PDF and Excel exports.
 class TableExportSection {
@@ -42,7 +43,7 @@ class TableExportService {
   /// Cleans and quotes a CSV/TSV cell value.
   static String _formatCsvCell(dynamic value) {
     if (value == null) return '';
-    final cleaned = value.toString().replaceAll('\r', '').trim();
+    final cleaned = stripBidiIsolates(value.toString()).replaceAll('\r', '').trim();
     if (cleaned.contains(',') || cleaned.contains('"') || cleaned.contains('\n') || cleaned.contains('\t')) {
       return '"${cleaned.replaceAll('"', '""')}"';
     }

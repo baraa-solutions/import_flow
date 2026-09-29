@@ -14,6 +14,20 @@ from modules.experience_guide.schemas import GuideEntryCreate, GuideEntryUpdate
 from modules.import_files.model import ImportFile
 
 
+
+def _drop_system_message_if_text_changed(
+    entry: GuideEntry, new_title: Optional[str], new_content: Optional[str]
+) -> None:
+    """A user edit of an engine-generated title/content replaces the system message: clear the code so
+    the UI shows the user's text instead of re-rendering the catalog template."""
+    if not getattr(entry, "msg_code", None):
+        return
+    if (new_title is not None and new_title != entry.title) or (
+        new_content is not None and new_content != entry.content
+    ):
+        entry.msg_code = None
+        entry.msg_params = None
+
 class ExperienceGuideRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -94,6 +108,12 @@ class ExperienceGuideRepository:
         if not entry:
             return None
 
+        if data.title is not None or data.content is not None:
+            _drop_system_message_if_text_changed(
+                entry,
+                data.title.strip() if data.title is not None else None,
+                data.content.strip() if data.content is not None else None,
+            )
         if data.title is not None:
             entry.title = data.title.strip()
         if data.content is not None:
@@ -687,6 +707,11 @@ class ExperienceGuideRepository:
         entry.confirmed_at = now
         entry.updated_at = now
 
+        _drop_system_message_if_text_changed(
+            entry,
+            edited_title.strip() if edited_title and edited_title.strip() else None,
+            edited_content.strip() if edited_content and edited_content.strip() else None,
+        )
         if edited_title and edited_title.strip():
             entry.title = edited_title.strip()
         if edited_content and edited_content.strip():

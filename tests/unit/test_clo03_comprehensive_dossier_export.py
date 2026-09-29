@@ -376,7 +376,8 @@ def test_confirm_dossier_export_service(db_session):
     assert imp.dossier_exported_at is not None
     assert imp.dossier_exported_by == "Eng. Ahmed Sorour - Managing Director"
     assert imp.progress_percent >= 99.5
-    assert imp.next_action == "الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)"
+    assert imp.next_action == "Official closure and digital archiving of the file (CLO-04)"
+    assert imp.next_action_code == "NA_CLO_OFFICIAL_CLOSURE"
 
     # Verify TSK-0903 auto-completed
     task_903 = db_session.query(SmartTask).filter(
@@ -400,7 +401,8 @@ def test_confirm_dossier_export_service(db_session):
         SystemNotification.category == "FILE_CLOSURE",
     ).first()
     assert notif is not None
-    assert "الملف الشامل" in notif.title
+    assert "Full dossier exported" in notif.title
+    assert notif.msg_code == "CLO_DOSSIER_EXPORTED"
 
 
 def test_api_get_comprehensive_dossier(client, db_session):

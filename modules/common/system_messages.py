@@ -18,11 +18,18 @@ Template rules:
     ``step_code`` / ``*_step_code``   -> lifecycle step name
     ``phase_id`` / ``*_phase_id``     -> lifecycle phase name
     ``*_date``                        -> ISO date, locale formatted
-    ``*_amount``, ``days_left``, ``hours``, ``*_pct`` -> number
+    number: a name in NUMBER_PARAM_NAMES or ending with one of NUMBER_PARAM_SUFFIXES
+                                      (``*_amount``, ``*_pct``, ``*_count``, ``*_days``, ``*_qty``, ``*_gb``,
+                                      ``*_factor``, ``*_rate``, ``*_num``; ``count``, ``hours``, ``days_left``)
+                                      -> number. Callers round before sending (2 decimals at most).
     ``month``                         -> month number 1-12, rendered as a month name
-    ``*_enum_<type>``                 -> Tier-3 label of enum ``<TYPE>`` (see modules/common/enum_codes.py)
+    ``*_enum_<type>``                 -> Tier-3 label of enum ``<TYPE>`` (see modules/common/enum_codes.py); the
+                                      value may be a comma-separated list of codes (each one is labelled)
     anything else                     -> verbatim (codes, names, reference numbers)
-- Params never contain translated text.
+- Params never contain translated text or pre-formatted English fragments: optional pieces get their own
+  code variant (``*_DETAILS`` / ``*_FILE`` / ``*_CLAIMS`` / ``*_GENERIC``).
+- The contract also carries ``_phases`` (phase_id -> English title) and ``_param_rules`` (the number rule).
+  Keys starting with ``_`` are metadata, not message codes.
 """
 
 from __future__ import annotations
@@ -40,6 +47,27 @@ PARTS = ("title", "body", "note", "action", "stage", "module", "evidence", "reas
 _PLACEHOLDER_RE = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "system_message_codes.json"
+
+NUMBER_PARAM_NAMES = ("count", "hours", "days_left")
+NUMBER_PARAM_SUFFIXES = ("_amount", "_pct", "_count", "_days", "_qty", "_gb", "_factor", "_rate", "_num")
+
+MONTH_NAMES_EN = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+
+def is_number_param(name: str) -> bool:
+    return name in NUMBER_PARAM_NAMES or name.endswith(NUMBER_PARAM_SUFFIXES)
+
+
+def phase_titles_en() -> Dict[int, str]:
+    """phase_id -> English phase title (same text as lifecycle_board PHASES_DEFINITION ``title_en``)."""
+    return {
+        int(code.split("_", 1)[1]): label
+        for code, label in enum_codes.LABELS_EN[enum_codes.STAGE].items()
+        if re.fullmatch(r"PHASE_\d+", code)
+    }
 
 
 @dataclass(frozen=True)
@@ -67,10 +95,16 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_MULTI_STAGE_ACTIVATED": {"note": "Activated as a parallel stage"},
     "LC_PENDING_REFERENCE": {"note": "Pending reference: {reference_number} - {reason}"},
     "LC_FILE_ON_HOLD": {
-        "note": "Shipment put on hold at [{stage}]: {reason}",
+        "note": "Shipment put on hold at [{phase_id}]: {reason}",
     },
     "LC_FILE_ON_HOLD_WITH_NOTES": {
-        "note": "Shipment put on hold at [{stage}]: {reason} | {notes}",
+        "note": "Shipment put on hold at [{phase_id}]: {reason} | {notes}",
+    },
+    "LC_FILE_ON_HOLD_CODED": {
+        "note": "Shipment put on hold at [{phase_id}]: {reason_enum_hold_reason}",
+    },
+    "LC_FILE_ON_HOLD_CODED_WITH_NOTES": {
+        "note": "Shipment put on hold at [{phase_id}]: {reason_enum_hold_reason} | {notes}",
     },
     "LC_FILE_RESUMED": {"note": "Operations resumed: {notes}"},
     "LC_FILE_RESUMED_DEFAULT": {"note": "Operations resumed: shipment operations restarted"},
@@ -92,10 +126,14 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_SYNC_CUSTOMS_STUDY_DONE": {"note": "Customs consultation and tariff study completed"},
     "LC_SYNC_BUDGET_APPROVED": {"note": "Estimated shipment budget approved"},
     "LC_SYNC_BUDGET_UNDER_REVIEW": {"note": "Estimated budget prepared and under financial review"},
-    "LC_SYNC_BOOKING_CONFIRMED": {"note": "Booking {booking_code} confirmed {confirmation_no} {vessel_name}"},
+    "LC_SYNC_BOOKING_CONFIRMED": {"note": "Booking {booking_code} confirmed"},
+    "LC_SYNC_BOOKING_CONFIRMED_DETAILS": {
+        "note": "Booking {booking_code} confirmed - confirmation no.: {confirmation_no}, vessel: {vessel_name}"
+    },
     "LC_SYNC_BOOKING_PENDING": {"note": "Booking request {booking_code} is being followed up with the shipping line"},
     "LC_SYNC_CARGO_ALLOCATION_DONE": {
-        "note": "Container allocation and VGM weights completed for shipping record {cargo_shipping_code} {containers}"
+        "note": "Container allocation and VGM weights completed for shipping record {cargo_shipping_code} "
+        "({container_count} containers/packages)"
     },
     "LC_SYNC_CARGO_ALLOCATION_DRAFT": {
         "note": "Container allocation record {cargo_shipping_code} is being prepared (draft)"
@@ -105,8 +143,10 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "NA_FILE_CLOSED": {"action": "Import file closed"},
     "NA_FILE_FULLY_CLOSED_ARCHIVED": {"action": "File fully closed & archived"},
     "NA_FILE_ARCHIVED_READ_ONLY": {"action": "File archived - read-only historical state"},
-    "NA_FILE_CLOSED_EARLY": {"action": "File closed early at {phase_name}"},
-    "NA_RESUME_OPERATIONS": {"action": "Resume operations at {phase_name}"},
+    "NA_FILE_CLOSED_EARLY": {"action": "File closed early at {phase_id}"},
+    "NA_FILE_CLOSED_EARLY_GENERIC": {"action": "File closed early"},
+    "NA_RESUME_OPERATIONS": {"action": "Resume operations at {phase_id}"},
+    "NA_RESUME_OPERATIONS_GENERIC": {"action": "Resume operations"},
     "NA_COMPLETE_CLONED_FILE": {"action": "Complete the cloned shipment data and open ACID procedures"},
     # import_files STEP_INITIAL_CONFIG / compute_file_formulas
     "NA_EVALUATE_SCENARIOS_REQUEST_QUOTES": {
@@ -245,26 +285,26 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "CC_DECLARATION_46_REGISTERED": {
         "title": "Customs declaration 46 registered - {import_file_code}",
-        "body": "Customs declaration 46 no. {declaration_no} registered on the {channel} channel for "
+        "body": "Customs declaration 46 no. {declaration_no} registered on the {channel_enum_customs_channel} for "
         "{import_file_code} at {customs_office}. The file is under inspection & sampling (CL-01).",
-        "note": "Customs declaration 46 no. {declaration_no} registered on the {channel} channel; "
+        "note": "Customs declaration 46 no. {declaration_no} registered on the {channel_enum_customs_channel}; "
         "shipment moved to inspection & sampling.",
     },
     "CC_TASK_INSPECTION": {
         "title": "Record inspection & sampling (CL-01) - {import_file_code}",
-        "body": "Customs declaration 46 no. {declaration_no} registered on the {channel} channel at {customs_office}. "
+        "body": "Customs declaration 46 no. {declaration_no} registered on the {channel_enum_customs_channel} at {customs_office}. "
         "Start the physical inspection and draw samples for the listed authorities.",
     },
     "CC_INSPECTION_RECORDED": {
         "title": "Inspection & sampling recorded - {import_file_code}",
-        "body": "Inspection report for {import_file_code} recorded with result {inspection_result} at "
-        "{inspection_yard}. Sampling record: {sampling_record_no}. Ready for final duty assessment (CL-02).",
-        "note": "Inspection completed with result {inspection_result}. Sampling record: {sampling_record_no}. "
+        "body": "Inspection report for {import_file_code} recorded with result {inspection_result_enum_inspection_result} at "
+        "{inspection_yard_enum_inspection_yard}. Sampling record: {sampling_record_no}. Ready for final duty assessment (CL-02).",
+        "note": "Inspection completed with result {inspection_result_enum_inspection_result}. Sampling record: {sampling_record_no}. "
         "Shipment moved to duty assessment.",
     },
     "CC_TASK_DUTY_ASSESSMENT": {
         "title": "Assess the final customs duties and taxes (CL-02) - {import_file_code}",
-        "body": "Inspection & sampling recorded for {import_file_code} with result {inspection_result}. Review the "
+        "body": "Inspection & sampling recorded for {import_file_code} with result {inspection_result_enum_inspection_result}. Review the "
         "customs claim and assess the final duties and taxes (import duty, VAT, development fee, service fees).",
     },
     "CC_DUTIES_ASSESSED": {
@@ -398,14 +438,45 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "body": "Bank SWIFT {swift_ref} transferred. Obtain the ACID number for {import_file_code} on Nafeza and "
         "upload the initial documents.",
     },
+    "FA_PAYMENT_REQUEST_CREATED": {
+        "title": "Supplier advance payment request: {payment_code}",
+        "body": "Advance payment request issued to supplier {supplier_name} for {requested_amount} {currency_code} "
+        "({requested_egp_amount} EGP) for shipment {import_file_code}. Due on {due_date}. Requires review, approval "
+        "and the bank SWIFT payment.",
+    },
+    "FA_PAYMENT_REQUEST_CREATED_GENERIC": {
+        "title": "New payment request: {payment_code}",
+        "body": "Payment request issued to supplier {supplier_name} for {requested_amount} {currency_code} "
+        "({requested_egp_amount} EGP). Due on {due_date}.",
+    },
+    "FA_TASK_SUPPLIER_PAYMENT": {
+        "title": "Pay the supplier advance payment and SWIFT: {supplier_name} ({payment_code})",
+        "body": "Pay the supplier {requested_amount} {currency_code} ({requested_egp_amount} EGP) due on {due_date} for "
+        "shipment {import_file_code} and match the MT103/SWIFT transfer advice.",
+    },
+    "FA_TASK_SUPPLIER_PAYMENT_GENERIC": {
+        "title": "Pay the supplier dues: {supplier_name} ({payment_code})",
+        "body": "Pay the supplier {requested_amount} {currency_code} ({requested_egp_amount} EGP) due on {due_date} for "
+        "shipment {import_file_code} and match the MT103/SWIFT transfer advice.",
+    },
     "FA_PAYMENT_REQUEST_APPROVED": {
         "title": "Payment request approved: {payment_code}",
-        "body": "Payment request {payment_code}{reference} of {requested_amount} {currency_code} to supplier "
+        "body": "Payment request {payment_code} of {requested_amount} {currency_code} to supplier "
         "{supplier_name} approved. Ready for execution and bank transfer.",
+    },
+    "FA_PAYMENT_REQUEST_APPROVED_FILE": {
+        "title": "Payment request approved: {payment_code}",
+        "body": "Payment request {payment_code} for shipment {import_file_code} of {requested_amount} {currency_code} to "
+        "supplier {supplier_name} approved. Ready for execution and bank transfer.",
     },
     "FA_BUDGET_APPROVED": {
         "title": "Estimated budget approved: {budget_code}",
-        "body": "Estimated budget {budget_code}{reference} of {total_amount} EGP approved by {approved_by}.",
+        "body": "Estimated budget {budget_code} of {total_amount} EGP approved by {approved_by}.",
+    },
+    "FA_BUDGET_APPROVED_FILE": {
+        "title": "Estimated budget approved: {budget_code}",
+        "body": "Estimated budget {budget_code} for shipment {import_file_code} of {total_amount} EGP approved by "
+        "{approved_by}.",
     },
     "FA_BUDGET_NEEDS_REVALIDATION": {
         "title": "Budget needs revalidation: {import_file_code}",
@@ -431,7 +502,8 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "FS_LANDED_COST_APPROVED": {
         "title": "Actual landed cost approved: {import_file_code}",
         "body": "{approved_by} approved the actual landed cost of {import_file_code}: total {total_amount} EGP "
-        "(markup factor {markup_factor}x, variance {variance_pct}%).",
+        "(markup factor {markup_factor}x, variance {variance_pct}% - "
+        "{variance_status_enum_landed_cost_variance_status}).",
         "note": "Actual landed cost and variance approved ({settlement_code}).",
     },
     "FS_TASK_EXPORT_DOSSIER": {
@@ -443,7 +515,37 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "FB_BOOKING_CONFIRMED": {
         "title": "Booking confirmed (booking: {booking_no})",
         "body": "Booking {booking_no} for {import_file_code} confirmed. Shipping line: {shipping_line_name}, "
-        "vessel: {vessel_name}, ETD: {etd_date}.",
+        "vessel: {vessel_name}, ETD: {etd_date}, ETA: {eta_date}. Free days: {demurrage_free_days}.",
+    },
+    "FB_TASK_FREE_DAYS": {
+        "title": "Record and confirm the container free days: {import_file_code} (BK-02)",
+        "body": "Booking {booking_no} confirmed with shipping line {shipping_line_name} on vessel {vessel_name}. "
+        "Record and confirm the agreed free demurrage days ({demurrage_free_days} days) to feed the demurrage radar.",
+    },
+    "FB_TASK_DRAFT_BL_REVIEW": {
+        "title": "Dual review of the draft B/L against the purchase order: {import_file_code} (SH-02)",
+        "body": "Actual sailing confirmed and B/L no. {bl_number} recorded on vessel {vessel_name}, voyage "
+        "{voyage_number}. Match the B/L data (Shipper, Consignee, Notify, Goods, Net/Gross Wt) with the purchase "
+        "order and commercial invoice to avoid customs amendment penalties.",
+    },
+    "DOC_TASK_FREIGHT_BOOKING": {
+        "title": "Confirm the freight booking and the shipping line: {import_file_code} (BK-01)",
+        "body": "ACID {acid_number} issued and verified. Confirm the booking (Booking No) with the shipping line or "
+        "forwarder, set the expected sailing (ETD) and arrival (ETA) dates and fix the free days.",
+    },
+    "DOC_TASK_DECLARATION_46": {
+        "title": "Register customs declaration Form 46: {import_file_code} (CS-03)",
+        "body": "Bank document {doc_type} (reference {reference_no}) from {bank_name} approved and recorded. Submit "
+        "declaration Form 46 and start the customs inspection and matching procedures via Nafeza.",
+    },
+    "DOC_TASK_CARGOX_TRANSFER": {
+        "title": "CargoX digital transfer and document approval: {import_file_code} (SH-03)",
+        "body": "Dual review of draft B/L {draft_bl_number} completed and approved against the purchase order and "
+        "invoice to avoid customs amendment penalties. The exporter must now upload the document package and "
+        "approve the digital envelope (Envelope ID) on CargoX to link it with Nafeza.",
+    },
+    "TR_TASK_TRACK_ARRIVAL_GRN": {
+        "title": "Follow up the truck arrival at the warehouse and issue the GRN (TR-03)",
     },
     "FB_SAILING_CONFIRMED": {
         "title": "Sailing and B/L confirmed (B/L: {bl_number})",
@@ -459,7 +561,8 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "DD_FREE_DAYS_RECORDED": {
         "title": "Free days recorded ({demurrage_free_days} days) (BK-02)",
         "body": "Free days recorded for {import_file_code}. Demurrage free days: {demurrage_free_days}, "
-        "detention free days: {detention_free_days}. Reference: {agreement_reference}.",
+        "detention free days: {detention_free_days}. Reference: {agreement_reference}. Demurrage radar updated; "
+        "expected saving: {estimated_saving_amount} USD.",
     },
     "DD_CHARGES_POSTED": {
         "note": "Container demurrage and free-time charges ({tracking_code}) posted to the financial settlement. "
@@ -488,8 +591,14 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WH_INSPECTION_PROTOCOL_APPROVED": {
         "title": "Warehouse inspection protocol ({protocol_no})",
-        "body": "{committee} approved the inspection protocol for {import_file_code}. Verdict: {verdict} "
+        "body": "{committee} approved the inspection protocol for {import_file_code}. Verdict: {verdict_enum_warehouse_inspection_verdict} "
         "(accepted: {accepted_qty}, shortage: {shortage_qty}, damaged: {damaged_qty}).",
+    },
+    "WH_INSPECTION_PROTOCOL_APPROVED_CLAIMS": {
+        "title": "Warehouse inspection protocol ({protocol_no})",
+        "body": "{committee} approved the inspection protocol for {import_file_code}. Verdict: "
+        "{verdict_enum_warehouse_inspection_verdict} (accepted: {accepted_qty}, shortage: {shortage_qty}, damaged: "
+        "{damaged_qty}). Insurance claim: {insurance_claim_ref}. Supplier debit note: {supplier_claim_ref}.",
     },
     "CLO_DOSSIER_EXPORTED": {
         "title": "Full dossier exported for {import_file_code}",
@@ -519,16 +628,16 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "title": "[{import_file_code}] [{hs_code}] [ACID: {acid_number}] Obtain and verify the certificate of origin "
         "({certificate_type})",
         "body": "The certificate of origin for item {hs_code} must be received and verified to apply the duty "
-        "exemption/reduction - status: {status}",
+        "exemption/reduction - status: {status_enum_requirement_status}",
     },
     "REQ_TASK_INSPECTION_HS": {
         "title": "[{import_file_code}] [{hs_code}] [ACID: {acid_number}] Issue the pre-shipment inspection certificate "
-        "({authority})",
-        "body": "Item {hs_code} is subject to mandatory pre-shipment technical inspection by {authority}",
+        "({authority_enum_regulatory_body})",
+        "body": "Item {hs_code} is subject to mandatory pre-shipment technical inspection by {authority_enum_regulatory_body}",
     },
     "REQ_TASK_PERMIT_HS": {
-        "title": "[{import_file_code}] [{hs_code}] [ACID: {acid_number}] Obtain the prior import approval ({authority})",
-        "body": "An import permit for item {hs_code} must be obtained from {authority} before shipping",
+        "title": "[{import_file_code}] [{hs_code}] [ACID: {acid_number}] Obtain the prior import approval ({authority_enum_regulatory_body})",
+        "body": "An import permit for item {hs_code} must be obtained from {authority_enum_regulatory_body} before shipping",
     },
     "REQ_TASK_DECREE43": {
         "title": "[{import_file_code}] [ACID: {acid_number}] Verify the foreign factory/supplier registration with GOEIC "
@@ -539,16 +648,16 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "REQ_TASK_COO": {
         "title": "[{import_file_code}] [ACID: {acid_number}] Obtain and verify the original certificate of origin",
         "body": "The original certificate of origin must be received and verified to apply preferential treatment "
-        "and customs release - current status: {status}",
+        "and customs release - current status: {status_enum_requirement_status}",
     },
     "REQ_TASK_INSPECTION": {
-        "title": "[{import_file_code}] [ACID: {acid_number}] Issue the pre-shipment inspection certificate ({authority})",
+        "title": "[{import_file_code}] [ACID: {acid_number}] Issue the pre-shipment inspection certificate ({authority_enum_regulatory_body})",
         "body": "The item is subject to mandatory pre-shipment technical inspection in the country of origin by "
-        "{authority}",
+        "{authority_enum_regulatory_body}",
     },
     "REQ_TASK_PERMIT": {
-        "title": "[{import_file_code}] [ACID: {acid_number}] Obtain the prior import approval ({authority})",
-        "body": "An official import permit/approval must be obtained from {authority} before shipping",
+        "title": "[{import_file_code}] [ACID: {acid_number}] Obtain the prior import approval ({authority_enum_regulatory_body})",
+        "body": "An official import permit/approval must be obtained from {authority_enum_regulatory_body} before shipping",
     },
     "REQ_TASK_MSDS": {
         "title": "[{import_file_code}] [ACID: {acid_number}] Provide an approved, up-to-date material safety data "
@@ -567,14 +676,49 @@ CATALOG: Dict[str, Dict[str, str]] = {
     # ── Smart tasks / email listener ────────────────────────────────────────────
     "TASK_AUTO_PHASE_FOLLOW_UP": {
         "title": "{import_file_code} - {task_enum_phase_follow_up_task}",
-        "body": "System-generated task to follow up {phase_name} procedures",
+        "body": "System-generated follow-up task: {task_enum_phase_follow_up_task}",
         "note": "Auto-generated for shipment {import_file_code}",
     },
     "EMAIL_TASK_AUTO_GENERATED": {
         "note": "Auto-generated by the smart email listener based on: {reference}",
     },
-    "EMAIL_TASK_DELIVERY_ORDER_PAYMENT": {"title": "Pay the delivery order charges ({import_file_code})"},
+    "EMAIL_TASK_DELIVERY_ORDER_PAYMENT": {
+        "title": "Pay the delivery order charges ({import_file_code})",
+        "body": "An arrival notice / official e-mail follow-up linked to [{reference}] was detected. Follow up with "
+        "the shipping agent immediately to pay the delivery order and port charges before the expected vessel "
+        "arrival on {eta_date} to avoid demurrage or storage charges.",
+        "note": "Auto-generated by the smart email listener based on: {reference}",
+    },
+    # inbound_email_logs.notes
+    "EMAIL_PARSE_MATCHED": {
+        "note": "E-mail matched shipment [{import_file_code}] by reference [{reference}]; follow-up/payment task "
+        "#{task_code} created.",
+    },
+    "EMAIL_PARSE_UNMATCHED_BL": {
+        "note": "B/L [{bl_number}] was extracted but no active shipment is registered with this number.",
+    },
+    "EMAIL_PARSE_UNMATCHED_ACID": {
+        "note": "ACID number [{acid_number}] was extracted but no active shipment is registered with it.",
+    },
+    "EMAIL_PARSE_UNMATCHED_PO": {
+        "note": "Purchase order [{po_number}] was extracted but no active shipment is linked to it.",
+    },
+    "EMAIL_PARSE_NO_REFERENCE": {
+        "note": "E-mail received; no B/L, ACID, purchase order or project of a registered shipment was found.",
+    },
+    # email_settings.last_sync_message
+    "EMAIL_SYNC_SUMMARY": {
+        "body": "Scanned {count} e-mails, matched {matched_count} shipments and created {tasks_count} payment tasks.",
+    },
+    "EMAIL_SYNC_SUMMARY_OUTLOOK": {
+        "body": "Scanned {count} e-mails from Microsoft Outlook, matched {matched_count} shipments and created "
+        "{tasks_count} payment tasks.",
+    },
+    "EMAIL_SYNC_EMPTY": {"body": "Mailbox checked; no new messages."},
+    "EMAIL_SYNC_ERROR": {"body": "Error while fetching e-mails from the server: {error}"},
+    "EMAIL_SYNC_ERROR_OUTLOOK": {"body": "Error while fetching messages from Microsoft Outlook: {error}"},
     "EMAIL_TASK_APPROVED": {
+        "title": "Pay the delivery order charges ({import_file_code})",
         "body": "Approved and routed via the smart email review.",
         "note": "Approved and routed by user: {user_name}",
     },
@@ -603,7 +747,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "NOTIF_FORM4_DELAY": {
         "title": "Bank Form 4 delayed: {bank_name}",
-        "body": "Form 4 request with {bank_name} pending for {days_pending} days (reference: {bank_doc_code}). "
+        "body": "Form 4 request with {bank_name} pending for {pending_days} days (reference: {bank_doc_code}). "
         "Follow up with the bank before the goods arrive.",
     },
     "NOTIF_DETENTION_RETURN_DEADLINE": {
@@ -619,7 +763,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "NOTIF_REGULATORY_PENDING": {
         "title": "Regulatory and pre-inspection requirement pending: {import_file_code}",
         "body": "{import_file_code} contains items (HS {hs_code}) requiring a pre-inspection certificate or a "
-        "regulatory approval ({authority}) that is still pending.",
+        "regulatory approval ({authority_enum_regulatory_body}) that is still pending.",
     },
     "NOTIF_BUDGET_OVERRUN": {
         "title": "Shipment budget exceeded: {import_file_code}",
@@ -629,6 +773,17 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "NOTIF_CUSTOMS_FX_VOLATILITY": {
         "title": "Customs USD exchange rate change",
         "body": "The customs USD exchange rate changed by {change_pct}% (current: {current_rate} EGP vs "
+        "{previous_rate} EGP). Update the customs duty studies of running shipments.",
+    },
+    # Direction is in the code (no signed/pre-formatted params): change_pct is the absolute change.
+    "NOTIF_CUSTOMS_FX_RISE": {
+        "title": "Customs USD exchange rate rose",
+        "body": "The customs USD exchange rate rose by {change_pct}% (current: {current_rate} EGP vs "
+        "{previous_rate} EGP). Update the customs duty studies of running shipments.",
+    },
+    "NOTIF_CUSTOMS_FX_DROP": {
+        "title": "Customs USD exchange rate fell",
+        "body": "The customs USD exchange rate fell by {change_pct}% (current: {current_rate} EGP vs "
         "{previous_rate} EGP). Update the customs duty studies of running shipments.",
     },
     "NOTIF_DEMURRAGE_ACTIVE": {
@@ -670,7 +825,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "ALERT_DB_HEALTH_DEGRADED": {
         "title": "Database health degraded",
-        "body": "The deep health check reported {verdict}. Issues: {issues}.",
+        "body": "The deep health check reported {verdict_enum_db_health_verdict}. Issues: {issues}.",
     },
     "ALERT_ACID_EXPIRY_RADAR": {
         "title": "ACID numbers close to expiry",
@@ -690,7 +845,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "body": "{count} slow queries (>150ms) recorded. Check the monitoring screen.",
     },
     "ALERT_DISPATCHED": {
-        "title": "[{severity}] {alert_title}",
+        "title": "[{severity_enum_alert_severity}] {alert_title}",
         "body": "{alert_message} (Action: check the {target_tab} tab)",
     },
     "DAILY_REPORT_READY": {"title": "Daily monitoring report - {report_date}"},
@@ -702,9 +857,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "GUIDE_SUPPLIER_DELAY": {
         "title": "Repeated delivery delays by supplier {supplier_name} (+{avg_delay_days} days)",
         "body": "Past shipments show supplier {supplier_name} is late with cargo readiness by +{avg_delay_days} days "
-        "on average ({frequency_pct}% across {delayed_count} of {total_shipments} shipments). Add a time buffer to the "
+        "on average ({frequency_pct}% across {delayed_count} of {total_shipment_count} shipments). Add a time buffer to the "
         "schedule and consider it when issuing the ACID.",
-        "evidence": "Delay found in {delayed_count} of {total_shipments} shipments with an average delay of "
+        "evidence": "Delay found in {delayed_count} of {total_shipment_count} shipments with an average delay of "
         "{avg_delay_days} days.",
         "reason": "Supplier {supplier_name} repeatedly missed contractual delivery dates in more than one shipment.",
     },
@@ -712,7 +867,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "title": "Transit time deviation for {carrier_name} to {port_name} (+{avg_extra_days} days)",
         "body": "Voyages of {carrier_name} to {port_name} exceed the scheduled transit time by +{avg_extra_days} days on "
         "average across {delayed_count} shipments. Negotiate enough free time (>= 21 days) to avoid demurrage.",
-        "evidence": "{delayed_count} of {total_shipments} shipments were late by an extra {avg_extra_days} days on "
+        "evidence": "{delayed_count} of {total_shipment_count} shipments were late by an extra {avg_extra_days} days on "
         "average versus the contractual transit time.",
         "reason": "{carrier_name} repeatedly exceeded the scheduled transit times to {port_name}.",
     },
@@ -741,7 +896,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "GUIDE_HS_LAB_INSPECTION": {
         "title": "Mandatory lab test and regulatory inspection for HS {hs_code}",
         "body": "HS {hs_code} ({product_category}) typically goes through the red inspection channel with sampling for "
-        "({regulatory_bodies}) in 100% of {shipment_count} past shipments. Prepare the approved original invoices and "
+        "({regulatory_bodies_enum_regulatory_body}) in 100% of {shipment_count} past shipments. Prepare the approved original invoices and "
         "analysis/conformity certificates in advance to avoid container charges.",
         "evidence": "All {shipment_count} past shipments of HS {hs_code} went through lab testing and the red channel.",
         "reason": "HS {hs_code} was repeatedly routed to the red channel with sampling in past shipments.",
@@ -802,7 +957,19 @@ def render_en(code: Optional[str], params: Optional[Mapping[str, Any]], part: st
             if "_enum_" in name:
                 enum_type = name.split("_enum_", 1)[1].upper()
                 if enum_type in enum_codes.LABELS_EN:
-                    return str(enum_codes.label_en(enum_type, str(value)))
+                    items = [v.strip() for v in str(value).split(",")] if "," in str(value) else [str(value)]
+                    return ", ".join(str(enum_codes.label_en(enum_type, v)) for v in items)
+            if name == "month":
+                try:
+                    month = int(value)
+                except (TypeError, ValueError):
+                    return str(value)
+                return MONTH_NAMES_EN[month - 1] if 1 <= month <= 12 else str(value)
+            if name == "phase_id" or name.endswith("_phase_id"):
+                try:
+                    return phase_titles_en().get(int(value), str(value))
+                except (TypeError, ValueError):
+                    return str(value)
             return str(value)
 
         return _PLACEHOLDER_RE.sub(_sub, template)
@@ -810,12 +977,21 @@ def render_en(code: Optional[str], params: Optional[Mapping[str, Any]], part: st
         return str(code) if code else ""
 
 
-def build_contract() -> Dict[str, Dict[str, List[str]]]:
-    """The Flutter contract: ``{code: {"parts": [...], "params": [...]}}`` (parts in PARTS order)."""
-    contract: Dict[str, Dict[str, List[str]]] = {}
+def build_contract() -> Dict[str, Any]:
+    """The Flutter contract: ``{code: {"parts": [...], "params": [...]}}`` (parts in PARTS order) plus the
+    metadata keys ``_phases`` ({"1": title_en, ...}) and ``_param_rules`` (number rule)."""
+    contract: Dict[str, Any] = {}
     for code in sorted(CATALOG):
         parts = [p for p in PARTS if p in CATALOG[code]]
         contract[code] = {"parts": parts, "params": params_of(code)}
+    contract["_phases"] = {str(k): v for k, v in sorted(phase_titles_en().items())}
+    contract["_param_rules"] = {
+        "number_names": list(NUMBER_PARAM_NAMES),
+        "number_suffixes": list(NUMBER_PARAM_SUFFIXES),
+        "month": ["month"],
+        "enum_infix": "_enum_",
+        "enum_list_separator": ",",
+    }
     return contract
 
 

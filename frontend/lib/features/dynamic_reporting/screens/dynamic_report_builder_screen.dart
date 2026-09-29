@@ -416,7 +416,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'priority':
         return file.priority;
       case 'nextAction':
-        return DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
+        return file.displayNextAction(context.l10n);
       case 'fileOpeningDate':
         return file.fileOpeningDate ?? '-';
       case 'notes':

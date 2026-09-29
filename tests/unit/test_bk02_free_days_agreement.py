@@ -180,7 +180,7 @@ def test_register_free_days_agreement_workflow(db_session):
         .all()
     )
     assert len(notifications) >= 1
-    assert any("فترات السماح" in n.title for n in notifications)
+    assert any("Free days recorded" in n.title and n.msg_code == "DD_FREE_DAYS_RECORDED" for n in notifications)
 
 
 def test_recalculate_active_demurrage_tracking_on_agreement(db_session):

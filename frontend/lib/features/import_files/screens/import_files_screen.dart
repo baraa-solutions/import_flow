@@ -42,6 +42,7 @@ import '../../../core/widgets/action_toolbar.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/utils/bidi_text.dart';
 
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
@@ -302,8 +303,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
 
                                 final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                                final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                                final act = f.displayNextAction(context.l10n);
 
                                 buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                               }
@@ -356,7 +357,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 }
                               }
 
-                              Clipboard.setData(ClipboardData(text: buffer.toString()));
+                              Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l.reportCopiedToClipboard),
@@ -481,7 +482,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -536,7 +537,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -599,7 +600,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -674,8 +675,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       final ownerText = f.owner.contains('Broker') ? f.owner : l.customsBrokerLabel;
                                       final isAr = Localizations.localeOf(context).languageCode == 'ar';
                                       final shipName = DisplayNameResolver.resolveShipmentName(f, isArabic: isAr);
-                                      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                                      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                                      final resolvedAction = f.displayNextAction(context.l10n);
                                       final stageProgressText = '$resolvedStage (${f.progressPercent.toInt()}%) - $resolvedAction';
 
                                       return DataRow(
@@ -1006,8 +1007,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                            final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                            final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                            final act = f.displayNextAction(context.l10n);
                             buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                           }
 
@@ -1526,8 +1527,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                }
                                final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
                                final isAr = Directionality.of(context) == TextDirection.rtl || ref.watch(localeProvider).languageCode == 'ar';
-                               final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
-                               final resolvedAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
+                               final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
+                               final resolvedAction = file.displayNextAction(context.l10n);
                                final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
                                final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
 
@@ -1903,7 +1904,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         final priorityText = _getPriorityLabel(file.priority, l);
         final statusText = _getStatusLabel(file.status, l);
         final isAr = Localizations.localeOf(context).languageCode == 'ar';
-        final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+        final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
         final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
 
         String poDisplay;
@@ -2148,8 +2149,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final rows = files.map((f) {
       final priorityText = _getPriorityLabel(f.priority, l);
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
-      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
+      final resolvedAction = f.displayNextAction(context.l10n);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       final piDisplay = (f.piNumber != null && f.piNumber!.isNotEmpty) ? f.piNumber! : '-';
@@ -2202,7 +2203,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
 
     final rows = files.map((f) {
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       return [
@@ -2263,8 +2264,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final rows = files.map((f) {
       final priorityText = _getPriorityLabel(f.priority, l);
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
-      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
+      final resolvedAction = f.displayNextAction(context.l10n);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       final piDisplay = (f.piNumber != null && f.piNumber!.isNotEmpty) ? f.piNumber! : '-';
@@ -2869,7 +2870,7 @@ class _SearchAndCloneImportFileDialogState extends State<_SearchAndCloneImportFi
                       itemBuilder: (context, idx) {
                         final file = _filteredFiles[idx];
                         final shipName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
-                        final stageName = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+                        final stageName = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
 
                         return Container(
                           padding: const EdgeInsets.all(12),

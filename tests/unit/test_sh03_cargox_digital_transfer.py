@@ -209,7 +209,8 @@ class TestSH03CargoXDigitalTransfer:
         assert sample_import_file.cargox_transferred_at is not None
         assert "STEP_11" in sample_import_file.current_module
         assert sample_import_file.progress_percent >= 70.0
-        assert "أصول المستندات" in sample_import_file.next_action
+        assert "original bank documents" in sample_import_file.next_action
+        assert sample_import_file.next_action_code == "NA_SH04_COLLECT_ORIGINALS"
 
         # 2. Verify Prior SH-03 SmartTask Completed
         old_task = (

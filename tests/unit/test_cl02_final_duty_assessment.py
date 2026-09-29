@@ -196,7 +196,7 @@ def test_assess_final_customs_duties_service_success(db_session, sample_data):
     )
     assert task_cl03 is not None
     assert "CL-03" in task_cl03.title
-    assert "سداد" in task_cl03.title
+    assert "Sadad" in task_cl03.title
     assert task_cl03.status == "Pending"
 
     # Assert SystemNotification Emitted
@@ -210,7 +210,8 @@ def test_assess_final_customs_duties_service_success(db_session, sample_data):
         .first()
     )
     assert notif is not None
-    assert "تم احتساب الرسوم والضرائب الجمركية" in notif.title
+    assert "Customs duties and taxes assessed" in notif.title
+    assert notif.msg_code == "CC_DUTIES_ASSESSED"
     assert "CLM-MTS-2026-987654" in notif.message
 
 

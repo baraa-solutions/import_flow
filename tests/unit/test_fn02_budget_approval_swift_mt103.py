@@ -255,7 +255,8 @@ def test_approve_import_budget_workflow(db_session, seed_data):
         SystemNotification.target_role == "FINANCE_OFFICER",
     ).first()
     assert notif is not None
-    assert "تم اعتماد الميزانية التقديرية" in notif.title
+    assert "Estimated budget approved" in notif.title
+    assert notif.msg_code.startswith("FA_BUDGET_APPROVED")
 
     # Check SmartTask was auto-completed
     db_session.refresh(smart_task)
@@ -344,10 +345,10 @@ def test_approve_payment_request_emits_notification(db_session, seed_data):
         SystemNotification.entity_type == "PaymentRequest",
         SystemNotification.entity_id == payment.payment_id,
         SystemNotification.target_role == "FINANCE_OFFICER",
-        SystemNotification.title.ilike("%الموافقة على طلب الصرف%"),
+        SystemNotification.msg_code.like("FA_PAYMENT_REQUEST_APPROVED%"),
     ).first()
     assert notif is not None
-    assert "الموافقة على طلب الصرف" in notif.title
+    assert "Payment request approved" in notif.title
 
 
 def test_execute_payment_advances_lifecycle_and_generates_acid_task(db_session, seed_data):
@@ -399,7 +400,8 @@ def test_execute_payment_advances_lifecycle_and_generates_acid_task(db_session, 
         SystemNotification.target_role == "LOGISTICS_OFFICER",
     ).first()
     assert notif is not None
-    assert "تم سداد الدفعة وحوالة السويفت" in notif.title
+    assert "Payment and SWIFT transfer done" in notif.title
+    assert notif.msg_code == "FA_SWIFT_PAID"
 
     # SmartTask for Logistics Officer to obtain ACID
     acid_task = db_session.query(SmartTask).filter(

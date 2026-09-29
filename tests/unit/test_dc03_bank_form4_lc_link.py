@@ -211,7 +211,7 @@ def test_receive_lc_resolves_smart_tasks_and_dispatches_declaration46(db_session
     # 1. Verify prior SmartTask is auto-completed
     db_session.refresh(prior_task)
     assert prior_task.status == "Completed"
-    assert "تم استلام واعتماد" in (prior_task.completion_notes or "")
+    assert "received and approved" in (prior_task.completion_notes or "")
 
     # 2. Verify downstream Customs Broker SmartTask for Declaration 46 is dispatched
     downstream_task = (

@@ -122,6 +122,11 @@ class DisplayNameResolver {
     if (stepCodeOrName == null || stepCodeOrName.trim().isEmpty) return '-';
     final s = stepCodeOrName.trim();
 
+    // Exact code first, so sub-steps such as STEP_08_PO keep their own name
+    // instead of collapsing to STEP_08 through the numeric pattern below.
+    final exact = _stepMap[s.toUpperCase()];
+    if (exact != null) return isArabic ? exact['ar']! : exact['en']!;
+
     // Check direct STEP_XX format
     final match = RegExp(r'STEP_0?(\d+)', caseSensitive: false).firstMatch(s);
     if (match != null) {
@@ -134,10 +139,6 @@ class DisplayNameResolver {
       }
     }
 
-    // Check direct stepMap lookup
-    if (_stepMap.containsKey(s)) {
-      return isArabic ? _stepMap[s]!['ar']! : _stepMap[s]!['en']!;
-    }
 
     // Check known operational stage phrases
     final lower = s.toLowerCase();

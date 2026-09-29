@@ -103,6 +103,8 @@ class ShipmentStageCard(BaseModel):
     status: str
     started_at: Optional[str] = None
     notes: Optional[str] = None
+    msg_code: Optional[str] = None  # system message code of ``notes`` (English render in ``notes``)
+    msg_params: Optional[Dict[str, Any]] = None
 
 
 class PhaseSummary(BaseModel):
@@ -170,6 +172,8 @@ class LiveLogisticsTrackingItem(BaseModel):
     current_step_name_ar: str = ""
     current_step_name_en: str = ""
     next_action: str = ""
+    next_action_code: Optional[str] = None  # NA_* system message code of ``next_action``
+    next_action_params: Optional[Dict[str, Any]] = None
 
 
 class LiveLogisticsSummaryResponse(BaseModel):

@@ -234,7 +234,9 @@ class TestFileClosureModule(unittest.TestCase):
         # Import file should remain open with in-progress closure status
         imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
         self.assertNotEqual(imp_file.status, "Closed")
-        self.assertIn("Closure In-Progress (2/5 items - 40%)", imp_file.current_stage)
+        self.assertEqual("Closure In-Progress", imp_file.current_stage)
+        self.assertEqual("CLOSURE_IN_PROGRESS", imp_file.current_stage_code)
+        self.assertEqual("NA_CLO_COMPLETE_CHECKLIST", imp_file.next_action_code)
 
 if __name__ == "__main__":
     unittest.main()

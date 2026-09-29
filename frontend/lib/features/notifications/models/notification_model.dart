@@ -1,3 +1,6 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/system_message_renderer.dart';
+
 class NotificationModel {
   final int notificationId;
   final String title;
@@ -9,6 +12,9 @@ class NotificationModel {
   final String targetRole;
   final bool isRead;
   final String createdAt;
+  /// System message code of title/message (null for legacy rows).
+  final String? msgCode;
+  final Map<String, dynamic>? msgParams;
 
   NotificationModel({
     required this.notificationId,
@@ -21,7 +27,17 @@ class NotificationModel {
     this.targetRole = 'ALL',
     this.isRead = false,
     required this.createdAt,
+    this.msgCode,
+    this.msgParams,
   });
+
+  /// [title] in the user's language; the stored text when there is no usable code.
+  String localizedTitle(AppLocalizations l10n) => SystemMessageRenderer.render(
+      code: msgCode, params: msgParams, part: SystemMessagePart.title, l10n: l10n, fallback: title);
+
+  /// [message] in the user's language; the stored text when there is no usable code.
+  String localizedMessage(AppLocalizations l10n) => SystemMessageRenderer.render(
+      code: msgCode, params: msgParams, part: SystemMessagePart.body, l10n: l10n, fallback: message);
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
@@ -35,6 +51,8 @@ class NotificationModel {
       targetRole: json['target_role']?.toString() ?? 'ALL',
       isRead: json['is_read'] as bool? ?? false,
       createdAt: json['created_at']?.toString() ?? '',
+      msgCode: SystemMessageRenderer.parseCode(json['msg_code']),
+      msgParams: SystemMessageRenderer.parseParams(json['msg_params']),
     );
   }
 
@@ -49,6 +67,8 @@ class NotificationModel {
     String? targetRole,
     bool? isRead,
     String? createdAt,
+    String? msgCode,
+    Map<String, dynamic>? msgParams,
   }) {
     return NotificationModel(
       notificationId: notificationId ?? this.notificationId,
@@ -61,6 +81,8 @@ class NotificationModel {
       targetRole: targetRole ?? this.targetRole,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
+      msgCode: msgCode ?? this.msgCode,
+      msgParams: msgParams ?? this.msgParams,
     );
   }
 }

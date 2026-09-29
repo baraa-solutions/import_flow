@@ -21,7 +21,7 @@
   "ALERT_DB_HEALTH_DEGRADED": {
     "params": [
       "issues",
-      "verdict"
+      "verdict_enum_db_health_verdict"
     ],
     "parts": [
       "title",
@@ -60,7 +60,7 @@
     "params": [
       "alert_message",
       "alert_title",
-      "severity",
+      "severity_enum_alert_severity",
       "target_tab"
     ],
     "parts": [
@@ -123,7 +123,7 @@
   },
   "CC_DECLARATION_46_REGISTERED": {
     "params": [
-      "channel",
+      "channel_enum_customs_channel",
       "customs_office",
       "declaration_no",
       "import_file_code"
@@ -184,8 +184,8 @@
   "CC_INSPECTION_RECORDED": {
     "params": [
       "import_file_code",
-      "inspection_result",
-      "inspection_yard",
+      "inspection_result_enum_inspection_result",
+      "inspection_yard_enum_inspection_yard",
       "sampling_record_no"
     ],
     "parts": [
@@ -246,7 +246,7 @@
   "CC_TASK_DUTY_ASSESSMENT": {
     "params": [
       "import_file_code",
-      "inspection_result"
+      "inspection_result_enum_inspection_result"
     ],
     "parts": [
       "title",
@@ -286,7 +286,7 @@
   },
   "CC_TASK_INSPECTION": {
     "params": [
-      "channel",
+      "channel_enum_customs_channel",
       "customs_office",
       "declaration_no",
       "import_file_code"
@@ -408,6 +408,7 @@
       "agreement_reference",
       "demurrage_free_days",
       "detention_free_days",
+      "estimated_saving_amount",
       "import_file_code"
     ],
     "parts": [
@@ -518,11 +519,127 @@
       "note"
     ]
   },
+  "DOC_TASK_CARGOX_TRANSFER": {
+    "params": [
+      "draft_bl_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_DECLARATION_46": {
+    "params": [
+      "bank_name",
+      "doc_type",
+      "import_file_code",
+      "reference_no"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_FREIGHT_BOOKING": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "EMAIL_PARSE_MATCHED": {
+    "params": [
+      "import_file_code",
+      "reference",
+      "task_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_NO_REFERENCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_ACID": {
+    "params": [
+      "acid_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_BL": {
+    "params": [
+      "bl_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_PO": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_SYNC_EMPTY": {
+    "params": [],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_ERROR": {
+    "params": [
+      "error"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_ERROR_OUTLOOK": {
+    "params": [
+      "error"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_SUMMARY": {
+    "params": [
+      "count",
+      "matched_count",
+      "tasks_count"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_SUMMARY_OUTLOOK": {
+    "params": [
+      "count",
+      "matched_count",
+      "tasks_count"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
   "EMAIL_TASK_APPROVED": {
     "params": [
+      "import_file_code",
       "user_name"
     ],
     "parts": [
+      "title",
       "body",
       "note"
     ]
@@ -537,10 +654,14 @@
   },
   "EMAIL_TASK_DELIVERY_ORDER_PAYMENT": {
     "params": [
-      "import_file_code"
+      "eta_date",
+      "import_file_code",
+      "reference"
     ],
     "parts": [
-      "title"
+      "title",
+      "body",
+      "note"
     ]
   },
   "FA_ADVANCE_PAYMENT_REQUESTED": {
@@ -568,7 +689,18 @@
     "params": [
       "approved_by",
       "budget_code",
-      "reference",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_BUDGET_APPROVED_FILE": {
+    "params": [
+      "approved_by",
+      "budget_code",
+      "import_file_code",
       "total_amount"
     ],
     "parts": [
@@ -591,8 +723,49 @@
     "params": [
       "currency_code",
       "payment_code",
-      "reference",
       "requested_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_APPROVED_FILE": {
+    "params": [
+      "currency_code",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_CREATED": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_CREATED_GENERIC": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
       "supplier_name"
     ],
     "parts": [
@@ -623,9 +796,41 @@
       "body"
     ]
   },
+  "FA_TASK_SUPPLIER_PAYMENT": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_TASK_SUPPLIER_PAYMENT_GENERIC": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
   "FB_BOOKING_CONFIRMED": {
     "params": [
       "booking_no",
+      "demurrage_free_days",
+      "eta_date",
       "etd_date",
       "import_file_code",
       "shipping_line_name",
@@ -651,6 +856,31 @@
       "note"
     ]
   },
+  "FB_TASK_DRAFT_BL_REVIEW": {
+    "params": [
+      "bl_number",
+      "import_file_code",
+      "vessel_name",
+      "voyage_number"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FB_TASK_FREE_DAYS": {
+    "params": [
+      "booking_no",
+      "demurrage_free_days",
+      "import_file_code",
+      "shipping_line_name",
+      "vessel_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
   "FS_INVOICES_SETTLED": {
     "params": [
       "import_file_code",
@@ -670,7 +900,8 @@
       "markup_factor",
       "settlement_code",
       "total_amount",
-      "variance_pct"
+      "variance_pct",
+      "variance_status_enum_landed_cost_variance_status"
     ],
     "parts": [
       "title",
@@ -712,7 +943,7 @@
     "params": [
       "hs_code",
       "product_category",
-      "regulatory_bodies",
+      "regulatory_bodies_enum_regulatory_body",
       "shipment_count"
     ],
     "parts": [
@@ -753,7 +984,7 @@
       "delayed_count",
       "frequency_pct",
       "supplier_name",
-      "total_shipments"
+      "total_shipment_count"
     ],
     "parts": [
       "title",
@@ -781,7 +1012,7 @@
       "carrier_name",
       "delayed_count",
       "port_name",
-      "total_shipments"
+      "total_shipment_count"
     ],
     "parts": [
       "title",
@@ -792,8 +1023,27 @@
   },
   "LC_FILE_ON_HOLD": {
     "params": [
-      "reason",
-      "stage"
+      "phase_id",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_ON_HOLD_CODED": {
+    "params": [
+      "phase_id",
+      "reason_enum_hold_reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_ON_HOLD_CODED_WITH_NOTES": {
+    "params": [
+      "notes",
+      "phase_id",
+      "reason_enum_hold_reason"
     ],
     "parts": [
       "note"
@@ -802,8 +1052,8 @@
   "LC_FILE_ON_HOLD_WITH_NOTES": {
     "params": [
       "notes",
-      "reason",
-      "stage"
+      "phase_id",
+      "reason"
     ],
     "parts": [
       "note"
@@ -938,6 +1188,14 @@
   },
   "LC_SYNC_BOOKING_CONFIRMED": {
     "params": [
+      "booking_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BOOKING_CONFIRMED_DETAILS": {
+    "params": [
       "booking_code",
       "confirmation_no",
       "vessel_name"
@@ -969,7 +1227,7 @@
   "LC_SYNC_CARGO_ALLOCATION_DONE": {
     "params": [
       "cargo_shipping_code",
-      "containers"
+      "container_count"
     ],
     "parts": [
       "note"
@@ -1209,8 +1467,14 @@
   },
   "NA_FILE_CLOSED_EARLY": {
     "params": [
-      "phase_name"
+      "phase_id"
     ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_CLOSED_EARLY_GENERIC": {
+    "params": [],
     "parts": [
       "action"
     ]
@@ -1294,8 +1558,14 @@
   },
   "NA_RESUME_OPERATIONS": {
     "params": [
-      "phase_name"
+      "phase_id"
     ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_RESUME_OPERATIONS_GENERIC": {
+    "params": [],
     "parts": [
       "action"
     ]
@@ -1591,6 +1861,28 @@
       "body"
     ]
   },
+  "NOTIF_CUSTOMS_FX_DROP": {
+    "params": [
+      "change_pct",
+      "current_rate",
+      "previous_rate"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CUSTOMS_FX_RISE": {
+    "params": [
+      "change_pct",
+      "current_rate",
+      "previous_rate"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
   "NOTIF_CUSTOMS_FX_VOLATILITY": {
     "params": [
       "change_pct",
@@ -1660,7 +1952,7 @@
     "params": [
       "bank_doc_code",
       "bank_name",
-      "days_pending"
+      "pending_days"
     ],
     "parts": [
       "title",
@@ -1692,7 +1984,7 @@
   },
   "NOTIF_REGULATORY_PENDING": {
     "params": [
-      "authority",
+      "authority_enum_regulatory_body",
       "hs_code",
       "import_file_code"
     ],
@@ -1737,7 +2029,7 @@
     "params": [
       "acid_number",
       "import_file_code",
-      "status"
+      "status_enum_requirement_status"
     ],
     "parts": [
       "title",
@@ -1750,7 +2042,7 @@
       "certificate_type",
       "hs_code",
       "import_file_code",
-      "status"
+      "status_enum_requirement_status"
     ],
     "parts": [
       "title",
@@ -1791,7 +2083,7 @@
   "REQ_TASK_INSPECTION": {
     "params": [
       "acid_number",
-      "authority",
+      "authority_enum_regulatory_body",
       "import_file_code"
     ],
     "parts": [
@@ -1802,7 +2094,7 @@
   "REQ_TASK_INSPECTION_HS": {
     "params": [
       "acid_number",
-      "authority",
+      "authority_enum_regulatory_body",
       "hs_code",
       "import_file_code"
     ],
@@ -1824,7 +2116,7 @@
   "REQ_TASK_PERMIT": {
     "params": [
       "acid_number",
-      "authority",
+      "authority_enum_regulatory_body",
       "import_file_code"
     ],
     "parts": [
@@ -1835,7 +2127,7 @@
   "REQ_TASK_PERMIT_HS": {
     "params": [
       "acid_number",
-      "authority",
+      "authority_enum_regulatory_body",
       "hs_code",
       "import_file_code"
     ],
@@ -1847,7 +2139,6 @@
   "TASK_AUTO_PHASE_FOLLOW_UP": {
     "params": [
       "import_file_code",
-      "phase_name",
       "task_enum_phase_follow_up_task"
     ],
     "parts": [
@@ -1870,6 +2161,12 @@
       "body"
     ]
   },
+  "TR_TASK_TRACK_ARRIVAL_GRN": {
+    "params": [],
+    "parts": [
+      "title"
+    ]
+  },
   "WH_GRN_ISSUED": {
     "params": [
       "grn_code",
@@ -1890,7 +2187,24 @@
       "import_file_code",
       "protocol_no",
       "shortage_qty",
-      "verdict"
+      "verdict_enum_warehouse_inspection_verdict"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "WH_INSPECTION_PROTOCOL_APPROVED_CLAIMS": {
+    "params": [
+      "accepted_qty",
+      "committee",
+      "damaged_qty",
+      "import_file_code",
+      "insurance_claim_ref",
+      "protocol_no",
+      "shortage_qty",
+      "supplier_claim_ref",
+      "verdict_enum_warehouse_inspection_verdict"
     ],
     "parts": [
       "title",
@@ -1906,5 +2220,36 @@
       "title",
       "body"
     ]
+  },
+  "_param_rules": {
+    "enum_infix": "_enum_",
+    "enum_list_separator": ",",
+    "month": [
+      "month"
+    ],
+    "number_names": [
+      "count",
+      "hours",
+      "days_left"
+    ],
+    "number_suffixes": [
+      "_amount",
+      "_pct",
+      "_count",
+      "_days",
+      "_qty",
+      "_gb",
+      "_factor",
+      "_rate",
+      "_num"
+    ]
+  },
+  "_phases": {
+    "1": "1. Pre-Planning & Studies",
+    "2": "2. Shipment Initiation",
+    "3": "3. Booking & Doc Prep",
+    "4": "4. Digital & Banking",
+    "5": "5. Port Operations & Clearance",
+    "6": "6. Inbound & Final Closure"
   }
 }

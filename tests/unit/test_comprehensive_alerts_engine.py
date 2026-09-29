@@ -71,7 +71,8 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         form4_alerts = [a for a in alerts if a.category == "BANK_FORM4_PENDING"]
         self.assertEqual(len(form4_alerts), 1)
         self.assertEqual(form4_alerts[0].severity, "WARNING")
-        self.assertIn("نموذج 4", form4_alerts[0].title)
+        self.assertIn("Form 4", form4_alerts[0].title)
+        self.assertEqual(form4_alerts[0].msg_code, "NOTIF_FORM4_DELAY")
 
     def test_empty_container_detention_alert(self):
         tracking = DemurrageTracking(
@@ -89,7 +90,8 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         alerts = self.service.trigger_expiry_check()
         detention_alerts = [a for a in alerts if a.category == "CONTAINER_DETENTION_RISK"]
         self.assertEqual(len(detention_alerts), 1)
-        self.assertIn("Detention", detention_alerts[0].title)
+        self.assertIn("detention", detention_alerts[0].title)
+        self.assertEqual(detention_alerts[0].msg_code, "NOTIF_DETENTION_RETURN_DEADLINE")
 
     def test_courier_tracking_alert(self):
         file = ImportFile(
@@ -114,7 +116,8 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         alerts = self.service.trigger_expiry_check()
         courier_alerts = [a for a in alerts if a.category == "COURIER_DELAY"]
         self.assertEqual(len(courier_alerts), 1)
-        self.assertIn("المستندات", courier_alerts[0].title)
+        self.assertIn("Original documents", courier_alerts[0].title)
+        self.assertEqual(courier_alerts[0].msg_code, "NOTIF_ORIGINALS_COLLECTION_DELAY")
 
     def test_regulatory_inspection_alert(self):
         assess = ImportRequirementAssessment(
@@ -131,7 +134,8 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         alerts = self.service.trigger_expiry_check()
         reg_alerts = [a for a in alerts if a.category == "REGULATORY_INSPECTION_PENDING"]
         self.assertEqual(len(reg_alerts), 1)
-        self.assertIn("رقابية", reg_alerts[0].title)
+        self.assertIn("Regulatory", reg_alerts[0].title)
+        self.assertEqual(reg_alerts[0].msg_code, "NOTIF_REGULATORY_PENDING")
 
     def test_budget_variance_alert(self):
         file = ImportFile(
@@ -157,7 +161,8 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         budget_alerts = [a for a in alerts if a.category == "BUDGET_VARIANCE"]
         self.assertEqual(len(budget_alerts), 1)
         self.assertEqual(budget_alerts[0].severity, "CRITICAL")
-        self.assertIn("ميزانية", budget_alerts[0].title)
+        self.assertIn("budget", budget_alerts[0].title)
+        self.assertEqual(budget_alerts[0].msg_code, "NOTIF_BUDGET_OVERRUN")
 
     def test_currency_fluctuation_alert(self):
         curr = Currency(
@@ -186,7 +191,10 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
         alerts = self.service.trigger_expiry_check()
         curr_alerts = [a for a in alerts if a.category == "CURRENCY_FLUCTUATION"]
         self.assertEqual(len(curr_alerts), 1)
-        self.assertIn("الدولار الجمركي", curr_alerts[0].title)
+        self.assertIn("Customs USD", curr_alerts[0].title)
+        self.assertEqual(curr_alerts[0].msg_code, "NOTIF_CUSTOMS_FX_RISE")
+        self.assertEqual(curr_alerts[0].msg_params["change_pct"], 5.15)  # absolute; direction is in the code
+        self.assertIn("rose by 5.15%", curr_alerts[0].message)
 
     def test_company_expiry_alerts(self):
         comp = ImportCompany(

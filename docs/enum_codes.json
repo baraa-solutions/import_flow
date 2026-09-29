@@ -1,4 +1,13 @@
 {
+  "ALERT_SEVERITY": {
+    "codes": {
+      "CRITICAL": "Critical",
+      "HIGH": "High",
+      "INFO": "Info",
+      "WARNING": "Warning"
+    },
+    "legacy": {}
+  },
   "BROKER_EXPENSE_CATEGORY": {
     "codes": {
       "CLEARANCE_FEES": "Clearance Fees",
@@ -56,6 +65,22 @@
       "رسوم ومصاريف الموانئ": "PORT_CHARGES",
       "مصاريف الفحص والعرض": "INSPECTION_FEE"
     }
+  },
+  "CUSTOMS_CHANNEL": {
+    "codes": {
+      "GREEN": "Green Channel",
+      "RED": "Red Channel",
+      "YELLOW": "Yellow Channel"
+    },
+    "legacy": {}
+  },
+  "DB_HEALTH_VERDICT": {
+    "codes": {
+      "CRITICAL": "Critical",
+      "DEGRADED": "Degraded",
+      "HEALTHY": "Healthy"
+    },
+    "legacy": {}
   },
   "DUTY_BANK": {
     "codes": {
@@ -120,6 +145,15 @@
       "مراجعة وتدقيق أسعار بنود التعريفة الجمركية": "TARIFF_VALUATION_REVIEW"
     }
   },
+  "INSPECTION_RESULT": {
+    "codes": {
+      "CONFORMING": "Conforming",
+      "DISCREPANCY": "Discrepancy",
+      "SHORTAGE": "Shortage",
+      "SURPLUS": "Surplus"
+    },
+    "legacy": {}
+  },
   "INSPECTION_YARD": {
     "codes": {
       "ADABIYA": "Joint Inspection Yard - Adabiya Port (Suez)",
@@ -145,6 +179,14 @@
       "ساحة المعاينة والكشف - ميناء دمياط البحري": "DAMIETTA",
       "قرية البضائع - مطار القاهرة الدولي": "CAIRO_AIRPORT_CARGO"
     }
+  },
+  "LANDED_COST_VARIANCE_STATUS": {
+    "codes": {
+      "ON_BUDGET": "On budget",
+      "OVER_BUDGET": "Over budget",
+      "UNDER_BUDGET": "Under budget"
+    },
+    "legacy": {}
   },
   "PAYMENT_METHOD": {
     "codes": {
@@ -276,6 +318,22 @@
       "نهائي وبات (Final Green Release)": "FINAL_GREEN"
     }
   },
+  "REQUIREMENT_STATUS": {
+    "codes": {
+      "APPLIED": "Applied",
+      "APPROVED": "Approved",
+      "COMPLETED": "Completed",
+      "EXPIRED": "Expired",
+      "IN_PROGRESS": "In Progress",
+      "NOT_REQUIRED": "Not Required",
+      "OBTAINED": "Obtained",
+      "PENDING": "Pending",
+      "RECEIVED": "Received",
+      "REJECTED": "Rejected",
+      "VERIFIED": "Verified"
+    },
+    "legacy": {}
+  },
   "SKIP_REASON_CATEGORY": {
     "codes": {
       "CLIENT_AGREEMENT": "Client Agreement",
@@ -366,5 +424,15 @@
       "Reefer Truck (شاحنة مبردة)": "REEFER",
       "Side-Drop Trailer (تريلا جوانب)": "SIDE_DROP"
     }
+  },
+  "WAREHOUSE_INSPECTION_VERDICT": {
+    "codes": {
+      "ACCEPTED_FULL": "Accepted in full",
+      "ACCEPTED_WITH_DISCREPANCY": "Accepted with discrepancy",
+      "DAMAGE_CLAIM_PENDING": "Damage claim pending",
+      "PENDING": "Pending",
+      "REJECTED_QUARANTINED": "Rejected / quarantined"
+    },
+    "legacy": {}
   }
 }

@@ -161,8 +161,14 @@ class TestWarehouseGoodsReceivingNoteTR03:
         assert imp_file.inland_transport_status == "ARRIVED"
         assert imp_file.inland_actual_arrival_date is not None
         assert imp_file.progress_percent >= 98.0
-        assert record.grn_code in imp_file.current_stage
-        assert "Main Warehouse" in imp_file.current_stage
+        assert imp_file.current_stage == "Goods Received"
+        assert imp_file.current_stage_code == "GOODS_RECEIVED"
+        assert imp_file.next_action_code == "NA_TR_INSPECTION_DISCREPANCY_LANDED_COST"
+        from modules.notifications.model import SystemNotification
+        grn_notif = db_session.query(SystemNotification).filter(SystemNotification.msg_code == "WH_GRN_ISSUED").first()
+        assert grn_notif is not None
+        assert grn_notif.msg_params["grn_code"] == record.grn_code
+        assert record.grn_code in grn_notif.title
 
         # Assertions on Inland Transport Booking Sync
         db_session.refresh(booking)

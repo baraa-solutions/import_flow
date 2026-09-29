@@ -32,6 +32,7 @@ from email.mime.multipart import MIMEMultipart
 from sqlalchemy.orm import Session
 
 from database.database import DB_PATH as _LIVE_DB_PATH
+from modules.common.system_messages import SysMsg, msg as sys_msg, render_en
 from utils.db_safety import app_base_dir, backups_dir_for
 
 # R11: runtime paths next to the executable (frozen) / repo root (dev); backups next to the live DB.
@@ -48,16 +49,20 @@ class AlertPayload:
     def __init__(
         self,
         condition_key: str,
-        title: str,
-        message: str,
+        title: Optional[str],
+        message: Optional[str],
         severity: str,
         channels: List[str],
         target_tab: str,
         details: Optional[Dict[str, Any]] = None,
+        msg: Optional[SysMsg] = None,
     ):
+        # Single-language storage: system alerts carry a message code; title/message default to the
+        # English render (toast, email, alerts.log and the stored notification text stay English).
+        self.msg = msg
         self.condition_key = condition_key
-        self.title = title
-        self.message = message
+        self.title = title if title is not None else (render_en(msg.code, msg.params, "title") if msg else "")
+        self.message = message if message is not None else (render_en(msg.code, msg.params, "body") if msg else "")
         self.severity = severity  # CRITICAL, HIGH, MEDIUM, LOW
         self.channels = channels  # ['TOAST', 'EMAIL']
         self.target_tab = target_tab  # deep-health, domain-radar, telemetry
@@ -73,6 +78,8 @@ class AlertPayload:
             "channels": self.channels,
             "target_tab": self.target_tab,
             "details": self.details,
+            "msg_code": self.msg.code if self.msg else None,
+            "msg_params": self.msg.params if self.msg else None,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -239,9 +246,21 @@ class AlertDispatcher:
         if db is not None:
             try:
                 from modules.notifications.model import SystemNotification
+                wrapper = sys_msg(
+                    "ALERT_DISPATCHED",
+                    severity_enum_alert_severity=payload.severity,
+                    alert_title=payload.title,
+                    alert_message=payload.message,
+                    target_tab=payload.target_tab,
+                )
+                # The alert's own code is stored when it has one (the UI renders it localized);
+                # otherwise the generic ALERT_DISPATCHED wrapper, whose render equals the stored text.
+                coded = payload.msg or wrapper
                 notif = SystemNotification(
-                    title=f"[{payload.severity}] {payload.title}",
-                    message=f"{payload.message} (Action: Check {payload.target_tab} tab)",
+                    title=render_en(wrapper.code, wrapper.params, "title")[:200],
+                    message=render_en(wrapper.code, wrapper.params, "body"),
+                    msg_code=coded.code,
+                    msg_params=coded.params,
                     severity="CRITICAL" if payload.severity == "CRITICAL" else "WARNING",
                     category="SYSTEM",
                     target_role="ADMIN",
@@ -384,8 +403,9 @@ class AlertDispatcher:
         if backup_age > 26.0:
             payload = AlertPayload(
                 condition_key="BACKUP_OVERDUE",
-                title="نسخة احتياطية متأخرة أو مفقودة (Backup Overdue)",
-                message=f"مر أكثر من {backup_age:.1f} ساعة منذ آخر نسخة احتياطية صالحة (>26h). يرجى مراجعة مسار النسخ الاحتياطية وتشغيل السكربت فوراً.",
+                title=None,
+                message=None,
+                msg=sys_msg("ALERT_BACKUP_OVERDUE", hours=round(backup_age, 1)),
                 severity="HIGH",
                 channels=["TOAST", "EMAIL"],
                 target_tab="deep-health",
@@ -397,8 +417,9 @@ class AlertDispatcher:
         if offsite_age is not None and offsite_age > 26.0:
             payload = AlertPayload(
                 condition_key="OFFSITE_BACKUP_OVERDUE",
-                title="النسخ الاحتياطي السحابي الخارجي متأخر (Offsite Backup Overdue)",
-                message=f"مر أكثر من {offsite_age:.1f} ساعة دون مزامنة نسخة احتياطية جديدة في مجلد Google Drive (>26h). يرجى التحقق من اتصال برنامج المزامنة وسير عملية النسخ.",
+                title=None,
+                message=None,
+                msg=sys_msg("ALERT_OFFSITE_BACKUP_OVERDUE", hours=round(offsite_age, 1)),
                 severity="HIGH",
                 channels=["TOAST", "EMAIL"],
                 target_tab="deep-health",
@@ -410,8 +431,9 @@ class AlertDispatcher:
         if free_gb < 2.0:
             payload = AlertPayload(
                 condition_key="DISK_SPACE_CRITICAL",
-                title="مساحة التخزين حرجة للغاية (Critical Low Disk Space)",
-                message=f"المساحة المتبقية على القرص أقل من 2 جيجابايت ({free_gb:.2f} GB). خطر تعطل وعطب قاعدة البيانات وشيك!",
+                title=None,
+                message=None,
+                msg=sys_msg("ALERT_DISK_CRITICAL", free_gb=round(free_gb, 2)),
                 severity="CRITICAL",
                 channels=["TOAST"],
                 target_tab="deep-health",
@@ -421,8 +443,9 @@ class AlertDispatcher:
         elif free_gb < 5.0:
             payload = AlertPayload(
                 condition_key="DISK_SPACE_WARNING",
-                title="انخفاض مساحة التخزين (Low Disk Space Warning)",
-                message=f"المساحة المتبقية على القرص أقل من 5 جيجابايت ({free_gb:.2f} GB). يرجى تفريغ الملفات المؤقتة واللوجز.",
+                title=None,
+                message=None,
+                msg=sys_msg("ALERT_DISK_LOW", free_gb=round(free_gb, 2)),
                 severity="HIGH",
                 channels=["TOAST", "EMAIL"],
                 target_tab="deep-health",
@@ -434,8 +457,13 @@ class AlertDispatcher:
         if verdict != "HEALTHY":
             payload = AlertPayload(
                 condition_key="DB_HEALTH_UNHEALTHY",
-                title="فحص صحة قاعدة البيانات غير سليم (Database Health Degraded)",
-                message=f"تقرير الفحص العميق أظهر حالة غير سليمة ({verdict}). المشاكل المرصودة: {', '.join(probe_issues) if probe_issues else 'Unknown issues'}.",
+                title=None,
+                message=None,
+                msg=sys_msg(
+                    "ALERT_DB_HEALTH_DEGRADED",
+                    verdict_enum_db_health_verdict=str(verdict),
+                    issues=", ".join(str(i) for i in probe_issues) if probe_issues else "Unknown issues",
+                ),
                 severity="HIGH",
                 channels=["TOAST", "EMAIL"],
                 target_tab="deep-health",
@@ -448,8 +476,13 @@ class AlertDispatcher:
             acid_codes = [a["acid_number"] for a in radar_res.expiring_acids[:5]]
             payload = AlertPayload(
                 condition_key="ACID_EXPIRING",
-                title="أرقام ACID تقترب من انتهاء الصلاحية (ACID Expiry Radar)",
-                message=f"يوجد عدد {radar_res.expiring_acids_count} رقم ACID ستنتهي صلاحيتها خلال 7 أيام أو أقل ({', '.join(acid_codes)}). يرجى سرعة استكمال الإجراءات الجمركية.",
+                title=None,
+                message=None,
+                msg=sys_msg(
+                    "ALERT_ACID_EXPIRY_RADAR",
+                    count=radar_res.expiring_acids_count,
+                    acid_numbers=", ".join(str(a) for a in acid_codes),
+                ),
                 severity="MEDIUM",
                 channels=["EMAIL"],
                 target_tab="domain-radar",
@@ -462,8 +495,13 @@ class AlertDispatcher:
             cntrs = [d["container_number"] for d in radar_res.demurrage_risks[:5]]
             payload = AlertPayload(
                 condition_key="DEMURRAGE_RISK",
-                title="خطر غرامات أرضيات وغرامات تأخير حاويات (Demurrage Risk)",
-                message=f"يوجد عدد {radar_res.demurrage_risks_count} حاوية قاربت فترة سماحها المجانية على النفاد (<48h) أو مستحقة للغرامة ({', '.join(cntrs)}).",
+                title=None,
+                message=None,
+                msg=sys_msg(
+                    "ALERT_DEMURRAGE_RISK",
+                    count=radar_res.demurrage_risks_count,
+                    container_numbers=", ".join(str(c) for c in cntrs),
+                ),
                 severity="MEDIUM",
                 channels=["EMAIL"],
                 target_tab="domain-radar",
@@ -476,8 +514,13 @@ class AlertDispatcher:
             stuck_codes = [s["file_code"] for s in radar_res.stuck_shipments[:5]]
             payload = AlertPayload(
                 condition_key="STUCK_SHIPMENT",
-                title="شحنات معلقة بلا تقدم (Stuck Shipments Alert)",
-                message=f"يوجد عدد {radar_res.stuck_shipments_count} ملف استيراد معلق في نفس المرحلة دون تحديث لأكثر من 10 أيام ({', '.join(stuck_codes)}).",
+                title=None,
+                message=None,
+                msg=sys_msg(
+                    "ALERT_STUCK_SHIPMENTS",
+                    count=radar_res.stuck_shipments_count,
+                    import_file_codes=", ".join(str(c) for c in stuck_codes),
+                ),
                 severity="MEDIUM",
                 channels=["EMAIL"],
                 target_tab="domain-radar",
@@ -490,8 +533,9 @@ class AlertDispatcher:
         if slow_count >= 10:
             payload = AlertPayload(
                 condition_key="SLOW_QUERY_SPIKE",
-                title="ارتفاع غير طبيعي في الاستعلامات البطيئة (Slow Query Spike)",
-                message=f"تم تسجيل {slow_count} استعلام بطيء (>150ms). يرجى فحص شاشة المراقبة وحركة المرور لمعاينة الاستعلامات البطيئة.",
+                title=None,
+                message=None,
+                msg=sys_msg("ALERT_SLOW_QUERY_SPIKE", count=slow_count),
                 severity="LOW",
                 channels=["EMAIL"],
                 target_tab="telemetry",

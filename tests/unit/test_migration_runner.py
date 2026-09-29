@@ -27,7 +27,7 @@ from utils.migration_linter import MigrationLinter
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
 # Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "b7c1d2e3f4a5"
+HEAD_REVISION = "c8d3e4f5a6b7"
 
 
 class _SpyMasterData:
@@ -377,8 +377,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     script = ScriptDirectory.from_config(migration_runner.build_alembic_config())
     assert script.get_heads() == [HEAD_REVISION]
     assert migration_runner.get_head_revision() == HEAD_REVISION
-    # baseline -> f7a1c3e5b9d2 (users.must_change_password) -> head b7c1d2e3f4a5 (system message codes)
-    assert script.get_revision(HEAD_REVISION).down_revision == "f7a1c3e5b9d2"
+    # baseline -> f7a1c3e5b9d2 (users.must_change_password) -> b7c1d2e3f4a5 (system message codes)
+    # -> head c8d3e4f5a6b7 (email listener message codes)
+    assert script.get_revision(HEAD_REVISION).down_revision == "b7c1d2e3f4a5"
+    assert script.get_revision("b7c1d2e3f4a5").down_revision == "f7a1c3e5b9d2"
     assert script.get_revision("f7a1c3e5b9d2").down_revision == BASELINE_REVISION
     assert script.get_revision(BASELINE_REVISION).down_revision == PREVIOUS_HEAD
     is_safe, issues = MigrationLinter.lint_directory(REPO_ROOT / "alembic" / "versions")

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../utils/bidi_text.dart';
 
 /// Central helper for selective table data copy in Sorour Logistics ERP.
 ///
@@ -11,7 +12,7 @@ class TableCopyHelper {
   /// Replaces tabs with spaces, strips carriage returns and newlines.
   static String cleanCell(dynamic value) {
     if (value == null) return '';
-    final str = value.toString();
+    final str = stripBidiIsolates(value.toString());
     return str
         .replaceAll('\t', ' ')
         .replaceAll('\r', '')
@@ -56,7 +57,7 @@ class TableCopyHelper {
 
     if (tsv.trim().isEmpty) return;
 
-    await Clipboard.setData(ClipboardData(text: tsv));
+    await Clipboard.setData(ClipboardData(text: stripBidiIsolates(tsv)));
     if (!context.mounted) return;
 
     final message = customMessage ?? (Localizations.localeOf(context).languageCode == 'ar'
@@ -99,7 +100,7 @@ class TableCopyHelper {
     final tsv = formatTableAsTsv(headers, rows);
     if (tsv.trim().isEmpty) return;
 
-    await Clipboard.setData(ClipboardData(text: tsv));
+    await Clipboard.setData(ClipboardData(text: stripBidiIsolates(tsv)));
     if (!context.mounted) return;
 
     final isAr = Localizations.localeOf(context).languageCode == 'ar';

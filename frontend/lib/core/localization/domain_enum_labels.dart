@@ -29,6 +29,15 @@ class DomainEnumType {
   static const brokerUnit = 'broker_unit';
   static const holdReason = 'hold_reason';
   static const skipReasonCategory = 'skip_reason_category';
+  /// Import-file stage (`current_stage_code`): PHASE_n or a special stage such as CUSTOMS_RELEASED.
+  static const stage = 'stage';
+  static const customsChannel = 'customs_channel';
+  static const inspectionResult = 'inspection_result';
+  static const requirementStatus = 'requirement_status';
+  static const warehouseInspectionVerdict = 'warehouse_inspection_verdict';
+  static const dbHealthVerdict = 'db_health_verdict';
+  static const alertSeverity = 'alert_severity';
+  static const landedCostVarianceStatus = 'landed_cost_variance_status';
 }
 
 class DomainEnums {
@@ -162,6 +171,84 @@ class DomainEnums {
       'NOT_APPLICABLE_TO_MODE',
       'REGULATORY_EXEMPTION',
       'OTHER',
+    ],
+    DomainEnumType.stage: [
+      'ARCHIVED_CLOSED',
+      'ARRIVED_AT_WAREHOUSE',
+      'CLOSED_EARLY',
+      'CLOSURE_IN_PROGRESS',
+      'CUSTOMS_BROKER_AUTHORIZED',
+      'CUSTOMS_DUTY_ASSESSED',
+      'CUSTOMS_INSPECTION_COMPLETED',
+      'CUSTOMS_RELEASED',
+      'DELIVERY_ORDER_PAID',
+      'DISCREPANCY_PROTOCOL_FILED',
+      'DRAFT',
+      'DUTY_PAID',
+      'GOODS_RECEIVED',
+      'INLAND_TRANSPORT_BOOKED',
+      'IN_TRANSIT_TO_WAREHOUSE',
+      'LAB_APPROVED_RELEASED',
+      'LAB_REJECTED',
+      'LANDED_COST_CALCULATED',
+      'PHASE_1',
+      'PHASE_2',
+      'PHASE_3',
+      'PHASE_4',
+      'PHASE_5',
+      'PHASE_6',
+      'QC_PASSED',
+      'QUARANTINED_UNDER_INSPECTION',
+      'REOPENED',
+      'UNDER_BOND_QUARANTINE',
+      'UNDER_CUSTOMS_CLEARANCE',
+    ],
+    DomainEnumType.customsChannel: [
+      'GREEN',
+      'RED',
+      'YELLOW',
+    ],
+    DomainEnumType.inspectionResult: [
+      'CONFORMING',
+      'DISCREPANCY',
+      'SHORTAGE',
+      'SURPLUS',
+    ],
+    DomainEnumType.requirementStatus: [
+      'APPLIED',
+      'APPROVED',
+      'COMPLETED',
+      'EXPIRED',
+      'IN_PROGRESS',
+      'NOT_REQUIRED',
+      'OBTAINED',
+      'PENDING',
+      'RECEIVED',
+      'REJECTED',
+      'VERIFIED',
+    ],
+    DomainEnumType.warehouseInspectionVerdict: [
+      'ACCEPTED_FULL',
+      'ACCEPTED_WITH_DISCREPANCY',
+      'DAMAGE_CLAIM_PENDING',
+      'PENDING',
+      'REJECTED_QUARANTINED',
+    ],
+    DomainEnumType.dbHealthVerdict: [
+      'CRITICAL',
+      'DEGRADED',
+      'HEALTHY',
+    ],
+    DomainEnumType.alertSeverity: [
+      'CRITICAL',
+      'HIGH',
+      'INFO',
+      'WARNING',
+    ],
+    DomainEnumType.landedCostVarianceStatus: [
+      'ON_BUDGET',
+      'OVER_BUDGET',
+      'UNDER_BUDGET',
     ],
   };
 
@@ -349,6 +436,30 @@ class DomainEnums {
       'Not Applicable to Mode / لا تنطبق على نمط الشحن': 'NOT_APPLICABLE_TO_MODE',
       'Regulatory Exemption / إعفاء رسمي أو رقابي': 'REGULATORY_EXEMPTION',
       'Other / أخرى': 'OTHER',
+    },
+    DomainEnumType.stage: {
+      'Customs Broker Authorized (تفويض المخلص الجمركي)': 'CUSTOMS_BROKER_AUTHORIZED',
+      'Customs Duty Assessed (احتساب الرسوم الجمركية والمطالبة)': 'CUSTOMS_DUTY_ASSESSED',
+      'Customs Inspection & Sampling Completed (تم الكشف وسحب العينات)': 'CUSTOMS_INSPECTION_COMPLETED',
+      'Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)': 'CUSTOMS_RELEASED',
+      'Delivery Order Paid & Received (سداد إذن التسليم الملاحي)': 'DELIVERY_ORDER_PAID',
+      'Duty Paid (تم سداد الرسوم الجمركية بسداد)': 'DUTY_PAID',
+      'In Transit to Warehouse (الشحنة في الطريق للمخزن)': 'IN_TRANSIT_TO_WAREHOUSE',
+      'Lab Rejected (مرفوض معملياً)': 'LAB_REJECTED',
+      'Phase 1: Pre-Planning & Studies': 'PHASE_1',
+      'Phase 2: Approvals & ACID': 'PHASE_2',
+      'Phase 3: Booking & Doc Prep': 'PHASE_3',
+      'Phase 4: Digital & Banking': 'PHASE_4',
+      'Phase 5: Port Operations & Clearance': 'PHASE_5',
+      'Phase 6: Inbound & Final Closure': 'PHASE_6',
+      'Under Customs Clearance (تحت التخليص والكشف 46)': 'UNDER_CUSTOMS_CLEARANCE',
+      'Under-Bond Quarantine (سحب على عهدة)': 'UNDER_BOND_QUARANTINE',
+      'المرحلة الأولى: التخطيط والدراسات المسبقة': 'PHASE_1',
+      'المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي': 'PHASE_3',
+      'المرحلة الثانية: بداية الشحنة': 'PHASE_2',
+      'المرحلة الخامسة: عمليات الميناء والتخليص الجمركي': 'PHASE_5',
+      'المرحلة الرابعة: التوثيق الرقمي والاعتماد البنكي': 'PHASE_4',
+      'المرحلة السادسة: الاستلام المخزني والتسوية المالية': 'PHASE_6',
     },
   };
 

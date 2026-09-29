@@ -3,7 +3,7 @@ Pydantic Schemas for Smart Email Listener (INT-EMAIL-010)
 """
 
 from datetime import datetime, date
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -62,6 +62,8 @@ class InboundEmailLogResponse(BaseModel):
     task_id: Optional[int] = None
     notes: Optional[str] = None
     created_at: datetime
+    msg_code: Optional[str] = None  # system message code of ``notes`` (English render in ``notes``)
+    msg_params: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------
@@ -113,6 +115,8 @@ class EmailSettingsResponse(EmailSettingsBase):
     last_sync_at: Optional[datetime] = None
     last_sync_status: Optional[str] = None
     last_sync_message: Optional[str] = None
+    msg_code: Optional[str] = None  # system message code of ``last_sync_message``
+    msg_params: Optional[Dict[str, Any]] = None
     is_active: bool = True
     created_at: datetime
     updated_at: datetime

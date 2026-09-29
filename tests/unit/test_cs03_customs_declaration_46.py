@@ -123,7 +123,7 @@ def test_register_customs_declaration_46_service_success(db_session, sample_data
     assert record.customs_office_name == "Alexandria Port Customs"
     assert record.channel_type == "Red Channel"
     assert "GOEIC" in record.regulatory_bodies
-    assert "Food Safety Authority" in record.regulatory_bodies
+    assert "NFSA" in record.regulatory_bodies  # T3: legacy label normalized to its code
     assert record.mts_certificate_number == "MTS-2026-EG-44910"
     assert record.customs_tariff_items_count == 3
     assert record.status == "Under Customs Clearance"
@@ -162,7 +162,8 @@ def test_register_customs_declaration_46_service_success(db_session, sample_data
     assert downstream_task is not None
     assert downstream_task.status == "Pending"
     assert "CL-01" in downstream_task.title
-    assert "الكشف والمعاينة" in downstream_task.title
+    assert "inspection" in downstream_task.title
+    assert downstream_task.msg_code == "CC_TASK_INSPECTION"
 
     # 5. Verify Notification emitted
     notif = (

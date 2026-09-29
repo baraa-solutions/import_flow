@@ -181,7 +181,10 @@ class TestPL02NewImportFile:
         assert file.current_stage == "Phase 1: Import Planning & Feasibility"
         assert file.current_module == "BP-001 Receive Purchase Order & Planning"
         assert file.progress_percent == 15.0
-        assert "Evaluate Shipping Scenarios" in file.next_action
+        assert "Evaluate shipping scenarios" in file.next_action
+        assert file.next_action_code == "NA_EVALUATE_SCENARIOS_REQUEST_QUOTES"
+        assert file.current_step_code == "STEP_01"
+        assert file.current_phase_id == 1
 
     def test_pl02_lifecycle_board_and_dashboard_integration(self, db_session):
         """

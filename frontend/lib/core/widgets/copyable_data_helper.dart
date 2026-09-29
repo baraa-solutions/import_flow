@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../helpers/table_copy_helper.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../utils/bidi_text.dart';
 
 /// Central clipboard helper utility and reusable widgets for copying data
 /// across all screens in Sorour Logistics ERP.
@@ -14,7 +15,7 @@ class CopyHelper {
     String text, {
     String? customMessage,
   }) async {
-    final trimmed = text.trim();
+    final trimmed = stripBidiIsolates(text).trim();
     if (trimmed.isEmpty) return;
 
     await Clipboard.setData(ClipboardData(text: trimmed));

@@ -2,6 +2,7 @@
 Business Logic & Workflows for Operational & Daily Shipment Update Engine
 """
 
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from modules.shipment_updates.schemas import (
 import modules.shipment_updates.repository as repo
 import modules.shipment_updates.validators as val
 from modules.import_files.model import ImportFile
+
+logger = logging.getLogger(__name__)
 
 
 ALL_PHASES_DEFS = [
@@ -58,8 +61,9 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
             if old_phase and old_phase != import_file.current_module:
                 auto_close_completed_phase_tasks(db, import_file.import_file_id, old_phase)
             auto_generate_system_tasks_for_file(db, import_file)
-        except Exception:
-            pass
+        except Exception as exc:  # task generation must not block the update log itself
+            db.rollback()
+            logger.error("Shipment update: smart tasks of file %s not synced: %s", import_file.import_file_id, exc, exc_info=True)
 
     log_record = repo.create_update_log(db, schema, created_by=user_name)
     return log_record

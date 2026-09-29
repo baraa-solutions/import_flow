@@ -2,10 +2,11 @@
 Repository Layer for Import Files Master & Tracking Module
 """
 
+import re
 from typing import List, Optional
 from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 
 from modules.import_files.model import ImportFile
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -304,6 +305,12 @@ def soft_delete_import_file(db: Session, import_file_id: int) -> bool:
     return True
 
 
+def _parse_phase_number(phase: str) -> Optional[int]:
+    """'Phase 5' / 'PHASE_5' / '5' -> 5; anything else -> None (legacy text filter only)."""
+    match = re.fullmatch(r"(?:phase[\s_-]*)?(\d{1,2})", phase.strip(), re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
 def get_operational_dashboard_data(
     db: Session,
     phase: Optional[str] = None,
@@ -319,14 +326,23 @@ def get_operational_dashboard_data(
     query = db.query(ImportFile).filter(ImportFile.is_active == True)
 
     # 1. Phase Filter
+    # Coded rows match on current_phase_id; legacy rows (current_phase_id IS NULL) keep the text match.
     if phase and phase != "All":
         phase_str = str(phase).strip()
-        query = query.filter(
-            or_(
-                ImportFile.current_module.ilike(f"%{phase_str}%"),
-                ImportFile.current_stage.ilike(f"%{phase_str}%"),
-            )
+        legacy_match = or_(
+            ImportFile.current_module.ilike(f"%{phase_str}%"),
+            ImportFile.current_stage.ilike(f"%{phase_str}%"),
         )
+        phase_num = _parse_phase_number(phase_str)
+        if phase_num is None:
+            query = query.filter(legacy_match)
+        else:
+            query = query.filter(
+                or_(
+                    ImportFile.current_phase_id == phase_num,
+                    and_(ImportFile.current_phase_id.is_(None), legacy_match),
+                )
+            )
 
     # 2. Priority Filter
     if priority and priority != "All":
@@ -356,12 +372,21 @@ def get_operational_dashboard_data(
     shipment_count = len(shipments)
 
     # Calculate Phase distribution across all active files using lightweight column query
-    active_stages = db.query(ImportFile.current_module, ImportFile.current_stage).filter(ImportFile.is_active == True).all()
+    active_stages = (
+        db.query(ImportFile.current_phase_id, ImportFile.current_module, ImportFile.current_stage)
+        .filter(ImportFile.is_active == True)
+        .all()
+    )
     phase_counts = {f"Phase {i}": 0 for i in range(1, 11)}
-    for mod, stg in active_stages:
+    for phase_id, mod, stg in active_stages:
+        if phase_id is not None:
+            key = f"Phase {phase_id}"
+            if key in phase_counts:
+                phase_counts[key] += 1
+            continue
         stage_text = f"{mod or ''} {stg or ''}"
         for i in range(1, 11):
-            if f"Phase {i}" in stage_text:
+            if re.search(rf"Phase {i}(?!\d)", stage_text):
                 phase_counts[f"Phase {i}"] += 1
 
     # Dynamic Brokers List from Database

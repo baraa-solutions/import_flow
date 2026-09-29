@@ -187,7 +187,8 @@ def test_record_customs_inspection_sampling_service_success(db_session, sample_d
         .first()
     )
     assert notif is not None
-    assert "تم تسجيل الكشف والمعاينة" in notif.title
+    assert "Inspection & sampling recorded" in notif.title
+    assert notif.msg_code == "CC_INSPECTION_RECORDED"
 
 
 @pytest.mark.parametrize(

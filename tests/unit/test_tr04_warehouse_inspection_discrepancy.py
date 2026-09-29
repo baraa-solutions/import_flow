@@ -150,7 +150,8 @@ class TestWarehouseInspectionDiscrepancyTR04:
 
         # Assertions on Import File
         db_session.refresh(imp_file)
-        assert record.inspection_protocol_number in imp_file.current_stage
+        assert imp_file.current_stage_code == "DISCREPANCY_PROTOCOL_FILED"
+        assert imp_file.next_action_code == "NA_FOLLOW_COMPENSATION_LANDED_COST"
         assert "Discrepancy Protocol Filed" in imp_file.current_stage
         assert "CLO-01" in imp_file.next_action
         assert imp_file.progress_percent >= 99.0

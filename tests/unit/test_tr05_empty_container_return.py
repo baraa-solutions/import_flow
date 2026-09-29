@@ -153,10 +153,13 @@ class TestEmptyContainerReturnServiceAndAPI:
         assert res.containers_returned_count == 2
         assert res.tracking_status == "All Containers Returned"
         assert res.progress_percent >= 98.0
-        assert "Phase 9" in res.current_stage
+        assert res.current_stage == "Phase 6: Inbound & Final Closure"
 
         # Verify ImportFile DB state
         db_session.refresh(imp_file)
+        assert imp_file.current_phase_id == 6
+        assert imp_file.current_step_code == "STEP_20"
+        assert imp_file.next_action_code == "NA_CLO_SETTLE_FINAL_INVOICES"
         assert imp_file.empty_containers_return_status == "ALL_RETURNED"
         assert imp_file.empty_containers_eir_numbers == "EIR-2026-88001"
         assert imp_file.empty_containers_depot_name == "Alexandria Port Empty Depot Yard 4"

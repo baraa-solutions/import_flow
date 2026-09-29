@@ -10,6 +10,7 @@ import 'widgets/enterprise_table_column_picker_dialog.dart';
 import 'widgets/enterprise_table_header_toolbar.dart';
 import 'widgets/enterprise_table_pagination_bar.dart';
 import 'widgets/enterprise_table_shimmer_skeleton.dart';
+import '../../utils/bidi_text.dart';
 
 export 'models/enterprise_column.dart';
 export 'widgets/enterprise_table_column_picker_dialog.dart';
@@ -342,7 +343,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     }).toList();
 
     final tsvContent = '$headers\n${rows.join('\n')}';
-    await Clipboard.setData(ClipboardData(text: tsvContent));
+    await Clipboard.setData(ClipboardData(text: stripBidiIsolates(tsvContent)));
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

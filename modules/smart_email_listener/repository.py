@@ -2,6 +2,7 @@
 Repository for Inbound Email Logs & Smart Task Generation (INT-EMAIL-010)
 """
 
+import re
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from .model import InboundEmailLog, EmailSettings
 from .crypto import encrypt_email_password, is_encrypted_with_current_key
 from modules.import_files.model import ImportFile
 from modules.smart_tasks.model import SmartTask
+from modules.common.system_messages import SysMsg, msg, render_en
 
 
 def create_email_log(db: Session, data: dict, user: str = "SmartEmailListener") -> InboundEmailLog:
@@ -28,6 +30,8 @@ def create_email_log(db: Session, data: dict, user: str = "SmartEmailListener") 
         processing_status=data.get("processing_status", "Processed"),
         task_id=data.get("task_id"),
         notes=data.get("notes"),
+        msg_code=data.get("msg_code"),
+        msg_params=data.get("msg_params"),
         created_by=user,
     )
     db.add(log)
@@ -250,6 +254,17 @@ def update_import_file_eta(db: Session, import_file_id: int, new_eta: date) -> O
     return file
 
 
+_BRACKET_REF_RE = re.compile(r"\[([^\]]+)\]")
+
+
+def _reference_value(match_reason: Optional[str]) -> Optional[str]:
+    """The bracketed reference value of a match reason ("... [MSKU1234567]" -> "MSKU1234567")."""
+    if not match_reason:
+        return None
+    found = _BRACKET_REF_RE.search(match_reason)
+    return found.group(1).strip() if found else None
+
+
 def create_delivery_order_payment_task(
     db: Session,
     import_file: ImportFile,
@@ -257,7 +272,8 @@ def create_delivery_order_payment_task(
     eta_date: Optional[date] = None,
     match_reason: Optional[str] = None,
 ) -> SmartTask:
-    ref_display = bl_number if bl_number else (match_reason or import_file.import_file_code)
+    # Verbatim reference (B/L, ACID, PO, ... value) for the stored task text; match_reason is an HTTP message.
+    ref_display = bl_number or _reference_value(match_reason) or import_file.import_file_code
     
     # Check if a pending payment task already exists for this import file to avoid redundant duplication
     existing_task = (
@@ -277,12 +293,14 @@ def create_delivery_order_payment_task(
     task_code = f"TSK-ARV-{task_count:05d}"
     due_str = eta_date.isoformat() if eta_date else (date.today()).isoformat()
 
-    title = f"سداد مصاريف إذن التسليم للشحنة ({import_file.import_file_code})"
-    desc = (
-        f"تم رصد إشعار وصول / متابعة بريدية رسمية مرتبطة بـ [{ref_display}]. "
-        f"مطلوب المتابعة الفورية مع التوكيل الملاحي لسداد مصاريف إذن التسليم "
-        f"والعوائد المينائية قبل وصول السفينة المتوقع بتاريخ {due_str} لتفادي أي غرامات تأخير أو أرضيات."
+    task_msg = msg(
+        "EMAIL_TASK_DELIVERY_ORDER_PAYMENT",
+        import_file_code=import_file.import_file_code,
+        reference=ref_display,
+        eta_date=due_str,
     )
+    title = render_en(task_msg.code, task_msg.params, "title")
+    desc = render_en(task_msg.code, task_msg.params, "body")
 
     task = SmartTask(
         task_code=task_code,
@@ -298,7 +316,9 @@ def create_delivery_order_payment_task(
         due_date=due_str,
         reminder_date=due_str,
         status="Pending",
-        notes=f"تم التوليد التلقائي عبر المستمع الذكي للإيميلات استناداً إلى: {ref_display}",
+        notes=render_en(task_msg.code, task_msg.params, "note"),
+        msg_code=task_msg.code,
+        msg_params=task_msg.params,
         created_by="SmartEmailListener",
     )
     db.add(task)
@@ -376,13 +396,21 @@ def rotate_stored_email_passwords(db: Session) -> int:
 
 
 def update_email_settings_sync_status(
-    db: Session, status_str: str, message: str
+    db: Session, status_str: str, message: "str | SysMsg"
 ) -> Optional[EmailSettings]:
+    """``message`` is plain text (no code) or a ``SysMsg`` (English render in ``last_sync_message``)."""
     settings = db.query(EmailSettings).first()
     if settings:
         settings.last_sync_at = datetime.now(timezone.utc)
         settings.last_sync_status = status_str
-        settings.last_sync_message = message
+        if isinstance(message, SysMsg):
+            settings.last_sync_message = render_en(message.code, message.params, "body")
+            settings.msg_code = message.code
+            settings.msg_params = dict(message.params)
+        else:
+            settings.last_sync_message = message
+            settings.msg_code = None
+            settings.msg_params = None
         db.commit()
         db.refresh(settings)
     return settings
@@ -444,10 +472,15 @@ def batch_approve_and_route_tasks(
         else:
             task_count = db.query(SmartTask).count() + 1
             task_code = f"TSK-ARV-{task_count:05d}"
+            approved_msg = msg("EMAIL_TASK_APPROVED", import_file_code=file_code or "", user_name=user_name)
+            # The code describes the task only when the server wrote the title (no user text).
+            coded = not title and not description
             task = SmartTask(
                 task_code=task_code,
-                title=title or f"سداد مصاريف إذن التسليم ({file_code})",
-                description=description or "تم الاعتماد والتوجيه عبر مراجعة البريد الذكي.",
+                title=title or render_en(approved_msg.code, approved_msg.params, "title"),
+                description=description or render_en(approved_msg.code, approved_msg.params, "body"),
+                msg_code=approved_msg.code if coded else None,
+                msg_params=approved_msg.params if coded else None,
                 task_type="System Generated",
                 import_file_id=file_id,
                 import_file_code=file_code,
@@ -458,7 +491,7 @@ def batch_approve_and_route_tasks(
                 due_date=due_date or date.today().isoformat(),
                 reminder_date=due_date or date.today().isoformat(),
                 status="Pending",
-                notes=f"تم الاعتماد والتوجيه بواسطة المستخدم: {user_name}",
+                notes=render_en(approved_msg.code, approved_msg.params, "note"),
                 created_by=user_name,
             )
             db.add(task)

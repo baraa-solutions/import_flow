@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
 import '../models/notification_model.dart';
 import '../providers/notifications_provider.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class NotificationBellWidget extends ConsumerWidget {
   const NotificationBellWidget({super.key});
@@ -29,6 +30,7 @@ class NotificationBellWidget extends ConsumerWidget {
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final isAr = ref.watch(localeProvider).languageCode == 'ar';
+        final l10n = context.l10n;
 
         return PopupMenuButton<void>(
           tooltip: isAr ? 'إشعارات النظام والتنبيهات' : 'System Notifications & Alerts',
@@ -188,7 +190,7 @@ class NotificationBellWidget extends ConsumerWidget {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        n.title,
+                                        n.localizedTitle(l10n),
                                         style: TextStyle(
                                           fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
                                           fontSize: 12,
@@ -204,7 +206,7 @@ class NotificationBellWidget extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  n.message,
+                                  n.localizedMessage(l10n),
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,

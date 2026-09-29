@@ -36,6 +36,13 @@ HOLD_REASON = "HOLD_REASON"
 STAGE = "STAGE"
 PHASE_FOLLOW_UP_TASK = "PHASE_FOLLOW_UP_TASK"
 INSPECTION_YARD = "INSPECTION_YARD"
+CUSTOMS_CHANNEL = "CUSTOMS_CHANNEL"
+INSPECTION_RESULT = "INSPECTION_RESULT"
+REQUIREMENT_STATUS = "REQUIREMENT_STATUS"
+WAREHOUSE_INSPECTION_VERDICT = "WAREHOUSE_INSPECTION_VERDICT"
+DB_HEALTH_VERDICT = "DB_HEALTH_VERDICT"
+ALERT_SEVERITY = "ALERT_SEVERITY"
+LANDED_COST_VARIANCE_STATUS = "LANDED_COST_VARIANCE_STATUS"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -211,6 +218,53 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "WAREHOUSE_GRN_REVIEW": "Review cargo integrity, warehouse receiving and the GRN",
         "LANDED_COST_SETTLEMENT": "Settle the landed cost engine and allocate expenses",
         "ARCHIVE_REVIEW": "Review archiving conditions and close the historical file",
+    },
+    CUSTOMS_CHANNEL: {
+        "RED": "Red Channel",
+        "YELLOW": "Yellow Channel",
+        "GREEN": "Green Channel",
+    },
+    INSPECTION_RESULT: {
+        "CONFORMING": "Conforming",
+        "SHORTAGE": "Shortage",
+        "SURPLUS": "Surplus",
+        "DISCREPANCY": "Discrepancy",
+    },
+    REQUIREMENT_STATUS: {
+        "NOT_REQUIRED": "Not Required",
+        "PENDING": "Pending",
+        "APPLIED": "Applied",
+        "IN_PROGRESS": "In Progress",
+        "RECEIVED": "Received",
+        "OBTAINED": "Obtained",
+        "VERIFIED": "Verified",
+        "APPROVED": "Approved",
+        "COMPLETED": "Completed",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+    },
+    WAREHOUSE_INSPECTION_VERDICT: {
+        "PENDING": "Pending",
+        "ACCEPTED_FULL": "Accepted in full",
+        "ACCEPTED_WITH_DISCREPANCY": "Accepted with discrepancy",
+        "REJECTED_QUARANTINED": "Rejected / quarantined",
+        "DAMAGE_CLAIM_PENDING": "Damage claim pending",
+    },
+    DB_HEALTH_VERDICT: {
+        "HEALTHY": "Healthy",
+        "DEGRADED": "Degraded",
+        "CRITICAL": "Critical",
+    },
+    ALERT_SEVERITY: {
+        "INFO": "Info",
+        "WARNING": "Warning",
+        "HIGH": "High",
+        "CRITICAL": "Critical",
+    },
+    LANDED_COST_VARIANCE_STATUS: {
+        "UNDER_BUDGET": "Under budget",
+        "ON_BUDGET": "On budget",
+        "OVER_BUDGET": "Over budget",
     },
 }
 

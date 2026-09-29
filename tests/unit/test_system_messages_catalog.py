@@ -29,7 +29,11 @@ def test_contract_file_matches_catalog():
 def test_contract_shape():
     contract = sm.build_contract()
     assert len(contract) >= 200
+    meta = {k for k in contract if k.startswith("_")}
+    assert meta == {"_phases", "_param_rules"}
     for code, entry in contract.items():
+        if code in meta:
+            continue
         assert re.fullmatch(r"[A-Z][A-Z0-9_]+", code), code
         assert set(entry) == {"parts", "params"}
         assert entry["parts"] and all(p in sm.PARTS for p in entry["parts"])
@@ -69,6 +73,44 @@ def test_render_en_uses_english_labels_for_enum_params():
     assert rendered == "On hold: Temporary administrative hold"
     # a non-code value passes through
     assert sm.render_en("LC_STEP_ON_HOLD_CODED", {"reason_enum_hold_reason": "free"}, "note") == "On hold: free"
+
+
+def test_phases_metadata_matches_the_lifecycle_catalog():
+    from modules.lifecycle_board.service import PHASES_DEFINITION
+
+    assert sm.build_contract()["_phases"] == {str(p["phase_id"]): p["title_en"] for p in PHASES_DEFINITION}
+    assert sm.render_en("NA_RESUME_OPERATIONS", {"phase_id": 5}, "action") == (
+        "Resume operations at 5. Port Operations & Clearance"
+    )
+    assert sm.render_en("NA_RESUME_OPERATIONS", {"phase_id": 99}, "action") == "Resume operations at 99"
+
+
+def test_month_param_renders_the_english_month_name():
+    assert sm.render_en("GUIDE_SEASONAL_CONGESTION", {"month": 8}, "title") == "Seasonal shipment congestion in August"
+    assert sm.render_en("GUIDE_SEASONAL_CONGESTION", {"month": 13}, "title").endswith("in 13")
+    assert sm.render_en("GUIDE_SEASONAL_CONGESTION", {"month": "x"}, "title").endswith("in x")
+
+
+def test_enum_param_list_values_are_labelled_one_by_one():
+    body = sm.render_en(
+        "GUIDE_HS_LAB_INSPECTION", {"regulatory_bodies_enum_regulatory_body": "GOEIC,UNKNOWN_BODY"}, "body"
+    )
+    assert "(General Organization for Export & Import Control (GOEIC), UNKNOWN_BODY)" in body
+
+
+def test_numeric_params_follow_the_documented_rule():
+    rules = sm.build_contract()["_param_rules"]
+    assert rules["number_names"] == list(sm.NUMBER_PARAM_NAMES)
+    for name in ("free_gb", "markup_factor", "count", "avg_delay_days", "free_days", "accepted_qty",
+                 "total_shipment_count", "pending_days", "current_rate", "requested_amount", "variance_pct"):
+        assert sm.is_number_param(name), name
+    for name in ("import_file_code", "phase_id", "month", "days_pending", "total_shipments"):
+        assert not sm.is_number_param(name), name
+    for code in sm.CATALOG:  # the renamed params must not come back
+        assert not {"total_shipments", "days_pending", "containers", "phase_name", "stage"} & set(
+            sm.params_of(code)
+        ), code
+    assert "reference" not in sm.params_of("FA_BUDGET_APPROVED") + sm.params_of("FA_PAYMENT_REQUEST_APPROVED")
 
 
 def test_every_enum_param_names_a_known_enum_type():

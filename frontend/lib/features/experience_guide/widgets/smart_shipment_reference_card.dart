@@ -366,7 +366,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    e.title,
+                                    e.localizedTitle(l10n),
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.bold,
@@ -378,7 +378,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              e.content,
+                              e.localizedContent(l10n),
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.4,

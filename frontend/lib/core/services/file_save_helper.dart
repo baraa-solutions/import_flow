@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'web_file_saver.dart';
+import '../utils/bidi_text.dart';
 
 /// Central Unified File Save Service for Sorour Logistics ERP (Task I).
 /// 
@@ -440,7 +441,8 @@ class FileSaveHelper {
     bool addUtf8Bom = true,
     bool showNotification = true,
   }) async {
-    final rawString = addUtf8Bom ? '\uFEFF$textContent' : textContent;
+    final clean = stripBidiIsolates(textContent);
+    final rawString = addUtf8Bom ? '\uFEFF$clean' : clean;
     final bytes = utf8.encode(rawString);
     return saveBytes(
       context: context,

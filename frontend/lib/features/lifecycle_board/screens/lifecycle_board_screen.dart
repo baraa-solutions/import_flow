@@ -1766,12 +1766,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: s.notes ?? l10n.notesUnderFollowupFallback,
+                              value: s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
                               rowSummary: rowSummary,
                               child: Container(
                                 constraints: const BoxConstraints(maxWidth: 200),
                                 child: Text(
-                                  s.notes ?? l10n.notesUnderFollowupFallback,
+                                  s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
                                   style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

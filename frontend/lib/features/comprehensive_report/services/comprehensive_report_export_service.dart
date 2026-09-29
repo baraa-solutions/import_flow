@@ -41,9 +41,10 @@ class ComprehensiveReportExportService {
       sb.writeln('${l.compReportColBroker}: ${file.brokerName}');
     }
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final stageName = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isArabic);
-    final moduleName = DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic);
-    final nextAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isArabic);
+    final stageName = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isArabic);
+    final moduleName =
+        file.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic);
+    final nextAction = file.displayNextAction(l, forExport: true);
 
     sb.writeln('${l.compReportStatusLabel}: ${file.status}');
     sb.writeln('${l.compReportCurrentStageLabel}: $stageName');
@@ -790,9 +791,10 @@ class ComprehensiveReportExportService {
     final sStat = l.compReportSecStatus;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     addRow(sStat, l.compReportStatusLabel, file.status);
-    addRow(sStat, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isArabic));
-    addRow(sStat, l.compReportCurrentModuleLabel, DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic));
-    addRow(sStat, l.compReportNextActionLabel, DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isArabic));
+    addRow(sStat, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isArabic));
+    addRow(sStat, l.compReportCurrentModuleLabel,
+        file.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic));
+    addRow(sStat, l.compReportNextActionLabel, file.displayNextAction(l, forExport: true));
     addRow(sStat, l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%');
 
     // Clearance

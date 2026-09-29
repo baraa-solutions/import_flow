@@ -34,6 +34,8 @@ from .repository import (
 from .validators import validate_expense_invoice, validate_items_allocation_readiness
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 
 
 def actual_expense_bucket(category: Optional[str], party_type: Optional[str] = None) -> str:
@@ -212,7 +214,7 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
                 if total_duty > 0:
                     expenses_in.append({
                         "category": "Customs Duty",
-                        "description": f"ضرائب ورسوم جمركية — إقرار {clearance.declaration_46_no or clearance.clearance_code}",
+                        "description": f"Customs duties and taxes - declaration {clearance.declaration_46_no or clearance.clearance_code}",
                         "amount_egp": total_duty,
                         "amount_fx": 0.0,
                         "exchange_rate": 1.0,
@@ -220,12 +222,12 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
                         "allocation_rule": "Value-Based",
                         "is_seller_paid": False,
                         "payer": "Importer",
-                        "note": "تم جلبه تلقائياً من سجل التخليص الجمركي",
+                        "note": "Auto-fetched from the customs clearance record",
                     })
             if clearance and (clearance.lab_service_fees or 0) > 0:
                 expenses_in.append({
                     "category": "Clearance",
-                    "description": f"رسوم خدمات جمركية — {clearance.clearance_code}",
+                    "description": f"Customs service fees - {clearance.clearance_code}",
                     "amount_egp": float(clearance.lab_service_fees),
                     "amount_fx": 0.0,
                     "exchange_rate": 1.0,
@@ -233,7 +235,7 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
                     "allocation_rule": "Value-Based",
                     "is_seller_paid": False,
                     "payer": "Importer",
-                    "note": "رسوم الخدمات الجمركية — مجلوبة تلقائياً",
+                    "note": "Customs service fees - auto-fetched",
                 })
         except Exception as e:
             import logging
@@ -263,7 +265,7 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
                         "gross_weight_kg": float(li.gross_weight_kg or 0),
                         "cbm": float(li.total_cbm or 0),
                         "hs_code": li.hs_code or "",
-                        "note": "مجلوب تلقائياً من بنود أمر الشراء",
+                        "note": "Auto-fetched from the purchase order lines",
                     })
         except Exception as e:
             import logging
@@ -285,10 +287,13 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
 
     # Update Import File progress
     imp_file.current_module = "Phase 9 - Financial Settlement & Landed Cost Engine"
-    imp_file.current_stage = f"Landed Cost Calculated ({incoterm} - Code: {code})"
     if (imp_file.progress_percent or 0.0) < 95.0:
         imp_file.progress_percent = 95.0
-    imp_file.next_action = "Review Final Settlement & Perform File Closure (Phase 10)"
+    set_file_tracking(
+        imp_file,
+        stage_code="LANDED_COST_CALCULATED",
+        next_action=msg("NA_REVIEW_SETTLEMENT_AND_CLOSE"),
+    )
     db.commit()
 
     # Lifecycle advance: STEP_19 → STEP_20 (GRN complete → Landed Cost Settlement)
@@ -299,7 +304,9 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
             import_file_id=schema.import_file_id,
             completed_step_code="STEP_19",
             target_step_codes=["STEP_20"],
-            notes=f"تم إنشاء سجل التسوية المالية وحساب تكلفة الوصول الشاملة ({code}).",
+            notes_msg=msg("FS_SETTLEMENT_CREATED", settlement_code=code),
+            next_action_msg=msg("NA_REVIEW_SETTLEMENT_AND_CLOSE"),
+            stage_code="LANDED_COST_CALCULATED",
             assigned_user="Finance Manager",
         )
     except Exception as e:
@@ -1382,7 +1389,7 @@ def confirm_invoices_settlement_service(
     imp.progress_percent = max(current_progress, 98.5)
     imp.current_stage = "Stage 9: Landed Cost & File Closure"
     imp.current_module = "CLO-01 Final Settlement Invoices Aggregation"
-    imp.next_action = "احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)"
+    set_file_tracking(imp, next_action=msg("NA_CLO_CALCULATE_LANDED_COST"))
 
     # 2. Resolve SmartTask TSK-0901
     tasks_901 = db.query(SmartTask).filter(
@@ -1392,16 +1399,25 @@ def confirm_invoices_settlement_service(
     for t in tasks_901:
         t.status = "Completed"
         t.is_auto_closed = True
-        t.notes = f"تم اعتماد تسوية ومطابقة الفواتير بنجاح بواسطة {payload.settled_by} بتاريخ {today_str}"
+        t.notes = f"Invoices settlement and reconciliation approved by {payload.settled_by} on {today_str}"
 
     # 3. Create downstream SmartTask TSK-0902
     task_code_902 = f"TSK-0902-{imp.import_file_id}"
     existing_902 = db.query(SmartTask).filter(SmartTask.task_code == task_code_902).first()
     if not existing_902:
+        task_msg = msg(
+            "FS_TASK_CALCULATE_LANDED_COST",
+            import_file_code=imp.import_file_code,
+            invoice_count=len(invoices),
+            total_amount=round(float(total_settled_egp or 0.0), 2),
+        )
         new_task = SmartTask(
             task_code=task_code_902,
-            title="احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)",
-            description=f"تم الانتهاء من تجميع ومطابقة فواتير ومصروفات الشحنة {imp.import_file_code} بإجمالي {total_settled_egp:,.2f} جنيه بعدد {len(invoices)} فاتورة. المطلوب الآن تشغيل محرك Landed Cost وتوزيع التكاليف على الأصناف.",
+            title=render_en(task_msg.code, task_msg.params, "title"),
+            description=render_en(task_msg.code, task_msg.params, "body"),
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_20",
             task_type="System Generated",
             import_file_id=imp.import_file_id,
             import_file_code=imp.import_file_code,
@@ -1415,9 +1431,18 @@ def confirm_invoices_settlement_service(
         db.add(new_task)
 
     # 4. Dispatch central SystemNotification
+    notif_msg = msg(
+        "FS_INVOICES_SETTLED",
+        import_file_code=imp.import_file_code,
+        settled_by=payload.settled_by,
+        invoice_count=len(invoices),
+        total_amount=round(float(total_settled_egp or 0.0), 2),
+    )
     notif = SystemNotification(
-        title=f"تم اعتماد تسوية فواتير الشحنة {imp.import_file_code}",
-        message=f"قام {payload.settled_by} باعتماد ومطابقة كافة فواتير ومصروفات الشحنة {imp.import_file_code} بعدد {len(invoices)} فاتورة وبإجمالي {total_settled_egp:,.2f} جنيه تمهيداً لحساب تكلفة الوصول (CLO-02).",
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
         severity="INFO",
         category="FINANCIAL_SETTLEMENT",
         entity_type="ImportFile",
@@ -1441,7 +1466,7 @@ def confirm_invoices_settlement_service(
         current_stage=imp.current_stage,
         current_module=imp.current_module,
         next_task_code=task_code_902,
-        next_task_title="احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)",
+        next_task_title=render_en("FS_TASK_CALCULATE_LANDED_COST", {}, "title"),
         message=f"تم اعتماد تسوية فواتير الشحنة {imp.import_file_code} بنجاح بإجمالي {total_settled_egp:,.2f} جنيه مصري وإطلاق المهمة الذكية التالية.",
     )
 
@@ -1871,7 +1896,7 @@ def approve_actual_landed_cost_service(
     imp.progress_percent = max(current_progress, 99.0)
     imp.current_stage = "Stage 9: Landed Cost & File Closure"
     imp.current_module = "CLO-02 Actual Landed Cost Calculation"
-    imp.next_action = "إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)"
+    set_file_tracking(imp, next_action=msg("NA_CLO_EXPORT_DOSSIER"))
 
     # 3. Resolve SmartTask TSK-0902
     tasks_902 = db.query(SmartTask).filter(
@@ -1881,16 +1906,25 @@ def approve_actual_landed_cost_service(
     for t in tasks_902:
         t.status = "Completed"
         t.is_auto_closed = True
-        t.notes = f"تم اعتماد واحتساب تكلفة الوصول الفعلية بنجاح بواسطة {payload.approved_by} بتاريخ {today_str}"
+        t.notes = f"Actual landed cost calculated and approved by {payload.approved_by} on {today_str}"
 
     # 4. Dispatch downstream SmartTask TSK-0903
     task_code_903 = f"TSK-0903-{imp.import_file_id}"
     existing_903 = db.query(SmartTask).filter(SmartTask.task_code == task_code_903).first()
     if not existing_903:
+        task_msg = msg(
+            "FS_TASK_EXPORT_DOSSIER",
+            import_file_code=imp.import_file_code,
+            total_amount=round(float(calc.actual_total_landed_cost_egp or 0.0), 2),
+            variance_pct=round(float(calc.landed_variance_pct or 0.0), 1),
+        )
         new_task = SmartTask(
             task_code=task_code_903,
-            title="إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)",
-            description=f"تم اعتماد واحتساب تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه ومطابقة الانحراف بنسبة {calc.landed_variance_pct:+.1f}%. المطلوب الآن تصدير الملف الشامل وحزم المستندات PDF/Excel.",
+            title=render_en(task_msg.code, task_msg.params, "title"),
+            description=render_en(task_msg.code, task_msg.params, "body"),
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_21",
             task_type="System Generated",
             import_file_id=imp.import_file_id,
             import_file_code=imp.import_file_code,
@@ -1904,9 +1938,20 @@ def approve_actual_landed_cost_service(
         db.add(new_task)
 
     # 5. Dispatch central SystemNotification
+    notif_msg = msg(
+        "FS_LANDED_COST_APPROVED",
+        import_file_code=imp.import_file_code,
+        approved_by=payload.approved_by,
+        total_amount=round(float(calc.actual_total_landed_cost_egp or 0.0), 2),
+        markup_factor=round(float(calc.actual_markup_factor or 0.0), 3),
+        variance_pct=round(float(calc.landed_variance_pct or 0.0), 1),
+        variance_status_enum_landed_cost_variance_status=calc.variance_status,
+    )
     notif = SystemNotification(
-        title=f"تم اعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code}",
-        message=f"قام {payload.approved_by} باعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه مصري (معامل زيادة {calc.actual_markup_factor:.3f}x، انحراف {calc.landed_variance_pct:+.1f}% - {calc.variance_status_ar}).",
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
         severity="INFO",
         category="FINANCIAL_SETTLEMENT",
         entity_type="ImportFile",
@@ -1923,14 +1968,15 @@ def approve_actual_landed_cost_service(
             import_file_id=imp.import_file_id,
             completed_step_code="STEP_20",
             target_step_codes=["STEP_21"],
-            notes=f"تم اعتماد تكلفة الوصول الفعلية والانحراف ({settlement.settlement_code}).",
+            notes_msg=msg("FS_LANDED_COST_APPROVED", settlement_code=settlement.settlement_code),
+            next_action_msg=msg("NA_CLO_EXPORT_DOSSIER"),
             assigned_user=payload.approved_by,
         )
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("Lifecycle advance STEP_20->STEP_21 notice: %s", e)
 
-    imp.next_action = "إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)"
+    set_file_tracking(imp, next_action=msg("NA_CLO_EXPORT_DOSSIER"))
     db.commit()
     db.refresh(imp)
     db.refresh(settlement)
@@ -1951,7 +1997,7 @@ def approve_actual_landed_cost_service(
         current_stage=imp.current_stage,
         current_module=imp.current_module,
         next_task_code=task_code_903,
-        next_task_title="إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)",
+        next_task_title=render_en("FS_TASK_EXPORT_DOSSIER", {}, "title"),
         message=f"تم اعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بنجاح بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه وإطلاق مهمة الملف الشامل.",
     )
 

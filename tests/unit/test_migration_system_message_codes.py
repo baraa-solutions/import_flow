@@ -1,5 +1,6 @@
 """
-Alembic b7c1d2e3f4a5 (system message codes): additive, defensive columns + indexes.
+Alembic b7c1d2e3f4a5 (system message codes) + c8d3e4f5a6b7 (email listener codes): additive, defensive
+columns + indexes.
 
 - BEHIND DB at f7a1c3e5b9d2 without the columns: startup upgrade adds them through Alembic.
 - UNSTAMPED legacy DB: startup step 4b adds the columns and 4c their indexes, then stamps head.
@@ -20,7 +21,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "b7c1d2e3f4a5"
+HEAD = "c8d3e4f5a6b7"
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
@@ -31,6 +32,8 @@ NEW_COLUMNS = {
         "next_action_code", "next_action_params", "hold_reason_code",
     ],
     "guide_entries": ["msg_code", "msg_params"],
+    "inbound_email_logs": ["msg_code", "msg_params"],
+    "email_settings": ["msg_code", "msg_params"],
 }
 NEW_INDEXES = {"idx_smart_tasks_step_code": "smart_tasks", "idx_import_files_current_phase_id": "import_files"}
 
@@ -110,7 +113,7 @@ def _startup(db_file: Path, monkeypatch):
         db_safety.clear_maintenance_mode()
 
 
-def test_head_is_b7c1():
+def test_head_is_c8d3():
     assert migration_runner.get_head_revision() == HEAD
 
 

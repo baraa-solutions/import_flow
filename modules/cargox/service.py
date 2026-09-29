@@ -26,6 +26,8 @@ from .validators import CargoXValidators
 from ..integrations.cargox_client import CargoXIntegrationClient
 from ..integrations.pki_signer import PKISignerService
 from ..import_files.model import ImportFile
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 from .city_port_resolver import (
     resolve_city_code,
     resolve_port_display_name,
@@ -271,9 +273,7 @@ class CargoXService:
                 imp_file.cargox_envelope_code = envelope.envelope_code
                 imp_file.cargox_envelope_status = envelope.status
                 imp_file.cargox_transferred_at = envelope.transferred_to_customs_at
-                imp_file.current_module = "STEP_10 منصة النقل الرقمي CargoX / CargoX Sealed & Transferred"
-                imp_file.current_stage = "Phase 5 - Sailing & CargoX"
-                imp_file.next_action = "استلام وتوثيق أصول المستندات البنكية (SH-04)"
+                set_file_tracking(imp_file, step_code="STEP_10", next_action=msg("NA_SH04_COLLECT_ORIGINALS"))
                 current_prog = imp_file.progress_percent or 0.0
                 if current_prog < 70.0:
                     imp_file.progress_percent = 70.0
@@ -305,12 +305,21 @@ class CargoXService:
                 due_dt = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%d")
                 file_label = imp_file.import_file_code if imp_file else (envelope.import_file_code or "")
                 task_code = f"TASK-{uuid.uuid4().hex[:8].upper()}"
+                task_msg = msg(
+                    "CGX_TASK_COLLECT_ORIGINALS",
+                    import_file_code=file_label,
+                    envelope_code=envelope.envelope_code,
+                    receipt_no=envelope.customs_confirmation_receipt,
+                )
                 downstream_task = SmartTask(
                     task_code=task_code,
                     import_file_id=envelope.import_file_id,
                     import_file_code=file_label,
-                    title=f"استلام وتوثيق أصول المستندات البنكية للشحنة (SH-04) — {file_label}".strip(),
-                    description=f"تم إغلاق وختم مظروف CargoX ({envelope.envelope_code}) وإرساله للجمارك (إيصال: {envelope.customs_confirmation_receipt}). يرجى استلام وتوثيق أصول المستندات البنكية لتجهيز الإقرار 46 ك.م.",
+                    title=render_en(task_msg.code, task_msg.params, "title").strip(),
+                    description=render_en(task_msg.code, task_msg.params, "body"),
+                    msg_code=task_msg.code,
+                    msg_params=task_msg.params,
+                    step_code="STEP_11",
                     task_type="ORIGINAL_DOCS_RECEIPT",
                     priority="High",
                     status="Pending",
@@ -325,9 +334,17 @@ class CargoXService:
             # 4. Emit SystemNotification
             try:
                 from modules.notifications.model import SystemNotification
+                notif_msg = msg(
+                    "CGX_ENVELOPE_SEALED",
+                    envelope_code=envelope.envelope_code,
+                    acid_number=envelope.acid_number,
+                    receipt_no=envelope.customs_confirmation_receipt,
+                )
                 notif = SystemNotification(
-                    title=f"تم اعتماد وختم مظروف CargoX وتحويله للجمارك — {envelope.envelope_code}",
-                    message=f"تم إغلاق وتوثيق مظروف CargoX رقم ({envelope.envelope_code}) بالرقم التعريفي ACID ({envelope.acid_number}) والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (إيصال: {envelope.customs_confirmation_receipt}).",
+                    title=render_en(notif_msg.code, notif_msg.params, "title"),
+                    message=render_en(notif_msg.code, notif_msg.params, "body"),
+                    msg_code=notif_msg.code,
+                    msg_params=notif_msg.params,
                     category="STAGE_PROGRESSION",
                     severity="INFO",
                     entity_type="ImportFile",
@@ -364,7 +381,7 @@ class CargoXService:
                         customs_reviewed_by=updated_by,
                         customs_reviewed_at=datetime.now(timezone.utc),
                         overall_status="Approved for Clearance",
-                        commercial_notes=f"تم ختم المظروف إلكترونياً برقم إيصال الجمارك {envelope.customs_confirmation_receipt}",
+                        commercial_notes=f"Envelope sealed electronically with customs receipt no. {envelope.customs_confirmation_receipt}",
                     )
                     db.add(approval_rec)
                 else:
@@ -372,7 +389,7 @@ class CargoXService:
                     approval_rec.customs_status = "Approved"
                     approval_rec.overall_status = "Approved for Clearance"
                     approval_rec.document_reference_no = envelope.envelope_code
-                    approval_rec.commercial_notes = f"تم ختم المظروف إلكترونياً برقم إيصال الجمارك {envelope.customs_confirmation_receipt}"
+                    approval_rec.commercial_notes = f"Envelope sealed electronically with customs receipt no. {envelope.customs_confirmation_receipt}"
             except Exception as ex_appr:
                 logger.warning(f"Error updating CustomsDocumentApproval for CargoX: {ex_appr}")
 
@@ -384,7 +401,8 @@ class CargoXService:
                     import_file_id=envelope.import_file_id,
                     completed_step_code="STEP_10",
                     target_step_codes=["STEP_11"],
-                    notes=f"تم إغلاق مظروف CargoX ({envelope.envelope_code}) وتحويله رسمياً لمصلحة الجمارك المصرية. الانتقال إلى مرحلة تحصيل أصول المستندات.",
+                    notes_msg=msg("CGX_ENVELOPE_SEALED", envelope_code=envelope.envelope_code),
+                    next_action_msg=msg("NA_SH04_COLLECT_ORIGINALS"),
                     assigned_user=updated_by,
                 )
             except Exception as ex_lc:

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../../features/notifications/models/notification_model.dart';
 import '../../features/notifications/providers/notifications_provider.dart';
+import '../localization/app_localizations.dart';
 
 /// بانر تنبيهات الحالات الحرجة — يظهر تلقائياً أعلى رادار اللوجستيات
 /// عند وجود إشعارات CRITICAL غير مقروءة
@@ -20,7 +21,8 @@ class CriticalAlertBanner extends ConsumerWidget {
             .toList();
         if (criticals.isEmpty) return const SizedBox.shrink();
 
-        final preview = criticals.take(2).map((n) => n.title).join('  |  ');
+        final l10n = context.l10n;
+        final preview = criticals.take(2).map((n) => n.localizedTitle(l10n)).join('  |  ');
         return Material(
           color: Colors.transparent,
           child: Container(
@@ -209,7 +211,7 @@ class _AlertCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  alert.title,
+                  alert.localizedTitle(context.l10n),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -229,7 +231,7 @@ class _AlertCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            alert.message,
+            alert.localizedMessage(context.l10n),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 4),
