@@ -13,7 +13,8 @@ Three inputs, any combination:
   --iss PATH   statically check an Inno Setup script:
                  - no [Files] source/destination names data or secrets; wildcard sources exclude them
                  - [UninstallDelete] must not touch data; [InstallDelete] may ONLY remove the legacy
-                   destructive scripts by exact name ({app}\\reset_clean_production_db.py, ...)
+                   destructive scripts and the old script launchers by exact name
+                   ({app}\\reset_clean_production_db.py, {app}\\Launch_Sorour_Logistics.vbs, ...)
                  - [Code] may only delete/rename under {tmp} (DeleteFile/DelTree/RemoveDir/RenameFile/
                    DelayDeleteFile), may only write (CopyFile/FileCopy/RenameFile/SaveString(s)ToFile)
                    under {tmp} or {app}\\backups\\pre_install_*, and must not Exec/ShellExec a command that
@@ -82,7 +83,14 @@ DESTRUCTIVE_SCRIPTS: frozenset[str] = frozenset(
 LEGACY_SCRIPTS_TO_REMOVE: frozenset[str] = frozenset(
     {"reset_clean_production_db.py", "clean_and_isolate_databases.py", "sync_to_production.py", "seed.py"}
 )
-ALLOWED_INSTALL_DELETE_NAMES: frozenset[str] = frozenset("{app}\\" + name for name in LEGACY_SCRIPTS_TO_REMOVE)
+# Old script launchers: they ran `taskkill` on every netstat line containing :28080, which also matched the
+# running frontend.exe's connections and closed the open app. Removed by exact name, never shipped again.
+LEGACY_LAUNCHERS_TO_REMOVE: frozenset[str] = frozenset(
+    {"Launch_Sorour_Logistics.vbs", "Launch_ImportFlow.vbs", "Sorour_Logistics_App.bat"}
+)
+ALLOWED_INSTALL_DELETE_NAMES: frozenset[str] = frozenset(
+    "{app}\\" + name.lower() for name in LEGACY_SCRIPTS_TO_REMOVE | LEGACY_LAUNCHERS_TO_REMOVE
+)
 
 # Pascal support functions that delete or move files/folders.
 CODE_DELETE_FUNCTIONS: tuple[str, ...] = ("DelTree", "DeleteFile", "DelayDeleteFile", "RemoveDir", "RenameFile")
@@ -305,7 +313,7 @@ def check_iss_text(text: str, label: str = "installer") -> List[Violation]:
                 and entry.get("type", "").lower() == "files"
                 and target.strip().lower().replace("/", "\\") in ALLOWED_INSTALL_DELETE_NAMES
             ):
-                continue  # removes a legacy destructive script left in {app} by old installers
+                continue  # removes a legacy destructive script / script launcher left in {app}
             name = _last_component(target).lower()
             path_lower = target.lower().replace("/", "\\")
             touches_data = (

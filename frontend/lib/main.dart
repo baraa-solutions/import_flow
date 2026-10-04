@@ -13,6 +13,7 @@ import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
 import 'core/providers/workspace_tabs_provider.dart';
+import 'core/services/app_window_close.dart';
 import 'core/services/backend_launcher.dart';
 import 'core/services/launcher_log.dart';
 import 'core/theme/app_theme.dart';
@@ -269,6 +270,8 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
     super.dispose();
   }
 
+  bool _closing = false;
+
   @override
   void onWindowClose() async {
     if (!kIsWeb && Platform.isWindows) {
@@ -290,39 +293,30 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
         }
       } catch (_) {}
 
-      // 1. Auto-backup dev DB on every close (5s timeout, silent)
-      try {
-        final dio = ref.read(dioProvider);
-        await dio
+      if (_closing) return; // close() below emits "close" once more
+      _closing = true;
+
+      await runAppCloseSequence(windowManager, steps: [
+        // 1. Auto-backup dev DB on every close (5s timeout, silent)
+        () => ref
+            .read(dioProvider)
             .post(
               '${ApiConstants.productionSync}/backup',
               queryParameters: {'target': 'dev'},
             )
-            .timeout(const Duration(seconds: 5))
-            .catchError(
-                (_) => Response(requestOptions: RequestOptions(path: '')));
-      } catch (_) {}
-
-      // 2. Graceful backend shutdown
-      try {
-        final dio = ref.read(dioProvider);
-        await dio
+            .timeout(const Duration(seconds: 5)),
+        // 2. Graceful backend shutdown
+        () => ref
+            .read(dioProvider)
             .post('${ApiConstants.serverUrl}/shutdown')
-            .timeout(const Duration(milliseconds: 400))
-            .catchError(
-                (_) => Response(requestOptions: RequestOptions(path: '')));
-      } catch (_) {}
-
-      // 3. Terminate OUR backend.exe (matched by full path; never another
-      //    install's backend, no console child process).
-      try {
-        await ref
+            .timeout(const Duration(milliseconds: 400)),
+        // 3. Terminate OUR backend.exe (matched by full path; never another
+        //    install's backend, no console child process).
+        () => ref
             .read(backendLauncherProvider)
             .killOwnBackend()
-            .timeout(const Duration(seconds: 3));
-      } catch (_) {}
-
-      await windowManager.destroy();
+            .timeout(const Duration(seconds: 3)),
+      ]);
     }
   }
 
