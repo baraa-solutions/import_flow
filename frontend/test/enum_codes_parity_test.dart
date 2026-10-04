@@ -32,6 +32,7 @@ const _typeMap = <String, String>{
   'CUSTOMS_CATEGORY': DomainEnumType.customsCategory,
   'VALUE_PLACEHOLDER': DomainEnumType.valuePlaceholder,
   'MEASURE_UNIT': DomainEnumType.measureUnit,
+  'DRAFT_BL_FIELD': DomainEnumType.draftBlField,
 };
 
 /// Backend-only types that the Flutter UI does not pick from a list.

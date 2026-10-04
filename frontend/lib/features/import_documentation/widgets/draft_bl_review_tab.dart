@@ -475,6 +475,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         'has_blocking_mismatch': _comparisonResult!.hasBlockingMismatch,
         'open_discrepancies_count': _comparisonResult!.openDiscrepanciesCount,
         'blocking_reasons': _comparisonResult!.blockingReasons,
+        'blocking_reasons_coded': _comparisonResult!.blockingReasonsCoded,
         'status': isDraft ? 'DRAFT' : 'APPROVED',
         'is_draft': isDraft,
         'correction_request_letter': _comparisonResult!.correctionRequestLetter,
@@ -2137,7 +2138,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // ===========================================================================
   Widget _buildStage4DualApprovalView(List<dynamic> importFiles) {
     final hasBlocking = _comparisonResult?.hasBlockingMismatch ?? false;
-    final reasons = _comparisonResult?.blockingReasons ?? [];
+    final reasons = _comparisonResult == null
+        ? <String>[]
+        : displayBlockingReasons(context.l10n, _comparisonResult!.blockingReasons, _comparisonResult!.blockingReasonsCoded);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

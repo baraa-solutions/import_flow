@@ -193,6 +193,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'DOC_CUSTOMS_APPROVAL_GRANTED': {
     'note': 'اعتماد الموافقة الجمركية على الأوراق والمستندات رسمياً بالجلسة ({session_code}) ونقل الشحنة إلى المرحلة الرابعة (منصة CargoX وتحصيل الأصول).',
   },
+  'DOC_DRAFT_BLOCKING_FIELD_EMPTY': {
+    'reason': 'حقل حرج فارغ: {field_enum_draft_bl_field}',
+  },
+  'DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH': {
+    'reason': 'اختلاف حرج في {field_enum_draft_bl_field}',
+  },
   'DOC_DRAFT_BL_REVIEWED': {
     'title': 'اكتمال المراجعة المزدوجة لمسودة بوليصة الشحن: {import_file_code} (SH-02)',
     'body': 'تمت مطابقة واعتماد مسودة بوليصة الشحن ({draft_bl_number}) لملف الشحنة ({import_file_code}) بنجاح والتأكد من تطابقها الكامل مع أمر الشراء والفاتورة التجارية. تم تجهيز الملف لمرحلة CargoX (SH-03).',

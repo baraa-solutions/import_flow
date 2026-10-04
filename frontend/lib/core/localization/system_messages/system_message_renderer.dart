@@ -218,6 +218,7 @@ class SystemMessageRenderer {
 
   /// Backend enum type (lower snake of docs/enum_codes.json keys) -> Flutter type.
   static const Map<String, String> _enumTypes = {
+    'draft_bl_field': DomainEnumType.draftBlField,
     'release_type': DomainEnumType.releaseType,
     'payment_method': DomainEnumType.paymentMethod,
     'duty_bank': DomainEnumType.dutyBank,

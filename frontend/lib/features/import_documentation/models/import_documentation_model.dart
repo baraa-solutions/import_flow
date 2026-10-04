@@ -1,6 +1,7 @@
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/localization/system_messages/system_message_renderer.dart';
+import '../../../core/utils/bidi_text.dart';
 
 class AcidDiscrepancyItem {
   final String field;
@@ -1121,6 +1122,36 @@ class RevisionReportItemModel {
   };
 }
 
+/// Parses `blocking_reasons_coded`; null when absent (old rows).
+List<Map<String, dynamic>>? parseBlockingReasonsCoded(dynamic raw) {
+  if (raw is! List) return null;
+  return raw.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+}
+
+/// Blocking reasons in the user's language: the coded list when present (and every
+/// entry renders), else the stored English text. [forExport] strips bidi isolates.
+List<String> displayBlockingReasons(
+  AppLocalizations l10n,
+  List<String> stored,
+  List<Map<String, dynamic>>? coded, {
+  bool forExport = false,
+}) {
+  var out = stored;
+  if (coded != null && coded.isNotEmpty) {
+    out = [
+      for (var i = 0; i < coded.length; i++)
+        SystemMessageRenderer.render(
+          code: coded[i]['code']?.toString(),
+          params: (coded[i]['params'] as Map?)?.cast<String, dynamic>(),
+          part: SystemMessagePart.reason,
+          l10n: l10n,
+          fallback: i < stored.length ? stored[i] : '',
+        ),
+    ];
+  }
+  return forExport ? out.map(stripBidiIsolates).toList() : out;
+}
+
 class DraftBLComparisonResultModel {
   final int importFileId;
   final String stage;
@@ -1133,6 +1164,8 @@ class DraftBLComparisonResultModel {
   final bool hasBlockingMismatch;
   final int openDiscrepanciesCount;
   final List<String> blockingReasons;
+  /// `[{code, params}]` twin of [blockingReasons] (null on old rows).
+  final List<Map<String, dynamic>>? blockingReasonsCoded;
   final String status;
   final String correctionRequestLetter;
 
@@ -1148,6 +1181,7 @@ class DraftBLComparisonResultModel {
     required this.hasBlockingMismatch,
     this.openDiscrepanciesCount = 0,
     required this.blockingReasons,
+    this.blockingReasonsCoded,
     required this.status,
     required this.correctionRequestLetter,
   });
@@ -1169,6 +1203,7 @@ class DraftBLComparisonResultModel {
       hasBlockingMismatch: json['has_blocking_mismatch'] ?? false,
       openDiscrepanciesCount: json['open_discrepancies_count'] ?? 0,
       blockingReasons: rawReasons.map((r) => r.toString()).toList(),
+      blockingReasonsCoded: parseBlockingReasonsCoded(json['blocking_reasons_coded']),
       status: json['status'] ?? 'Draft',
       correctionRequestLetter: json['correction_request_letter'] ?? '',
     );
@@ -1186,6 +1221,7 @@ class DraftBLComparisonResultModel {
     'has_blocking_mismatch': hasBlockingMismatch,
     'open_discrepancies_count': openDiscrepanciesCount,
     'blocking_reasons': blockingReasons,
+    'blocking_reasons_coded': blockingReasonsCoded,
     'status': status,
     'correction_request_letter': correctionRequestLetter,
   };
@@ -1224,6 +1260,8 @@ class DraftBLReviewModel {
   final bool hasBlockingMismatch;
   final int openDiscrepanciesCount;
   final List<String> blockingReasons;
+  /// `[{code, params}]` twin of [blockingReasons] (null on old rows).
+  final List<Map<String, dynamic>>? blockingReasonsCoded;
   final String importerApprovalStatus;
   final String? importerApprovedBy;
   final String? importerApprovalDate;
@@ -1274,6 +1312,7 @@ class DraftBLReviewModel {
     required this.hasBlockingMismatch,
     this.openDiscrepanciesCount = 0,
     required this.blockingReasons,
+    this.blockingReasonsCoded,
     this.importerApprovalStatus = 'Pending',
     this.importerApprovedBy,
     this.importerApprovalDate,
@@ -1332,6 +1371,7 @@ class DraftBLReviewModel {
       hasBlockingMismatch: json['has_blocking_mismatch'] ?? false,
       openDiscrepanciesCount: json['open_discrepancies_count'] ?? 0,
       blockingReasons: rawReasons.map((r) => r.toString()).toList(),
+      blockingReasonsCoded: parseBlockingReasonsCoded(json['blocking_reasons_coded']),
       importerApprovalStatus: json['importer_approval_status'] ?? 'Pending',
       importerApprovedBy: json['importer_approved_by'],
       importerApprovalDate: json['importer_approval_date']?.toString(),
@@ -1384,6 +1424,7 @@ class DraftBLReviewModel {
     'has_blocking_mismatch': hasBlockingMismatch,
     'open_discrepancies_count': openDiscrepanciesCount,
     'blocking_reasons': blockingReasons,
+    'blocking_reasons_coded': blockingReasonsCoded,
     'importer_approval_status': importerApprovalStatus,
     'importer_approved_by': importerApprovedBy,
     'importer_approval_date': importerApprovalDate,

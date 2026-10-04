@@ -193,6 +193,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_CUSTOMS_APPROVAL_GRANTED': {
     'note': 'Customs approval of the documents granted in session {session_code}; shipment moved to phase 4 (CargoX and originals collection).',
   },
+  'DOC_DRAFT_BLOCKING_FIELD_EMPTY': {
+    'reason': 'Critical field is empty: {field_enum_draft_bl_field}',
+  },
+  'DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH': {
+    'reason': 'Critical mismatch in {field_enum_draft_bl_field}',
+  },
   'DOC_DRAFT_BL_REVIEWED': {
     'title': 'Dual review of the draft B/L completed: {import_file_code} (SH-02)',
     'body': 'Draft B/L {draft_bl_number} for {import_file_code} matched and approved against the purchase order and commercial invoice. The file is ready for CargoX (SH-03).',

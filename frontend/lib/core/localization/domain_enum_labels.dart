@@ -44,6 +44,8 @@ class DomainEnumType {
   static const valuePlaceholder = 'value_placeholder';
   /// Unit of a measured comparison value (`structured_values`).
   static const measureUnit = 'measure_unit';
+  /// Draft B/L comparison-matrix field (blocking-reason params).
+  static const draftBlField = 'draft_bl_field';
 }
 
 class DomainEnums {
@@ -255,6 +257,28 @@ class DomainEnums {
       'ON_BUDGET',
       'OVER_BUDGET',
       'UNDER_BUDGET',
+    ],
+    DomainEnumType.draftBlField: [
+      'SHIPPER',
+      'CONSIGNEE',
+      'NOTIFY_PARTY',
+      'VESSEL_NAME',
+      'VOYAGE_NUMBER',
+      'POL',
+      'POD',
+      'FREIGHT_TERMS',
+      'PLACE_OF_DELIVERY',
+      'BOOKING_NO',
+      'ACID_NUMBER',
+      'IMPORTER_TAX_ID',
+      'SHIPPER_REG_ID',
+      'SHIPPING_MODE',
+      'CONTAINER_SUMMARY',
+      'GOODS_DESCRIPTION',
+      'TOTAL_GROSS_WEIGHT_KG',
+      'TOTAL_NET_WEIGHT_KG',
+      'CBM',
+      'QTY_PKG',
     ],
     DomainEnumType.customsCategory: [
       'AUTOMOTIVE',
