@@ -44,6 +44,7 @@ import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class PurchaseOrdersScreen extends ConsumerStatefulWidget {
   const PurchaseOrdersScreen({super.key});
 
@@ -875,7 +876,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 if (po.poReference != null && po.poReference!.isNotEmpty && po.poReference != po.poNumber)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
+                                    child: LtrText(
                                       po.poNumber,
                                       style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
                                       maxLines: 1,
@@ -923,8 +924,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ),
                               if (fileCode.isNotEmpty && fileCode != fileName)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 2, right: 4, left: 4),
-                                  child: Text(
+                                  padding: const EdgeInsetsDirectional.only(top: 2, end: 4, start: 4),
+                                  child: LtrText(
                                     fileCode,
                                     style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                                     overflow: TextOverflow.ellipsis,
@@ -1621,7 +1622,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       const SizedBox(height: 4),
                                       ...(isArabic ? reconciliation.discrepancySummaryList : (reconciliation.discrepancySummaryListEn.isNotEmpty ? reconciliation.discrepancySummaryListEn : reconciliation.discrepancySummaryList)).map(
                                         (d) => Padding(
-                                          padding: const EdgeInsets.only(top: 2, left: 24),
+                                          padding: const EdgeInsetsDirectional.only(top: 2, start: 24),
                                           child: Text('• $d', style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade100 : Colors.brown)),
                                         ),
                                       ),
@@ -1680,7 +1681,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         ),
                                       ],
                                     ),
-                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsets.only(top: 4, left: 24), child: Text('• $e', style: TextStyle(fontSize: 12, color: isDark ? Colors.red.shade200 : Colors.red)))),
+                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsetsDirectional.only(top: 4, start: 24), child: Text('• $e', style: TextStyle(fontSize: 12, color: isDark ? Colors.red.shade200 : Colors.red)))),
                                   ],
                                 ),
                               )
@@ -1937,7 +1938,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                         ],
                                                       ),
                                                     )
-                                                  : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                  : LtrText(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                             ),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -4279,7 +4280,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           ),
                           if (po.displayName != po.poNumber) ...[
                             const SizedBox(height: 2),
-                            Text(
+                            LtrText(
                               po.poNumber,
                               style: TextStyle(
                                 fontSize: 11,
@@ -4609,7 +4610,7 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                                         ),
                                         if (po.displayName != po.poNumber) ...[
                                           const SizedBox(width: 8),
-                                          Text(
+                                          LtrText(
                                             po.poNumber,
                                             style: TextStyle(
                                               fontSize: 11,

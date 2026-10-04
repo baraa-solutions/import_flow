@@ -6,6 +6,7 @@ import '../../demurrage_detention/models/demurrage_model.dart';
 import '../../demurrage_detention/providers/demurrage_provider.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ContainerDemurrageRadarCard extends ConsumerWidget {
   const ContainerDemurrageRadarCard({super.key});
 
@@ -348,7 +349,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               const Icon(Icons.inventory_2_rounded, size: 16, color: AppTheme.cobalt),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
+                child: LtrText(
                   item.containerNumber,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   overflow: TextOverflow.ellipsis,

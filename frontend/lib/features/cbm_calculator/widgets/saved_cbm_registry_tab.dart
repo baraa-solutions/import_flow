@@ -323,7 +323,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           return _buildMobileCBMCardList(context, state.calculations);
                         }
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                           child: Card(
                             elevation: 2,
                             color: isDark ? AppTheme.darkCardBackground : Colors.white,
@@ -423,7 +423,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                             children: [
                                               if (!calc.isActive)
                                                 const Padding(
-                                                  padding: EdgeInsets.only(right: 4),
+                                                  padding: EdgeInsetsDirectional.only(end: 4),
                                                   child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
                                                 ),
                                               Text(
@@ -775,7 +775,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
       itemCount: calcs.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

@@ -15,6 +15,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/localization/stored_text.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 const String kSampleSwiftMT103 = '''{1:F01ARAIECXXXXX.SN...ISN.}{2:I103CITIUS33XXXXN}{3:{108:xxxxx}}{4:
 :20/TRANSACTION REFERENCE NUMBER       : FT/26228/KZ70Q
 :23B/BANK OPERATION CODE              : CRED
@@ -695,6 +696,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                               Expanded(
                                 child: TextFormField(
                                   controller: swiftRefController,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: '${l10n.swiftColSwiftRef} *',
                                     border: const OutlineInputBorder(),
@@ -1545,8 +1547,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.charcoal, AppTheme.cobalt.withOpacity(0.9)],
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
+                begin: AlignmentDirectional.centerEnd,
+                end: AlignmentDirectional.centerStart,
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             ),
@@ -2265,7 +2267,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Text(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                LtrText(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 const SizedBox(width: 4),
                                                 _buildCopyBadge(pay.paymentCode, tooltip: l10n.swiftCopyBtn),
                                               ],

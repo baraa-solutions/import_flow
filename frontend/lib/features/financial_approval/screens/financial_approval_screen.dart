@@ -30,6 +30,7 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/widgets/recalculate_button.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   final int? initialImportFileId;
@@ -2045,6 +2046,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     const Divider(),
                     TextField(
                       controller: swiftController,
+                      textDirection: TextDirection.ltr,
                       decoration: InputDecoration(labelText: context.l10n.swiftReferenceInputLabel, border: const OutlineInputBorder()),
                     ),
                   ],
@@ -3113,11 +3115,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                                 const SizedBox(height: 10),
                                                 TextFormField(
                                                   controller: _swiftCodeController,
+                                                  textDirection: TextDirection.ltr,
                                                   decoration: InputDecoration(labelText: l.swiftCodeLabel, border: const OutlineInputBorder()),
                                                 ),
                                                 const SizedBox(height: 10),
                                                 TextFormField(
                                                   controller: _ibanController,
+                                                  textDirection: TextDirection.ltr,
                                                   decoration: InputDecoration(labelText: l.ibanAccountLabel, border: const OutlineInputBorder()),
                                                 ),
                                               ],
@@ -3135,6 +3139,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                                 Expanded(
                                                   child: TextFormField(
                                                     controller: _swiftCodeController,
+                                                    textDirection: TextDirection.ltr,
                                                     decoration: InputDecoration(labelText: l.swiftCodeLabel, border: const OutlineInputBorder()),
                                                   ),
                                                 ),
@@ -3142,6 +3147,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                                 Expanded(
                                                   child: TextFormField(
                                                     controller: _ibanController,
+                                                    textDirection: TextDirection.ltr,
                                                     decoration: InputDecoration(labelText: l.ibanAccountLabel, border: const OutlineInputBorder()),
                                                   ),
                                                 ),
@@ -4034,7 +4040,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                                   borderRadius: BorderRadius.circular(6),
                                                   border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                                 ),
-                                                child: Text(
+                                                child: LtrText(
                                                   p.paymentCode,
                                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
                                                 ),
@@ -4540,8 +4546,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.cobalt, Colors.blue.shade700],
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
+                begin: AlignmentDirectional.centerEnd,
+                end: AlignmentDirectional.centerStart,
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
             ),
@@ -4591,11 +4597,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                               hintText: l.swiftPasteText,
                               hintStyle: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                              contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
                             ),
                           ),
-                          Positioned(
-                            left: 8,
+                          PositionedDirectional(
+                            start: 8,
                             bottom: 8,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

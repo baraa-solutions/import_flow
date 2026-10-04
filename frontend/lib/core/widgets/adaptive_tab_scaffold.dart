@@ -337,9 +337,9 @@ class _AdaptiveTabScaffoldState extends State<AdaptiveTabScaffold> {
       width: effectiveSidebarWidth,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade300, width: 1.0),
-          left: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        border: BorderDirectional(
+          end: BorderSide(color: Colors.grey.shade300, width: 1.0),
+          start: BorderSide(color: Colors.grey.shade200, width: 0.5),
         ),
         boxShadow: [
           BoxShadow(

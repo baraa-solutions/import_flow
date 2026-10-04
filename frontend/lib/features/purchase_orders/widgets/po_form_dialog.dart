@@ -39,6 +39,7 @@ import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class POFormDialog extends ConsumerStatefulWidget {
   final PurchaseOrderModel? po;
   final Map<String, dynamic>? initialExtractedFields;
@@ -246,7 +247,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           color: AppTheme.cobalt.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
-                                        child: Text(
+                                        child: LtrText(
                                           item.hsCode,
                                           style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
                                         ),
@@ -1573,7 +1574,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 8),
                   child: Row(
                     children: [
                       const Icon(Icons.receipt_long, color: Colors.white),
@@ -1669,7 +1670,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                       // Tab 1: Commercial Header & Line Items
                       _KeepAliveWrapper(
                         child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(top: 8, right: 4),
+                        padding: const EdgeInsetsDirectional.only(top: 8, end: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2355,7 +2356,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                       // Tab 2: BP-003 Dynamic Detailed Packing List
                       _KeepAliveWrapper(
                         child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(top: 8, right: 4),
+                        padding: const EdgeInsetsDirectional.only(top: 8, end: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

@@ -23,6 +23,7 @@ import '../providers/live_polling_provider.dart';
 import '../services/lifecycle_board_export_service.dart';
 import '../widgets/step_action_dialog.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class LifecycleBoardScreen extends ConsumerStatefulWidget {
   const LifecycleBoardScreen({super.key});
 
@@ -889,7 +890,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
+                                              LtrText(
                                                 item.importFileCode,
                                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                                               ),
@@ -1217,7 +1218,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
     return Container(
       width: width,
-      margin: const EdgeInsets.only(right: 8),
+      margin: const EdgeInsetsDirectional.only(end: 8),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardBackground : Colors.white,
         borderRadius: BorderRadius.circular(6),
@@ -1244,14 +1245,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 _selectedStepCode = null;
               });
             },
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(5), topRight: Radius.circular(5)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
               decoration: BoxDecoration(
                 color: headerColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(5),
-                  topRight: Radius.circular(5),
+                borderRadius: const BorderRadiusDirectional.only(
+                  topStart: Radius.circular(5),
+                  topEnd: Radius.circular(5),
                 ),
               ),
               child: Row(
@@ -1393,7 +1394,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7)),
+        borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(7), topEnd: Radius.circular(7)),
         border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
       ),
       child: SingleChildScrollView(
@@ -1629,7 +1630,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
+                                              LtrText(
                                                 s.importFileCode,
                                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                                               ),

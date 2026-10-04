@@ -877,8 +877,8 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
                           border: isArabic
-                              ? Border(left: BorderSide(color: Colors.grey.shade200))
-                              : Border(right: BorderSide(color: Colors.grey.shade200)),
+                              ? BorderDirectional(start: BorderSide(color: Colors.grey.shade200))
+                              : BorderDirectional(end: BorderSide(color: Colors.grey.shade200)),
                         ),
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -1445,6 +1445,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني الرئيسي' : 'Primary Email',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -1455,6 +1456,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _secondaryEmailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني الثانوي' : 'Secondary / Additional Email',
                   prefixIcon: const Icon(Icons.mark_email_read_outlined, size: 18),
@@ -1562,6 +1564,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
                   Expanded(
                     child: TextFormField(
                       controller: _swiftCodeCtrl,
+                      textDirection: TextDirection.ltr,
                       decoration: InputDecoration(
                         labelText: isArabic ? 'كود السويفت البنكي الدولي' : 'Bank SWIFT Code',
                         prefixIcon: const Icon(Icons.code, size: 16),
@@ -1588,6 +1591,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
                   Expanded(
                     child: TextFormField(
                       controller: _ibanCtrl,
+                      textDirection: TextDirection.ltr,
                       decoration: InputDecoration(
                         labelText: isArabic ? 'رقم الآيبان الدولي' : 'IBAN',
                         prefixIcon: const Icon(Icons.credit_card, size: 16),
@@ -1842,6 +1846,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني الرسمي' : 'Official Email Address',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -1959,6 +1964,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailCtrl,
+          textDirection: TextDirection.ltr,
           decoration: InputDecoration(
             labelText: isArabic ? 'البريد الإلكتروني للعمليات' : 'Operations Email Address',
             prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2023,6 +2029,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'بريد العمليات وخدمة العملاء *' : 'Operations & Customer Service Email *',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2037,6 +2044,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _secondaryEmailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'بريد الحجوزات الثانوي' : 'Secondary / Booking Email',
                   prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
@@ -2141,6 +2149,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'بريد عروض الأسعار والعمليات *' : 'Pricing & Operations Email *',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2234,6 +2243,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailCtrl,
+          textDirection: TextDirection.ltr,
           decoration: InputDecoration(
             labelText: isArabic ? 'البريد الإلكتروني للتشغيل' : 'Operations Email Address',
             prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2317,6 +2327,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني للشهادات والتقارير *' : 'Certificates & Reports Email *',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2413,6 +2424,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني للوثائق والمطالبات *' : 'Policies & Claims Email *',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
@@ -2453,6 +2465,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _swiftCodeCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'كود السويفت الدولي *' : 'International SWIFT / BIC Code *',
                   prefixIcon: const Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blue),
@@ -2498,6 +2511,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني للفرع' : 'Branch Operations Email',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),

@@ -118,6 +118,7 @@ class _DiscrepancyAndDamageTabState extends ConsumerState<DiscrepancyAndDamageTa
                           Expanded(
                             child: TextFormField(
                               controller: containerCtrl,
+                              textDirection: TextDirection.ltr,
                               decoration: InputDecoration(
                                 labelText: l.discrepancyDamageFieldContainerNo,
                                 border: const OutlineInputBorder(),

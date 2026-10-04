@@ -237,7 +237,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
           // If unacknowledged critical entries exist, always show them even if collapsed
           if (hasUnacknowledgedCritical)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 0, 14, 12),
               child: Column(
                 children: unacknowledgedCritical.map((e) => _buildCriticalEntryCard(e)).toList(),
               ),

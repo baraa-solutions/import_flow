@@ -44,7 +44,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.amber.shade50,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
               border: Border(bottom: BorderSide(color: Colors.amber.shade200)),
             ),
             child: Row(
@@ -126,7 +126,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.orange.withOpacity(0.12),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
               border: Border(bottom: BorderSide(color: AppTheme.orange.withOpacity(0.3))),
             ),
             child: Row(

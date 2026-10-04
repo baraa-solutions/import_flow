@@ -36,8 +36,8 @@ class _AiAssistantDockedPanelState extends ConsumerState<AiAssistantDockedPanel>
         width: width,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          border: Border(
-            left: BorderSide(
+          border: BorderDirectional(
+            start: BorderSide(
               color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1),
               width: 1.5,
             ),
@@ -145,7 +145,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     }
 
     return Stack(
-      alignment: Alignment.bottomRight,
+      alignment: AlignmentDirectional.bottomEnd,
       children: [
         // ── Modal Barrier for screens < 1200px when panel is open ────────────
         if (!isDesktop && state.isPanelOpen)
@@ -319,8 +319,8 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           height: state.isPanelOpen ? 48 : 56,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: AlignmentDirectional.topStart,
+              end: AlignmentDirectional.bottomEnd,
               colors: state.isPanelOpen
                   ? [AppTheme.charcoal, const Color(0xFF1E293B)]
                   : [const Color(0xFFF4511E), const Color(0xFFE64A19)], // Exact vibrant orange from image
@@ -986,24 +986,24 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
     }
 
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isUser ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
       child: Container(
-        margin: EdgeInsets.only(
+        margin: EdgeInsetsDirectional.only(
           top: 4,
           bottom: 4,
-          left: isUser ? 36 : 0,
-          right: isUser ? 0 : 36,
+          start: isUser ? 36 : 0,
+          end: isUser ? 0 : 36,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isUser
               ? AppTheme.cobalt
               : (msg.isError ? AppTheme.crimson.withOpacity(0.06) : Colors.grey.shade100),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isUser ? 14 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 14),
+          borderRadius: BorderRadiusDirectional.only(
+            topStart: const Radius.circular(14),
+            topEnd: const Radius.circular(14),
+            bottomStart: Radius.circular(isUser ? 14 : 4),
+            bottomEnd: Radius.circular(isUser ? 4 : 14),
           ),
           border: msg.isError ? Border.all(color: AppTheme.crimson.withOpacity(0.35)) : null,
           boxShadow: [
@@ -1463,7 +1463,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
 
   Widget _buildTypingIndicator() {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

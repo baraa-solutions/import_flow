@@ -710,8 +710,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: AlignmentDirectional.topStart,
+              end: AlignmentDirectional.bottomEnd,
             ),
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
@@ -1320,6 +1320,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                 );
                 final invField = TextFormField(
                   controller: _invoiceNoCtrl,
+                  textDirection: TextDirection.ltr,
                   decoration: InputDecoration(labelText: context.l10n.cooInvoiceNumberLabel, border: const OutlineInputBorder()),
                 );
 
@@ -1799,8 +1800,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: AlignmentDirectional.topStart,
+                  end: AlignmentDirectional.bottomEnd,
                 ),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
@@ -2313,7 +2314,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         title: Row(
           children: [
             Container(

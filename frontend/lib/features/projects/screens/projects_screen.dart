@@ -848,7 +848,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: CopyableTableCell(
             value: value,
             rowSummary: rowSummary,

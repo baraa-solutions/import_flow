@@ -46,9 +46,9 @@ class NotificationBellWidget extends ConsumerWidget {
             children: [
               const Icon(Icons.notifications, color: Colors.white, size: 24),
               if (unreadCount > 0)
-                Positioned(
+                PositionedDirectional(
                   top: -4,
-                  right: -4,
+                  end: -4,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -168,9 +168,9 @@ class NotificationBellWidget extends ConsumerWidget {
                                   ? (isDark ? AppTheme.darkElevatedSurface.withOpacity(0.5) : Colors.transparent)
                                   : (isDark ? sevColor.withOpacity(0.2) : sevColor.withOpacity(0.08)),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border(
-                                right: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
-                                left: !isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                              border: BorderDirectional(
+                                end: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                                start: !isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
                               ),
                             ),
                             child: Column(

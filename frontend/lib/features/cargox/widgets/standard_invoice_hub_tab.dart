@@ -19,6 +19,7 @@ import 'package:dio/dio.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../services/cargox_export_service.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
   if (str.length >= 16) {
@@ -555,7 +556,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF4F6F7),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(10), topEnd: Radius.circular(10)),
               border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
             ),
             child: const Row(
@@ -625,7 +626,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         return DataRow(
                           cells: [
                             DataCell(CopyableTableCell(value: '${item.index}', rowSummary: rowSummary, child: Text('${item.index}', style: const TextStyle(fontSize: 11)))),
-                            DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: LtrText(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))),
                             DataCell(CopyableTableCell(value: item.manufacturer ?? '—', rowSummary: rowSummary, child: Text(item.manufacturer ?? '—', style: const TextStyle(fontSize: 11)))),
                             DataCell(CopyableTableCell(value: item.description, rowSummary: rowSummary, child: Text(item.description, style: const TextStyle(fontSize: 11)))),
                             DataCell(CopyableTableCell(value: '${item.quantity} ${item.qtyUnit}', rowSummary: rowSummary, child: Text('${item.quantity} ${item.qtyUnit}', style: const TextStyle(fontSize: 11)))),
@@ -1586,7 +1587,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   return DataRow(
                                     cells: [
                                       DataCell(Text('${i.index}', style: const TextStyle(fontSize: 11))),
-                                      DataCell(Text(i.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      DataCell(LtrText(i.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                       DataCell(Text(i.manufacturer ?? '', style: const TextStyle(fontSize: 11))),
                                       DataCell(Text(i.description, style: const TextStyle(fontSize: 11))),
                                       DataCell(Text('${i.quantity} ${i.qtyUnit}', style: const TextStyle(fontSize: 11))),
@@ -2043,7 +2044,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             cells: [
               DataCell(CopyableTableCell(value: '${item.index}', rowSummary: rowSummary, child: Text('${item.index}'))),
               DataCell(CopyableTableCell(value: item.productCode ?? '—', rowSummary: rowSummary, child: Text(item.productCode ?? '—'))),
-              DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+              DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: LtrText(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
               DataCell(CopyableTableCell(value: item.description, rowSummary: rowSummary, child: Text(item.description))),
               DataCell(CopyableTableCell(value: '${item.quantity}', rowSummary: rowSummary, child: Text('${item.quantity}'))),
               DataCell(CopyableTableCell(value: item.qtyUnit, rowSummary: rowSummary, child: Text(item.qtyUnit))),
@@ -2558,7 +2559,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                         color: AppTheme.cobalt.withOpacity(0.08),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: Text(
+                                      child: LtrText(
                                         s.importFileCode,
                                         style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
                                       ),

@@ -785,7 +785,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       onShipmentStatusChanged: _refreshData,
       topBanner: (_clearanceGuideMatchResult != null && _clearanceGuideMatchResult!.matchedEntries.isNotEmpty)
           ? Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 0),
               child: ExperienceGuideAlertBanner(
                 matchResult: _clearanceGuideMatchResult!,
               ),
@@ -1588,7 +1588,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                 ),
                 const SizedBox(height: 14),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: Text(l.customsClearanceDutyBreakdownHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                 ),
                 const SizedBox(height: 8),

@@ -213,6 +213,7 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                     children: [
                       TextFormField(
                         controller: containerCtrl,
+                        textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: l.drawingSamplesFieldContainerNo,
                           border: const OutlineInputBorder(),

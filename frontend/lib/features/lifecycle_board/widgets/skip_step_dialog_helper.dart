@@ -6,6 +6,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
 import '../providers/lifecycle_board_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Helper to display a unified "Skip Stage" dialog across all screens.
 /// Enforces business rules: mandatory reason (>= 5 chars), policy validation,
 /// loading feedback, and automatic provider invalidation upon completion.
@@ -80,7 +81,7 @@ class SkipStepDialogHelper {
                               children: [
                                 const Icon(Icons.folder_outlined, size: 15, color: AppTheme.cobalt),
                                 const SizedBox(width: 6),
-                                Text(
+                                LtrText(
                                   importFileCode,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.cobalt),
                                 ),

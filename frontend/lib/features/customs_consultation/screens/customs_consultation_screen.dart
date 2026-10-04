@@ -3207,21 +3207,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             children: [
                                               if (line.requiresAcid)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'تسجيل مسبق' : 'ACID', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
                                                 ),
                                               if (line.requiresCoo)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'شهادة منشأ' : 'COO', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                                                 ),
                                               if (line.requiresInspection)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'رقابة صادرات' : 'GOEIC', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),

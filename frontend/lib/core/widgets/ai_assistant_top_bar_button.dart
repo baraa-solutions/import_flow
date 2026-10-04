@@ -40,8 +40,8 @@ class AiAssistantTopBarButton extends ConsumerWidget {
             height: size,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: AlignmentDirectional.topStart,
+                end: AlignmentDirectional.bottomEnd,
                 colors: isOpen
                     ? [AppTheme.charcoal, const Color(0xFF1E293B)]
                     : [const Color(0xFFF4511E), const Color(0xFFE64A19)],

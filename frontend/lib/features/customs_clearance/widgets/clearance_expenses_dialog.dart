@@ -631,6 +631,7 @@ class _ClearanceExpensesDialogState
                   child: TextFormField(
                     key: const Key('invoiceNumberField'),
                     controller: _invoiceNumberController,
+                    textDirection: TextDirection.ltr,
                     decoration: InputDecoration(
                       labelText: 'رقم الفاتورة *',
                       hintText: 'مثال: INV-2026-9901',

@@ -152,6 +152,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           flex: 2,
                           child: TextFormField(
                             controller: _hsCodeController,
+                            textDirection: TextDirection.ltr,
                             decoration: InputDecoration(
                               labelText: l10n.goeicHsCodeFieldLabel,
                               border: const OutlineInputBorder(),

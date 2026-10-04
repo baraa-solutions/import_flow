@@ -638,6 +638,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       flex: 2,
                       child: TextFormField(
                         controller: _hsCodeController,
+                        textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: l.guideHsCode,
                           hintText: isArabic ? 'مثال: 8520' : 'e.g. 8520',
@@ -1231,6 +1232,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _swiftController,
+                        textDirection: TextDirection.ltr,
                         decoration: const InputDecoration(
                           labelText: 'Swift No',
                           border: OutlineInputBorder(),

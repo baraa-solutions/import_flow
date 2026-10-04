@@ -550,6 +550,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           Expanded(
                             child: TextField(
                               controller: voyageController,
+                              textDirection: TextDirection.ltr,
                               decoration: InputDecoration(
                                 labelText: isArabic ? 'رقم الرحلة البحرية' : 'Voyage Number',
                                 border: const OutlineInputBorder(),
@@ -1176,8 +1177,8 @@ Best regards,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.cobalt, Colors.blue.shade700],
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
+                begin: AlignmentDirectional.centerEnd,
+                end: AlignmentDirectional.centerStart,
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
             ),
@@ -1236,11 +1237,11 @@ Best regards,
                                   : 'Paste shipping quote text or email from shipping line or freight forwarder...\n(e.g., Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
                               hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                              contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
                             ),
                           ),
-                          Positioned(
-                            left: 8,
+                          PositionedDirectional(
+                            start: 8,
                             bottom: 8,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

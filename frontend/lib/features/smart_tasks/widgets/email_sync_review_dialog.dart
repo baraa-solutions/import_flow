@@ -495,7 +495,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
           // Row 2: Email Details (Subject + Sender)
           if (it.subject != null && it.subject!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(right: 38, bottom: 6),
+              padding: const EdgeInsetsDirectional.only(end: 38, bottom: 6),
               child: Row(
                 children: [
                   const Icon(Icons.mail_outline_rounded, size: 14, color: Colors.grey),
@@ -514,7 +514,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
 
           // Row 3: Task Title + Routing Controls (Assignee + Priority + Due Date)
           Padding(
-            padding: const EdgeInsets.only(right: 38),
+            padding: const EdgeInsetsDirectional.only(end: 38),
             child: Wrap(
               spacing: 12,
               runSpacing: 8,

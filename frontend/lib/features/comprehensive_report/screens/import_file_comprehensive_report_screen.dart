@@ -445,8 +445,8 @@ class _ImportFileComprehensiveReportScreenState
           colors: isClosed
               ? [Colors.grey.shade700, Colors.grey.shade500]
               : [AppTheme.charcoal, const Color(0xFF34495E)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
         ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
@@ -1300,7 +1300,7 @@ class _ImportFileComprehensiveReportScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: iconColor.withOpacity(0.06),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(10), topEnd: Radius.circular(10)),
               border: Border(bottom: BorderSide(color: iconColor.withOpacity(0.15))),
             ),
             child: Row(

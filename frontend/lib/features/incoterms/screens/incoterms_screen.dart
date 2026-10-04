@@ -459,7 +459,7 @@ class _IncotermsTab extends ConsumerWidget {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 7, vertical: 5),
-                                    margin: const EdgeInsets.only(right: 6),
+                                    margin: const EdgeInsetsDirectional.only(end: 6),
                                     decoration: BoxDecoration(
                                       color: AppTheme.emerald.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(6),
@@ -820,7 +820,7 @@ class _IncotermsTab extends ConsumerWidget {
         onTap: () {},
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Align(alignment: Alignment.centerLeft, child: child),
+          child: Align(alignment: AlignmentDirectional.centerStart, child: child),
         ),
       );
 }
@@ -1010,7 +1010,7 @@ class _CostItemsTab extends ConsumerWidget {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 7, vertical: 5),
-                                margin: const EdgeInsets.only(right: 6),
+                                margin: const EdgeInsetsDirectional.only(end: 6),
                                 decoration: BoxDecoration(
                                   color: AppTheme.emerald.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(6),
@@ -1320,7 +1320,7 @@ class _CostItemsTab extends ConsumerWidget {
         onTap: () {},
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Align(alignment: Alignment.centerLeft, child: child),
+          child: Align(alignment: AlignmentDirectional.centerStart, child: child),
         ),
       );
 }
@@ -1585,7 +1585,7 @@ class _ResponsibilityMatrixTabState
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 7, vertical: 5),
-                                    margin: const EdgeInsets.only(right: 6),
+                                    margin: const EdgeInsetsDirectional.only(end: 6),
                                     decoration: BoxDecoration(
                                       color: AppTheme.emerald.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(6),
@@ -1904,6 +1904,6 @@ class _ResponsibilityMatrixTabState
 
   Widget _cell({required Widget child}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Align(alignment: Alignment.centerLeft, child: child),
+        child: Align(alignment: AlignmentDirectional.centerStart, child: child),
       );
 }

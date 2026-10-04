@@ -394,7 +394,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                             }
 
                             return Container(
-                              margin: const EdgeInsets.only(right: 10),
+                              margin: const EdgeInsetsDirectional.only(end: 10),
                               width: 140,
                               child: InkWell(
                                 onTap: () {

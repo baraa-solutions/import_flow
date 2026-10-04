@@ -5,6 +5,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/import_files_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class CloseShipmentDialog extends ConsumerStatefulWidget {
   final int importFileId;
   final String importFileCode;
@@ -73,7 +74,7 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    LtrText(
                       widget.importFileCode,
                       style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
                       overflow: TextOverflow.ellipsis,

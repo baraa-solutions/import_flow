@@ -462,7 +462,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             ),
           ],
           body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
+            padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 92),
             child: _selectedSubTab == 0 ? _buildForm4RequestTab() : _buildForm4HistoryRegistryTab(),
           ),
         ),
@@ -548,7 +548,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             ),
                             const SizedBox(height: 8),
                             Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               child: TextButton.icon(
                                 key: const Key('cancelForm4EditModeBtn'),
                                 onPressed: _resetForm4Form,

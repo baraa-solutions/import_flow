@@ -571,7 +571,7 @@ class _OfficialFileClosureDialogState
           const SizedBox(height: 6),
           ...items.map(
             (it) => Padding(
-              padding: const EdgeInsets.only(right: 18, top: 2),
+              padding: const EdgeInsetsDirectional.only(end: 18, top: 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

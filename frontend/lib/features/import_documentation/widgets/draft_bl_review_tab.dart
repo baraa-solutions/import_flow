@@ -1299,7 +1299,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     ),
                     const SizedBox(height: 10),
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal,
@@ -1330,7 +1330,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             onRefresh: () => _runComparison(silent: true),
           ),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: TextButton.icon(
@@ -2653,7 +2653,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         Expanded(child: searchBar),
                         const SizedBox(width: 10),
                         ...actionButtons.map((btn) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsetsDirectional.only(start: 8),
                           child: btn,
                         )),
                       ],
@@ -3080,7 +3080,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         title: Row(
           children: [

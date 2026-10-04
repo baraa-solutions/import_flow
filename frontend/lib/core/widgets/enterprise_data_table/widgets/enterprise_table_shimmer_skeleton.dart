@@ -150,8 +150,8 @@ class _EnterpriseTableShimmerSkeletonState
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
           stops: [
             (_animation.value - 0.3).clamp(0.0, 1.0),
             _animation.value.clamp(0.0, 1.0),

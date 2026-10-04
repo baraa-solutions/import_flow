@@ -1231,7 +1231,7 @@ void showPriceListFormDialog(
                 child: Container(
                   width: dialogWidth,
                   height: dialogHeight,
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+                  padding: const EdgeInsetsDirectional.fromSTEB(18, 14, 18, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1531,7 +1531,7 @@ void showPriceListFormDialog(
                                           if (itm['code'] != null)
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              margin: const EdgeInsets.only(left: 6),
+                                              margin: const EdgeInsetsDirectional.only(start: 6),
                                               decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
                                               child: Text(itm['code'].toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                             )
@@ -1540,7 +1540,7 @@ void showPriceListFormDialog(
                                               onTap: () => showAddCustomItemDialog(initialName: itm['expense_name'], initialPrice: standardPrice, targetItem: itm),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                margin: const EdgeInsets.only(left: 6),
+                                                margin: const EdgeInsetsDirectional.only(start: 6),
                                                 decoration: BoxDecoration(color: AppTheme.crimson, borderRadius: BorderRadius.circular(4)),
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
@@ -1555,7 +1555,7 @@ void showPriceListFormDialog(
                                           else if (isCustomItem)
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              margin: const EdgeInsets.only(left: 6),
+                                              margin: const EdgeInsetsDirectional.only(start: 6),
                                               decoration: BoxDecoration(color: Colors.amber.shade700, borderRadius: BorderRadius.circular(4)),
                                               child: Text(l.customItemBadge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                             ),

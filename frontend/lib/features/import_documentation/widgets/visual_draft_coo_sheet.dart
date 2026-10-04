@@ -211,6 +211,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Printed-document replica: always left-to-right, whatever the UI language.
+    return Directionality(textDirection: TextDirection.ltr, child: _buildSheet(context));
+  }
+
+  Widget _buildSheet(BuildContext context) {
     final t = widget.templateData;
     final isChina = widget.certificateType.toUpperCase().contains('CHINA') || widget.certificateType.toUpperCase().contains('CCPIT');
     final isEur1 = widget.certificateType.toUpperCase().contains('EUR.1') || widget.certificateType.toUpperCase().contains('EUR1');
@@ -639,7 +644,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       ),
                       const SizedBox(height: 6),
                       const Align(
-                        alignment: Alignment.bottomRight,
+                        alignment: AlignmentDirectional.bottomEnd,
                         child: Text(
                           'VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.black87),
@@ -717,7 +722,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             flex: 4,
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                               child: Text(
                                 rowDesc,
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.0, color: Colors.black87, height: 1.3),
@@ -729,7 +734,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             flex: 2,
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                               child: Text(rowHs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0)),
                             ),
                           ),
@@ -753,7 +758,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       flex: 4,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                         child: Text(
                           cleanBox7,
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.0, color: Colors.black87, height: 1.3),
@@ -765,7 +770,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       flex: 2,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                         child: Wrap(
                           spacing: 4,
                           runSpacing: 4,
@@ -793,7 +798,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  border: Border(right: BorderSide(color: Colors.black87, width: 0.8)),
+                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8)),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,7 +918,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                                 certNo.startsWith('DRAFT') ? certNo : 'No A $certNo',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
                                 overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.right,
+                                textAlign: TextAlign.end,
                               ),
                             ),
                           ],
@@ -937,7 +942,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: Text(
                             '2. Certificate used in preferential trade between',
                             style: TextStyle(fontSize: 11.0, color: Colors.black54),
@@ -1107,7 +1112,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             flex: 5,
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1137,7 +1142,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             flex: 2,
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
@@ -1193,7 +1198,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       flex: 5,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1233,7 +1238,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       flex: 2,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        decoration: const BoxDecoration(border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8))),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -1291,7 +1296,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  border: Border(right: BorderSide(color: Colors.black87, width: 0.8)),
+                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 0.8)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1460,7 +1465,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          border: Border(right: hasRightBorder ? const BorderSide(color: Colors.black87, width: 0.8) : BorderSide.none),
+          border: BorderDirectional(end: hasRightBorder ? const BorderSide(color: Colors.black87, width: 0.8) : BorderSide.none),
         ),
         child: Text(
           title,
@@ -1477,7 +1482,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          border: Border(right: hasRightBorder ? const BorderSide(color: Colors.black87, width: 0.8) : BorderSide.none),
+          border: BorderDirectional(end: hasRightBorder ? const BorderSide(color: Colors.black87, width: 0.8) : BorderSide.none),
         ),
         child: CopyableText(
           content,

@@ -261,7 +261,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onShipmentStatusChanged: _refreshData,
           topBanner: (_guideMatchResult != null && _guideMatchResult!.matchedEntries.isNotEmpty)
               ? Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 0),
                   child: ExperienceGuideAlertBanner(
                     matchResult: _guideMatchResult!,
                   ),

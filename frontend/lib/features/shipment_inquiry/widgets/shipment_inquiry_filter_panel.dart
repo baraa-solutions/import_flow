@@ -202,6 +202,7 @@ class _ShipmentInquiryFilterPanelState
                 flex: 4,
                 child: TextField(
                   controller: _hsCodeController,
+                  textDirection: TextDirection.ltr,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     labelText: l.inqHsCodeOrProduct,

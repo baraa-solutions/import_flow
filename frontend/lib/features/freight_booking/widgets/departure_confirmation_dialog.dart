@@ -408,6 +408,7 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
                           Expanded(
                             child: TextFormField(
                               controller: _voyageController,
+                              textDirection: TextDirection.ltr,
                               decoration: InputDecoration(
                                 labelText: 'رقم الرحلة (Voyage Number)',
                                 hintText: 'مثال: 2608W / 042E',

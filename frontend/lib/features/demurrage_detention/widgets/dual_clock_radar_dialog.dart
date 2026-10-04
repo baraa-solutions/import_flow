@@ -380,6 +380,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       flex: 2,
                       child: TextFormField(
                         controller: _containerController,
+                        textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: l10n.dualClockContainerNoLabel,
                           hintText: l10n.dualClockContainerNoHint,

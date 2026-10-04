@@ -238,8 +238,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     colors: isDark
                         ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
                         : [AppTheme.charcoal, AppTheme.cobalt],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+                    begin: AlignmentDirectional.centerStart,
+                    end: AlignmentDirectional.centerEnd,
                   ),
                 ),
                 child: isCompact
@@ -500,7 +500,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
                     if (constraints.maxWidth > 950) {
                       return Row(
-                        children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
+                        children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: c))).toList(),
                       );
                     } else if (constraints.maxWidth > 550) {
                       return Wrap(

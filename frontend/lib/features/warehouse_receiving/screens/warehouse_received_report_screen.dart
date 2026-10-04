@@ -11,6 +11,7 @@ import '../services/warehouse_received_report_export_service.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/services/display_name_resolver.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class WarehouseReceivedReportScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
   const WarehouseReceivedReportScreen({super.key, this.isEmbedded = false});
@@ -82,7 +83,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           final totalVariance = filtered.fold<int>(0, (s, i) => s + i.varianceQty);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -536,7 +537,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(
+                                            LtrText(
                                               item.poNumber,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,

@@ -271,8 +271,8 @@ class _SwiftExtractionReviewWidgetState
           colors: isConfirmed
               ? [const Color(0xFF1B5E20), AppTheme.emerald]
               : [AppTheme.charcoal, AppTheme.cobalt],
-          begin: Alignment.centerRight,
-          end: Alignment.centerLeft,
+          begin: AlignmentDirectional.centerEnd,
+          end: AlignmentDirectional.centerStart,
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
       ),
@@ -604,7 +604,7 @@ class _SwiftExtractionReviewWidgetState
                                   if (f.swiftFieldCode != null && f.swiftFieldCode!.isNotEmpty)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsets.only(left: 4),
+                                      margin: const EdgeInsetsDirectional.only(start: 4),
                                       decoration: BoxDecoration(
                                         color: AppTheme.cobalt.withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(3),
@@ -638,7 +638,7 @@ class _SwiftExtractionReviewWidgetState
                                   if (f.isMandatory)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsets.only(left: 4),
+                                      margin: const EdgeInsetsDirectional.only(start: 4),
                                       decoration: BoxDecoration(
                                         color: f.isEmpty ? Colors.red.shade100 : Colors.green.shade50,
                                         borderRadius: BorderRadius.circular(3),

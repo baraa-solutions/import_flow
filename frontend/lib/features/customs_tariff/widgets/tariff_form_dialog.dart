@@ -741,6 +741,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                     Expanded(
                                       child: TextFormField(
                                         controller: hsCtrl,
+                                        textDirection: TextDirection.ltr,
                                         enabled: tariff == null,
                                         decoration: InputDecoration(
                                           labelText: l10n.hsCodeLabelReq,

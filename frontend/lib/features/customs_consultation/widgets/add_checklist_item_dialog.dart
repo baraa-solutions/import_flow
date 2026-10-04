@@ -59,6 +59,7 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _hsController,
+                textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: l.customsTariffItemCol,
                   border: const OutlineInputBorder(),

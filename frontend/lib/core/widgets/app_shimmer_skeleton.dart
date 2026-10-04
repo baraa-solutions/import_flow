@@ -146,8 +146,8 @@ class ShimmerBox extends StatelessWidget {
         shape: shape,
         borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(borderRadius),
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
           stops: [
             (animVal - 0.3).clamp(0.0, 1.0),
             animVal.clamp(0.0, 1.0),
@@ -428,7 +428,7 @@ class KanbanBoardShimmerSkeleton extends StatelessWidget {
                 children: List.generate(6, (index) {
                   return Container(
                     width: 185,
-                    margin: const EdgeInsets.only(right: 8),
+                    margin: const EdgeInsetsDirectional.only(end: 8),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
@@ -505,7 +505,7 @@ class RadarTableShimmerSkeleton extends StatelessWidget {
                 children: List.generate(5, (index) {
                   return Container(
                     width: 170,
-                    margin: const EdgeInsets.only(right: 8),
+                    margin: const EdgeInsetsDirectional.only(end: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
@@ -598,9 +598,9 @@ class ShimmerTablePlaceholder extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
+            borderRadius: const BorderRadiusDirectional.only(
+              topStart: Radius.circular(8),
+              topEnd: Radius.circular(8),
             ),
             border: Border(
               bottom: BorderSide(
@@ -642,7 +642,7 @@ class ShimmerTablePlaceholder extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: ShimmerBox(
                         height: 12,
                         width: 130 * factor,

@@ -717,7 +717,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
   }) {
     Widget content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Align(alignment: Alignment.centerLeft, child: child),
+      child: Align(alignment: AlignmentDirectional.centerStart, child: child),
     );
     if (value != null) {
       content = CopyableTableCell(

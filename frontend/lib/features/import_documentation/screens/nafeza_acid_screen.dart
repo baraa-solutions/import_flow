@@ -3543,7 +3543,7 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: const BoxDecoration(
                     color: AppTheme.charcoal,
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                    borderRadius: BorderRadiusDirectional.only(topStart: Radius.circular(16), topEnd: Radius.circular(16)),
                   ),
                   child: Row(
                     children: [
@@ -3564,6 +3564,7 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                             Expanded(
                               child: TextField(
                                 controller: acidCtrl,
+                                textDirection: TextDirection.ltr,
                                 decoration: InputDecoration(labelText: '${context.l10n.acidNumberCol} *', prefixIcon: const Icon(Icons.qr_code), border: const OutlineInputBorder()),
                               ),
                             ),

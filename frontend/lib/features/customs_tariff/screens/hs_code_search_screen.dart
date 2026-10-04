@@ -334,7 +334,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                           child: Row(
                             children: quickQueries.map((q) {
                               return Padding(
-                                padding: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsetsDirectional.only(end: 6),
                                 child: ActionChip(
                                   label: Text(q, style: const TextStyle(fontSize: 11)),
                                   backgroundColor: _searchCtrl.text == q

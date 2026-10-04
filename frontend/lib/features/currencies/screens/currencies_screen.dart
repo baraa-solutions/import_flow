@@ -519,7 +519,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                             ),
                                             if (c.isBaseCurrency)
                                               Padding(
-                                                padding: const EdgeInsets.only(left: 4),
+                                                padding: const EdgeInsetsDirectional.only(start: 4),
                                                 child: Tooltip(
                                                   message: l10n.baseCurrencyTooltip,
                                                   child: const Icon(Icons.star, size: 14, color: AppTheme.emerald),
@@ -680,7 +680,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
         rowSummary: rowSummary,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Align(alignment: Alignment.centerLeft, child: child),
+          child: Align(alignment: AlignmentDirectional.centerStart, child: child),
         ),
       );
 

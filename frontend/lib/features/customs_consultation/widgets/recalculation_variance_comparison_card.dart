@@ -449,7 +449,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                     ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Text(
                         '${preliminaryVal.toStringAsFixed(2)} EGP',
                         style: TextStyle(
@@ -476,7 +476,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                     ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: Text(
                         '${finalVal.toStringAsFixed(2)} EGP',
                         style: TextStyle(

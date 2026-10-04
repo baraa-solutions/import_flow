@@ -11,6 +11,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../services/freight_quotations_export_service.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
   const FreightQuotationsComparisonScreen({super.key});
 
@@ -207,7 +208,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                   children: [
                     const Icon(Icons.copy_rounded, size: 14, color: AppTheme.flatCobalt),
                     const SizedBox(width: 6),
-                    Text(
+                    LtrText(
                       fileCode,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,

@@ -357,7 +357,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               color: isApproved
                   ? (isDark ? Colors.green.shade900.withOpacity(0.35) : Colors.green.shade50.withOpacity(0.5))
                   : (isDark ? Colors.orange.shade900.withOpacity(0.35) : Colors.orange.shade50.withOpacity(0.5)),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(9), topRight: Radius.circular(9)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(9), topEnd: Radius.circular(9)),
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -645,7 +645,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
               border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(9), bottomRight: Radius.circular(9)),
+              borderRadius: const BorderRadiusDirectional.only(bottomStart: Radius.circular(9), bottomEnd: Radius.circular(9)),
             ),
             child: Wrap(
               spacing: 8,

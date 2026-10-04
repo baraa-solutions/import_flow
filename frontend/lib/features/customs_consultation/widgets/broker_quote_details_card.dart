@@ -217,7 +217,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                           final isSelected = categoryFilter == cat;
                           final label = getCategoryLabel(cat);
                           return Padding(
-                            padding: const EdgeInsets.only(left: 6),
+                            padding: const EdgeInsetsDirectional.only(start: 6),
                             child: ChoiceChip(
                               label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                               selected: isSelected,

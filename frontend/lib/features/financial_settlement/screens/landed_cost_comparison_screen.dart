@@ -163,7 +163,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 0),
             child: _buildImportFileSelector(),
           ),
           Expanded(

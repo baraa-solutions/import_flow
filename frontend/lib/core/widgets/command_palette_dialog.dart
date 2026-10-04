@@ -408,7 +408,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
                                   // Enter action hint for selected
                                   if (isSelected)
                                     Container(
-                                      margin: const EdgeInsets.only(left: 8),
+                                      margin: const EdgeInsetsDirectional.only(start: 8),
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: AppTheme.cobalt,

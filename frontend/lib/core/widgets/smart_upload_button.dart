@@ -809,9 +809,9 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
               Container(
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.08),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
+                  borderRadius: const BorderRadiusDirectional.only(
+                    topStart: Radius.circular(16),
+                    topEnd: Radius.circular(16),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -1349,7 +1349,7 @@ class _FieldRow extends StatelessWidget {
               children: [
                 if (isCustom)
                   const Padding(
-                    padding: EdgeInsets.only(left: 4),
+                    padding: EdgeInsetsDirectional.only(start: 4),
                     child: Icon(Icons.star, size: 12, color: Colors.blue),
                   ),
                 Expanded(

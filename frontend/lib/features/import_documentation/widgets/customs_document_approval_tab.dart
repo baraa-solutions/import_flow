@@ -1303,7 +1303,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               ),
             if (!isResolved)
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.check_circle_outline, size: 14),

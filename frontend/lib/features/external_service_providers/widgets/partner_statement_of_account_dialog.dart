@@ -6,6 +6,7 @@ import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class PartnerStatementOfAccountDialog extends ConsumerWidget {
   final PartnerModel partner;
 
@@ -387,8 +388,8 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                   ),
                                                 ),
                                               ),
-                                              DataCell(Text(entry.referenceNo, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
-                                              DataCell(Text(entry.importFileCode ?? '—', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
+                                              DataCell(LtrText(entry.referenceNo, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
+                                              DataCell(LtrText(entry.importFileCode ?? '—', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
                                               DataCell(Text(entry.description, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                                               DataCell(
                                                 Text(

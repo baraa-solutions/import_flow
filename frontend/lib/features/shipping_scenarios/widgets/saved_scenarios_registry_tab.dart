@@ -285,7 +285,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           return _buildMobileStudiesCardList(context, state.sessions, importFiles);
                         }
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                           child: Card(
                             elevation: 2,
                             color: isDark ? AppTheme.darkCardBackground : Colors.white,
@@ -1506,7 +1506,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 24),
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

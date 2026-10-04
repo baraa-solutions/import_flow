@@ -979,6 +979,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                   flex: 3,
                   child: TextFormField(
                     controller: _containerNumbersController,
+                    textDirection: TextDirection.ltr,
                     decoration: const InputDecoration(
                       labelText: 'أرقام الحاويات المنقولة',
                       hintText: 'مثال: MSKU9876543, MEDU1234567',
@@ -1076,7 +1077,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
 
             // Submit Button
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: ElevatedButton.icon(
                 key: const Key('inlandSubmitBookingBtn'),
                 style: ElevatedButton.styleFrom(

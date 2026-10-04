@@ -807,6 +807,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _invoiceNoCtrl,
+                    textDirection: TextDirection.ltr,
                     decoration: InputDecoration(labelText: l10n.inspectedInvoiceNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
@@ -843,6 +844,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _acidCtrl,
+                    textDirection: TextDirection.ltr,
                     decoration: InputDecoration(labelText: l10n.acidNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),

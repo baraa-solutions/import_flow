@@ -3,6 +3,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/freight_booking_model.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Search and Clone Previous Freight Booking Dialog (Screen 25 / UX-CLONE-025)
 ///
 /// Allows operators to quickly search past freight bookings by code, confirmation number,
@@ -287,7 +288,7 @@ class _SearchAndCloneFreightBookingDialogState
                         color: AppTheme.cobalt.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(
+                      child: LtrText(
                         bkg.bookingCode,
                         style: const TextStyle(
                           fontSize: 12,

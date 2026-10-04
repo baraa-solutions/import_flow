@@ -141,6 +141,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     // ── Username (disable on edit) ─────────────────────────────
                     TextFormField(
                       controller: usernameCtrl,
+                      textDirection: TextDirection.ltr,
                       enabled: !isEdit,
                       decoration: InputDecoration(
                         labelText: l.usersMgmtFieldUsername,
@@ -177,6 +178,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     // ── Email ──────────────────────────────────────────────────
                     TextFormField(
                       controller: emailCtrl,
+                      textDirection: TextDirection.ltr,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: l.usersMgmtFieldEmail,
@@ -652,7 +654,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
                   // ── Legend ────────────────────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+                    padding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 4),
                     child: Wrap(
                       spacing: 16,
                       children: [
@@ -678,7 +680,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   // ── Permission Groups ─────────────────────────────────────
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 16),
                       children: currentRbac.permissionGroups.map((group) {
                         final isExpanded = expandedModules[group.moduleName] ?? true;
                         return Card(
@@ -1927,7 +1929,7 @@ class _PermissionRow extends StatelessWidget {
           // Override badges
           if (!isInherited)
             Container(
-              margin: const EdgeInsets.only(right: 8),
+              margin: const EdgeInsetsDirectional.only(end: 8),
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: hasExplicitGrant
@@ -1947,7 +1949,7 @@ class _PermissionRow extends StatelessWidget {
           // Role-inherited indicator
           if (isInherited && roleHas)
             Container(
-              margin: const EdgeInsets.only(right: 8),
+              margin: const EdgeInsetsDirectional.only(end: 8),
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: AppTheme.cobalt.withOpacity(0.08),

@@ -514,7 +514,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: metricBadges.map((b) => Padding(padding: const EdgeInsets.only(right: 8), child: b)).toList(),
+                              children: metricBadges.map((b) => Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: b)).toList(),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -540,7 +540,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                 const SizedBox(width: 8),
                                 countBadgeWidget,
                                 const SizedBox(width: 8),
-                                ...exportButtons.map((b) => Padding(padding: const EdgeInsets.only(right: 6), child: b)),
+                                ...exportButtons.map((b) => Padding(padding: const EdgeInsetsDirectional.only(end: 6), child: b)),
                               ],
                             ),
                           ),
@@ -609,7 +609,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           }
 
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                            padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                             child: Card(
                               elevation: 2,
                               color: isDark ? AppTheme.darkCardBackground : Colors.white,
@@ -945,7 +945,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final egpLabel = isArabic ? 'ج.م' : 'EGP';
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 24),
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

@@ -749,7 +749,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           ],
           body: SelectionArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 92),
               child: _selectedSubTab == 0 ? _buildInitialDeclarationView(l) : _buildDeclarationRegistryView(l),
             ),
           ),
@@ -1004,6 +1004,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               TextFormField(
                                 key: const Key('decl46AcidField'),
                                 controller: _acidNumberCtrl,
+                                textDirection: TextDirection.ltr,
                                 decoration: InputDecoration(
                                   labelText: l.customsDeclAcidNumberLabel,
                                   prefixIcon: const Icon(Icons.qr_code),
@@ -1034,6 +1035,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               TextFormField(
                                 key: const Key('decl46BlField'),
                                 controller: _blNumberCtrl,
+                                textDirection: TextDirection.ltr,
                                 decoration: InputDecoration(
                                   labelText: l.customsDeclBlNumberLabel,
                                   prefixIcon: const Icon(Icons.assignment),
@@ -1053,6 +1055,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                 child: TextFormField(
                                   key: const Key('decl46AcidField'),
                                   controller: _acidNumberCtrl,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: l.customsDeclAcidNumberLabel,
                                     prefixIcon: const Icon(Icons.qr_code),
@@ -1087,6 +1090,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                 child: TextFormField(
                                   key: const Key('decl46BlField'),
                                   controller: _blNumberCtrl,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: l.customsDeclBlNumberLabel,
                                     prefixIcon: const Icon(Icons.assignment),

@@ -44,6 +44,7 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/utils/bidi_text.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -696,7 +697,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(shipName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
-                                                    Text(f.importFileCode, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                    LtrText(f.importFileCode, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                                   ],
                                                 ),
                                               ),
@@ -922,7 +923,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
 
                                           return DataRow(
                                             cells: [
-                                              DataCell(CopyableTableCell(value: po.poNumber, rowSummary: poRowSummary, child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                              DataCell(CopyableTableCell(value: po.poNumber, rowSummary: poRowSummary, child: LtrText(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                                               DataCell(CopyableTableCell(value: po.proformaInvoiceNumber ?? '-', rowSummary: poRowSummary, child: Text(po.proformaInvoiceNumber ?? '-'))),
                                               DataCell(CopyableTableCell(value: po.supplierName ?? file.supplierName, rowSummary: poRowSummary, child: Text(po.supplierName ?? file.supplierName))),
                                               DataCell(CopyableTableCell(
@@ -945,7 +946,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     ),
                                     const SizedBox(height: 12),
                                     Align(
-                                      alignment: Alignment.centerRight,
+                                      alignment: AlignmentDirectional.centerEnd,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppTheme.emerald,
@@ -1322,9 +1323,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         builder: (context, screenConstraints) {
           final isMobile = screenConstraints.maxWidth < AppTheme.tabletBreakpoint;
           return Padding(
-            padding: EdgeInsets.only(
-              left: isMobile ? 8 : 16,
-              right: isMobile ? 8 : 16,
+            padding: EdgeInsetsDirectional.only(
+              start: isMobile ? 8 : 16,
+              end: isMobile ? 8 : 16,
               top: isMobile ? 4 : 6,
               bottom: 2,
             ),
@@ -1491,7 +1492,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                      // ── Dedicated Scrollable Table Body (Vertical Scrollbar Flipped to Left via RTL Direction Trick) ──
                                      Expanded(
                                        child: Directionality(
-                                         textDirection: TextDirection.rtl,
+                                         textDirection: ambientDirection == TextDirection.ltr ? TextDirection.rtl : ambientDirection, // LTR keeps the scrollbar on the left; RTL uses the native side
                                          child: Scrollbar(
                                            controller: _verticalTableScrollController,
                                            thumbVisibility: true,
@@ -1672,7 +1673,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                  ),
                                                ),
                                                if (shipDisplayName != file.importFileCode)
-                                                 Text(
+                                                 LtrText(
                                                    file.importFileCode,
                                                    style: TextStyle(
                                                      fontSize: density.tableCellSecondaryFontSize,
@@ -1955,7 +1956,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          LtrText(
                             file.importFileCode,
                             style: TextStyle(
                               fontSize: 11,
@@ -2897,7 +2898,7 @@ class _SearchAndCloneImportFileDialogState extends State<_SearchAndCloneImportFi
                                         ),
                                         if (shipName != file.importFileCode) ...[
                                           const SizedBox(width: 8),
-                                          Text(
+                                          LtrText(
                                             file.importFileCode,
                                             style: TextStyle(
                                               fontSize: 11,

@@ -11,6 +11,7 @@ import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Shows the Foreign Supplier Advance Payment Request Dialog (FN-01)
 Future<PaymentRequestModel?> showSupplierAdvancePaymentDialog(
   BuildContext context,
@@ -424,7 +425,7 @@ class _SupplierAdvancePaymentDialogState
                                 color: AppTheme.cobalt.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
+                              child: LtrText(
                                 widget.importFileCode,
                                 style: const TextStyle(
                                   fontSize: 11,
@@ -834,6 +835,7 @@ class _SupplierAdvancePaymentDialogState
                               Expanded(
                                 child: TextFormField(
                                   controller: _swiftController,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: isAr
                                         ? 'كود السويفت (SWIFT / BIC) *'
@@ -848,6 +850,7 @@ class _SupplierAdvancePaymentDialogState
                               Expanded(
                                 child: TextFormField(
                                   controller: _ibanController,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: isAr
                                         ? 'رقم الحساب أو الآيبان (IBAN) *'

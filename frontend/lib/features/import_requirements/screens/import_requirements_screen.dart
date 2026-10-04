@@ -1261,6 +1261,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _hsCodeCtrl,
+                  textDirection: TextDirection.ltr,
                   decoration: InputDecoration(
                     labelText: l10n.hsCodeFieldLabel,
                     border: const OutlineInputBorder(),

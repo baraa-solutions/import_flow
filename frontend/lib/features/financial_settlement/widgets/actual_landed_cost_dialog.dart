@@ -6,6 +6,7 @@ import '../models/actual_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ActualLandedCostDialog extends ConsumerStatefulWidget {
   final int importFileId;
   final String importFileCode;
@@ -718,7 +719,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
                         ),
                       ),
                     ),
-                    DataCell(Text(item.hsCode, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),
+                    DataCell(LtrText(item.hsCode, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),
                     DataCell(Text('${item.quantity.toStringAsFixed(0)} ${item.unitOfMeasure}', style: const TextStyle(fontSize: 12))),
                     DataCell(Text('${item.fobUnitPriceFc.toStringAsFixed(2)} ${item.currency}', style: const TextStyle(fontSize: 12))),
                     DataCell(Text('${_formatCurrency(item.fobTotalEgp)} ج.م', style: const TextStyle(fontSize: 12))),

@@ -431,7 +431,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                             final idx = entry.key + 1;
                             final item = entry.value;
                             return Padding(
-                              padding: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsetsDirectional.only(end: 4),
                               child: _buildHsTabChip(
                                 label: item.hsCode,
                                 isSelected: _selectedHsIndex == idx,

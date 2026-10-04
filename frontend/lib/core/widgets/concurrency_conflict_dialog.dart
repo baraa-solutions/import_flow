@@ -135,7 +135,7 @@ class ConcurrencyConflictDialog extends StatelessWidget {
           children: [
             // Header Banner
             Container(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+              padding: const EdgeInsetsDirectional.fromSTEB(22, 18, 22, 16),
               decoration: BoxDecoration(
                 color: AppTheme.crimson.withOpacity(0.08),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
