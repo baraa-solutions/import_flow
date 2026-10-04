@@ -46,6 +46,8 @@ python-dotenv>=1.0.0
 
 # Utilities
 python-dateutil>=2.8.2
+# IANA time zones for zoneinfo on Windows (Africa/Cairo with DST); bundled into backend.exe
+tzdata>=2024.1
 
 # Testing & Build
 pytest>=8.0.0

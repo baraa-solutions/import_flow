@@ -16,9 +16,15 @@ from database.database import Base
 from database.master_data_sync_service import TAX_RATE_SEED_FROM, MasterDataSyncService
 from modules.customs_clearance.model import ClearanceExpenseInvoice
 from modules.financial_settlement.model import TaxRate, WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
+from fastapi import HTTPException
+
+from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.financial_settlement.service import (
+    WHT_RATE_NOT_CONFIGURED,
     aggregate_shipment_invoices_service,
+    cairo_date,
     resolve_wht_rate_percent,
+    wht_amount_for,
 )
 from modules.import_files.model import ImportFile
 
@@ -183,13 +189,80 @@ def test_changed_rate_changes_totals_by_effective_date(db):
     assert items2[f"BROKER-{new.invoice_id}"].withholding_tax_amount_egp == 240.0
 
 
-def test_no_configured_rate_means_no_deduction(db):
+def test_no_configured_rate_synthetic_rows_warn_and_deduct_nothing(db):
     imp = _import_file(db)
-    items = _by_id(aggregate_shipment_invoices_service(db, imp.import_file_id))
+    result = aggregate_shipment_invoices_service(db, imp.import_file_id)
+    items = _by_id(result)
     assert items["BROKER-IMP"].withholding_tax_rate == 0.0
     assert items["BROKER-IMP"].withholding_tax_amount_egp == 0.0
     assert items["BROKER-IMP"].net_payable_egp == CLEARANCE_TOTAL
     assert items["TR-IMP"].withholding_tax_amount_egp == 0.0
+    joined = " | ".join(result.unsettled_warnings)
+    assert WHT_CLEARANCE_SERVICES in joined and WHT_TRANSPORT_SERVICES in joined
+
+
+def test_no_configured_rate_on_a_real_deducted_invoice_is_a_coded_error(db):
+    imp = _import_file(db, clearance=0.0, transport=0.0)
+    inv = _clearance_invoice(db, imp, datetime(2025, 6, 1, tzinfo=timezone.utc))
+    with pytest.raises(HTTPException) as exc:
+        aggregate_shipment_invoices_service(db, imp.import_file_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == WHT_RATE_NOT_CONFIGURED
+    assert exc.value.detail["tax_code"] == WHT_CLEARANCE_SERVICES
+    assert exc.value.detail["on_date"] == "2025-06-01"
+    assert exc.value.detail["invoice_code"] == inv.invoice_code
+
+    # A stored WHT amount needs no rate.
+    inv.wht_amount = 80.0
+    db.commit()
+    item = _by_id(aggregate_shipment_invoices_service(db, imp.import_file_id))[f"BROKER-{inv.invoice_id}"]
+    assert item.withholding_tax_amount_egp == 80.0
+    assert item.withholding_tax_rate == 0.0
+
+
+# ── rounding parity with the old formula ──────────────────────────────────────────
+
+def test_wht_amount_rounds_exactly_like_the_old_one_percent_formula():
+    assert wht_amount_for(17.5, 1.0) == 0.18 == _legacy_wht(17.5)
+    mismatches = [c for c in range(1_000_000) if wht_amount_for(c / 100, 1.0) != _legacy_wht(c / 100)]
+    assert mismatches == []
+
+
+# ── dates: Cairo business date, file release date for the synthetic broker row ───
+
+def test_invoice_date_is_taken_in_cairo_time(db):
+    _seed(db)
+    _new_period(db, WHT_CLEARANCE_SERVICES, 3, date(2026, 1, 1))
+    late_utc = datetime(2025, 12, 31, 23, 0, tzinfo=timezone.utc)  # 2026-01-01 01:00 in Cairo
+    assert cairo_date(late_utc) == date(2026, 1, 1)
+    assert cairo_date(datetime(2025, 12, 31, 23, 0)) == date(2026, 1, 1)  # naive = UTC
+
+    imp = _import_file(db, clearance=0.0, transport=0.0)
+    inv = _clearance_invoice(db, imp, late_utc)
+    item = _by_id(aggregate_shipment_invoices_service(db, imp.import_file_id))[f"BROKER-{inv.invoice_id}"]
+    assert item.withholding_tax_rate == 3.0
+    assert item.withholding_tax_amount_egp == 240.0
+
+
+def test_synthetic_broker_row_uses_the_customs_release_date(db):
+    _seed(db)
+    _new_period(db, WHT_CLEARANCE_SERVICES, 3, date(2026, 1, 1))
+
+    released = _import_file(db, code="IMP-WHT-REL", transport=0.0)
+    released.customs_released_at = datetime(2025, 6, 1, 10, 0)
+    db.commit()
+    assert _by_id(aggregate_shipment_invoices_service(db, released.import_file_id))["BROKER-IMP"].withholding_tax_rate == 1.0
+
+    via_record = _import_file(db, code="IMP-WHT-CL", transport=0.0)
+    db.add(CustomsClearanceRecord(
+        clearance_code="CLR-WHT-1", import_file_id=via_record.import_file_id, release_date=datetime(2025, 7, 1, 9, 0),
+    ))
+    db.commit()
+    assert _by_id(aggregate_shipment_invoices_service(db, via_record.import_file_id))["BROKER-IMP"].withholding_tax_rate == 1.0
+
+    # No release date at all: today (after 2026-01-01) -> 3%.
+    unreleased = _import_file(db, code="IMP-WHT-NOW", transport=0.0)
+    assert _by_id(aggregate_shipment_invoices_service(db, unreleased.import_file_id))["BROKER-IMP"].withholding_tax_rate == 3.0
 
 
 # ── lookup edge cases ─────────────────────────────────────────────────────────────

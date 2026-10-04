@@ -1,5 +1,7 @@
-from datetime import date, datetime, timezone
+import logging
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -38,6 +40,8 @@ from modules.import_files.model import ImportFile
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+
+logger = logging.getLogger(__name__)
 
 
 def actual_expense_bucket(category: Optional[str], party_type: Optional[str] = None) -> str:
@@ -870,16 +874,55 @@ def simulate_estimated_landed_cost_service(
 # CLO-01: Final Settlement Invoices Aggregation Services
 # ==============================================================================
 
+WHT_RATE_NOT_CONFIGURED = "WHT_RATE_NOT_CONFIGURED"
+_CAIRO_FALLBACK_TZ = timezone(timedelta(hours=2), "EET")
+
+
+def _cairo_tz():
+    try:
+        return ZoneInfo("Africa/Cairo")
+    except ZoneInfoNotFoundError:  # tzdata missing (frozen build): standard time, no DST
+        logger.warning("Africa/Cairo time zone data unavailable; using a fixed UTC+2 offset")
+        return _CAIRO_FALLBACK_TZ
+
+
+def cairo_date(value: Optional[datetime]) -> Optional[date]:
+    """Business date in Cairo of a stored timestamp. Naive values are stored UTC."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_cairo_tz()).date()
+
+
+def cairo_today() -> date:
+    return datetime.now(timezone.utc).astimezone(_cairo_tz()).date()
+
+
+def get_wht_rate_percent(db: Session, tax_code: str, on_date: Optional[date] = None) -> Optional[float]:
+    """Withholding tax rate (percent) of ``tax_code`` valid on ``on_date`` (default: today in Cairo), read from
+    the effective-dated ``tax_rates`` table. ``None`` when no rate is configured for that date."""
+    record = get_effective_tax_rate(db, tax_code, on_date or cairo_today())
+    return float(record.rate_percent) if record is not None else None
+
+
 def resolve_wht_rate_percent(db: Session, tax_code: str, on_date: Optional[date] = None) -> float:
-    """Withholding tax rate (percent) of ``tax_code`` valid on ``on_date`` (default today), read from the
-    effective-dated ``tax_rates`` table. No configured rate -> 0 (nothing deducted)."""
-    target = on_date or datetime.now(timezone.utc).date()
-    record = get_effective_tax_rate(db, tax_code, target)
-    return float(record.rate_percent) if record is not None else 0.0
+    """``get_wht_rate_percent`` with 0 for "not configured"."""
+    rate = get_wht_rate_percent(db, tax_code, on_date)
+    return rate if rate is not None else 0.0
 
 
 def wht_amount_for(amount_egp: float, rate_percent: float) -> float:
-    return round(amount_egp * rate_percent / 100.0, 2)
+    # rate_percent / 100 first: for 1% this is exactly the old ``round(amount * 0.01, 2)`` (1.0 / 100.0 == 0.01),
+    # while ``amount * rate / 100`` rounds differently on some cent amounts (17.50 -> 0.17 instead of 0.18).
+    return round(amount_egp * (rate_percent / 100.0), 2)
+
+
+def _wht_rate_missing_warning(tax_code: str, on_date: date, invoice_no: Optional[str]) -> str:
+    return (
+        f"لا توجد نسبة خصم من المنبع ({tax_code}) سارية بتاريخ {on_date.isoformat()}: "
+        f"لم يتم احتساب خصم على الفاتورة {invoice_no or '-'}"
+    )
 
 
 def aggregate_shipment_invoices_service(
@@ -1137,6 +1180,8 @@ def aggregate_shipment_invoices_service(
             notes="رسوم جمركية مسددة بنظام سداد",
         ))
 
+    wht_warnings: List[str] = []
+
     # 5. Clearance Invoices (CL-05: ClearanceExpenseInvoice)
     cl_invoices = db.query(ClearanceExpenseInvoice).filter(
         ClearanceExpenseInvoice.import_file_id == import_file_id,
@@ -1150,14 +1195,28 @@ def aggregate_shipment_invoices_service(
         is_part = "part" in (cl_inv.payment_status or "").lower()
         paid = float(cl_inv.net_payable_egp if is_p else (cl_inv.net_payable_egp * 0.5 if is_part else 0.0))
         rem = max(0.0, float(cl_inv.net_payable_egp or amt) - paid)
-        # WHT rate valid on the invoice date (tax_rates table); a stored wht_amount always wins.
-        wht_rate = (
-            resolve_wht_rate_percent(
-                db, WHT_CLEARANCE_SERVICES, cl_inv.invoice_date.date() if cl_inv.invoice_date else None
-            )
-            if cl_inv.wht_deducted
-            else 0.0
-        )
+        # WHT rate valid on the invoice date (Cairo, tax_rates table); a stored wht_amount always wins.
+        wht_rate = 0.0
+        if cl_inv.wht_deducted:
+            wht_date = cairo_date(cl_inv.invoice_date) or cairo_today()
+            configured = get_wht_rate_percent(db, WHT_CLEARANCE_SERVICES, wht_date)
+            if configured is None and not cl_inv.wht_amount:
+                # A real invoice marked "WHT deducted" cannot silently get 0: the net payable would be wrong.
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": WHT_RATE_NOT_CONFIGURED,
+                        "message": (
+                            f"لا توجد نسبة خصم من المنبع سارية بتاريخ {wht_date.isoformat()} لفاتورة التخليص "
+                            f"{cl_inv.invoice_number or cl_inv.invoice_code}. يرجى ضبط النسبة ({WHT_CLEARANCE_SERVICES}) "
+                            "أو إدخال قيمة الخصم على الفاتورة."
+                        ),
+                        "tax_code": WHT_CLEARANCE_SERVICES,
+                        "on_date": wht_date.isoformat(),
+                        "invoice_code": cl_inv.invoice_code,
+                    },
+                )
+            wht_rate = configured or 0.0
         wht_amt = float(cl_inv.wht_amount or (wht_amount_for(amt, wht_rate) if cl_inv.wht_deducted else 0.0))
         net = float(cl_inv.net_payable_egp or (amt - wht_amt))
 
@@ -1193,7 +1252,17 @@ def aggregate_shipment_invoices_service(
 
     if not has_broker_inv and imp.total_clearance_expenses_egp and imp.total_clearance_expenses_egp > 0:
         amt = float(imp.total_clearance_expenses_egp)
-        wht_rate = resolve_wht_rate_percent(db, WHT_CLEARANCE_SERVICES)
+        # Synthetic row: rate on the customs release date (file, else latest clearance record), today as last resort.
+        release_dates = [c.release_date for c in clearances if c.release_date]
+        wht_date = (
+            cairo_date(imp.customs_released_at)
+            or (cairo_date(max(release_dates)) if release_dates else None)
+            or cairo_today()
+        )
+        configured = get_wht_rate_percent(db, WHT_CLEARANCE_SERVICES, wht_date)
+        if configured is None:
+            wht_warnings.append(_wht_rate_missing_warning(WHT_CLEARANCE_SERVICES, wht_date, f"BROK-{imp.import_file_code}"))
+        wht_rate = configured or 0.0
         wht_amt = wht_amount_for(amt, wht_rate)
         net = round(amt - wht_amt, 2)
         invoices.append(AggregatedInvoiceItemSchema(
@@ -1230,9 +1299,13 @@ def aggregate_shipment_invoices_service(
         amt = float(tr.transport_fare_egp or 0.0)
         if amt > 0:
             has_trans_inv = True
-            wht_rate = resolve_wht_rate_percent(
-                db, WHT_TRANSPORT_SERVICES, tr.booking_date.date() if tr.booking_date else None
-            )
+            wht_date = cairo_date(tr.booking_date) or cairo_today()
+            configured = get_wht_rate_percent(db, WHT_TRANSPORT_SERVICES, wht_date)
+            if configured is None:
+                wht_warnings.append(
+                    _wht_rate_missing_warning(WHT_TRANSPORT_SERVICES, wht_date, tr.waybill_number or tr.transport_code)
+                )
+            wht_rate = configured or 0.0
             wht = wht_amount_for(amt, wht_rate)
             net = round(amt - wht, 2)
             is_p = tr.status in ("Delivered", "Arrived at Warehouse", "COMPLETED")
@@ -1262,9 +1335,13 @@ def aggregate_shipment_invoices_service(
 
     if not has_trans_inv and imp.inland_transport_cost_egp and imp.inland_transport_cost_egp > 0:
         amt = float(imp.inland_transport_cost_egp)
-        wht_rate = resolve_wht_rate_percent(
-            db, WHT_TRANSPORT_SERVICES, imp.inland_departure_date.date() if imp.inland_departure_date else None
-        )
+        wht_date = cairo_date(imp.inland_departure_date) or cairo_today()
+        configured = get_wht_rate_percent(db, WHT_TRANSPORT_SERVICES, wht_date)
+        if configured is None:
+            wht_warnings.append(
+                _wht_rate_missing_warning(WHT_TRANSPORT_SERVICES, wht_date, imp.inland_transport_booking_no or f"TR-{imp.import_file_code}")
+            )
+        wht_rate = configured or 0.0
         wht = wht_amount_for(amt, wht_rate)
         net = round(amt - wht, 2)
         invoices.append(AggregatedInvoiceItemSchema(
@@ -1354,7 +1431,7 @@ def aggregate_shipment_invoices_service(
     total_wht = round(sum(inv.withholding_tax_amount_egp for inv in invoices), 2)
     readiness = round((total_paid / total_amt * 100.0), 1) if total_amt > 0 else 100.0
 
-    warnings: List[str] = []
+    warnings: List[str] = list(wht_warnings)
     for inv in invoices:
         if inv.remaining_amount_egp > 0:
             warnings.append(
