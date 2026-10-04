@@ -490,6 +490,8 @@ class DraftBLReviewBase(BaseModel):
     has_blocking_mismatch: bool = False
     open_discrepancies_count: int = 0
     blocking_reasons: Optional[List[str]] = None
+    # [{"code": DOC_DRAFT_BLOCKING_*, "params": {"field_enum_draft_bl_field": <DRAFT_BL_FIELD code>}}]
+    blocking_reasons_coded: Optional[List[Dict[str, Any]]] = None
     correction_request_letter: Optional[str] = None
     importer_approval_status: str = "Pending"
     importer_approved_by: Optional[str] = None
@@ -530,6 +532,7 @@ class DraftBLReviewUpdate(BaseModel):
     has_blocking_mismatch: Optional[bool] = None
     open_discrepancies_count: Optional[int] = None
     blocking_reasons: Optional[List[str]] = None
+    blocking_reasons_coded: Optional[List[Dict[str, Any]]] = None
     correction_request_letter: Optional[str] = None
     importer_approval_status: Optional[str] = None
     importer_approved_by: Optional[str] = None

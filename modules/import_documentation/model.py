@@ -327,6 +327,9 @@ class DraftBLReviewSession(Base):
     has_blocking_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
     open_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0)
     blocking_reasons: Mapped[list] = mapped_column(JSON, nullable=True)
+    # Coded twin of blocking_reasons (same order): [{"code": <system message code>, "params": {...}}].
+    # NULL on legacy rows and when a client supplied blocking_reasons itself.
+    blocking_reasons_coded: Mapped[list] = mapped_column(JSON, nullable=True)
     correction_request_letter: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Dual Approval Stage 4

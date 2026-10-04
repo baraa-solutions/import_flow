@@ -44,7 +44,10 @@ def get_all_tariffs(
     search: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
+    category_values: Optional[List[str]] = None,
 ) -> List[CustomsTariff]:
+    """``category_values``: exact customs_category values (codes + their legacy labels) OR-ed into the
+    text search, so a label typed by the user also finds rows that store the code."""
     query = db.query(CustomsTariff)
     if not include_inactive:
         query = query.filter(CustomsTariff.is_active == True)
@@ -54,14 +57,15 @@ def get_all_tariffs(
         term = f"%{clean_search.lower()}%"
         nodots_term = f"%{nodots}%"
         from sqlalchemy import func
-        query = query.filter(
-            or_(
-                CustomsTariff.hs_code.ilike(term),
-                func.replace(CustomsTariff.hs_code, '.', '').ilike(nodots_term),
-                CustomsTariff.hs_description.ilike(term),
-                CustomsTariff.customs_category.ilike(term),
-            )
-        )
+        conditions = [
+            CustomsTariff.hs_code.ilike(term),
+            func.replace(CustomsTariff.hs_code, '.', '').ilike(nodots_term),
+            CustomsTariff.hs_description.ilike(term),
+            CustomsTariff.customs_category.ilike(term),
+        ]
+        if category_values:
+            conditions.append(CustomsTariff.customs_category.in_(category_values))
+        query = query.filter(or_(*conditions))
     query = query.order_by(CustomsTariff.hs_code)
     if skip > 0:
         query = query.offset(skip)

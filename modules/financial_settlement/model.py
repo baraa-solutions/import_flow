@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
+    Date,
     Integer,
+    Numeric,
+    UniqueConstraint,
     String,
     Boolean,
     DateTime,
@@ -53,3 +56,34 @@ class LandedCostSettlementRecord(Base):
 
     # Relationships
     import_file = relationship("ImportFile", backref="financial_settlement_records")
+
+
+# Tax codes of the withholding tax (deduction at source) taken from customs broker / port invoices and from
+# inland transport invoices. Rates live in tax_rates (seeded by MasterDataSyncService.sync_tax_rates).
+WHT_CLEARANCE_SERVICES = "WHT_CLEARANCE_SERVICES"
+WHT_TRANSPORT_SERVICES = "WHT_TRANSPORT_SERVICES"
+
+
+class TaxRate(Base):
+    """
+    Effective-dated tax rates that are not part of the HS-code tariff (e.g. withholding tax deducted from
+    clearance invoices). One row per (tax_code, effective_from); the rate valid on a date is the active,
+    non-deleted row with effective_from <= date <= effective_to (open-ended when effective_to is NULL).
+    """
+    __tablename__ = "tax_rates"
+    __table_args__ = (UniqueConstraint("tax_code", "effective_from", name="uq_tax_rates_code_effective_from"),)
+
+    tax_rate_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    tax_code = Column(String(50), nullable=False, index=True)
+    rate_percent = Column(Numeric(7, 4), nullable=False)
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    description = Column(String(255), nullable=True)
+
+    is_active = Column(Boolean, default=True, server_default="1", nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), default="System")
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_by = Column(String(100), default="System")

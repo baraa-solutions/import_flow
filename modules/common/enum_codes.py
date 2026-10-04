@@ -47,6 +47,7 @@ LANDED_COST_VARIANCE_STATUS = "LANDED_COST_VARIANCE_STATUS"
 CUSTOMS_CATEGORY = "CUSTOMS_CATEGORY"
 VALUE_PLACEHOLDER = "VALUE_PLACEHOLDER"
 MEASURE_UNIT = "MEASURE_UNIT"
+DRAFT_BL_FIELD = "DRAFT_BL_FIELD"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -302,6 +303,30 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "KG": "kg",
         "CBM": "CBM",
         "PACKAGES_PALLETS": "packages/pallets",
+    },
+    # Draft B/L comparison field (code = upper-cased field_key of the comparison matrix). Used by the
+    # blocking reason messages DOC_DRAFT_BLOCKING_* (param field_enum_draft_bl_field).
+    DRAFT_BL_FIELD: {
+        "SHIPPER": "Shipper Name, Address & Phone",
+        "CONSIGNEE": "Consignee Name, Address & Phone",
+        "NOTIFY_PARTY": "Notify Party Name, Address & Phone",
+        "VESSEL_NAME": "Vessel Name",
+        "VOYAGE_NUMBER": "Voyage Number",
+        "POL": "Port of Loading (POL)",
+        "POD": "Port of Discharge (POD)",
+        "FREIGHT_TERMS": "Freight Terms (Prepaid/Collect)",
+        "PLACE_OF_DELIVERY": "Place of Delivery",
+        "BOOKING_NO": "Booking Number",
+        "ACID_NUMBER": "ACID Number",
+        "IMPORTER_TAX_ID": "Egyptian Importer Tax ID",
+        "SHIPPER_REG_ID": "Shipper Registration/ID",
+        "SHIPPING_MODE": "Shipping Mode (FCL/LCL/Air)",
+        "CONTAINER_SUMMARY": "Container No + Seal No + Size",
+        "GOODS_DESCRIPTION": "Packing Summary & Goods Description",
+        "TOTAL_GROSS_WEIGHT_KG": "Gross Weight (KG)",
+        "TOTAL_NET_WEIGHT_KG": "Net Weight (KG)",
+        "CBM": "Measurement (CBM)",
+        "QTY_PKG": "Number of Packages",
     },
 }
 
@@ -678,6 +703,24 @@ def legacy_values(enum_type: str, code: str) -> List[str]:
         if mapped == code and legacy not in values:
             values.append(legacy)
     return values
+
+
+def codes_matching(enum_type: str, term: Optional[str]) -> List[str]:
+    """Codes whose code, English label or any legacy label contains ``term`` (case-insensitive substring).
+    For free-text search over an enum column: rows store the code, users type a label fragment."""
+    if enum_type not in LABELS_EN:
+        raise KeyError(f"Unknown enum type: {enum_type}")
+    needle = _key(term) if isinstance(term, str) else ""
+    if not needle:
+        return []
+    hits: List[str] = []
+    for code, label in LABELS_EN[enum_type].items():
+        if needle in _key(code) or needle in _key(code.replace("_", " ")) or needle in _key(label):
+            hits.append(code)
+    for legacy, code in _LEGACY.get(enum_type, {}).items():
+        if code not in hits and needle in _key(legacy):
+            hits.append(code)
+    return hits
 
 
 def normalize_currency(value: Any) -> Any:

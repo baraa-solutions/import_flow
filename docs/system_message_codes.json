@@ -658,6 +658,22 @@
       "note"
     ]
   },
+  "DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH": {
+    "params": [
+      "field_enum_draft_bl_field"
+    ],
+    "parts": [
+      "reason"
+    ]
+  },
+  "DOC_DRAFT_BLOCKING_FIELD_EMPTY": {
+    "params": [
+      "field_enum_draft_bl_field"
+    ],
+    "parts": [
+      "reason"
+    ]
+  },
   "DOC_DRAFT_BL_REVIEWED": {
     "params": [
       "draft_bl_number",

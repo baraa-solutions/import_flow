@@ -33,6 +33,7 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewCreate,
 )
 import modules.import_documentation.service as service
+from modules.common import enum_codes
 
 
 class TestDraftReviewsAndCompliance(unittest.TestCase):
@@ -240,8 +241,63 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         )
         res_bad = service.compare_draft_bl_service(self.db, comp_req_bad)
         self.assertTrue(res_bad["has_blocking_mismatch"])
-        self.assertIn("اختلاف حرج", "".join(res_bad["blocking_reasons"]))
+        # English text + coded twin (same order); no Arabic stored.
+        self.assertIn("Critical mismatch in Booking Number", res_bad["blocking_reasons"])
+        self.assertEqual(len(res_bad["blocking_reasons"]), len(res_bad["blocking_reasons_coded"]))
+        self.assertIn(
+            {"code": "DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH", "params": {"field_enum_draft_bl_field": "BOOKING_NO"}},
+            res_bad["blocking_reasons_coded"],
+        )
+        self.assertFalse(any(enum_codes.contains_arabic(r) for r in res_bad["blocking_reasons"]))
         self.assertIn("Subject: Urgent: Draft B/L Correction Request", res_bad["correction_request_letter"])
+
+    def test_draft_bl_blocking_reasons_coded_for_empty_critical_field(self):
+        from modules.common.system_messages import is_known_code, render_en
+
+        res = service.compare_draft_bl_service(self.db, DraftBLComparisonRequest(
+            import_file_id=self.import_file.import_file_id,
+            draft_fields={"acid_number": "", "booking_no": "WRONG-BKG-888"},
+        ))
+        self.assertTrue(res["has_blocking_mismatch"])
+        coded = res["blocking_reasons_coded"]
+        self.assertIn(
+            {"code": "DOC_DRAFT_BLOCKING_FIELD_EMPTY", "params": {"field_enum_draft_bl_field": "ACID_NUMBER"}}, coded
+        )
+        self.assertIn("Critical field is empty: ACID Number", res["blocking_reasons"])
+        for text, item in zip(res["blocking_reasons"], coded):
+            self.assertTrue(is_known_code(item["code"]))
+            self.assertTrue(enum_codes.is_code(enum_codes.DRAFT_BL_FIELD, item["params"]["field_enum_draft_bl_field"]))
+            self.assertEqual(text, render_en(item["code"], item["params"], "reason"))
+
+    def test_draft_bl_blocking_reasons_coded_persisted_and_dropped_on_text_edit(self):
+        from modules.import_documentation.schemas import DraftBLReviewCreate, DraftBLReviewUpdate
+
+        review = service.create_draft_bl_review_service(self.db, DraftBLReviewCreate(
+            import_file_id=self.import_file.import_file_id,
+            draft_input_data={"acid_number": "", "booking_no": "WRONG-BKG-888"},
+        ))
+        self.assertTrue(review.blocking_reasons_coded)
+        self.assertEqual(len(review.blocking_reasons), len(review.blocking_reasons_coded))
+        self.assertFalse(any(enum_codes.contains_arabic(r) for r in review.blocking_reasons))
+
+        # A client that rewrites the text without codes invalidates the stale codes.
+        updated = service.update_draft_bl_review_service(
+            self.db, review.bl_review_id, DraftBLReviewUpdate(blocking_reasons=["manual note"])
+        )
+        self.assertEqual(updated.blocking_reasons, ["manual note"])
+        self.assertIsNone(updated.blocking_reasons_coded)
+
+        # An unrelated update keeps them.
+        review2 = service.update_draft_bl_review_service(
+            self.db, review.bl_review_id, DraftBLReviewUpdate(
+                blocking_reasons=["x"],
+                blocking_reasons_coded=[{"code": "DOC_DRAFT_BLOCKING_FIELD_EMPTY",
+                                         "params": {"field_enum_draft_bl_field": "POL"}}],
+            )
+        )
+        service.update_draft_bl_review_service(self.db, review2.bl_review_id, DraftBLReviewUpdate(shipping_line="MSC"))
+        self.db.refresh(review2)
+        self.assertEqual(review2.blocking_reasons_coded[0]["params"]["field_enum_draft_bl_field"], "POL")
 
     def test_certificate_of_origin_comparison(self):
         coo_req = COOComparisonRequest(

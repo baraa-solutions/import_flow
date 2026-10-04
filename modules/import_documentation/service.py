@@ -1524,6 +1524,13 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
     matrix = []
     checklist = []
     blocking_reasons = []
+    blocking_reasons_coded = []
+
+    def _block(code: str, field_key: str) -> None:
+        # English text (legacy column) + coded twin for Flutter: [{code, params}] in the same order.
+        params = {"field_enum_draft_bl_field": field_key.upper()}
+        blocking_reasons.append(render_en(code, params, "reason"))
+        blocking_reasons_coded.append({"code": code, "params": params})
 
     for key, label_ar, label_en, source, is_critical, match_type, resp_default in fields_spec:
         sys_val = sys_data.get(key)
@@ -1535,7 +1542,7 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             severity = "BLOCKING" if (is_critical and is_explicitly_empty) else "WARNING"
             details_fields = coded_text("details", "DOC_DRAFT_FIELD_MISSING")
             if is_critical and is_explicitly_empty:
-                blocking_reasons.append(f"حقل حرج فارغ: {label_ar}")
+                _block("DOC_DRAFT_BLOCKING_FIELD_EMPTY", key)
             tolerance_pct = 0.0
         elif sys_val is None or str(sys_val).strip() == "":
             match_status = "MATCH"
@@ -1556,7 +1563,7 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
                     "details", "DOC_DRAFT_VALUE_MISMATCH", system_value=sys_val, draft_value=draft_val
                 )
                 if is_critical:
-                    blocking_reasons.append(f"اختلاف حرج في {label_ar}")
+                    _block("DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH", key)
         elif match_type == "numeric_05":
             try:
                 s_num = float(sys_val)
@@ -1594,7 +1601,7 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
                     "details", "DOC_DRAFT_APPROVED_VALUE_MISMATCH", system_value=sys_val, draft_value=draft_val
                 )
                 if is_critical:
-                    blocking_reasons.append(f"اختلاف حرج في {label_ar}")
+                    _block("DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH", key)
 
         matrix.append({
             "field_key": key,
@@ -1675,6 +1682,7 @@ Please be advised that upon verification of the Draft Bill of Lading received fo
         "has_blocking_mismatch": has_blocking,
         "open_discrepancies_count": len(open_discrepancies),
         "blocking_reasons": blocking_reasons,
+        "blocking_reasons_coded": blocking_reasons_coded,
         "correction_request_letter": correction_letter,
         "status": status_calc,
     }
@@ -1892,6 +1900,7 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.has_blocking_mismatch = comp_res["has_blocking_mismatch"]
         schema.open_discrepancies_count = comp_res["open_discrepancies_count"]
         schema.blocking_reasons = comp_res["blocking_reasons"]
+        schema.blocking_reasons_coded = comp_res["blocking_reasons_coded"]
         schema.correction_request_letter = comp_res["correction_request_letter"]
         if getattr(schema, "is_draft", False):
             schema.status = "DRAFT"
@@ -1919,7 +1928,7 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
 
     if is_draft:
         if existing_draft and existing_draft.is_draft:
-            update_schema = DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True))
+            update_schema = _drop_stale_blocking_codes(DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True)))
             saved_session = repo.update_draft_bl_review(db, existing_draft.bl_review_id, update_schema)
             is_update = True
         else:
@@ -1956,8 +1965,15 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
     return saved_session
 
 
+def _drop_stale_blocking_codes(schema: DraftBLReviewUpdate) -> DraftBLReviewUpdate:
+    """A client that replaces blocking_reasons without sending blocking_reasons_coded invalidates the codes."""
+    if "blocking_reasons" in schema.model_fields_set and "blocking_reasons_coded" not in schema.model_fields_set:
+        schema.blocking_reasons_coded = None
+    return schema
+
+
 def update_draft_bl_review_service(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
-    updated = repo.update_draft_bl_review(db, review_id, schema)
+    updated = repo.update_draft_bl_review(db, review_id, _drop_stale_blocking_codes(schema))
     try:
         from modules.audit_logs.service import AuditLogService
         AuditLogService(db).log_activity(
@@ -2152,6 +2168,7 @@ def create_new_draft_version_service(db: Session, request: NewDraftVersionReques
         has_blocking_mismatch=comp_res["has_blocking_mismatch"],
         open_discrepancies_count=len([c for c in new_checklist if c["status"] == "Incorrect"]),
         blocking_reasons=comp_res["blocking_reasons"],
+        blocking_reasons_coded=comp_res["blocking_reasons_coded"],
         correction_request_letter=comp_res["correction_request_letter"],
         status="REVIEWED_PENDING_APPROVAL" if len([c for c in new_checklist if c["status"] == "Incorrect"]) == 0 else "REVISION_REQUIRED",
     )

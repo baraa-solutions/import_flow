@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from modules.common import enum_codes
 from . import repository
 from .model import CustomsTariff, PreferentialAgreement
 from .schemas import normalize_customs_category
@@ -60,7 +61,21 @@ def get_all_tariffs_service(
         search=search,
         skip=skip,
         limit=limit,
+        category_values=customs_category_search_values(search),
     )
+
+
+def customs_category_search_values(search: Optional[str]) -> List[str]:
+    """customs_category is stored as a CUSTOMS_CATEGORY code (legacy rows keep their old label): map the
+    search text through the enum labels + legacy map to every matching code and its legacy values."""
+    if not search or not search.strip():
+        return []
+    values: List[str] = []
+    for code in enum_codes.codes_matching(enum_codes.CUSTOMS_CATEGORY, search.strip()):
+        for value in enum_codes.legacy_values(enum_codes.CUSTOMS_CATEGORY, code):
+            if value not in values:
+                values.append(value)
+    return values
 
 
 def get_tariff_by_id_service(db: Session, tariff_id: int) -> CustomsTariff:

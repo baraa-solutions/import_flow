@@ -930,6 +930,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "DOC_DRAFT_APPROVED_VALUE_MISMATCH": {
         "note": "Mismatch! Approved value: '{system_value}' | Draft value: '{draft_value}'.",
     },
+    # Draft B/L blocking reasons (draft_bl_review_sessions.blocking_reasons_coded[] = {code, params}).
+    "DOC_DRAFT_BLOCKING_FIELD_EMPTY": {
+        "reason": "Critical field is empty: {field_enum_draft_bl_field}",
+    },
+    "DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH": {
+        "reason": "Critical mismatch in {field_enum_draft_bl_field}",
+    },
     "DOC_COO_VALUE_NOT_FOUND": {
         "note": "Value not found in the certificate of origin draft",
     },

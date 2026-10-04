@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -30,7 +30,9 @@ from .repository import (
     update_settlement,
     soft_delete_settlement,
     restore_settlement,
+    get_effective_tax_rate,
 )
+from .model import WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
 from .validators import validate_expense_invoice, validate_items_allocation_readiness
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
@@ -868,6 +870,18 @@ def simulate_estimated_landed_cost_service(
 # CLO-01: Final Settlement Invoices Aggregation Services
 # ==============================================================================
 
+def resolve_wht_rate_percent(db: Session, tax_code: str, on_date: Optional[date] = None) -> float:
+    """Withholding tax rate (percent) of ``tax_code`` valid on ``on_date`` (default today), read from the
+    effective-dated ``tax_rates`` table. No configured rate -> 0 (nothing deducted)."""
+    target = on_date or datetime.now(timezone.utc).date()
+    record = get_effective_tax_rate(db, tax_code, target)
+    return float(record.rate_percent) if record is not None else 0.0
+
+
+def wht_amount_for(amount_egp: float, rate_percent: float) -> float:
+    return round(amount_egp * rate_percent / 100.0, 2)
+
+
 def aggregate_shipment_invoices_service(
     db: Session,
     import_file_id: int,
@@ -1136,8 +1150,15 @@ def aggregate_shipment_invoices_service(
         is_part = "part" in (cl_inv.payment_status or "").lower()
         paid = float(cl_inv.net_payable_egp if is_p else (cl_inv.net_payable_egp * 0.5 if is_part else 0.0))
         rem = max(0.0, float(cl_inv.net_payable_egp or amt) - paid)
-        wht_rate = 1.0 if cl_inv.wht_deducted else 0.0
-        wht_amt = float(cl_inv.wht_amount or (round(amt * 0.01, 2) if cl_inv.wht_deducted else 0.0))
+        # WHT rate valid on the invoice date (tax_rates table); a stored wht_amount always wins.
+        wht_rate = (
+            resolve_wht_rate_percent(
+                db, WHT_CLEARANCE_SERVICES, cl_inv.invoice_date.date() if cl_inv.invoice_date else None
+            )
+            if cl_inv.wht_deducted
+            else 0.0
+        )
+        wht_amt = float(cl_inv.wht_amount or (wht_amount_for(amt, wht_rate) if cl_inv.wht_deducted else 0.0))
         net = float(cl_inv.net_payable_egp or (amt - wht_amt))
 
         invoices.append(AggregatedInvoiceItemSchema(
@@ -1172,7 +1193,8 @@ def aggregate_shipment_invoices_service(
 
     if not has_broker_inv and imp.total_clearance_expenses_egp and imp.total_clearance_expenses_egp > 0:
         amt = float(imp.total_clearance_expenses_egp)
-        wht_amt = round(amt * 0.01, 2)
+        wht_rate = resolve_wht_rate_percent(db, WHT_CLEARANCE_SERVICES)
+        wht_amt = wht_amount_for(amt, wht_rate)
         net = round(amt - wht_amt, 2)
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id="BROKER-IMP",
@@ -1191,7 +1213,7 @@ def aggregate_shipment_invoices_service(
             remaining_amount_egp=0.0,
             payment_status="PAID",
             payment_reference="سند صرف مكتب التخليص",
-            withholding_tax_rate=1.0,
+            withholding_tax_rate=wht_rate,
             withholding_tax_amount_egp=wht_amt,
             net_payable_egp=net,
             source_module="Clearance Invoice CL-05",
@@ -1208,7 +1230,10 @@ def aggregate_shipment_invoices_service(
         amt = float(tr.transport_fare_egp or 0.0)
         if amt > 0:
             has_trans_inv = True
-            wht = round(amt * 0.01, 2)
+            wht_rate = resolve_wht_rate_percent(
+                db, WHT_TRANSPORT_SERVICES, tr.booking_date.date() if tr.booking_date else None
+            )
+            wht = wht_amount_for(amt, wht_rate)
             net = round(amt - wht, 2)
             is_p = tr.status in ("Delivered", "Arrived at Warehouse", "COMPLETED")
             invoices.append(AggregatedInvoiceItemSchema(
@@ -1228,7 +1253,7 @@ def aggregate_shipment_invoices_service(
                 remaining_amount_egp=0.0 if is_p else net,
                 payment_status="PAID" if is_p else "UNPAID",
                 payment_reference=tr.waybill_number or tr.transport_code,
-                withholding_tax_rate=1.0,
+                withholding_tax_rate=wht_rate,
                 withholding_tax_amount_egp=wht,
                 net_payable_egp=net,
                 source_module="Inland Transport TR-01",
@@ -1237,7 +1262,10 @@ def aggregate_shipment_invoices_service(
 
     if not has_trans_inv and imp.inland_transport_cost_egp and imp.inland_transport_cost_egp > 0:
         amt = float(imp.inland_transport_cost_egp)
-        wht = round(amt * 0.01, 2)
+        wht_rate = resolve_wht_rate_percent(
+            db, WHT_TRANSPORT_SERVICES, imp.inland_departure_date.date() if imp.inland_departure_date else None
+        )
+        wht = wht_amount_for(amt, wht_rate)
         net = round(amt - wht, 2)
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id="TR-IMP",
@@ -1256,7 +1284,7 @@ def aggregate_shipment_invoices_service(
             remaining_amount_egp=0.0,
             payment_status="PAID",
             payment_reference=imp.inland_transport_booking_no or "بوليصة نقل بري",
-            withholding_tax_rate=1.0,
+            withholding_tax_rate=wht_rate,
             withholding_tax_amount_egp=wht,
             net_payable_egp=net,
             source_module="Inland Transport TR-01",

@@ -15,6 +15,7 @@ Zero Data Loss Guarantee:
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from modules.users.model import User
 import settings
@@ -29,6 +30,15 @@ from modules.customs_consultation.model import ClearanceExpenseType
 from modules.common import enum_codes
 from modules.auth.seed_rbac import seed_rbac
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
+from modules.financial_settlement.model import TaxRate, WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
+
+# Withholding tax rates seeded once per tax code (the values the settlement engine used to hard-code).
+# Effective far enough back to cover every existing invoice, so historical totals do not change.
+TAX_RATE_SEED_FROM = date(2000, 1, 1)
+TAX_RATE_SEEDS = (
+    (WHT_CLEARANCE_SERVICES, Decimal("1.0000"), "Withholding tax deducted from customs broker / port invoices"),
+    (WHT_TRANSPORT_SERVICES, Decimal("1.0000"), "Withholding tax deducted from inland transport invoices"),
+)
 
 # Seeded master data is stored in English (single-language storage). Legacy Arabic values are kept
 # only to match rows seeded by older versions (never written again).
@@ -458,6 +468,27 @@ class MasterDataSyncService:
             self.db.commit()
         return added
 
+    def sync_tax_rates(self) -> int:
+        """Seed the withholding tax rates the settlement used to hard-code (1%), effective from TAX_RATE_SEED_FROM.
+        A code that already has ANY row (even inactive / deleted) is left alone, so edited rates are never reset."""
+        added = 0
+        for tax_code, rate_percent, description in TAX_RATE_SEEDS:
+            if self.db.query(TaxRate.tax_rate_id).filter(TaxRate.tax_code == tax_code).first() is not None:
+                continue
+            self.db.add(
+                TaxRate(
+                    tax_code=tax_code,
+                    rate_percent=rate_percent,
+                    effective_from=TAX_RATE_SEED_FROM,
+                    description=description,
+                    is_active=True,
+                )
+            )
+            added += 1
+        if added > 0:
+            self.db.commit()
+        return added
+
     def sync_expense_catalog(self) -> Dict[str, int]:
         """
         Incremental non-destructive upsert for Coded Reference Expense Catalog (AI-EXPENSE-CATALOG-002).
@@ -541,6 +572,7 @@ class MasterDataSyncService:
         rbac_res = seed_rbac(self.db)
         expense_catalog_res = self.sync_expense_catalog()
         guide_res = self.sync_experience_guide_seeds()
+        tax_rates_added = self.sync_tax_rates()
 
         return {
             "status": "synchronized_cleanly",
@@ -553,5 +585,6 @@ class MasterDataSyncService:
             "rbac": rbac_res,
             "expense_catalog": expense_catalog_res,
             "experience_guide": guide_res,
+            "tax_rates_added": tax_rates_added,
         }
 

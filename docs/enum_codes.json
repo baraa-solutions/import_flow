@@ -103,6 +103,31 @@
     },
     "legacy": {}
   },
+  "DRAFT_BL_FIELD": {
+    "codes": {
+      "ACID_NUMBER": "ACID Number",
+      "BOOKING_NO": "Booking Number",
+      "CBM": "Measurement (CBM)",
+      "CONSIGNEE": "Consignee Name, Address & Phone",
+      "CONTAINER_SUMMARY": "Container No + Seal No + Size",
+      "FREIGHT_TERMS": "Freight Terms (Prepaid/Collect)",
+      "GOODS_DESCRIPTION": "Packing Summary & Goods Description",
+      "IMPORTER_TAX_ID": "Egyptian Importer Tax ID",
+      "NOTIFY_PARTY": "Notify Party Name, Address & Phone",
+      "PLACE_OF_DELIVERY": "Place of Delivery",
+      "POD": "Port of Discharge (POD)",
+      "POL": "Port of Loading (POL)",
+      "QTY_PKG": "Number of Packages",
+      "SHIPPER": "Shipper Name, Address & Phone",
+      "SHIPPER_REG_ID": "Shipper Registration/ID",
+      "SHIPPING_MODE": "Shipping Mode (FCL/LCL/Air)",
+      "TOTAL_GROSS_WEIGHT_KG": "Gross Weight (KG)",
+      "TOTAL_NET_WEIGHT_KG": "Net Weight (KG)",
+      "VESSEL_NAME": "Vessel Name",
+      "VOYAGE_NUMBER": "Voyage Number"
+    },
+    "legacy": {}
+  },
   "DUTY_BANK": {
     "codes": {
       "BDC": "Banque du Caire (BDC)",

@@ -21,7 +21,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "c8d3e4f5a6b7"
+HEAD = "d9e4f5a6b7c8"  # current head (tax rates + B/L blocking codes on top of c8d3)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
