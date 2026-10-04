@@ -634,9 +634,9 @@ def test_install_delete_of_the_legacy_launchers_is_allowed():
 
 
 @pytest.mark.parametrize("entry", [
-    'Type: filesandordirs; Name: "{app}\Launch_Sorour_Logistics.vbs"',  # files only
-    'Type: files; Name: "{app}\Launch_*.vbs"',  # exact names only
-    'Type: files; Name: "{app}\backups\Sorour_Logistics_App.bat"',  # only directly in {app}
+    r'Type: filesandordirs; Name: "{app}\Launch_Sorour_Logistics.vbs"',  # files only
+    r'Type: files; Name: "{app}\Launch_*.vbs"',  # exact names only
+    r'Type: files; Name: "{app}\backups\Sorour_Logistics_App.bat"',  # only directly in {app}
 ])
 def test_install_delete_of_launchers_stays_exact(entry):
     text = SAFE_ISS.replace("[Code]", "[InstallDelete]\n" + entry + "\n[Code]", 1)
