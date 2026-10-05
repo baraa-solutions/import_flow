@@ -287,6 +287,14 @@ class PackingListItemModel {
     return totalCbm;
   }
 
+  /// Row gross weight from the CURRENT values (qty_pkg x unit weight, full precision) — what the
+  /// backend stores (cargo_math.packing_row_totals). The stored [totalGrossWeightKg] is stale as
+  /// soon as the user edits the quantity or unit weight, so displays must use this.
+  double get computedTotalGrossWeightKg => qtyPkg * grossWeightUnitKg;
+
+  /// Row net weight: qty_pkg x unit net weight (see [computedTotalGrossWeightKg]).
+  double get computedTotalNetWeightKg => qtyPkg * netWeightUnitKg;
+
   /// [clearId] drops the id (a duplicated row is a NEW row).
   PackingListItemModel copyWith({
     bool clearId = false,

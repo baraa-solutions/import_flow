@@ -26,6 +26,10 @@ import '../../suppliers/providers/suppliers_provider.dart';
 import '../../suppliers/models/supplier_model.dart';
 import '../models/purchase_order_model.dart';
 import '../utils/po_row_id_matcher.dart';
+import '../utils/po_hs_tariff_matcher.dart';
+import '../utils/po_payment_terms.dart';
+import '../utils/po_row_list.dart';
+import 'po_decimal_field.dart';
 import '../providers/purchase_orders_provider.dart';
 import 'dart:async';
 import 'po_reconciliation_warning_dialog.dart';
@@ -72,7 +76,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   int? _selectedCurrencyId;
   String? _selectedCountryOfOrigin;
   late String _selectedStatus;
-  late String _selectedPaymentTerms;
+  String? _selectedPaymentTerms;
 
   static String? normalizeCountryName(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
@@ -124,8 +128,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     {'code': 'EG', 'name': 'EG - مصر (Egypt)'},
   ];
 
-  late List<POLineItemModel> _dialogItems;
-  late List<PackingListItemModel> _dialogPackingItems;
+  // Rows keep a stable identity across `copyWith` edits (see PoRowList): the row widgets are
+  // keyed on it so a keystroke never re-creates the field being typed in.
+  PoRowList<POLineItemModel> _itemRows = PoRowList<POLineItemModel>();
+  PoRowList<PackingListItemModel> _packingRows = PoRowList<PackingListItemModel>();
+  PoRowList<POLineItemModel> get _dialogItems => _itemRows;
+  set _dialogItems(List<POLineItemModel> rows) => _itemRows = PoRowList<POLineItemModel>(rows);
+  PoRowList<PackingListItemModel> get _dialogPackingItems => _packingRows;
+  set _dialogPackingItems(List<PackingListItemModel> rows) => _packingRows = PoRowList<PackingListItemModel>(rows);
   late List<PalletPlanItemModel> _dialogPalletItems;
   bool _isSubmitting = false;
   bool _isDirectVolumeMode = false;
@@ -479,19 +489,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               ? i['hs_code'].toString().trim()
               : extTopHs;
 
-          int? matchedTariffId;
-          String? matchedHsCode = rawHs;
-          if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
-            final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
-            final matched = tariffs.where((t) {
-              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-              return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
-            }).firstOrNull;
-            if (matched != null) {
-              matchedTariffId = matched.tariffId;
-              matchedHsCode = matched.hsCode;
-            }
-          }
+          // Keep the printed HS code; link a tariff row only on an exact code match.
+          final matchedTariffId = matchTariffForPrintedHs(rawHs, tariffs, (t) => t.hsCode)?.tariffId;
+          final String? matchedHsCode = rawHs;
 
           return POLineItemModel(
             itemCode: code,
@@ -814,18 +814,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         }
 
         // 6. Payment Terms (شروط الدفع)
-        final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString().toUpperCase();
-        if (rawTerms != null && rawTerms.isNotEmpty) {
-          if (rawTerms.contains('LC') || rawTerms.contains('LETTER OF CREDIT') || rawTerms.contains('اعتماد')) {
-            _selectedPaymentTerms = 'Letter of Credit / LC';
-          } else if (rawTerms.contains('PREPAYMENT') || rawTerms.contains('AVV.MERCE') || rawTerms.contains('SWIFT') || rawTerms.contains('CASH') || rawTerms.contains('T/T') || rawTerms.contains('سويفت') || rawTerms.contains('مقدم')) {
-            _selectedPaymentTerms = 'Cash in Advance / SWIFT';
-          } else if (rawTerms.contains('CAD') || rawTerms.contains('COLLECTION') || rawTerms.contains('مستندات')) {
-            _selectedPaymentTerms = 'Cash Against Documents / CAD';
-          } else if (rawTerms.contains('OPEN ACCOUNT') || rawTerms.contains('حساب مفتوح')) {
-            _selectedPaymentTerms = 'Open Account';
-          }
-        }
+        // Mapped onto the dropdown's real options; unrecognised text leaves the current choice.
+        final mappedTerms = PoPaymentTerms.fromText(
+            (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString());
+        if (mappedTerms != null) _selectedPaymentTerms = mappedTerms;
 
         if (ext['pallet_count'] != null) {
           final pCount = _numToInt(ext['pallet_count']);
@@ -864,22 +856,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               itemCty = normalizeCountryName(_selectedCountryOfOrigin);
             }
 
-            int? matchedTariffId;
-            String? matchedHsCode = rawHs;
-            if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
-              final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
-              final matched = tariffs.where((t) {
-                final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-                return tClean == cleanHs ||
-                    (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
-                    (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
-                    (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
-              }).firstOrNull;
-              if (matched != null) {
-                matchedTariffId = matched.tariffId;
-                matchedHsCode = matched.hsCode;
-              }
-            }
+            // Keep the printed HS code; link a tariff row only on an exact code match.
+            final matchedTariffId = matchTariffForPrintedHs(rawHs, tariffs, (t) => t.hsCode)?.tariffId;
+            final String? matchedHsCode = rawHs;
 
             return POLineItemModel(
               itemCode: code,
@@ -1016,13 +995,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _isDirectVolumeMode = false;
     }
 
-    final rawTerms = po?.paymentTerms ?? (ext != null ? ext['payment_terms']?.toString() : null);
-    if (rawTerms != null && (rawTerms.contains('LC') || rawTerms.contains('اعتماد') || rawTerms.contains('CREDIT'))) {
-      _selectedPaymentTerms = 'Letter of Credit / LC';
-    } else if (rawTerms != null && (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت') || rawTerms.contains('T/T') || rawTerms.contains('CHK') || rawTerms.contains('DBT'))) {
-      _selectedPaymentTerms = 'Cash in Advance / SWIFT';
+    // No default for a new PO: the user picks the terms (required on save). Extracted text is
+    // mapped onto a real option or left empty; an existing PO keeps an unmappable stored value
+    // (shown as-is) rather than being silently blanked.
+    if (po != null) {
+      _selectedPaymentTerms = PoPaymentTerms.fromText(po.paymentTerms) ?? po.paymentTerms;
     } else {
-      _selectedPaymentTerms = rawTerms ?? 'Cash in Advance / SWIFT';
+      _selectedPaymentTerms = ext != null ? PoPaymentTerms.fromText(ext['payment_terms']?.toString()) : null;
     }
 
     _selectedImportFileId = po?.importFileId;
@@ -1076,22 +1055,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           itemCty = _selectedCountryOfOrigin;
         }
 
-        int? matchedTariffId;
-        String? matchedHsCode = rawHs;
-        if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
-          final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
-          final matched = tariffs.where((t) {
-            final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-            return tClean == cleanHs ||
-                (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
-                (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
-                (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
-          }).firstOrNull;
-          if (matched != null) {
-            matchedTariffId = matched.tariffId;
-            matchedHsCode = matched.hsCode;
-          }
-        }
+        // Keep the printed HS code; link a tariff row only on an exact code match.
+        final matchedTariffId = matchTariffForPrintedHs(rawHs, tariffs, (t) => t.hsCode)?.tariffId;
+        final String? matchedHsCode = rawHs;
 
         return POLineItemModel(
           itemCode: code,
@@ -1348,7 +1314,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (draft['status'] != null) {
         _selectedStatus = DomainEnums.legacyToCode(DomainEnumType.poStatus, draft['status'].toString()) ?? _selectedStatus;
       }
-      if (draft['payment_terms'] != null) _selectedPaymentTerms = draft['payment_terms'];
+      if (draft['payment_terms'] != null) {
+        final draftTerms = draft['payment_terms'].toString();
+        _selectedPaymentTerms = PoPaymentTerms.fromText(draftTerms) ?? (widget.po != null ? draftTerms : _selectedPaymentTerms);
+      }
       if (draft['pallet_count'] != null) _palletCount = (draft['pallet_count'] as num).toInt();
       if (draft['pallet_type'] != null) _selectedPalletType = draft['pallet_type'];
       if (draft['is_pallet_stackable'] != null) _isPalletStackable = draft['is_pallet_stackable'] as bool;
@@ -1484,14 +1453,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         if (item.tariffId == null) {
           final targetHs = (item.hsCode != null && item.hsCode!.isNotEmpty) ? item.hsCode! : (extTopHs ?? '');
           if (targetHs.isNotEmpty) {
-            final cleanHs = targetHs.replaceAll(RegExp(r'[^\d]'), '');
-            final matched = tariffs.where((t) {
-              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-              return tClean == cleanHs ||
-                  (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
-                  (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
-                  (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
-            }).firstOrNull;
+            final matched = matchTariffForPrintedHs(targetHs, tariffs, (t) => t.hsCode);
             if (matched != null) {
               _dialogItems[i] = item.copyWith(tariffId: matched.tariffId, hsCode: matched.hsCode);
             } else if (item.hsCode == null || item.hsCode!.isEmpty) {
@@ -1521,7 +1483,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final item = _dialogItems[i];
             final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
             if (desc != null && desc.isNotEmpty) {
-              _dialogPackingItems[i] = _dialogPackingItems[i].copyWith(description: desc);
+              // As a new row: its description field must be rebuilt to show the filled-in text.
+              _dialogPackingItems.replaceAsNew(i, _dialogPackingItems[i].copyWith(description: desc));
             }
           }
         }
@@ -1547,27 +1510,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
     }
 
-    // When creating a NEW PO (widget.po == null): Default fallback only if not selected
-    if (widget.po == null) {
-      if (_selectedCompanyId == null && companies.isNotEmpty) {
-        _selectedCompanyId = (ext != null ? _matchCompanyId(ext, companies) : null) ?? companies.first.companyId;
-      }
-      if (_selectedSupplierId == null && suppliers.isNotEmpty) {
-        _selectedSupplierId = (ext != null ? _matchSupplierId(ext, suppliers) : null) ?? suppliers.first.supplierId;
-      }
-      if (_selectedProjectId == null && projects.isNotEmpty) {
-        _selectedProjectId = projects.first.projectId;
-      }
-      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
-        final fob = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'FOB').firstOrNull;
-        _selectedIncotermId = fob?.incotermId ?? incoterms.first.incotermId;
-      }
-      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
-        final usd = currencies.where((c) => c.currencyCode.toUpperCase().trim() == 'USD').firstOrNull;
-        _selectedCurrencyId = usd?.currencyId ?? currencies.first.currencyId;
-        _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
-      }
-    } else {
+    // A NEW PO opens with the master-data pickers empty: only the user's choice or a value
+    // matched from extracted document fields (block above) may fill them — never "first record".
+    if (widget.po != null) {
       // When editing an EXISTING PO (widget.po != null): Match and preserve existing PO codes & IDs
       final po = widget.po!;
       if (_selectedIncotermId == null || !incoterms.any((i) => i.incotermId == _selectedIncotermId)) {
@@ -1663,7 +1608,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                       SmartUploadButton(
                         module: SmartUploadModule.purchaseOrder,
                         label: context.l10n.poSmartExtractPIPL,
-                        compact: false,
+                        // Icon-only on narrow windows so the title bar never overflows.
+                        compact: MediaQuery.sizeOf(context).width < 700,
                         onDataExtracted: (result) {
                           _applyExtractedData(result.extractedFields);
                         },
@@ -1846,6 +1792,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   child: SearchableDropdownField<int?>(
                                     value: _selectedProjectId,
                                     labelText: 'Project *',
+                                    validator: (_) => _selectedProjectId == null ? l.requiredField : null,
                                     items: projects
                                         .map((p) => SearchableDropdownItem<int?>(
                                               value: p.projectId,
@@ -1871,6 +1818,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       SearchableDropdownField<int?>(
                                         value: _selectedCompanyId,
                                         labelText: 'Importing Company (الشركة المستوردة) *',
+                                        validator: (_) => _selectedCompanyId == null ? l.requiredField : null,
                                         items: companies
                                             .map((c) => SearchableDropdownItem<int?>(
                                                   value: c.companyId,
@@ -1917,6 +1865,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       SearchableDropdownField<int?>(
                                         value: _selectedSupplierId,
                                         labelText: 'Supplier (المورد الأجنبي) *',
+                                        validator: (_) => _selectedSupplierId == null ? l.requiredField : null,
                                         items: suppliers
                                             .map((s) => SearchableDropdownItem<int?>(
                                                   value: s.supplierId,
@@ -1969,6 +1918,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     key: ValueKey('incoterm_dropdown_${_selectedIncotermId}_${incoterms.length}'),
                                     value: _selectedIncotermId,
                                     labelText: 'Incoterm *',
+                                    validator: (_) => _selectedIncotermId == null ? l.requiredField : null,
                                     items: incoterms
                                         .map((i) => SearchableDropdownItem<int?>(
                                               value: i.incotermId,
@@ -1989,6 +1939,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     key: ValueKey('currency_dropdown_${_selectedCurrencyId}_${currencies.length}'),
                                     value: _selectedCurrencyId,
                                     labelText: 'Currency *',
+                                    validator: (_) => _selectedCurrencyId == null ? l.requiredField : null,
                                     items: currencies
                                         .map((c) => SearchableDropdownItem<int?>(
                                               value: c.currencyId,
@@ -2016,10 +1967,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     value: _selectedCountryOfOrigin,
                                     labelText: 'Country of Origin (بلد المنشأ العام)',
                                     items: [
-                                      const SearchableDropdownItem<String?>(
-                                        value: null,
-                                        label: '-- غير محدد (Auto / غير محدد) --',
-                                      ),
+                                      // The "clear" entry is offered only once a country is chosen; while empty
+                                      // the field shows its hint instead of a placeholder that looks selected.
+                                      if (_selectedCountryOfOrigin != null)
+                                        const SearchableDropdownItem<String?>(
+                                          value: null,
+                                          label: '-- غير محدد (Auto / غير محدد) --',
+                                        ),
                                       ...countryOptions.map((c) => SearchableDropdownItem<String?>(
                                             value: c['name'],
                                             label: c['name']!,
@@ -2066,25 +2020,25 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: SearchableDropdownField<String>(
-                                    value: ['Cash in Advance / SWIFT', 'Letter of Credit / LC', 'CAD / Cash Against Documents', 'Open Account / Deferred Payment'].contains(_selectedPaymentTerms)
-                                        ? _selectedPaymentTerms
-                                        : 'Cash in Advance / SWIFT',
+                                    // Shown as-is (a legacy value not in the list is displayed, not swapped for SWIFT).
+                                    value: _selectedPaymentTerms,
                                     labelText: 'Payment Terms (شروط الدفع) *',
+                                    validator: (_) => (_selectedPaymentTerms == null || _selectedPaymentTerms!.trim().isEmpty) ? l.requiredField : null,
                                     items: const [
                                       SearchableDropdownItem(
-                                        value: 'Cash in Advance / SWIFT',
+                                        value: PoPaymentTerms.cashInAdvance,
                                         label: 'Cash in Advance / SWIFT (تحويل سويفت مقدم)',
                                       ),
                                       SearchableDropdownItem(
-                                        value: 'Letter of Credit / LC',
+                                        value: PoPaymentTerms.letterOfCredit,
                                         label: 'Letter of Credit / LC (اعتماد مستندي)',
                                       ),
                                       SearchableDropdownItem(
-                                        value: 'CAD / Cash Against Documents',
+                                        value: PoPaymentTerms.cashAgainstDocuments,
                                         label: 'CAD / Cash Against Documents (تحصيل مستندي)',
                                       ),
                                       SearchableDropdownItem(
-                                        value: 'Open Account / Deferred Payment',
+                                        value: PoPaymentTerms.openAccount,
                                         label: 'Open Account / Deferred Payment (حساب مفتوح / آجل)',
                                       ),
                                     ],
@@ -2137,7 +2091,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               final isMismatched = itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                               return Card(
-                                key: ValueKey('po_line_item_card_${identityHashCode(item)}'),
+                                key: ValueKey('po_line_item_card_${PoRowList.keyOf(item)}'),
                                 color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.charcoalSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -2159,7 +2113,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 2,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_code_${identityHashCode(item)}'),
+                                              key: ValueKey('po_item_code_${PoRowList.keyOf(item)}'),
                                               initialValue: item.itemCode,
                                               decoration: const InputDecoration(labelText: 'Item Code (كود البند)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(itemCode: v.trim().isEmpty ? null : v.trim()),
@@ -2169,7 +2123,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_main_desc_${identityHashCode(item)}'),
+                                              key: ValueKey('po_item_main_desc_${PoRowList.keyOf(item)}'),
                                               initialValue: item.mainDescription,
                                               decoration: const InputDecoration(labelText: 'Main Description (الوصف الرئيسي)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(mainDescription: v.trim().isEmpty ? null : v.trim()),
@@ -2179,7 +2133,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_desc_${identityHashCode(item)}'),
+                                              key: ValueKey('po_item_desc_${PoRowList.keyOf(item)}'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
                                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -2253,13 +2207,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         children: [
                                           Expanded(
                                             flex: 3,
-                                            child: TextFormField(
-                                               key: ValueKey('po_item_qty_${identityHashCode(item)}'),
-                                              initialValue: item.quantity.toString(),
-                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Qty (الكمية/العدد)', isDense: true),
-                                              onChanged: (v) {
-                                                final q = double.tryParse(v) ?? 1.0;
+                                            child: PoDecimalField(
+                                              key: ValueKey('po_item_qty_${PoRowList.keyOf(item)}'),
+                                              value: item.quantity,
+                                              labelText: 'Qty (الكمية/العدد)',
+                                              maxDecimals: 2, // po_items.quantity is Numeric(12, 2)
+                                              emptyValue: 1.0,
+                                              onChanged: (q) {
                                                 setState(() {
                                                   _dialogItems[idx] = _dialogItems[idx].copyWith(quantity: q, totalPrice: q * _dialogItems[idx].unitPrice);
                                                 });
@@ -2284,15 +2238,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           ),
                                           const SizedBox(width: 8),
                                           Expanded(
-                                            child: TextFormField(
-                                               key: ValueKey('po_item_price_${identityHashCode(item)}'),
-                                              initialValue: item.unitPrice.toString(),
-                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Unit Price (سعر الوحده)', isDense: true),
-                                              onChanged: (v) {
-                                                final p = double.tryParse(v) ?? 0.0;
+                                            child: PoDecimalField(
+                                              key: ValueKey('po_item_price_${PoRowList.keyOf(item)}'),
+                                              value: item.unitPrice,
+                                              labelText: 'Unit Price (سعر الوحده)',
+                                              maxDecimals: 4, // po_items.unit_price is Numeric(14, 4)
+                                              onChanged: (p) {
                                                 setState(() {
-                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(unitPrice: p);
+                                                  // Keep the line total in step (the preview prefers totalPrice when > 0).
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(unitPrice: p, totalPrice: _dialogItems[idx].quantity * p);
                                                 });
                                               },
                                             ),
@@ -2435,7 +2389,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   const SizedBox(width: 12),
                                   SmartUploadButton(
                                     module: SmartUploadModule.purchaseOrder,
-                                    compact: false,
+                                    // Icon-only on narrow windows (the text column takes the rest).
+                                    compact: MediaQuery.sizeOf(context).width < 700,
                                     label: '🚀 قراءة بيان التعبئة',
                                     onDataExtracted: (result) {
                                       _applyExtractedFieldsToState(result.extractedFields, targetTab: 'packing');
@@ -2459,15 +2414,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppTheme.cloudWhite),
                               ),
-                              child: Row(
+                              // Wrap: the two long chips do not fit the 816 px dialog on one line.
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   const Icon(Icons.tune_rounded, color: AppTheme.charcoal, size: 20),
-                                  const SizedBox(width: 10),
                                   const Text(
                                     'مسار إدخال ومعالجة الشحنة:',
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                   ),
-                                  const SizedBox(width: 12),
                                   ChoiceChip(
                                     label: const Text('📏 مسار الأبعاد الصريحة (L × W × H)'),
                                     selected: !_isDirectVolumeMode,
@@ -2476,7 +2433,6 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     },
                                     selectedColor: AppTheme.cobalt.withOpacity(0.18),
                                   ),
-                                  const SizedBox(width: 8),
                                   ChoiceChip(
                                     label: const Text('📦 مسار الحجم المباشر CBM ومخطط البالتات'),
                                     selected: _isDirectVolumeMode,
@@ -2831,19 +2787,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   ),
                                 ),
                             const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            // Wrap (not Row): title + three buttons exceed the 816 px dialog width.
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 Text(
                                   l.packingListEntriesSection,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                 ),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
                                   children: [
                                     AppButton(
                                       label: l.autoFillFromInvoice,
                                       icon: Icons.auto_fix_high,
                                       variant: AppButtonVariant.primary,
+                                      fit: true,
                                       onPressed: () {
                                         if (_dialogItems.isEmpty) return;
                                         setState(() {
@@ -2891,19 +2854,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         );
                                       },
                                     ),
-                                    const SizedBox(width: 8),
                                     AppButton(
                                       label: l.simulateAndPack3d,
                                       icon: Icons.view_in_ar_rounded,
                                       variant: AppButtonVariant.secondary,
+                                      fit: true,
                                       onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                     ),
-                                    const SizedBox(width: 8),
                                     AppButton(
                                       label: l.addPackingEntryBtn,
                                       icon: Icons.playlist_add,
                                       variant: AppButtonVariant.secondary,
                                       size: AppButtonSize.small,
+                                      fit: true,
                                       onPressed: () {
                                         String defaultHs = '';
                                         String? defaultMainDesc;
@@ -2976,7 +2939,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           final isMismatched = p.hsCode.isNotEmpty && mismatchedHsCodes.contains(p.hsCode);
 
                                           return Card(
-                                             key: ValueKey('po_pkg_card_${identityHashCode(p)}'),
+                                             key: ValueKey('po_pkg_card_${PoRowList.keyOf(p)}'),
                                             color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
@@ -3042,7 +3005,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 2,
                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_code_${identityHashCode(p)}'),
+                                                       key: ValueKey('po_pkg_code_${PoRowList.keyOf(p)}'),
                                                       initialValue: p.itemCode,
                                                       decoration: InputDecoration(labelText: l.itemCodeLabel, isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? context.l10n.fieldRequired : null,
@@ -3055,7 +3018,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_main_desc_${identityHashCode(p)}'),
+                                                       key: ValueKey('po_pkg_main_desc_${PoRowList.keyOf(p)}'),
                                                       initialValue: p.mainDescription ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: '${l.mainDescription} (الوصف الرئيسي)',
@@ -3072,7 +3035,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_desc_${identityHashCode(p)}'),
+                                                       key: ValueKey('po_pkg_desc_${PoRowList.keyOf(p)}'),
                                                       initialValue: p.description ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: l.itemDescriptionLabel,
@@ -3129,26 +3092,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_qty_pcs_${identityHashCode(p)}'),
-                                                      initialValue: p.qtyPcs.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: l.qtyPcsFieldLabel, isDense: true),
-                                                      onChanged: (v) {
-                                                        final q = double.tryParse(v) ?? 1.0;
+                                                     child: PoDecimalField(
+                                                      key: ValueKey('po_pkg_qty_pcs_${PoRowList.keyOf(p)}'),
+                                                      value: p.qtyPcs,
+                                                      labelText: l.qtyPcsFieldLabel,
+                                                      maxDecimals: 2, // qty_pcs is Numeric(12, 2)
+                                                      emptyValue: 1.0,
+                                                      onChanged: (q) {
                                                         _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(qtyPcs: q);
                                                       },
                                                     ),
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_qty_pkg_${identityHashCode(p)}'),
-                                                      initialValue: p.qtyPkg.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: l.qtyPkgFieldLabel, isDense: true),
-                                                      onChanged: (v) {
-                                                        final q = double.tryParse(v) ?? 1.0;
+                                                     child: PoDecimalField(
+                                                      key: ValueKey('po_pkg_qty_pkg_${PoRowList.keyOf(p)}'),
+                                                      value: p.qtyPkg,
+                                                      labelText: l.qtyPkgFieldLabel,
+                                                      maxDecimals: 2, // qty_pkg is Numeric(12, 2)
+                                                      emptyValue: 1.0,
+                                                      onChanged: (q) {
                                                         setState(() {
                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(qtyPkg: q);
                                                         });
@@ -3157,13 +3120,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_len_${identityHashCode(p)}'),
-                                                      initialValue: p.lengthCm.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: l.lengthFieldLabel(p.unit), isDense: true),
-                                                      onChanged: (v) {
-                                                        final len = double.tryParse(v) ?? 0.0;
+                                                     child: PoDecimalField(
+                                                      key: ValueKey('po_pkg_len_${PoRowList.keyOf(p)}'),
+                                                      value: p.lengthCm,
+                                                      labelText: l.lengthFieldLabel(p.unit),
+                                                      maxDecimals: 2, // length_cm is Numeric(10, 2)
+                                                      onChanged: (len) {
                                                         setState(() {
                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(lengthCm: len);
                                                         });
@@ -3172,13 +3134,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_width_${identityHashCode(p)}'),
-                                                      initialValue: p.widthCm.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: l.widthFieldLabel(p.unit), isDense: true),
-                                                      onChanged: (v) {
-                                                        final w = double.tryParse(v) ?? 0.0;
+                                                     child: PoDecimalField(
+                                                      key: ValueKey('po_pkg_width_${PoRowList.keyOf(p)}'),
+                                                      value: p.widthCm,
+                                                      labelText: l.widthFieldLabel(p.unit),
+                                                      maxDecimals: 2, // width_cm is Numeric(10, 2)
+                                                      onChanged: (w) {
                                                         setState(() {
                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(widthCm: w);
                                                         });
@@ -3187,13 +3148,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_height_${identityHashCode(p)}'),
-                                                      initialValue: p.heightCm.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: l.heightFieldLabel(p.unit), isDense: true),
-                                                      onChanged: (v) {
-                                                        final h = double.tryParse(v) ?? 0.0;
+                                                     child: PoDecimalField(
+                                                      key: ValueKey('po_pkg_height_${PoRowList.keyOf(p)}'),
+                                                      value: p.heightCm,
+                                                      labelText: l.heightFieldLabel(p.unit),
+                                                      maxDecimals: 2, // height_cm is Numeric(10, 2)
+                                                      onChanged: (h) {
                                                         setState(() {
                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(heightCm: h);
                                                         });
@@ -3230,13 +3190,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    const SizedBox(width: 8),
                                                    Expanded(
                                                      flex: 2,
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_net_wt_${identityHashCode(p)}'),
-                                                       initialValue: _formatDecimalInput(p.netWeightUnitKg),
-                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                       decoration: InputDecoration(labelText: l.netWeightFieldLabel(p.weightUnit), isDense: true),
-                                                       onChanged: (v) {
-                                                         final nw = double.tryParse(v) ?? 0.0;
+                                                     // Full precision (16 decimals, Numeric(26, 16)): never rounded while editing.
+                                                     child: PoDecimalField(
+                                                       key: ValueKey('po_pkg_net_wt_${PoRowList.keyOf(p)}'),
+                                                       value: p.netWeightUnitKg,
+                                                       labelText: l.netWeightFieldLabel(p.weightUnit),
+                                                       maxDecimals: 16,
+                                                       onChanged: (nw) {
                                                          setState(() {
                                                            _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(netWeightUnitKg: nw);
                                                          });
@@ -3246,13 +3206,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    const SizedBox(width: 8),
                                                    Expanded(
                                                      flex: 2,
-                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_gross_wt_${identityHashCode(p)}'),
-                                                       initialValue: _formatDecimalInput(p.grossWeightUnitKg),
-                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                       decoration: InputDecoration(labelText: l.grossWeightFieldLabel(p.weightUnit), isDense: true),
-                                                       onChanged: (v) {
-                                                         final gw = double.tryParse(v) ?? 0.0;
+                                                     child: PoDecimalField(
+                                                       key: ValueKey('po_pkg_gross_wt_${PoRowList.keyOf(p)}'),
+                                                       value: p.grossWeightUnitKg,
+                                                       labelText: l.grossWeightFieldLabel(p.weightUnit),
+                                                       maxDecimals: 16,
+                                                       onChanged: (gw) {
                                                          setState(() {
                                                            _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(grossWeightUnitKg: gw);
                                                          });
@@ -3299,13 +3258,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                           Column(
                                                             children: [
                                                               Text(l.totalGrossWeightPill, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
-                                                              Text('${_formatDecimalInput(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                                                              Text('${_formatDecimalInput(p.computedTotalGrossWeightKg)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
                                                               Text(l.airChargeablePill, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
-                                                              Text('${_formatDecimalInput(math.max(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg), p.calculatedCbm * kAirVolumetricKgPerCbm))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                                                              Text('${_formatDecimalInput(math.max(p.computedTotalGrossWeightKg, p.calculatedCbm * kAirVolumetricKgPerCbm))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                         ],
@@ -3362,24 +3321,28 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   Future<void> _submitForm(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) {
+    // validate() first so every missing required field shows its red error text.
+    final fieldsValid = _formKey.currentState!.validate();
+
+    if (_selectedProjectId == null ||
+        _selectedCompanyId == null ||
+        _selectedSupplierId == null ||
+        _selectedIncotermId == null ||
+        _selectedCurrencyId == null ||
+        _selectedPaymentTerms == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
+          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
           backgroundColor: AppTheme.crimson,
         ),
       );
       return;
     }
 
-    if (_selectedProjectId == null ||
-        _selectedCompanyId == null ||
-        _selectedSupplierId == null ||
-        _selectedIncotermId == null ||
-        _selectedCurrencyId == null) {
+    if (!fieldsValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
+          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -3869,7 +3832,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (hasPallets) {
       final double totalGross = packingItems.fold<double>(
         0.0,
-        (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+        (sum, p) => sum + p.computedTotalGrossWeightKg,
       );
       final int totalPallets = _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount);
       final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;

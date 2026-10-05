@@ -5,6 +5,72 @@ import 'package:frontend/features/purchase_orders/models/purchase_order_model.da
 import 'package:frontend/features/purchase_orders/widgets/po_report_preview_dialog.dart';
 
 void main() {
+  test('packing row weights are recomputed from qty_pkg x unit weight at full precision', () {
+    final row = PackingListItemModel(
+      itemCode: 'ITEM-9',
+      hsCode: '9403100000',
+      qtyPkg: 4.0,
+      qtyPcs: 40.0,
+      grossWeightUnitKg: 12.3456789012345678,
+      netWeightUnitKg: 10.25,
+      totalGrossWeightKg: 999.0, // stale (as extracted before the user edited the row)
+      totalNetWeightKg: 888.0,
+    );
+    expect(row.computedTotalGrossWeightKg, 4.0 * 12.3456789012345678);
+    expect(row.computedTotalNetWeightKg, 41.0);
+  });
+
+  testWidgets('preview gross weight follows the current rows, not a stale stored total', (tester) async {
+    final packing = [
+      PackingListItemModel(
+        itemCode: 'ITEM-9',
+        hsCode: '9403100000',
+        packageType: 'Carton',
+        qtyPkg: 4.0,
+        qtyPcs: 40.0,
+        grossWeightUnitKg: 12.3456789012345678,
+        netWeightUnitKg: 10.25,
+        totalGrossWeightKg: 999.0,
+        totalNetWeightKg: 888.0,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppLocalizationsProvider(
+          locale: const Locale('en'),
+          child: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => POReportPreviewDialog.show(
+                  context: context,
+                  poNumber: 'PO-W',
+                  orderDate: DateTime(2026, 10, 5),
+                  companyName: 'Co',
+                  supplierName: 'Sup',
+                  incoterm: 'FOB',
+                  currency: 'USD',
+                  exchangeRate: 1.0,
+                  items: [POLineItemModel(itemCode: 'ITEM-9', descriptionAr: 'x', quantity: 40, unitPrice: 1)],
+                  packingItems: packing,
+                  palletItems: const [],
+                  initialLocale: const Locale('en'),
+                ),
+                child: const Text('Open Preview'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open Preview'));
+    await tester.pumpAndSettle();
+
+    // 4 x 12.3456789012345678 = 49.3827... -> displayed rounded to 3 decimals.
+    expect(find.textContaining('49.383'), findsWidgets);
+    expect(find.textContaining('999'), findsNothing);
+    expect(find.textContaining('888'), findsNothing);
+  });
+
   testWidgets('POReportPreviewDialog calculates total amount and grand total correctly even with default totalPrice', (WidgetTester tester) async {
     final sampleItems = [
       POLineItemModel(
@@ -128,6 +194,9 @@ void main() {
     expect(find.text('Copy Report Text'), findsOneWidget);
     expect(find.text('Save & Approve Purchase Order'), findsOneWidget);
     expect(find.text('7070.00 USD'), findsNWidgets(2));
+    // Packing total: each count printed once (was "10 10 pkgs / 100 100 pcs").
+    expect(find.text('10 pkgs / 100 pcs'), findsOneWidget);
+    expect(find.textContaining('10 10 pkgs'), findsNothing);
 
     // Switch back to Arabic
     expect(find.text('العربية'), findsOneWidget);

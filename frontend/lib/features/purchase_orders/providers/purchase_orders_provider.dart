@@ -147,13 +147,14 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
   }
 
   /// Returns null on success, otherwise the failure (render with `ApiErrorText.of`).
+  /// A failed save is reported to the caller only: `state.error` is the LIST-load error and
+  /// would replace the PO table behind the dialog with an error page (e.g. on a 403).
   Future<Object?> createPurchaseOrder(PurchaseOrderModel po) async {
     try {
       await _dio.post(ApiConstants.purchaseOrders, data: po.toJson());
       await refreshAfterMutation();
       return null;
     } catch (e) {
-      state = state.copyWith(error: e);
       return e;
     }
   }
@@ -172,14 +173,12 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
         if (detail is Map && detail.containsKey('current_version')) {
           final conflictMap = Map<String, dynamic>.from(detail);
           final msg = conflictMap['message'] as String?;
-          state = state.copyWith(error: e);
           return POUpdateResult.conflict(conflictMap, msg);
         }
       }
-      state = state.copyWith(error: e);
+      // Reported to the caller only (see createPurchaseOrder).
       return POUpdateResult.error(e);
     } catch (e) {
-      state = state.copyWith(error: e);
       return POUpdateResult.error(e);
     }
   }

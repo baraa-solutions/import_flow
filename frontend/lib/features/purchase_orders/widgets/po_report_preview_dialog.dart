@@ -145,15 +145,11 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
       (sum, i) => sum + (i.totalPrice > 0 ? i.totalPrice : (i.quantity * i.unitPrice)),
     );
 
-    final double totalGrossWeight = widget.packingItems.fold(
-      0.0,
-      (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.grossWeightUnitKg * p.qtyPkg)),
-    );
+    // Recomputed from the current rows (qty_pkg x unit weight); the stored row totals are stale
+    // after an edit in the form.
+    final double totalGrossWeight = widget.packingItems.fold(0.0, (sum, p) => sum + p.computedTotalGrossWeightKg);
 
-    final double totalNetWeight = widget.packingItems.fold(
-      0.0,
-      (sum, p) => sum + (p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.netWeightUnitKg * p.qtyPkg)),
-    );
+    final double totalNetWeight = widget.packingItems.fold(0.0, (sum, p) => sum + p.computedTotalNetWeightKg);
 
     final double totalPackages = widget.packingItems.fold(0.0, (sum, p) => sum + p.qtyPkg);
     final double totalPcs = widget.packingItems.fold(0.0, (sum, p) => sum + p.qtyPcs);
@@ -722,7 +718,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
   Widget _buildPackingListTable(AppLocalizations l, bool isDark) {
     final double totalPkgSum = widget.packingItems.fold<double>(0.0, (s, p) => s + p.qtyPkg);
     final double totalPcsSum = widget.packingItems.fold<double>(0.0, (s, p) => s + p.qtyPcs);
-    final double totalGrossSum = widget.packingItems.fold<double>(0.0, (s, p) => s + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.grossWeightUnitKg * p.qtyPkg)));
+    final double totalGrossSum = widget.packingItems.fold<double>(0.0, (s, p) => s + p.computedTotalGrossWeightKg);
     final double totalCbmSum = widget.packingItems.fold<double>(0.0, (s, p) => s + p.calculatedCbm);
 
     return Container(
@@ -771,7 +767,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                 ...widget.packingItems.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final p = entry.value;
-                  final grossTot = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.grossWeightUnitKg * p.qtyPkg);
+                  final grossTot = p.computedTotalGrossWeightKg;
                   final dimStr = (p.lengthCm > 0 && p.widthCm > 0 && p.heightCm > 0)
                       ? '${p.lengthCm.toStringAsFixed(0)}×${p.widthCm.toStringAsFixed(0)}×${p.heightCm.toStringAsFixed(0)}'
                       : l.poReportDirectVolume;
@@ -809,7 +805,8 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     _DataCell(l.poReportRowsCountUnit(widget.packingItems.length), isBold: true),
                     const _DataCell(''),
                     _DataCell(
-                      '${totalPkgSum.toStringAsFixed(0)} ${l.poReportPackagesCountUnit(totalPkgSum.toInt())} / ${totalPcsSum.toStringAsFixed(0)} ${l.poReportPiecesCountUnit(totalPcsSum.toInt())}',
+                      // The l10n strings already contain the count ('$count pkgs').
+                      '${l.poReportPackagesCountUnit(totalPkgSum.toInt())} / ${l.poReportPiecesCountUnit(totalPcsSum.toInt())}',
                       isBold: true,
                     ),
                     const _DataCell(''),
@@ -1029,7 +1026,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     for (int i = 0; i < widget.packingItems.length; i++) {
       final p = widget.packingItems[i];
       final dim = (p.lengthCm > 0 && p.widthCm > 0 && p.heightCm > 0) ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : l.poReportDirectVolume;
-      final grs = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : p.grossWeightUnitKg * p.qtyPkg;
+      final grs = p.computedTotalGrossWeightKg;
       String mainDesc = p.mainDescription ?? '';
       if (mainDesc.isEmpty) {
         final matchedItem = widget.items.where((it) => it.itemCode != null && it.itemCode == p.itemCode).firstOrNull;
@@ -1073,7 +1070,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     if (widget.isDirectVolumeMode || hasPallets) {
       final double totalGross = widget.packingItems.fold<double>(
         0.0,
-        (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+        (sum, p) => sum + p.computedTotalGrossWeightKg,
       );
       final int totalPallets = widget.palletItems.fold<int>(0, (sum, p) => sum + p.palletCount);
       final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;

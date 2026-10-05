@@ -319,7 +319,9 @@ void main() {
       final result = await container.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(5, {'x': 1});
       expect(result.isSuccess, isFalse);
       expect(ApiErrorText.of(_en, result.error), _en.apiNoPermission);
-      expect(ApiErrorText.of(_ar, container.read(purchaseOrdersProvider).error), _ar.apiNoPermission);
+      // The failure goes to the caller only: `state.error` is the list-load error and would
+      // replace the PO table behind the open dialog with an error page.
+      expect(container.read(purchaseOrdersProvider).error, isNull);
     });
   });
 }
