@@ -8,6 +8,7 @@ import 'package:frontend/features/import_documentation/models/invoice_bl_match_s
 import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
 import 'package:frontend/features/import_documentation/screens/smart_invoice_bl_match_screen.dart';
 import 'package:frontend/features/import_documentation/widgets/invoice_bl_matcher_tab.dart';
+import 'package:frontend/core/widgets/buttons/app_button.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 
@@ -109,15 +110,12 @@ void main() {
       sessionCode: 'SESS-202609-0001',
       importFileId: 101,
       importFileCode: 'IMP-2026-001',
-      sessionTitle: 'جلسة مطابقة سريعة تجريبية',
+      invoiceNumber: 'INV-2026-001',
       isDraft: false,
-      matchScore: 92.5,
+      matchScorePercentage: 92.5,
       isSafeForCertification: true,
-      hasCriticalDiscrepancies: false,
-      discrepancyCount: 1,
+      warningDiscrepanciesCount: 1,
       comparisonMatrix: sampleMatrix,
-      invoiceRawText: 'Sample invoice raw text content',
-      blRawText: 'Sample bl raw text content',
       createdAt: '2026-09-16 10:00:00',
       updatedAt: '2026-09-16 10:00:00',
     ),
@@ -126,15 +124,13 @@ void main() {
       sessionCode: 'SESS-202609-0002',
       importFileId: 101,
       importFileCode: 'IMP-2026-001',
-      sessionTitle: 'مسودة فحص أولي غير مكتملة',
+      invoiceNumber: 'INV-2026-002',
       isDraft: true,
-      matchScore: 68.0,
+      matchScorePercentage: 68.0,
       isSafeForCertification: false,
-      hasCriticalDiscrepancies: true,
-      discrepancyCount: 2,
+      criticalDiscrepanciesCount: 1,
+      warningDiscrepanciesCount: 1,
       comparisonMatrix: sampleMatrix,
-      invoiceRawText: 'Draft invoice content',
-      blRawText: 'Draft bl content',
       createdAt: '2026-09-16 10:15:00',
       updatedAt: '2026-09-16 10:15:00',
     ),
@@ -328,7 +324,7 @@ void main() {
       ScaffoldMessenger.of(tester.element(find.byType(InvoiceBLMatcherTab))).clearSnackBars();
       await tester.pumpAndSettle();
 
-      final copyBtn = tester.widget<OutlinedButton>(find.byKey(const Key('copyComparisonMatrixTsvBtn')));
+      final copyBtn = tester.widget<AppButton>(find.byKey(const Key('copyComparisonMatrixTsvBtn')));
       expect(copyBtn.onPressed, isNotNull);
 
       // Tap Copy TSV button

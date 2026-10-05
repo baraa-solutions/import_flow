@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/copyable_data_helper.dart';
 import '../services/draft_bl_export_service.dart';
 
@@ -104,7 +105,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               subtitle ?? (isReferenceOnly
                                   ? context.l10n.draftBlReferenceVisualSheetSub
                                   : context.l10n.draftBlExtractedVisualSheetSub),
-                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                              style: TextStyle(fontSize: 11.5, color: AppTheme.textStrong),
                             ),
                           ],
                         ),
@@ -117,18 +118,9 @@ class VisualDraftBLSheet extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (onRefresh != null)
-                      OutlinedButton.icon(
-                        onPressed: onRefresh,
-                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                        label: Text(context.l10n.refresh, style: const TextStyle(fontSize: 12, color: AppTheme.cobalt)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          side: const BorderSide(color: AppTheme.cobalt),
-                        ),
-                      ),
+                      AppButton(label: context.l10n.refresh, onPressed: onRefresh, variant: AppButtonVariant.secondary, icon: Icons.refresh),
                     // 1. PRINT BUTTON (طباعة البوليصة)
-                    ElevatedButton.icon(
-                      onPressed: () async {
+                    AppButton(label: context.l10n.draftBlPrintButton, onPressed: () async {
                         try {
                           await DraftBLExportService.printDraftBL(
                             systemData: systemData,
@@ -142,24 +134,16 @@ class VisualDraftBLSheet extends StatelessWidget {
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPrintError(e)), backgroundColor: Colors.red),
+                              SnackBar(content: Text(context.l10n.draftBlPrintError(e)), backgroundColor: AppTheme.crimson),
                             );
                           }
                         }
-                      },
-                      icon: const Icon(Icons.print, color: Colors.white, size: 16),
-                      label: Text(context.l10n.draftBlPrintButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
+                      }, icon: Icons.print),
                     // 2. PDF BUTTON (تنزيل PDF)
-                    ElevatedButton.icon(
-                      onPressed: () async {
+                    AppButton(label: context.l10n.draftBlDownloadPdfButton, onPressed: () async {
                         try {
                           await DraftBLExportService.exportDraftBLToPdf(
+                            context: context,
                             systemData: systemData,
                             draftData: draftData,
                             draftBlNumber: draftBlNumber,
@@ -170,28 +154,19 @@ class VisualDraftBLSheet extends StatelessWidget {
                           );
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPdfExportSuccess), backgroundColor: Colors.green),
+                              SnackBar(content: Text(context.l10n.draftBlPdfExportSuccess), backgroundColor: AppTheme.emerald),
                             );
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPdfExportError(e)), backgroundColor: Colors.red),
+                              SnackBar(content: Text(context.l10n.draftBlPdfExportError(e)), backgroundColor: AppTheme.crimson),
                             );
                           }
                         }
-                      },
-                      icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 16),
-                      label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.crimson,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
+                      }, variant: AppButtonVariant.danger, icon: Icons.picture_as_pdf),
                     // 3. EXCEL BUTTON (تنزيل Excel / CSV)
-                    ElevatedButton.icon(
-                      onPressed: () async {
+                    AppButton(label: context.l10n.draftBlDownloadExcelButton, onPressed: () async {
                         try {
                           final res = await DraftBLExportService.exportDraftBLToExcel(
                             systemData: systemData,
@@ -201,25 +176,17 @@ class VisualDraftBLSheet extends StatelessWidget {
                           );
                           if (context.mounted && res != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.excelExportSuccess(res)), backgroundColor: Colors.green),
+                              SnackBar(content: Text(context.l10n.excelExportSuccess(res)), backgroundColor: AppTheme.emerald),
                             );
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.excelExportError(e)), backgroundColor: Colors.red),
+                              SnackBar(content: Text(context.l10n.excelExportError(e)), backgroundColor: AppTheme.crimson),
                             );
                           }
                         }
-                      },
-                      icon: const Icon(Icons.table_chart, color: Colors.white, size: 16),
-                      label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
+                      }, variant: AppButtonVariant.success, icon: Icons.table_chart),
                   ],
                 ),
               ],
@@ -234,11 +201,11 @@ class VisualDraftBLSheet extends StatelessWidget {
                 child: Container(
                   width: 850,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.black87, width: 1.5),
+                    color: AppTheme.white,
+                    border: Border.all(color: AppTheme.textPrimary, width: 1.5),
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+                      BoxShadow(color: AppTheme.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
                   ),
                   child: Column(
@@ -247,7 +214,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                       // 1. Header Banner
                       Container(
                         padding: const EdgeInsets.all(8),
-                        color: Colors.grey.shade100,
+                        color: AppTheme.surfaceAlt,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -261,7 +228,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   ),
                                   Text(
                                     'NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY',
-                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.red),
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.crimson),
                                   ),
                                 ],
                               ),
@@ -271,13 +238,13 @@ class VisualDraftBLSheet extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 CopyableText('B/L NO: $blNo', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                CopyableText('BOOKING REF: $bkgNo', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
+                                CopyableText('BOOKING REF: $bkgNo', style: TextStyle(fontSize: 11, color: AppTheme.charcoal)),
                               ],
                             ),
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1.2, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1.2, color: AppTheme.textPrimary),
 
                       // 2. Shipper & Carrier Agent Row
                       IntrinsicHeight(
@@ -290,12 +257,12 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('SHIPPER / EXPORTER:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('SHIPPER / EXPORTER:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
                                     const SizedBox(height: 4),
                                     CopyableText(shipper, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                   ],
@@ -310,7 +277,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("CARRIER'S AGENTS ENDORSEMENTS:", style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text("CARRIER'S AGENTS ENDORSEMENTS:", style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
                                     const SizedBox(height: 4),
                                     const Text("SHIPPER'S LOAD, STOW AND COUNT; FCL/FCL; SAID TO CONTAIN", style: TextStyle(fontSize: 11.0)),
                                     const Text("Standard International Maritime Carrier Endorsement", style: TextStyle(fontSize: 11.0)),
@@ -321,7 +288,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 3. Consignee & POD Agent Row
                       IntrinsicHeight(
@@ -334,12 +301,12 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('CONSIGNEE:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('CONSIGNEE:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
                                     const SizedBox(height: 4),
                                     CopyableText(consignee, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                   ],
@@ -354,7 +321,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
                                     const SizedBox(height: 4),
                                     CopyableText(pod, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600)),
                                   ],
@@ -364,7 +331,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 4. Notify Party
                       Container(
@@ -372,13 +339,13 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('NOTIFY PARTY:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                            Text('NOTIFY PARTY:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
                             const SizedBox(height: 4),
                             CopyableText(notifyParty, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 5. Transit Details Row
                       IntrinsicHeight(
@@ -391,23 +358,23 @@ class VisualDraftBLSheet extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1.2, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1.2, color: AppTheme.textPrimary),
 
                       // 6. Section Banner
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                        color: Colors.grey.shade200,
+                        color: AppTheme.border,
                         child: const Text(
                           'PARTICULARS FURNISHED BY THE SHIPPER — NOT CHECKED BY CARRIER — CARRIER NOT RESPONSIBLE',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 7. Table Header
                       Container(
-                        color: Colors.grey.shade100,
+                        color: AppTheme.surfaceAlt,
                         child: IntrinsicHeight(
                           child: Row(
                             children: [
@@ -419,7 +386,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 8. Particulars Body
                       IntrinsicHeight(
@@ -432,15 +399,15 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     CopyableText(containerSummary, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 6),
-                                    Text('Marks & Numbers: N/A', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
-                                    Text('FCL / FCL', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
+                                    Text('Marks & Numbers: N/A', style: TextStyle(fontSize: 11.0, color: AppTheme.textStrong)),
+                                    Text('FCL / FCL', style: TextStyle(fontSize: 11.0, color: AppTheme.textStrong)),
                                   ],
                                 ),
                               ),
@@ -451,7 +418,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,8 +430,8 @@ class VisualDraftBLSheet extends StatelessWidget {
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: Colors.blue.shade50,
-                                        border: Border.all(color: Colors.blue.shade300),
+                                        color: AppTheme.infoBackground,
+                                        border: Border.all(color: AppTheme.cobaltBorder),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Column(
@@ -484,11 +451,11 @@ class VisualDraftBLSheet extends StatelessWidget {
                                             ],
                                           ),
                                           const SizedBox(height: 4),
-                                          SelectableText('ACID: $acid', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                          SelectableText('EGYPTIAN IMPORTER TAX ID: $taxId', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                          SelectableText('SHIPPER REGISTRATION TYPE: $regType', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
-                                          SelectableText('SHIPPER ID: $regId', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
-                                          SelectableText('SHIPPER COUNTRY: $country (CODE: $countryCode)', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
+                                          SelectableText('ACID: $acid', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                          SelectableText('EGYPTIAN IMPORTER TAX ID: $taxId', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                          SelectableText('SHIPPER REGISTRATION TYPE: $regType', style: const TextStyle(fontSize: 11.0, color: AppTheme.textPrimary)),
+                                          SelectableText('SHIPPER ID: $regId', style: const TextStyle(fontSize: 11.0, color: AppTheme.textPrimary)),
+                                          SelectableText('SHIPPER COUNTRY: $country (CODE: $countryCode)', style: const TextStyle(fontSize: 11.0, color: AppTheme.textPrimary)),
                                         ],
                                       ),
                                     ),
@@ -507,14 +474,14 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     CopyableText('$grossWeight KGS', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 4),
-                                    CopyableText('Net: $netWeight KGS', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
+                                    CopyableText('Net: $netWeight KGS', style: TextStyle(fontSize: 11.0, color: AppTheme.textStrong)),
                                   ],
                                 ),
                               ),
@@ -535,12 +502,12 @@ class VisualDraftBLSheet extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1.2, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1.2, color: AppTheme.textPrimary),
 
                       // 9. Total Summary Row
                       Container(
                         padding: const EdgeInsets.all(8),
-                        color: Colors.grey.shade100,
+                        color: AppTheme.surfaceAlt,
                         child: Wrap(
                           alignment: WrapAlignment.spaceBetween,
                           spacing: 12,
@@ -549,11 +516,11 @@ class VisualDraftBLSheet extends StatelessWidget {
                             CopyableText('Total Items: $pkgCount Packages', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             CopyableText('Total Gross Weight: $grossWeight KGS', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             CopyableText('Total Measurement: $cbm CBM', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            CopyableText('Freight: $freightTerms', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                            CopyableText('Freight: $freightTerms', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                           ],
                         ),
                       ),
-                      const Divider(height: 1, thickness: 1, color: Colors.black87),
+                      const Divider(height: 1, thickness: 1, color: AppTheme.textPrimary),
 
                       // 10. Footer Signatures & Date
                       Container(
@@ -566,8 +533,8 @@ class VisualDraftBLSheet extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Sorour Logistics ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 11.0, color: Colors.grey)),
-                                Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 11.0, color: Colors.grey)),
+                                const Text('Sorour Logistics ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 11.0, color: AppTheme.textMuted)),
+                                Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 11.0, color: AppTheme.textMuted)),
                               ],
                             ),
                             const Column(
@@ -575,7 +542,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               children: [
                                 Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold)),
                                 SizedBox(height: 8),
-                                Text('OCEAN CARRIER / Authorized Agent', style: TextStyle(fontSize: 11.0, color: Colors.black87)),
+                                Text('OCEAN CARRIER / Authorized Agent', style: TextStyle(fontSize: 11.0, color: AppTheme.textPrimary)),
                               ],
                             ),
                           ],
@@ -598,12 +565,12 @@ class VisualDraftBLSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: const BoxDecoration(
-          border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+          border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+            Text(title, style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
             const SizedBox(height: 2),
             CopyableText(val, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
@@ -618,7 +585,7 @@ class VisualDraftBLSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: const BoxDecoration(
-          border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
+          border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 1)),
         ),
         child: Text(
           title,

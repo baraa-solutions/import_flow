@@ -5,22 +5,27 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../models/docs_customs_approval_model.dart';
 import '../models/docs_customs_approval_session_model.dart';
+import 'import_documentation_provider.dart' show invalidateImportDocDependents;
 
 final docsCustomsApprovalProvider =
     StateNotifierProvider<DocsCustomsApprovalNotifier, AsyncValue<List<CustomsDocumentApprovalModel>>>((ref) {
-  return DocsCustomsApprovalNotifier(ref.read(dioProvider));
+  return DocsCustomsApprovalNotifier(ref.read(dioProvider), ref);
 });
 
 final discrepancyTicketsProvider =
     StateNotifierProvider<DiscrepancyTicketsNotifier, AsyncValue<List<DiscrepancyRectificationTicketModel>>>((ref) {
-  return DiscrepancyTicketsNotifier(ref.read(dioProvider));
+  return DiscrepancyTicketsNotifier(ref.read(dioProvider), ref);
 });
 
 class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsDocumentApprovalModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  String? _lastOverallStatus;
+  String? _lastSearch;
 
-  DocsCustomsApprovalNotifier(this._dio) : super(const AsyncValue.loading()) {
+  DocsCustomsApprovalNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchApprovals();
   }
 
@@ -37,6 +42,9 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
   }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastOverallStatus = overallStatus;
+    _lastSearch = search;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': false};
@@ -63,10 +71,22 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
     }
   }
 
+  /// Reloads with the query the screen last used (FED-13) and refreshes the
+  /// providers that depend on the approval state. [importFileId] overrides the
+  /// remembered file when the mutation knows it.
+  Future<void> _afterMutation({int? importFileId}) async {
+    await fetchApprovals(
+      importFileId: importFileId ?? _lastImportFileId,
+      overallStatus: _lastOverallStatus,
+      search: _lastSearch,
+    );
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<void> autoGenerateChecklist(int importFileId) async {
     try {
       await _dio.post('${ApiConstants.baseUrl}/docs-customs-approval/auto-generate/$importFileId');
-      await fetchApprovals(importFileId: importFileId);
+      await _afterMutation(importFileId: importFileId);
     } catch (e) {
       rethrow;
     }
@@ -91,7 +111,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
         },
       );
       final updated = CustomsDocumentApprovalModel.fromJson(response.data);
-      await fetchApprovals(importFileId: importFileId);
+      await _afterMutation(importFileId: importFileId);
       return updated;
     } catch (e) {
       rethrow;
@@ -119,7 +139,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
         },
       );
       final updated = CustomsDocumentApprovalModel.fromJson(response.data);
-      await fetchApprovals(importFileId: importFileId);
+      await _afterMutation(importFileId: importFileId);
       return updated;
     } catch (e) {
       rethrow;
@@ -140,9 +160,14 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
 
 class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<DiscrepancyRectificationTicketModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  String? _lastStatus;
+  String? _lastSeverity;
+  String? _lastSearch;
 
-  DiscrepancyTicketsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  DiscrepancyTicketsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchTickets();
   }
 
@@ -160,6 +185,10 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
   }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastStatus = status;
+    _lastSeverity = severity;
+    _lastSearch = search;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': false};
@@ -189,6 +218,16 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
     }
   }
 
+  Future<void> _afterMutation({int? importFileId}) async {
+    await fetchTickets(
+      importFileId: importFileId ?? _lastImportFileId,
+      status: _lastStatus,
+      severity: _lastSeverity,
+      search: _lastSearch,
+    );
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<DiscrepancyRectificationTicketModel?> createTicket(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
@@ -196,7 +235,7 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
         data: payload,
       );
       final created = DiscrepancyRectificationTicketModel.fromJson(response.data);
-      await fetchTickets(importFileId: payload['import_file_id'] as int?);
+      await _afterMutation(importFileId: payload['import_file_id'] as int?);
       return created;
     } catch (e) {
       rethrow;
@@ -214,7 +253,7 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
         data: payload,
       );
       final resolved = DiscrepancyRectificationTicketModel.fromJson(response.data);
-      await fetchTickets(importFileId: importFileId);
+      await _afterMutation(importFileId: importFileId);
       return resolved;
     } catch (e) {
       rethrow;
@@ -224,15 +263,19 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
 
 final docsCustomsApprovalSessionsProvider =
     StateNotifierProvider<DocsCustomsApprovalSessionsNotifier, AsyncValue<List<DocsCustomsApprovalSessionModel>>>((ref) {
-  return DocsCustomsApprovalSessionsNotifier(ref.read(dioProvider));
+  return DocsCustomsApprovalSessionsNotifier(ref.read(dioProvider), ref);
 });
 
 class DocsCustomsApprovalSessionsNotifier
     extends StateNotifier<AsyncValue<List<DocsCustomsApprovalSessionModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  bool? _lastIsDraft;
+  String? _lastSearch;
 
-  DocsCustomsApprovalSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  DocsCustomsApprovalSessionsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSessions();
   }
 
@@ -249,6 +292,9 @@ class DocsCustomsApprovalSessionsNotifier
   }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastIsDraft = isDraft;
+    _lastSearch = search;
     try {
       state = const AsyncValue.loading();
       final queryParams = <String, dynamic>{};
@@ -273,6 +319,11 @@ class DocsCustomsApprovalSessionsNotifier
     }
   }
 
+  Future<void> _afterMutation() async {
+    await fetchSessions(importFileId: _lastImportFileId, isDraft: _lastIsDraft, search: _lastSearch);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<DocsCustomsApprovalSessionModel> createSession(Map<String, dynamic> sessionData) async {
     try {
       final response = await _dio.post(
@@ -280,20 +331,8 @@ class DocsCustomsApprovalSessionsNotifier
         data: sessionData,
       );
       final created = DocsCustomsApprovalSessionModel.fromJson(response.data as Map<String, dynamic>);
-      await fetchSessions();
+      await _afterMutation();
       return created;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<bool> deleteSession(int sessionId) async {
-    try {
-      await _dio.delete(
-        '${ApiConstants.baseUrl}/docs-customs-approval/sessions/$sessionId',
-      );
-      await fetchSessions();
-      return true;
     } catch (e) {
       rethrow;
     }

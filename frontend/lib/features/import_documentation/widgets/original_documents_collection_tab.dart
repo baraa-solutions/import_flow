@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
@@ -11,7 +12,11 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/original_documents_collection_model.dart';
 import '../providers/original_documents_collection_provider.dart';
 import '../services/original_docs_export_service.dart';
+import 'idoc_feedback.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/metric_card.dart';
+import 'idoc_ui.dart';
 
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
@@ -128,7 +133,7 @@ class _OriginalDocumentsCollectionTabState
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.errorFetchingArchiveData(e)), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.errorFetchingArchiveData(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
       );
     }
   }
@@ -176,7 +181,7 @@ class _OriginalDocumentsCollectionTabState
     final l = context.l10n;
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -187,7 +192,7 @@ class _OriginalDocumentsCollectionTabState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l.unverifiedMandatoryDocsWarning),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.orange,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -225,14 +230,14 @@ class _OriginalDocumentsCollectionTabState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l.sessionSavedSuccess(saved.collectionCode)),
-          backgroundColor: const Color(0xFF27AE60),
+          backgroundColor: AppTheme.emerald,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.sessionSaveError(e)), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.sessionSaveError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
       );
     }
   }
@@ -361,7 +366,7 @@ class _OriginalDocumentsCollectionTabState
     final sessionsAsync = ref.watch(originalDocumentsSessionsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppTheme.cloudWhite,
       body: SelectionArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -405,10 +410,10 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -416,7 +421,7 @@ class _OriginalDocumentsCollectionTabState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.12),
+              color: AppTheme.cobalt.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.markunread_mailbox_outlined, color: AppTheme.cobalt, size: 30),
@@ -433,7 +438,7 @@ class _OriginalDocumentsCollectionTabState
                 const SizedBox(height: 4),
                 Text(
                   l.originalDocsHubSubtitle,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                 ),
               ],
             ),
@@ -449,20 +454,20 @@ class _OriginalDocumentsCollectionTabState
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF27AE60).withOpacity(0.12),
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF27AE60)),
+                  border: Border.all(color: AppTheme.emerald),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, color: Color(0xFF27AE60), size: 18),
+                    const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 18),
                     const SizedBox(width: 6),
                     Text(
                       l.savedSessionBadge(_existingSession!.collectionCode),
-                      style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.copy, size: 14, color: Color(0xFF27AE60)),
+                    const Icon(Icons.copy, size: 14, color: AppTheme.emerald),
                   ],
                 ),
               ),
@@ -474,15 +479,15 @@ class _OriginalDocumentsCollectionTabState
 
   Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final acidLabel = isAr ? 'الرقم المبدئي' : 'ACID';
+    final acidLabel = context.l10n.idocAACID;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: filesAsync.when(
@@ -510,21 +515,17 @@ class _OriginalDocumentsCollectionTabState
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
+              IdocUi.fit(AppButton(
+                label: l.refreshDataTooltip,
+                icon: Icons.refresh,
+                variant: AppButtonVariant.primary,
                 onPressed: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text(l.refreshDataTooltip),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
+              )),
             ],
           );
         },
         loading: () => const LinearProgressIndicator(),
-        error: (e, _) => Text(l.errorFetchingImportFiles(e), style: const TextStyle(color: Colors.red)),
+        error: (e, _) => Text(l.errorFetchingImportFiles(e), style: const TextStyle(color: AppTheme.crimson)),
       ),
     );
   }
@@ -536,66 +537,31 @@ class _OriginalDocumentsCollectionTabState
     final pendingDocs = totalDocs - receivedDocs;
     final completionPct = totalDocs > 0 ? (verifiedDocs / totalDocs * 100).toStringAsFixed(1) : '0.0';
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _statCard(l.statTotalRequiredDocs, '$totalDocs', Icons.description_outlined, AppTheme.charcoal),
-          const SizedBox(width: 12),
-          _statCard(l.statReceivedOriginals, '$receivedDocs', Icons.inbox_outlined, const Color(0xFF3498DB)),
-          const SizedBox(width: 12),
-          _statCard(l.statVerifiedDocs, '$verifiedDocs', Icons.verified_outlined, const Color(0xFF27AE60)),
-          const SizedBox(width: 12),
-          _statCard(l.statPendingDocs, '$pendingDocs', Icons.hourglass_empty_outlined, const Color(0xFFE67E22)),
-          const SizedBox(width: 12),
-          _statCard(l.statReadinessRate, '$completionPct%', Icons.pie_chart_outline, const Color(0xFF8E44AD)),
-        ],
-      ),
-    );
-  }
+    MetricCardData metric(String label, String value, IconData icon, Color color) => MetricCardData(
+          title: label,
+          shortTitle: label,
+          value: value,
+          icon: icon,
+          color: color,
+        );
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return IdocUi.metrics([
+      metric(l.statTotalRequiredDocs, '$totalDocs', Icons.description_outlined, AppTheme.charcoal),
+      metric(l.statReceivedOriginals, '$receivedDocs', Icons.inbox_outlined, AppTheme.cobalt),
+      metric(l.statVerifiedDocs, '$verifiedDocs', Icons.verified_outlined, AppTheme.emerald),
+      metric(l.statPendingDocs, '$pendingDocs', Icons.hourglass_empty_outlined, AppTheme.orange),
+      metric(l.statReadinessRate, '$completionPct%', Icons.pie_chart_outline, AppTheme.wcagCobalt),
+    ]);
   }
 
   Widget _buildCouriersManagementCard(AppLocalizations l) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -614,16 +580,13 @@ class _OriginalDocumentsCollectionTabState
                   ),
                 ],
               ),
-              ElevatedButton.icon(
+              IdocUi.fit(AppButton(
+                label: l.addCourierAwbBtn,
+                icon: Icons.add,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
                 onPressed: _addCourier,
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(l.addCourierAwbBtn),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
+              )),
             ],
           ),
           const SizedBox(height: 12),
@@ -632,7 +595,7 @@ class _OriginalDocumentsCollectionTabState
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
               child: Text(l.noCouriersRegisteredMsg,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
             )
           else
             ListView.separated(
@@ -646,7 +609,7 @@ class _OriginalDocumentsCollectionTabState
                   children: [
                     CircleAvatar(
                       radius: 14,
-                      backgroundColor: AppTheme.cobalt.withOpacity(0.15),
+                      backgroundColor: AppTheme.cobalt.withValues(alpha: 0.15),
                       child: Text('${idx + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                     ),
                     const SizedBox(width: 10),
@@ -672,19 +635,20 @@ class _OriginalDocumentsCollectionTabState
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other'].contains(c.courierCompany)
                             ? c.courierCompany
                             : 'DHL',
+                        labelText: l.courierCompanyField,
                         decoration: InputDecoration(
                           labelText: l.courierCompanyField,
                           isDense: true,
                           border: const OutlineInputBorder(),
                         ),
                         items: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other']
-                            .map((company) => DropdownMenuItem(
+                            .map((company) => SearchableDropdownItem<String>(
                                   value: company,
-                                  child: Text(_getCourierCompanyLabel(company, l), style: const TextStyle(fontSize: 12)),
+                                  label: _getCourierCompanyLabel(company, l),
                                 ))
                             .toList(),
                         onChanged: (val) {
@@ -717,7 +681,7 @@ class _OriginalDocumentsCollectionTabState
                       children: [
                         Checkbox(
                           value: c.isReceived,
-                          activeColor: const Color(0xFF27AE60),
+                          activeColor: AppTheme.emerald,
                           onChanged: (val) {
                             setState(() {
                               c.isReceived = val ?? false;
@@ -753,14 +717,14 @@ class _OriginalDocumentsCollectionTabState
                     if (c.courierNo.isNotEmpty) ...[
                       IconButton(
                         icon: const Icon(Icons.open_in_new, size: 18, color: AppTheme.cobalt),
-                        tooltip: 'تتبع الكورير مباشرة على موقع الشركة',
+                        tooltip: context.l10n.idocATrackTheCourierDirectlyOnThe,
                         onPressed: () => OriginalDocsExportService.launchCarrierTracking(c.courierCompany, c.courierNo),
                       ),
                       IconButton(
                         icon: Icon(
                           c.isReceived ? Icons.verified : Icons.verified_outlined,
                           size: 18,
-                          color: const Color(0xFF27AE60),
+                          color: AppTheme.emerald,
                         ),
                         tooltip: l.confirmCourierDeliveryBtn,
                         onPressed: () => _showCourierDeliveryProofDialog(
@@ -773,7 +737,7 @@ class _OriginalDocumentsCollectionTabState
                       ),
                     ],
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
                       tooltip: l.deleteCourierTooltip,
                       onPressed: () => _removeCourier(idx),
                     ),
@@ -790,10 +754,10 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -804,7 +768,7 @@ class _OriginalDocumentsCollectionTabState
             children: [
               Row(
                 children: [
-                  const Icon(Icons.table_view_outlined, color: Color(0xFF27AE60), size: 22),
+                  const Icon(Icons.table_view_outlined, color: AppTheme.emerald, size: 22),
                   const SizedBox(width: 8),
                   Text(
                     l.physicalDocsVerificationMatrixHeader,
@@ -812,24 +776,21 @@ class _OriginalDocumentsCollectionTabState
                   ),
                 ],
               ),
-              ElevatedButton.icon(
+              IdocUi.fit(AppButton(
+                label: l.addCustomDocBtn,
+                icon: Icons.add,
+                variant: AppButtonVariant.success,
+                size: AppButtonSize.small,
                 onPressed: _addCustomDocument,
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(l.addCustomDocBtn),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF27AE60),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
+              )),
             ],
           ),
           const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(const Color(0xFF2C3E50)),
-              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+              headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
               dataRowMinHeight: 48,
               dataRowMaxHeight: 56,
               columns: [
@@ -867,7 +828,7 @@ class _OriginalDocumentsCollectionTabState
                             onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.originalDocsCopyRowSuccess),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                            icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
                             tooltip: l.colAction,
                             onPressed: () => _removeDocument(index),
                           ),
@@ -881,16 +842,16 @@ class _OriginalDocumentsCollectionTabState
                         rowSummary: rowSummary,
                         child: SizedBox(
                           width: 140,
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: _couriers.any((c) => c.courierNo == doc.courierNo && c.courierNo.isNotEmpty)
                                 ? doc.courierNo
                                 : null,
-                            isDense: true,
-                            hint: Text(l.selectCourierPlaceholder, style: const TextStyle(fontSize: 11)),
+                            labelText: l.selectCourierPlaceholder,
+                            hintText: l.selectCourierPlaceholder,
                             decoration: const InputDecoration(border: InputBorder.none),
                             items: _couriers
                                 .where((c) => c.courierNo.isNotEmpty)
-                                .map((c) => DropdownMenuItem(value: c.courierNo, child: Text(c.courierNo, style: const TextStyle(fontSize: 11))))
+                                .map((c) => SearchableDropdownItem<String>(value: c.courierNo, label: c.courierNo))
                                 .toList(),
                             onChanged: (val) {
                               setState(() => doc.courierNo = val);
@@ -906,14 +867,14 @@ class _OriginalDocumentsCollectionTabState
                         rowSummary: rowSummary,
                         child: SizedBox(
                           width: 110,
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: doc.category,
-                            isDense: true,
+                            labelText: l.colCategory,
                             decoration: const InputDecoration(border: InputBorder.none),
                             items: ['Commercial', 'Certificate', 'Shipping', 'Egypt Import', 'Banking', 'Regulatory', 'Other']
-                                .map((cat) => DropdownMenuItem(
+                                .map((cat) => SearchableDropdownItem<String>(
                                       value: cat,
-                                      child: Text(_getDocCategoryLabel(cat, l), style: const TextStyle(fontSize: 11)),
+                                      label: _getDocCategoryLabel(cat, l),
                                     ))
                                 .toList(),
                             onChanged: (val) {
@@ -971,7 +932,7 @@ class _OriginalDocumentsCollectionTabState
                         rowSummary: rowSummary,
                         child: Checkbox(
                           value: doc.isReceived,
-                          activeColor: const Color(0xFF3498DB),
+                          activeColor: AppTheme.cobalt,
                           onChanged: (val) {
                             setState(() {
                               doc.isReceived = val ?? false;
@@ -1009,7 +970,7 @@ class _OriginalDocumentsCollectionTabState
                         rowSummary: rowSummary,
                         child: Checkbox(
                           value: doc.isVerified,
-                          activeColor: const Color(0xFF27AE60),
+                          activeColor: AppTheme.emerald,
                           onChanged: (val) {
                             setState(() {
                               doc.isVerified = val ?? false;
@@ -1020,7 +981,7 @@ class _OriginalDocumentsCollectionTabState
                                   doc.verificationDate = DateTime.now().toIso8601String().substring(0, 10);
                                 }
                                 if (doc.verifiedBy == null || doc.verifiedBy!.isEmpty) {
-                                  doc.verifiedBy = 'Kamal';
+                                  doc.verifiedBy = idocCurrentUserName(ref);
                                 }
                               } else {
                                 doc.status = doc.isReceived ? 'Received' : 'Pending';
@@ -1084,10 +1045,10 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1136,16 +1097,16 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildRequiredBadge(String req, AppLocalizations l) {
-    Color bg = Colors.grey.shade200;
-    Color fg = Colors.grey.shade800;
+    Color bg = AppTheme.borderOf(context);
+    Color fg = AppTheme.textPrimaryOf(context);
     String label = l.reqBadgeNo;
     if (req == 'Yes') {
-      bg = Colors.red.shade50;
-      fg = Colors.red.shade700;
+      bg = AppTheme.severityBackgroundOf(context, AppSeverity.danger);
+      fg = AppTheme.severityForegroundOf(context, AppSeverity.danger);
       label = l.reqBadgeYes;
     } else if (req == 'Conditional') {
-      bg = Colors.orange.shade50;
-      fg = Colors.orange.shade800;
+      bg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
+      fg = AppTheme.severityForegroundOf(context, AppSeverity.warning);
       label = l.reqBadgeConditional;
     }
     return Container(
@@ -1156,33 +1117,33 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildStatusBadge(String status, AppLocalizations l) {
-    Color bg = Colors.grey.shade100;
-    Color fg = Colors.grey.shade700;
+    Color bg = AppTheme.surfaceAltOf(context);
+    Color fg = AppTheme.textSecondaryOf(context);
     switch (status) {
       case 'Verified':
       case 'FULLY_VERIFIED':
-        bg = Colors.green.shade50;
-        fg = Colors.green.shade700;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
         break;
       case 'Received':
       case 'FULLY_RECEIVED':
-        bg = Colors.blue.shade50;
-        fg = Colors.blue.shade700;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.info);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.info);
         break;
       case 'In Transit':
       case 'PARTIALLY_RECEIVED':
-        bg = Colors.amber.shade50;
-        fg = Colors.amber.shade900;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.warning);
         break;
       case 'Discrepant':
-        bg = Colors.red.shade50;
-        fg = Colors.red.shade700;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.danger);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.danger);
         break;
       case 'DRAFT':
       case 'Pending':
       default:
-        bg = Colors.grey.shade100;
-        fg = Colors.grey.shade700;
+        bg = AppTheme.surfaceAltOf(context);
+        fg = AppTheme.textSecondaryOf(context);
         break;
     }
     return Container(
@@ -1196,10 +1157,10 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: SingleChildScrollView(
@@ -1209,33 +1170,28 @@ class _OriginalDocumentsCollectionTabState
           children: [
             Row(
               children: [
-                ElevatedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.saveDraftSessionBtn,
+                  icon: Icons.save_outlined,
+                  variant: AppButtonVariant.primary,
                   onPressed: _isSaving ? null : () => _handleSaveSession(isConfirmComplete: false),
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: Text(l.saveDraftSessionBtn),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.charcoal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  ),
-                ),
+                )),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.completeCollectionBtn,
+                  icon: Icons.check_circle,
+                  variant: AppButtonVariant.success,
                   onPressed: _isSaving ? null : () => _handleSaveSession(isConfirmComplete: true),
-                  icon: const Icon(Icons.check_circle, size: 18),
-                  label: Text(l.completeCollectionBtn),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF27AE60),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  ),
-                ),
+                )),
               ],
             ),
             const SizedBox(width: 24),
             Row(
               children: [
-                OutlinedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.originalDocsExportTsvBtn,
+                  icon: Icons.table_chart_outlined,
+                  variant: AppButtonVariant.secondary,
                   onPressed: _selectedImportFile == null
                       ? null
                       : () => OriginalDocsExportService.exportDocumentsTsv(
@@ -1244,15 +1200,12 @@ class _OriginalDocumentsCollectionTabState
                             documents: _documents,
                             couriers: _couriers,
                           ),
-                  icon: const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.cobalt),
-                  label: Text(l.originalDocsExportTsvBtn, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.cobalt),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  ),
-                ),
+                )),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.originalDocsExportExcelBtn,
+                  icon: Icons.file_download_outlined,
+                  variant: AppButtonVariant.secondary,
                   onPressed: _selectedImportFile == null
                       ? null
                       : () => OriginalDocsExportService.exportDocumentsExcel(
@@ -1261,15 +1214,12 @@ class _OriginalDocumentsCollectionTabState
                             documents: _documents,
                             couriers: _couriers,
                           ),
-                  icon: const Icon(Icons.file_download_outlined, size: 18, color: Color(0xFF27AE60)),
-                  label: Text(l.originalDocsExportExcelBtn, style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF27AE60)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  ),
-                ),
+                )),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.originalDocsPrintPdfBtn,
+                  icon: Icons.print_outlined,
+                  variant: AppButtonVariant.secondary,
                   onPressed: _selectedImportFile == null
                       ? null
                       : () => OriginalDocsExportService.printDocumentsPdf(
@@ -1281,15 +1231,12 @@ class _OriginalDocumentsCollectionTabState
                             notes: _notesController.text,
                             overrideReason: _overrideReasonController.text,
                           ),
-                  icon: const Icon(Icons.print_outlined, size: 18, color: Color(0xFF8E44AD)),
-                  label: Text(l.originalDocsPrintPdfBtn, style: const TextStyle(color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF8E44AD)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  ),
-                ),
+                )),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: l.originalDocsCopyDossierBtn,
+                  icon: Icons.copy_all_outlined,
+                  variant: AppButtonVariant.secondary,
                   onPressed: _selectedImportFile == null
                       ? null
                       : () => OriginalDocsExportService.copyDocumentsDossier(
@@ -1301,13 +1248,7 @@ class _OriginalDocumentsCollectionTabState
                             notes: _notesController.text,
                             overrideReason: _overrideReasonController.text,
                           ),
-                  icon: const Icon(Icons.copy_all_outlined, size: 18, color: AppTheme.charcoal),
-                  label: Text(l.originalDocsCopyDossierBtn, style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.charcoal),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  ),
-                ),
+                )),
               ],
             ),
           ],
@@ -1334,9 +1275,9 @@ class _OriginalDocumentsCollectionTabState
           margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: bannerColor.withOpacity(0.06),
+            color: bannerColor.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: bannerColor.withOpacity(0.35), width: 1.5),
+            border: Border.all(color: bannerColor.withValues(alpha: 0.35), width: 1.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1371,7 +1312,7 @@ class _OriginalDocumentsCollectionTabState
                         ),
                         child: Text(
                           l.courierAlertCriticalCount(alertsData.delayedCount),
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ),
                     if (hasWarning) ...[
@@ -1384,7 +1325,7 @@ class _OriginalDocumentsCollectionTabState
                         ),
                         child: Text(
                           l.courierAlertWarningCount(alertsData.alerts.where((a) => a.alertLevel == 'WARNING').length),
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -1407,11 +1348,11 @@ class _OriginalDocumentsCollectionTabState
                     width: 340,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: itemColor.withOpacity(0.3)),
+                      border: Border.all(color: itemColor.withValues(alpha: 0.3)),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                        BoxShadow(color: AppTheme.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
                       ],
                     ),
                     child: Column(
@@ -1424,15 +1365,15 @@ class _OriginalDocumentsCollectionTabState
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: itemColor.withOpacity(0.12),
+                                  color: itemColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   alert.alertLevel == 'CRITICAL'
-                                      ? (isAr ? 'تأخير حرج' : 'Critical Delay')
+                                      ? (context.l10n.idocACriticalDelay)
                                       : (alert.alertLevel == 'WARNING'
-                                          ? (isAr ? 'اقتراب المهلة' : 'Warning')
-                                          : (isAr ? 'في الطريق' : 'In Transit')),
+                                          ? (context.l10n.idocAWarning)
+                                          : (context.l10n.idocAInTransit)),
                                   style: TextStyle(
                                     color: itemColor,
                                     fontSize: 11,
@@ -1462,7 +1403,7 @@ class _OriginalDocumentsCollectionTabState
                           const SizedBox(height: 2),
                           Text(
                             alertMsg,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1472,7 +1413,7 @@ class _OriginalDocumentsCollectionTabState
                           children: [
                             Text(
                               'AWB: ${alert.courierNo}',
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(width: 4),
                             InkWell(
@@ -1487,16 +1428,11 @@ class _OriginalDocumentsCollectionTabState
                         const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF27AE60),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            ),
-                            icon: const Icon(Icons.done_all, size: 14),
-                            label: Text(l.confirmCourierDeliveryBtn),
+                          child: IdocUi.fit(AppButton(
+                            label: l.confirmCourierDeliveryBtn,
+                            icon: Icons.done_all,
+                            variant: AppButtonVariant.success,
+                            size: AppButtonSize.small,
                             onPressed: () => _showCourierDeliveryProofDialog(
                               importFileId: alert.importFileId,
                               courierNo: alert.courierNo,
@@ -1504,7 +1440,7 @@ class _OriginalDocumentsCollectionTabState
                               trackingNo: alert.courierNo,
                               importFileCode: alert.importFileCode,
                             ),
-                          ),
+                          )),
                         ),
                       ],
                     ),
@@ -1555,10 +1491,10 @@ class _OriginalDocumentsCollectionTabState
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF27AE60).withOpacity(0.12),
+                      color: AppTheme.emerald.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.verified_outlined, color: Color(0xFF27AE60), size: 24),
+                    child: const Icon(Icons.verified_outlined, color: AppTheme.emerald, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1653,8 +1589,8 @@ class _OriginalDocumentsCollectionTabState
                       TextField(
                         controller: notesCtrl,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'ملاحظات الاستلاستلام والفحص الظاهري',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.idocAReceiptAndVisualInspectionNotes,
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.notes, size: 18),
                         ),
@@ -1664,7 +1600,7 @@ class _OriginalDocumentsCollectionTabState
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF27AE60).withOpacity(0.08),
+                          color: AppTheme.emerald.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: CheckboxListTile(
@@ -1672,10 +1608,10 @@ class _OriginalDocumentsCollectionTabState
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             l.markAssociatedDocsReceivedLabel,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                           ),
                           value: markDocsReceived,
-                          activeColor: const Color(0xFF27AE60),
+                          activeColor: AppTheme.emerald,
                           onChanged: (val) => setModalState(() => markDocsReceived = val ?? true),
                         ),
                       ),
@@ -1684,20 +1620,16 @@ class _OriginalDocumentsCollectionTabState
                 ),
               ),
               actions: [
-                TextButton(
+                IdocUi.fit(AppButton(
+                  label: l.cancel,
+                  variant: AppButtonVariant.ghost,
                   onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-                  child: Text(l.cancel),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF27AE60),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  icon: isSubmitting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.verified, size: 18),
-                  label: Text(l.confirmCourierDeliveryBtn),
+                )),
+                IdocUi.fit(AppButton(
+                  label: l.confirmCourierDeliveryBtn,
+                  icon: Icons.verified,
+                  variant: AppButtonVariant.success,
+                  isLoading: isSubmitting,
                   onPressed: isSubmitting
                       ? null
                       : () async {
@@ -1732,7 +1664,7 @@ class _OriginalDocumentsCollectionTabState
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l.courierReceiptRecordedSuccess),
-                                  backgroundColor: const Color(0xFF27AE60),
+                                  backgroundColor: AppTheme.emerald,
                                 ),
                               );
                             }
@@ -1740,12 +1672,12 @@ class _OriginalDocumentsCollectionTabState
                             setModalState(() => isSubmitting = false);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${l.errorPrefix}: $e'), backgroundColor: Colors.red),
+                                SnackBar(content: Text('${l.errorPrefix}: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                               );
                             }
                           }
                         },
-                ),
+                )),
               ],
             ),
           );
@@ -1759,10 +1691,10 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1783,7 +1715,7 @@ class _OriginalDocumentsCollectionTabState
                     ],
                   ),
                   selected: _registryTabMode == 0,
-                  selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                  selectedColor: AppTheme.cobalt.withValues(alpha: 0.15),
                   onSelected: (val) {
                     if (val) setState(() => _registryTabMode = 0);
                   },
@@ -1799,7 +1731,7 @@ class _OriginalDocumentsCollectionTabState
                     ],
                   ),
                   selected: _registryTabMode == 1,
-                  selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                  selectedColor: AppTheme.cobalt.withValues(alpha: 0.15),
                   onSelected: (val) {
                     if (val) {
                       setState(() => _registryTabMode = 1);
@@ -1896,7 +1828,10 @@ class _OriginalDocumentsCollectionTabState
                     },
                   ),
                   const SizedBox(width: 16),
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
+                    label: l.originalDocsExportTsvBtn,
+                    icon: Icons.table_view_outlined,
+                    variant: AppButtonVariant.secondary,
                     onPressed: !hasSessions
                         ? null
                         : () => OriginalDocsExportService.exportRegistryTsv(
@@ -1904,16 +1839,12 @@ class _OriginalDocumentsCollectionTabState
                               sessions: sessions,
                               shipments: allImportFiles,
                             ),
-                    icon: const Icon(Icons.table_view_outlined, size: 16, color: Color(0xFF16A085)),
-                    label: Text(l.originalDocsExportTsvBtn,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF16A085), fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF16A085)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
+                    label: l.originalDocsExportExcelBtn,
+                    icon: Icons.file_download_outlined,
+                    variant: AppButtonVariant.secondary,
                     onPressed: !hasSessions
                         ? null
                         : () => OriginalDocsExportService.exportRegistryExcel(
@@ -1921,16 +1852,12 @@ class _OriginalDocumentsCollectionTabState
                               sessions: sessions,
                               shipments: allImportFiles,
                             ),
-                    icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
-                    label: Text(l.originalDocsExportExcelBtn,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.emerald),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
+                    label: l.originalDocsPrintPdfBtn,
+                    icon: Icons.print_outlined,
+                    variant: AppButtonVariant.secondary,
                     onPressed: !hasSessions
                         ? null
                         : () => OriginalDocsExportService.printRegistryPdf(
@@ -1938,16 +1865,12 @@ class _OriginalDocumentsCollectionTabState
                               sessions: sessions,
                               shipments: allImportFiles,
                             ),
-                    icon: const Icon(Icons.print_outlined, size: 16, color: Color(0xFF8E44AD)),
-                    label: Text(l.originalDocsPrintPdfBtn,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF8E44AD)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
+                    label: l.originalDocsCopyDossierBtn,
+                    icon: Icons.copy_all_outlined,
+                    variant: AppButtonVariant.secondary,
                     onPressed: !hasSessions
                         ? null
                         : () => OriginalDocsExportService.copyRegistryDossier(
@@ -1955,14 +1878,7 @@ class _OriginalDocumentsCollectionTabState
                               sessions: sessions,
                               shipments: allImportFiles,
                             ),
-                    icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
-                    label: Text(l.originalDocsCopyDossierBtn,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.charcoal),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                  ),
+                  )),
                 ],
               ),
             ],
@@ -1975,14 +1891,14 @@ class _OriginalDocumentsCollectionTabState
               return Container(
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
-                child: Text(l.noRegisteredSessionsFound, style: TextStyle(color: Colors.grey.shade600)),
+                child: Text(l.noRegisteredSessionsFound, style: TextStyle(color: AppTheme.textSecondaryOf(context))),
               );
             }
 
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
+                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAlt),
                 headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
                 columns: [
                   DataColumn(label: Text(l.colAction)),
@@ -2052,9 +1968,9 @@ class _OriginalDocumentsCollectionTabState
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
+                                color: AppTheme.cobalt.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -2096,7 +2012,7 @@ class _OriginalDocumentsCollectionTabState
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.blueGrey.withOpacity(0.08),
+                                    color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Row(
@@ -2107,7 +2023,7 @@ class _OriginalDocumentsCollectionTabState
                                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Icon(Icons.copy, size: 10, color: Colors.blueGrey),
+                                      const Icon(Icons.copy, size: 10, color: AppTheme.textSecondary),
                                     ],
                                   ),
                                 ),
@@ -2131,7 +2047,7 @@ class _OriginalDocumentsCollectionTabState
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.1),
+                                      color: AppTheme.orange.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
@@ -2142,11 +2058,11 @@ class _OriginalDocumentsCollectionTabState
                                           style: const TextStyle(
                                             fontFamily: 'monospace',
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.deepOrange,
+                                            color: AppTheme.orange,
                                           ),
                                         ),
                                         const SizedBox(width: 4),
-                                        const Icon(Icons.copy, size: 12, color: Colors.deepOrange),
+                                        const Icon(Icons.copy, size: 12, color: AppTheme.orange),
                                       ],
                                     ),
                                   ),
@@ -2189,7 +2105,7 @@ class _OriginalDocumentsCollectionTabState
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: s.completionPercentage == 100 ? Colors.green.shade100 : Colors.amber.shade100,
+                              color: s.completionPercentage == 100 ? AppTheme.severityBackgroundOf(context, AppSeverity.success) : AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -2197,7 +2113,7 @@ class _OriginalDocumentsCollectionTabState
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
-                                color: s.completionPercentage == 100 ? Colors.green.shade800 : Colors.amber.shade900,
+                                color: s.completionPercentage == 100 ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.severityForegroundOf(context, AppSeverity.warning),
                               ),
                             ),
                           ),
@@ -2224,7 +2140,7 @@ class _OriginalDocumentsCollectionTabState
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text(l.errorFetchingRegistry(e), style: const TextStyle(color: Colors.red)),
+          error: (e, _) => Text(l.errorFetchingRegistry(e), style: const TextStyle(color: AppTheme.crimson)),
         ),
       ],
     );
@@ -2246,49 +2162,45 @@ class _OriginalDocumentsCollectionTabState
                 child: TextField(
                   controller: _courierSearchController,
                   decoration: InputDecoration(
-                    hintText: 'بحث برقم البوليصة أو الكورير أو الشحنة...',
-                    prefixIcon: const Icon(Icons.search, size: 18),
+                    hintText: context.l10n.idocASearchByWaybillCourierOrShipment,
+                    prefixIcon: Icon(Icons.search, size: 18),
                     suffixIcon: _courierSearchController.text.trim().isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 15),
+                            icon: Icon(Icons.clear, size: 15),
                             onPressed: () {
                               setState(() => _courierSearchController.clear());
                             },
                           )
                         : null,
                     isDense: true,
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               DropdownButton<String>(
                 value: _courierStatusFilter,
                 items: [
-                  DropdownMenuItem(value: 'All', child: Text(l.filterStatusAll, style: const TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'IN_TRANSIT', child: Text(l.filterStatusInTransit, style: const TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'DELIVERED', child: Text(l.filterStatusDelivered, style: const TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'All', child: Text(l.filterStatusAll, style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'IN_TRANSIT', child: Text(l.filterStatusInTransit, style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'DELIVERED', child: Text(l.filterStatusDelivered, style: TextStyle(fontSize: 12))),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _courierStatusFilter = val);
                 },
               ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
+              SizedBox(width: 16),
+              IdocUi.fit(AppButton(
+                label: l.refreshDataTooltip,
+                icon: Icons.refresh,
+                variant: AppButtonVariant.primary,
                 onPressed: () => ref.invalidate(allCouriersProvider),
-                icon: const Icon(Icons.refresh, size: 16),
-                label: Text(l.refreshDataTooltip),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
+              )),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         allCouriersAsync.when(
           data: (couriersList) {
             final query = _courierSearchController.text.trim().toLowerCase();
@@ -2310,30 +2222,30 @@ class _OriginalDocumentsCollectionTabState
 
             if (filtered.isEmpty) {
               return Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24),
                 alignment: Alignment.center,
-                child: const Text('لا توجد طرود كورير مسجلة مطابقة لمعايير البحث', style: TextStyle(color: Colors.grey)),
+                child: Text(context.l10n.idocANoCourierPackagesMatchTheSearch, style: TextStyle(color: AppTheme.textMuted)),
               );
             }
 
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
-                headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                columns: const [
-                  DataColumn(label: Text('العمليات')),
-                  DataColumn(label: Text('شركة الشحن')),
-                  DataColumn(label: Text('رقم البوليصة (AWB)')),
-                  DataColumn(label: Text('ملف الشحنة')),
-                  DataColumn(label: Text('المستندات المرتبطة')),
-                  DataColumn(label: Text('تاريخ الإرسال')),
-                  DataColumn(label: Text('مدة الشحن')),
-                  DataColumn(label: Text('حالة الاستلام')),
-                  DataColumn(label: Text('تاريخ ووقت الاستلام')),
-                  DataColumn(label: Text('المستلم')),
-                  DataColumn(label: Text('رقم الـ POD')),
-                  DataColumn(label: Text('ملاحظات')),
+                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAlt),
+                headingTextStyle: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                columns: [
+                  DataColumn(label: Text(context.l10n.idocAOperations)),
+                  DataColumn(label: Text(context.l10n.idocAShippingCompany)),
+                  DataColumn(label: Text(context.l10n.idocAWaybillNumberAWB)),
+                  DataColumn(label: Text(context.l10n.idocAImportFile)),
+                  DataColumn(label: Text(context.l10n.idocALinkedDocuments)),
+                  DataColumn(label: Text(context.l10n.idocADispatchDate)),
+                  DataColumn(label: Text(context.l10n.idocATransitTime)),
+                  DataColumn(label: Text(context.l10n.idocAReceiptStatus)),
+                  DataColumn(label: Text(context.l10n.idocAReceiptDateAndTime)),
+                  DataColumn(label: Text(context.l10n.idocAReceivedBy)),
+                  DataColumn(label: Text(context.l10n.idocAPODNumber)),
+                  DataColumn(label: Text(context.l10n.notes)),
                 ],
                 rows: filtered.map((c) {
                   final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -2354,7 +2266,7 @@ class _OriginalDocumentsCollectionTabState
                           children: [
                             IconButton(
                               icon: const Icon(Icons.open_in_new, size: 16, color: AppTheme.cobalt),
-                              tooltip: 'تتبع الكورير مباشرة على موقع الشركة',
+                              tooltip: context.l10n.idocATrackTheCourierDirectlyOnThe,
                               onPressed: () => OriginalDocsExportService.launchCarrierTracking(
                                 c.courierCompany,
                                 c.courierNo,
@@ -2364,7 +2276,7 @@ class _OriginalDocumentsCollectionTabState
                               icon: Icon(
                                 c.isReceived ? Icons.verified : Icons.verified_outlined,
                                 size: 16,
-                                color: const Color(0xFF27AE60),
+                                color: AppTheme.emerald,
                               ),
                               tooltip: l.confirmCourierDeliveryBtn,
                               onPressed: () => _showCourierDeliveryProofDialog(
@@ -2376,7 +2288,7 @@ class _OriginalDocumentsCollectionTabState
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.copy, size: 15, color: Colors.blueGrey),
+                              icon: const Icon(Icons.copy, size: 15, color: AppTheme.textSecondary),
                               tooltip: l.copyRow,
                               onPressed: () => CopyHelper.copy(
                                 context,
@@ -2421,9 +2333,9 @@ class _OriginalDocumentsCollectionTabState
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.blueGrey.withOpacity(0.1),
+                                color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.blueGrey.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -2438,7 +2350,7 @@ class _OriginalDocumentsCollectionTabState
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.copy, size: 12, color: Colors.blueGrey),
+                                  const Icon(Icons.copy, size: 12, color: AppTheme.textSecondary),
                                 ],
                               ),
                             ),
@@ -2474,11 +2386,11 @@ class _OriginalDocumentsCollectionTabState
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.1),
+                              color: AppTheme.cobalt.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '${c.associatedDocsCount} وثيقة',
+                              context.l10n.idocADocumentsCount(c.associatedDocsCount),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
                             ),
                           ),
@@ -2492,8 +2404,8 @@ class _OriginalDocumentsCollectionTabState
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: c.daysInTransit >= 5
-                                ? AppTheme.crimson.withOpacity(0.12)
-                                : (c.daysInTransit >= 3 ? AppTheme.orange.withOpacity(0.12) : Colors.blue.shade50),
+                                ? AppTheme.crimson.withValues(alpha: 0.12)
+                                : (c.daysInTransit >= 3 ? AppTheme.orange.withValues(alpha: 0.12) : AppTheme.severityBackgroundOf(context, AppSeverity.info)),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -2514,17 +2426,17 @@ class _OriginalDocumentsCollectionTabState
                             ? Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF27AE60).withOpacity(0.15),
+                                  color: AppTheme.emerald.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.check_circle, size: 12, color: Color(0xFF27AE60)),
+                                    Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
                                     SizedBox(width: 4),
                                     Text(
-                                      'تم الاستلام',
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)),
+                                      context.l10n.idocAReceived,
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                     ),
                                   ],
                                 ),
@@ -2532,16 +2444,16 @@ class _OriginalDocumentsCollectionTabState
                             : Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.orange.withOpacity(0.15),
+                                  color: AppTheme.orange.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.local_shipping, size: 12, color: AppTheme.orange),
                                     SizedBox(width: 4),
                                     Text(
-                                      'في الطريق',
+                                      context.l10n.idocAInTransitAlt,
                                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
                                     ),
                                   ],
@@ -2575,7 +2487,7 @@ class _OriginalDocumentsCollectionTabState
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('${l.errorPrefix}: $e', style: const TextStyle(color: Colors.red)),
+          error: (e, _) => Text('${l.errorPrefix}: ${ApiErrorText.of(l, e)}', style: const TextStyle(color: AppTheme.crimson)),
         ),
       ],
     );

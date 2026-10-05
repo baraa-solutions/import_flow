@@ -3,6 +3,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/import_documentation_model.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 /// Search and Clone Previous Bank Form 4 Dialog (Screen 16 / UX-CLONE-016)
 ///
@@ -70,10 +72,10 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 750, maxHeight: 620),
@@ -88,7 +90,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.wcagCobalt.withOpacity(0.12),
+                      color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 22),
@@ -103,7 +105,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -111,14 +113,14 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                           l.bankForm4ClonedResetNotice,
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                    icon: Icon(Icons.close, color: AppTheme.textSecondaryOf(context)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -129,11 +131,11 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
               TextField(
                 controller: _queryController,
                 onChanged: _filter,
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                 decoration: InputDecoration(
                   hintText: l.searchBankForm4Hint,
-                  hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                  prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                  hintStyle: TextStyle(color: AppTheme.textMutedOf(context)),
+                  prefixIcon: Icon(Icons.search, color: AppTheme.textSecondaryOf(context)),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -144,15 +146,15 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -169,11 +171,11 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                            Icon(Icons.search_off, size: 48, color: AppTheme.textMutedOf(context)),
                             const SizedBox(height: 10),
                             Text(
                               l.noBankForm4Found,
-                              style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 13),
+                              style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
                             ),
                           ],
                         ),
@@ -188,9 +190,9 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
 
                           return Container(
                             decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                              color: AppTheme.surfaceAltOf(context),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                              border: Border.all(color: AppTheme.borderOf(context)),
                             ),
                             padding: const EdgeInsets.all(12),
                             child: Row(
@@ -199,7 +201,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.wcagCobalt.withOpacity(0.1),
+                                    color: AppTheme.wcagCobalt.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: const Icon(Icons.account_balance, color: AppTheme.wcagCobalt, size: 20),
@@ -224,8 +226,8 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
                                               color: doc.status == 'Received'
-                                                  ? Colors.green.withOpacity(0.15)
-                                                  : Colors.amber.withOpacity(0.15),
+                                                  ? AppTheme.emerald.withValues(alpha: 0.15)
+                                                  : AppTheme.orange.withValues(alpha: 0.15),
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                             child: Text(
@@ -234,8 +236,8 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                                 fontSize: DisplayDensityMode.clampFontSize(11.0),
                                                 fontWeight: FontWeight.bold,
                                                 color: doc.status == 'Received'
-                                                    ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)
-                                                    : (isDark ? const Color(0xFFFCD34D) : Colors.amber.shade900),
+                                                    ? (AppTheme.severityForegroundOf(context, AppSeverity.success))
+                                                    : (AppTheme.severityForegroundOf(context, AppSeverity.warning)),
                                               ),
                                             ),
                                           ),
@@ -247,7 +249,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
-                                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                          color: AppTheme.textPrimaryOf(context),
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -257,7 +259,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                         '$formattedAmount  •  $formattedDate',
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                          color: AppTheme.textSecondaryOf(context),
                                         ),
                                       ),
                                     ],
@@ -265,22 +267,17 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                 ),
 
                                 // Select / Clone Action Button
-                                ElevatedButton.icon(
+                                IdocUi.fit(AppButton(
                                   key: Key('selectCloneBankForm4Btn_${doc.bankDocId}'),
-                                  icon: const Icon(Icons.copy, size: 14),
-                                  label: Text(l.searchAndCloneBankForm4Btn, style: const TextStyle(fontSize: 11)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.wcagCobalt,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                    elevation: 0,
-                                  ),
+                                  label: l.searchAndCloneBankForm4Btn,
+                                  icon: Icons.copy,
+                                  variant: AppButtonVariant.primary,
+                                  size: AppButtonSize.small,
                                   onPressed: () {
                                     Navigator.of(context).pop();
                                     widget.onSelectDoc(doc);
                                   },
-                                ),
+                                )),
                               ],
                             ),
                           );

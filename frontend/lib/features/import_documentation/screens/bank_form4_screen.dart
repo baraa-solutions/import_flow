@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../widgets/idoc_ui_b.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -170,36 +172,22 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: isAr ? 'طلب وتوثيق نموذج 4 البنكي (Bank Form 4)' : 'Bank Form 4 Request & Endorsement',
+            entityType: context.l10n.idocBBankCloneEntity,
             sourceCode: doc.bankDocCode,
             sourceTitle: doc.bankName,
             suggestedNewCode: 'FORM4-2026-DRAFT',
-            copiedFieldsSummary: isAr
-                ? {
-                    'البنك المعتمد': doc.bankName,
-                    'قيمة الاعتماد': '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
-                    'ملف الشحنة': doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
-                    'ملاحظات وتوجيهات': doc.notes ?? '-',
-                  }
-                : {
-                    'Certified Bank': doc.bankName,
-                    'Credit Amount': '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
-                    'Import File': doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
-                    'Notes & Directives': doc.notes ?? '-',
-                  },
-            mandatorilyResetFields: isAr
-                ? const [
-                    'كود المستند البنكي: يتم تصفيره إلى مسودة جديدة (Draft)',
-                    'تاريخ طلب النموذج: يعاد ضبطه إلى تاريخ اليوم',
-                    'حالة التوثيق والاعتماد: تعاد إلى قيد المعالجة (Processing)',
-                    'معرف السجل السابق: تم فك الارتباط',
-                  ]
-                : const [
-                    'Document Code: Reset to new Draft',
-                    'Request Date: Reset to today\'s date',
-                    'Endorsement Status: Reset to Processing',
-                    'Previous Record ID: Unlinked',
-                  ],
+            copiedFieldsSummary: {
+              context.l10n.idocBBankCloneFieldBank: doc.bankName,
+              context.l10n.idocBBankCloneFieldAmount: '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
+              context.l10n.idocBCloneFieldImportFile: doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
+              context.l10n.idocBBankCloneFieldNotes: doc.notes ?? '-',
+            },
+            mandatorilyResetFields: [
+              context.l10n.idocBBankCloneReset1,
+              context.l10n.idocBBankCloneReset2,
+              context.l10n.idocBBankCloneReset3,
+              context.l10n.idocBBankCloneReset4,
+            ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -264,9 +252,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isAr
-                        ? 'توثيق استلام ${doc.docType} البنكي (DC-03)'
-                        : 'Endorse ${doc.docType} Receipt (DC-03)',
+                    context.l10n.idocBBankReceiptTitle(doc.docType),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -281,41 +267,35 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAr
-                          ? 'سجل رقم المستند البنكي الصادر من بنك (${doc.bankName}) لربطه تلقائياً بملف الشحنة وترقية دورة الحياة إلى مرحلة الإقرار الجمركي 46.'
-                          : 'Register bank document number issued by (${doc.bankName}) to automatically link to the shipment and advance lifecycle to Customs Declaration 46.',
+                      context.l10n.idocBBankReceiptIntro(doc.bankName),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: numCtrl,
                       decoration: InputDecoration(
-                        labelText: isAr
-                            ? 'رقم ${doc.docType} / رقم الاعتماد المعتمد *'
-                            : '${doc.docType} / Bank Reference No. *',
-                        hintText: isAr
-                            ? 'مثال: F4-EG-2026-990011 أو LC-7788'
-                            : 'e.g., F4-EG-2026-990011 or LC-7788',
+                        labelText: context.l10n.idocBBankReceiptNumLabel(doc.docType),
+                        hintText: context.l10n.idocBBankReceiptNumHint,
                         prefixIcon: const Icon(Icons.confirmation_number_outlined),
                         border: const OutlineInputBorder(),
                       ),
                       validator: (v) => v == null || v.trim().isEmpty
-                          ? (isAr ? 'يرجى إدخال رقم المستند الصادر من البنك' : 'Please enter bank document number')
+                          ? (context.l10n.idocBBankReceiptNumRequired)
                           : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: dateCtrl,
                       decoration: InputDecoration(
-                        labelText: isAr ? 'تاريخ الاستلام / الاعتماد *' : 'Receipt / Endorsement Date *',
+                        labelText: context.l10n.idocBBankReceiptDateLabel,
                         prefixIcon: const Icon(Icons.calendar_today_outlined),
                         border: const OutlineInputBorder(),
                       ),
                       validator: (v) => v == null || v.trim().isEmpty
-                          ? (isAr ? 'يرجى تحديد تاريخ الاستلام' : 'Please select receipt date')
+                          ? (context.l10n.idocBBankReceiptDateRequired)
                           : null,
                     ),
                     const SizedBox(height: 12),
@@ -323,7 +303,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       controller: notesCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        labelText: isAr ? 'ملاحظات التوثيق والفرع (اختياري)' : 'Endorsement / Branch Notes (Optional)',
+                        labelText: context.l10n.idocBBankReceiptNotesLabel,
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -332,22 +312,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
-                child: Text(context.l10n.cancel),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.wcagEmerald,
-                  foregroundColor: Colors.white,
-                ),
-                icon: isSubmitting
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.check, size: 16),
-                label: Text(isSubmitting
-                    ? (isAr ? 'جاري التوثيق...' : 'Endorsing...')
-                    : (isAr ? 'توثيق وربط بالشحنة' : 'Endorse & Link to Shipment')),
-                onPressed: isSubmitting
+              IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(), variant: AppButtonVariant.secondary)),
+              IdocBUi.fit(AppButton(label: isSubmitting
+                    ? (context.l10n.idocBBankEndorsing)
+                    : (context.l10n.idocBBankEndorseAndLink), onPressed: isSubmitting
                     ? null
                     : () async {
                         if (!formKey.currentState!.validate()) return;
@@ -365,9 +333,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(isAr
-                                    ? 'تم توثيق وربط المستند البنكي بالشحنة وترقية دورة الحياة بنجاح.'
-                                    : 'Bank document endorsed and linked to shipment successfully.'),
+                                content: Text(context.l10n.idocBBankEndorsedSuccess),
                                 backgroundColor: AppTheme.wcagEmerald,
                               ),
                             );
@@ -377,13 +343,12 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           if (mounted) {
                             showErrorDetailsDialog(
                               context,
-                              title: isAr ? 'خطأ في توثيق المستند البنكي' : 'Error endorsing bank document',
+                              title: context.l10n.idocBBankEndorseError,
                               error: e,
                             );
                           }
                         }
-                      },
-              ),
+                      }, icon: Icons.check, isLoading: isSubmitting)),
             ],
           );
         },
@@ -410,7 +375,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.wcagCobalt.withOpacity(0.2),
+                  color: AppTheme.wcagCobalt.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -451,12 +416,12 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
           headerActions: [
             IconButton(
               key: const Key('searchAndCloneBankForm4Btn'),
-              icon: Icon(Icons.copy_all, color: Colors.white70, size: density.buttonIconSize),
+              icon: Icon(Icons.copy_all, color: AppTheme.cloudWhite, size: density.buttonIconSize),
               tooltip: context.l10n.searchAndCloneBankForm4Btn,
               onPressed: _openSearchAndCloneBankForm4Dialog,
             ),
             IconButton(
-              icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+              icon: Icon(Icons.refresh, color: AppTheme.cloudWhite, size: density.buttonIconSize),
               tooltip: context.l10n.refresh,
               onPressed: _refreshData,
             ),
@@ -502,17 +467,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       ),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    key: const Key('subtab0SearchAndCloneBtn'),
-                    icon: const Icon(Icons.copy_all, size: 16),
-                    label: Text(context.l10n.searchAndCloneBankForm4Btn),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.wcagCobalt,
-                      side: const BorderSide(color: AppTheme.wcagCobalt),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    ),
-                    onPressed: _openSearchAndCloneBankForm4Dialog,
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('subtab0SearchAndCloneBtn'), label: context.l10n.searchAndCloneBankForm4Btn, onPressed: _openSearchAndCloneBankForm4Dialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all)),
                 ],
               ),
               const SizedBox(height: 14),
@@ -523,9 +478,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   padding: const EdgeInsets.all(14),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2D1F0A) : Colors.amber.shade50,
+                    color: isDark ? AppTheme.orangeLight : AppTheme.warningBackground,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? const Color(0xFFD97706) : Colors.amber.shade400),
+                    border: Border.all(color: AppTheme.orange),
                   ),
                   child: isMobile
                       ? Column(
@@ -533,14 +488,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.edit_note, color: Colors.amber, size: 22),
+                                const Icon(Icons.edit_note, color: AppTheme.orange, size: 22),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: CopyableText(
                                     context.l10n.bankForm4EditingBanner(_editingBankDocCode ?? ''),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900,
+                                      color: isDark ? AppTheme.orange : AppTheme.warningForeground,
                                     ),
                                   ),
                                 ),
@@ -549,34 +504,24 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             const SizedBox(height: 8),
                             Align(
                               alignment: AlignmentDirectional.centerStart,
-                              child: TextButton.icon(
-                                key: const Key('cancelForm4EditModeBtn'),
-                                onPressed: _resetForm4Form,
-                                icon: const Icon(Icons.cancel, size: 16),
-                                label: Text(context.l10n.cancelEditNewForm4),
-                              ),
+                              child: IdocBUi.fit(AppButton(key: const Key('cancelForm4EditModeBtn'), label: context.l10n.cancelEditNewForm4, onPressed: _resetForm4Form, variant: AppButtonVariant.secondary, icon: Icons.cancel)),
                             ),
                           ],
                         )
                       : Row(
                           children: [
-                            const Icon(Icons.edit_note, color: Colors.amber, size: 22),
+                            const Icon(Icons.edit_note, color: AppTheme.orange, size: 22),
                             const SizedBox(width: 10),
                             Expanded(
                               child: CopyableText(
                                 context.l10n.bankForm4EditingBanner(_editingBankDocCode ?? ''),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900,
+                                  color: isDark ? AppTheme.orange : AppTheme.warningForeground,
                                 ),
                               ),
                             ),
-                            TextButton.icon(
-                              key: const Key('cancelForm4EditModeBtn'),
-                              onPressed: _resetForm4Form,
-                              icon: const Icon(Icons.cancel, size: 16),
-                              label: Text(context.l10n.cancelEditNewForm4),
-                            ),
+                            IdocBUi.fit(AppButton(key: const Key('cancelForm4EditModeBtn'), label: context.l10n.cancelEditNewForm4, onPressed: _resetForm4Form, variant: AppButtonVariant.secondary, icon: Icons.cancel)),
                           ],
                         ),
                 ),
@@ -584,11 +529,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               // File Selector
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: SearchableDropdownField<int>(
                   labelText: context.l10n.selectImportFileForm4Label,
                   hintText: context.l10n.searchFileOrSupplierHint,
@@ -615,11 +556,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               // Main Form Card
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -631,33 +568,27 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                       ),
                     ),
-                    Divider(height: 24, color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    Divider(height: 24, color: isDark ? AppTheme.darkBorder : AppTheme.border),
 
                     // Inputs Row 0: Doc Type & Reference Number (DC-03)
                     if (isMobile) ...[
                       SearchableDropdownField<String>(
-                        labelText: isAr ? 'نوع المعاملة / المستند البنكي *' : 'Transaction / Bank Doc Type *',
-                        hintText: isAr ? 'اختر نوع المعاملة' : 'Select transaction type',
+                        labelText: context.l10n.idocBBankDocTypeLabel,
+                        hintText: context.l10n.idocBBankDocTypeHint,
                         value: _bankDocType,
                         isRequired: true,
                         items: [
                           SearchableDropdownItem<String>(
                             value: 'Form 4',
-                            label: isAr
-                                ? 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'
-                                : 'Form 4 (Form 4 - Collection / Advance Payment)',
+                            label: context.l10n.idocBBankTypeForm4,
                           ),
                           SearchableDropdownItem<String>(
                             value: 'Letter of Credit (L/C)',
-                            label: isAr
-                                ? 'اعتماد مستندي (Letter of Credit - L/C)'
-                                : 'Letter of Credit (L/C)',
+                            label: context.l10n.idocBBankTypeLc,
                           ),
                           SearchableDropdownItem<String>(
                             value: 'Form 9',
-                            label: isAr
-                                ? 'نموذج 9 (Form 9 - إفراج دون تحويل)'
-                                : 'Form 9 (Form 9 - Release Without Transfer)',
+                            label: context.l10n.idocBBankTypeForm9,
                           ),
                         ],
                         onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
@@ -665,14 +596,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _docReferenceNumberCtrl,
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         decoration: InputDecoration(
-                          labelText: isAr
-                              ? 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)'
-                              : 'Bank Reference / Credit No. (If available)',
-                          hintText: isAr
-                              ? 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988'
-                              : 'Leave empty if pending, or enter: F4-2026-009 / LC-9988',
+                          labelText: context.l10n.idocBBankRefLabel,
+                          hintText: context.l10n.idocBBankRefHint,
                           prefixIcon: const Icon(Icons.pin_outlined),
                           border: const OutlineInputBorder(),
                         ),
@@ -683,28 +610,22 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         children: [
                           Expanded(
                             child: SearchableDropdownField<String>(
-                              labelText: isAr ? 'نوع المعاملة / المستند البنكي *' : 'Transaction / Bank Doc Type *',
-                              hintText: isAr ? 'اختر نوع المعاملة' : 'Select transaction type',
+                              labelText: context.l10n.idocBBankDocTypeLabel,
+                              hintText: context.l10n.idocBBankDocTypeHint,
                               value: _bankDocType,
                               isRequired: true,
                               items: [
                                 SearchableDropdownItem<String>(
                                   value: 'Form 4',
-                                  label: isAr
-                                      ? 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'
-                                      : 'Form 4 (Form 4 - Collection / Advance Payment)',
+                                  label: context.l10n.idocBBankTypeForm4,
                                 ),
                                 SearchableDropdownItem<String>(
                                   value: 'Letter of Credit (L/C)',
-                                  label: isAr
-                                      ? 'اعتماد مستندي (Letter of Credit - L/C)'
-                                      : 'Letter of Credit (L/C)',
+                                  label: context.l10n.idocBBankTypeLc,
                                 ),
                                 SearchableDropdownItem<String>(
                                   value: 'Form 9',
-                                  label: isAr
-                                      ? 'نموذج 9 (Form 9 - إفراج دون تحويل)'
-                                      : 'Form 9 (Form 9 - Release Without Transfer)',
+                                  label: context.l10n.idocBBankTypeForm9,
                                 ),
                               ],
                               onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
@@ -714,14 +635,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           Expanded(
                             child: TextFormField(
                               controller: _docReferenceNumberCtrl,
-                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                               decoration: InputDecoration(
-                                labelText: isAr
-                                    ? 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)'
-                                    : 'Bank Reference / Credit No. (If available)',
-                                hintText: isAr
-                                    ? 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988'
-                                    : 'Leave empty if pending, or enter: F4-2026-009 / LC-9988',
+                                labelText: context.l10n.idocBBankRefLabel,
+                                hintText: context.l10n.idocBBankRefHint,
                                 prefixIcon: const Icon(Icons.pin_outlined),
                                 border: const OutlineInputBorder(),
                               ),
@@ -753,7 +670,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       TextFormField(
                         controller: _bankAmountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         decoration: InputDecoration(
                           labelText: context.l10n.bankAmountLabel,
                           prefixIcon: const Icon(Icons.attach_money),
@@ -802,7 +719,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             child: TextFormField(
                               controller: _bankAmountController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                               decoration: InputDecoration(
                                 labelText: context.l10n.bankAmountLabel,
                                 prefixIcon: const Icon(Icons.attach_money),
@@ -837,7 +754,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     if (isMobile) ...[
                       TextFormField(
                         controller: _form4RequestDateCtrl,
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         decoration: InputDecoration(
                           labelText: context.l10n.bankRequestDateLabel,
                           prefixIcon: const Icon(Icons.calendar_today),
@@ -847,7 +764,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _form4NotesCtrl,
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         decoration: InputDecoration(
                           labelText: context.l10n.bankNotesLabel,
                           border: const OutlineInputBorder(),
@@ -859,7 +776,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           Expanded(
                             child: TextFormField(
                               controller: _form4RequestDateCtrl,
-                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                               decoration: InputDecoration(
                                 labelText: context.l10n.bankRequestDateLabel,
                                 prefixIcon: const Icon(Icons.calendar_today),
@@ -872,7 +789,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             flex: 2,
                             child: TextFormField(
                               controller: _form4NotesCtrl,
-                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                               decoration: InputDecoration(
                                 labelText: context.l10n.bankNotesLabel,
                                 border: const OutlineInputBorder(),
@@ -911,33 +828,12 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        ElevatedButton.icon(
-                          key: const Key('saveForm4SubmitBtn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.wcagCobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: _isSavingForm4 ? null : _saveBankingDoc,
-                          icon: _isSavingForm4
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.save),
-                          label: Text(
-                            _isSavingForm4
+                        IdocBUi.fit(AppButton(key: const Key('saveForm4SubmitBtn'), label: _isSavingForm4
                                 ? context.l10n.loading
                                 : _editingBankDocId != null
                                     ? context.l10n.updateForm4Button
-                                    : context.l10n.saveForm4Button,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
-                          onPressed: () => setState(() => _selectedSubTab = 1),
-                          icon: const Icon(Icons.history_edu),
-                          label: Text(context.l10n.goToBankRegistryButton),
-                        ),
+                                    : context.l10n.saveForm4Button, onPressed: _isSavingForm4 ? null : _saveBankingDoc, icon: Icons.save, isLoading: _isSavingForm4)),
+                        IdocBUi.fit(AppButton(label: context.l10n.goToBankRegistryButton, onPressed: () => setState(() => _selectedSubTab = 1), variant: AppButtonVariant.secondary, icon: Icons.history_edu)),
                       ],
                     ),
                   ],
@@ -959,13 +855,13 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isChecked
-              ? (isDark ? AppTheme.wcagCobalt.withOpacity(0.2) : Colors.blue.shade50)
-              : (isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+              ? (isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.2) : AppTheme.infoBackground)
+              : (isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isChecked
                 ? AppTheme.wcagCobalt
-                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                : (isDark ? AppTheme.darkBorder : AppTheme.border),
           ),
         ),
         child: Row(
@@ -976,7 +872,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               size: 18,
               color: isChecked
                   ? AppTheme.wcagCobalt
-                  : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                  : (isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -991,7 +887,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             ),
             if (isRequired) ...[
               const SizedBox(width: 4),
-              const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              const Text('*', style: TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold)),
             ],
           ],
         ),
@@ -1026,21 +922,21 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 key: const Key('bankRegistrySearchInput'),
                 decoration: InputDecoration(
                   hintText: context.l10n.searchBankRegistryHint,
-                  hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                  prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                  hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                  prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                   ),
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                  fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                 onChanged: (val) => setState(() => _form4SearchQuery = val),
               ),
               const SizedBox(height: 10),
@@ -1048,61 +944,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ElevatedButton.icon(
-                    key: const Key('subtab1NewForm4Btn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.wcagCobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    onPressed: () {
+                  IdocBUi.fit(AppButton(key: const Key('subtab1NewForm4Btn'), label: context.l10n.newForm4RequestButton, onPressed: () {
                       _resetForm4Form();
                       setState(() => _selectedSubTab = 0);
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(context.l10n.newForm4RequestButton),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('subtab1SearchAndCloneBtn'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    onPressed: _openSearchAndCloneBankForm4Dialog,
-                    icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.wcagCobalt),
-                    label: Text(context.l10n.searchAndCloneBankForm4Btn),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryCopyBtn'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                    ),
-                    onPressed: () => _copyBankForm4AsTsv(filtered, importFiles),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryExcelBtn'),
-                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green.shade700,
-                      side: const BorderSide(color: Colors.green),
-                    ),
-                    onPressed: () => _exportBankForm4ToExcel(filtered, importFiles),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('bankRegistryPdfBtn'),
-                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: const BorderSide(color: Colors.red),
-                    ),
-                    onPressed: () => _exportBankForm4ToPdf(filtered, importFiles),
-                  ),
+                    }, icon: Icons.add)),
+                  IdocBUi.fit(AppButton(key: const Key('subtab1SearchAndCloneBtn'), label: context.l10n.searchAndCloneBankForm4Btn, onPressed: _openSearchAndCloneBankForm4Dialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all)),
+                  IdocBUi.fit(AppButton(key: const Key('bankRegistryCopyBtn'), label: context.l10n.idocBCopyTable, onPressed: () => _copyBankForm4AsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
+                  IdocBUi.fit(AppButton(key: const Key('bankRegistryExcelBtn'), label: context.l10n.idocBExportExcel, onPressed: () => _exportBankForm4ToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
+                  IdocBUi.fit(AppButton(key: const Key('bankRegistryPdfBtn'), label: context.l10n.idocBExportPdf, onPressed: () => _exportBankForm4ToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                 ],
               ),
             ] else ...[
@@ -1113,21 +962,21 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       key: const Key('bankRegistrySearchInput'),
                       decoration: InputDecoration(
                         hintText: context.l10n.searchBankRegistryHint,
-                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                         ),
                         filled: true,
-                        fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10),
                       ),
-                      style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                      style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                       onChanged: (val) => setState(() => _form4SearchQuery = val),
                     ),
                   ),
@@ -1142,68 +991,18 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         runSpacing: 8,
                         children: [
-                        OutlinedButton.icon(
-                          key: const Key('bankRegistryCopyBtn'),
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                            side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          ),
-                          onPressed: () => _copyBankForm4AsTsv(filtered, importFiles),
-                        ),
+                        IdocBUi.fit(AppButton(key: const Key('bankRegistryCopyBtn'), label: context.l10n.idocBCopyTable, onPressed: () => _copyBankForm4AsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
                         const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          key: const Key('bankRegistryExcelBtn'),
-                          icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green.shade700,
-                            side: const BorderSide(color: Colors.green),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          ),
-                          onPressed: () => _exportBankForm4ToExcel(filtered, importFiles),
-                        ),
+                        IdocBUi.fit(AppButton(key: const Key('bankRegistryExcelBtn'), label: context.l10n.idocBExportExcel, onPressed: () => _exportBankForm4ToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
                         const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          key: const Key('bankRegistryPdfBtn'),
-                          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                          label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red.shade700,
-                            side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          ),
-                          onPressed: () => _exportBankForm4ToPdf(filtered, importFiles),
-                        ),
+                        IdocBUi.fit(AppButton(key: const Key('bankRegistryPdfBtn'), label: context.l10n.idocBExportPdf, onPressed: () => _exportBankForm4ToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                         const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          key: const Key('subtab1SearchAndCloneBtn'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                          onPressed: _openSearchAndCloneBankForm4Dialog,
-                          icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt),
-                          label: Text(context.l10n.searchAndCloneBankForm4Btn),
-                        ),
+                        IdocBUi.fit(AppButton(key: const Key('subtab1SearchAndCloneBtn'), label: context.l10n.searchAndCloneBankForm4Btn, onPressed: _openSearchAndCloneBankForm4Dialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all)),
                         const SizedBox(width: 10),
-                        ElevatedButton.icon(
-                          key: const Key('subtab1NewForm4Btn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.wcagCobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          ),
-                          onPressed: () {
+                        IdocBUi.fit(AppButton(key: const Key('subtab1NewForm4Btn'), label: context.l10n.newForm4RequestButton, onPressed: () {
                             _resetForm4Form();
                             setState(() => _selectedSubTab = 0);
-                          },
-                          icon: const Icon(Icons.add),
-                          label: Text(context.l10n.newForm4RequestButton),
-                        ),
+                          }, icon: Icons.add)),
                         ],
                       ),
                     ),
@@ -1216,25 +1015,21 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             // Registry Table or Empty State
             Container(
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-              ),
+              decoration: AppTheme.cardDecorationOf(context),
               child: filtered.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inbox_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                          Icon(Icons.inbox_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : AppTheme.borderStrong),
                           const SizedBox(height: 12),
                           Text(
                             context.l10n.noBankForm4Found,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -1246,12 +1041,12 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minWidth: 750),
                         child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
                     columns: [
                       DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.documentCodeCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DataColumn(label: Text(isAr ? 'نوع المعاملة' : 'Doc Type', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DataColumn(label: Text(isAr ? 'رقم المرجع / الاعتماد' : 'Reference / Credit No.', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text(context.l10n.idocBBankColDocType, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text(context.l10n.idocBBankColReference, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.importFile, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.certifiedBankCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.amountAndCurrencyCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -1276,9 +1071,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                 IconButton(
                                   key: Key('receiveBankDocBtn_${d.bankDocId}'),
                                   icon: const Icon(Icons.verified, color: AppTheme.wcagEmerald, size: 18),
-                                  tooltip: isAr
-                                      ? 'توثيق استلام نموذج 4 / الاعتماد (DC-03)'
-                                      : 'Endorse Form 4 / Credit Receipt (DC-03)',
+                                  tooltip: context.l10n.idocBBankEndorseTooltip,
                                   onPressed: () => _openReceiveBankDocDialog(d),
                                 ),
                                 IconButton(
@@ -1309,7 +1102,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.wcagCobalt.withOpacity(0.08),
+                                  color: AppTheme.wcagCobalt.withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(d.docType, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
@@ -1324,8 +1117,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: d.docReferenceNumber != 'PENDING'
-                                      ? AppTheme.wcagEmerald.withOpacity(0.12)
-                                      : Colors.grey.withOpacity(0.12),
+                                      ? AppTheme.wcagEmerald.withValues(alpha: 0.12)
+                                      : AppTheme.textMuted.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -1335,7 +1128,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                     fontSize: 11,
                                     color: d.docReferenceNumber != 'PENDING'
                                         ? AppTheme.wcagEmerald
-                                        : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                                        : (isDark ? AppTheme.borderStrong : AppTheme.textStrong),
                                   ),
                                 ),
                               ),
@@ -1364,14 +1157,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                       margin: const EdgeInsets.only(top: 2),
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                        color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         rawCode,
                                         style: TextStyle(
                                           fontSize: DisplayDensityMode.clampFontSize(11.0),
-                                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -1409,13 +1202,13 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: d.status == 'Received'
-                                      ? (isDark ? const Color(0xFF064E3B) : Colors.green.shade50)
-                                      : (isDark ? const Color(0xFF78350F) : Colors.amber.shade50),
+                                      ? (isDark ? AppTheme.emeraldLight : AppTheme.successBackground)
+                                      : (isDark ? AppTheme.orangeLight : AppTheme.warningBackground),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: d.status == 'Received'
-                                        ? (isDark ? const Color(0xFF059669) : Colors.green.shade300)
-                                        : (isDark ? const Color(0xFFD97706) : Colors.amber.shade300),
+                                        ? (isDark ? AppTheme.emerald : AppTheme.emeraldBorder)
+                                        : (AppTheme.orange),
                                   ),
                                 ),
                                 child: Text(
@@ -1424,8 +1217,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: d.status == 'Received'
-                                        ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)
-                                        : (isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900),
+                                        ? (isDark ? AppTheme.emerald : AppTheme.successForeground)
+                                        : (isDark ? AppTheme.orange : AppTheme.warningForeground),
                                   ),
                                 ),
                               ),
@@ -1521,7 +1314,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل النماذج البنكية' : 'Bank Form 4 Registry',
+      stageName: context.l10n.idocBBankRegistryStage,
       importFileNameOrCode: 'Bank_Form4_Registry',
     );
   }
@@ -1557,7 +1350,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل النماذج البنكية' : 'Bank Form 4 Registry',
+      stageName: context.l10n.idocBBankRegistryStage,
       importFileNameOrCode: 'Bank_Form4_Registry',
     );
   }

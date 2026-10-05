@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/import_documentation_provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../providers/import_documentation_provider.dart';
+import 'idoc_ui_b.dart';
+
+/// Legal-document validity banner: green when every legal document is valid
+/// beyond ETA + 30 days, a persistent red alert otherwise.
 class LegalComplianceBanner extends ConsumerWidget {
   final int? importFileId;
 
@@ -12,6 +18,7 @@ class LegalComplianceBanner extends ConsumerWidget {
     if (importFileId == null) {
       return const SizedBox.shrink();
     }
+    final l = context.l10n;
 
     final complianceAsync = ref.watch(legalComplianceFamilyProvider(importFileId!));
 
@@ -20,40 +27,25 @@ class LegalComplianceBanner extends ConsumerWidget {
       error: (err, _) => const SizedBox.shrink(),
       data: (data) {
         if (!data.hasCriticalAlerts && data.overallComplianceStatus == 'COMPLIANT') {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.shade300),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.verified_user, color: Colors.green, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'جميع المستندات القانونية (ACID، البطاقة الاستيرادية، السجل التجاري، البطاقة الضريبية) سارية وصالحة لما بعد موعد وصول الشحنة (${data.etaDate}) بـ 30 يوماً على الأقل (${data.safetyWindowDate}).',
-                    style: TextStyle(color: Colors.green.shade900, fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
+          return IdocBNotice(
+            severity: AppSeverity.success,
+            icon: Icons.verified_user,
+            margin: const EdgeInsetsDirectional.symmetric(horizontal: 16, vertical: 8),
+            message: l.idocBLegalCompliantMessage(data.etaDate.toString(), data.safetyWindowDate.toString()),
           );
         }
 
-        // Critical Alert Banner (Persistent Red Alert)
+        // Critical alert banner (persistent red alert)
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsetsDirectional.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsetsDirectional.all(14),
           decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.red.shade400, width: 1.5),
+            color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            border: Border.all(color: AppTheme.crimsonBorder, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withOpacity(0.08),
+                color: AppTheme.crimson.withValues(alpha: 0.08),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
@@ -62,26 +54,20 @@ class LegalComplianceBanner extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'تحذير قانوني وإجرائي حرج (ETA + 30 Days Safety Margin Violation)',
-                      style: TextStyle(color: Colors.red.shade900, fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
+                  const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 26),
+                  Text(
+                    l.idocBLegalCriticalTitle,
+                    style: const TextStyle(color: AppTheme.crimson, fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade600,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'تاريخ الوصول: ${data.etaDate}',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
+                  IdocBStatusChip(
+                    severity: AppSeverity.danger,
+                    icon: Icons.event,
+                    label: l.idocBLegalEta(data.etaDate.toString()),
                   ),
                 ],
               ),
@@ -89,7 +75,7 @@ class LegalComplianceBanner extends ConsumerWidget {
               if (data.persistentBannerText != null)
                 Text(
                   data.persistentBannerText!,
-                  style: TextStyle(color: Colors.red.shade900, fontSize: 12.5, fontWeight: FontWeight.w500),
+                  style: const TextStyle(color: AppTheme.crimson, fontSize: 12.5, fontWeight: FontWeight.w500),
                 ),
               const SizedBox(height: 8),
               Wrap(
@@ -97,20 +83,22 @@ class LegalComplianceBanner extends ConsumerWidget {
                 runSpacing: 6,
                 children: data.alerts.where((a) => a.isCriticalBreach || a.isExpired).map((alert) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.red.shade300),
+                      color: AppTheme.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      border: Border.all(color: AppTheme.crimsonBorder),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+                        const Icon(Icons.error_outline, color: AppTheme.crimson, size: 16),
                         const SizedBox(width: 6),
-                        Text(
-                          '${alert.docType}: تنتهي في ${alert.expiryDate} (متبقي ${alert.daysUntilExpiry} يوم)',
-                          style: TextStyle(color: Colors.red.shade800, fontSize: 12, fontWeight: FontWeight.bold),
+                        Flexible(
+                          child: Text(
+                            l.idocBLegalDocExpires(alert.docType.toString(), alert.expiryDate.toString(), alert.daysUntilExpiry.toString()),
+                            style: const TextStyle(color: AppTheme.crimson, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),

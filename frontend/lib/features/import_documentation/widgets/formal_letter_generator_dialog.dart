@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 class FormalLetterGeneratorDialog extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -119,7 +122,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ApiErrorText.of(context.l10n, e);
           _isGenerating = false;
         });
       }
@@ -180,7 +183,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
+                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.description_outlined, color: AppTheme.cobalt, size: 28),
@@ -201,7 +204,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                       const SizedBox(height: 4),
                       Text(
                         l.formalLetterLetterheadHint,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                       ),
                     ],
                   ),
@@ -218,7 +221,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
             TabBar(
               controller: _tabController,
               labelColor: AppTheme.cobalt,
-              unselectedLabelColor: Colors.grey,
+              unselectedLabelColor: AppTheme.textMutedOf(context),
               indicatorColor: AppTheme.cobalt,
               onTap: (index) {
                 if (index == 1) _fetchHistory();
@@ -287,31 +290,19 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
+                              SearchableDropdownField<String>(
                                 value: _selectedTemplate,
-                                isExpanded: true,
+                                labelText: l.formalLetterTemplateLabel,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),
                                   prefixIcon: Icon(Icons.article_outlined, size: 18),
                                 ),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'demurrage_extension',
-                                    child: Text('طلب مد فترة سماح غرامات التأخير', overflow: TextOverflow.ellipsis),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'bank_delegation',
-                                    child: Text('تفويض بنكي لاستلام المستندات والبوالص', overflow: TextOverflow.ellipsis),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'bank_form4',
-                                    child: Text('طلب استخراج نموذج 4 جمركي', overflow: TextOverflow.ellipsis),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'customs_broker_mandate',
-                                    child: Text('تفويض وتوكيل رسمي للمخلص الجمركي', overflow: TextOverflow.ellipsis),
-                                  ),
+                                items: [
+                                  SearchableDropdownItem(value: 'demurrage_extension', label: l.idocATemplateDemurrageExtension),
+                                  SearchableDropdownItem(value: 'bank_delegation', label: l.idocATemplateBankDelegation),
+                                  SearchableDropdownItem(value: 'bank_form4', label: l.idocATemplateBankForm4),
+                                  SearchableDropdownItem(value: 'customs_broker_mandate', label: l.idocATemplateBrokerMandate),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) {
@@ -330,7 +321,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                   controller: _recipientController,
                                   decoration: InputDecoration(
                                     labelText: l.formalLetterRecipientLabel,
-                                    hintText: 'توكيل ميرسك / إم إس سي',
+                                    hintText: context.l10n.idocAMaerskMSCAgency,
                                     isDense: true,
                                     border: const OutlineInputBorder(),
                                   ),
@@ -369,7 +360,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                     controller: _brokerNameController,
                                     decoration: InputDecoration(
                                       labelText: l.formalLetterBrokerNameLabel,
-                                      hintText: 'اسم المفوض بالاستلام',
+                                      hintText: context.l10n.idocANameOfTheAuthorizedReceiver,
                                       isDense: true,
                                       border: const OutlineInputBorder(),
                                     ),
@@ -420,22 +411,13 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                               // Generate Button
                               SizedBox(
                                 width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.cobalt,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                  ),
+                                child: IdocUi.fit(AppButton(
+                                  label: l.formalLetterGenerateBtn,
+                                  icon: Icons.auto_fix_high,
+                                  variant: AppButtonVariant.primary,
+                                  isLoading: _isGenerating,
                                   onPressed: _isGenerating ? null : _generateLetter,
-                                  icon: _isGenerating
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Icon(Icons.auto_fix_high),
-                                  label: Text(l.formalLetterGenerateBtn),
-                                ),
+                                )),
                               ),
 
                               if (_errorMessage != null) ...[
@@ -457,21 +439,21 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.surfaceOf(context),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: AppTheme.borderOf(context)),
                           ),
                           child: _generatedLetter == null
                               ? Center(
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.mark_as_unread, size: 48, color: Colors.grey.shade400),
+                                      Icon(Icons.mark_as_unread, size: 48, color: AppTheme.textMutedOf(context)),
                                       const SizedBox(height: 12),
                                       Text(
                                         l.formalLetterLetterheadHint,
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
                                       ),
                                     ],
                                   ),
@@ -489,16 +471,13 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.emerald,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                          ),
+                                        IdocUi.fit(AppButton(
+                                          label: l.formalLetterCopyBtn,
+                                          icon: Icons.copy,
+                                          variant: AppButtonVariant.success,
+                                          size: AppButtonSize.small,
                                           onPressed: _copyLetterBody,
-                                          icon: const Icon(Icons.copy, size: 16),
-                                          label: Text(l.formalLetterCopyBtn),
-                                        ),
+                                        )),
                                       ],
                                     ),
                                     const Divider(height: 20),
@@ -548,7 +527,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                 ? Center(
                                     child: Text(
                                       l.smartTasksEmptyMessage,
-                                      style: const TextStyle(color: Colors.grey),
+                                      style: const TextStyle(color: AppTheme.textMuted),
                                     ),
                                   )
                                 : ListView.separated(
@@ -564,7 +543,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                       return ListTile(
                                         leading: const CircleAvatar(
                                           backgroundColor: AppTheme.charcoal,
-                                          foregroundColor: Colors.white,
+                                          foregroundColor: AppTheme.white,
                                           radius: 16,
                                           child: Icon(Icons.assignment, size: 16),
                                         ),
@@ -573,19 +552,16 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                         ),
                                         subtitle: Text(
-                                          'تاريخ الإصدار: $dateStr',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                          context.l10n.idocAIssueDate(dateStr),
+                                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                                         ),
-                                        trailing: ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.emerald,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          ),
+                                        trailing: IdocUi.fit(AppButton(
+                                          label: l.formalLetterCopyBtn,
+                                          icon: Icons.copy,
+                                          variant: AppButtonVariant.success,
+                                          size: AppButtonSize.small,
                                           onPressed: () => CopyHelper.copy(context, body, customMessage: title),
-                                          icon: const Icon(Icons.copy, size: 14),
-                                          label: Text(l.formalLetterCopyBtn),
-                                        ),
+                                        )),
                                       );
                                     },
                                   ),

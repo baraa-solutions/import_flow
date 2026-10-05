@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:dio/dio.dart';
 import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -15,8 +16,11 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/docs_customs_approval_model.dart';
 import '../providers/docs_customs_approval_provider.dart';
 import '../screens/central_docs_archive_screen.dart';
+import 'idoc_feedback.dart';
 import 'search_and_clone_customs_approval_dialog.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 class CustomsDocumentApprovalTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -103,7 +107,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalMatrixCheckFailed(e.toString())), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.customsApprovalMatrixCheckFailed(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
       );
     } finally {
       if (mounted) {
@@ -129,7 +133,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalGenerateFailed(e.toString())), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.customsApprovalGenerateFailed(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
       );
     }
   }
@@ -180,9 +184,9 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
         suggestedNewCode: suggestedCode,
         copiedFieldsSummary: isAr
             ? {
-                'نوع المستند': docType,
-                'الرقم المرجعي': sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
-                'ملف الشحنة': sourceItem.importFileCode ?? '—',
+                context.l10n.idocADocumentType: docType,
+                context.l10n.idocARefNumber: sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
+                context.l10n.idocAFile: sourceItem.importFileCode ?? '—',
               }
             : {
                 'Document Type': docType,
@@ -192,10 +196,10 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
         mandatorilyResetFields: isAr
             ? [
                 l.customsApprovalClonedResetNotice,
-                'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار (Pending)',
-                'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار (Pending)',
-                'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق (Draft)',
-                'تفريغ توقيعات وملاحظات المراجعين بالكامل لبدء اعتماد مستقل',
+                context.l10n.idocACloneNoteCommercial,
+                context.l10n.idocACloneNoteBrokerStatus,
+                context.l10n.idocACloneNoteOverall,
+                context.l10n.idocACloneNoteSignatures,
               ]
             : [
                 l.customsApprovalClonedResetNotice,
@@ -257,14 +261,14 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   void _copyApprovalsAsTsv(List<CustomsDocumentApprovalModel> approvals) {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'كود الاعتماد' : 'Approval Code',
-      isAr ? 'نوع المستند' : 'Document Type',
-      isAr ? 'الرقم المرجعي' : 'Ref Number',
-      isAr ? 'الاعتماد التجاري' : 'Commercial Status',
-      isAr ? 'المراجع التجاري' : 'Commercial Reviewer',
-      isAr ? 'اعتماد المخلص' : 'Broker Status',
-      isAr ? 'المخلص الجمركي' : 'Broker Reviewer',
-      isAr ? 'الحالة العامة' : 'Overall Status',
+      context.l10n.idocAApprovalCode,
+      context.l10n.idocADocumentType,
+      context.l10n.idocARefNumber,
+      context.l10n.idocACommercialStatus,
+      context.l10n.idocACommercialReviewer,
+      context.l10n.idocABrokerStatus,
+      context.l10n.idocABrokerReviewer,
+      context.l10n.idocAOverallStatus,
     ];
     final rows = approvals.map((a) {
       return [
@@ -284,14 +288,14 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _exportApprovalsToExcel(List<CustomsDocumentApprovalModel> approvals) async {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'كود الاعتماد' : 'Approval Code',
-      isAr ? 'نوع المستند' : 'Document Type',
-      isAr ? 'الرقم المرجعي' : 'Ref Number',
-      isAr ? 'الاعتماد التجاري' : 'Commercial Status',
-      isAr ? 'المراجع التجاري' : 'Commercial Reviewer',
-      isAr ? 'اعتماد المخلص' : 'Broker Status',
-      isAr ? 'المخلص الجمركي' : 'Broker Reviewer',
-      isAr ? 'الحالة العامة' : 'Overall Status',
+      context.l10n.idocAApprovalCode,
+      context.l10n.idocADocumentType,
+      context.l10n.idocARefNumber,
+      context.l10n.idocACommercialStatus,
+      context.l10n.idocACommercialReviewer,
+      context.l10n.idocABrokerStatus,
+      context.l10n.idocABrokerReviewer,
+      context.l10n.idocAOverallStatus,
     ];
     final rows = approvals.map((a) {
       return [
@@ -309,7 +313,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'مصفوفة اعتماد المستندات' : 'Customs Document Approvals',
+      stageName: context.l10n.idocAApprovalsMatrixTitle,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Customs_Approvals',
     );
   }
@@ -317,12 +321,12 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _exportApprovalsToPdf(List<CustomsDocumentApprovalModel> approvals) async {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'الكود' : 'Code',
-      isAr ? 'المستند' : 'Doc',
-      isAr ? 'المرجع' : 'Ref',
-      isAr ? 'التجاري' : 'Commercial',
-      isAr ? 'المخلص' : 'Broker',
-      isAr ? 'الحالة' : 'Status',
+      context.l10n.idocACode,
+      context.l10n.idocADoc,
+      context.l10n.idocARef,
+      context.l10n.idocACommercial,
+      context.l10n.idocABroker,
+      context.l10n.status,
     ];
     final rows = approvals.map((a) {
       return [
@@ -338,15 +342,15 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'مصفوفة اعتماد المستندات' : 'Customs Document Approvals',
+      stageName: context.l10n.idocAApprovalsMatrixTitle,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Customs_Approvals',
       headerContext: TableExportHeaderContext(
-        title: isAr ? 'تقرير ومصفوفة اعتماد المستندات الجمركية' : 'Customs Document Approvals Report',
-        subtitle: 'Sorour Logistics ERP — Import Documentation',
+        title: context.l10n.idocACustomsDocumentApprovalsReport,
+        subtitle: context.l10n.idocAFooterDocsBrand,
         metadata: {
-          isAr ? 'ملف الشحنة' : 'File': _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
-          isAr ? 'إجمالي المستندات' : 'Total Docs': '${approvals.length}',
-          isAr ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+          context.l10n.idocAFile: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
+          context.l10n.idocATotalDocs: '${approvals.length}',
+          context.l10n.date: DateTime.now().toString().substring(0, 10),
         },
       ),
     );
@@ -355,13 +359,13 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   void _copyTicketsAsTsv(List<DiscrepancyRectificationTicketModel> tickets) {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'كود التذكرة' : 'Ticket Code',
-      isAr ? 'تصنيف المشكلة' : 'Issue Category',
-      isAr ? 'درجة الخطورة' : 'Severity',
-      isAr ? 'الحالة' : 'Status',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'القيمة المتوقعة' : 'Expected',
-      isAr ? 'القيمة الفعلية' : 'Found',
+      context.l10n.idocATicketCode,
+      context.l10n.idocAIssueCategory,
+      context.l10n.idocASeverity,
+      context.l10n.status,
+      context.l10n.idocADescription,
+      context.l10n.idocAExpected,
+      context.l10n.idocAFound,
     ];
     final rows = tickets.map((t) {
       return [
@@ -380,13 +384,13 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _exportTicketsToExcel(List<DiscrepancyRectificationTicketModel> tickets) async {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'كود التذكرة' : 'Ticket Code',
-      isAr ? 'تصنيف المشكلة' : 'Issue Category',
-      isAr ? 'درجة الخطورة' : 'Severity',
-      isAr ? 'الحالة' : 'Status',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'القيمة المتوقعة' : 'Expected',
-      isAr ? 'القيمة الفعلية' : 'Found',
+      context.l10n.idocATicketCode,
+      context.l10n.idocAIssueCategory,
+      context.l10n.idocASeverity,
+      context.l10n.status,
+      context.l10n.idocADescription,
+      context.l10n.idocAExpected,
+      context.l10n.idocAFound,
     ];
     final rows = tickets.map((t) {
       return [
@@ -403,7 +407,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل تذاكر الاستدراك' : 'Rectification Tickets',
+      stageName: context.l10n.idocARectificationTickets,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Tickets',
     );
   }
@@ -411,12 +415,12 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _exportTicketsToPdf(List<DiscrepancyRectificationTicketModel> tickets) async {
     final isAr = context.l10n.isArabic;
     final headers = [
-      isAr ? 'الكود' : 'Code',
-      isAr ? 'الخطورة' : 'Severity',
-      isAr ? 'الحالة' : 'Status',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'المتوقع' : 'Expected',
-      isAr ? 'الفعلي' : 'Found',
+      context.l10n.idocACode,
+      context.l10n.idocASeverityAlt,
+      context.l10n.status,
+      context.l10n.idocADescription,
+      context.l10n.idocAExpectedAlt,
+      context.l10n.idocAFoundAlt,
     ];
     final rows = tickets.map((t) {
       return [
@@ -432,15 +436,15 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل تذاكر الاستدراك' : 'Rectification Tickets',
+      stageName: context.l10n.idocARectificationTickets,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Tickets',
       headerContext: TableExportHeaderContext(
-        title: isAr ? 'سجل تذاكر واستفسارات استدراك المستندات' : 'Rectification Tickets Report',
-        subtitle: 'Sorour Logistics ERP — Discrepancies Hub',
+        title: context.l10n.idocARectificationTicketsReport,
+        subtitle: context.l10n.idocAFooterDiscrepancyBrand,
         metadata: {
-          isAr ? 'ملف الشحنة' : 'File': _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
-          isAr ? 'إجمالي التذاكر' : 'Total Tickets': '${tickets.length}',
-          isAr ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+          context.l10n.idocAFile: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
+          context.l10n.idocATotalTickets: '${tickets.length}',
+          context.l10n.date: DateTime.now().toString().substring(0, 10),
         },
       ),
     );
@@ -461,7 +465,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       case 'Inspection Certificate':
         return l.customsApprovalDocInspectionCertificate;
       case 'Fumigation Certificate':
-        return l.isArabic ? 'شهادة التبخير والصحة النباتية' : 'Fumigation Certificate';
+        return l.idocAFumigationCertificate;
       case 'Bank Form 4':
         return l.customsApprovalDocBankForm4;
       case 'Proforma Invoice':
@@ -618,39 +622,27 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
+                  IdocUi.fit(AppButton(
+                    label: context.l10n.customsApprovalRunAiMatrixButton,
+                    icon: Icons.auto_awesome,
+                    variant: AppButtonVariant.primary,
+                    isLoading: _isRunningMatrixCheck,
                     onPressed: _isRunningMatrixCheck ? null : _handleRunMatrixCheck,
-                    icon: _isRunningMatrixCheck
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.auto_awesome),
-                    label: Text(context.l10n.customsApprovalRunAiMatrixButton),
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
+                  IdocUi.fit(AppButton(
+                    label: context.l10n.customsApprovalAutoGenerateStandardListButton,
+                    icon: Icons.playlist_add_check,
+                    variant: AppButtonVariant.secondary,
                     onPressed: _handleAutoGenerate,
-                    icon: const Icon(Icons.playlist_add_check),
-                    label: Text(context.l10n.customsApprovalAutoGenerateStandardListButton),
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.orange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
+                  IdocUi.fit(AppButton(
+                    label: context.l10n.customsApprovalRaiseTicketButton,
+                    icon: Icons.report_problem_outlined,
+                    variant: AppButtonVariant.warning,
                     onPressed: () => _showRaiseTicketDialog(),
-                    icon: const Icon(Icons.report_problem_outlined),
-                    label: Text(context.l10n.customsApprovalRaiseTicketButton),
-                  ),
+                  )),
                   const SizedBox(width: 16),
                   const VerticalDivider(width: 1, thickness: 1),
                   const SizedBox(width: 12),
@@ -658,15 +650,15 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   DropdownButton<String>(
                     value: _selectedStatusFilter,
                     underline: const SizedBox.shrink(),
-                    icon: Icon(Icons.filter_list, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    icon: Icon(Icons.filter_list, size: 18, color: AppTheme.textPrimaryOf(context)),
                     borderRadius: BorderRadius.circular(8),
                     dropdownColor: isDark ? AppTheme.darkCardBackground : null,
                     items: [
-                      DropdownMenuItem(value: 'All', child: Text(context.l10n.customsApprovalFilterAll, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DropdownMenuItem(value: 'Pending', child: Text(context.l10n.customsApprovalFilterPending, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DropdownMenuItem(value: 'Approved', child: Text(context.l10n.customsApprovalFilterApproved, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DropdownMenuItem(value: 'Rejected', child: Text(context.l10n.customsApprovalFilterRejected, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DropdownMenuItem(value: 'Discrepancy', child: Text(context.l10n.customsApprovalFilterDiscrepancy, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DropdownMenuItem(value: 'All', child: Text(context.l10n.customsApprovalFilterAll, style: TextStyle(color: AppTheme.textPrimaryOf(context)))),
+                      DropdownMenuItem(value: 'Pending', child: Text(context.l10n.customsApprovalFilterPending, style: TextStyle(color: AppTheme.textPrimaryOf(context)))),
+                      DropdownMenuItem(value: 'Approved', child: Text(context.l10n.customsApprovalFilterApproved, style: TextStyle(color: AppTheme.textPrimaryOf(context)))),
+                      DropdownMenuItem(value: 'Rejected', child: Text(context.l10n.customsApprovalFilterRejected, style: TextStyle(color: AppTheme.textPrimaryOf(context)))),
+                      DropdownMenuItem(value: 'Discrepancy', child: Text(context.l10n.customsApprovalFilterDiscrepancy, style: TextStyle(color: AppTheme.textPrimaryOf(context)))),
                     ],
                     onChanged: (val) {
                       if (val == null) return;
@@ -689,11 +681,11 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               children: [
                 ChoiceChip(
                   key: const Key('dualSignoffChoiceChip'),
-                  avatar: Icon(Icons.verified_user, size: 16, color: _activeViewIndex == 0 ? Colors.white : AppTheme.cobalt),
+                  avatar: Icon(Icons.verified_user, size: 16, color: _activeViewIndex == 0 ? AppTheme.white : AppTheme.cobalt),
                   label: Text(context.l10n.customsApprovalTabDualSignoff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 0,
                   selectedColor: AppTheme.cobalt,
-                  labelStyle: TextStyle(color: _activeViewIndex == 0 ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                  labelStyle: TextStyle(color: _activeViewIndex == 0 ? AppTheme.white : (AppTheme.textPrimaryOf(context))),
                   onSelected: (selected) {
                     if (selected) setState(() => _activeViewIndex = 0);
                   },
@@ -701,11 +693,11 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                 const SizedBox(width: 8),
                 ChoiceChip(
                   key: const Key('centralArchiveChoiceChip'),
-                  avatar: Icon(Icons.inventory_2_outlined, size: 16, color: _activeViewIndex == 1 ? Colors.white : AppTheme.emerald),
+                  avatar: Icon(Icons.inventory_2_outlined, size: 16, color: _activeViewIndex == 1 ? AppTheme.white : AppTheme.emerald),
                   label: Text(context.l10n.customsApprovalTabCentralArchive, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 1,
                   selectedColor: AppTheme.emerald,
-                  labelStyle: TextStyle(color: _activeViewIndex == 1 ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                  labelStyle: TextStyle(color: _activeViewIndex == 1 ? AppTheme.white : (AppTheme.textPrimaryOf(context))),
                   onSelected: (selected) {
                     if (selected) setState(() => _activeViewIndex = 1);
                   },
@@ -723,8 +715,8 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _matrixResult!.overallCompliance == 'Fully Compliant'
-                    ? AppTheme.emerald.withOpacity(0.12)
-                    : AppTheme.orange.withOpacity(0.12),
+                    ? AppTheme.emerald.withValues(alpha: 0.12)
+                    : AppTheme.orange.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: _matrixResult!.overallCompliance == 'Fully Compliant'
@@ -762,6 +754,23 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                           ),
                           isSelectable: false,
                         ),
+                        if (_matrixResult!.notCheckedCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Container(
+                              key: const Key('matrixNotCheckedChip'),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                              ),
+                              child: Text(
+                                context.l10n.idocAMatrixNotChecked(_matrixResult!.notCheckedCount),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                              ),
+                            ),
+                          ),
                         if (_matrixResult!.completenessPercent > 0 || _matrixResult!.missingDocuments.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -774,14 +783,12 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: _matrixResult!.completenessPercent >= 100
-                                        ? AppTheme.emerald.withOpacity(0.2)
-                                        : AppTheme.orange.withOpacity(0.2),
+                                        ? AppTheme.emerald.withValues(alpha: 0.2)
+                                        : AppTheme.orange.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    context.l10n.isArabic
-                                        ? 'استكمال المستندات (DC-04): ${_matrixResult!.completenessPercent.toStringAsFixed(1)}%'
-                                        : 'Docs Completeness: ${_matrixResult!.completenessPercent.toStringAsFixed(1)}%',
+                                    context.l10n.idocADocsCompletenessLabel(_matrixResult!.completenessPercent.toStringAsFixed(1)),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -793,14 +800,12 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.crimson.withOpacity(0.12),
+                                      color: AppTheme.crimson.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                                      border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                                     ),
                                     child: Text(
-                                      context.l10n.isArabic
-                                          ? '⚠️ نواقص مستندية: ${_matrixResult!.missingDocuments.join("، ")}'
-                                          : '⚠️ Missing: ${_matrixResult!.missingDocuments.join(", ")}',
+                                      context.l10n.idocAMissingDocsWarning((_matrixResult!.missingDocuments.join(", "))),
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
                                     ),
                                   ),
@@ -810,7 +815,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                         if (_matrixResult!.recommendations.isNotEmpty)
                           CopyableText(
                             context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),
-                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                            style: TextStyle(fontSize: 11, color: AppTheme.textPrimaryOf(context)),
                             isSelectable: false,
                           ),
                       ],
@@ -818,7 +823,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   ),
                   CopyableText(
                     context.l10n.customsApprovalMatrixOpenTicketsCount(_matrixResult!.openTicketsCount),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryOf(context)),
                     isSelectable: false,
                   ),
                 ],
@@ -861,7 +866,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
-                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      color: AppTheme.textPrimaryOf(context),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -872,7 +877,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                   onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
                                       ? null
                                       : () => _copyApprovalsAsTsv(approvalsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'نسخ الجدول كـ TSV' : 'Copy Table as TSV',
+                                  tooltip: context.l10n.idocACopyTableAsTSV,
                                 ),
                                 IconButton(
                                   key: const Key('exportApprovalsExcelBtn'),
@@ -880,7 +885,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                   onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
                                       ? null
                                       : () => _exportApprovalsToExcel(approvalsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                  tooltip: context.l10n.exportExcel,
                                 ),
                                 IconButton(
                                   key: const Key('exportApprovalsPdfBtn'),
@@ -888,7 +893,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                   onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
                                       ? null
                                       : () => _exportApprovalsToPdf(approvalsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
+                                  tooltip: context.l10n.exportPdf,
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.refresh, size: 20),
@@ -901,7 +906,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                             Expanded(
                               child: approvalsState.when(
                                 loading: () => const Center(child: CircularProgressIndicator()),
-                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
+                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e)), style: const TextStyle(color: AppTheme.crimson))),
                                 data: (approvals) {
                                   if (approvals.isEmpty) {
                                     return Center(
@@ -948,7 +953,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
-                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      color: AppTheme.textPrimaryOf(context),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -965,7 +970,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                           onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
                                               ? null
                                               : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
-                                          tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
+                                          tooltip: context.l10n.idocACopyTicketsAsTSV,
                                         ),
                                         IconButton(
                                           key: const Key('exportTicketsExcelBtn'),
@@ -973,7 +978,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                           onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
                                               ? null
                                               : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
-                                          tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                          tooltip: context.l10n.exportExcel,
                                         ),
                                         IconButton(
                                           key: const Key('exportTicketsPdfBtn'),
@@ -981,13 +986,14 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                           onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
                                               ? null
                                               : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
-                                          tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
+                                          tooltip: context.l10n.exportPdf,
                                         ),
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.add, size: 16),
-                                          label: Text(context.l10n.customsApprovalNewTicketButton),
+                                        IdocUi.fit(AppButton(
+                                          label: context.l10n.customsApprovalNewTicketButton,
+                                          icon: Icons.add,
+                                          variant: AppButtonVariant.ghost,
                                           onPressed: () => _showRaiseTicketDialog(),
-                                        ),
+                                        )),
                                       ],
                                     ),
                                   ),
@@ -998,7 +1004,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                             Expanded(
                               child: ticketsState.when(
                                 loading: () => const Center(child: CircularProgressIndicator()),
-                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
+                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e)), style: const TextStyle(color: AppTheme.crimson))),
                                 data: (tickets) {
                                   if (tickets.isEmpty) {
                                     return Center(
@@ -1079,7 +1085,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.08),
+                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: CopyableText(
@@ -1092,7 +1098,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               if (item.documentReferenceNo != null)
                 CopyableText(
                   l.customsApprovalDocRef(item.documentReferenceNo!),
-                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.black54),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
                   overflow: TextOverflow.ellipsis,
                   isSelectable: false,
                 ),
@@ -1102,9 +1108,9 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: overallColor.withOpacity(0.15),
+                      color: overallColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: overallColor.withOpacity(0.5)),
+                      border: Border.all(color: overallColor.withValues(alpha: 0.5)),
                     ),
                     child: CopyableText(
                       localizedOverallStatus,
@@ -1138,13 +1144,13 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: item.commercialStatus == 'Approved'
-                        ? AppTheme.emerald.withOpacity(0.08)
-                        : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
+                        ? AppTheme.emerald.withValues(alpha: 0.08)
+                        : (AppTheme.surfaceAltOf(context)),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: item.commercialStatus == 'Approved'
                           ? AppTheme.emerald
-                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                          : (AppTheme.borderOf(context)),
                     ),
                   ),
                   child: Wrap(
@@ -1155,7 +1161,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                       Icon(
                         item.commercialStatus == 'Approved' ? Icons.check_circle : Icons.person_outline,
                         size: 16,
-                        color: item.commercialStatus == 'Approved' ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        color: item.commercialStatus == 'Approved' ? AppTheme.emerald : (AppTheme.textMutedOf(context)),
                       ),
                       Text(
                         l.customsApprovalCommercialReviewStatus(localizedCommercialStatus),
@@ -1164,7 +1170,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                           fontWeight: FontWeight.w600,
                           color: item.commercialStatus == 'Approved'
                               ? AppTheme.emerald
-                              : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              : (AppTheme.textPrimaryOf(context)),
                         ),
                       ),
                     ],
@@ -1180,13 +1186,13 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: item.customsStatus == 'Approved'
-                        ? AppTheme.emerald.withOpacity(0.08)
-                        : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
+                        ? AppTheme.emerald.withValues(alpha: 0.08)
+                        : (AppTheme.surfaceAltOf(context)),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: item.customsStatus == 'Approved'
                           ? AppTheme.emerald
-                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                          : (AppTheme.borderOf(context)),
                     ),
                   ),
                   child: Wrap(
@@ -1197,7 +1203,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                       Icon(
                         item.customsStatus == 'Approved' ? Icons.verified : Icons.gavel,
                         size: 16,
-                        color: item.customsStatus == 'Approved' ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        color: item.customsStatus == 'Approved' ? AppTheme.emerald : (AppTheme.textMutedOf(context)),
                       ),
                       Text(
                         l.customsApprovalBrokerReviewStatus(localizedBrokerStatus),
@@ -1206,7 +1212,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                           fontWeight: FontWeight.w600,
                           color: item.customsStatus == 'Approved'
                               ? AppTheme.emerald
-                              : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              : (AppTheme.textPrimaryOf(context)),
                         ),
                       ),
                     ],
@@ -1233,13 +1239,13 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isResolved
-              ? AppTheme.emerald.withOpacity(0.06)
-              : (isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withOpacity(0.06)),
+              ? AppTheme.emerald.withValues(alpha: 0.06)
+              : (isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withValues(alpha: 0.06)),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isResolved
-                ? AppTheme.emerald.withOpacity(0.4)
-                : (isDark ? AppTheme.darkBorder : AppTheme.orange.withOpacity(0.4)),
+                ? AppTheme.emerald.withValues(alpha: 0.4)
+                : (isDark ? AppTheme.darkBorder : AppTheme.orange.withValues(alpha: 0.4)),
           ),
         ),
         child: Column(
@@ -1252,7 +1258,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
               children: [
                 CopyableText(
                   ticket.ticketCode,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryOf(context)),
                   isSelectable: false,
                 ),
                 Container(
@@ -1263,7 +1269,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   ),
                   child: CopyableText(
                     localizedSeverity,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold),
                     isSelectable: false,
                   ),
                 ),
@@ -1289,7 +1295,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
             const SizedBox(height: 4),
             CopyableText(
               ticket.description,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimaryOf(context)),
               isSelectable: false,
             ),
             if (ticket.expectedValue != null || ticket.foundValue != null)
@@ -1297,19 +1303,19 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                 padding: const EdgeInsets.only(top: 2),
                 child: CopyableText(
                   l.customsApprovalTicketExpectedVsFound(ticket.expectedValue ?? "-", ticket.foundValue ?? "-"),
-                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                   isSelectable: false,
                 ),
               ),
             if (!isResolved)
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                  icon: const Icon(Icons.check_circle_outline, size: 14),
-                  label: Text(l.customsApprovalResolveTicketButton, style: const TextStyle(fontSize: 11)),
+                child: IdocUi.fit(AppButton(
+                  label: l.customsApprovalResolveTicketButton,
+                  icon: Icons.check_circle_outline,
+                  variant: AppButtonVariant.ghost,
                   onPressed: () => _showResolveTicketDialog(ticket),
-                ),
+                )),
               ),
           ],
         ),
@@ -1342,7 +1348,8 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _nameCtrl.text = storedText.customsApprovalDefaultCommercialReviewer;
+      final me = idocCurrentUserNameOf(context);
+      _nameCtrl.text = me.isNotEmpty ? me : storedText.customsApprovalDefaultCommercialReviewer;
     }
   }
 
@@ -1399,9 +1406,15 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(context),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.customsApprovalSaveApprovalButton,
+            variant: AppButtonVariant.primary,
+            isLoading: _isSubmitting,
             onPressed: _isSubmitting
                 ? null
                 : () async {
@@ -1418,7 +1431,7 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                           );
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
-                      if (e is DioException && e.response?.statusCode == 409) {
+                      if (e is DioException && isIdocVersionConflict(e)) {
                         final data = e.response?.data;
                         final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
                             ? Map<String, dynamic>.from(data['detail'] as Map)
@@ -1450,7 +1463,7 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                       }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
@@ -1459,8 +1472,7 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                       }
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalSaveApprovalButton),
-          ),
+          )),
         ],
       );
     });
@@ -1493,7 +1505,8 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
     if (!_initialized) {
       _initialized = true;
       _brokerCtrl.text = storedText.customsApprovalDefaultBrokerOffice;
-      _reviewerCtrl.text = storedText.customsApprovalDefaultLegalOfficer;
+      final me = idocCurrentUserNameOf(context);
+      _reviewerCtrl.text = me.isNotEmpty ? me : storedText.customsApprovalDefaultLegalOfficer;
     }
   }
 
@@ -1557,9 +1570,15 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(context),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.customsApprovalBrokerSaveStampButton,
+            variant: AppButtonVariant.success,
+            isLoading: _isSubmitting,
             onPressed: _isSubmitting
                 ? null
                 : () async {
@@ -1577,7 +1596,7 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                           );
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
-                      if (e is DioException && e.response?.statusCode == 409) {
+                      if (e is DioException && isIdocVersionConflict(e)) {
                         final data = e.response?.data;
                         final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
                             ? Map<String, dynamic>.from(data['detail'] as Map)
@@ -1610,7 +1629,7 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                       }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
@@ -1619,8 +1638,7 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                       }
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalBrokerSaveStampButton),
-          ),
+          )),
         ],
       );
     });
@@ -1753,9 +1771,15 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(context),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.customsApprovalCreateTicketSubmitButton,
+            variant: AppButtonVariant.warning,
+            isLoading: _isSubmitting,
             onPressed: _isSubmitting
                 ? null
                 : () async {
@@ -1776,15 +1800,14 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
-                      setState(() => _isSubmitting = false);
+                      if (mounted) setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalCreateTicketSubmitButton),
-          ),
+          )),
         ],
       );
     });
@@ -1815,7 +1838,8 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _resolverCtrl.text = storedText.customsApprovalDefaultComplianceOfficer;
+      final me = idocCurrentUserNameOf(context);
+      _resolverCtrl.text = me.isNotEmpty ? me : storedText.customsApprovalDefaultComplianceOfficer;
     }
   }
 
@@ -1871,9 +1895,15 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(context),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.customsApprovalConfirmResolveTicketButton,
+            variant: AppButtonVariant.success,
+            isLoading: _isSubmitting,
             onPressed: _isSubmitting
                 ? null
                 : () async {
@@ -1893,15 +1923,14 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
-                      setState(() => _isSubmitting = false);
+                      if (mounted) setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalConfirmResolveTicketButton),
-          ),
+          )),
         ],
       );
     });

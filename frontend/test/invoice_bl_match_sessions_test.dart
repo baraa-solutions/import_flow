@@ -61,12 +61,10 @@ class MockInvoiceBLMatchSessionsNotifier extends InvoiceBLMatchSessionsNotifier 
         sessionCode: 'SESS-202609-0001',
         importFileId: 101,
         importFileCode: 'IMP-2026-001',
-        sessionTitle: 'جلسة مطابقة سريعة تجريبية',
+        invoiceNumber: 'INV-1',
         isDraft: false,
-        matchScore: 95.5,
+        matchScorePercentage: 95.5,
         isSafeForCertification: true,
-        hasCriticalDiscrepancies: false,
-        discrepancyCount: 0,
         comparisonMatrix: [
           {
             'field_name_ar': 'رقم ACID الجمركي',
@@ -85,12 +83,12 @@ class MockInvoiceBLMatchSessionsNotifier extends InvoiceBLMatchSessionsNotifier 
         sessionCode: 'SESS-202609-0002',
         importFileId: 101,
         importFileCode: 'IMP-2026-001',
-        sessionTitle: 'مسودة فحص أولي غير مكتملة',
+        invoiceNumber: 'INV-2',
         isDraft: true,
-        matchScore: 68.0,
+        matchScorePercentage: 68.0,
         isSafeForCertification: false,
-        hasCriticalDiscrepancies: true,
-        discrepancyCount: 2,
+        criticalDiscrepanciesCount: 1,
+        warningDiscrepanciesCount: 1,
         comparisonMatrix: [],
         createdAt: '2026-09-16 10:15:00',
         updatedAt: '2026-09-16 10:15:00',
@@ -104,64 +102,178 @@ class MockInvoiceBLMatchSessionsNotifier extends InvoiceBLMatchSessionsNotifier 
 
 void main() {
   group('InvoiceBLMatchSessionModel and DocsCustomsApprovalSessionModel Unit Tests', () {
-    test('InvoiceBLMatchSessionModel serialization and deserialization', () {
-      final model = InvoiceBLMatchSessionModel(
-        sessionId: 10,
-        sessionCode: 'SESS-202609-0010',
-        importFileId: 50,
-        importFileCode: 'IMP-2026-0050',
-        sessionTitle: 'جلسة فحص شاملة',
-        isDraft: true,
-        matchScore: 88.5,
-        isSafeForCertification: true,
-        hasCriticalDiscrepancies: false,
-        discrepancyCount: 1,
-        invoiceRawText: 'Sample Invoice Text',
-        blRawText: 'Sample B/L Text',
-        sessionNotes: 'ملاحظات تدقيق',
-        createdAt: '2026-09-16 10:00:00',
-        updatedAt: '2026-09-16 10:00:00',
-      );
+    // JSON copied from InvoiceBLMatchSessionResponse (modules/import_documentation/schemas.py).
+    final backendJson = <String, dynamic>{
+      'session_id': 10,
+      'session_code': 'SESS-202609-0010',
+      'import_file_id': 50,
+      'import_file_code': 'IMP-2026-0050',
+      'invoice_number': 'INV-77',
+      'bl_number': 'BL-88',
+      'packing_list_number': null,
+      'acid_number': '7595528271019210013',
+      'match_score_percentage': 88.5,
+      'overall_status': 'PARTIALLY_MATCHED',
+      'is_safe_for_certification': false,
+      'is_draft': true,
+      'critical_discrepancies_count': 1,
+      'warning_discrepancies_count': 2,
+      'comparison_matrix': [
+        {'field_name_en': 'ACID Number', 'match_status': 'MATCH'}
+      ],
+      'invoice_data': {'invoice_number': 'INV-77'},
+      'bl_data': {'bl_number': 'BL-88'},
+      'packing_list_data': null,
+      'correction_letter': null,
+      'notes': 'audit notes',
+      'certified_by': 'Ahmed',
+      'is_active': true,
+      'created_at': '2026-09-16T10:00:00',
+      'updated_at': '2026-09-16T10:00:00',
+    };
 
-      final json = model.toJson();
-      expect(json['session_id'], 10);
-      expect(json['session_code'], 'SESS-202609-0010');
-      expect(json['is_draft'], true);
-      expect(json['match_score'], 88.5);
-
-      final restored = InvoiceBLMatchSessionModel.fromJson(json);
-      expect(restored.sessionId, 10);
-      expect(restored.sessionCode, 'SESS-202609-0010');
-      expect(restored.isDraft, true);
-      expect(restored.sessionNotes, 'ملاحظات تدقيق');
+    test('InvoiceBLMatchSessionModel.fromJson reads the backend response keys', () {
+      final m = InvoiceBLMatchSessionModel.fromJson(backendJson);
+      expect(m.sessionId, 10);
+      expect(m.matchScorePercentage, 88.5);
+      expect(m.matchScore, 88.5);
+      expect(m.overallStatus, 'PARTIALLY_MATCHED');
+      expect(m.criticalDiscrepanciesCount, 1);
+      expect(m.warningDiscrepanciesCount, 2);
+      expect(m.discrepancyCount, 3);
+      expect(m.hasCriticalDiscrepancies, isTrue);
+      expect(m.invoiceData, {'invoice_number': 'INV-77'});
+      expect(m.blData, {'bl_number': 'BL-88'});
+      expect(m.notes, 'audit notes');
+      expect(m.certifiedBy, 'Ahmed');
+      expect(m.sessionTitle, 'INV-77 / BL-88');
+      expect(m.isDraft, isTrue);
     });
 
-    test('DocsCustomsApprovalSessionModel serialization and deserialization', () {
-      final model = DocsCustomsApprovalSessionModel(
-        sessionId: 5,
-        sessionCode: 'CUSTAPPR-202609-0005',
-        importFileId: 50,
-        importFileCode: 'IMP-2026-0050',
-        sessionTitle: 'اعتماد المستندات الجمركية',
-        isDraft: false,
-        overallCompliance: 'Fully Compliant',
-        totalChecks: 10,
-        passedChecks: 10,
-        failedChecks: 0,
-        sessionNotes: 'معتمد للإفراج',
-        createdAt: '2026-09-16 10:00:00',
-        updatedAt: '2026-09-16 10:00:00',
+    test('toJson round-trips through fromJson', () {
+      final restored = InvoiceBLMatchSessionModel.fromJson(
+        InvoiceBLMatchSessionModel.fromJson(backendJson).toJson(),
       );
+      expect(restored.sessionCode, 'SESS-202609-0010');
+      expect(restored.matchScorePercentage, 88.5);
+      expect(restored.criticalDiscrepanciesCount, 1);
+      expect(restored.blData, {'bl_number': 'BL-88'});
+    });
 
-      final json = model.toJson();
-      expect(json['session_id'], 5);
-      expect(json['overall_compliance'], 'Fully Compliant');
+    test('toCreateJson sends only InvoiceBLMatchSessionCreate keys (FED-01)', () {
+      final payload = InvoiceBLMatchSessionModel.toCreateJson(
+        importFileId: 50,
+        isDraft: false,
+        notes: 'accepted with a documented reason',
+        matchResult: {
+          'match_score_percentage': 91.25,
+          'overall_status': 'FULLY_MATCHED',
+          'is_safe_for_certification': true,
+          'critical_discrepancies_count': 0,
+          'warning_discrepancies_count': 2,
+          'comparison_matrix': [
+            {'field_name_en': 'ACID', 'match_status': 'MATCH'}
+          ],
+          'invoice_data': {'invoice_number': 'INV-9', 'acid_number': '123'},
+          'bl_data': {'bl_number': 'BL-9'},
+          'packing_list_data': {'packing_list_number': 'PL-9'},
+          'correction_letter': '',
+        },
+      );
+      expect(InvoiceBLMatchSessionModel.createKeys.containsAll(payload.keys), isTrue,
+          reason: 'unknown keys: ${payload.keys.toSet().difference(InvoiceBLMatchSessionModel.createKeys)}');
+      expect(payload['match_score_percentage'], 91.25);
+      expect(payload['overall_status'], 'FULLY_MATCHED');
+      expect(payload['critical_discrepancies_count'], 0);
+      expect(payload['warning_discrepancies_count'], 2);
+      expect(payload['invoice_data'], {'invoice_number': 'INV-9', 'acid_number': '123'});
+      expect(payload['bl_data'], {'bl_number': 'BL-9'});
+      expect(payload['packing_list_data'], {'packing_list_number': 'PL-9'});
+      expect(payload['invoice_number'], 'INV-9');
+      expect(payload['bl_number'], 'BL-9');
+      expect(payload['packing_list_number'], 'PL-9');
+      expect(payload['acid_number'], '123');
+      expect(payload['notes'], 'accepted with a documented reason');
+      expect(payload.containsKey('correction_letter'), isFalse, reason: 'blank letter is not sent');
+      // Legacy wrong keys must never come back.
+      for (final wrong in const [
+        'match_score', 'discrepancy_count', 'has_critical_discrepancies', 'invoice_extracted_data',
+        'bl_extracted_data', 'packing_extracted_data', 'session_notes', 'session_title', 'created_by',
+        'invoice_raw_text', 'bl_raw_text', 'invoice_file_name',
+      ]) {
+        expect(payload.containsKey(wrong), isFalse, reason: wrong);
+      }
+    });
 
-      final restored = DocsCustomsApprovalSessionModel.fromJson(json);
-      expect(restored.sessionId, 5);
+    test('toCreateJson reads the parser key draft_bl_number for the B/L number', () {
+      final payload = InvoiceBLMatchSessionModel.toCreateJson(
+        importFileId: 1,
+        isDraft: true,
+        matchResult: {
+          'bl_data': {'draft_bl_number': 'MEDU123'},
+        },
+      );
+      expect(payload['bl_number'], 'MEDU123');
+    });
+
+    test('toCreateJson without a match result still produces a valid draft payload', () {
+      final payload = InvoiceBLMatchSessionModel.toCreateJson(importFileId: 7, isDraft: true);
+      expect(payload['import_file_id'], 7);
+      expect(payload['is_draft'], isTrue);
+      expect(payload['is_safe_for_certification'], isFalse);
+      expect(payload.containsKey('invoice_data'), isFalse);
+      expect(InvoiceBLMatchSessionModel.createKeys.containsAll(payload.keys), isTrue);
+    });
+
+    test('DocsCustomsApprovalSessionModel follows DocsCustomsApprovalSessionResponse', () {
+      final json = <String, dynamic>{
+        'session_id': 5,
+        'session_code': 'CUSTAPPR-202609-0005',
+        'version': 3,
+        'import_file_id': 50,
+        'import_file_code': 'IMP-2026-0050',
+        'po_id': null,
+        'overall_status': 'APPROVED',
+        'is_draft': false,
+        'final_invoice_ref': 'INV-1',
+        'final_invoice_status': 'Approved',
+        'final_pl_ref': null,
+        'final_pl_status': 'Approved',
+        'draft_bl_ref': 'BL-1',
+        'draft_bl_status': 'Approved',
+        'coo_ref': null,
+        'coo_status': 'Approved',
+        'coc_ref': null,
+        'coc_status': 'Waived / Not Required',
+        'commercial_signoff_by': 'Sara',
+        'commercial_signoff_date': '2026-09-16',
+        'customs_signoff_by': 'Omar',
+        'customs_signoff_date': '2026-09-17',
+        'customs_broker_name': 'Broker Co',
+        'discrepancies_count': 0,
+        'open_tickets_count': 0,
+        'session_snapshot': {'a': 1},
+        'notes': 'released',
+        'created_by': 'Sara',
+        'is_active': true,
+        'created_at': '2026-09-16T10:00:00',
+        'updated_at': '2026-09-16T10:00:00',
+      };
+      final m = DocsCustomsApprovalSessionModel.fromJson(json);
+      expect(m.sessionId, 5);
+      expect(m.version, 3);
+      expect(m.overallStatus, 'APPROVED');
+      expect(m.finalInvoiceRef, 'INV-1');
+      expect(m.cocStatus, 'Waived / Not Required');
+      expect(m.commercialSignoffBy, 'Sara');
+      expect(m.customsSignoffDate, '2026-09-17');
+      expect(m.sessionSnapshot, {'a': 1});
+      expect(m.notes, 'released');
+
+      final restored = DocsCustomsApprovalSessionModel.fromJson(m.toJson());
       expect(restored.sessionCode, 'CUSTAPPR-202609-0005');
-      expect(restored.isDraft, false);
-      expect(restored.passedChecks, 10);
+      expect(restored.customsBrokerName, 'Broker Co');
+      expect(restored.isDraft, isFalse);
     });
   });
 

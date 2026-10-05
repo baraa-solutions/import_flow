@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
@@ -9,6 +10,8 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
 import '../services/central_docs_archive_export_service.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../widgets/idoc_ui.dart';
 
 class CentralDocsArchiveScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -34,6 +37,10 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       if (!ref.read(importFilesProvider).isLoading) {
         ref.read(importFilesProvider.notifier).fetchImportFiles();
       }
+      // Live load on mount: the archive is a plain FutureProvider.family, so a
+      // previously cached summary would otherwise be shown stale.
+      final fileId = _selectedImportFileId;
+      if (fileId != null) ref.invalidate(centralArchiveProvider(fileId));
     });
   }
 
@@ -44,6 +51,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       setState(() {
         _selectedImportFileId = widget.initialImportFileId;
       });
+      ref.invalidate(centralArchiveProvider(widget.initialImportFileId!));
     }
   }
 
@@ -78,23 +86,23 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
     if (widget.isEmbedded) {
       return Container(
-        color: const Color(0xFFF4F6F9),
+        color: AppTheme.cloudWhite,
         child: content,
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppTheme.cloudWhite,
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inventory_2_outlined, color: Colors.white),
+            const Icon(Icons.inventory_2_outlined, color: AppTheme.white),
             const SizedBox(width: 10),
             Flexible(
               child: Text(
                 l10n.centralDocsArchiveTitle,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.white),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -105,7 +113,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         actions: [
           IconButton(
             tooltip: l10n.closeAndReturn,
-            icon: Icon(Icons.close, color: Colors.white, size: density.buttonIconSize),
+            icon: Icon(Icons.close, color: AppTheme.white, size: density.buttonIconSize),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: 8),
@@ -143,18 +151,14 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
             ),
             const SizedBox(width: 16),
             if (_selectedImportFileId != null)
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                label: Text(l10n.refreshArchiveBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              IdocUi.fit(AppButton(
+                label: l10n.refreshArchiveBtn,
+                icon: Icons.refresh,
+                variant: AppButtonVariant.primary,
                 onPressed: () {
                   ref.invalidate(centralArchiveProvider(_selectedImportFileId!));
                 },
-              ),
+              )),
           ],
         ),
       ),
@@ -169,16 +173,16 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(Icons.folder_special_outlined, size: 80, color: Colors.grey.shade400),
+          Icon(Icons.folder_special_outlined, size: 80, color: AppTheme.textMutedOf(context)),
           const SizedBox(height: 16),
           Text(
             l10n.selectShipmentFilePrompt,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryOf(context)),
           ),
           const SizedBox(height: 8),
           Text(
             l10n.centralArchivePlaceholderDesc,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 14, color: AppTheme.textMutedOf(context)),
             textAlign: TextAlign.center,
           ),
         ],
@@ -204,17 +208,17 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         ),
       ),
       error: (err, stack) => Card(
-        color: Colors.red.shade50,
+        color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              const Icon(Icons.error, color: Colors.red, size: 36),
+              const Icon(Icons.error, color: AppTheme.crimson, size: 36),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(l10n.centralArchiveLoadError(err.toString()),
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                child: Text(l10n.centralArchiveLoadError(ApiErrorText.of(l10n, err)),
+                    style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -232,12 +236,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppTheme.borderOf(context)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: AppTheme.black.withValues(alpha: 0.04),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -248,50 +252,30 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.charcoal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.table_chart_outlined, size: 18),
-            label: Text(l10n.centralDocsExportTsvBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          IdocUi.fit(AppButton(
+            label: l10n.centralDocsExportTsvBtn,
+            icon: Icons.table_chart_outlined,
+            variant: AppButtonVariant.primary,
             onPressed: () => exportService.exportToTsv(),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: Text(l10n.centralDocsExportExcelBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          )),
+          IdocUi.fit(AppButton(
+            label: l10n.centralDocsExportExcelBtn,
+            icon: Icons.file_download_outlined,
+            variant: AppButtonVariant.success,
             onPressed: () => exportService.exportToExcel(),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.crimson,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-            label: Text(l10n.centralDocsPrintPdfBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          )),
+          IdocUi.fit(AppButton(
+            label: l10n.centralDocsPrintPdfBtn,
+            icon: Icons.picture_as_pdf_outlined,
+            variant: AppButtonVariant.danger,
             onPressed: () => exportService.printOrSavePdf(),
-          ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.cobalt,
-              side: const BorderSide(color: AppTheme.cobalt),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.copy_all_rounded, size: 18),
-            label: Text(l10n.centralDocsCopyDossierBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          )),
+          IdocUi.fit(AppButton(
+            label: l10n.centralDocsCopyDossierBtn,
+            icon: Icons.copy_all_rounded,
+            variant: AppButtonVariant.secondary,
             onPressed: () => exportService.copyDossierToClipboard(),
-          ),
+          )),
         ],
       ),
     );
@@ -348,7 +332,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildDocumentCard(
           doc: finalInv,
           icon: Icons.receipt_long,
-          color: Colors.indigo,
+          color: AppTheme.wcagCobalt,
           defaultTitle: l10n.docTitleCommercialInvoice,
           isMandatoryCore: true,
         ),
@@ -356,7 +340,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildDocumentCard(
           doc: finalPkg,
           icon: Icons.inventory_2,
-          color: Colors.teal,
+          color: AppTheme.emerald,
           defaultTitle: l10n.docTitlePackingList,
           isMandatoryCore: true,
         ),
@@ -364,7 +348,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildDocumentCard(
           doc: draftBl,
           icon: Icons.directions_boat,
-          color: Colors.blue.shade800,
+          color: AppTheme.severityForegroundOf(context, AppSeverity.info),
           defaultTitle: l10n.docTitleBillOfLading,
           isMandatoryCore: true,
         ),
@@ -372,7 +356,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildDocumentCard(
           doc: draftCoo,
           icon: Icons.public,
-          color: Colors.purple.shade700,
+          color: AppTheme.severityForegroundOf(context, AppSeverity.info),
           defaultTitle: l10n.docTitleCertificateOfOrigin,
           isMandatoryCore: false,
         ),
@@ -380,7 +364,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildDocumentCard(
           doc: draftInsp,
           icon: Icons.verified_user,
-          color: Colors.orange.shade800,
+          color: AppTheme.severityForegroundOf(context, AppSeverity.warning),
           defaultTitle: l10n.docTitleInspectionCertificate,
           isMandatoryCore: false,
         ),
@@ -390,16 +374,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.crimson,
-                side: const BorderSide(color: AppTheme.crimson),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
-              icon: const Icon(Icons.close),
-              label: Text(l10n.closeAndReturn, style: const TextStyle(fontWeight: FontWeight.bold)),
+            IdocUi.fit(AppButton(
+              label: l10n.closeAndReturn,
+              icon: Icons.close,
+              variant: AppButtonVariant.danger,
               onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            )),
           ],
         ),
       ],
@@ -427,7 +407,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blueGrey.shade200, width: 1),
+        side: BorderSide(color: AppTheme.borderOf(context), width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -448,7 +428,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
+                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.rule_folder, color: AppTheme.cobalt, size: 20),
@@ -468,19 +448,19 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
+                      color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.teal.shade300),
+                      border: Border.all(color: AppTheme.emeraldBorder),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           l10n.complianceSummaryTag(origin.isNotEmpty ? origin : 'N/A', hsCode, commodity.isNotEmpty ? commodity : 'N/A'),
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.severityForegroundOf(context, AppSeverity.success)),
                         ),
                         const SizedBox(width: 6),
-                        Icon(Icons.copy_rounded, size: 13, color: Colors.teal.shade800),
+                        Icon(Icons.copy_rounded, size: 13, color: AppTheme.severityForegroundOf(context, AppSeverity.success)),
                       ],
                     ),
                   ),
@@ -498,22 +478,22 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
+                    color: AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                    border: Border.all(color: AppTheme.orange, width: 1.2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.stars, color: Colors.amber, size: 22),
+                      const Icon(Icons.stars, color: AppTheme.orange, size: 22),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           tariffAlert,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.brown.shade900),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.copy_rounded, size: 15, color: Colors.brown.shade900),
+                      Icon(Icons.copy_rounded, size: 15, color: AppTheme.charcoal),
                     ],
                   ),
                 ),
@@ -527,22 +507,22 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppTheme.severityBackgroundOf(context, AppSeverity.info),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                    border: Border.all(color: AppTheme.cobaltBorder, width: 1.2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.verified, color: Colors.blue, size: 22),
+                      const Icon(Icons.verified, color: AppTheme.cobalt, size: 22),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           goeicAlert,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.severityForegroundOf(context, AppSeverity.info)),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.copy_rounded, size: 15, color: Colors.blue.shade900),
+                      Icon(Icons.copy_rounded, size: 15, color: AppTheme.severityForegroundOf(context, AppSeverity.info)),
                     ],
                   ),
                 ),
@@ -556,22 +536,22 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: AppTheme.severityBackgroundOf(context, AppSeverity.info),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.purple.shade300, width: 1.2),
+                    border: Border.all(color: AppTheme.cobaltBorder, width: 1.2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.domain_verification, color: Colors.purple, size: 22),
+                      const Icon(Icons.domain_verification, color: AppTheme.wcagCobalt, size: 22),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           decreeAlert,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.severityForegroundOf(context, AppSeverity.info)),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.copy_rounded, size: 15, color: Colors.purple.shade900),
+                      Icon(Icons.copy_rounded, size: 15, color: AppTheme.severityForegroundOf(context, AppSeverity.info)),
                     ],
                   ),
                 ),
@@ -615,9 +595,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     required bool isRequired,
     required IconData icon,
   }) {
-    final bg = isRequired ? Colors.blue.shade50 : Colors.green.shade50;
-    final border = isRequired ? Colors.blue.shade300 : Colors.green.shade300;
-    final fg = isRequired ? Colors.blue.shade900 : Colors.green.shade800;
+    final bg = isRequired ? AppTheme.severityBackgroundOf(context, AppSeverity.info) : AppTheme.severityBackgroundOf(context, AppSeverity.success);
+    final border = isRequired ? AppTheme.cobaltBorder : AppTheme.emeraldBorder;
+    final fg = isRequired ? AppTheme.severityForegroundOf(context, AppSeverity.info) : AppTheme.severityForegroundOf(context, AppSeverity.success);
 
     return InkWell(
       onTap: () => CopyHelper.copy(context, '$label: $statusText'),
@@ -693,9 +673,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.1),
+                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -717,19 +697,19 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: AppTheme.surfaceAltOf(context),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade400),
+                            border: Border.all(color: AppTheme.textMutedOf(context)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 l10n.customsFileNumberLabel(data['custom_file_number']),
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade800, fontSize: 13),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context), fontSize: 13),
                               ),
                               const SizedBox(width: 6),
-                              Icon(Icons.copy_rounded, size: 14, color: Colors.grey.shade700),
+                              Icon(Icons.copy_rounded, size: 14, color: AppTheme.textSecondaryOf(context)),
                             ],
                           ),
                         ),
@@ -742,7 +722,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: readinessColor.withOpacity(0.12),
+                      color: readinessColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(color: readinessColor, width: 1.5),
                     ),
@@ -848,12 +828,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                 Flexible(
                   child: Text(
                     label,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.copy_rounded, size: 11, color: Colors.grey.shade400),
+                Icon(Icons.copy_rounded, size: 11, color: AppTheme.textMutedOf(context)),
               ],
             ),
             const SizedBox(height: 2),
@@ -861,7 +841,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               value,
               style: TextStyle(
                 fontSize: 13,
-                color: isBold ? AppTheme.charcoal : Colors.grey.shade900,
+                color: isBold ? AppTheme.charcoal : AppTheme.textPrimaryOf(context),
                 fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
               ),
             ),
@@ -880,7 +860,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: critical > 0 ? AppTheme.crimson.withOpacity(0.5) : (warning > 0 ? AppTheme.orange.withOpacity(0.5) : AppTheme.emerald.withOpacity(0.5)), width: 1.5),
+        side: BorderSide(color: critical > 0 ? AppTheme.crimson.withValues(alpha: 0.5) : (warning > 0 ? AppTheme.orange.withValues(alpha: 0.5) : AppTheme.emerald.withValues(alpha: 0.5)), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -911,24 +891,18 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.email, color: Colors.white, size: 16),
-                      label: Text(l10n.copySupplierEmailBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    IdocUi.fit(AppButton(
+                      label: l10n.copySupplierEmailBtn,
+                      icon: Icons.email,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => _copyToClipboard(emailText, l10n.copySupplierEmailSuccess),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.chat, color: Colors.white, size: 16),
-                      label: Text(l10n.copyWhatsAppBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    )),
+                    IdocUi.fit(AppButton(
+                      label: l10n.copyWhatsAppBtn,
+                      icon: Icons.chat,
+                      variant: AppButtonVariant.success,
                       onPressed: () => _copyToClipboard(waText, l10n.copyWhatsAppSuccess),
-                    ),
+                    )),
                   ],
                 ),
               ],
@@ -938,9 +912,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: AppTheme.emeraldBorder),
                 ),
                 child: Row(
                   children: [
@@ -972,9 +946,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isCrit ? Colors.red.shade50 : Colors.amber.shade50,
+                        color: isCrit ? AppTheme.severityBackgroundOf(context, AppSeverity.danger) : AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isCrit ? Colors.red.shade300 : Colors.amber.shade400),
+                        border: Border.all(color: isCrit ? AppTheme.crimsonBorder : AppTheme.orange),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -990,19 +964,19 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                                     Expanded(
                                       child: Text(
                                         docField,
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isCrit ? AppTheme.crimson : Colors.brown.shade900),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isCrit ? AppTheme.crimson : AppTheme.charcoal),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: isCrit ? Colors.red.shade100 : Colors.amber.shade100,
+                                        color: isCrit ? AppTheme.severityBackgroundOf(context, AppSeverity.danger) : AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         isCrit ? l10n.severityCritical : l10n.severityWarning,
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? Colors.red.shade900 : Colors.brown.shade900),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? AppTheme.severityForegroundOf(context, AppSeverity.danger) : AppTheme.charcoal),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -1010,9 +984,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Text(l10n.discrepancyIssueLabel(issue), style: TextStyle(fontSize: 13, color: Colors.grey.shade800)),
+                                Text(l10n.discrepancyIssueLabel(issue), style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
                                 const SizedBox(height: 4),
-                                Text(l10n.discrepancyRectificationLabel(rect), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isCrit ? Colors.red.shade900 : Colors.brown.shade900)),
+                                Text(l10n.discrepancyRectificationLabel(rect), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isCrit ? AppTheme.severityForegroundOf(context, AppSeverity.danger) : AppTheme.charcoal)),
                               ],
                             ),
                           ),
@@ -1050,7 +1024,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     Color badgeColor;
     String badgeText;
     if (isWaived || status == 'WAIVED') {
-      badgeColor = Colors.teal;
+      badgeColor = AppTheme.emerald;
       badgeText = l10n.docStatusWaived;
     } else if (status == 'APPROVED') {
       badgeColor = AppTheme.emerald;
@@ -1062,7 +1036,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       badgeColor = AppTheme.orange;
       badgeText = l10n.docStatusReviewPending;
     } else {
-      badgeColor = Colors.grey;
+      badgeColor = AppTheme.textMutedOf(context);
       badgeText = l10n.docStatusNotStarted;
     }
 
@@ -1072,7 +1046,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       child: ExpansionTile(
         initiallyExpanded: discrepancies.isNotEmpty || isAvail || isWaived,
         leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.12),
+          backgroundColor: color.withValues(alpha: 0.12),
           child: Icon(icon, color: color, size: 20),
         ),
         title: Wrap(
@@ -1089,16 +1063,16 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isMandatoryCore ? Colors.red.shade50 : Colors.blue.shade50,
+                    color: isMandatoryCore ? AppTheme.severityBackgroundOf(context, AppSeverity.danger) : AppTheme.severityBackgroundOf(context, AppSeverity.info),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: isMandatoryCore ? Colors.red.shade200 : Colors.blue.shade200),
+                    border: Border.all(color: isMandatoryCore ? AppTheme.crimsonBorder : AppTheme.cobaltBorder),
                   ),
                   child: Text(
                     isMandatoryCore ? l10n.docMandatoryCore : l10n.docConditional,
                     style: TextStyle(
                       fontSize: DisplayDensityMode.clampFontSize(11.0),
                       fontWeight: FontWeight.bold,
-                      color: isMandatoryCore ? Colors.red.shade900 : Colors.blue.shade900,
+                      color: isMandatoryCore ? AppTheme.severityForegroundOf(context, AppSeverity.danger) : AppTheme.severityForegroundOf(context, AppSeverity.info),
                     ),
                   ),
                 ),
@@ -1119,19 +1093,19 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(l10n.docReferenceLabel(refNo), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                          Text(l10n.docReferenceLabel(refNo), style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                           const SizedBox(width: 4),
-                          Icon(Icons.copy_rounded, size: 11, color: Colors.grey.shade600),
+                          Icon(Icons.copy_rounded, size: 11, color: AppTheme.textSecondaryOf(context)),
                         ],
                       ),
                     ),
                   )
                 else
-                  Text(l10n.docReferenceLabel(refNo), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text(l10n.docReferenceLabel(refNo), style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: badgeColor.withOpacity(0.12),
+                    color: badgeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: badgeColor),
                   ),
@@ -1153,18 +1127,18 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isWaived ? Colors.green.shade50 : Colors.blue.shade50,
+                      color: isWaived ? AppTheme.severityBackgroundOf(context, AppSeverity.success) : AppTheme.severityBackgroundOf(context, AppSeverity.info),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isWaived ? Colors.green.shade200 : Colors.blue.shade200),
+                      border: Border.all(color: isWaived ? AppTheme.emeraldBorder : AppTheme.cobaltBorder),
                     ),
                     child: Row(
                       children: [
-                        Icon(isWaived ? Icons.check_circle : Icons.info_outline, size: 16, color: isWaived ? Colors.green.shade800 : Colors.blue.shade800),
+                        Icon(isWaived ? Icons.check_circle : Icons.info_outline, size: 16, color: isWaived ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.severityForegroundOf(context, AppSeverity.info)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             legalNote,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isWaived ? Colors.green.shade900 : Colors.blue.shade900),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isWaived ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.severityForegroundOf(context, AppSeverity.info)),
                           ),
                         ),
                       ],
@@ -1185,16 +1159,16 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: AppTheme.surfaceAltOf(context),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: AppTheme.borderOf(context)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(entryText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                               const SizedBox(width: 4),
-                              Icon(Icons.copy_rounded, size: 11, color: Colors.grey.shade500),
+                              Icon(Icons.copy_rounded, size: 11, color: AppTheme.textMutedOf(context)),
                             ],
                           ),
                         ),
@@ -1217,9 +1191,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.red.shade200),
+                          border: Border.all(color: AppTheme.crimsonBorder),
                         ),
                         child: Row(
                           children: [
@@ -1227,7 +1201,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                             Expanded(
                               child: Text(
                                 issueText,
-                                style: TextStyle(fontSize: 12, color: Colors.red.shade900, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 12, color: AppTheme.severityForegroundOf(context, AppSeverity.danger), fontWeight: FontWeight.bold),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -1240,12 +1214,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                 ] else if (isWaived) ...[
                   Row(
                     children: [
-                      const Icon(Icons.verified, color: Colors.teal, size: 16),
+                      const Icon(Icons.verified, color: AppTheme.emerald, size: 16),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           waiveReason ?? l10n.docWaivedDefaultDesc,
-                          style: TextStyle(fontSize: 12, color: Colors.teal.shade800, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 12, color: AppTheme.severityForegroundOf(context, AppSeverity.success), fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -1258,7 +1232,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       Expanded(
                         child: Text(
                           l10n.docNoDiscrepanciesDesc,
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                          style: TextStyle(fontSize: 12, color: AppTheme.severityForegroundOf(context, AppSeverity.success)),
                         ),
                       ),
                     ],

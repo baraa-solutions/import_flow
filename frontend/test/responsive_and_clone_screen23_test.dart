@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/clone_entity_review_dialog.dart';
+import 'package:frontend/features/currencies/models/currency_model.dart';
+import 'package:frontend/features/currencies/providers/currencies_provider.dart';
+import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
+import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
 import 'package:frontend/features/import_documentation/screens/customs_declaration46_screen.dart';
@@ -42,6 +46,48 @@ class _MockCustomsTariffNotifier extends CustomsTariffNotifier {
     state = AsyncValue.data(initialTariffs);
   }
 }
+
+class _MockPurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> implements PurchaseOrdersNotifier {
+  final List<PurchaseOrderModel> initialPOs;
+  _MockPurchaseOrdersNotifier(this.initialPOs) : super(PurchaseOrdersState(purchaseOrders: initialPOs));
+
+  @override
+  Future<void> fetchPurchaseOrders() async {
+    state = state.copyWith(purchaseOrders: initialPOs, isLoading: false);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCurrenciesNotifier extends CurrenciesNotifier {
+  final List<CurrencyModel> initial;
+  _MockCurrenciesNotifier(this.initial) : super(Dio()) {
+    state = AsyncValue.data(initial);
+  }
+
+  @override
+  Future<void> fetchCurrencies({bool includeInactive = true, String? search}) async {
+    state = AsyncValue.data(initial);
+  }
+}
+
+/// A PO linked to [fileId] whose single line carries [hsCode].
+PurchaseOrderModel _poWithHs(int fileId, String hsCode) => PurchaseOrderModel.fromJson({
+      'po_id': 1,
+      'po_number': 'PO-1',
+      'import_file_id': fileId,
+      'items': [
+        {'item_id': 1, 'po_id': 1, 'hs_code': hsCode, 'quantity': 1, 'unit_price': 1},
+      ],
+    });
+
+CurrencyModel _currency(String code, double? customsRate) => CurrencyModel(
+      currencyCode: code,
+      currencyName: code,
+      currencySymbol: code,
+      latestCustomsRate: customsRate,
+    );
 
 class _FakeRef implements Ref {
   @override
@@ -170,6 +216,10 @@ void main() {
       overrides: [
         importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([sampleFile1, sampleFile2])),
         customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([sampleTariff1, sampleTariff2])),
+        // The screen no longer invents fallback HS codes: the EUR.1 exemption card and
+        // the regulatory approvals board need a real PO line HS code + customs FX rate.
+        purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(10, '8471.30.00')])),
+        currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('EUR', 55.0)])),
       ],
       child: MaterialApp(
         themeMode: themeMode,

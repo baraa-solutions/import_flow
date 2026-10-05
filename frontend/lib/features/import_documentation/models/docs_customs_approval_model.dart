@@ -193,6 +193,16 @@ class DiscrepancyRectificationTicketModel {
   }
 }
 
+int _notCheckedCount(Map<String, dynamic> json) {
+  final explicit = json['not_checked_checks'];
+  if (explicit is num) return explicit.toInt();
+  final checks = json['checks'];
+  if (checks is List) {
+    return checks.where((c) => c is Map && c['status'] == 'Not Checked').length;
+  }
+  return 0;
+}
+
 class CrossDocumentMatrixResultModel {
   final int importFileId;
   final String importFileCode;
@@ -205,6 +215,8 @@ class CrossDocumentMatrixResultModel {
   final int openTicketsCount;
   final List<String> missingDocuments;
   final double completenessPercent;
+  /// Rows the backend could not verify (status "Not Checked"): neutral, not failures.
+  final int notCheckedCount;
 
   CrossDocumentMatrixResultModel({
     required this.importFileId,
@@ -218,6 +230,7 @@ class CrossDocumentMatrixResultModel {
     required this.openTicketsCount,
     this.missingDocuments = const [],
     this.completenessPercent = 0.0,
+    this.notCheckedCount = 0,
   });
 
   factory CrossDocumentMatrixResultModel.fromJson(Map<String, dynamic> json) {
@@ -242,6 +255,7 @@ class CrossDocumentMatrixResultModel {
               .toList() ??
           [],
       completenessPercent: (json['completeness_percent'] as num?)?.toDouble() ?? 0.0,
+      notCheckedCount: _notCheckedCount(json),
     );
   }
 }

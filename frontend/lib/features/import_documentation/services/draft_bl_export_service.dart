@@ -391,6 +391,7 @@ class DraftBLExportService {
 
   /// Generates and downloads standard Maritime Draft B/L as PDF
   static Future<void> exportDraftBLToPdf({
+    BuildContext? context,
     required Map<String, dynamic> systemData,
     required Map<String, dynamic> draftData,
     String? draftBlNumber,
@@ -406,8 +407,14 @@ class DraftBLExportService {
     );
 
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
-    final filename = 'Phase3_Draft_BL_${blNo.replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-    await Printing.sharePdf(bytes: await pdf.save(), filename: filename);
+    await FileSaveHelper.exportAndSaveFile(
+      context: context,
+      bytes: await pdf.save(),
+      stageName: 'Draft Bill of Lading',
+      importFileNameOrCode: blNo.replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_'),
+      extension: 'pdf',
+      customDialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',
+    );
   }
 
   /// Interactively prints or opens the Print Preview dialog for Maritime Draft B/L
@@ -487,7 +494,7 @@ class DraftBLExportService {
 
     buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String()}');
 
-    final filename = 'Phase3_Draft_BL_${blNo.toString().replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Draft Bill of Lading - ${blNo.toString().replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_')}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -517,16 +524,16 @@ class DraftBLExportService {
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT_BL')
         .toString()
         .replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_');
-    final filename = 'Phase3_Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
     if (context == null || !context.mounted) return null;
-    return FileSaveHelper.saveBytes(
+    return FileSaveHelper.exportAndSaveFile(
       context: context,
       bytes: bytes,
-      defaultFileName: filename,
-      dialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',
-      allowedExtensions: ['pdf'],
+      stageName: 'Draft Bill of Lading',
+      importFileNameOrCode: blNo,
+      extension: 'pdf',
+      customDialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',
     );
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/po_reconciliation_session_model.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 class SearchAndClonePoReconciliationDialog extends StatefulWidget {
   final List<POReconciliationSessionModel> sessions;
@@ -68,7 +70,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
       case 'ACCEPTED_WITH_WARNINGS':
         return AppTheme.orange;
       case 'CRITICAL_DISCREPANCY':
-        return Colors.red;
+        return AppTheme.crimson;
       default:
         return AppTheme.cobalt;
     }
@@ -93,7 +95,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
     final l = context.l10n;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 820, maxHeight: 680),
@@ -112,7 +114,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppTheme.wcagCobalt.withOpacity(0.12),
+                            color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 22),
@@ -124,7 +126,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                             style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -147,7 +149,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                 decoration: InputDecoration(
                   hintText: l.searchPoReconHint,
                   hintStyle: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.6),
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                   prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.wcagCobalt),
@@ -161,14 +163,14 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -176,7 +178,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                 onChanged: _filter,
               ),
               const SizedBox(height: 14),
@@ -188,7 +190,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                         child: Text(
                           l.noPoReconFound,
                           style: TextStyle(
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                             fontSize: 14,
                           ),
                         ),
@@ -209,10 +211,10 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                             key: Key('poReconSessionCard_${session.sessionId ?? index}'),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkSurface : Colors.white,
+                              color: AppTheme.surfaceOf(context),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                                color: AppTheme.borderOf(context),
                               ),
                             ),
                             child: Column(
@@ -231,9 +233,9 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                            color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: AppTheme.wcagCobalt.withOpacity(0.4)),
+                                            border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.4)),
                                           ),
                                           child: Text(
                                             session.sessionCode,
@@ -248,9 +250,9 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: statusColor.withOpacity(0.12),
+                                            color: statusColor.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: statusColor.withOpacity(0.4)),
+                                            border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                                           ),
                                           child: Text(
                                             statusLabel,
@@ -267,36 +269,28 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         if (dateStr.isNotEmpty) ...[
-                                          Icon(Icons.calendar_today, size: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                          Icon(Icons.calendar_today, size: 13, color: AppTheme.textSecondaryOf(context)),
                                           const SizedBox(width: 4),
                                           Text(
                                             dateStr,
                                             style: TextStyle(
                                               fontSize: 11.5,
-                                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                              color: AppTheme.textSecondaryOf(context),
                                             ),
                                           ),
                                           const SizedBox(width: 12),
                                         ],
-                                        ElevatedButton.icon(
+                                        IdocUi.fit(AppButton(
                                           key: Key('cloneSessionCardBtn_${session.sessionId ?? index}'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.wcagCobalt,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            visualDensity: VisualDensity.compact,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                          ),
-                                          icon: const Icon(Icons.copy, size: 14),
-                                          label: Text(
-                                            l.poRecHistoryLoadInEditorButton,
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                          ),
+                                          label: l.poRecHistoryLoadInEditorButton,
+                                          icon: Icons.copy,
+                                          variant: AppButtonVariant.primary,
+                                          size: AppButtonSize.small,
                                           onPressed: () {
                                             Navigator.of(context).pop();
                                             widget.onSelectSession(session);
                                           },
-                                        ),
+                                        )),
                                       ],
                                     ),
                                   ],
@@ -340,7 +334,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                                    color: AppTheme.surfaceAltOf(context),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Wrap(
@@ -396,13 +390,13 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+        Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 11.5,
-            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,
+            color: AppTheme.textPrimaryOf(context),
           ),
         ),
       ],

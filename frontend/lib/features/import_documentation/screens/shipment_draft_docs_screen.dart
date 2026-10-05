@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/docs_customs_approval_provider.dart';
@@ -274,7 +275,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
                   : (_selectedSubTab == 1
                       ? 'searchAndClonePoReconBtn'
                       : (_selectedSubTab == 4 ? 'searchAndCloneCooBtn' : 'searchAndCloneDraftBlBtn'))),
-              icon: const Icon(Icons.copy_all, color: Colors.white70),
+              icon: const Icon(Icons.copy_all, color: AppTheme.cloudWhite),
               tooltip: _selectedSubTab == 0
                   ? context.l10n.searchAndCloneCustomsApprovalBtn
                   : (_selectedSubTab == 1
@@ -282,19 +283,10 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
                       : (_selectedSubTab == 4 ? context.l10n.searchAndCloneCooBtn : context.l10n.searchAndCloneDraftBlBtn)),
               onPressed: _openSearchAndCloneDialog,
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppTheme.charcoal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-              icon: const Icon(Icons.description, size: 16, color: AppTheme.cobalt),
-              label: Text(context.l10n.formalLetterDialogTitle),
-            ),
+            AppButton(label: context.l10n.formalLetterDialogTitle, onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId), size: AppButtonSize.small, icon: Icons.description),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white70),
+              icon: const Icon(Icons.refresh, color: AppTheme.cloudWhite),
               tooltip: context.l10n.refresh,
               onPressed: _refreshData,
             ),

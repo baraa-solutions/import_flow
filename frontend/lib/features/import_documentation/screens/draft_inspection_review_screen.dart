@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/dedicated_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -64,30 +65,14 @@ class _DraftInspectionReviewScreenState extends ConsumerState<DraftInspectionRev
       titleAr: 'شهادات الفحص والتفتيش المسبق والمطابقة (COC)',
       titleEn: 'Inspection & Conformity Review (COC)',
       headerIcon: Icons.security_outlined,
-      headerColor: Colors.indigo,
+      headerColor: AppTheme.cobalt,
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white60),
-            padding: EdgeInsets.symmetric(
-              horizontal: density.isUltraCompact ? 8 : (density.isCompact ? 10 : 12),
-              vertical: density.isUltraCompact ? 4 : (density.isCompact ? 6 : 8),
-            ),
-            textStyle: TextStyle(
-              fontSize: density.buttonFontSize,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-          icon: Icon(Icons.description, size: density.buttonIconSize, color: AppTheme.cobalt),
-          label: Text(l.formalLetterDialogTitle),
-        ),
+        AppButton(label: l.formalLetterDialogTitle, onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId), variant: AppButtonVariant.secondary, icon: Icons.description),
         const SizedBox(width: 8),
         IconButton(
-          icon: Icon(Icons.refresh, color: Colors.white70, size: density.headerIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.cloudWhite, size: density.headerIconSize),
           tooltip: l.refresh,
           onPressed: _refreshData,
         ),

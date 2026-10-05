@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/helpers/file_picker_helper.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/metric_card.dart';
+import 'idoc_feedback.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
@@ -20,10 +25,11 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'idoc_ui.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
-  const DraftBLReviewTab({super.key, this.initialImportFileId});
+  DraftBLReviewTab({super.key, this.initialImportFileId});
 
   @override
   ConsumerState<DraftBLReviewTab> createState() => _DraftBLReviewTabState();
@@ -56,7 +62,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   final TextEditingController _packagesCountCtrl = TextEditingController();
 
   // Dual Approval Controllers
-  final TextEditingController _importerApproverCtrl = TextEditingController(text: 'Kamal (Import Manager)');
+  final TextEditingController _importerApproverCtrl = TextEditingController();
   final TextEditingController _importerNotesCtrl = TextEditingController();
   final TextEditingController _brokerApproverCtrl = TextEditingController();
   final TextEditingController _brokerNotesCtrl = TextEditingController();
@@ -82,6 +88,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     super.initState();
     // Default approver = the signed-in user (no hard-coded sample name).
     _brokerApproverCtrl.text = ref.read(authProvider).user?.fullName ?? '';
+    _importerApproverCtrl.text = _brokerApproverCtrl.text;
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(importFilesProvider).isLoading) {
@@ -112,7 +119,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     if (_selectedImportFileId == null) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
         );
       }
       return;
@@ -176,14 +183,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             content: Text(res.hasBlockingMismatch
                 ? context.l10n.draftBlComparisonMismatch(res.openDiscrepanciesCount)
                 : context.l10n.draftBlComparisonMatchSuccess),
-            backgroundColor: res.hasBlockingMismatch ? Colors.orange : Colors.green,
+            backgroundColor: res.hasBlockingMismatch ? AppTheme.orange : AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlComparisonError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlComparisonError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -242,23 +249,23 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: 'مسودة بوليصة الشحن (Draft B/L Review)',
+            entityType: context.l10n.idocADraftBillOfLadingDraftB,
             sourceCode: session.blReviewCode,
             sourceTitle: '$blNumber — ${session.shippingLine ?? ""}',
             suggestedNewCode: 'DRAFT-BL-2026-',
             copiedFieldsSummary: {
-              'الخط الملاحي': session.shippingLine ?? '-',
-              'اسم السفينة / الرحلة': '${session.vesselName ?? "-"} / ${session.voyageNumber ?? "-"}',
-              'رقم الحجز (Booking)': session.bookingNumber ?? '-',
-              'شروط النولون': session.freightTerms ?? 'Prepaid',
-              'ميناء الشحن / الوصول': '${session.polName ?? "-"} -> ${session.podName ?? "-"}',
+              context.l10n.idocAShippingLine: session.shippingLine ?? '-',
+              context.l10n.idocAVesselVoyage: '${session.vesselName ?? "-"} / ${session.voyageNumber ?? "-"}',
+              context.l10n.idocABookingNumber: session.bookingNumber ?? '-',
+              context.l10n.idocAFreightTerms: session.freightTerms ?? 'Prepaid',
+              context.l10n.idocAPortOfLoadingArrival: '${session.polName ?? "-"} -> ${session.podName ?? "-"}',
             },
-            mandatorilyResetFields: const [
-              'رقم مسودة البوليصة: يتم تصفيره إلى كود مسودة مؤقت (DRAFT-BL-2026-)',
-              'معرف جلسة المراجعة السابقة: تم فك الارتباط وبدء جلسة جديدة',
-              'اعتماد المستورد: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات',
-              'اعتماد المخلص الجمركي: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات',
-              'لقطة بيانات النظام: يتم تحديثها ومطابقتها مع ملف الشحنة المختار',
+            mandatorilyResetFields: [
+              context.l10n.idocACloneNoteBlNumber,
+              context.l10n.idocACloneNoteReviewId,
+              context.l10n.idocACloneNoteImporter,
+              context.l10n.idocACloneNoteBroker,
+              context.l10n.idocACloneNoteSnapshot,
             ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
@@ -330,7 +337,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       if (fileBytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlFileReadError), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.draftBlFileReadError), backgroundColor: AppTheme.crimson),
           );
         }
         return;
@@ -375,7 +382,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.draftBlExtractedWithCritical(file.name)),
-              backgroundColor: Colors.amber.shade900,
+              backgroundColor: AppTheme.severityForegroundOf(context, AppSeverity.warning),
               duration: const Duration(seconds: 4),
             ),
           );
@@ -383,7 +390,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.draftBlExtractedSuccess(file.name)),
-              backgroundColor: Colors.green,
+              backgroundColor: AppTheme.emerald,
             ),
           );
         }
@@ -391,7 +398,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlExtractionError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlExtractionError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -405,7 +412,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     if (_comparisonResult == null || _selectedImportFileId == null) {
       if (_selectedImportFileId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
         );
       }
       return;
@@ -414,27 +421,37 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     if (!isDraft && _comparisonResult!.hasBlockingMismatch) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
-              SizedBox(width: 8),
-              Text('تأكيد الاعتماد النهائي للبوليصة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            'توجد فروقات حرجة (${_comparisonResult!.openDiscrepanciesCount}) مسجلة في فحص البوليصة.\nهل أنت متأكد من رغبتك في الاعتماد النهائي وتحديث الموافقة الجمركية على الأوراق والانتقال لمرحلة شهادة المنشأ؟',
-            style: const TextStyle(fontSize: 13),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('تأكيد الاعتماد النهائي'),
+        builder: (ctx) {
+          final l = ctx.l10n;
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l.idocADraftBlConfirmTitle,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
-          ],
-        ),
+            content: Text(
+              l.idocADraftBlConfirmBody(_comparisonResult!.openDiscrepanciesCount),
+              style: const TextStyle(fontSize: 13),
+            ),
+            actions: [
+              IdocUi.fit(AppButton(
+                label: l.cancel,
+                variant: AppButtonVariant.secondary,
+                onPressed: () => Navigator.pop(ctx, false),
+              )),
+              IdocUi.fit(AppButton(
+                label: l.idocADraftBlConfirmAction,
+                variant: AppButtonVariant.danger,
+                onPressed: () => Navigator.pop(ctx, true),
+              )),
+            ],
+          );
+        },
       );
       if (confirmed != true) return;
     }
@@ -466,7 +483,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         'net_weight_kg': double.tryParse(_netWeightCtrl.text) ?? ((_comparisonResult?.draftData['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0),
         'packages_count': int.tryParse(_packagesCountCtrl.text) ?? ((_comparisonResult?.draftData['qty_pkg'] as num?)?.toInt() ?? 0),
         'container_summary': _containerNoCtrl.text.trim().isNotEmpty ? _containerNoCtrl.text.trim() : (_comparisonResult?.draftData['container_summary']?.toString() ?? ''),
-        'stage': _comparisonResult!.stage,
         'system_snapshot_data': _comparisonResult!.systemData,
         'draft_input_data': _comparisonResult!.draftData,
         'comparison_matrix': _comparisonResult!.matrix.map((m) => m.toJson()).toList(),
@@ -476,7 +492,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         'open_discrepancies_count': _comparisonResult!.openDiscrepanciesCount,
         'blocking_reasons': _comparisonResult!.blockingReasons,
         'blocking_reasons_coded': _comparisonResult!.blockingReasonsCoded,
-        'status': isDraft ? 'DRAFT' : 'APPROVED',
         'is_draft': isDraft,
         'correction_request_letter': _comparisonResult!.correctionRequestLetter,
       };
@@ -491,31 +506,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isDraft
-                        ? 'تم حفظ مسودة جلسة مراجعة البوليصة بنجاح (${created.blReviewCode})'
-                        : 'تم الاعتماد النهائي لمسودة البوليصة (${created.blReviewCode}) وتحديث الموافقة الجمركية والانتقال لمرحلة شهادة المنشأ بنجاح',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
-            behavior: SnackBarBehavior.floating,
-          ),
+        final l = context.l10n;
+        showIdocMessage(
+          context,
+          isDraft ? l.idocADraftBlSaved(created.blReviewCode) : l.idocADraftBlSavedForApproval(created.blReviewCode),
+          color: isDraft ? AppTheme.cobalt : AppTheme.emerald,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء حفظ الجلسة: $e'), backgroundColor: Colors.red),
-        );
+        showIdocError(context, e, title: context.l10n.idocADraftBlSaveFailed);
       }
     } finally {
       if (mounted) {
@@ -572,16 +572,87 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       );
     });
 
-    if (_activeSession != null) {
-      try {
-        final updated = await ref.read(draftBLReviewsProvider.notifier).updateDraftBLChecklist(
-              _activeSession!.blReviewId,
-              _comparisonResult!.checklist,
-            );
-        setState(() {
-          _activeSession = updated;
-        });
-      } catch (_) {}
+    _scheduleChecklistSync();
+  }
+
+  // --- Checklist persistence -------------------------------------------------
+  // Edits stay local while a row is incomplete; one PUT is sent after the user
+  // pauses typing (never per keystroke), PUTs are serialized, and a stale
+  // response never overwrites a newer one. A failed PUT keeps the local edit
+  // (so the text fields stay consistent) and is retried on the next edit.
+  Timer? _checklistDebounce;
+  bool _checklistSyncing = false;
+  bool _checklistSyncQueued = false;
+
+  /// The server rejects an Incorrect row that has no correction and no reason.
+  bool _isChecklistRowComplete(DraftBLChecklistItemModel i) {
+    if (i.status != 'Incorrect') return true;
+    final hasCorrection = (i.requiredCorrection ?? '').trim().isNotEmpty;
+    final hasReason = (i.reason ?? '').trim().isNotEmpty || (i.reasonCode ?? '').isNotEmpty;
+    return hasCorrection && hasReason;
+  }
+
+  void _scheduleChecklistSync() {
+    if (_activeSession == null) return;
+    _checklistDebounce?.cancel();
+    _checklistDebounce = Timer(const Duration(milliseconds: 600), _syncChecklist);
+  }
+
+  Future<void> _syncChecklist() async {
+    if (!mounted || _activeSession == null || _comparisonResult == null) return;
+    if (_checklistSyncing) {
+      _checklistSyncQueued = true;
+      return;
+    }
+    final items = _comparisonResult!.checklist;
+    if (!items.every(_isChecklistRowComplete)) return; // wait until the row is complete
+    _checklistSyncing = true;
+    try {
+      final updated = await ref.read(draftBLReviewsProvider.notifier).updateDraftBLChecklist(
+            _activeSession!.blReviewId,
+            List<DraftBLChecklistItemModel>.of(items),
+            reviewerName: idocCurrentUserName(ref),
+          );
+      if (!mounted) return;
+      // Only the session metadata is taken from the response; the local rows
+      // (possibly edited since the request was sent) are never replaced.
+      setState(() => _activeSession = updated);
+    } catch (e) {
+      if (mounted) showIdocError(context, e, title: context.l10n.idocAChecklistSaveFailed);
+    } finally {
+      _checklistSyncing = false;
+      if (mounted && _checklistSyncQueued) {
+        _checklistSyncQueued = false;
+        _scheduleChecklistSync();
+      }
+    }
+  }
+
+  Set<String> _currentUserNames() {
+    final u = ref.read(authProvider).user;
+    return {u?.fullName ?? '', u?.username ?? ''};
+  }
+
+  /// Single-step approval: completes the one missing role (`POST /approve`).
+  Future<void> _approveSingleStep() async {
+    final session = _activeSession;
+    if (session == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final updated = await ref.read(draftBLReviewsProvider.notifier).approveDraftBL(
+            session.blReviewId,
+            approvedBy: idocCurrentUserName(ref),
+          );
+      if (!mounted) return;
+      setState(() => _activeSession = updated);
+      if (updated.stage == 'Stage 5: Final') {
+        showIdocMessage(context, context.l10n.draftBlDualApprovalCompleted);
+        setState(() => _activeStep = 4);
+      }
+    } catch (e) {
+      if (mounted) showIdocError(context, e, title: context.l10n.draftBlApprovalError(''));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -615,24 +686,24 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       if (mounted) {
         if (updated.stage == 'Stage 5: Final') {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlDualApprovalCompleted), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.draftBlDualApprovalCompleted), backgroundColor: AppTheme.emerald),
           );
           setState(() => _activeStep = 4);
         } else if (action == 'Rejected') {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlRevisionRequiredAlert), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.draftBlRevisionRequiredAlert), backgroundColor: AppTheme.crimson),
           );
           setState(() => _activeStep = 1);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlRoleApprovalRegistered(role)), backgroundColor: Colors.blue),
+            SnackBar(content: Text(context.l10n.draftBlRoleApprovalRegistered(role)), backgroundColor: AppTheme.cobalt),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlApprovalError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -642,6 +713,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
   @override
   void dispose() {
+    _checklistDebounce?.cancel();
     _rawTextCtrl.dispose();
     _draftBlNumberCtrl.dispose();
     _bookingNoCtrl.dispose();
@@ -740,10 +812,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // Top Header & File Selector Card
         Card(
           elevation: 2,
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            side: BorderSide(color: AppTheme.borderOf(context)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -756,19 +828,20 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     final l = context.l10n;
 
                     final actionWidgets = [
-                      OutlinedButton.icon(
+                      IdocUi.fit(AppButton(
                         key: const Key('stage1SearchAndCloneBtn'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.wcagCobalt),
-                        label: Text(l.searchAndCloneDraftBlBtn, style: const TextStyle(fontSize: 12)),
+                        label: l.searchAndCloneDraftBlBtn,
+                        icon: Icons.copy_all,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: _openSearchAndCloneDraftBlDialog,
-                      ),
+                      )),
                       if (_comparisonResult != null) ...[
-                        ElevatedButton.icon(
+                        IdocUi.fit(AppButton(
+                          label: l.draftBlDownloadPdfButton,
+                          icon: Icons.picture_as_pdf,
+                          variant: AppButtonVariant.danger,
+                          size: AppButtonSize.small,
                           onPressed: () async {
                             try {
                               await DraftBLExportService.exportDraftBLToPdf(
@@ -780,20 +853,17 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             } catch (e) {
                               if (mounted) {
                                 messenger.showSnackBar(
-                                  SnackBar(content: Text(l.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
+                                  SnackBar(content: Text(l.draftBlPdfExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                                 );
                               }
                             }
                           },
-                          icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 15),
-                          label: Text(l.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.crimson,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        ElevatedButton.icon(
+                        )),
+                        IdocUi.fit(AppButton(
+                          label: context.l10n.draftBlDownloadExcelButton,
+                          icon: Icons.table_chart,
+                          variant: AppButtonVariant.success,
+                          size: AppButtonSize.small,
                           onPressed: () async {
                             try {
                               final res = await DraftBLExportService.exportDraftBLToExcel(
@@ -804,36 +874,29 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               );
                               if (mounted && res != null) {
                                 messenger.showSnackBar(
-                                  SnackBar(content: Text(l.excelExportSuccess(res)), backgroundColor: Colors.green),
+                                  SnackBar(content: Text(l.excelExportSuccess(res)), backgroundColor: AppTheme.emerald),
                                 );
                               }
                             } catch (e) {
                               if (mounted) {
                                 messenger.showSnackBar(
-                                  SnackBar(content: Text(l.excelExportError(e.toString())), backgroundColor: Colors.red),
+                                  SnackBar(content: Text(l.excelExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                                 );
                               }
                             }
                           },
-                          icon: const Icon(Icons.table_chart, color: Colors.white, size: 15),
-                          label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
+                        )),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
                             color: _comparisonResult!.hasBlockingMismatch
-                                ? (isDark ? const Color(0xFF3B1E1E) : Colors.red.shade50)
-                                : (isDark ? const Color(0xFF064E3B) : Colors.green.shade50),
+                                ? (AppTheme.severityBackgroundOf(context, AppSeverity.danger))
+                                : (AppTheme.severityBackgroundOf(context, AppSeverity.success)),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: _comparisonResult!.hasBlockingMismatch
-                                  ? (isDark ? const Color(0xFFEF4444) : Colors.red)
-                                  : (isDark ? const Color(0xFF059669) : Colors.green),
+                                  ? (AppTheme.crimson)
+                                  : (AppTheme.emerald),
                             ),
                           ),
                           child: Wrap(
@@ -843,8 +906,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               Icon(
                                 _comparisonResult!.hasBlockingMismatch ? Icons.error : Icons.check_circle,
                                 color: _comparisonResult!.hasBlockingMismatch
-                                    ? (isDark ? const Color(0xFFF87171) : Colors.red)
-                                    : (isDark ? const Color(0xFF6EE7B7) : Colors.green),
+                                    ? (AppTheme.crimson)
+                                    : (AppTheme.emerald),
                                 size: 16,
                               ),
                               Text(
@@ -853,8 +916,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                     : context.l10n.draftBlPerfectMatchReady,
                                 style: TextStyle(
                                   color: _comparisonResult!.hasBlockingMismatch
-                                      ? (isDark ? const Color(0xFFFCA5A5) : Colors.red.shade900)
-                                      : (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade900),
+                                      ? (AppTheme.severityForegroundOf(context, AppSeverity.danger))
+                                      : (AppTheme.severityForegroundOf(context, AppSeverity.success)),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -881,7 +944,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ],
@@ -895,7 +958,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Text(
                   context.l10n.draftBlReviewSheetSub,
                   style: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                    color: AppTheme.textSecondaryOf(context),
                     fontSize: 13,
                   ),
                 ),
@@ -945,18 +1008,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       },
                     );
 
-                    final refreshBtn = ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: _isLoading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.sync, color: Colors.white),
-                      label: Text(context.l10n.draftBlRefreshAndCompare, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    final refreshBtn = IdocUi.fit(AppButton(
+                      label: context.l10n.draftBlRefreshAndCompare,
+                      icon: Icons.sync,
+                      variant: AppButtonVariant.primary,
+                      isLoading: _isLoading,
                       onPressed: _isLoading ? null : () => _runComparison(silent: false),
-                    );
+                    ));
 
                     if (isCompact) {
                       return Column(
@@ -990,10 +1048,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // Multi-Format Smart Extractor Card (PDF / Word / Excel / Text)
         Card(
           elevation: 2,
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+            side: BorderSide(color: Colors.transparent),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1007,10 +1065,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _buildFormatBadge('PDF', Colors.red),
-                        _buildFormatBadge('Word (.docx)', Colors.blue),
-                        _buildFormatBadge('Excel (.xlsx)', Colors.green),
-                        _buildFormatBadge('Text / OCR', Colors.teal),
+                        _buildFormatBadge('PDF', AppTheme.crimson),
+                        _buildFormatBadge('Word (.docx)', AppTheme.cobalt),
+                        _buildFormatBadge('Excel (.xlsx)', AppTheme.emerald),
+                        _buildFormatBadge('Text / OCR', AppTheme.emerald),
                       ],
                     );
 
@@ -1025,13 +1083,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               Expanded(
                                 child: Text(
                                   context.l10n.draftBlSmartExtractorTitle,
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.charcoal),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryOf(context)),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey)),
+                          Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: AppTheme.textMutedOf(context))),
                           const SizedBox(height: 8),
                           badges,
                         ],
@@ -1046,9 +1104,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(context.l10n.draftBlSmartExtractorTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.charcoal)),
+                              Text(context.l10n.draftBlSmartExtractorTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
                               const SizedBox(height: 2),
-                              Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey)),
+                              Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: AppTheme.textMutedOf(context))),
                             ],
                           ),
                         ),
@@ -1065,28 +1123,19 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   runSpacing: 10,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B365D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: _isUploadingFile
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.upload_file, size: 20),
-                      label: Text(
-                        _isUploadingFile ? context.l10n.draftBlExtractingFileProgress : context.l10n.draftBlUploadAndExtractButton,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
+                    IdocUi.fit(AppButton(
+                      label: _isUploadingFile ? context.l10n.draftBlExtractingFileProgress : context.l10n.draftBlUploadAndExtractButton,
+                      icon: Icons.upload_file,
+                      variant: AppButtonVariant.primary,
+                      isLoading: _isUploadingFile,
                       onPressed: _isUploadingFile ? null : _pickAndExtractFile,
-                    ),
+                    )),
                     if (_uploadedFileName != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50,
-                          border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300),
+                          color: isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success).withValues(alpha: 0.3) : AppTheme.severityBackgroundOf(context, AppSeverity.success),
+                          border: Border.all(color: isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.emeraldBorder),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Wrap(
@@ -1094,13 +1143,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           spacing: 8,
                           runSpacing: 4,
                           children: [
-                            const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            const Icon(Icons.check_circle, color: AppTheme.emerald, size: 18),
                             Text(
                               context.l10n.draftBlFileExtractedSuccess(_uploadedFileName!, ((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)),
-                              style: TextStyle(color: isDark ? Colors.greenAccent : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(color: isDark ? AppTheme.emerald : AppTheme.severityForegroundOf(context, AppSeverity.success), fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.refresh, size: 18, color: Colors.green),
+                              icon: const Icon(Icons.refresh, size: 18, color: AppTheme.emerald),
                               tooltip: context.l10n.draftBlReuploadTooltip,
                               onPressed: _pickAndExtractFile,
                             ),
@@ -1115,9 +1164,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08),
+                      color: AppTheme.cobalt.withValues(alpha: isDark ? 0.2 : 0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
+                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.35)),
                     ),
                     child: Wrap(
                       spacing: 12,
@@ -1132,7 +1181,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             const Icon(Icons.confirmation_number_outlined, color: AppTheme.cobalt, size: 22),
                             Text(
                               context.l10n.draftBlExtractedBlNumberLabel,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.charcoal),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryOf(context)),
                             ),
                           ],
                         ),
@@ -1144,9 +1193,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.darkSurface : Colors.white,
+                                color: AppTheme.surfaceOf(context),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                               ),
                               child: Wrap(
                                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -1171,10 +1220,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 ],
                               ),
                             ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                              icon: Icon(Icons.edit, size: 14, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal),
-                              label: Text(context.l10n.edit, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal)),
+                            IdocUi.fit(AppButton(
+                              label: context.l10n.edit,
+                              icon: Icons.edit,
+                              variant: AppButtonVariant.ghost,
                               onPressed: () {
                             showDialog(
                               context: context,
@@ -1187,23 +1236,27 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                     decoration: InputDecoration(labelText: context.l10n.draftBlRegistryColBlNumber, border: const OutlineInputBorder()),
                                   ),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(dCtx), child: Text(context.l10n.cancel)),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                                    AppButton(
+                                      label: context.l10n.cancel,
+                                      variant: AppButtonVariant.ghost,
+                                      onPressed: () => Navigator.pop(dCtx),
+                                    ),
+                                    AppButton(
+                                      label: context.l10n.save,
+                                      variant: AppButtonVariant.primary,
                                       onPressed: () {
                                         setState(() {
                                           _draftBlNumberCtrl.text = editCtrl.text.trim();
                                         });
                                         Navigator.pop(dCtx);
                                       },
-                                      child: Text(context.l10n.save, style: const TextStyle(color: Colors.white)),
                                     ),
                                   ],
                                 );
                               },
                             );
                           },
-                        ),
+                            )),
                         ],
                       ),
                     ],
@@ -1216,14 +1269,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                      border: Border.all(color: AppTheme.severityForegroundOf(context, AppSeverity.warning), width: 1.2),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 24),
+                        Icon(Icons.shield_outlined, color: AppTheme.severityForegroundOf(context, AppSeverity.warning), size: 24),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -1231,12 +1284,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             children: [
                               Text(
                                 context.l10n.draftBlSafetyAlertTitle,
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.severityForegroundOf(context, AppSeverity.warning)),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 _safetyWarning ?? context.l10n.draftBlSafetyAlertSub,
-                                style: TextStyle(fontSize: 12, color: Colors.brown.shade900),
+                                style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
                               ),
                               const SizedBox(height: 8),
                               Wrap(
@@ -1245,8 +1298,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 children: _missingCriticalFields.map((f) {
                                   final label = f is Map ? (f['field_label'] ?? f['field_key']) : f.toString();
                                   return Chip(
-                                    label: Text(label.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                                    backgroundColor: Colors.amber.shade800,
+                                    label: Text(label.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.white)),
+                                    backgroundColor: AppTheme.severityForegroundOf(context, AppSeverity.warning),
                                     visualDensity: VisualDensity.compact,
                                     padding: EdgeInsets.zero,
                                   );
@@ -1263,17 +1316,17 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade400),
+                      border: Border.all(color: AppTheme.emeraldBorder),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.verified, color: Colors.green, size: 18),
+                        const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           context.l10n.draftBlSmartExtractionComplete,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                         ),
                       ],
                     ),
@@ -1287,7 +1340,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   childrenPadding: const EdgeInsets.only(top: 8),
                   title: Text(
                     context.l10n.draftBlPasteRawTextTitle,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                   children: [
                     TextFormField(
@@ -1301,16 +1354,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     const SizedBox(height: 10),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        ),
-                        icon: const Icon(Icons.flash_on, size: 16),
-                        label: Text(context.l10n.draftBlExtractFromTextButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: IdocUi.fit(AppButton(
+                        label: context.l10n.draftBlExtractFromTextButton,
+                        icon: Icons.flash_on,
+                        variant: AppButtonVariant.success,
                         onPressed: () => _runComparison(silent: false),
-                      ),
+                      )),
                     ),
                   ],
                 ),
@@ -1334,20 +1383,21 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             alignment: AlignmentDirectional.centerStart,
             child: Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 8),
-              child: TextButton.icon(
+              child: IdocUi.fit(AppButton(
+                label: context.l10n.draftBlSwitchToGridView,
+                icon: Icons.grid_view,
+                variant: AppButtonVariant.ghost,
                 onPressed: () => setState(() => _showReferenceAsVisualBL = false),
-                icon: const Icon(Icons.grid_view, size: 16, color: AppTheme.cobalt),
-                label: Text(context.l10n.draftBlSwitchToGridView, style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
-              ),
+              )),
             ),
           ),
         ] else ...[
           Card(
             elevation: 2,
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            color: AppTheme.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+              side: BorderSide(color: Colors.transparent),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -1370,7 +1420,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppTheme.charcoal,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                           ),
                         ],
@@ -1379,61 +1429,45 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.description, size: 16),
-                            label: Text(context.l10n.draftBlSwitchToVisualBl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          IdocUi.fit(AppButton(
+                            label: context.l10n.draftBlSwitchToVisualBl,
+                            icon: Icons.description,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: () => setState(() => _showReferenceAsVisualBL = true),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.print, size: 16),
-                            label: Text(context.l10n.draftBlPrintButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          )),
+                          IdocUi.fit(AppButton(
+                            label: context.l10n.draftBlPrintButton,
+                            icon: Icons.print,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: () => DraftBLExportService.printDraftBL(
                               systemData: sys,
                               draftData: sys,
                               documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
                             ),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.crimson,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          )),
+                          IdocUi.fit(AppButton(
+                            label: context.l10n.draftBlDownloadPdfButton,
+                            icon: Icons.picture_as_pdf,
+                            variant: AppButtonVariant.danger,
+                            size: AppButtonSize.small,
                             onPressed: () => DraftBLExportService.exportDraftBLToPdf(
                               systemData: sys,
                               draftData: sys,
                               documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
                             ),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.table_chart, size: 16),
-                            label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          )),
+                          IdocUi.fit(AppButton(
+                            label: context.l10n.draftBlDownloadExcelButton,
+                            icon: Icons.table_chart,
+                            variant: AppButtonVariant.success,
+                            size: AppButtonSize.small,
                             onPressed: () => DraftBLExportService.exportDraftBLToExcel(
                               systemData: sys,
                               draftData: sys,
                             ),
-                          ),
+                          )),
                         ],
                       ),
                     ],
@@ -1441,28 +1475,28 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   const SizedBox(height: 4),
                   Text(
                     context.l10n.draftBlAutoSummarySub,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12),
                   ),
                   const Divider(height: 20),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _buildSummaryBox(context.l10n.draftBlSummaryShipper, sys['shipper'] ?? context.l10n.unspecified, Icons.business, Colors.indigo, flex: 2),
-                      _buildSummaryBox(context.l10n.draftBlSummaryConsignee, sys['consignee'] ?? context.l10n.unspecified, Icons.account_balance, Colors.blue, flex: 2),
-                      _buildSummaryBox(context.l10n.draftBlSummaryNotifyParty, sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
-                      _buildSummaryBox(context.l10n.draftBlSummaryVesselVoyage, '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
-                      _buildSummaryBox(context.l10n.draftBlSummaryPorts, '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
-                      _buildSummaryBox(context.l10n.draftBlSummaryFreightTerms, sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, Colors.orange),
-                      _buildSummaryBox(context.l10n.draftBlSummaryBookingNo, sys['booking_no'] ?? 'N/A', Icons.confirmation_number, Colors.brown),
-                      _buildSummaryBox(context.l10n.draftBlSummaryAcidNo, sys['acid_number'] ?? 'N/A', Icons.security, Colors.red, isCritical: true),
-                      _buildSummaryBox(context.l10n.draftBlSummaryImporterTaxId, sys['importer_tax_id'] ?? 'N/A', Icons.badge, Colors.red, isCritical: true),
-                      _buildSummaryBox(context.l10n.draftBlSummaryShipperReg, sys['shipper_reg_id'] ?? 'N/A', Icons.pin, Colors.red, isCritical: true),
-                      _buildSummaryBox(context.l10n.draftBlSummaryContainers, sys['container_summary'] ?? 'N/A', Icons.inventory, Colors.teal, flex: 2),
-                      _buildSummaryBox(context.l10n.draftBlSummaryGrossWeight, '${sys['total_gross_weight_kg'] ?? 0.0} kg', Icons.scale, Colors.green),
-                      _buildSummaryBox(context.l10n.draftBlSummaryNetWeight, '${sys['total_net_weight_kg'] ?? 0.0} kg', Icons.fitness_center, Colors.indigo),
-                      _buildSummaryBox(context.l10n.draftBlSummaryCbm, '${sys['cbm'] ?? 0.0} CBM', Icons.view_in_ar, Colors.orange),
-                      _buildSummaryBox(context.l10n.draftBlSummaryPackages, '${sys['qty_pkg'] ?? 0} (${sys['goods_description'] ?? 'Goods'})', Icons.category, Colors.deepPurple, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryShipper, sys['shipper'] ?? context.l10n.unspecified, Icons.business, AppTheme.wcagCobalt, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryConsignee, sys['consignee'] ?? context.l10n.unspecified, Icons.account_balance, AppTheme.cobalt, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryNotifyParty, sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, AppTheme.cobalt, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryVesselVoyage, '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, AppTheme.emerald),
+                      _buildSummaryBox(context.l10n.draftBlSummaryPorts, '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, AppTheme.wcagCobalt),
+                      _buildSummaryBox(context.l10n.draftBlSummaryFreightTerms, sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, AppTheme.orange),
+                      _buildSummaryBox(context.l10n.draftBlSummaryBookingNo, sys['booking_no'] ?? 'N/A', Icons.confirmation_number, AppTheme.charcoal),
+                      _buildSummaryBox(context.l10n.draftBlSummaryAcidNo, sys['acid_number'] ?? 'N/A', Icons.security, AppTheme.crimson, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryImporterTaxId, sys['importer_tax_id'] ?? 'N/A', Icons.badge, AppTheme.crimson, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryShipperReg, sys['shipper_reg_id'] ?? 'N/A', Icons.pin, AppTheme.crimson, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryContainers, sys['container_summary'] ?? 'N/A', Icons.inventory, AppTheme.emerald, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryGrossWeight, '${sys['total_gross_weight_kg'] ?? 0.0} kg', Icons.scale, AppTheme.emerald),
+                      _buildSummaryBox(context.l10n.draftBlSummaryNetWeight, '${sys['total_net_weight_kg'] ?? 0.0} kg', Icons.fitness_center, AppTheme.wcagCobalt),
+                      _buildSummaryBox(context.l10n.draftBlSummaryCbm, '${sys['cbm'] ?? 0.0} CBM', Icons.view_in_ar, AppTheme.orange),
+                      _buildSummaryBox(context.l10n.draftBlSummaryPackages, '${sys['qty_pkg'] ?? 0} (${sys['goods_description'] ?? 'Goods'})', Icons.category, AppTheme.wcagCobalt, flex: 2),
                     ],
                   ),
                 ],
@@ -1475,10 +1509,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // SECTION 2: REVIEW CHECKLIST TABLE (THE 20-FIELD COMPARISON ENGINE)
         Card(
           elevation: 2,
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+            side: BorderSide(color: Colors.transparent),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -1501,7 +1535,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                       ],
@@ -1510,44 +1544,28 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       spacing: 10,
                       runSpacing: 8,
                       children: [
-                        OutlinedButton.icon(
+                        IdocUi.fit(AppButton(
                           key: const Key('draftBlSaveDraftBtn'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cobalt,
-                            side: const BorderSide(color: AppTheme.cobalt),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: _isSavingDraft
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.bookmark_added_outlined, size: 18),
-                          label: const Text('حفظ مسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: context.l10n.idocASaveTempDraft,
+                          icon: Icons.bookmark_added_outlined,
+                          variant: AppButtonVariant.secondary,
+                          isLoading: _isSavingDraft,
                           onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
-                        ),
-                        ElevatedButton.icon(
+                        )),
+                        IdocUi.fit(AppButton(
                           key: const Key('draftBlCertifyBtn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: _isCertifying
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.verified_rounded, size: 18),
-                          label: const Text('اعتماد نهائي للمستندات', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: context.l10n.idocAFinalApprovalOfDocuments,
+                          icon: Icons.verified_rounded,
+                          variant: AppButtonVariant.success,
+                          isLoading: _isCertifying,
                           onPressed: _isLoading ? null : () => _saveReview(isDraft: false),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.shade800,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.assignment_late, color: Colors.white, size: 18),
-                          label: Text(context.l10n.draftBlRevisionReportCarrierButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        )),
+                        IdocUi.fit(AppButton(
+                          label: context.l10n.draftBlRevisionReportCarrierButton,
+                          icon: Icons.assignment_late,
+                          variant: AppButtonVariant.primary,
                           onPressed: () => setState(() => _activeStep = 1),
-                        ),
+                        )),
                       ],
                     ),
                   ],
@@ -1555,14 +1573,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 const SizedBox(height: 6),
                 Text(
                   context.l10n.draftBlChecklistSectionSub,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12),
                 ),
                 const Divider(height: 20),
                 if (checklist.isEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Text(context.l10n.draftBlSelectFileToStartChecklist, style: const TextStyle(color: Colors.grey)),
+                      child: Text(context.l10n.draftBlSelectFileToStartChecklist, style: const TextStyle(color: AppTheme.textMuted)),
                     ),
                   )
                 else
@@ -1572,7 +1590,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       columnSpacing: 16,
                       dataRowMinHeight: 52,
                       dataRowMaxHeight: 70,
-                      headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                      headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                       columns: [
                         DataColumn(label: Text(context.l10n.draftBlChecklistColField, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(context.l10n.draftBlChecklistColSystemValue, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1590,7 +1608,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
                         return DataRow(
                           color: WidgetStateProperty.resolveWith((_) {
-                            if (!isCorrect && !isNA) return Colors.red.shade50.withOpacity(0.5);
+                            if (!isCorrect && !isNA) return AppTheme.severityBackgroundOf(context, AppSeverity.danger).withValues(alpha: 0.5);
                             return null;
                           }),
                           cells: [
@@ -1629,23 +1647,23 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                         decoration: InputDecoration(
                                           isDense: true,
                                           hintText: context.l10n.draftBlEnterDraftValueHint,
-                                          hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                                          hintStyle: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(6),
                                             borderSide: BorderSide(
                                               color: (itm.draftValue != null && itm.draftValue.toString().isNotEmpty)
-                                                  ? (isCorrect ? Colors.green.shade300 : Colors.orange.shade300)
-                                                  : Colors.grey.shade300,
+                                                  ? (isCorrect ? AppTheme.emeraldBorder : AppTheme.orange)
+                                                  : AppTheme.borderOf(context),
                                             ),
                                           ),
                                           filled: true,
-                                          fillColor: Colors.white,
+                                          fillColor: AppTheme.surfaceOf(context),
                                         ),
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
-                                          color: isCorrect ? Colors.green.shade900 : Colors.black87,
+                                          color: isCorrect ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.textPrimaryOf(context),
                                         ),
                                         onChanged: (val) {
                                           _updateChecklistRow(idx, draftValue: val);
@@ -1679,9 +1697,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 isDense: true,
                                 underline: const SizedBox.shrink(),
                                 items: [
-                                  DropdownMenuItem(value: 'Correct', child: Text('✅ ${context.l10n.draftBlStatusCorrect}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))),
-                                  DropdownMenuItem(value: 'Incorrect', child: Text('❌ ${context.l10n.draftBlStatusIncorrect}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
-                                  DropdownMenuItem(value: 'N/A', child: Text('⚪ ${context.l10n.draftBlStatusNA}', style: const TextStyle(color: Colors.grey, fontSize: 12))),
+                                  DropdownMenuItem(value: 'Correct', child: Text('✅ ${context.l10n.draftBlStatusCorrect}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DropdownMenuItem(value: 'Incorrect', child: Text('❌ ${context.l10n.draftBlStatusIncorrect}', style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DropdownMenuItem(value: 'N/A', child: Text('⚪ ${context.l10n.draftBlStatusNA}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12))),
                                 ],
                                 onChanged: (v) {
                                   if (v != null) _updateChecklistRow(idx, status: v);
@@ -1697,7 +1715,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   decoration: InputDecoration(
                                     isDense: true,
                                     hintText: isCorrect ? context.l10n.draftBlMatchedHint : context.l10n.draftBlEnterCorrectionHint,
-                                    hintStyle: TextStyle(fontSize: 11, color: isCorrect ? Colors.green : Colors.grey),
+                                    hintStyle: TextStyle(fontSize: 11, color: isCorrect ? AppTheme.emerald : AppTheme.textMutedOf(context)),
                                     contentPadding: const EdgeInsets.all(6),
                                     border: const OutlineInputBorder(),
                                   ),
@@ -1710,15 +1728,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             DataCell(
                               SizedBox(
                                 width: 130,
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: itm.responsibleParty ?? 'Shipping Provider',
-                                  isDense: true,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6), border: OutlineInputBorder()),
+                                  labelText: context.l10n.draftBlPartyShippingLine,
                                   items: [
-                                    DropdownMenuItem(value: 'Shipping Provider', child: Text(context.l10n.draftBlPartyShippingLine, style: const TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Supplier', child: Text(context.l10n.draftBlPartySupplier, style: const TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Importer', child: Text(context.l10n.draftBlPartyImporter, style: const TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Customs Broker', child: Text(context.l10n.draftBlPartyCustomsBroker, style: const TextStyle(fontSize: 11.5))),
+                                    SearchableDropdownItem(value: 'Shipping Provider', label: context.l10n.draftBlPartyShippingLine),
+                                    SearchableDropdownItem(value: 'Supplier', label: context.l10n.draftBlPartySupplier),
+                                    SearchableDropdownItem(value: 'Importer', label: context.l10n.draftBlPartyImporter),
+                                    SearchableDropdownItem(value: 'Customs Broker', label: context.l10n.draftBlPartyCustomsBroker),
                                   ],
                                   onChanged: (v) {
                                     if (v != null) _updateChecklistRow(idx, respParty: v);
@@ -1774,16 +1791,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       width: flex == 2 ? 380 : 250,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isCritical ? Colors.red.shade50.withOpacity(0.5) : Colors.white,
+        color: isCritical ? AppTheme.severityBackgroundOf(context, AppSeverity.danger).withValues(alpha: 0.5) : AppTheme.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isCritical ? Colors.red : color.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: isCritical ? AppTheme.crimson : color.withValues(alpha: 0.3)),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: color.withOpacity(0.12),
+            backgroundColor: color.withValues(alpha: 0.12),
             radius: 16,
             child: Icon(icon, color: color, size: 18),
           ),
@@ -1792,13 +1809,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 11.5, color: isCritical ? Colors.red.shade900 : Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                Text(title, style: TextStyle(fontSize: 11.5, color: isCritical ? AppTheme.severityForegroundOf(context, AppSeverity.danger) : AppTheme.textSecondaryOf(context), fontWeight: FontWeight.bold)),
                 const SizedBox(height: 3),
                 CopyableText(
                   value,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: isCritical ? Colors.red.shade900 : Colors.black87),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: isCritical ? AppTheme.severityForegroundOf(context, AppSeverity.danger) : AppTheme.textPrimaryOf(context)),
                 ),
               ],
             ),
@@ -1859,16 +1876,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const Icon(Icons.folder_off, size: 48, color: AppTheme.orange),
                     const SizedBox(height: 12),
                     Text(context.l10n.draftBlSelectFileToViewRevision, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
+                    IdocUi.fit(AppButton(
+                      label: context.l10n.draftBlBackToSelectFile,
+                      icon: Icons.arrow_back,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => setState(() => _activeStep = 0),
-                    ),
+                    )),
                   ],
                 ),
               ),
@@ -1888,31 +1905,31 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.assignment_late, color: Colors.orange, size: 24),
+                          const Icon(Icons.assignment_late, color: AppTheme.orange, size: 24),
                           const SizedBox(width: 8),
                           Text(context.l10n.draftBlRevisionReportTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                        icon: const Icon(Icons.history, color: Colors.white, size: 16),
-                        label: Text(context.l10n.draftBlProceedToVersionHistory, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      IdocUi.fit(AppButton(
+                        label: context.l10n.draftBlProceedToVersionHistory,
+                        icon: Icons.history,
+                        variant: AppButtonVariant.primary,
                         onPressed: () => setState(() => _activeStep = 2),
-                      ),
+                      )),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(context.l10n.draftBlRevisionReportSub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(context.l10n.draftBlRevisionReportSub, style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
                   const Divider(height: 20),
                   if (incorrectItems.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
+                      decoration: BoxDecoration(color: AppTheme.severityBackgroundOf(context, AppSeverity.success), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.emerald)),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle, color: Colors.green),
+                          const Icon(Icons.check_circle, color: AppTheme.emerald),
                           const SizedBox(width: 10),
-                          Text(context.l10n.draftBlNoAmendmentsNeeded, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          Text(context.l10n.draftBlNoAmendmentsNeeded, style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     )
@@ -1948,7 +1965,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           DataCell(CopyableTableCell(
                             value: corr,
                             rowSummary: rowSummary,
-                            child: Text(corr, style: const TextStyle(color: Colors.red)),
+                            child: Text(corr, style: const TextStyle(color: AppTheme.crimson)),
                           )),
                           DataCell(CopyableTableCell(
                             value: resp,
@@ -1988,19 +2005,19 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           Text(context.l10n.draftBlCarrierRequestLetterTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                        icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-                        label: Text(context.l10n.draftBlCopyLetterButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      IdocUi.fit(AppButton(
+                        label: context.l10n.draftBlCopyLetterButton,
+                        icon: Icons.copy,
+                        variant: AppButtonVariant.success,
                         onPressed: () => CopyHelper.copy(context, letter),
-                      ),
+                      )),
                     ],
                   ),
                   const Divider(height: 20),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                    decoration: BoxDecoration(color: AppTheme.surfaceAltOf(context), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.borderOf(context))),
                     child: SelectableText(
                       letter,
                       style: const TextStyle(fontFamily: 'Courier', fontSize: 13, height: 1.5),
@@ -2061,16 +2078,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const Icon(Icons.folder_off, size: 48, color: AppTheme.orange),
                     const SizedBox(height: 12),
                     Text(context.l10n.draftBlSelectFileToViewVersions, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
+                    IdocUi.fit(AppButton(
+                      label: context.l10n.draftBlBackToSelectFile,
+                      icon: Icons.arrow_back,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => setState(() => _activeStep = 0),
-                    ),
+                    )),
                   ],
                 ),
               ),
@@ -2095,23 +2112,23 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           Text(context.l10n.draftBlVersionBranchingTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                        icon: const Icon(Icons.verified_user, color: Colors.white, size: 16),
-                        label: Text(context.l10n.draftBlProceedToDualApproval, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      IdocUi.fit(AppButton(
+                        label: context.l10n.draftBlProceedToDualApproval,
+                        icon: Icons.verified_user,
+                        variant: AppButtonVariant.primary,
                         onPressed: () => setState(() => _activeStep = 3),
-                      ),
+                      )),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
                     context.l10n.draftBlVersionBranchingSub,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
                   ),
                   const Divider(height: 24),
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: AppTheme.severityBackgroundOf(context, AppSeverity.info), borderRadius: BorderRadius.circular(8)),
                     child: Row(
                       children: [
                         const Icon(Icons.info, color: AppTheme.cobalt),
@@ -2138,6 +2155,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // ===========================================================================
   Widget _buildStage4DualApprovalView(List<dynamic> importFiles) {
     final hasBlocking = _comparisonResult?.hasBlockingMismatch ?? false;
+    final singleRole = draftBlSingleStepRole(_activeSession, currentUserNames: _currentUserNames());
     final reasons = _comparisonResult == null
         ? <String>[]
         : displayBlockingReasons(context.l10n, _comparisonResult!.blockingReasons, _comparisonResult!.blockingReasonsCoded);
@@ -2185,16 +2203,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const Icon(Icons.folder_off, size: 48, color: AppTheme.orange),
                     const SizedBox(height: 12),
                     Text(context.l10n.draftBlSelectFileToCompleteApproval, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
+                    IdocUi.fit(AppButton(
+                      label: context.l10n.draftBlBackToSelectFile,
+                      icon: Icons.arrow_back,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => setState(() => _activeStep = 0),
-                    ),
+                    )),
                   ],
                 ),
               ),
@@ -2205,18 +2223,18 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
+              decoration: BoxDecoration(color: AppTheme.severityBackgroundOf(context, AppSeverity.danger), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimson)),
               child: Row(
                 children: [
-                  const Icon(Icons.block, color: Colors.red, size: 28),
+                  const Icon(Icons.block, color: AppTheme.crimson, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(context.l10n.draftBlApprovalBlockedTitle, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                        Text(context.l10n.draftBlApprovalBlockedTitle, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                         const SizedBox(height: 4),
-                        Text(reasons.join(' | '), style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
+                        Text(reasons.join(' | '), style: TextStyle(fontSize: 12, color: AppTheme.severityForegroundOf(context, AppSeverity.danger))),
                       ],
                     ),
                   ),
@@ -2246,7 +2264,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               _activeSession?.importerApprovalStatus == 'Approved' ? context.l10n.approved : context.l10n.pending,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: _activeSession?.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                color: _activeSession?.importerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
                               ),
                             ),
                           ],
@@ -2265,21 +2283,25 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         const SizedBox(height: 16),
                         Row(
                           children: [
+                            if (singleRole == null || singleRole == 'importer')
                             Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
-                                icon: const Icon(Icons.check, color: Colors.white),
-                                label: Text(context.l10n.draftBlApproveAndAcceptButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('importer', 'Approved'),
-                              ),
+                              child: IdocUi.fit(AppButton(
+                                key: const Key('draftBlImporterApproveBtn'),
+                                label: context.l10n.draftBlApproveAndAcceptButton,
+                                icon: Icons.check,
+                                variant: AppButtonVariant.success,
+                                onPressed: (hasBlocking || _isLoading)
+                                    ? null
+                                    : (singleRole == 'importer' ? _approveSingleStep : () => _submitApproval('importer', 'Approved')),
+                              )),
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.close),
-                              label: Text(context.l10n.draftBlRejectDraftButton),
+                            IdocUi.fit(AppButton(
+                              label: context.l10n.draftBlRejectDraftButton,
+                              icon: Icons.close,
+                              variant: AppButtonVariant.danger,
                               onPressed: _isLoading ? null : () => _submitApproval('importer', 'Rejected'),
-                            ),
+                            )),
                           ],
                         ),
                       ],
@@ -2301,7 +2323,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.gavel, color: Colors.teal),
+                            const Icon(Icons.gavel, color: AppTheme.emerald),
                             const SizedBox(width: 8),
                             Text(context.l10n.draftBlBrokerApprovalTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                             const Spacer(),
@@ -2309,7 +2331,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               _activeSession?.brokerApprovalStatus == 'Approved' ? context.l10n.approved : context.l10n.pending,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: _activeSession?.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                color: _activeSession?.brokerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
                               ),
                             ),
                           ],
@@ -2328,21 +2350,25 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         const SizedBox(height: 16),
                         Row(
                           children: [
+                            if (singleRole == null || singleRole == 'customs_broker')
                             Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
-                                icon: const Icon(Icons.check, color: Colors.white),
-                                label: Text(context.l10n.draftBlBrokerApproveButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('broker', 'Approved'),
-                              ),
+                              child: IdocUi.fit(AppButton(
+                                key: const Key('draftBlBrokerApproveBtn'),
+                                label: context.l10n.draftBlBrokerApproveButton,
+                                icon: Icons.check,
+                                variant: AppButtonVariant.success,
+                                onPressed: (hasBlocking || _isLoading)
+                                    ? null
+                                    : (singleRole == 'customs_broker' ? _approveSingleStep : () => _submitApproval('customs_broker', 'Approved')),
+                              )),
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.close),
-                              label: Text(context.l10n.draftBlRejectDraftButton),
-                              onPressed: _isLoading ? null : () => _submitApproval('broker', 'Rejected'),
-                            ),
+                            IdocUi.fit(AppButton(
+                              label: context.l10n.draftBlRejectDraftButton,
+                              icon: Icons.close,
+                              variant: AppButtonVariant.danger,
+                              onPressed: _isLoading ? null : () => _submitApproval('customs_broker', 'Rejected'),
+                            )),
                           ],
                         ),
                       ],
@@ -2383,10 +2409,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
     return Card(
       elevation: 2,
-      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      color: AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+        side: BorderSide(color: Colors.transparent),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -2396,38 +2422,27 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             LayoutBuilder(
               builder: (ctx, constraints) {
                 final actions = [
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
                     key: const Key('stage5SearchAndCloneBtn'),
-                    icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.cobalt),
-                    label: Text(
-                      context.l10n.searchAndCloneDraftBlBtn,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
-                      side: BorderSide(color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                    label: context.l10n.searchAndCloneDraftBlBtn,
+                    icon: Icons.copy_all,
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.small,
                     onPressed: _openSearchAndCloneDraftBlDialog,
-                  ),
-                  ElevatedButton.icon(
+                  )),
+                  IdocUi.fit(AppButton(
                     key: const Key('stage5RefreshRegistryBtn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: Text(context.l10n.draftBlRefreshRegistry, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: context.l10n.draftBlRefreshRegistry,
+                    icon: Icons.refresh,
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.small,
                     onPressed: () {
                       ref.invalidate(draftBLReviewsProvider);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(context.l10n.draftBlRegistryUpdatedSuccess)),
                       );
                     },
-                  ),
+                  )),
                 ];
 
                 return Wrap(
@@ -2439,14 +2454,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.verified, color: Colors.green, size: 24),
+                        const Icon(Icons.verified, color: AppTheme.emerald, size: 24),
                         const SizedBox(width: 8),
                         Text(
-                          'سجل جلسات مراجعة وتدقيق بوالص الشحن (B/L)',
+                          context.l10n.idocABillOfLadingBLReview,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                       ],
@@ -2462,45 +2477,35 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             ),
             const SizedBox(height: 6),
             Text(
-              'سجل شامل لجلسات مسودات البوليصة المؤقتة والمعتمدة نهائياً مع تتبع الفروقات والموافقات',
-              style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontSize: 13),
+              context.l10n.idocAComprehensiveRegistryOfTemporaryAndFinally,
+              style: TextStyle(color: AppTheme.textMutedOf(context), fontSize: 13),
             ),
             const SizedBox(height: 16),
 
             // 1. KPI Cards Banner
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
-                borderRadius: BorderRadius.circular(10),
+            IdocUi.metrics([
+              MetricCardData(
+                title: context.l10n.idocATotalBLSessions,
+                shortTitle: context.l10n.idocATotalBLSessions,
+                value: '$totalCount',
+                icon: Icons.assignment_turned_in,
+                color: AppTheme.cobalt,
               ),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                alignment: WrapAlignment.spaceAround,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _sessionKpiCard(
-                    icon: Icons.assignment_turned_in,
-                    label: 'إجمالي جلسات البوليصة',
-                    value: '$totalCount',
-                    color: Colors.cyanAccent,
-                  ),
-                  _sessionKpiCard(
-                    icon: Icons.verified_rounded,
-                    label: 'جلسات معتمدة نهائياً',
-                    value: '$certifiedCount',
-                    color: AppTheme.emerald,
-                  ),
-                  _sessionKpiCard(
-                    icon: Icons.bookmark_added_outlined,
-                    label: 'مسودات مؤقتة قيد التعديل',
-                    value: '$draftCount',
-                    color: AppTheme.orange,
-                  ),
-                ],
+              MetricCardData(
+                title: context.l10n.idocAFinallyApprovedSessions,
+                shortTitle: context.l10n.idocAFinallyApprovedSessions,
+                value: '$certifiedCount',
+                icon: Icons.verified_rounded,
+                color: AppTheme.emerald,
               ),
-            ),
+              MetricCardData(
+                title: context.l10n.idocATemporaryDraftsBeingEdited,
+                shortTitle: context.l10n.idocATemporaryDraftsBeingEdited,
+                value: '$draftCount',
+                icon: Icons.bookmark_added_outlined,
+                color: AppTheme.orange,
+              ),
+            ]),
             const SizedBox(height: 16),
 
             // 2. Filter & Actions Toolbar
@@ -2510,34 +2515,34 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 ChoiceChip(
-                  label: Text('الكل ($totalCount)'),
+                  label: Text(context.l10n.idocAAllCount(totalCount)),
                   selected: _selectedStatusFilter == 'ALL',
                   onSelected: (_) => setState(() => _selectedStatusFilter = 'ALL'),
                   selectedColor: AppTheme.cobalt,
                   labelStyle: TextStyle(
-                    color: _selectedStatusFilter == 'ALL' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    color: _selectedStatusFilter == 'ALL' ? AppTheme.white : (AppTheme.textPrimaryOf(context)),
                     fontWeight: _selectedStatusFilter == 'ALL' ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
                 ),
                 ChoiceChip(
-                  label: Text('معتمدة نهائية ($certifiedCount)'),
+                  label: Text(context.l10n.idocAFinalApprovedCount(certifiedCount)),
                   selected: _selectedStatusFilter == 'CERTIFIED',
                   onSelected: (_) => setState(() => _selectedStatusFilter = 'CERTIFIED'),
                   selectedColor: AppTheme.emerald,
                   labelStyle: TextStyle(
-                    color: _selectedStatusFilter == 'CERTIFIED' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    color: _selectedStatusFilter == 'CERTIFIED' ? AppTheme.white : (AppTheme.textPrimaryOf(context)),
                     fontWeight: _selectedStatusFilter == 'CERTIFIED' ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
                 ),
                 ChoiceChip(
-                  label: Text('مسودات مؤقتة ($draftCount)'),
+                  label: Text(context.l10n.idocATemporaryDraftsCount(draftCount)),
                   selected: _selectedStatusFilter == 'DRAFT',
                   onSelected: (_) => setState(() => _selectedStatusFilter = 'DRAFT'),
                   selectedColor: AppTheme.orange,
                   labelStyle: TextStyle(
-                    color: _selectedStatusFilter == 'DRAFT' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    color: _selectedStatusFilter == 'DRAFT' ? AppTheme.white : (AppTheme.textPrimaryOf(context)),
                     fontWeight: _selectedStatusFilter == 'DRAFT' ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
@@ -2546,10 +2551,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   SizedBox(
                     width: 280,
                     child: SearchableDropdownField<int?>(
-                      labelText: 'تصفية حسب ملف الشحنة',
+                      labelText: context.l10n.idocAFilterByImportFile,
                       value: _filterImportFileId,
                       items: [
-                        const SearchableDropdownItem<int?>(value: null, label: 'كافة الشحنات والملفات'),
+                        SearchableDropdownItem<int?>(value: null, label: context.l10n.idocAAllShipmentsAndFiles),
                         ...importFiles.map((f) => SearchableDropdownItem<int?>(
                               value: f.importFileId,
                               label: '${f.primaryNameWithCode} - ${f.supplierName}',
@@ -2570,9 +2575,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 final searchBar = Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                    color: AppTheme.surfaceAltOf(context),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    border: Border.all(color: AppTheme.borderOf(context)),
                   ),
                   child: Row(
                     children: [
@@ -2583,11 +2588,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           key: const Key('draftBlRegistrySearchInput'),
                           decoration: InputDecoration(
                             hintText: context.l10n.draftBlSearchRegistryHint,
-                            hintStyle: TextStyle(color: isDark ? Colors.grey.shade400 : null),
+                            hintStyle: TextStyle(color: isDark ? AppTheme.textMutedOf(context) : null),
                             border: InputBorder.none,
                             isDense: true,
                           ),
-                          style: TextStyle(color: isDark ? Colors.white : null),
+                          style: TextStyle(color: isDark ? AppTheme.white : null),
                           onChanged: (val) {
                             setState(() => _registrySearchQuery = val);
                           },
@@ -2603,39 +2608,27 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 );
 
                 final actionButtons = [
-                  OutlinedButton.icon(
+                  IdocUi.fit(AppButton(
                     key: const Key('draftBlRegistryCopyBtn'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(isAr ? 'نسخ TSV' : 'Copy TSV'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
+                    label: context.l10n.idocACopyTSV,
+                    icon: Icons.copy,
+                    variant: AppButtonVariant.secondary,
                     onPressed: () => _copyDraftBlRegistryAsTsv(filteredReviews),
-                  ),
-                  OutlinedButton.icon(
+                  )),
+                  IdocUi.fit(AppButton(
                     key: const Key('draftBlRegistryExcelBtn'),
-                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                    label: Text(isAr ? 'تصدير Excel' : 'Export Excel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green.shade700,
-                      side: const BorderSide(color: Colors.green),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
+                    label: context.l10n.exportExcel,
+                    icon: Icons.table_chart,
+                    variant: AppButtonVariant.secondary,
                     onPressed: () => _exportDraftBlRegistryToExcel(filteredReviews),
-                  ),
-                  OutlinedButton.icon(
+                  )),
+                  IdocUi.fit(AppButton(
                     key: const Key('draftBlRegistryPdfBtn'),
-                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                    label: Text(isAr ? 'تصدير PDF' : 'Export PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
+                    label: context.l10n.exportPdf,
+                    icon: Icons.picture_as_pdf,
+                    variant: AppButtonVariant.secondary,
                     onPressed: () => _exportDraftBlRegistryToPdf(filteredReviews),
-                  ),
+                  )),
                 ];
 
                 if (isMobile) {
@@ -2672,16 +2665,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   padding: const EdgeInsets.all(30),
                   child: Column(
                     children: [
-                      Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                      Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMutedOf(context)),
                       const SizedBox(height: 10),
                       Text(
                         _registrySearchQuery.isNotEmpty ? context.l10n.draftBlNoRegistriesFound : context.l10n.draftBlNoRegistriesYet,
-                        style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: AppTheme.textMutedOf(context), fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _registrySearchQuery.isNotEmpty ? context.l10n.draftBlTryDifferentSearch : context.l10n.draftBlExtractNewDraftHint,
-                        style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(color: isDark ? AppTheme.textMutedOf(context) : AppTheme.textSecondaryOf(context), fontSize: 12),
                       ),
                     ],
                   ),
@@ -2695,10 +2688,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     constraints: const BoxConstraints(minWidth: 950),
                     child: DataTable(
                       columnSpacing: 18,
-                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                       columns: [
                         DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        const DataColumn(label: Text('نوع الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.idocASessionType, style: TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -2721,7 +2714,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
                         final isDraft = r.isDraft;
                         final rowSummary = [
-                          isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                          isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
                           '#${r.blReviewId}',
                           blNumber,
                           r.shippingLine ?? '-',
@@ -2748,7 +2741,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   ),
                                 ),
                                 Tooltip(
-                                  message: 'استعادة وتحميل الجلسة في أداة الفحص',
+                                  message: context.l10n.idocARestoreAndLoadTheSessionInAlt,
                                   child: IconButton(
                                     icon: const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.cobalt),
                                     onPressed: () => _loadSessionIntoEditor(r),
@@ -2757,7 +2750,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   ),
                                 ),
                                 Tooltip(
-                                  message: 'عرض تفاصيل ومصفوفة الجلسة',
+                                  message: context.l10n.idocAViewSessionDetailsAndMatrix,
                                   child: IconButton(
                                     icon: const Icon(Icons.info_outline, size: 18, color: AppTheme.charcoal),
                                     onPressed: () => _showDraftBLSessionDetailsDialog(r),
@@ -2768,7 +2761,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 Tooltip(
                                   message: context.l10n.draftBlPrintBlTooltip,
                                   child: IconButton(
-                                    icon: Icon(Icons.print, size: 18, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal),
+                                    icon: Icon(Icons.print, size: 18, color: AppTheme.textPrimaryOf(context)),
                                     onPressed: () async {
                                       try {
                                         final sysData = r.systemDataSnapshot ?? {};
@@ -2781,7 +2774,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                       } catch (e) {
                                         if (mounted) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(context.l10n.draftBlPrintError(e.toString())), backgroundColor: Colors.red),
+                                            SnackBar(content: Text(context.l10n.draftBlPrintError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                                           );
                                         }
                                       }
@@ -2806,7 +2799,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                       } catch (e) {
                                         if (mounted) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
+                                            SnackBar(content: Text(context.l10n.draftBlPdfExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
                                           );
                                         }
                                       }
@@ -2817,7 +2810,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 ),
                                 if (isDraft)
                                   Tooltip(
-                                    message: 'حذف المسودة',
+                                    message: context.l10n.idocADeleteDraft,
                                     child: IconButton(
                                       icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.crimson),
                                       onPressed: () => _deleteDraftBLSession(r),
@@ -2829,34 +2822,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             ),
                           ),
                           DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isDraft ? AppTheme.orange.withOpacity(0.12) : AppTheme.emerald.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(isDraft ? Icons.edit_document : Icons.verified_rounded, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDraft ? AppTheme.orange : AppTheme.emerald,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            IdocStatusChip(
+                              label: isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
+                              severity: isDraft ? AppSeverity.warning : AppSeverity.success,
+                              icon: isDraft ? Icons.edit_document : Icons.verified_rounded,
                             ),
                           ),
                           DataCell(CopyableTableCell(
                             value: '#${r.blReviewId}',
                             rowSummary: rowSummary,
-                            child: Text('#${r.blReviewId}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
+                            child: Text('#${r.blReviewId}', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
                           )),
                           DataCell(
                             CopyableTableCell(
@@ -2867,9 +2842,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08),
+                                    color: AppTheme.cobalt.withValues(alpha: isDark ? 0.2 : 0.08),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -2912,16 +2887,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: isDark ? Colors.blueGrey.shade900 : Colors.blueGrey.shade50,
+                                color: isDark ? AppTheme.textPrimaryOf(context) : AppTheme.surfaceAltOf(context),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: isDark ? Colors.blueGrey.shade700 : Colors.blueGrey.shade200),
+                                border: Border.all(color: AppTheme.borderOf(context)),
                               ),
                               child: Text(
                                 r.stage,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.blueGrey.shade200 : Colors.blueGrey.shade800,
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                             ),
@@ -2932,7 +2907,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             child: Text(
                               importerApproval,
                               style: TextStyle(
-                                color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                color: r.importerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -2943,7 +2918,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             child: Text(
                               brokerApproval,
                               style: TextStyle(
-                                color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                color: r.brokerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -2955,13 +2930,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: r.status == 'Final Approved' || r.status == 'Approved'
-                                    ? (isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50)
-                                    : (isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50),
+                                    ? (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success).withValues(alpha: 0.3) : AppTheme.severityBackgroundOf(context, AppSeverity.success))
+                                    : (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.info).withValues(alpha: 0.3) : AppTheme.severityBackgroundOf(context, AppSeverity.info)),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
                                   color: r.status == 'Final Approved' || r.status == 'Approved'
-                                      ? (isDark ? Colors.green.shade600 : Colors.green.shade300)
-                                      : (isDark ? Colors.blue.shade600 : Colors.blue.shade300),
+                                      ? (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.emeraldBorder)
+                                      : (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.info) : AppTheme.cobaltBorder),
                                 ),
                               ),
                               child: Text(
@@ -2970,8 +2945,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                   color: r.status == 'Final Approved' || r.status == 'Approved'
-                                      ? (isDark ? Colors.greenAccent : Colors.green.shade900)
-                                      : (isDark ? Colors.lightBlueAccent : Colors.blue.shade900),
+                                      ? (isDark ? AppTheme.emerald : AppTheme.severityForegroundOf(context, AppSeverity.success))
+                                      : (isDark ? AppTheme.cobalt : AppTheme.severityForegroundOf(context, AppSeverity.info)),
                                 ),
                               ),
                             ),
@@ -2984,37 +2959,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _sessionKpiCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -3040,7 +2984,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       _activeStep = 0; // jump to Review Sheet
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تم استرجاع وتحميل بيانات الجلسة (${session.blReviewCode}) إلى أداة المراجعة بنجاح')),
+      SnackBar(content: Text(context.l10n.idocASessionRestoredReview(session.blReviewCode))),
     );
   }
 
@@ -3048,30 +2992,39 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.delete_forever, color: AppTheme.crimson),
             SizedBox(width: 8),
-            Text('تأكيد حذف مسودة الجلسة'),
+            Text(context.l10n.idocAConfirmDraftSessionDeletion),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف مسودة الجلسة (${session.blReviewCode})؟ لن يؤثر ذلك على بيانات الشحنة الأصلية.'),
+        content: Text(context.l10n.idocAAreYouSureYouWantToAlt(session.blReviewCode)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(ctx, false),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.idocAConfirmDeletion,
+            variant: AppButtonVariant.danger,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تأكيد الحذف'),
-          ),
+          )),
         ],
       ),
     );
     if (confirmed == true) {
-      await ref.read(draftBLReviewsProvider.notifier).deleteDraftBLReview(session.blReviewId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حذف مسودة الجلسة بنجاح'), backgroundColor: AppTheme.crimson),
-        );
+      try {
+        await ref.read(draftBLReviewsProvider.notifier).deleteDraftBLReview(session.blReviewId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.idocADraftSessionDeletedSuccessfully), backgroundColor: AppTheme.crimson),
+          );
+        }
+      } catch (e) {
+        // e.g. 409 when the review is FINAL.
+        if (mounted) showIdocError(context, e);
       }
     }
   }
@@ -3090,7 +3043,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -3105,13 +3058,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'تفاصيل الجلسة: ${session.blReviewCode}',
+                    context.l10n.idocASessionDetailsTitle(session.blReviewCode),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'رقم البوليصة: ${session.draftBlNumber}  |  تاريخ الإنشاء: ${session.createdAt}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    context.l10n.idocABlNumberCreated(session.draftBlNumber, session.createdAt),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -3119,12 +3072,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
               ),
               child: Text(
-                isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -3141,22 +3094,22 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
-                const Text('مصفوفة الفحص والمقارنة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
+                Text(context.l10n.idocAReviewAndComparisonMatrix, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                SizedBox(height: 8),
                 if (matrix.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('لا توجد بنود مصفوفة محفوظة')))
+                  Center(child: Padding(padding: EdgeInsets.all(20), child: Text(context.l10n.idocANoSavedMatrixItems)))
                 else
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      columns: const [
-                        DataColumn(label: Text('الحقل المعياري')),
-                        DataColumn(label: Text('القيمة المسجلة بالسيستم')),
-                        DataColumn(label: Text('القيمة بمسودة البوليصة')),
-                        DataColumn(label: Text('حالة التطابق')),
+                      headingTextStyle: TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.idocAStandardField)),
+                        DataColumn(label: Text(context.l10n.idocAValueRecordedInTheSystem)),
+                        DataColumn(label: Text(context.l10n.idocAValueInTheDraftBL)),
+                        DataColumn(label: Text(context.l10n.idocAMatchStatus)),
                       ],
                       rows: matrix.map((item) {
                         return DataRow(cells: [
@@ -3167,15 +3120,15 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: item.matchStatus == 'MATCH' ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12),
+                                color: item.matchStatus == 'MATCH' ? AppTheme.emerald.withValues(alpha: 0.12) : AppTheme.crimson.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                item.matchStatus == 'MATCH' ? 'متطابق' : 'فارق',
+                                item.matchStatus == 'MATCH' ? context.l10n.idocAMatched : context.l10n.idocAVariance,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: item.matchStatus == 'MATCH' ? Colors.green : Colors.red,
+                                  color: item.matchStatus == 'MATCH' ? AppTheme.emerald : AppTheme.crimson,
                                 ),
                               ),
                             ),
@@ -3189,20 +3142,20 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           ),
         ),
         actions: [
-          TextButton.icon(
+          IdocUi.fit(AppButton(
+            label: context.l10n.idocARestoreAndLoadInTheReview,
+            icon: Icons.play_circle_outline,
+            variant: AppButtonVariant.ghost,
             onPressed: () {
               Navigator.pop(ctx);
               _loadSessionIntoEditor(session);
             },
-            icon: const Icon(Icons.play_circle_outline, size: 16, color: AppTheme.emerald),
-            label: const Text('استعادة وتحميل في أداة المراجعة',
-                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+          )),
+          IdocUi.fit(AppButton(
+            label: context.l10n.close,
+            variant: AppButtonVariant.primary,
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('إغلاق'),
-          ),
+          )),
         ],
       ),
     );
@@ -3212,9 +3165,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -3226,7 +3179,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   Future<void> _exportDraftBlRegistryToExcel(List<dynamic> reviews) async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
       context.l10n.draftBlRegistryColBlNumber,
       context.l10n.draftBlRegistryColShippingLine,
@@ -3247,7 +3200,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
       final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
       return [
-        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.isDraft ? (context.l10n.idocADraft) : (context.l10n.idocACertified),
         '#${r.blReviewId}',
         blNumber,
         r.shippingLine ?? '-',
@@ -3263,7 +3216,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل بوالص الشحن المبدئية' : 'Draft B/L Registry',
+      stageName: context.l10n.idocADraftBLRegistry,
       importFileNameOrCode: 'Draft_BL_Registry',
     );
   }
@@ -3271,7 +3224,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   Future<void> _exportDraftBlRegistryToPdf(List<dynamic> reviews) async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
       context.l10n.draftBlRegistryColBlNumber,
       context.l10n.draftBlRegistryColShippingLine,
@@ -3292,7 +3245,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
       final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
       return [
-        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.isDraft ? (context.l10n.idocADraft) : (context.l10n.idocACertified),
         '#${r.blReviewId}',
         blNumber,
         r.shippingLine ?? '-',
@@ -3308,7 +3261,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل بوالص الشحن المبدئية' : 'Draft B/L Registry',
+      stageName: context.l10n.idocADraftBLRegistry,
       importFileNameOrCode: 'Draft_BL_Registry',
     );
   }
@@ -3316,7 +3269,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   void _copyDraftBlRegistryAsTsv(List<dynamic> reviews) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
       context.l10n.draftBlRegistryColBlNumber,
       context.l10n.draftBlRegistryColShippingLine,
@@ -3337,7 +3290,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
       final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
       return [
-        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.isDraft ? (context.l10n.idocADraft) : (context.l10n.idocACertified),
         '#${r.blReviewId}',
         blNumber,
         r.shippingLine ?? '-',

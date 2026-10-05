@@ -1,11 +1,15 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../widgets/idoc_ui_b.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -327,7 +331,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   }
 
   void _onCloneAcidSelected(AcidRegistrationModel session) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AppLocalizationsProvider(
@@ -335,38 +339,23 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: isAr ? 'طلب تسجيل مسبق للشحنات (ACID)' : 'Advance Cargo Information (ACID)',
+            entityType: l.idocBAcidCloneEntity,
             sourceCode: session.acidNumber.isNotEmpty ? session.acidNumber : session.acidCode,
             sourceTitle: session.importerName,
             suggestedNewCode: 'ACID-EG-2026-DRAFT',
-            copiedFieldsSummary: isAr
-                ? {
-                    'المستورد': session.importerName,
-                    'المصدر الأجنبي': session.exporterName,
-                    'بلد التصدير': session.exporterCountry,
-                    'رقم الفاتورة المبدئية': session.proformaInvoiceNo,
-                    'الموانئ': '${session.polName} → ${session.podName}',
-                  }
-                : {
-                    'Importer': session.importerName,
-                    'Foreign Exporter': session.exporterName,
-                    'Export Country': session.exporterCountry,
-                    'Proforma Invoice No': session.proformaInvoiceNo,
-                    'Ports': '${session.polName} → ${session.podName}',
-                  },
-            mandatorilyResetFields: isAr
-                ? const [
-                    'رقم ACID: يتم تصفيره إلى مسودة جديدة (Draft)',
-                    'حالة الإفراج الجمركي: ملغاة (False)',
-                    'تاريخ الطلب: يعاد ضبطه إلى تاريخ اليوم',
-                    'معرف الجلسة السابق: تم فك الارتباط',
-                  ]
-                : const [
-                    'ACID Number: Reset to new Draft',
-                    'Customs Release Status: Reset to False',
-                    'Request Date: Reset to today\'s date',
-                    'Previous Session ID: Unlinked',
-                  ],
+            copiedFieldsSummary: {
+              l.idocBAcidCloneFieldImporter: session.importerName,
+              l.idocBAcidCloneFieldExporter: session.exporterName,
+              l.idocBAcidCloneFieldCountry: session.exporterCountry,
+              l.idocBAcidCloneFieldProforma: session.proformaInvoiceNo,
+              l.idocBAcidCloneFieldPorts: '${session.polName} → ${session.podName}',
+            },
+            mandatorilyResetFields: [
+              l.idocBAcidCloneReset1,
+              l.idocBAcidCloneReset2,
+              l.idocBAcidCloneReset3,
+              l.idocBAcidCloneReset4,
+            ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -435,7 +424,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             onSelectSession: (session) {
               final acidNum = session.acidNumber.isNotEmpty && session.acidNumber != 'PENDING'
                   ? session.acidNumber
-                  : '5281534391023010013';
+                  : '';
 
               final rawReconstructed = '''MTS Notification
 Dear ${session.exporterName},
@@ -508,13 +497,13 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _comparisonResult!.allMatched ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+                  color: _comparisonResult!.allMatched ? AppTheme.emerald.withValues(alpha: 0.2) : AppTheme.crimson.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   _comparisonResult!.allMatched ? context.l10n.matchedStatus : context.l10n.discrepancyStatus,
                   style: TextStyle(
-                    color: _comparisonResult!.allMatched ? Colors.green : Colors.red,
+                    color: _comparisonResult!.allMatched ? AppTheme.emerald : AppTheme.crimson,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -530,7 +519,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
+                  color: AppTheme.cobalt.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -548,7 +537,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.orange.withOpacity(0.2),
+                  color: AppTheme.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -579,20 +568,10 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
-        OutlinedButton.icon(
-          key: const Key('searchAndCloneAcidBtn'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white60),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          onPressed: _openSearchAndCloneDialog,
-          icon: const Icon(Icons.copy_all, size: 16),
-          label: Text(context.l10n.searchAndCloneAcidBtn, style: const TextStyle(fontSize: 12)),
-        ),
+        IdocBUi.fit(AppButton(key: const Key('searchAndCloneAcidBtn'), label: context.l10n.searchAndCloneAcidBtn, onPressed: _openSearchAndCloneDialog, variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.copy_all)),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: const Icon(Icons.refresh, color: AppTheme.cloudWhite),
           tooltip: context.l10n.refresh,
           onPressed: _refreshData,
         ),
@@ -662,9 +641,9 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1A2634) : Colors.blue.shade50,
+                  color: isDark ? AppTheme.cobaltLight : AppTheme.infoBackground,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.wcagCobalt.withOpacity(0.5) : Colors.blue.shade200),
+                  border: Border.all(color: isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.5) : AppTheme.cobaltBorder),
                 ),
                 child: Row(
                   children: [
@@ -674,7 +653,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       child: Text(
                         context.l10n.acidInfoBanner,
                         style: TextStyle(
-                          color: isDark ? const Color(0xFF93C5FD) : Colors.blue.shade900,
+                          color: isDark ? AppTheme.darkHyperlink : AppTheme.infoForeground,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -690,13 +669,13 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2411) : Colors.amber.shade50,
+                    color: isDark ? AppTheme.orangeLight : AppTheme.warningBackground,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.wcagOrange : Colors.amber.shade400, width: 1.5),
+                    border: Border.all(color: isDark ? AppTheme.wcagOrange : AppTheme.orange, width: 1.5),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.edit_note, color: Colors.orange, size: 26),
+                      const Icon(Icons.edit_note, color: AppTheme.orange, size: 26),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -706,7 +685,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                               '${context.l10n.activeEditModeBanner}: ${_editingAcidCode ?? ''}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFFFDE68A) : Colors.orange.shade900,
+                                color: isDark ? AppTheme.orange : AppTheme.warningForeground,
                                 fontSize: 13.5,
                               ),
                             ),
@@ -715,26 +694,18 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                               context.l10n.acidSessionLoadedForEdit(_editingAcidCode ?? ''),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.black87,
+                                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textPrimary,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFFFDE68A) : Colors.orange.shade900,
-                          side: BorderSide(color: isDark ? AppTheme.wcagOrange : Colors.orange.shade400),
-                        ),
-                        onPressed: () {
+                      IdocBUi.fit(AppButton(label: context.l10n.cancelEdit, onPressed: () {
                           setState(() {
                             _editingAcidSessionId = null;
                             _editingAcidCode = null;
                           });
-                        },
-                        icon: const Icon(Icons.close, size: 16),
-                        label: Text(context.l10n.cancelEdit),
-                      ),
+                        }, variant: AppButtonVariant.secondary, icon: Icons.close)),
                     ],
                   ),
                 ),
@@ -743,11 +714,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               // File Selector Card
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: SearchableDropdownField<int>(
                   labelText: context.l10n.selectImportFileAcidLabel,
                   hintText: context.l10n.searchFileOrSupplierHint,
@@ -765,11 +732,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               // Importer & Exporter Card
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -808,11 +771,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               // Invoice, Ports & Broker Card
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1031,46 +990,11 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        ElevatedButton.icon(
-                          key: const Key('saveAcidRequestSubmitBtn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.wcagCobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: _isSaving ? null : _saveAcidRequest,
-                          icon: _isSaving
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.save),
-                          label: Text(
-                            _isSaving
+                        IdocBUi.fit(AppButton(key: const Key('saveAcidRequestSubmitBtn'), label: _isSaving
                                 ? context.l10n.loading
-                                : (_editingAcidSessionId != null ? context.l10n.updateAcidRequestButton : context.l10n.saveAcidRequestButton),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                          ),
-                          onPressed: () => setState(() => _selectedSubTab = 1),
-                          icon: const Icon(Icons.smart_toy_outlined),
-                          label: Text(context.l10n.goToSmartParserButton),
-                        ),
-                        OutlinedButton.icon(
-                          key: const Key('subtab0SearchAndCloneBtn'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                          ),
-                          onPressed: _openSearchAndCloneDialog,
-                          icon: const Icon(Icons.copy_all, size: 18),
-                          label: Text(context.l10n.searchAndCloneAcidBtn),
-                        ),
+                                : (_editingAcidSessionId != null ? context.l10n.updateAcidRequestButton : context.l10n.saveAcidRequestButton), onPressed: _isSaving ? null : _saveAcidRequest, icon: Icons.save, isLoading: _isSaving)),
+                        IdocBUi.fit(AppButton(label: context.l10n.goToSmartParserButton, onPressed: () => setState(() => _selectedSubTab = 1), variant: AppButtonVariant.secondary, icon: Icons.smart_toy_outlined)),
+                        IdocBUi.fit(AppButton(key: const Key('subtab0SearchAndCloneBtn'), label: context.l10n.searchAndCloneAcidBtn, onPressed: _openSearchAndCloneDialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all)),
                       ],
                     ),
                   ],
@@ -1082,16 +1006,16 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1B2E24) : const Color(0xFFF0FDF4),
+                  color: isDark ? AppTheme.emeraldLight : AppTheme.successBackground,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.wcagEmerald.withOpacity(0.5) : Colors.green.shade300, width: 1.5),
+                  border: Border.all(color: isDark ? AppTheme.wcagEmerald.withValues(alpha: 0.5) : AppTheme.emeraldBorder, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.mark_email_read_outlined, color: isDark ? AppTheme.wcagEmerald : Colors.green, size: 24),
+                        Icon(Icons.mark_email_read_outlined, color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald, size: 24),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -1102,7 +1026,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                                  color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -1110,7 +1034,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                 context.l10n.brokerDispatchMessageSub,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? AppTheme.darkTextSecondary : Colors.black87,
+                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textPrimary,
                                 ),
                               ),
                             ],
@@ -1123,42 +1047,15 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF25D366),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          onPressed: () {
+                        IdocBUi.fit(AppButton(label: context.l10n.copyArabicWhatsApp, onPressed: () {
                             CopyHelper.copy(context, _buildWhatsAppMessage(), customMessage: context.l10n.whatsAppMessageCopied);
-                          },
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: Text(context.l10n.copyArabicWhatsApp, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.wcagCobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          onPressed: () {
+                          }, variant: AppButtonVariant.success, icon: Icons.copy)),
+                        IdocBUi.fit(AppButton(label: context.l10n.copyEnglishRequest, onPressed: () {
                             CopyHelper.copy(context, _buildEnglishRequestMessage(), customMessage: context.l10n.acidRequestCopied);
-                          },
-                          icon: const Icon(Icons.language, size: 16),
-                          label: Text(context.l10n.copyEnglishRequest, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          onPressed: () {
+                          }, icon: Icons.language)),
+                        IdocBUi.fit(AppButton(label: context.l10n.emailTemplateButton, onPressed: () {
                             CopyHelper.copy(context, _buildEmailMessage(), customMessage: context.l10n.emailTemplateCopied);
-                          },
-                          icon: const Icon(Icons.email_outlined, size: 16),
-                          label: Text(context.l10n.emailTemplateButton),
-                        ),
+                          }, variant: AppButtonVariant.secondary, icon: Icons.email_outlined)),
                       ],
                     ),
                     const Divider(height: 24),
@@ -1166,9 +1063,9 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : Colors.white,
+                        color: isDark ? AppTheme.darkSurface : AppTheme.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.green.shade200),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.emeraldBorder),
                       ),
                       child: SelectableText(
                         Localizations.localeOf(context).languageCode == 'en' ? _buildEnglishRequestMessage() : _buildWhatsAppMessage(),
@@ -1343,19 +1240,19 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               padding: const EdgeInsets.all(14),
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0D2825) : Colors.teal.shade50,
+                color: isDark ? AppTheme.emeraldLight : AppTheme.infoBackground,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? AppTheme.wcagEmerald.withOpacity(0.4) : Colors.teal.shade200),
+                border: Border.all(color: isDark ? AppTheme.wcagEmerald.withValues(alpha: 0.4) : AppTheme.cobaltBorder),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: isDark ? AppTheme.wcagEmerald : Colors.teal, size: 24),
+                  Icon(Icons.auto_awesome, color: isDark ? AppTheme.wcagEmerald : AppTheme.cobalt, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       context.l10n.smartParserInfoBanner,
                       style: TextStyle(
-                        color: isDark ? const Color(0xFFA7F3D0) : Colors.teal.shade900,
+                        color: isDark ? AppTheme.emerald : AppTheme.infoForeground,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -1368,11 +1265,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             // File Selector
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-              ),
+              decoration: AppTheme.cardDecorationOf(context),
               child: SearchableDropdownField<int>(
                 labelText: context.l10n.linkImportFileResult,
                 hintText: context.l10n.searchFileOrSupplierHint,
@@ -1389,11 +1282,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             // Raw Text Input Box
             Container(
               padding: EdgeInsets.all(isMobile ? 14 : 20),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-              ),
+              decoration: AppTheme.cardDecorationOf(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1410,36 +1299,15 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        ),
-                        onPressed: _loadSampleMtsText,
-                        icon: const Icon(Icons.auto_fix_high, size: 16),
-                        label: Text(context.l10n.loadSampleMtsTextButton),
-                      ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
-                          side: BorderSide(color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        ),
-                        onPressed: _openImportRawTextFromPreviousDialog,
-                        icon: const Icon(Icons.history_edu, size: 16),
-                        label: Text(context.l10n.importFromPreviousAcidSessionBtn),
-                      ),
-                      TextButton.icon(
-                        onPressed: () async {
+                      if (kDebugMode)
+                      IdocBUi.fit(AppButton(label: context.l10n.loadSampleMtsTextButton, onPressed: _loadSampleMtsText, variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.auto_fix_high)),
+                      IdocBUi.fit(AppButton(label: context.l10n.importFromPreviousAcidSessionBtn, onPressed: _openImportRawTextFromPreviousDialog, variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.history_edu)),
+                      IdocBUi.fit(AppButton(label: context.l10n.pasteFromClipboardButton, onPressed: () async {
                           final data = await Clipboard.getData('text/plain');
                           if (data?.text != null) {
                             _rawMtsTextCtrl.text = data!.text!;
                           }
-                        },
-                        icon: const Icon(Icons.paste, size: 16),
-                        label: Text(context.l10n.pasteFromClipboardButton),
-                      ),
+                        }, variant: AppButtonVariant.secondary, icon: Icons.paste)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -1455,7 +1323,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       hintText: context.l10n.mtsNotificationHint,
                       border: const OutlineInputBorder(),
                       filled: true,
-                      fillColor: isDark ? AppTheme.darkSurface : const Color(0xFFFAFAFA),
+                      fillColor: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1463,26 +1331,11 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? AppTheme.wcagEmerald : Colors.teal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        ),
-                        onPressed: _isParsingMts ? null : _parseMtsText,
-                        icon: _isParsingMts
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.bolt),
-                        label: Text(_isParsingMts ? context.l10n.loading : context.l10n.runSmartParserButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => setState(() {
+                      IdocBUi.fit(AppButton(label: _isParsingMts ? context.l10n.loading : context.l10n.runSmartParserButton, onPressed: _isParsingMts ? null : _parseMtsText, icon: Icons.bolt, isLoading: _isParsingMts)),
+                      IdocBUi.fit(AppButton(label: context.l10n.clearTextButton, onPressed: () => setState(() {
                           _rawMtsTextCtrl.clear();
                           _parsedMtsData = null;
-                        }),
-                        icon: const Icon(Icons.clear_all),
-                        label: Text(context.l10n.clearTextButton),
-                      ),
+                        }), variant: AppButtonVariant.secondary, icon: Icons.clear_all)),
                     ],
                   ),
                 ],
@@ -1494,11 +1347,11 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               Container(
                 padding: EdgeInsets.all(isMobile ? 14 : 20),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  color: isDark ? AppTheme.darkCardBackground : AppTheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                        ? (isDark ? AppTheme.wcagEmerald : Colors.teal.shade300)
+                        ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobaltBorder)
                         : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
                     width: 1.5,
                   ),
@@ -1512,7 +1365,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           Icon(
                             (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
                             color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                                ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
                                 : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
                             size: 22,
                           ),
@@ -1526,7 +1379,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                                    ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                    ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
                                     : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
                               ),
                             ),
@@ -1534,27 +1387,19 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                         ],
                       ),
                       const SizedBox(height: 10),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () {
+                      IdocBUi.fit(AppButton(label: context.l10n.goToVerificationButton, onPressed: () {
                           setState(() => _selectedSubTab = 2);
                           if (_selectedImportFileId != null) {
                             _runComparison();
                           }
-                        },
-                        icon: const Icon(Icons.compare_arrows, size: 16),
-                        label: Text(context.l10n.goToVerificationButton),
-                      ),
+                        }, icon: Icons.compare_arrows)),
                     ] else ...[
                       Row(
                         children: [
                           Icon(
                             (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
                             color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                                ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
                                 : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
                             size: 22,
                           ),
@@ -1568,26 +1413,18 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                                    ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                    ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
                                     : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: () {
+                          IdocBUi.fit(AppButton(label: context.l10n.goToVerificationButton, onPressed: () {
                               setState(() => _selectedSubTab = 2);
                               if (_selectedImportFileId != null) {
                                 _runComparison();
                               }
-                            },
-                            icon: const Icon(Icons.compare_arrows, size: 16),
-                            label: Text(context.l10n.goToVerificationButton),
-                          ),
+                            }, icon: Icons.compare_arrows)),
                         ],
                       ),
                     ],
@@ -1617,50 +1454,10 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false),
-                          icon: const Icon(Icons.save_as, size: 18),
-                          label: Text(context.l10n.saveAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade800,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: Text(context.l10n.saveTempDraftButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
-                          ),
-                          onPressed: _showEditMtsDataDialog,
-                          icon: const Icon(Icons.edit, size: 18),
-                          label: Text(context.l10n.editExtractedDataButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF4338CA) : Colors.indigo,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: _codeSupplierFromMts,
-                          icon: const Icon(Icons.business_outlined, size: 18),
-                          label: Text(context.l10n.codeSupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
+                        IdocBUi.fit(AppButton(label: context.l10n.saveAndCertifyAcidButton, onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false), variant: AppButtonVariant.success, icon: Icons.save_as)),
+                        IdocBUi.fit(AppButton(label: context.l10n.saveTempDraftButton, onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true), icon: Icons.save_outlined)),
+                        IdocBUi.fit(AppButton(label: context.l10n.editExtractedDataButton, onPressed: _showEditMtsDataDialog, variant: AppButtonVariant.secondary, icon: Icons.edit)),
+                        IdocBUi.fit(AppButton(label: context.l10n.codeSupplierButton, onPressed: _codeSupplierFromMts, icon: Icons.business_outlined)),
                       ],
                     ),
                   ],
@@ -1678,9 +1475,9 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+        color: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1689,7 +1486,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             label,
             style: TextStyle(
               fontSize: 11,
-              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1722,11 +1519,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             // File Selector & Compare Trigger
             Container(
               padding: EdgeInsets.all(isMobile ? 14 : 16),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-              ),
+              decoration: AppTheme.cardDecorationOf(context),
               child: isMobile
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1747,18 +1540,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           },
                         ),
                         const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          ),
-                          onPressed: _isComparing ? null : _runComparison,
-                          icon: _isComparing
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.compare_arrows),
-                          label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
+                        IdocBUi.fit(AppButton(label: context.l10n.runDiscrepancyMatrixButton, onPressed: _isComparing ? null : _runComparison, icon: Icons.compare_arrows, isLoading: _isComparing)),
                       ],
                     )
                   : Row(
@@ -1781,18 +1563,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           ),
                         ),
                         const SizedBox(width: 14),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          ),
-                          onPressed: _isComparing ? null : _runComparison,
-                          icon: _isComparing
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.compare_arrows),
-                          label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
+                        IdocBUi.fit(AppButton(label: context.l10n.runDiscrepancyMatrixButton, onPressed: _isComparing ? null : _runComparison, icon: Icons.compare_arrows, isLoading: _isComparing)),
                       ],
                     ),
             ),
@@ -1802,21 +1573,17 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   children: [
-                    Icon(Icons.rule_folder_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    Icon(Icons.rule_folder_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : AppTheme.borderStrong),
                     const SizedBox(height: 12),
                     Text(
                       context.l10n.emptyComparisonHint,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                         height: 1.5,
                       ),
                     ),
@@ -1829,11 +1596,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               // Discrepancy Matrix Table
               Container(
                 padding: EdgeInsets.all(isMobile ? 14 : 20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1843,8 +1606,8 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           Icon(
                             _comparisonResult!.allMatched ? Icons.check_circle : Icons.warning_amber_rounded,
                             color: _comparisonResult!.allMatched
-                                ? (isDark ? AppTheme.wcagEmerald : Colors.green)
-                                : (isDark ? AppTheme.wcagOrange : Colors.red),
+                                ? (isDark ? AppTheme.wcagEmerald : AppTheme.emerald)
+                                : (isDark ? AppTheme.wcagOrange : AppTheme.crimson),
                             size: 26,
                           ),
                           const SizedBox(width: 10),
@@ -1860,13 +1623,13 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     color: _comparisonResult!.allMatched
-                                        ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
-                                        : (isDark ? const Color(0xFFEF4444) : Colors.red.shade800),
+                                        ? (isDark ? AppTheme.wcagEmerald : AppTheme.successForeground)
+                                        : (AppTheme.crimson),
                                   ),
                                 ),
                                 Text(
                                   '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
-                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                                 ),
                               ],
                             ),
@@ -1874,24 +1637,15 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                         ],
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        ),
-                        onPressed: _copyDiscrepancyReportToClipboard,
-                        icon: const Icon(Icons.copy, size: 16),
-                        label: Text(context.l10n.copyDiscrepancyReportBtn),
-                      ),
+                      IdocBUi.fit(AppButton(label: context.l10n.copyDiscrepancyReportBtn, onPressed: _copyDiscrepancyReportToClipboard, variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.copy)),
                     ] else ...[
                       Row(
                         children: [
                           Icon(
                             _comparisonResult!.allMatched ? Icons.check_circle : Icons.warning_amber_rounded,
                             color: _comparisonResult!.allMatched
-                                ? (isDark ? AppTheme.wcagEmerald : Colors.green)
-                                : (isDark ? AppTheme.wcagOrange : Colors.red),
+                                ? (isDark ? AppTheme.wcagEmerald : AppTheme.emerald)
+                                : (isDark ? AppTheme.wcagOrange : AppTheme.crimson),
                             size: 26,
                           ),
                           const SizedBox(width: 10),
@@ -1907,28 +1661,19 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     color: _comparisonResult!.allMatched
-                                        ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
-                                        : (isDark ? const Color(0xFFEF4444) : Colors.red.shade800),
+                                        ? (isDark ? AppTheme.wcagEmerald : AppTheme.successForeground)
+                                        : (AppTheme.crimson),
                                   ),
                                 ),
                                 Text(
                                   '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
-                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 12),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
-                              side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            ),
-                            onPressed: _copyDiscrepancyReportToClipboard,
-                            icon: const Icon(Icons.copy, size: 16),
-                            label: Text(context.l10n.copyDiscrepancyReportBtn),
-                          ),
+                          IdocBUi.fit(AppButton(label: context.l10n.copyDiscrepancyReportBtn, onPressed: _copyDiscrepancyReportToClipboard, variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.copy)),
                         ],
                       ),
                     ],
@@ -1942,7 +1687,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                         ),
                         child: Table(
                           border: TableBorder.all(
-                            color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                            color: isDark ? AppTheme.darkBorder : AppTheme.border,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           columnWidths: const {
@@ -1953,7 +1698,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           },
                           children: [
                             TableRow(
-                              decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                              decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(10),
@@ -2001,8 +1746,8 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                               return TableRow(
                                 decoration: BoxDecoration(
                                   color: item.isMatched
-                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
-                                      : (isDark ? const Color(0xFF3B1E1E) : Colors.red.shade50.withOpacity(0.5)),
+                                      ? (isDark ? AppTheme.darkCardBackground : AppTheme.surface)
+                                      : (isDark ? AppTheme.crimsonLight : AppTheme.dangerBackground.withValues(alpha: 0.5)),
                                 ),
                                 children: [
                                   Padding(
@@ -2044,8 +1789,8 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                           item.isMatched ? Icons.check_circle : Icons.cancel,
                                           size: 16,
                                           color: item.isMatched
-                                              ? (isDark ? AppTheme.wcagEmerald : Colors.green)
-                                              : (isDark ? const Color(0xFFEF4444) : Colors.red),
+                                              ? (isDark ? AppTheme.wcagEmerald : AppTheme.emerald)
+                                              : (AppTheme.crimson),
                                         ),
                                         const SizedBox(width: 4),
                                         Expanded(
@@ -2055,8 +1800,8 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                               color: item.isMatched
-                                                  ? (isDark ? AppTheme.wcagEmerald : Colors.green)
-                                                  : (isDark ? const Color(0xFFEF4444) : Colors.red),
+                                                  ? (isDark ? AppTheme.wcagEmerald : AppTheme.emerald)
+                                                  : (AppTheme.crimson),
                                             ),
                                           ),
                                         ),
@@ -2079,7 +1824,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
-                          color: isDark ? const Color(0xFFF87171) : Colors.red,
+                          color: AppTheme.crimson,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -2090,26 +1835,13 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                           hintText: context.l10n.discrepancyOverrideReasonHint,
                           border: const OutlineInputBorder(),
                           filled: true,
-                          fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                          fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                         ),
                       ),
                       const SizedBox(height: 16),
                     ],
 
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _comparisonResult!.allMatched
-                            ? (isDark ? AppTheme.wcagEmerald : Colors.green)
-                            : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                      ),
-                      onPressed: _isSaving ? null : _saveVerifiedAcid,
-                      icon: _isSaving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.verified),
-                      label: Text(_isSaving ? context.l10n.loading : context.l10n.verifyAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
+                    IdocBUi.fit(AppButton(label: _isSaving ? context.l10n.loading : context.l10n.verifyAndCertifyAcidButton, onPressed: _isSaving ? null : _saveVerifiedAcid, variant: AppButtonVariant.success, icon: Icons.verified, isLoading: _isSaving)),
                   ],
                 ),
               ),
@@ -2148,11 +1880,11 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     decoration: InputDecoration(
                       hintText: context.l10n.searchAcidRegistryHint,
-                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       filled: true,
-                      fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                      fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                       contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                     ),
                     onChanged: (val) => setState(() => _acidSearchQuery = val),
@@ -2162,48 +1894,10 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ElevatedButton.icon(
-                        key: const Key('acidRegistryNewRequestBtn'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => setState(() => _selectedSubTab = 0),
-                        icon: const Icon(Icons.add),
-                        label: Text(context.l10n.newAcidRequestButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('acidRegistryCopyBtn'),
-                        icon: const Icon(Icons.copy, size: 16),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                        ),
-                        onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('acidRegistryExcelBtn'),
-                        icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade700,
-                          side: const BorderSide(color: Colors.green),
-                        ),
-                        onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('acidRegistryPdfBtn'),
-                        icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles),
-                      ),
+                      IdocBUi.fit(AppButton(key: const Key('acidRegistryNewRequestBtn'), label: context.l10n.newAcidRequestButton, onPressed: () => setState(() => _selectedSubTab = 0), icon: Icons.add)),
+                      IdocBUi.fit(AppButton(key: const Key('acidRegistryCopyBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table', onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
+                      IdocBUi.fit(AppButton(key: const Key('acidRegistryExcelBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel', onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
+                      IdocBUi.fit(AppButton(key: const Key('acidRegistryPdfBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF', onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                     ],
                   ),
                 ],
@@ -2217,65 +1911,24 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       decoration: InputDecoration(
                         hintText: context.l10n.searchAcidRegistryHint,
-                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         filled: true,
-                        fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                       ),
                       onChanged: (val) => setState(() => _acidSearchQuery = val),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidRegistryCopyBtn'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidRegistryCopyBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table', onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidRegistryExcelBtn'),
-                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green.shade700,
-                      side: const BorderSide(color: Colors.green),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidRegistryExcelBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel', onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidRegistryPdfBtn'),
-                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidRegistryPdfBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF', onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                   const SizedBox(width: 14),
-                  ElevatedButton.icon(
-                    key: const Key('acidRegistryNewRequestBtn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () => setState(() => _selectedSubTab = 0),
-                    icon: const Icon(Icons.add),
-                    label: Text(context.l10n.newAcidRequestButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidRegistryNewRequestBtn'), label: context.l10n.newAcidRequestButton, onPressed: () => setState(() => _selectedSubTab = 0), icon: Icons.add)),
                 ],
               ),
             ],
@@ -2285,21 +1938,17 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   children: [
-                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : AppTheme.borderStrong),
                     const SizedBox(height: 12),
                     Text(
                       context.l10n.noAcidsFound,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                       ),
                     ),
                   ],
@@ -2308,11 +1957,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             ] else ...[
               Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: SelectionArea(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -2321,7 +1966,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       minWidth: constraints.maxWidth < 750 ? 750 : constraints.maxWidth - (isMobile ? 28 : 40),
                     ),
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
                       columns: [
                         DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                         DataColumn(label: Text(context.l10n.acidNumberCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
@@ -2412,7 +2057,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                     if (poLabel.isNotEmpty && poLabel != '-')
                                       Text(
                                         '${context.l10n.poLabelPrefix}: $poLabel',
-                                        style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                        style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                                       ),
                                   ],
                                 ),
@@ -2466,17 +2111,17 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: isIssued
-                                        ? (isDark ? const Color(0xFF1B2E24) : Colors.green.shade50)
+                                        ? (isDark ? AppTheme.emeraldLight : AppTheme.successBackground)
                                         : (isDraft
-                                            ? (isDark ? const Color(0xFF332014) : Colors.amber.shade50)
-                                            : (isDark ? const Color(0xFF1E293B) : Colors.blue.shade50)),
+                                            ? (isDark ? AppTheme.orangeLight : AppTheme.warningBackground)
+                                            : (isDark ? AppTheme.darkCardBackground : AppTheme.infoBackground)),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
                                       color: isIssued
-                                          ? (isDark ? AppTheme.wcagEmerald.withOpacity(0.5) : Colors.green.shade300)
+                                          ? (isDark ? AppTheme.wcagEmerald.withValues(alpha: 0.5) : AppTheme.emeraldBorder)
                                           : (isDraft
-                                              ? (isDark ? AppTheme.wcagOrange.withOpacity(0.5) : Colors.amber.shade300)
-                                              : (isDark ? AppTheme.wcagCobalt.withOpacity(0.5) : Colors.blue.shade300)),
+                                              ? (isDark ? AppTheme.wcagOrange.withValues(alpha: 0.5) : AppTheme.orange)
+                                              : (isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.5) : AppTheme.cobaltBorder)),
                                     ),
                                   ),
                                   child: Text(
@@ -2485,10 +2130,10 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: isIssued
-                                          ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
+                                          ? (isDark ? AppTheme.wcagEmerald : AppTheme.successForeground)
                                           : (isDraft
-                                              ? (isDark ? AppTheme.wcagOrange : Colors.amber.shade900)
-                                              : (isDark ? AppTheme.wcagCobalt : Colors.blue.shade800)),
+                                              ? (isDark ? AppTheme.wcagOrange : AppTheme.warningForeground)
+                                              : (isDark ? AppTheme.wcagCobalt : AppTheme.infoForeground)),
                                     ),
                                   ),
                                 ),
@@ -2544,7 +2189,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                   _buildTrackerCard(
                     title: context.l10n.validAcidsCard,
                     count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
-                    color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                    color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
                     icon: Icons.check_circle_outline,
                   ),
                 ],
@@ -2580,7 +2225,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                   _buildTrackerCard(
                     title: context.l10n.validAcidsCard,
                     count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
-                    color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                    color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
                     icon: Icons.check_circle_outline,
                   ),
                   const SizedBox(width: 14),
@@ -2612,11 +2257,11 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     decoration: InputDecoration(
                       hintText: context.l10n.searchExpiryTrackerHint,
-                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       filled: true,
-                      fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                      fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                       contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                     ),
                     onChanged: (val) => setState(() => _acidSearchQuery = val),
@@ -2626,36 +2271,9 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      OutlinedButton.icon(
-                        key: const Key('acidExpiryCopyBtn'),
-                        icon: const Icon(Icons.copy, size: 16),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                        ),
-                        onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('acidExpiryExcelBtn'),
-                        icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade700,
-                          side: const BorderSide(color: Colors.green),
-                        ),
-                        onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('acidExpiryPdfBtn'),
-                        icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles),
-                      ),
+                      IdocBUi.fit(AppButton(key: const Key('acidExpiryCopyBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table', onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
+                      IdocBUi.fit(AppButton(key: const Key('acidExpiryExcelBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel', onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
+                      IdocBUi.fit(AppButton(key: const Key('acidExpiryPdfBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF', onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                     ],
                   ),
                 ],
@@ -2669,52 +2287,22 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       decoration: InputDecoration(
                         hintText: context.l10n.searchExpiryTrackerHint,
-                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         filled: true,
-                        fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        fillColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                       ),
                       onChanged: (val) => setState(() => _acidSearchQuery = val),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidExpiryCopyBtn'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
-                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidExpiryCopyBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table', onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.copy)),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidExpiryExcelBtn'),
-                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green.shade700,
-                      side: const BorderSide(color: Colors.green),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidExpiryExcelBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel', onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('acidExpiryPdfBtn'),
-                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    ),
-                    onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles),
-                  ),
+                  IdocBUi.fit(AppButton(key: const Key('acidExpiryPdfBtn'), label: Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF', onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                 ],
               ),
             ],
@@ -2725,21 +2313,17 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: Column(
                   children: [
-                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : AppTheme.borderStrong),
                     const SizedBox(height: 12),
                     Text(
                       context.l10n.noAcidsFound,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                       ),
                     ),
                   ],
@@ -2748,11 +2332,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
             ] else ...[
               Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: SelectionArea(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -2761,7 +2341,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                       minWidth: constraints.maxWidth < 750 ? 750 : constraints.maxWidth - (isMobile ? 28 : 40),
                     ),
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
                       columns: [
                         DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                         DataColumn(label: Text(context.l10n.acidNumberCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
@@ -2819,7 +2399,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                   children: [
                                     Text(fileLabel, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                     if (poLabel.isNotEmpty)
-                                      Text('${context.l10n.poLabelPrefix}: $poLabel', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                                      Text('${context.l10n.poLabelPrefix}: $poLabel', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -2847,10 +2427,10 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: isExp
-                                        ? (isDark ? const Color(0xFFF87171) : Colors.red)
+                                        ? (AppTheme.crimson)
                                         : isWarning
-                                            ? (isDark ? AppTheme.wcagOrange : Colors.orange)
-                                            : (isDark ? AppTheme.wcagEmerald : Colors.green),
+                                            ? (isDark ? AppTheme.wcagOrange : AppTheme.orange)
+                                            : (isDark ? AppTheme.wcagEmerald : AppTheme.emerald),
                                   ),
                                 ),
                               ),
@@ -2927,16 +2507,16 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : color.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 20),
@@ -2951,7 +2531,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     title,
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 1,
@@ -3052,43 +2632,32 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
     }
   }
 
+  /// Debug-only demo helper (Q6): neutral placeholder data, never real parties.
   void _loadSampleMtsText() {
+    if (!kDebugMode) return;
     setState(() {
       _rawMtsTextCtrl.text = '''MTS Notification
-Dear Suzhou Yuheng Textile Co.,Ltd,
+Dear Sample Exporter Co.,Ltd,
 
 Kindly be informed that an Advance Cargo Information request (ACI) has been approved for shipping:
-[ACID: 5281534391023010013]
-Requested: 19-Aug-2026 11:26:47 AM   Generated: 19-Aug-2026 11:26:54 AM   Expires: 19-Feb-2027 11:26:54 AM 
+[ACID: 0000000000000000000]
+Requested: 01-Jan-2026 10:00:00 AM   Generated: 01-Jan-2026 10:00:10 AM   Expires: 01-Jul-2026 10:00:10 AM
 
 Egyptian Importer
-Egyptian Importer Name: SCAS For Construction And Finishing
-Egyptian Importer Tax ID: 528153439
-Address: 44ش 18 المعادى القاهرة رقم ملف 36221ق
+Egyptian Importer Name: Sample Importer Co.
+Egyptian Importer Tax ID: 000000000
+Address: Sample address
 
 Foreign Exporter
-Foreign Exporter Name: Suzhou Yuheng Textile Co.,Ltd
-Foreign Exporter ID: 913205813141920259
+Foreign Exporter Name: Sample Exporter Co.,Ltd
+Foreign Exporter ID: 000000000000000000
 Registration Type: Company Registration Number
 Country of Export: CHINA
 
-Proforma Invoice No.: YH20260730-6
-Port of Loading: CHANGSHU
+Proforma Invoice No.: SAMPLE-001
+Port of Loading: SAMPLE PORT
 Port of Discharge: Alexandria
-CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
-
-      if (_importerNameCtrl.text.isEmpty) _importerNameCtrl.text = 'SCAS For Construction And Finishing';
-      if (_importerTaxIdCtrl.text.isEmpty) _importerTaxIdCtrl.text = '528153439';
-      if (_importerAddressCtrl.text.isEmpty) _importerAddressCtrl.text = '44ش 18 المعادى القاهرة رقم ملف 36221ق';
-      if (_exporterNameCtrl.text.isEmpty) _exporterNameCtrl.text = 'Suzhou Yuheng Textile Co.,Ltd';
-      if (_exporterRegIdCtrl.text.isEmpty) _exporterRegIdCtrl.text = '913205813141920259';
-      if (_exporterCountryCtrl.text.isEmpty) _exporterCountryCtrl.text = 'CHINA';
-      if (_exporterCountryCodeCtrl.text.isEmpty) _exporterCountryCodeCtrl.text = 'CN';
-      _exporterRegType = 'Company Registration Number';
-      if (_proformaNoCtrl.text.isEmpty) _proformaNoCtrl.text = 'YH20260730-6';
-      _polCtrl.text = 'CHANGSHU';
-      _podCtrl.text = 'Alexandria';
-      if (_cargoxIdCtrl.text.isEmpty) _cargoxIdCtrl.text = '5b1b827d-5840-4ad6-b692-c5f636881c0e';
+CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
     });
     _parseMtsText();
   }
@@ -3122,19 +2691,12 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
             style: const TextStyle(fontSize: 13, height: 1.5),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(context.l10n.close),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-              onPressed: () {
+            IdocBUi.fit(AppButton(label: context.l10n.close, onPressed: () => Navigator.pop(ctx), variant: AppButtonVariant.secondary)),
+            if (kDebugMode)
+            IdocBUi.fit(AppButton(label: context.l10n.loadSampleMtsAndTest, onPressed: () {
                 Navigator.pop(ctx);
                 _loadSampleMtsText();
-              },
-              icon: const Icon(Icons.auto_fix_high, size: 16),
-              label: Text(context.l10n.loadSampleMtsAndTest),
-            ),
+              }, icon: Icons.auto_fix_high)),
           ],
         ),
       );
@@ -3188,19 +2750,12 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                 style: const TextStyle(fontSize: 13, height: 1.5),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(context.l10n.close),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                  onPressed: () {
+                IdocBUi.fit(AppButton(label: context.l10n.close, onPressed: () => Navigator.pop(ctx), variant: AppButtonVariant.secondary)),
+                if (kDebugMode)
+                IdocBUi.fit(AppButton(label: context.l10n.loadSampleMtsAndExtract, onPressed: () {
                     Navigator.pop(ctx);
                     _loadSampleMtsText();
-                  },
-                  icon: const Icon(Icons.auto_fix_high, size: 16),
-                  label: Text(context.l10n.loadSampleMtsAndExtract),
-                ),
+                  }, icon: Icons.auto_fix_high)),
               ],
             ),
           );
@@ -3219,24 +2774,25 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
     if (_comparisonResult == null) return;
 
     final isAr = context.l10n.isArabic;
+    final l = context.l10n;
     final buffer = StringBuffer();
-    buffer.writeln(isAr ? '📋 تقرير مطابقة والتحقق الجمركي لبيانات ACID' : '📋 ACID Customs Discrepancy & Verification Report');
+    buffer.writeln('📋 ${l.idocBAcidReportTitle}');
     buffer.writeln('--------------------------------------------------');
-    buffer.writeln('${isAr ? "حالة المطابقة الإجمالية" : "Overall Status"}: ${_comparisonResult!.allMatched ? (isAr ? "مطابق بالكامل ✅" : "Fully Matched ✅") : (isAr ? "يوجد تعارض ⚠️" : "Discrepancies Found ⚠️")}');
-    buffer.writeln('${isAr ? "نسبة المطابقة" : "Match Percentage"}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount}/${_comparisonResult!.totalComparedFields})');
+    buffer.writeln('${l.idocBAcidReportOverallStatus}: ${_comparisonResult!.allMatched ? '${l.idocBAcidReportFullyMatched} ✅' : '${l.idocBAcidReportDiscrepancies} ⚠️'}');
+    buffer.writeln('${l.idocBAcidReportMatchPercentage}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount}/${_comparisonResult!.totalComparedFields})');
     buffer.writeln('--------------------------------------------------');
 
     for (final item in _comparisonResult!.items) {
       final label = isAr ? item.labelAr : item.labelEn;
       final status = item.isMatched ? '✅' : '❌';
       buffer.writeln('$status $label:');
-      buffer.writeln('   - ${isAr ? "المطلوب في أمر الشراء" : "Requested (PO/Invoice)"}: ${item.requestedValue}');
-      buffer.writeln('   - ${isAr ? "الفعلي الصادر من نافذة" : "Generated (Nafeza MTS)"}: ${item.generatedValue}');
+      buffer.writeln('   - ${l.idocBAcidReportRequested}: ${item.requestedValue}');
+      buffer.writeln('   - ${l.idocBAcidReportGenerated}: ${item.generatedValue}');
     }
 
     if (!_comparisonResult!.allMatched && _discrepancyOverrideReasonCtrl.text.trim().isNotEmpty) {
       buffer.writeln('--------------------------------------------------');
-      buffer.writeln('${isAr ? "مبرر التجاوز والاعتماد" : "Override Justification"}: ${_discrepancyOverrideReasonCtrl.text.trim()}');
+      buffer.writeln('${l.idocBAcidReportOverride}: ${_discrepancyOverrideReasonCtrl.text.trim()}');
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
@@ -3273,14 +2829,14 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
         'importer_name': _importerNameCtrl.text.isNotEmpty ? _importerNameCtrl.text : (comp?.importerName ?? file?.companyName ?? ''),
         'importer_tax_id': _importerTaxIdCtrl.text.isNotEmpty ? _importerTaxIdCtrl.text : (comp?.vatId ?? ''),
         'exporter_name': _exporterNameCtrl.text.isNotEmpty ? _exporterNameCtrl.text : (supp?.companyName ?? file?.supplierName ?? ''),
-        'exporter_reg_type': _exporterRegType.isNotEmpty ? _exporterRegType : (supp?.registrationType ?? 'Company Registration Number'),
+        'exporter_reg_type': _exporterRegType.isNotEmpty ? _exporterRegType : (supp?.registrationType ?? ''),
         'exporter_reg_id': _exporterRegIdCtrl.text.isNotEmpty ? _exporterRegIdCtrl.text : (supp?.foreignExporterId ?? ''),
         'exporter_country': _exporterCountryCtrl.text.isNotEmpty ? _exporterCountryCtrl.text : (supp?.foreignExporterCountry ?? ''),
         'exporter_country_code': _exporterCountryCodeCtrl.text.isNotEmpty ? _exporterCountryCodeCtrl.text : (supp?.foreignExporterCountryCode ?? ''),
         'proforma_invoice_no': _proformaNoCtrl.text.isNotEmpty ? _proformaNoCtrl.text : (file?.piNumber ?? (file?.poNumber ?? (po != null ? po.poNumber : ''))),
-        'pol_name': _polCtrl.text.isNotEmpty ? _polCtrl.text : 'CHANGSHU',
-        'pod_name': _podCtrl.text.isNotEmpty ? _podCtrl.text : 'Alexandria',
-        'cargox_id': _cargoxIdCtrl.text.isNotEmpty ? _cargoxIdCtrl.text : (supp?.cargoxPlatformId ?? '5b1b827d-5840-4ad6-b692-c5f636881c0e'),
+        'pol_name': _polCtrl.text,
+        'pod_name': _podCtrl.text,
+        'cargox_id': _cargoxIdCtrl.text.isNotEmpty ? _cargoxIdCtrl.text : (supp?.cargoxPlatformId ?? ''),
       };
       final generatedData = _parsedMtsData ?? {};
 
@@ -3297,6 +2853,13 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
 
   Future<void> _saveVerifiedAcid() async {
     if (_selectedImportFileId == null) return;
+    final acidToSave = (_parsedMtsData?['acid_number'] ?? _acidNumberCtrl.text).toString().trim();
+    if (acidToSave.isEmpty || acidToSave == 'ACID-EG-2026-') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.idocBAcidRequired), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final payload = {
@@ -3396,14 +2959,12 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
           children: [
             CopyableText('ACID (${session.acidCode}) — (${session.acidNumber})'),
             const SizedBox(height: 10),
-            Text(context.l10n.confirmSoftDelete, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(context.l10n.confirmSoftDelete, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-            onPressed: () async {
+          IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: () => Navigator.pop(ctx), variant: AppButtonVariant.secondary)),
+          IdocBUi.fit(AppButton(label: context.l10n.delete, onPressed: () async {
               Navigator.pop(ctx);
               try {
                 await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(session.acidId);
@@ -3422,10 +2983,7 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                   showErrorDetailsDialog(context, title: context.l10n.errorDeletingAcid, error: e);
                 }
               }
-            },
-            icon: const Icon(Icons.delete_forever, size: 18),
-            label: Text(context.l10n.delete),
-          ),
+            }, variant: AppButtonVariant.danger, icon: Icons.delete_forever)),
         ],
       ),
     );
@@ -3547,9 +3105,9 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.edit_note, color: Colors.white, size: 22),
+                      const Icon(Icons.edit_note, color: AppTheme.white, size: 22),
                       const SizedBox(width: 10),
-                      Text(context.l10n.editExtractedDataButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(context.l10n.editExtractedDataButton, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                 ),
@@ -3696,15 +3254,13 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(color: Colors.grey.shade100, border: Border(top: BorderSide(color: Colors.grey.shade300))),
+                  decoration: BoxDecoration(color: AppTheme.surfaceAlt, border: Border(top: BorderSide(color: AppTheme.border))),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(context.l10n.cancel)),
+                      IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: () => Navigator.pop(dialogCtx), variant: AppButtonVariant.secondary)),
                       const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                        onPressed: () {
+                      IdocBUi.fit(AppButton(label: context.l10n.save, onPressed: () {
                           setState(() {
                             _parsedMtsData!['acid_number'] = acidCtrl.text.trim();
                             _parsedMtsData!['requested_date'] = reqDateCtrl.text.trim();
@@ -3726,10 +3282,7 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(context.l10n.mtsExtractedDataUpdated), backgroundColor: AppTheme.emerald),
                           );
-                        },
-                        icon: const Icon(Icons.check, size: 18),
-                        label: Text(context.l10n.save),
-                      ),
+                        }, variant: AppButtonVariant.success, icon: Icons.check)),
                     ],
                   ),
                 ),
@@ -3881,21 +3434,21 @@ Sorour Logistics ERP System''';
   }
 
   String _buildEnglishRequestMessage() {
-    final impName = _importerNameCtrl.text.trim().isNotEmpty ? _importerNameCtrl.text.trim() : 'SCAS For Construction And Finishing';
-    final impTax = _importerTaxIdCtrl.text.trim().isNotEmpty ? _importerTaxIdCtrl.text.trim() : '528153439';
-    final impAddr = _importerAddressCtrl.text.trim().isNotEmpty ? _importerAddressCtrl.text.trim() : '44 St. 18, Maadi, Cairo, Egypt';
-    final expName = _exporterNameCtrl.text.trim().isNotEmpty ? _exporterNameCtrl.text.trim() : 'Suzhou Yuheng Textile Co.,Ltd';
-    final expId = _exporterRegIdCtrl.text.trim().isNotEmpty ? _exporterRegIdCtrl.text.trim() : '913205813141920259';
-    final expCountry = _exporterCountryCtrl.text.trim().isNotEmpty ? _exporterCountryCtrl.text.trim() : 'China';
-    final expAddr = _exporterAddressCtrl.text.trim().isNotEmpty ? _exporterAddressCtrl.text.trim() : 'No.16 Kangsheng Road, Changshu, Suzhou, China';
-    final expPhone = _exporterPhoneCtrl.text.trim().isNotEmpty ? _exporterPhoneCtrl.text.trim() : '+86-512-52889988';
-    final cargox = _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : '5b1b827d-5840-4ad6-b692-c5f636881c0e';
-    final piNo = _proformaNoCtrl.text.trim().isNotEmpty ? _proformaNoCtrl.text.trim() : 'YH20260730-6';
-    final piDate = _proformaDateCtrl.text.trim().isNotEmpty ? _proformaDateCtrl.text.trim() : '2026-07-30';
+    final impName = _importerNameCtrl.text.trim().isNotEmpty ? _importerNameCtrl.text.trim() : '-';
+    final impTax = _importerTaxIdCtrl.text.trim().isNotEmpty ? _importerTaxIdCtrl.text.trim() : '-';
+    final impAddr = _importerAddressCtrl.text.trim().isNotEmpty ? _importerAddressCtrl.text.trim() : '-';
+    final expName = _exporterNameCtrl.text.trim().isNotEmpty ? _exporterNameCtrl.text.trim() : '-';
+    final expId = _exporterRegIdCtrl.text.trim().isNotEmpty ? _exporterRegIdCtrl.text.trim() : '-';
+    final expCountry = _exporterCountryCtrl.text.trim().isNotEmpty ? _exporterCountryCtrl.text.trim() : '-';
+    final expAddr = _exporterAddressCtrl.text.trim().isNotEmpty ? _exporterAddressCtrl.text.trim() : '-';
+    final expPhone = _exporterPhoneCtrl.text.trim().isNotEmpty ? _exporterPhoneCtrl.text.trim() : '-';
+    final cargox = _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : '-';
+    final piNo = _proformaNoCtrl.text.trim().isNotEmpty ? _proformaNoCtrl.text.trim() : '-';
+    final piDate = _proformaDateCtrl.text.trim().isNotEmpty ? _proformaDateCtrl.text.trim() : '-';
     final poNo = _poNoCtrl.text.trim().isNotEmpty ? _poNoCtrl.text.trim() : '-';
-    final pol = _polCtrl.text.trim().isNotEmpty ? _polCtrl.text.trim() : 'Changshu Port (China)';
-    final pod = _podCtrl.text.trim().isNotEmpty ? _podCtrl.text.trim() : 'Alexandria Port (Egypt)';
-    final reqDate = _requestedDateCtrl.text.trim().isNotEmpty ? _requestedDateCtrl.text.trim() : '2026-08-19';
+    final pol = _polCtrl.text.trim().isNotEmpty ? _polCtrl.text.trim() : '-';
+    final pod = _podCtrl.text.trim().isNotEmpty ? _podCtrl.text.trim() : '-';
+    final reqDate = _requestedDateCtrl.text.trim().isNotEmpty ? _requestedDateCtrl.text.trim() : '-';
 
     return '''📋 *Advance Cargo Information (ACID) Request*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3951,12 +3504,11 @@ Sorour Logistics ERP System''';
         statusLabel,
       ];
     }).toList();
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await TableExportService.exportTableToExcel(
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'سجل أرقام ACID' : 'ACID Registry',
+      stageName: context.l10n.idocBAcidRegistryStage,
       importFileNameOrCode: 'ACID_Registry',
     );
   }
@@ -3991,12 +3543,11 @@ Sorour Logistics ERP System''';
         statusLabel,
       ];
     }).toList();
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await TableExportService.exportTableToPdf(
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'سجل أرقام ACID' : 'ACID Registry',
+      stageName: context.l10n.idocBAcidRegistryStage,
       importFileNameOrCode: 'ACID_Registry',
     );
   }
@@ -4059,12 +3610,11 @@ Sorour Logistics ERP System''';
         statusLabel,
       ];
     }).toList();
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await TableExportService.exportTableToExcel(
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'متتبع صلاحية ACID' : 'ACID Expiry Tracker',
+      stageName: context.l10n.idocBAcidExpiryStage,
       importFileNameOrCode: 'ACID_Expiry_Tracker',
     );
   }
@@ -4094,12 +3644,11 @@ Sorour Logistics ERP System''';
         statusLabel,
       ];
     }).toList();
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await TableExportService.exportTableToPdf(
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'متتبع صلاحية ACID' : 'ACID Expiry Tracker',
+      stageName: context.l10n.idocBAcidExpiryStage,
       importFileNameOrCode: 'ACID_Expiry_Tracker',
     );
   }

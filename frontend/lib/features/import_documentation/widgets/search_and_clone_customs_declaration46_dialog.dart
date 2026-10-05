@@ -3,6 +3,9 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../screens/customs_declaration46_screen.dart';
+import '../services/customs_declaration46_calculator.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 /// Search and Clone Previous Customs Declaration 46 Dialog (Screen 23 / UX-CLONE-023)
 ///
@@ -73,11 +76,11 @@ class _SearchAndCloneCustomsDeclaration46DialogState
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+          color: AppTheme.borderOf(context),
         ),
       ),
       child: ConstrainedBox(
@@ -93,7 +96,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.wcagCobalt.withOpacity(0.12),
+                      color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -112,9 +115,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? const Color(0xFFF1F5F9)
-                                : const Color(0xFF1E293B),
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -122,9 +123,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                           l.cloneCustomsDeclDialogSubtitle,
                           style: TextStyle(
                             fontSize: DisplayDensityMode.clampFontSize(12.0),
-                            color: isDark
-                                ? const Color(0xFF94A3B8)
-                                : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -155,23 +154,17 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF0F172A)
-                      : const Color(0xFFF8FAFC),
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
-                      color: isDark
-                          ? const Color(0xFF334155)
-                          : Colors.grey.shade300,
+                      color: AppTheme.borderOf(context),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
-                      color: isDark
-                          ? const Color(0xFF334155)
-                          : Colors.grey.shade300,
+                      color: AppTheme.borderOf(context),
                     ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
@@ -191,24 +184,18 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                     style: TextStyle(
                       fontSize: DisplayDensityMode.clampFontSize(11.5),
                       fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? const Color(0xFF94A3B8)
-                          : Colors.grey.shade700,
+                      color: AppTheme.textSecondaryOf(context),
                     ),
                   ),
                   if (_filtered.length != widget.assessments.length)
-                    TextButton(
+                    IdocUi.fit(AppButton(
+                      label: l.customsDeclCloseDialog,
+                      variant: AppButtonVariant.ghost,
                       onPressed: () {
                         _queryController.clear();
                         _filter('');
                       },
-                      child: Text(
-                        l.customsDeclCloseDialog,
-                        style: TextStyle(
-                          fontSize: DisplayDensityMode.clampFontSize(11.0),
-                        ),
-                      ),
-                    ),
+                    )),
                 ],
               ),
               const SizedBox(height: 8),
@@ -218,11 +205,9 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                 child: _filtered.isEmpty
                     ? Center(
                         child: Text(
-                          'لا توجد إقرارات جمركية مطابقة للبحث',
+                          context.l10n.idocANoCustomsDeclarationsMatchTheSearch,
                           style: TextStyle(
-                            color: isDark
-                                ? const Color(0xFF94A3B8)
-                                : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       )
@@ -233,14 +218,10 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                           final a = _filtered[index];
                           return Container(
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF0F172A)
-                                  : Colors.grey.shade50,
+                              color: AppTheme.surfaceAltOf(context),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isDark
-                                    ? const Color(0xFF334155)
-                                    : Colors.grey.shade300,
+                                color: AppTheme.borderOf(context),
                               ),
                             ),
                             padding: const EdgeInsets.all(14),
@@ -269,7 +250,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                            color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
@@ -288,10 +269,10 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF064E3B).withOpacity(0.2),
+                                              color: AppTheme.emerald.withValues(alpha: 0.15),
                                               borderRadius: BorderRadius.circular(6),
                                               border: Border.all(
-                                                color: const Color(0xFF059669),
+                                                color: AppTheme.wcagEmerald,
                                               ),
                                             ),
                                             child: Text(
@@ -299,7 +280,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                                               style: TextStyle(
                                                 fontSize: DisplayDensityMode.clampFontSize(11.0),
                                                 fontWeight: FontWeight.bold,
-                                                color: const Color(0xFF059669),
+                                                color: AppTheme.wcagEmerald,
                                               ),
                                             ),
                                           ),
@@ -311,50 +292,30 @@ class _SearchAndCloneCustomsDeclaration46DialogState
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w500,
-                                        color: isDark
-                                            ? const Color(0xFFCBD5E1)
-                                            : Colors.grey.shade800,
+                                        color: AppTheme.textPrimaryOf(context),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${l.customsDeclColHsCode}: ${a.hsCode} | CIF: ${a.cifEgp.toStringAsFixed(2)} EGP | ${l.customsDeclTotalDutiesLabel}: ${a.totalDutiesEgp.toStringAsFixed(2)} EGP',
+                                      '${l.customsDeclColHsCode}: ${a.hsCode} | CIF: ${a.cifEgp.egpOrMissing(l.idocBMissing)} | ${l.customsDeclTotalDutiesLabel}: ${a.totalDutiesEgp.egpOrMissing(l.idocBMissing)}',
                                       style: TextStyle(
                                         fontSize: DisplayDensityMode.clampFontSize(11.0),
-                                        color: isDark
-                                            ? const Color(0xFF94A3B8)
-                                            : Colors.grey.shade600,
+                                        color: AppTheme.textSecondaryOf(context),
                                       ),
                                     ),
                                   ],
                                 );
 
-                                final actionBtn = ElevatedButton.icon(
+                                final actionBtn = IdocUi.fit(AppButton(
                                   key: Key('cloneDeclBtn_${a.declarationNo}'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.wcagCobalt,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.copy_all, size: 16),
-                                  label: Text(
-                                    l.searchAndCloneCustomsDeclBtn,
-                                    style: TextStyle(
-                                      fontSize: DisplayDensityMode.clampFontSize(11.5),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  label: l.searchAndCloneCustomsDeclBtn,
+                                  icon: Icons.copy_all,
+                                  variant: AppButtonVariant.primary,
                                   onPressed: () {
                                     Navigator.of(context).pop();
                                     widget.onSelectDeclaration(a);
                                   },
-                                );
+                                ));
 
                                 if (isNarrow) {
                                   return Column(

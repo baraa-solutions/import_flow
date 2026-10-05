@@ -4,19 +4,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/stored_text.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../currencies/models/currency_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../providers/import_documentation_provider.dart';
+import '../services/customs_declaration46_calculator.dart';
+import '../widgets/form46_figures_panel.dart';
+import '../widgets/idoc_ui_b.dart';
 import '../widgets/search_and_clone_customs_declaration46_dialog.dart';
 
 class CustomsDeclarationAssessment {
@@ -30,28 +40,33 @@ class CustomsDeclarationAssessment {
   final String blNumber;
   final String hsCode;
   final String hsDescription;
-  final double fobForeign;
+  final double? fobForeign;
   final String currency;
-  final double exchangeRate;
-  final double fobEgp;
-  final double freightEgp;
-  final double insuranceEgp;
-  final double cifEgp;
-  final double dutyRate;
-  final double importDutyEgp;
-  final double devRate;
-  final double devFeeEgp;
-  final double serviceRate;
-  final double serviceFeeEgp;
-  final double otherFeesEgp;
-  final double vatRate;
-  final double vatBaseEgp;
-  final double vatEgp;
-  final double totalDutiesEgp;
+  final double? exchangeRate;
+  final double? fobEgp;
+  final double? freightEgp;
+  final double? insuranceEgp;
+  final double? cifEgp;
+  final double? dutyRate;
+  final double? importDutyEgp;
+  final double? devRate;
+  final double? devFeeEgp;
+  final double? serviceRate;
+  final double? serviceFeeEgp;
+  final double? otherFeesEgp;
+  final double? vatRate;
+  final double? scheduleTaxEgp;
+  final double? importFeeEgp;
+  final double? vatBaseEgp;
+  final double? vatEgp;
+  final double? totalDutiesEgp;
   final bool hasExemption;
   final String exemptionTitle;
   final String registrationDate;
   final String status;
+
+  /// Missing inputs (`tariff`, `fx_rate`, `fob`); empty when fully computed.
+  final List<String> missing;
 
   const CustomsDeclarationAssessment({
     required this.declarationNo,
@@ -64,29 +79,34 @@ class CustomsDeclarationAssessment {
     required this.blNumber,
     required this.hsCode,
     required this.hsDescription,
-    required this.fobForeign,
+    this.fobForeign,
     required this.currency,
-    required this.exchangeRate,
-    required this.fobEgp,
-    required this.freightEgp,
-    required this.insuranceEgp,
-    required this.cifEgp,
-    required this.dutyRate,
-    required this.importDutyEgp,
-    required this.devRate,
-    required this.devFeeEgp,
-    required this.serviceRate,
-    required this.serviceFeeEgp,
-    required this.otherFeesEgp,
-    required this.vatRate,
-    required this.vatBaseEgp,
-    required this.vatEgp,
-    required this.totalDutiesEgp,
+    this.exchangeRate,
+    this.fobEgp,
+    this.freightEgp,
+    this.insuranceEgp,
+    this.cifEgp,
+    this.dutyRate,
+    this.importDutyEgp,
+    this.devRate,
+    this.devFeeEgp,
+    this.serviceRate,
+    this.serviceFeeEgp,
+    this.otherFeesEgp,
+    this.vatRate,
+    this.scheduleTaxEgp,
+    this.importFeeEgp,
+    this.vatBaseEgp,
+    this.vatEgp,
+    this.totalDutiesEgp,
     required this.hasExemption,
     required this.exemptionTitle,
     required this.registrationDate,
     required this.status,
+    this.missing = const [],
   });
+
+  bool get isComplete => missing.isEmpty;
 }
 
 class CustomsDeclaration46Screen extends ConsumerStatefulWidget {
@@ -126,7 +146,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   // Compliance & HS Code Tariff States
   List<CustomsTariffModel> _matchedTariffs = [];
   bool _hasExemption = false;
-  double _appliedDutyRate = 5.0;
+  double? _appliedDutyRate;
+  List<String> _figuresMissing = const [];
   List<Map<String, dynamic>> _regulatoryApprovals = [];
 
   String _searchQuery = '';
@@ -200,7 +221,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         _matchedTariffs = [];
         _regulatoryApprovals = [];
         _hasExemption = false;
-        _appliedDutyRate = 5.0;
+        _appliedDutyRate = null;
+        _figuresMissing = const [];
       });
       return;
     }
@@ -229,9 +251,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         f4Val = matchedF4.docReferenceNumber;
       }
     }
-    if (f4Val.isEmpty) {
-      f4Val = file.swiftNo != null && file.swiftNo!.isNotEmpty ? 'F4-${file.swiftNo}' : 'F4-ALX-${file.importFileCode}';
-    }
     _form4NumberCtrl.text = f4Val;
 
     // 3. Auto load B/L number
@@ -254,18 +273,16 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         blVal = linkedBooking.bookingConfirmationNo ?? linkedBooking.bookingCode;
       }
     }
-    if (blVal.isEmpty) {
-      blVal = file.customFileNumber != null && file.customFileNumber!.isNotEmpty
-          ? file.customFileNumber!
-          : 'MEDUST-${file.importFileCode}';
+    if (blVal.isEmpty && file.customFileNumber != null && file.customFileNumber!.isNotEmpty) {
+      blVal = file.customFileNumber!;
     }
     _blNumberCtrl.text = blVal;
 
     _declaration46NoCtrl.text = '46-ALX-${file.importFileCode}';
 
-    // 4. Extract HS Codes and calculate Customs Base & Duties (from Customs Duty Estimator logic)
+    // 4. Extract HS codes and compute duties from backend tariff + customs FX only
     final allTariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
-    List<String> fileHsCodes = [];
+    final List<String> fileHsCodes = [];
     final poState = ref.read(purchaseOrdersProvider);
     final linkedPos = poState.purchaseOrders.where((p) => p.importFileId == fileId).toList();
     for (var po in linkedPos) {
@@ -275,52 +292,35 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         }
       }
     }
-    if (fileHsCodes.isEmpty) {
-      fileHsCodes = ['8471.30.00', '8517.62.00'];
-    }
 
-    final matched = allTariffs.where((t) => fileHsCodes.any((c) => t.hsCode.contains(c) || c.contains(t.hsCode))).toList();
-    _matchedTariffs = matched.isNotEmpty ? matched : (allTariffs.isNotEmpty ? [allTariffs.first] : []);
+    // No fallback HS code and no arbitrary tariff: no match means "tariff missing".
+    final primaryTariff = Form46Calculator.matchTariff(fileHsCodes, allTariffs);
+    _matchedTariffs = Form46Calculator.matchTariffs(fileHsCodes, allTariffs);
 
-    final primaryTariff = _matchedTariffs.isNotEmpty ? _matchedTariffs.first : null;
-    final dutyRate = primaryTariff != null ? primaryTariff.customsDutyRate : 5.0;
-    _appliedDutyRate = dutyRate;
-    final vatRate = primaryTariff != null ? primaryTariff.vatRate : 14.0;
-    final devRate = primaryTariff != null ? primaryTariff.developmentFeeRate : 0.0;
-    final serviceRate = primaryTariff != null ? primaryTariff.customsServiceFeeRate : 1.0;
+    final fobRes = Form46Calculator.invoiceFob(List<InvoiceItemModel>.from(file.invoicesData as List));
+    final figures = Form46Calculator.compute(
+      fobForeign: fobRes.amount,
+      fobIssue: fobRes.issue,
+      customsFxRate: Form46Calculator.customsRateFor(
+        fobRes.currency,
+        ref.read(currenciesProvider).valueOrNull ?? [],
+      ),
+      tariff: primaryTariff,
+    );
+    _appliedDutyRate = figures.dutyRate;
+    _figuresMissing = figures.missing;
 
-    // Calculate CIF in EGP
-    const exchangeRate = 50.7917;
-    final fobForeign = file.estimatedCost > 0
-        ? file.estimatedCost
-        : (file.invoicesData.isNotEmpty
-            ? file.invoicesData.fold<double>(0.0, (sum, i) => sum + i.amount)
-            : 12500.0);
-    final fobEgp = fobForeign * exchangeRate;
-    final freightEgp = fobEgp * 0.02; // 2% freight base
-    final insuranceEgp = fobEgp * 0.025; // 2.5% deemed insurance
-    final cifEgp = fobEgp + freightEgp + insuranceEgp;
+    // Missing figures stay empty (shown as missing); nothing is invented.
+    _customsValueEgpCtrl.text = figures.cifEgp?.toStringAsFixed(2) ?? '';
+    _importDutyEgpCtrl.text = figures.importDutyEgp?.toStringAsFixed(2) ?? '';
+    _vatEgpCtrl.text = figures.vatEgp?.toStringAsFixed(2) ?? '';
+    _otherFeesEgpCtrl.text = figures.otherFeesEgp?.toStringAsFixed(2) ?? '';
+    _totalDutyAndTaxesCtrl.text = figures.totalDutiesEgp?.toStringAsFixed(2) ?? '';
 
-    // Calculate Duty and Taxes
-    final importDutyEgp = cifEgp * (dutyRate / 100.0);
-    final devFeeEgp = cifEgp * (devRate / 100.0);
-    final serviceFeeEgp = cifEgp * (serviceRate / 100.0);
-    final otherFeesEgp = devFeeEgp + serviceFeeEgp;
-    final vatBaseEgp = cifEgp + importDutyEgp + otherFeesEgp;
-    final vatEgp = vatBaseEgp * (vatRate / 100.0);
-    final totalDutiesEgp = importDutyEgp + vatEgp + otherFeesEgp;
+    // 5. Exemption: only when the backend tariff says duty is 0 (no port-name guess)
+    _hasExemption = figures.hasExemption;
 
-    _customsValueEgpCtrl.text = cifEgp.toStringAsFixed(2);
-    _importDutyEgpCtrl.text = importDutyEgp.toStringAsFixed(2);
-    _vatEgpCtrl.text = vatEgp.toStringAsFixed(2);
-    _otherFeesEgpCtrl.text = otherFeesEgp.toStringAsFixed(2);
-    _totalDutyAndTaxesCtrl.text = totalDutiesEgp.toStringAsFixed(2);
-
-    // 5. Exemption & Preferential Tariff Status
-    final bool isEuropeanOrExempt = dutyRate == 0.0 || (file.portOfLoading != null && (file.portOfLoading!.contains('IT') || file.portOfLoading!.contains('FR') || file.portOfLoading!.contains('DE') || file.portOfLoading!.contains('ES')));
-    _hasExemption = isEuropeanOrExempt;
-
-    // 6. Regulatory Approvals & Inspections Board
+    // 6. Regulatory Approvals & Inspections Board (only real tariff rows)
     _regulatoryApprovals = [];
     for (var t in _matchedTariffs) {
       _regulatoryApprovals.add({
@@ -331,20 +331,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         'requires_coo': t.requiresCoo,
         'requires_acid': t.requiresAcid,
         'note': t.priorApprovalNote,
-        'status': 'APPROVED',
-      });
-    }
-
-    if (_regulatoryApprovals.isEmpty) {
-      _regulatoryApprovals.add({
-        'hs_code': fileHsCodes.first,
-        'description': null,
-        'authority': null,
-        'requires_inspection': true,
-        'requires_coo': true,
-        'requires_acid': true,
-        'note': null,
-        'status': 'APPROVED',
       });
     }
 
@@ -352,11 +338,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   }
 
   void _calculateTotalDuties() {
-    final duty = double.tryParse(_importDutyEgpCtrl.text) ?? 0.0;
-    final vat = double.tryParse(_vatEgpCtrl.text) ?? 0.0;
-    final other = double.tryParse(_otherFeesEgpCtrl.text) ?? 0.0;
-    final total = duty + vat + other;
-    _totalDutyAndTaxesCtrl.text = total.toStringAsFixed(2);
+    _totalDutyAndTaxesCtrl.text = Form46Calculator.totalOfComponents(
+      [_importDutyEgpCtrl.text, _vatEgpCtrl.text, _otherFeesEgpCtrl.text],
+    );
   }
 
   Future<void> _openSearchAndCloneDialog() async {
@@ -397,6 +381,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
 
   void _onCloneDeclarationSelected(CustomsDeclarationAssessment a) {
     final isAr = context.l10n.isArabic;
+    final l = context.l10n;
 
     showDialog(
       context: context,
@@ -405,34 +390,25 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         child: Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           child: CloneEntityReviewDialog(
-            entityType: isAr
-                ? 'إقرار جمركي مبدئي شهادة 46 (Customs Declaration 46)'
-                : 'Initial Customs Declaration 46',
+            entityType: l.idocBCloneDecl46Entity,
             sourceCode: a.declarationNo,
             sourceTitle: '${a.primaryNameWithCode} — ${a.supplierName}',
             suggestedNewCode: '46-DRAFT-${a.importFileCode}',
             copiedFieldsSummary: {
-              isAr ? 'ملف الشحنة' : 'Import File': a.primaryNameWithCode,
-              isAr ? 'المورد الأجنبي' : 'Supplier': a.supplierName,
-              isAr ? 'الشركة المستوردة' : 'Company': a.companyName,
-              isAr ? 'بند التعريفة الجمركية' : 'HS Code': '${a.hsCode} (${a.hsDescription})',
-              isAr ? 'القيمة للأغراض الجمركية CIF' : 'Customs CIF Base': '${a.cifEgp.toStringAsFixed(2)} EGP',
-              isAr ? 'إجمالي الضرائب والرسوم المقدرة' : 'Estimated Total Duties': '${a.totalDutiesEgp.toStringAsFixed(2)} EGP',
-              isAr ? 'موقف الإعفاء والاتفاقية' : 'Exemption Status': a.exemptionTitle,
+              l.idocBCloneFieldImportFile: a.primaryNameWithCode,
+              l.idocBCloneFieldSupplier: a.supplierName,
+              l.idocBCloneFieldCompany: a.companyName,
+              l.idocBCloneFieldHsCode: '${a.hsCode} (${a.hsDescription})',
+              l.idocBCloneFieldCif: a.cifEgp.egpOrMissing(_miss),
+              l.idocBCloneFieldTotalDuties: a.totalDutiesEgp.egpOrMissing(_miss),
+              l.idocBCloneFieldExemption: a.exemptionTitle,
             },
-            mandatorilyResetFields: isAr
-                ? const [
-                    'رقم الإقرار الجمركي: يتم تصفيره وتعيينه كمسودة جديدة (Draft)',
-                    'تاريخ القيد المبدئي: يعاد ضبطه تلقائياً إلى تاريخ اليوم',
-                    'حالة الشهادة والإفراج: تعاد إلى قيد الإعداد المبدئي (Draft)',
-                    'أرقام السداد الإلكتروني وإيصالات نافذة: تم فك الارتباط',
-                  ]
-                : const [
-                    'Declaration No: Reset to a new draft code (Draft)',
-                    'Registration Date: Auto-reset to current date',
-                    'Customs Release Status: Reset to Draft / Unreleased',
-                    'Payment & Receipt References: Cleared and unlinked',
-                  ],
+            mandatorilyResetFields: [
+              l.idocBCloneReset1,
+              l.idocBCloneReset2,
+              l.idocBCloneReset3,
+              l.idocBCloneReset4,
+            ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -455,28 +431,30 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 _acidNumberCtrl.text = a.acidNumber;
                 _form4NumberCtrl.text = a.form4Number;
                 _blNumberCtrl.text = a.blNumber;
-                _customsValueEgpCtrl.text = a.cifEgp.toStringAsFixed(2);
-                _importDutyEgpCtrl.text = a.importDutyEgp.toStringAsFixed(2);
-                _vatEgpCtrl.text = a.vatEgp.toStringAsFixed(2);
-                _otherFeesEgpCtrl.text = a.otherFeesEgp.toStringAsFixed(2);
-                _totalDutyAndTaxesCtrl.text = a.totalDutiesEgp.toStringAsFixed(2);
+                _customsValueEgpCtrl.text = a.cifEgp?.toStringAsFixed(2) ?? '';
+                _importDutyEgpCtrl.text = a.importDutyEgp?.toStringAsFixed(2) ?? '';
+                _vatEgpCtrl.text = a.vatEgp?.toStringAsFixed(2) ?? '';
+                _otherFeesEgpCtrl.text = a.otherFeesEgp?.toStringAsFixed(2) ?? '';
+                _totalDutyAndTaxesCtrl.text = a.totalDutiesEgp?.toStringAsFixed(2) ?? '';
                 _appliedDutyRate = a.dutyRate;
                 _hasExemption = a.hasExemption;
                 _notesCtrl.text = (notes != null && notes.isNotEmpty)
                     ? notes
-                    : '(مستنسخ كمسودة من الإقرار ${a.declarationNo})';
-                _regulatoryApprovals = [
-                  {
-                    'hs_code': a.hsCode,
-                    'description': a.hsDescription,
-                    'authority': null,
-                    'requires_inspection': true,
-                    'requires_coo': true,
-                    'requires_acid': true,
-                    'note': null,
-                    'status': 'APPROVED',
-                  }
-                ];
+                    : storedText.idocBCloneDeclNote(a.declarationNo);
+                // Rebuilt from the real tariff row only; nothing is assumed.
+                _regulatoryApprovals = (ref.read(customsTariffProvider).valueOrNull ?? [])
+                    .where((t) => t.hsCode == a.hsCode)
+                    .map((t) => <String, dynamic>{
+                          'hs_code': t.hsCode,
+                          'description': t.hsDescription,
+                          'authority': t.regulatoryAuthority,
+                          'requires_inspection': t.requiresInspection,
+                          'requires_coo': t.requiresCoo,
+                          'requires_acid': t.requiresAcid,
+                          'note': t.priorApprovalNote,
+                        })
+                    .toList();
+                _figuresMissing = a.missing;
               });
 
               if (mounted) {
@@ -494,6 +472,17 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     );
   }
 
+  /// Real status of an approval row; '-' when the data carries none.
+  String _approvalStatusText(Map<String, dynamic> appr, AppLocalizations l) {
+    final raw = (appr['status'] ?? '').toString().trim();
+    if (raw.isEmpty) return '-';
+    final up = raw.toUpperCase();
+    if (up == 'APPROVED' || up == 'FULFILLED') return l.customsDeclStatusFulfilled;
+    return raw;
+  }
+
+  String get _miss => context.l10n.idocBMissing;
+
   void _copyApprovalRow(Map<String, dynamic> appr, AppLocalizations l) {
     final String hsCode = appr['hs_code'] ?? '-';
     final String authorityText = (appr['authority'] != null && appr['authority'].toString().trim().isNotEmpty)
@@ -504,7 +493,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     final String noteText = (appr['note'] != null && appr['note'].toString().trim().isNotEmpty)
         ? appr['note'].toString()
         : (appr['requires_inspection'] == true ? l.customsDeclDefaultNote : l.customsDeclVisualInspectionNote);
-    final String statusText = l.customsDeclStatusFulfilled;
+    final String statusText = _approvalStatusText(appr, l);
 
     final headers = [
       l.customsDeclColHsCode,
@@ -537,7 +526,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       final String noteText = (appr['note'] != null && appr['note'].toString().trim().isNotEmpty)
           ? appr['note'].toString()
           : (appr['requires_inspection'] == true ? l.customsDeclDefaultNote : l.customsDeclVisualInspectionNote);
-      final String statusText = l.customsDeclStatusFulfilled;
+      final String statusText = _approvalStatusText(appr, l);
       return [hsCode, authorityText, inspectionText, cooText, noteText, statusText];
     }).toList();
 
@@ -567,7 +556,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       final String noteText = (appr['note'] != null && appr['note'].toString().trim().isNotEmpty)
           ? appr['note'].toString()
           : (appr['requires_inspection'] == true ? l.customsDeclDefaultNote : l.customsDeclVisualInspectionNote);
-      final String statusText = l.customsDeclStatusFulfilled;
+      final String statusText = _approvalStatusText(appr, l);
       return [hsCode, authorityText, inspectionText, cooText, noteText, statusText];
     }).toList();
 
@@ -599,7 +588,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           : l.customsDeclDefaultAuthority;
       final String inspectionText = appr['requires_inspection'] == true ? l.customsDeclColInspection : '-';
       final String cooText = appr['requires_coo'] == true ? l.customsDeclColCoo : '-';
-      final String statusText = l.customsDeclStatusFulfilled;
+      final String statusText = _approvalStatusText(appr, l);
       return [hsCode, authorityText, inspectionText, cooText, statusText];
     }).toList();
 
@@ -622,80 +611,57 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     );
   }
 
-  Widget _buildCustomsValueField(AppLocalizations l) {
+  /// Read/write field with a leading icon and a copy button.
+  Widget _copyField(
+    Key key,
+    TextEditingController ctrl,
+    String label,
+    IconData icon,
+    AppLocalizations l, {
+    bool bold = false,
+    bool ltr = false,
+    Color? accent,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
-      key: const Key('decl46CifField'),
-      controller: _customsValueEgpCtrl,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      key: key,
+      controller: ctrl,
+      textDirection: ltr ? TextDirection.ltr : null,
+      style: bold ? TextStyle(fontWeight: FontWeight.bold, color: accent) : null,
+      validator: validator,
       decoration: InputDecoration(
-        labelText: l.customsDeclCifValueLabel,
-        prefixIcon: const Icon(Icons.monetization_on),
+        labelText: label,
+        prefixIcon: Icon(icon, color: accent),
         suffixIcon: IconButton(
           icon: const Icon(Icons.copy, size: 16),
           tooltip: l.customsDeclCopyValueTooltip,
-          onPressed: () => CopyHelper.copy(context, _customsValueEgpCtrl.text),
+          onPressed: () => CopyHelper.copy(context, ctrl.text),
         ),
         border: const OutlineInputBorder(),
       ),
     );
   }
 
-  Widget _buildImportDutyField(AppLocalizations l) {
-    return TextFormField(
-      key: const Key('decl46DutyField'),
-      controller: _importDutyEgpCtrl,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: l.customsDeclImportDutyLabel,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.copy, size: 16),
-          tooltip: l.customsDeclCopyValueTooltip,
-          onPressed: () => CopyHelper.copy(context, _importDutyEgpCtrl.text),
-        ),
-        border: const OutlineInputBorder(),
-      ),
-      onChanged: (_) => _calculateTotalDuties(),
-    );
-  }
-
-  Widget _buildVatField(AppLocalizations l) {
-    return TextFormField(
-      key: const Key('decl46VatField'),
-      controller: _vatEgpCtrl,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: l.customsDeclVatLabel,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.copy, size: 16),
-          tooltip: l.customsDeclCopyValueTooltip,
-          onPressed: () => CopyHelper.copy(context, _vatEgpCtrl.text),
-        ),
-        border: const OutlineInputBorder(),
-      ),
-      onChanged: (_) => _calculateTotalDuties(),
-    );
-  }
-
-  Widget _buildTotalDutiesField(AppLocalizations l, bool isDark) {
-    return TextFormField(
-      key: const Key('decl46TotalDutiesField'),
-      controller: _totalDutyAndTaxesCtrl,
-      readOnly: true,
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        color: isDark ? const Color(0xFFF87171) : AppTheme.crimson,
-      ),
-      decoration: InputDecoration(
-        labelText: l.customsDeclTotalDutiesLabel,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.copy, size: 16),
-          tooltip: l.customsDeclCopyValueTooltip,
-          onPressed: () => CopyHelper.copy(context, _totalDutyAndTaxesCtrl.text),
-        ),
-        border: const OutlineInputBorder(),
-        filled: true,
-        fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
-      ),
+  /// Fields side by side, stacked below [breakpoint].
+  Widget _fieldsRow(double maxWidth, double breakpoint, List<Widget> fields, {List<int>? flex}) {
+    if (maxWidth < breakpoint) {
+      return Column(
+        children: [
+          for (var i = 0; i < fields.length; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            fields[i],
+          ],
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < fields.length; i++) ...[
+          if (i > 0) const SizedBox(width: 14),
+          Expanded(flex: flex?[i] ?? 1, child: fields[i]),
+        ],
+      ],
     );
   }
 
@@ -737,12 +703,12 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           headerActions: [
             IconButton(
               key: const Key('searchAndCloneDeclHeaderBtn'),
-              icon: Icon(Icons.copy_all, color: Colors.white70, size: density.buttonIconSize),
+              icon: Icon(Icons.copy_all, color: AppTheme.cloudWhite, size: density.buttonIconSize),
               tooltip: l.searchAndCloneCustomsDeclBtn,
               onPressed: _openSearchAndCloneDialog,
             ),
             IconButton(
-              icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+              icon: Icon(Icons.refresh, color: AppTheme.cloudWhite, size: density.buttonIconSize),
               tooltip: l.customsDeclRefreshTooltip,
               onPressed: _refreshData,
             ),
@@ -765,7 +731,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
 
     final String exemptionTitle = _hasExemption
         ? l.customsDeclEur1ExemptionTitle
-        : l.customsDeclMfnExemptionTitle(_appliedDutyRate.toStringAsFixed(1));
+        : l.customsDeclMfnExemptionTitle(_appliedDutyRate.fixedOrMissing(1, _miss));
 
     final List<String> exemptionConditions = _hasExemption
         ? [
@@ -782,9 +748,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       key: _declarationFormKey,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isMobile = constraints.maxWidth < 600;
-          final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1000;
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -798,23 +761,13 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 10),
                         Align(
                           alignment: AlignmentDirectional.centerStart,
-                          child: OutlinedButton.icon(
-                            key: const Key('subtab0SearchAndCloneBtn'),
-                            icon: const Icon(Icons.copy_all, size: 16),
-                            label: Text(l.searchAndCloneCustomsDeclBtn),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.wcagCobalt,
-                              side: const BorderSide(color: AppTheme.wcagCobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            ),
-                            onPressed: _openSearchAndCloneDialog,
-                          ),
+                          child: AppButton(key: const Key('subtab0SearchAndCloneBtn'), label: l.searchAndCloneCustomsDeclBtn, onPressed: _openSearchAndCloneDialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all),
                         ),
                       ],
                     )
@@ -827,60 +780,26 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                             ),
                           ),
                         ),
-                        OutlinedButton.icon(
-                          key: const Key('subtab0SearchAndCloneBtn'),
-                          icon: const Icon(Icons.copy_all, size: 16),
-                          label: Text(l.searchAndCloneCustomsDeclBtn),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.wcagCobalt,
-                            side: const BorderSide(color: AppTheme.wcagCobalt),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                          onPressed: _openSearchAndCloneDialog,
-                        ),
+                        AppButton(key: const Key('subtab0SearchAndCloneBtn'), label: l.searchAndCloneCustomsDeclBtn, onPressed: _openSearchAndCloneDialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all),
                       ],
                     ),
               const SizedBox(height: 14),
 
               // Informational Alert
-              Container(
-                padding: const EdgeInsets.all(14),
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1B4B) : Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? const Color(0xFF4338CA) : Colors.indigo.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.verified_outlined, color: isDark ? const Color(0xFF818CF8) : Colors.indigo, size: 24),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        l.customsDeclInfoBanner,
-                        style: TextStyle(
-                          color: isDark ? const Color(0xFFE0E7FF) : Colors.indigo.shade900,
-                          fontSize: DisplayDensityMode.clampFontSize(13.0),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              IdocBNotice(
+                message: l.customsDeclInfoBanner,
+                icon: Icons.verified_outlined,
+                margin: const EdgeInsetsDirectional.only(bottom: 16),
               ),
 
               // File Selector
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-                ),
+                decoration: AppTheme.cardDecorationOf(context),
                 child: SearchableDropdownField<int>(
                   labelText: l.customsDeclSelectFileLabel,
                   hintText: l.customsDeclSearchFileHint,
@@ -895,337 +814,96 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
               ),
               const SizedBox(height: 20),
 
-              // Form Fields Card 1: Declaration Attributes
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-                ),
+              // Declaration attributes: numbers and dates
+              IdocBSectionCard(
+                icon: Icons.assignment_outlined,
+                title: l.customsDeclAttributesHeader,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      l.customsDeclAttributesHeader,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
-                      ),
+                    _fieldsRow(
+                      constraints.maxWidth,
+                      600,
+                      [
+                        _copyField(
+                          const Key('decl46NoField'),
+                          _declaration46NoCtrl,
+                          l.customsDeclDeclarationNoLabel,
+                          Icons.pin,
+                          l,
+                          bold: true,
+                          accent: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                          validator: (val) => val == null || val.trim().isEmpty ? l.customsDeclRequiredField : null,
+                        ),
+                        _copyField(
+                          const Key('decl46DateField'),
+                          _submissionDateCtrl,
+                          l.customsDeclSubmissionDateLabel,
+                          Icons.calendar_today,
+                          l,
+                        ),
+                      ],
+                      flex: const [2, 1],
                     ),
-                    Divider(height: 24, color: isDark ? const Color(0xFF334155) : null),
-                    isMobile
-                        ? Column(
-                            children: [
-                              TextFormField(
-                                key: const Key('decl46NoField'),
-                                controller: _declaration46NoCtrl,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                                ),
-                                decoration: InputDecoration(
-                                  labelText: l.customsDeclDeclarationNoLabel,
-                                  prefixIcon: Icon(Icons.pin, color: isDark ? const Color(0xFF818CF8) : Colors.indigo),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.customsDeclCopyValueTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _declaration46NoCtrl.text),
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                                validator: (val) => val == null || val.trim().isEmpty ? l.customsDeclRequiredField : null,
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                key: const Key('decl46DateField'),
-                                controller: _submissionDateCtrl,
-                                decoration: InputDecoration(
-                                  labelText: l.customsDeclSubmissionDateLabel,
-                                  prefixIcon: const Icon(Icons.calendar_today),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.customsDeclCopyValueTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _submissionDateCtrl.text),
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  key: const Key('decl46NoField'),
-                                  controller: _declaration46NoCtrl,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                                  ),
-                                  decoration: InputDecoration(
-                                    labelText: l.customsDeclDeclarationNoLabel,
-                                    prefixIcon: Icon(Icons.pin, color: isDark ? const Color(0xFF818CF8) : Colors.indigo),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.customsDeclCopyValueTooltip,
-                                      onPressed: () => CopyHelper.copy(context, _declaration46NoCtrl.text),
-                                    ),
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  validator: (val) => val == null || val.trim().isEmpty ? l.customsDeclRequiredField : null,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: TextFormField(
-                                  key: const Key('decl46DateField'),
-                                  controller: _submissionDateCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: l.customsDeclSubmissionDateLabel,
-                                    prefixIcon: const Icon(Icons.calendar_today),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.customsDeclCopyValueTooltip,
-                                      onPressed: () => CopyHelper.copy(context, _submissionDateCtrl.text),
-                                    ),
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                     const SizedBox(height: 16),
-                    constraints.maxWidth < 768
-                        ? Column(
-                            children: [
-                              TextFormField(
-                                key: const Key('decl46AcidField'),
-                                controller: _acidNumberCtrl,
-                                textDirection: TextDirection.ltr,
-                                decoration: InputDecoration(
-                                  labelText: l.customsDeclAcidNumberLabel,
-                                  prefixIcon: const Icon(Icons.qr_code),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.customsDeclCopyValueTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _acidNumberCtrl.text),
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                key: const Key('decl46Form4Field'),
-                                controller: _form4NumberCtrl,
-                                decoration: InputDecoration(
-                                  labelText: l.customsDeclForm4NumberLabel,
-                                  prefixIcon: const Icon(Icons.account_balance),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.customsDeclCopyValueTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _form4NumberCtrl.text),
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                key: const Key('decl46BlField'),
-                                controller: _blNumberCtrl,
-                                textDirection: TextDirection.ltr,
-                                decoration: InputDecoration(
-                                  labelText: l.customsDeclBlNumberLabel,
-                                  prefixIcon: const Icon(Icons.assignment),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.customsDeclCopyValueTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _blNumberCtrl.text),
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  key: const Key('decl46AcidField'),
-                                  controller: _acidNumberCtrl,
-                                  textDirection: TextDirection.ltr,
-                                  decoration: InputDecoration(
-                                    labelText: l.customsDeclAcidNumberLabel,
-                                    prefixIcon: const Icon(Icons.qr_code),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.customsDeclCopyValueTooltip,
-                                      onPressed: () => CopyHelper.copy(context, _acidNumberCtrl.text),
-                                    ),
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: TextFormField(
-                                  key: const Key('decl46Form4Field'),
-                                  controller: _form4NumberCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: l.customsDeclForm4NumberLabel,
-                                    prefixIcon: const Icon(Icons.account_balance),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.customsDeclCopyValueTooltip,
-                                      onPressed: () => CopyHelper.copy(context, _form4NumberCtrl.text),
-                                    ),
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: TextFormField(
-                                  key: const Key('decl46BlField'),
-                                  controller: _blNumberCtrl,
-                                  textDirection: TextDirection.ltr,
-                                  decoration: InputDecoration(
-                                    labelText: l.customsDeclBlNumberLabel,
-                                    prefixIcon: const Icon(Icons.assignment),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.customsDeclCopyValueTooltip,
-                                      onPressed: () => CopyHelper.copy(context, _blNumberCtrl.text),
-                                    ),
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                    const SizedBox(height: 24),
-
-                    Text(
-                      l.customsDeclDutiesHeader,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                      ),
+                    _fieldsRow(
+                      constraints.maxWidth,
+                      768,
+                      [
+                        _copyField(const Key('decl46AcidField'), _acidNumberCtrl, l.customsDeclAcidNumberLabel, Icons.qr_code, l, ltr: true),
+                        _copyField(const Key('decl46Form4Field'), _form4NumberCtrl, l.customsDeclForm4NumberLabel, Icons.account_balance, l),
+                        _copyField(const Key('decl46BlField'), _blNumberCtrl, l.customsDeclBlNumberLabel, Icons.assignment, l, ltr: true),
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    if (isMobile)
-                      Column(
-                        children: [
-                          _buildCustomsValueField(l),
-                          const SizedBox(height: 14),
-                          _buildImportDutyField(l),
-                          const SizedBox(height: 14),
-                          _buildVatField(l),
-                          const SizedBox(height: 14),
-                          _buildTotalDutiesField(l, isDark),
-                        ],
-                      )
-                    else if (isTablet)
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: _buildCustomsValueField(l)),
-                              const SizedBox(width: 14),
-                              Expanded(child: _buildImportDutyField(l)),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(child: _buildVatField(l)),
-                              const SizedBox(width: 14),
-                              Expanded(child: _buildTotalDutiesField(l, isDark)),
-                            ],
-                          ),
-                        ],
-                      )
-                    else
-                      Row(
-                        children: [
-                          Expanded(child: _buildCustomsValueField(l)),
-                          const SizedBox(width: 14),
-                          Expanded(child: _buildImportDutyField(l)),
-                          const SizedBox(width: 14),
-                          Expanded(child: _buildVatField(l)),
-                          const SizedBox(width: 14),
-                          Expanded(child: _buildTotalDutiesField(l, isDark)),
-                        ],
-                      ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Exemption & Trade Agreement Card
+              // Duties & taxes: itemised, right-aligned money table
+              IdocBSectionCard(
+                icon: Icons.receipt_long_outlined,
+                title: l.customsDeclDutiesHeader,
+                child: Form46FiguresPanel(
+                  cifCtrl: _customsValueEgpCtrl,
+                  dutyCtrl: _importDutyEgpCtrl,
+                  vatCtrl: _vatEgpCtrl,
+                  totalCtrl: _totalDutyAndTaxesCtrl,
+                  missing: _figuresMissing,
+                  hasFile: _selectedImportFileId != null,
+                  appliedDutyRate: _appliedDutyRate,
+                  onComponentChanged: _calculateTotalDuties,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Exemption & trade agreement
               if (_selectedImportFileId != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? (_hasExemption ? const Color(0xFF064E3B).withOpacity(0.35) : const Color(0xFF1E293B))
-                        : (_hasExemption ? Colors.green.shade50 : Colors.blueGrey.shade50),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? (_hasExemption ? const Color(0xFF059669) : const Color(0xFF475569))
-                          : (_hasExemption ? Colors.green.shade400 : Colors.blueGrey.shade300),
-                      width: 1.2,
-                    ),
+                IdocBSectionCard(
+                  icon: _hasExemption ? Icons.verified : Icons.info_outline,
+                  accent: _hasExemption ? AppTheme.emerald : AppTheme.cobalt,
+                  title: l.customsDeclExemptionHeader,
+                  trailing: IdocBStatusChip(
+                    label: _hasExemption ? l.idocBExemptionApplied : l.idocBExemptionNone,
+                    severity: _hasExemption ? AppSeverity.success : AppSeverity.info,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _hasExemption ? Icons.verified : Icons.info_outline,
-                            color: isDark
-                                ? (_hasExemption ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1))
-                                : (_hasExemption ? Colors.green.shade800 : Colors.blueGrey.shade800),
-                            size: 24,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              l.customsDeclExemptionHeader,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDark
-                                    ? (_hasExemption ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1))
-                                    : (_hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade900),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        width: double.infinity,
+                        padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDark
-                                ? (_hasExemption ? const Color(0xFF047857) : const Color(0xFF334155))
-                                : (_hasExemption ? Colors.green.shade300 : Colors.blueGrey.shade200),
-                          ),
+                          color: AppTheme.severityBackgroundOf(context, _hasExemption ? AppSeverity.success : AppSeverity.info),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                          border: Border.all(color: AppTheme.borderOf(context)),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.local_offer,
                               size: 18,
-                              color: _hasExemption ? AppTheme.flatEmerald : AppTheme.cobalt,
+                              color: _hasExemption ? AppTheme.emerald : AppTheme.cobalt,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -1235,36 +913,32 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: isDark
-                                      ? (_hasExemption ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1))
-                                      : (_hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade900),
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       Text(
                         l.customsDeclExemptionConditionsHeader,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: DisplayDensityMode.clampFontSize(12.5),
-                          color: isDark
-                              ? (_hasExemption ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1))
-                              : (_hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade800),
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       ...exemptionConditions.map((cond) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsetsDirectional.only(bottom: 6),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
                                   Icons.check_circle_outline,
                                   size: 16,
-                                  color: _hasExemption ? AppTheme.flatEmerald : Colors.blueGrey,
+                                  color: _hasExemption ? AppTheme.emerald : AppTheme.textMutedOf(context),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -1273,7 +947,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                     isSelectable: false,
                                     style: TextStyle(
                                       fontSize: DisplayDensityMode.clampFontSize(12.0),
-                                      color: isDark ? const Color(0xFFCBD5E1) : Colors.black87,
+                                      color: AppTheme.textPrimaryOf(context),
                                     ),
                                   ),
                                 ),
@@ -1283,161 +957,30 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
               ],
 
-              // Regulatory Approvals, Inspections & Prior Approvals Card
+              // Regulatory approvals, inspections & prior approvals
               if (_regulatoryApprovals.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-                  ),
+                IdocBSectionCard(
+                  icon: Icons.policy_outlined,
+                  title: l.customsDeclRegulatoryHeader,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      constraints.maxWidth < 1050
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.policy_outlined, color: AppTheme.wcagCobalt, size: 22),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        l.customsDeclRegulatoryHeader,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      key: const Key('copyRegulatoryTableTsvBtn'),
-                                      icon: const Icon(Icons.copy_all, size: 15),
-                                      label: Text(
-                                        l.customsDeclExportTsvButton,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: isDark ? const Color(0xFF38BDF8) : AppTheme.wcagCobalt,
-                                        side: BorderSide(color: isDark ? const Color(0xFF38BDF8) : AppTheme.wcagCobalt),
-                                      ),
-                                      onPressed: () => _copyApprovalTable(l),
-                                    ),
-                                    OutlinedButton.icon(
-                                      key: const Key('exportRegulatoryExcelBtn'),
-                                      icon: const Icon(Icons.table_chart_outlined, size: 15),
-                                      label: Text(
-                                        l.exportExcelApprovalsTooltip,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: AppTheme.flatEmerald,
-                                        side: const BorderSide(color: AppTheme.flatEmerald),
-                                      ),
-                                      onPressed: () => _exportApprovalsToExcel(l),
-                                    ),
-                                    OutlinedButton.icon(
-                                      key: const Key('exportRegulatoryPdfBtn'),
-                                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
-                                      label: Text(
-                                        l.exportPdfApprovalsTooltip,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: isDark ? const Color(0xFFF87171) : AppTheme.crimson,
-                                        side: BorderSide(color: isDark ? const Color(0xFFF87171) : AppTheme.crimson),
-                                      ),
-                                      onPressed: () => _exportApprovalsToPdf(l),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                const Icon(Icons.policy_outlined, color: AppTheme.wcagCobalt, size: 22),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    l.customsDeclRegulatoryHeader,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                ),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      key: const Key('copyRegulatoryTableTsvBtn'),
-                                      icon: const Icon(Icons.copy_all, size: 15),
-                                      label: Text(
-                                        l.customsDeclExportTsvButton,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: isDark ? const Color(0xFF38BDF8) : AppTheme.wcagCobalt,
-                                        side: BorderSide(color: isDark ? const Color(0xFF38BDF8) : AppTheme.wcagCobalt),
-                                      ),
-                                      onPressed: () => _copyApprovalTable(l),
-                                    ),
-                                    OutlinedButton.icon(
-                                      key: const Key('exportRegulatoryExcelBtn'),
-                                      icon: const Icon(Icons.table_chart_outlined, size: 15),
-                                      label: Text(
-                                        l.exportExcelApprovalsTooltip,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: AppTheme.flatEmerald,
-                                        side: const BorderSide(color: AppTheme.flatEmerald),
-                                      ),
-                                      onPressed: () => _exportApprovalsToExcel(l),
-                                    ),
-                                    OutlinedButton.icon(
-                                      key: const Key('exportRegulatoryPdfBtn'),
-                                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
-                                      label: Text(
-                                        l.exportPdfApprovalsTooltip,
-                                        style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.5)),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        foregroundColor: isDark ? const Color(0xFFF87171) : AppTheme.crimson,
-                                        side: BorderSide(color: isDark ? const Color(0xFFF87171) : AppTheme.crimson),
-                                      ),
-                                      onPressed: () => _exportApprovalsToPdf(l),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                      Divider(height: 24, color: isDark ? const Color(0xFF334155) : null),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          AppButton(key: const Key('copyRegulatoryTableTsvBtn'), label: l.customsDeclExportTsvButton, onPressed: () => _copyApprovalTable(l), variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.copy_all),
+                          AppButton(key: const Key('exportRegulatoryExcelBtn'), label: l.exportExcelApprovalsTooltip, onPressed: () => _exportApprovalsToExcel(l), variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.table_chart_outlined),
+                          AppButton(key: const Key('exportRegulatoryPdfBtn'), label: l.exportPdfApprovalsTooltip, onPressed: () => _exportApprovalsToPdf(l), variant: AppButtonVariant.secondary, size: AppButtonSize.small, icon: Icons.picture_as_pdf_outlined),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : Colors.grey.shade100),
+                          headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkInputBackground : AppTheme.surfaceAlt),
                           columns: [
                             DataColumn(label: Text(l.customsDeclColHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.customsDeclColAuthority, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1457,7 +1000,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                             final String noteText = (appr['note'] != null && appr['note'].toString().trim().isNotEmpty)
                                 ? appr['note'].toString()
                                 : (appr['requires_inspection'] == true ? l.customsDeclDefaultNote : l.customsDeclVisualInspectionNote);
-                            final String statusText = l.customsDeclStatusFulfilled;
+                            final String statusText = _approvalStatusText(appr, l);
                             final String rowSummary = '$hsCode\t$authorityText\t$inspectionText\t$cooText\t$noteText\t$statusText';
 
                             return DataRow(
@@ -1470,7 +1013,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                       hsCode,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? const Color(0xFF818CF8) : AppTheme.cobalt,
+                                        color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
                                         fontFamily: 'monospace',
                                       ),
                                     ),
@@ -1484,7 +1027,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                       authorityText,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: isDark ? const Color(0xFFE2E8F0) : null,
+                                        color: isDark ? AppTheme.darkTextPrimary : null,
                                       ),
                                     ),
                                   ),
@@ -1495,7 +1038,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                     rowSummary: rowSummary,
                                     child: Icon(
                                       appr['requires_inspection'] == true ? Icons.check_circle : Icons.remove_circle_outline,
-                                      color: appr['requires_inspection'] == true ? Colors.amber.shade800 : Colors.grey,
+                                      color: appr['requires_inspection'] == true ? AppTheme.warningForeground : AppTheme.textMuted,
                                       size: 18,
                                     ),
                                   ),
@@ -1506,7 +1049,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                     rowSummary: rowSummary,
                                     child: Icon(
                                       appr['requires_coo'] == true ? Icons.check_circle : Icons.remove_circle_outline,
-                                      color: appr['requires_coo'] == true ? AppTheme.flatEmerald : Colors.grey,
+                                      color: appr['requires_coo'] == true ? AppTheme.flatEmerald : AppTheme.textMuted,
                                       size: 18,
                                     ),
                                   ),
@@ -1519,7 +1062,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                       noteText,
                                       style: TextStyle(
                                         fontSize: DisplayDensityMode.clampFontSize(12.0),
-                                        color: isDark ? const Color(0xFFCBD5E1) : null,
+                                        color: isDark ? AppTheme.darkTextPrimary : null,
                                       ),
                                     ),
                                   ),
@@ -1528,24 +1071,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                   CopyableTableCell(
                                     value: statusText,
                                     rowSummary: rowSummary,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: isDark ? const Color(0xFF064E3B) : Colors.green.shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isDark ? const Color(0xFF059669) : Colors.green.shade300,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: TextStyle(
-                                          fontSize: DisplayDensityMode.clampFontSize(11.0),
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? const Color(0xFFA7F3D0) : Colors.green.shade800,
-                                        ),
-                                      ),
-                                    ),
+                                    child: IdocBStatusChip(label: statusText, severity: AppSeverity.success),
                                   ),
                                 ),
                                 DataCell(
@@ -1553,7 +1079,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                     key: Key('copyApprovalRowBtn_$hsCode'),
                                     icon: const Icon(Icons.copy_rounded, size: 17),
                                     tooltip: l.copyApprovalRowSuccess,
-                                    color: isDark ? const Color(0xFF38BDF8) : AppTheme.wcagCobalt,
+                                    color: isDark ? AppTheme.darkHyperlink : AppTheme.wcagCobalt,
                                     onPressed: () => _copyApprovalRow(appr, l),
                                   ),
                                 ),
@@ -1568,76 +1094,15 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 const SizedBox(height: 20),
               ],
 
-              // Action Buttons (Save, Preview Summary, Export TSV, Clone)
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                children: [
-                  ElevatedButton.icon(
-                    key: const Key('saveDeclaration46Btn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: _isSavingDeclaration ? null : () => _saveDeclaration46(l),
-                    icon: _isSavingDeclaration
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save),
-                    label: Text(
-                      _isSavingDeclaration ? l.customsDeclSavingProgress : l.customsDeclSaveButton,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('printPreviewDeclaration46Btn'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      side: BorderSide(color: isDark ? const Color(0xFF818CF8) : Colors.indigo),
-                      foregroundColor: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: Icon(Icons.visibility_outlined, color: isDark ? const Color(0xFF818CF8) : Colors.indigo),
-                    label: Text(
-                      l.customsDeclPrintPreviewButton,
-                      style: TextStyle(
-                        color: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () => _showDeclarationSummaryDialog(l),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('exportDeclaration46TsvBtn'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      side: const BorderSide(color: AppTheme.flatEmerald),
-                      foregroundColor: AppTheme.flatEmerald,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.table_chart_outlined, color: AppTheme.flatEmerald),
-                    label: Text(
-                      l.customsDeclExportTsvButton,
-                      style: const TextStyle(color: AppTheme.flatEmerald, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => _copyDeclarationAsTsv(l),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('bottomSearchAndCloneDeclBtn'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      side: const BorderSide(color: AppTheme.wcagCobalt),
-                      foregroundColor: AppTheme.wcagCobalt,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt),
-                    label: Text(
-                      l.searchAndCloneCustomsDeclBtn,
-                      style: const TextStyle(color: AppTheme.wcagCobalt, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: _openSearchAndCloneDialog,
-                  ),
+              // Action bar: save (primary) + preview / copy / clone
+              IdocBActionBar(
+                secondary: [
+                  AppButton(key: const Key('printPreviewDeclaration46Btn'), label: l.customsDeclPrintPreviewButton, onPressed: () => _showDeclarationSummaryDialog(l), variant: AppButtonVariant.secondary, icon: Icons.visibility_outlined),
+                  AppButton(key: const Key('exportDeclaration46TsvBtn'), label: l.customsDeclExportTsvButton, onPressed: () => _copyDeclarationAsTsv(l), variant: AppButtonVariant.secondary, icon: Icons.table_chart_outlined),
+                  AppButton(key: const Key('bottomSearchAndCloneDeclBtn'), label: l.searchAndCloneCustomsDeclBtn, onPressed: _openSearchAndCloneDialog, variant: AppButtonVariant.secondary, icon: Icons.copy_all),
+                ],
+                primary: [
+                  AppButton(key: const Key('saveDeclaration46Btn'), label: _isSavingDeclaration ? l.customsDeclSavingProgress : l.customsDeclSaveButton, onPressed: _isSavingDeclaration ? null : () => _saveDeclaration46(l), variant: AppButtonVariant.success, icon: Icons.save, isLoading: _isSavingDeclaration),
                 ],
               ),
             ],
@@ -1657,6 +1122,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     List<dynamic>? cachedBookings,
     List<CustomsTariffModel>? cachedTariffs,
     List<dynamic>? cachedPos,
+    List<CurrencyModel>? cachedCurrencies,
   }) {
     final int fileId = file.importFileId;
     final String declNo = '46-ALX-${file.importFileCode}';
@@ -1670,7 +1136,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         acidVal = matchedAcid.acidNumber;
       }
     }
-    if (acidVal.isEmpty) acidVal = '46-ACID-${file.importFileCode}';
 
     // 2. Form 4
     String f4Val = file.form4No ?? '';
@@ -1680,9 +1145,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       if (matchedF4 != null && matchedF4.docReferenceNumber != 'PENDING' && matchedF4.docReferenceNumber.isNotEmpty) {
         f4Val = matchedF4.docReferenceNumber;
       }
-    }
-    if (f4Val.isEmpty) {
-      f4Val = file.swiftNo != null && file.swiftNo!.isNotEmpty ? 'F4-${file.swiftNo}' : 'F4-ALX-${file.importFileCode}';
     }
 
     // 3. B/L
@@ -1705,10 +1167,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         blVal = linkedBooking.bookingConfirmationNo ?? linkedBooking.bookingCode;
       }
     }
-    if (blVal.isEmpty) {
-      blVal = file.customFileNumber != null && file.customFileNumber!.isNotEmpty
-          ? file.customFileNumber!
-          : 'MEDUST-${file.importFileCode}';
+    if (blVal.isEmpty && file.customFileNumber != null && file.customFileNumber!.isNotEmpty) {
+      blVal = file.customFileNumber!;
     }
 
     // 4. HS Codes and Tariffs
@@ -1724,54 +1184,29 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         }
       }
     }
-    if (fileHsCodes.isEmpty) {
-      fileHsCodes = ['8471.30.00', '8517.62.00'];
-    }
+    final primaryTariff = Form46Calculator.matchTariff(fileHsCodes, allTariffs);
 
-    final matched = allTariffs.where((t) => fileHsCodes.any((c) => t.hsCode.contains(c) || c.contains(t.hsCode))).toList();
-    final primaryTariff = matched.isNotEmpty ? matched.first : (allTariffs.isNotEmpty ? allTariffs.first : null);
-
-    final String hsCode = primaryTariff?.hsCode ?? fileHsCodes.first;
+    final String hsCode = primaryTariff?.hsCode ?? (fileHsCodes.isNotEmpty ? fileHsCodes.first : '');
     final String hsDesc = primaryTariff?.hsDescription ?? l.customsDeclDefaultItemDesc;
-    final double dutyRate = primaryTariff != null ? primaryTariff.customsDutyRate : 5.0;
-    final double vatRate = primaryTariff != null ? primaryTariff.vatRate : 14.0;
-    final double devRate = primaryTariff != null ? primaryTariff.developmentFeeRate : 0.0;
-    final double serviceRate = primaryTariff != null ? primaryTariff.customsServiceFeeRate : 1.0;
 
-    // CIF in EGP
-    const exchangeRate = 50.7917;
-    final double fobForeign = file.estimatedCost > 0
-        ? file.estimatedCost
-        : (file.invoicesData.isNotEmpty
-            ? file.invoicesData.fold<double>(0.0, (sum, i) => sum + i.amount)
-            : 12500.0);
-    final String currency = (file.estimatedCostCurrency != null && file.estimatedCostCurrency.toString().trim().isNotEmpty)
-        ? file.estimatedCostCurrency.toString()
-        : 'USD';
-    final double fobEgp = fobForeign * exchangeRate;
-    final double freightEgp = fobEgp * 0.02;
-    final double insuranceEgp = fobEgp * 0.025;
-    final double cifEgp = fobEgp + freightEgp + insuranceEgp;
+    final fobRes = Form46Calculator.invoiceFob(List<InvoiceItemModel>.from(file.invoicesData as List));
+    final String currency = fobRes.currency;
+    final f = Form46Calculator.compute(
+      fobForeign: fobRes.amount,
+      fobIssue: fobRes.issue,
+      customsFxRate: Form46Calculator.customsRateFor(
+        currency,
+        cachedCurrencies ?? ref.read(currenciesProvider).valueOrNull ?? [],
+      ),
+      tariff: primaryTariff,
+    );
 
-    // Duties & Taxes
-    final double importDutyEgp = cifEgp * (dutyRate / 100.0);
-    final double devFeeEgp = cifEgp * (devRate / 100.0);
-    final double serviceFeeEgp = cifEgp * (serviceRate / 100.0);
-    final double otherFeesEgp = devFeeEgp + serviceFeeEgp;
-    final double vatBaseEgp = cifEgp + importDutyEgp + otherFeesEgp;
-    final double vatEgp = vatBaseEgp * (vatRate / 100.0);
-    final double totalDutiesEgp = importDutyEgp + vatEgp + otherFeesEgp;
-
-    // Exemption
-    final bool isEuropeanOrExempt = dutyRate == 0.0 ||
-        (file.portOfLoading != null &&
-            (file.portOfLoading!.contains('IT') ||
-                file.portOfLoading!.contains('FR') ||
-                file.portOfLoading!.contains('DE') ||
-                file.portOfLoading!.contains('ES')));
-    final String exemptionTitle = isEuropeanOrExempt
-        ? l.customsDeclEur1ExemptionTitle
-        : l.customsDeclMfnExemptionTitle(dutyRate.toStringAsFixed(1));
+    final bool isEuropeanOrExempt = f.hasExemption;
+    final String exemptionTitle = f.dutyRate == null
+        ? ''
+        : (isEuropeanOrExempt
+            ? l.customsDeclEur1ExemptionTitle
+            : l.customsDeclMfnExemptionTitle(f.dutyRate!.toStringAsFixed(1)));
 
     return CustomsDeclarationAssessment(
       declarationNo: declNo,
@@ -1784,24 +1219,25 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       blNumber: blVal,
       hsCode: hsCode,
       hsDescription: hsDesc,
-      fobForeign: fobForeign,
+      fobForeign: f.fobForeign,
       currency: currency,
-      exchangeRate: exchangeRate,
-      fobEgp: fobEgp,
-      freightEgp: freightEgp,
-      insuranceEgp: insuranceEgp,
-      cifEgp: cifEgp,
-      dutyRate: dutyRate,
-      importDutyEgp: importDutyEgp,
-      devRate: devRate,
-      devFeeEgp: devFeeEgp,
-      serviceRate: serviceRate,
-      serviceFeeEgp: serviceFeeEgp,
-      otherFeesEgp: otherFeesEgp,
-      vatRate: vatRate,
-      vatBaseEgp: vatBaseEgp,
-      vatEgp: vatEgp,
-      totalDutiesEgp: totalDutiesEgp,
+      exchangeRate: f.exchangeRate,
+      fobEgp: f.fobEgp,
+      cifEgp: f.cifEgp,
+      dutyRate: f.dutyRate,
+      importDutyEgp: f.importDutyEgp,
+      devRate: f.devRate,
+      devFeeEgp: f.devFeeEgp,
+      serviceRate: f.serviceRate,
+      serviceFeeEgp: f.serviceFeeEgp,
+      otherFeesEgp: f.otherFeesEgp,
+      vatRate: f.vatRate,
+      scheduleTaxEgp: f.scheduleTaxEgp,
+      importFeeEgp: f.importFeeEgp,
+      vatBaseEgp: f.vatBaseEgp,
+      vatEgp: f.vatEgp,
+      totalDutiesEgp: f.totalDutiesEgp,
+      missing: f.missing,
       hasExemption: isEuropeanOrExempt,
       exemptionTitle: exemptionTitle,
       registrationDate: DateTime.now().toString().substring(0, 10),
@@ -1809,62 +1245,16 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     );
   }
 
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(isDark ? 0.2 : 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                CopyableText(
-                  value,
-                  isSelectable: false,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
-                ),
-              ],
-            ),
-          ),
-        ],
+  /// Money cell: right-aligned LTR digits, or the red missing marker.
+  Widget _figureText(double? value, Color color, {required bool bold}) {
+    if (value == null) return IdocBMissingMark(label: _miss);
+    return LtrText(
+      '${IdocBFormat.money(value)} ${context.l10n.egpCurrency}',
+      textAlign: TextAlign.end,
+      style: TextStyle(
+        fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+        color: color,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
@@ -1897,84 +1287,40 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       cachedPos: pos,
     )).toList();
 
-    final totalCif = assessments.fold<double>(0.0, (sum, a) => sum + a.cifEgp);
-    final totalDuties = assessments.fold<double>(0.0, (sum, a) => sum + a.totalDutiesEgp);
+    final totalCif = assessments.fold<double>(0.0, (sum, a) => sum + (a.cifEgp ?? 0.0));
+    final totalDuties = assessments.fold<double>(0.0, (sum, a) => sum + (a.totalDutiesEgp ?? 0.0));
     final totalExemptions = assessments.where((a) => a.hasExemption).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // KPI Metrics Row (Task A Responsive & Task B Dark Mode)
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final card1 = _buildMetricCard(
-              title: l.customsDeclMetricTotalDeclarations,
-              value: assessments.length.toString(),
-              icon: Icons.assignment_turned_in_outlined,
-              color: Colors.indigo,
-              isDark: isDark,
-            );
-            final card2 = _buildMetricCard(
-              title: l.customsDeclMetricTotalCif,
-              value: '${totalCif.toStringAsFixed(2)} EGP',
-              icon: Icons.monetization_on_outlined,
-              color: AppTheme.cobalt,
-              isDark: isDark,
-            );
-            final card3 = _buildMetricCard(
-              title: l.customsDeclMetricTotalDuties,
-              value: '${totalDuties.toStringAsFixed(2)} EGP',
-              icon: Icons.account_balance_wallet_outlined,
-              color: AppTheme.crimson,
-              isDark: isDark,
-            );
-            final card4 = _buildMetricCard(
-              title: l.customsDeclMetricExemptions,
-              value: totalExemptions.toString(),
-              icon: Icons.verified_outlined,
-              color: AppTheme.flatEmerald,
-              isDark: isDark,
-            );
-
-            if (constraints.maxWidth < 650) {
-              final halfWidth = (constraints.maxWidth - 10) / 2;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  SizedBox(width: halfWidth, child: card1),
-                  SizedBox(width: halfWidth, child: card2),
-                  SizedBox(width: halfWidth, child: card3),
-                  SizedBox(width: halfWidth, child: card4),
-                ],
-              );
-            } else if (constraints.maxWidth < 950) {
-              final halfWidth = (constraints.maxWidth - 12) / 2;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(width: halfWidth, child: card1),
-                  SizedBox(width: halfWidth, child: card2),
-                  SizedBox(width: halfWidth, child: card3),
-                  SizedBox(width: halfWidth, child: card4),
-                ],
-              );
-            } else {
-              return Row(
-                children: [
-                  Expanded(child: card1),
-                  const SizedBox(width: 12),
-                  Expanded(child: card2),
-                  const SizedBox(width: 12),
-                  Expanded(child: card3),
-                  const SizedBox(width: 12),
-                  Expanded(child: card4),
-                ],
-              );
-            }
-          },
-        ),
+        // KPI strip
+        IdocBUi.metrics([
+          MetricCardData(
+            title: l.customsDeclMetricTotalDeclarations,
+            value: assessments.length.toString(),
+            icon: Icons.assignment_turned_in_outlined,
+            color: AppTheme.cobalt,
+          ),
+          MetricCardData(
+            title: l.customsDeclMetricTotalCif,
+            value: '${IdocBFormat.money(totalCif)} ${l.egpCurrency}',
+            icon: Icons.monetization_on_outlined,
+            color: AppTheme.cobalt,
+          ),
+          MetricCardData(
+            title: l.customsDeclMetricTotalDuties,
+            value: '${IdocBFormat.money(totalDuties)} ${l.egpCurrency}',
+            icon: Icons.account_balance_wallet_outlined,
+            color: AppTheme.crimson,
+          ),
+          MetricCardData(
+            title: l.customsDeclMetricExemptions,
+            value: totalExemptions.toString(),
+            icon: Icons.verified_outlined,
+            color: AppTheme.emerald,
+          ),
+        ]),
         const SizedBox(height: 18),
 
         // Search and Actions Toolbar (Task A, Task J)
@@ -1983,73 +1329,29 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
             final searchField = TextField(
               decoration: InputDecoration(
                 hintText: l.customsDeclRegistrySearchHint,
-                hintStyle: TextStyle(color: isDark ? const Color(0xFF64748B) : Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
+                hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                  borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                  borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                 ),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                fillColor: isDark ? AppTheme.darkCardBackground : AppTheme.surface,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              style: TextStyle(color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
               onChanged: (val) => setState(() => _searchQuery = val),
             );
 
             final actionButtons = [
-              OutlinedButton.icon(
-                key: const Key('copyRegistryTableTsvBtn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
-                  side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => _exportRegistryTsv(assessments, l),
-                icon: const Icon(Icons.copy, size: 16),
-                label: Text(l.customsDeclExportTsvButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('exportRegistryExcelBtn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: isDark ? const Color(0xFF6EE7B7) : AppTheme.flatEmerald,
-                  side: BorderSide(color: isDark ? const Color(0xFF10B981) : AppTheme.flatEmerald),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => _exportRegistryExcel(assessments, l),
-                icon: const Icon(Icons.table_view_outlined, size: 16),
-                label: Text(l.exportRegistryExcelTooltip, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              OutlinedButton.icon(
-                key: const Key('exportRegistryPdfBtn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: isDark ? const Color(0xFFFCA5A5) : AppTheme.crimson,
-                  side: BorderSide(color: isDark ? const Color(0xFFEF4444) : AppTheme.crimson),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => _exportRegistryPdf(assessments, l),
-                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                label: Text(l.exportRegistryPdfTooltip, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              ElevatedButton.icon(
-                key: const Key('registerNewDeclBtn'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => setState(() => _selectedSubTab = 0),
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(l.customsDeclRegisterNewButton),
-              ),
+              AppButton(key: const Key('copyRegistryTableTsvBtn'), label: l.customsDeclExportTsvButton, onPressed: () => _exportRegistryTsv(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.copy),
+              AppButton(key: const Key('exportRegistryExcelBtn'), label: l.exportRegistryExcelTooltip, onPressed: () => _exportRegistryExcel(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.table_view_outlined),
+              AppButton(key: const Key('exportRegistryPdfBtn'), label: l.exportRegistryPdfTooltip, onPressed: () => _exportRegistryPdf(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf_outlined),
+              AppButton(key: const Key('registerNewDeclBtn'), label: l.customsDeclRegisterNewButton, onPressed: () => setState(() => _selectedSubTab = 0), icon: Icons.add),
             ];
 
             return Wrap(
@@ -2072,70 +1374,75 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         ),
         const SizedBox(height: 16),
 
-        // Enhanced DataTable with Assessment, Row Copy & Record Clone Actions (Task B, Task D, Task E)
+        // Registry table (assessment, row copy and clone actions)
+        if (assessments.isEmpty)
+          IdocBStateView.empty(
+            key: const Key('decl46RegistryEmpty'),
+            message: l.idocBNoDeclarations,
+            icon: Icons.assignment_outlined,
+          )
+        else
         Container(
           width: double.infinity,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-          ),
+          decoration: AppTheme.cardDecorationOf(context),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : Colors.grey.shade100),
+              headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkInputBackground : AppTheme.surfaceAlt),
               columns: [
                 DataColumn(
                   label: Text(
                     l.customsDeclColActions,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     l.customsDeclColDeclarationNo,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     l.customsDeclColFileNumber,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     l.customsDeclColSupplier,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     l.customsDeclColHsCode,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
+                  numeric: true,
                   label: Text(
                     l.customsDeclCifValueLabel,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
+                  numeric: true,
                   label: Text(
                     l.customsDeclTotalDutiesLabel,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     l.customsDeclColDeclarationStatus,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
               ],
               rows: assessments.map((a) {
-                final rowSummary = '${a.declarationNo}\t${a.primaryNameWithCode}\t${a.supplierName}\t${a.hsCode}\t${a.cifEgp.toStringAsFixed(2)}\t${a.totalDutiesEgp.toStringAsFixed(2)}\t${a.registrationDate}\t${a.status}';
+                final rowSummary = '${a.declarationNo}\t${a.primaryNameWithCode}\t${a.supplierName}\t${a.hsCode}\t${a.cifEgp.fixedOrMissing(2, _miss)}\t${a.totalDutiesEgp.fixedOrMissing(2, _miss)}\t${a.registrationDate}\t${a.status}';
 
                 return DataRow(
                   cells: [
@@ -2145,13 +1452,13 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         children: [
                           IconButton(
                             key: Key('viewAssessmentBtn_${a.declarationNo}'),
-                            icon: const Icon(Icons.analytics_outlined, color: Colors.indigo, size: 18),
+                            icon: const Icon(Icons.analytics_outlined, color: AppTheme.cobalt, size: 18),
                             tooltip: l.customsDeclViewAssessmentTooltip,
                             onPressed: () => _showTariffAssessmentDialog(a, l),
                           ),
                           IconButton(
                             key: Key('copyRegistryRowBtn_${a.declarationNo}'),
-                            icon: Icon(Icons.copy, size: 16, color: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt),
+                            icon: Icon(Icons.copy, size: 16, color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
                             tooltip: l.copyRegistryRowSuccess,
                             onPressed: () {
                               final headers = [
@@ -2169,8 +1476,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                 a.primaryNameWithCode,
                                 a.supplierName,
                                 a.hsCode,
-                                a.cifEgp.toStringAsFixed(2),
-                                a.totalDutiesEgp.toStringAsFixed(2),
+                                a.cifEgp.fixedOrMissing(2, _miss),
+                                a.totalDutiesEgp.fixedOrMissing(2, _miss),
                                 a.registrationDate,
                                 a.status,
                               ];
@@ -2179,7 +1486,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                           ),
                           IconButton(
                             key: Key('cloneRegistryRowBtn_${a.declarationNo}'),
-                            icon: Icon(Icons.copy_all, size: 18, color: isDark ? const Color(0xFF6EE7B7) : AppTheme.flatEmerald),
+                            icon: Icon(Icons.copy_all, size: 18, color: isDark ? AppTheme.emerald : AppTheme.flatEmerald),
                             tooltip: l.cloneCustomsDeclRowTooltip,
                             onPressed: () => _onCloneDeclarationSelected(a),
                           ),
@@ -2194,7 +1501,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                           a.declarationNo,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFF93C5FD) : Colors.indigo,
+                            color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
                           ),
                         ),
                       ),
@@ -2205,7 +1512,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         rowSummary: rowSummary,
                         child: Text(
                           a.primaryNameWithCode,
-                          style: TextStyle(color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B)),
+                          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         ),
                       ),
                     ),
@@ -2215,7 +1522,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         rowSummary: rowSummary,
                         child: Text(
                           a.supplierName,
-                          style: TextStyle(color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B)),
+                          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         ),
                       ),
                     ),
@@ -2226,9 +1533,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : Colors.blueGrey.shade50,
+                            color: isDark ? AppTheme.darkBorder : AppTheme.surfaceAlt,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isDark ? const Color(0xFF475569) : Colors.blueGrey.shade200),
+                            border: Border.all(color: isDark ? AppTheme.darkBorderLight : AppTheme.border),
                           ),
                           child: Text(
                             a.hsCode,
@@ -2236,7 +1543,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               fontWeight: FontWeight.bold,
                               fontFamily: 'monospace',
                               fontSize: 12,
-                              color: isDark ? const Color(0xFF93C5FD) : Colors.blueGrey.shade900,
+                              color: isDark ? AppTheme.darkHyperlink : AppTheme.charcoal,
                             ),
                           ),
                         ),
@@ -2244,50 +1551,23 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.cifEgp.toStringAsFixed(2),
+                        value: a.cifEgp.fixedOrMissing(2, _miss),
                         rowSummary: rowSummary,
-                        child: Text(
-                          '${a.cifEgp.toStringAsFixed(2)} EGP',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? const Color(0xFF60A5FA) : AppTheme.cobalt,
-                          ),
-                        ),
+                        child: _figureText(a.cifEgp, AppTheme.cobalt, bold: false),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.totalDutiesEgp.toStringAsFixed(2),
+                        value: a.totalDutiesEgp.fixedOrMissing(2, _miss),
                         rowSummary: rowSummary,
-                        child: Text(
-                          '${a.totalDutiesEgp.toStringAsFixed(2)} EGP',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFFF87171) : AppTheme.crimson,
-                          ),
-                        ),
+                        child: _figureText(a.totalDutiesEgp, AppTheme.crimson, bold: true),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
                         value: a.status,
                         rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E3A8A).withOpacity(0.4) : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : Colors.blue.shade300),
-                          ),
-                          child: Text(
-                            a.status,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF93C5FD) : Colors.indigo,
-                            ),
-                          ),
-                        ),
+                        child: IdocBStatusChip(label: a.status, severity: AppSeverity.info),
                       ),
                     ),
                   ],
@@ -2303,9 +1583,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   void _showTariffAssessmentDialog(CustomsDeclarationAssessment a, AppLocalizations l) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAr = l.isArabic;
-    final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 768;
-    final dialogWidth = (media.size.width - 32).clamp(320.0, 740.0);
 
     final assessmentSummaryText = '''
 ==================================================
@@ -2322,19 +1599,19 @@ ${l.customsDeclBlNumberLabel}: ${a.blNumber}
 ${l.customsDeclColRegistrationDate}: ${a.registrationDate}
 --------------------------------------------------
 [${l.customsDeclValuationBreakdownHeader}]
-${l.customsDeclFxRateLabel}: ${a.exchangeRate.toStringAsFixed(4)}
-${l.customsDeclFobForeignLabel}: ${a.fobForeign.toStringAsFixed(2)} ${a.currency} (${a.fobEgp.toStringAsFixed(2)} EGP)
-${l.customsDeclFreightEgpLabel}: ${a.freightEgp.toStringAsFixed(2)} EGP
-${l.customsDeclInsuranceEgpLabel}: ${a.insuranceEgp.toStringAsFixed(2)} EGP
-${l.customsDeclCifTotalEgpLabel}: ${a.cifEgp.toStringAsFixed(2)} EGP
+${l.customsDeclFxRateLabel}: ${a.exchangeRate.fixedOrMissing(4, _miss)}
+${l.customsDeclFobForeignLabel}: ${a.fobForeign.fixedOrMissing(2, _miss)} ${a.currency} (${a.fobEgp.egpOrMissing(_miss)})
+${l.customsDeclFreightEgpLabel}: ${a.freightEgp.egpOrMissing(_miss)}
+${l.customsDeclInsuranceEgpLabel}: ${a.insuranceEgp.egpOrMissing(_miss)}
+${l.customsDeclCifTotalEgpLabel}: ${a.cifEgp.egpOrMissing(_miss)}
 --------------------------------------------------
 [${l.customsDeclTariffTaxesHeader}]
 ${l.customsDeclColHsCode}: ${a.hsCode} (${a.hsDescription})
-${l.customsDeclImportDutyRateLabel} (${a.dutyRate.toStringAsFixed(1)}%): ${a.importDutyEgp.toStringAsFixed(2)} EGP
-${l.customsDeclCustomsServicesFeeLabel} (${a.serviceRate.toStringAsFixed(1)}%): ${a.serviceFeeEgp.toStringAsFixed(2)} EGP
-${a.devRate > 0 ? '${l.customsDeclDevFeeLabel} (${a.devRate.toStringAsFixed(1)}%): ${a.devFeeEgp.toStringAsFixed(2)} EGP\n' : ''}${l.customsDeclVatBaseLabel}: ${a.vatBaseEgp.toStringAsFixed(2)} EGP
-${l.customsDeclVatRateLabel} (${a.vatRate.toStringAsFixed(1)}%): ${a.vatEgp.toStringAsFixed(2)} EGP
-${l.customsDeclTotalDutiesLabel}: ${a.totalDutiesEgp.toStringAsFixed(2)} EGP
+${l.customsDeclImportDutyRateLabel} (${a.dutyRate.fixedOrMissing(1, _miss)}%): ${a.importDutyEgp.egpOrMissing(_miss)}
+${l.customsDeclCustomsServicesFeeLabel} (${a.serviceRate.fixedOrMissing(1, _miss)}%): ${a.serviceFeeEgp.egpOrMissing(_miss)}
+${(a.devRate ?? 0) > 0 ? '${l.customsDeclDevFeeLabel} (${a.devRate.fixedOrMissing(1, _miss)}%): ${a.devFeeEgp.egpOrMissing(_miss)}\n' : ''}${l.customsDeclVatBaseLabel}: ${a.vatBaseEgp.egpOrMissing(_miss)}
+${l.customsDeclVatRateLabel} (${a.vatRate.fixedOrMissing(1, _miss)}%): ${a.vatEgp.egpOrMissing(_miss)}
+${l.customsDeclTotalDutiesLabel}: ${a.totalDutiesEgp.egpOrMissing(_miss)}
 --------------------------------------------------
 [${l.customsDeclExemptionHeader}]
 ${a.exemptionTitle}
@@ -2370,19 +1647,21 @@ ${a.exemptionTitle}
         a.form4Number,
         a.blNumber,
         a.hsCode,
-        '${a.fobForeign.toStringAsFixed(2)} ${a.currency}',
-        a.freightEgp.toStringAsFixed(2),
-        a.insuranceEgp.toStringAsFixed(2),
-        a.cifEgp.toStringAsFixed(2),
-        a.importDutyEgp.toStringAsFixed(2),
-        a.serviceFeeEgp.toStringAsFixed(2),
-        a.devFeeEgp.toStringAsFixed(2),
-        a.vatBaseEgp.toStringAsFixed(2),
-        a.vatEgp.toStringAsFixed(2),
-        a.totalDutiesEgp.toStringAsFixed(2),
+        '${a.fobForeign.fixedOrMissing(2, _miss)} ${a.currency}',
+        a.freightEgp.fixedOrMissing(2, _miss),
+        a.insuranceEgp.fixedOrMissing(2, _miss),
+        a.cifEgp.fixedOrMissing(2, _miss),
+        a.importDutyEgp.fixedOrMissing(2, _miss),
+        a.serviceFeeEgp.fixedOrMissing(2, _miss),
+        a.devFeeEgp.fixedOrMissing(2, _miss),
+        a.vatBaseEgp.fixedOrMissing(2, _miss),
+        a.vatEgp.fixedOrMissing(2, _miss),
+        a.totalDutiesEgp.fixedOrMissing(2, _miss),
         a.exemptionTitle,
       ].join('\t')
     ].join('\n');
+
+    String rateCaption(double? rate) => rate == null ? '' : l.idocBRateCaption(rate.toStringAsFixed(1));
 
     showDialog(
       context: context,
@@ -2390,213 +1669,149 @@ ${a.exemptionTitle}
         locale: isAr ? const Locale('ar') : const Locale('en'),
         child: Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-          child: AlertDialog(
-            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 16),
-            title: Row(
-              children: [
-                Icon(Icons.analytics_outlined, color: isDark ? const Color(0xFF818CF8) : Colors.indigo),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l.customsDeclAssessmentTitle,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B),
+          child: IdocBDialogShell(
+            title: l.customsDeclAssessmentTitle,
+            subtitle: l.customsDeclAssessmentSubtitle,
+            icon: Icons.analytics_outlined,
+            badge: a.declarationNo,
+            body: SelectionArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!a.isComplete)
+                    IdocBNotice(
+                      key: const Key('assessmentMissingBanner'),
+                      severity: AppSeverity.danger,
+                      message: Form46FiguresPanel.missingItemsText(l, a.missing),
+                    ),
+
+                  // 1. Shipment particulars
+                  IdocBSectionCard(
+                    title: l.customsDeclShipmentParticularsHeader,
+                    icon: Icons.inventory_2_outlined,
+                    child: Column(
+                      children: [
+                        _buildAssessmentRow(l.customsDeclColDeclarationNo, a.declarationNo, isDark: isDark),
+                        _buildAssessmentRow(l.customsDeclColFileNumber, a.primaryNameWithCode, isDark: isDark),
+                        _buildAssessmentRow(l.customsDeclColSupplier, a.supplierName, isDark: isDark),
+                        _buildAssessmentRow(l.customsDeclAcidNumberLabel, a.acidNumber, isDark: isDark),
+                        _buildAssessmentRow(l.customsDeclForm4NumberLabel, a.form4Number, isDark: isDark),
+                        _buildAssessmentRow(l.customsDeclBlNumberLabel, a.blNumber, isDark: isDark),
+                      ],
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF312E81) : Colors.indigo.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isDark ? const Color(0xFF4338CA) : Colors.indigo.shade200),
-                  ),
-                  child: Text(
-                    a.declarationNo,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? const Color(0xFFA5B4FC) : Colors.indigo,
+
+                  // 2. Valuation breakdown (CIF)
+                  IdocBSectionCard(
+                    title: l.customsDeclValuationBreakdownHeader,
+                    icon: Icons.monetization_on_outlined,
+                    child: IdocBMoneyTable(
+                      itemHeader: l.idocBFigureItemHeader,
+                      amountHeader: l.idocBFigureAmountHeader,
+                      lines: [
+                        IdocBMoneyLine(
+                          label: l.customsDeclFobForeignLabel,
+                          caption: '${l.customsDeclFxRateLabel}: ${a.exchangeRate.fixedOrMissing(4, _miss)} EGP/${a.currency}',
+                          amount: a.fobForeign,
+                          currency: a.currency,
+                          missingLabel: _miss,
+                        ),
+                        IdocBMoneyLine(label: l.idocBFobEgpLabel, amount: a.fobEgp, missingLabel: _miss),
+                        IdocBMoneyLine(label: l.customsDeclFreightEgpLabel, amount: a.freightEgp, missingLabel: l.idocBNotRecorded),
+                        IdocBMoneyLine(label: l.customsDeclInsuranceEgpLabel, amount: a.insuranceEgp, missingLabel: l.idocBNotRecorded),
+                        IdocBMoneyLine(
+                          label: l.customsDeclCifTotalEgpLabel,
+                          kind: IdocBMoneyKind.subtotal,
+                          amount: a.cifEgp,
+                          missingLabel: _miss,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: dialogWidth,
-              child: SelectionArea(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.customsDeclAssessmentSubtitle,
-                        style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 16),
 
-                      // 1. Shipment Particulars Card
-                      _buildAssessmentCard(
-                        title: l.customsDeclShipmentParticularsHeader,
-                        icon: Icons.inventory_2_outlined,
-                        color: Colors.indigo,
-                        isDark: isDark,
-                        children: [
-                          _buildAssessmentRow(l.customsDeclColDeclarationNo, a.declarationNo, isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclColFileNumber, a.primaryNameWithCode, isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclColSupplier, a.supplierName, isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclAcidNumberLabel, a.acidNumber, isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclForm4NumberLabel, a.form4Number, isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclBlNumberLabel, a.blNumber, isDark: isDark),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                  // 3. Tariff taxes and duties
+                  IdocBSectionCard(
+                    title: l.customsDeclTariffTaxesHeader,
+                    icon: Icons.receipt_long_outlined,
+                    accent: AppTheme.crimson,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildAssessmentRow(l.customsDeclColHsCode, '${a.hsCode} (${a.hsDescription})', isDark: isDark),
+                        const SizedBox(height: 8),
+                        IdocBMoneyTable(
+                          itemHeader: l.idocBFigureItemHeader,
+                          amountHeader: l.idocBFigureAmountHeader,
+                          lines: [
+                            IdocBMoneyLine(label: l.customsDeclImportDutyRateLabel, caption: rateCaption(a.dutyRate), amount: a.importDutyEgp, missingLabel: _miss),
+                            IdocBMoneyLine(label: l.customsDeclCustomsServicesFeeLabel, caption: rateCaption(a.serviceRate), amount: a.serviceFeeEgp, missingLabel: _miss),
+                            if ((a.devRate ?? 0) > 0)
+                              IdocBMoneyLine(label: l.customsDeclDevFeeLabel, caption: rateCaption(a.devRate), amount: a.devFeeEgp, missingLabel: _miss),
+                            IdocBMoneyLine(label: l.idocBScheduleTaxLabel, amount: a.scheduleTaxEgp, missingLabel: _miss),
+                            IdocBMoneyLine(label: l.idocBImportFeeLabel, amount: a.importFeeEgp, missingLabel: _miss),
+                            IdocBMoneyLine(label: l.customsDeclVatBaseLabel, kind: IdocBMoneyKind.subtotal, amount: a.vatBaseEgp, missingLabel: _miss),
+                            IdocBMoneyLine(label: l.customsDeclVatRateLabel, caption: rateCaption(a.vatRate), amount: a.vatEgp, missingLabel: _miss),
+                            IdocBMoneyLine(
+                              label: l.customsDeclTotalDutiesLabel,
+                              kind: IdocBMoneyKind.total,
+                              amount: a.totalDutiesEgp,
+                              missingLabel: _miss,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
 
-                      // 2. Valuation Breakdown Card (CIF)
-                      _buildAssessmentCard(
-                        title: l.customsDeclValuationBreakdownHeader,
-                        icon: Icons.monetization_on_outlined,
-                        color: AppTheme.cobalt,
-                        isDark: isDark,
-                        children: [
-                          _buildAssessmentRow(l.customsDeclFxRateLabel, '${a.exchangeRate.toStringAsFixed(4)} EGP/USD', isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclFobForeignLabel, '${a.fobForeign.toStringAsFixed(2)} ${a.currency} (${a.fobEgp.toStringAsFixed(2)} EGP)', isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclFreightEgpLabel, '${a.freightEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclInsuranceEgpLabel, '${a.insuranceEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          Divider(height: 16, color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
-                          _buildAssessmentRow(l.customsDeclCifTotalEgpLabel, '${a.cifEgp.toStringAsFixed(2)} EGP', isBold: true, valueColor: AppTheme.cobalt, isDark: isDark),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 3. Tariff Taxes & Duties Card (MD-008 Engine)
-                      _buildAssessmentCard(
-                        title: l.customsDeclTariffTaxesHeader,
-                        icon: Icons.receipt_long_outlined,
-                        color: AppTheme.crimson,
-                        isDark: isDark,
-                        children: [
-                          _buildAssessmentRow(l.customsDeclColHsCode, '${a.hsCode} (${a.hsDescription})', isDark: isDark),
-                          _buildAssessmentRow('${l.customsDeclImportDutyRateLabel} (${a.dutyRate.toStringAsFixed(1)}%)', '${a.importDutyEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          _buildAssessmentRow('${l.customsDeclCustomsServicesFeeLabel} (${a.serviceRate.toStringAsFixed(1)}%)', '${a.serviceFeeEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          if (a.devRate > 0)
-                            _buildAssessmentRow('${l.customsDeclDevFeeLabel} (${a.devRate.toStringAsFixed(1)}%)', '${a.devFeeEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          _buildAssessmentRow(l.customsDeclVatBaseLabel, '${a.vatBaseEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          _buildAssessmentRow('${l.customsDeclVatRateLabel} (${a.vatRate.toStringAsFixed(1)}%)', '${a.vatEgp.toStringAsFixed(2)} EGP', isDark: isDark),
-                          Divider(height: 16, color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
-                          _buildAssessmentRow(l.customsDeclTotalDutiesLabel, '${a.totalDutiesEgp.toStringAsFixed(2)} EGP', isBold: true, valueColor: AppTheme.crimson, isDark: isDark),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 4. Exemption & Trade Agreement Card
-                      _buildAssessmentCard(
-                        title: l.customsDeclExemptionHeader,
-                        icon: a.hasExemption ? Icons.verified : Icons.info_outline,
-                        color: a.hasExemption ? AppTheme.flatEmerald : Colors.blueGrey,
-                        isDark: isDark,
-                        children: [
-                          _buildAssessmentRow(
-                            l.customsDeclExemptionHeader,
-                            a.exemptionTitle,
-                            isBold: true,
-                            valueColor: a.hasExemption ? AppTheme.flatEmerald : (isDark ? const Color(0xFFCBD5E1) : Colors.blueGrey.shade800),
-                            isDark: isDark,
+                  // 4. Exemption & trade agreement
+                  IdocBSectionCard(
+                    title: l.customsDeclExemptionHeader,
+                    icon: a.hasExemption ? Icons.verified : Icons.info_outline,
+                    accent: a.hasExemption ? AppTheme.emerald : AppTheme.cobalt,
+                    margin: EdgeInsets.zero,
+                    child: a.exemptionTitle.isEmpty
+                        ? IdocBMissingMark(label: _miss)
+                        : Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: IdocBStatusChip(
+                              label: a.exemptionTitle,
+                              severity: a.hasExemption ? AppSeverity.success : AppSeverity.info,
+                            ),
                           ),
-                        ],
-                      ),
-                    ],
                   ),
-                ),
+                ],
               ),
             ),
             actions: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  TextButton.icon(
-                    key: const Key('copyAssessmentSummaryBtn'),
-                    onPressed: () {
-                      CopyHelper.copy(context, assessmentSummaryText, customMessage: l.customsDeclAssessmentCopySuccess);
-                    },
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: Text(l.customsDeclCopySummarySuccess),
-                  ),
-                  TextButton.icon(
-                    key: const Key('copyAssessmentTsvBtn'),
-                    onPressed: () {
-                      CopyHelper.copy(context, tsvText, customMessage: l.customsDeclExportSuccess);
-                    },
-                    icon: const Icon(Icons.table_chart_outlined, size: 16),
-                    label: Text(l.customsDeclExportTsvButton),
-                  ),
-                  ElevatedButton.icon(
-                    key: const Key('dialogCloneDeclBtn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.wcagCobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      _onCloneDeclarationSelected(a);
-                    },
-                    icon: const Icon(Icons.copy_all, size: 16),
-                    label: Text(l.cloneFromAssessmentBtn),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: Text(l.customsDeclCloseDialog),
-                  ),
-                ],
+              IdocBDialogAction(
+                buttonKey: const Key('copyAssessmentSummaryBtn'),
+                label: l.customsDeclCopySummarySuccess,
+                icon: Icons.copy,
+                onPressed: () => CopyHelper.copy(context, assessmentSummaryText, customMessage: l.customsDeclAssessmentCopySuccess),
+              ),
+              IdocBDialogAction(
+                buttonKey: const Key('copyAssessmentTsvBtn'),
+                label: l.customsDeclExportTsvButton,
+                icon: Icons.table_chart_outlined,
+                onPressed: () => CopyHelper.copy(context, tsvText, customMessage: l.customsDeclExportSuccess),
+              ),
+              IdocBDialogAction(
+                buttonKey: const Key('dialogCloneDeclBtn'),
+                label: l.cloneFromAssessmentBtn,
+                icon: Icons.copy_all,
+                variant: AppButtonVariant.primary,
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _onCloneDeclarationSelected(a);
+                },
+              ),
+              IdocBDialogAction(
+                label: l.customsDeclCloseDialog,
+                onPressed: () => Navigator.of(ctx).pop(),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAssessmentCard({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required List<Widget> children,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          Divider(height: 18, color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
-          ...children,
-        ],
       ),
     );
   }
@@ -2609,7 +1824,7 @@ ${a.exemptionTitle}
     required bool isDark,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsetsDirectional.symmetric(vertical: 4),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isCompact = constraints.maxWidth < 450;
@@ -2617,12 +1832,12 @@ ${a.exemptionTitle}
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: isCompact ? 140 : 220,
+                width: isCompact ? 130 : 200,
                 child: Text(
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
+                    color: AppTheme.textSecondaryOf(context),
                     fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -2634,7 +1849,7 @@ ${a.exemptionTitle}
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                    color: valueColor ?? (isDark ? const Color(0xFFF1F5F9) : Colors.grey.shade900),
+                    color: valueColor ?? AppTheme.textPrimaryOf(context),
                   ),
                 ),
               ),
@@ -2668,42 +1883,31 @@ ${l.customsDeclVatLabel}: ${_vatEgpCtrl.text}
 ${l.customsDeclTotalDutiesLabel}: ${_totalDutyAndTaxesCtrl.text}
 --------------------------------------------------
 ${l.customsDeclExemptionHeader}
-${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTitle(_appliedDutyRate.toStringAsFixed(1))}
+${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTitle(_appliedDutyRate.fixedOrMissing(1, _miss))}
 ==================================================
 ''';
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = l.isArabic;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        title: Row(
-          children: [
-            const Icon(Icons.description, color: Colors.indigo),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                l.customsDeclPreviewTitle,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 600,
-          child: SelectionArea(
-            child: SingleChildScrollView(
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: IdocBDialogShell(
+            title: l.customsDeclPreviewTitle,
+            icon: Icons.description_outlined,
+            badge: _declaration46NoCtrl.text,
+            maxWidth: 640,
+            body: SelectionArea(
               child: Container(
-                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                padding: const EdgeInsetsDirectional.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                  color: AppTheme.surfaceAltOf(context),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.borderOf(context)),
                 ),
                 child: Text(
                   declSummaryText,
@@ -2711,27 +1915,25 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
                     fontFamily: 'monospace',
                     fontSize: 13,
                     height: 1.5,
-                    color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                 ),
               ),
             ),
+            actions: [
+              IdocBDialogAction(
+                label: l.customsDeclCopySummarySuccess,
+                icon: Icons.copy,
+                onPressed: () => CopyHelper.copy(context, declSummaryText, customMessage: l.customsDeclCopySummarySuccess),
+              ),
+              IdocBDialogAction(
+                label: l.customsDeclCloseDialog,
+                variant: AppButtonVariant.primary,
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              CopyHelper.copy(context, declSummaryText, customMessage: l.customsDeclCopySummarySuccess);
-            },
-            icon: const Icon(Icons.copy, size: 18),
-            label: Text(l.customsDeclCopySummarySuccess),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l.customsDeclCloseDialog),
-          ),
-        ],
       ),
     );
   }
@@ -2767,7 +1969,7 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       _importDutyEgpCtrl.text,
       _vatEgpCtrl.text,
       _totalDutyAndTaxesCtrl.text,
-      _hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTitle(_appliedDutyRate.toStringAsFixed(1)),
+      _hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTitle(_appliedDutyRate.fixedOrMissing(1, _miss)),
     ].join('\t');
 
     final tsv = '$headers\n$values';
@@ -2793,10 +1995,10 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       a.primaryNameWithCode,
       a.supplierName,
       a.hsCode,
-      a.cifEgp.toStringAsFixed(2),
-      a.importDutyEgp.toStringAsFixed(2),
-      a.vatEgp.toStringAsFixed(2),
-      a.totalDutiesEgp.toStringAsFixed(2),
+      a.cifEgp.fixedOrMissing(2, _miss),
+      a.importDutyEgp.fixedOrMissing(2, _miss),
+      a.vatEgp.fixedOrMissing(2, _miss),
+      a.totalDutiesEgp.fixedOrMissing(2, _miss),
       a.registrationDate,
       a.status,
     ]).toList();
@@ -2823,10 +2025,10 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       a.primaryNameWithCode,
       a.supplierName,
       a.hsCode,
-      a.cifEgp.toStringAsFixed(2),
-      a.importDutyEgp.toStringAsFixed(2),
-      a.vatEgp.toStringAsFixed(2),
-      a.totalDutiesEgp.toStringAsFixed(2),
+      a.cifEgp.fixedOrMissing(2, _miss),
+      a.importDutyEgp.fixedOrMissing(2, _miss),
+      a.vatEgp.fixedOrMissing(2, _miss),
+      a.totalDutiesEgp.fixedOrMissing(2, _miss),
       a.registrationDate,
       a.status,
     ]).toList();
@@ -2856,8 +2058,8 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       a.primaryNameWithCode,
       a.supplierName,
       a.hsCode,
-      '${a.cifEgp.toStringAsFixed(2)} EGP',
-      '${a.totalDutiesEgp.toStringAsFixed(2)} EGP',
+      '${a.cifEgp.egpOrMissing(_miss)}',
+      '${a.totalDutiesEgp.egpOrMissing(_miss)}',
       a.status,
     ]).toList();
 
