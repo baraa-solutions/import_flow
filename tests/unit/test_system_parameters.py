@@ -64,7 +64,7 @@ def test_inactive_parameter_is_ignored(db):
 
 
 def test_seed_default_parameters_is_insert_only(db):
-    assert sp.seed_default_parameters(db) == 1
+    assert sp.seed_default_parameters(db) == len(sp.DEFAULT_PARAMETERS)
     row = db.query(sp.SystemParameter).filter_by(param_key=sp.AIR_VOLUMETRIC_KG_PER_CBM).one()
     assert (row.param_value, row.is_active, row.created_by) == ("167", True, "system")
     row.param_value = "170"
@@ -301,7 +301,7 @@ def test_sync_all_seeds_the_parameter_once_and_keeps_a_configured_value(db):
     from database.master_data_sync_service import MasterDataSyncService
 
     first = MasterDataSyncService(db).sync_all()
-    assert first["system_parameters_added"] == 1
+    assert first["system_parameters_added"] == len(sp.DEFAULT_PARAMETERS)
     assert sp.air_volumetric_kg_per_cbm(db) == 167.0
     db.query(sp.SystemParameter).filter_by(param_key=sp.AIR_VOLUMETRIC_KG_PER_CBM).update({"param_value": "170"})
     db.commit()
@@ -481,7 +481,9 @@ def test_phase1_read_grants_reach_existing_dbs_once(db, role_code, code):
 
 def test_read_grants_do_not_give_write_access(db):
     rbac.seed_rbac(db)
-    assert "quotations.manage" not in _role_codes(db, "CUSTOMS_OFFICER")
+    # CUSTOMS_OFFICER holds quotations.manage on purpose since the Phase 6-7 review (lead decision 2026-10-05):
+    # the consultation screen embeds the broker RFQ / price-list tab, whose writes need it.
+    assert "quotations.manage" in _role_codes(db, "CUSTOMS_OFFICER")
     assert not {"customs_clearance.update", "customs_consultation.manage"} & _role_codes(db, "LOGISTICS_OPERATOR")
 
 

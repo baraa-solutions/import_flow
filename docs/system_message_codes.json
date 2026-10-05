@@ -96,6 +96,67 @@
       "body"
     ]
   },
+  "CCQ_AWARDED_QUOTE_DELETE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_PRICE_LIST_DATE_RANGE": {
+    "params": [
+      "effective_from",
+      "effective_to"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_QUOTE_EXPIRED": {
+    "params": [
+      "validity_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_RFQ_CANCELLED": {
+    "params": [
+      "rfq_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_RFQ_STATUS_INVALID": {
+    "params": [
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_ACID_EXPIRY_INVALID": {
+    "params": [
+      "import_file_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_ASSESSED_COMPONENTS_LOCKED": {
+    "params": [
+      "fields"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_ASSESS_REQUIRES_DECLARATION_46": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_BROKER_AUTHORIZED": {
     "params": [
       "broker_name",
@@ -181,6 +242,33 @@
       "note"
     ]
   },
+  "CC_DUTY_NOT_ASSESSED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_DUTY_NOT_PAID": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_DUTY_PAID_AMOUNT_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_DUTY_UNDERPAID": {
+    "params": [
+      "assessed_amount",
+      "paid_amount"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_INSPECTION_RECORDED": {
     "params": [
       "import_file_code",
@@ -194,10 +282,41 @@
       "note"
     ]
   },
+  "CC_INVOICE_FX_RATE_REQUIRED": {
+    "params": [
+      "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_INVOICE_RECORD_FILE_MISMATCH": {
+    "params": [
+      "customs_clearance_id",
+      "import_file_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_LAB_RESULT_ALREADY_FINAL": {
+    "params": [
+      "clearance_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_RECORD_OPENED": {
     "params": [
       "clearance_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_REFERENCE_CODE_CONFLICT": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -216,6 +335,31 @@
   "CC_RELEASE_ISSUED_TO_DEMURRAGE": {
     "params": [
       "permit_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_RELEASE_QUARANTINE_LOCKED": {
+    "params": [
+      "clearance_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_RELEASE_RECORD_FILE_MISMATCH": {
+    "params": [
+      "clearance_id",
+      "import_file_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_RESTORE_DUPLICATE_ACTIVE": {
+    "params": [
+      "clearance_code"
     ],
     "parts": [
       "note"
@@ -305,6 +449,22 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "CC_UNDER_BOND_NOT_ALLOWED": {
+    "params": [
+      "clearance_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_UPDATE_NULL_NOT_ALLOWED": {
+    "params": [
+      "fields"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "CGX_ENVELOPE_SEALED": {
@@ -407,6 +567,41 @@
       "title"
     ]
   },
+  "DCA_SAME_REVIEWER": {
+    "params": [
+      "approval_code",
+      "reviewer"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DCA_SESSION_FINAL_LOCKED": {
+    "params": [
+      "session_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DCA_SESSION_NOT_READY": {
+    "params": [
+      "missing_statuses",
+      "open_tickets_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DCA_TICKET_CLOSED": {
+    "params": [
+      "status",
+      "ticket_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DD_CHARGES_POSTED": {
     "params": [
       "tracking_code"
@@ -441,6 +636,14 @@
       "body"
     ]
   },
+  "DD_SETTLEMENT_STALE": {
+    "params": [
+      "tracking_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DD_TASK_SETTLE_FINAL_INVOICES": {
     "params": [
       "eir_number"
@@ -459,6 +662,15 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "DOC_ACID_TRACKER_STATUS": {
+    "params": [
+      "days",
+      "status"
+    ],
+    "parts": [
       "note"
     ]
   },
@@ -962,6 +1174,71 @@
       "note"
     ]
   },
+  "DOC_INVOICE_BL_SYNCED": {
+    "params": [
+      "draft_bl_number",
+      "invoice_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_ACID_MISSING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_BANNER": {
+    "params": [
+      "critical_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_DOC_CRITICAL_BREACH": {
+    "params": [
+      "doc_kind",
+      "doc_number",
+      "eta_date",
+      "expiry_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_DOC_EXPIRED": {
+    "params": [
+      "doc_kind",
+      "doc_number",
+      "expiry_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_DOC_EXPIRING_SOON": {
+    "params": [
+      "days",
+      "doc_kind",
+      "doc_number",
+      "expiry_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_LEGAL_DOC_VALID": {
+    "params": [
+      "doc_kind",
+      "doc_number",
+      "expiry_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_PO_RECONCILIATION_DONE": {
     "params": [
       "session_code"
@@ -1170,6 +1447,14 @@
       "note"
     ]
   },
+  "ESTIMATE_UNAVAILABLE": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_ADVANCE_PAYMENT_REQUESTED": {
     "params": [
       "currency_code",
@@ -1214,6 +1499,32 @@
       "body"
     ]
   },
+  "FA_BUDGET_DUPLICATE_FILE": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_BUDGET_HARD_BLOCK": {
+    "params": [
+      "field_name",
+      "variance_percentage"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_BUDGET_LOCKED": {
+    "params": [
+      "budget_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_BUDGET_NEEDS_REVALIDATION": {
     "params": [
       "budget_code",
@@ -1223,6 +1534,80 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "FA_BUDGET_SOD_DENIED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_BUDGET_STATUS_INVALID": {
+    "params": [
+      "budget_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_BUDGET_SYNC_DONE": {
+    "params": [
+      "budget_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_BUDGET_SYNC_REVISION_CREATED": {
+    "params": [
+      "budget_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_CODE_GENERATION_CONFLICT": {
+    "params": [
+      "reference_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_CURRENCY_MISSING": {
+    "params": [
+      "source"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_FX_RATE_MISSING": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_DUPLICATE_TYPE": {
+    "params": [
+      "payment_code",
+      "payment_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_LOCKED": {
+    "params": [
+      "payment_code",
+      "status"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "FA_PAYMENT_REQUEST_APPROVED": {
@@ -1279,6 +1664,65 @@
       "body"
     ]
   },
+  "FA_PAYMENT_STATUS_INVALID": {
+    "params": [
+      "action",
+      "payment_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_BATCH_ALREADY_RECONCILED": {
+    "params": [
+      "batch_code",
+      "payment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_BATCH_CONFIRMED": {
+    "params": [
+      "batch_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_BATCH_STATUS_INVALID": {
+    "params": [
+      "batch_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_CURRENCY_MISMATCH": {
+    "params": [
+      "currency_code",
+      "swift_currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_FILE_INVALID_BASE64": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_FILE_TOO_LARGE": {
+    "params": [
+      "max_mb"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_SWIFT_PAID": {
     "params": [
       "currency_code",
@@ -1289,6 +1733,15 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "FA_SWIFT_REF_ALREADY_USED": {
+    "params": [
+      "payment_code",
+      "swift_ref"
+    ],
+    "parts": [
       "note"
     ]
   },
@@ -1385,6 +1838,44 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "FC_ALREADY_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FC_CLOSED_RECORD_LOCKED": {
+    "params": [
+      "closure_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FC_CLOSURE_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FC_CLOSURE_EXISTS": {
+    "params": [
+      "closure_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FC_STATUS_INVALID": {
+    "params": [],
+    "parts": [
+      "note"
     ]
   },
   "FS_INVOICES_SETTLED": {
@@ -1527,9 +2018,52 @@
       "reason"
     ]
   },
+  "INVOICES_ALREADY_SETTLED": {
+    "params": [
+      "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IR_ASSESSMENT_EXISTS": {
     "params": [
       "assessment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_BOOKING_EXISTS": {
+    "params": [
+      "transport_code",
+      "waybill_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_STATUS_INVALID": {
+    "params": [
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_TRANSITION_NOT_ALLOWED": {
+    "params": [
+      "action",
+      "current_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "JOURNAL_UNBALANCED": {
+    "params": [
+      "difference"
     ],
     "parts": [
       "note"
@@ -2507,6 +3041,14 @@
       "body"
     ]
   },
+  "ODC_COURIER_NOT_FOUND": {
+    "params": [
+      "courier_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "ODC_ORIGINALS_RECEIVED": {
     "params": [
       "collection_code",
@@ -2516,6 +3058,14 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "ODC_SESSION_NOT_FOUND": {
+    "params": [
+      "import_file_id"
+    ],
+    "parts": [
       "note"
     ]
   },
@@ -2535,6 +3085,14 @@
       "ordered_qty",
       "po_number",
       "shipped_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PAYMENT_STATUS_UNKNOWN": {
+    "params": [
+      "invoice_no"
     ],
     "parts": [
       "note"
@@ -2640,6 +3198,44 @@
   "PREFILL_NO_HS": {
     "params": [
       "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "RECALC_APPLIED": {
+    "params": [
+      "action_taken"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "RECALC_HARD_BLOCK": {
+    "params": [
+      "threshold"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "RECALC_NO_VARIANCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "RECALC_RATE_MISSING": {
+    "params": [
+      "fields"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "RECALC_SOFT_VARIANCE": {
+    "params": [
+      "threshold"
     ],
     "parts": [
       "note"
@@ -2774,6 +3370,126 @@
       "note"
     ]
   },
+  "SDU_ACID_CONFLICT": {
+    "params": [
+      "acid_number",
+      "current_acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_ACID_INVALID": {
+    "params": [
+      "acid_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_BL_APPLIED": {
+    "params": [
+      "cargo_shipping_code",
+      "containers_applied"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_EXTRACTED_ONLY": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_FILE_CLOSED": {
+    "params": [
+      "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_INVOICE_APPLIED": {
+    "params": [
+      "import_file_code",
+      "invoice_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_NO_SHIPPING_RECORD": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_COST_ALREADY_APPROVED": {
+    "params": [
+      "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_DUPLICATE_ACTIVE": {
+    "params": [
+      "settlement_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_FX_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_LINE_NO_HS": {
+    "params": [
+      "item_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_LINE_ZERO_VALUE": {
+    "params": [
+      "item_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_NOT_EDITABLE": {
+    "params": [
+      "settlement_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_UNPAID_INVOICE": {
+    "params": [
+      "amount",
+      "invoice_no",
+      "party_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "TASK_AUTO_PHASE_FOLLOW_UP": {
     "params": [
       "import_file_code",
@@ -2803,6 +3519,26 @@
     "params": [],
     "parts": [
       "title"
+    ]
+  },
+  "WHT_RATE_MISSING_WARNING": {
+    "params": [
+      "invoice_no",
+      "on_date",
+      "tax_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WHT_RATE_NOT_CONFIGURED": {
+    "params": [
+      "invoice_code",
+      "on_date",
+      "tax_code"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "WH_GRN_ISSUED": {
@@ -2857,6 +3593,146 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "WR_DISCREPANCY_TYPE_INVALID": {
+    "params": [
+      "discrepancy_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_EXISTS": {
+    "params": [
+      "grn_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_LINE_UNBALANCED": {
+    "params": [
+      "accepted_qty",
+      "damaged_qty",
+      "invoiced_qty",
+      "item_code",
+      "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_STATUS_INVALID": {
+    "params": [
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_VERDICT_INCONSISTENT": {
+    "params": [
+      "damaged_qty",
+      "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_VERDICT_INCONSISTENT_EXPECTED": {
+    "params": [
+      "expected_verdict",
+      "verdict"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_VERDICT_INVALID": {
+    "params": [
+      "verdict"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_ACID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_CONSIGNEE_MISMATCH": {
+    "params": [
+      "similarity_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_INCOTERM_COLLECT_CONFLICT": {
+    "params": [
+      "incoterm"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_INCOTERM_PREPAID_CONFLICT": {
+    "params": [
+      "incoterm"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_PACKAGES_MISMATCH": {
+    "params": [
+      "bl_packages",
+      "invoice_packages"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_PORTS_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_SHIPPER_MISMATCH": {
+    "params": [
+      "similarity_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_TAX_ID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_WEIGHT_MINOR": {
+    "params": [
+      "diff_kg",
+      "variance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "XCHK_WEIGHT_OVER": {
+    "params": [
+      "diff_kg",
+      "tolerance_pct",
+      "variance_pct"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "_param_rules": {

@@ -52,6 +52,26 @@ PO_STATUS = "PO_STATUS"
 SHIPPING_METHOD = "SHIPPING_METHOD"
 CONTAINER_TYPE = "CONTAINER_TYPE"
 SHIPMENT_MODE = "SHIPMENT_MODE"
+# Review wave (docs/plans/review-shared-needs.md)
+PAYMENT_TYPE = "PAYMENT_TYPE"
+LEGAL_DOC_KIND = "LEGAL_DOC_KIND"
+LAB_TEST_RESULT = "LAB_TEST_RESULT"
+ODC_STATUS = "ODC_STATUS"
+ORIGINAL_DOC_STATUS = "ORIGINAL_DOC_STATUS"
+ORIGINAL_DOC_REQUIRED = "ORIGINAL_DOC_REQUIRED"
+COURIER_STATUS = "COURIER_STATUS"
+DOC_REVIEW_STATUS = "DOC_REVIEW_STATUS"
+DOC_APPROVAL_STATUS = "DOC_APPROVAL_STATUS"
+TICKET_STATUS = "TICKET_STATUS"
+TICKET_SEVERITY = "TICKET_SEVERITY"
+ALLOCATION_RULE = "ALLOCATION_RULE"
+SETTLEMENT_STATUS = "SETTLEMENT_STATUS"
+ACTUAL_COST_BUCKET = "ACTUAL_COST_BUCKET"
+DUTY_COMPONENT = "DUTY_COMPONENT"
+WAREHOUSE_RECEIVING_STATUS = "WAREHOUSE_RECEIVING_STATUS"
+GRN_DISCREPANCY_TYPE = "GRN_DISCREPANCY_TYPE"
+INLAND_TRANSPORT_STATUS = "INLAND_TRANSPORT_STATUS"
+FILE_CLOSURE_STATUS = "FILE_CLOSURE_STATUS"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -364,6 +384,166 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "AIR": "Air Freight",
         "SEA": "Sea Freight",
     },
+    # ── Review wave (docs/plans/review-shared-needs.md). Most of these columns still store the legacy label this
+    # wave (Q6); the codes are the language-neutral contract the API / Flutter converge on. ──
+    # Payment request type (payment_requests.payment_type; financial_approval.validators.normalize_payment_type)
+    PAYMENT_TYPE: {
+        "ADVANCE_PAYMENT": "Advance Payment",
+        "AGAINST_BL": "Against B/L",
+        "LETTER_OF_CREDIT": "Letter of Credit (L/C)",
+        "DOCUMENTARY_COLLECTION": "Documentary Collection (CAD)",
+        "FINAL_SETTLEMENT": "Final Settlement",
+    },
+    # Legal document of an expiry alert (import_documentation legal-docs check, message param doc_kind)
+    LEGAL_DOC_KIND: {
+        "ACID": "ACID",
+        "IMPORT_CARD": "Import Card",
+        "COMMERCIAL_REGISTRY": "Commercial Registry",
+        "TAX_CARD": "Tax Card",
+    },
+    # Laboratory test result of a quarantined clearance (customs_clearance.validators.normalize_lab_test_result)
+    LAB_TEST_RESULT: {
+        "CONFORMING": "Conforming",
+        "NON_CONFORMING": "Non-Conforming",
+        "PENDING": "Pending",
+        "NONE": "None",
+    },
+    # Original documents collection session status (stored as the code)
+    ODC_STATUS: {
+        "DRAFT": "Draft",
+        "IN_TRANSIT": "In Transit",
+        "PARTIALLY_RECEIVED": "Partially Received",
+        "FULLY_RECEIVED": "Fully Received",
+        "FULLY_VERIFIED": "Fully Verified",
+        "DISCREPANCY_NOTED": "Discrepancy Noted",
+    },
+    # Status of one original document of a session (stored as the English label this wave)
+    ORIGINAL_DOC_STATUS: {
+        "PENDING": "Pending",
+        "IN_TRANSIT": "In Transit",
+        "RECEIVED": "Received",
+        "VERIFIED": "Verified",
+        "DISCREPANT": "Discrepant",
+        "NOT_REQUIRED": "Not Required",
+    },
+    # Whether an original document is required (stored as the English label this wave)
+    ORIGINAL_DOC_REQUIRED: {
+        "YES": "Yes",
+        "NO": "No",
+        "CONDITIONAL": "Conditional",
+    },
+    # Courier status of an original documents session (stored as the code)
+    COURIER_STATUS: {
+        "DISPATCHED": "Dispatched",
+        "IN_TRANSIT": "In Transit",
+        "DELIVERED": "Delivered",
+        "DELAYED": "Delayed",
+    },
+    # Commercial / customs review tier status of a customs document approval (label stored this wave)
+    DOC_REVIEW_STATUS: {
+        "PENDING": "Pending",
+        "UNDER_REVIEW": "Under Review",
+        "APPROVED": "Approved",
+        "CONDITIONALLY_APPROVED": "Conditionally Approved",
+        "REJECTED": "Rejected",
+    },
+    # Overall status of a customs document approval (label stored this wave)
+    DOC_APPROVAL_STATUS: {
+        "DRAFT": "Draft",
+        "PENDING_REVIEW": "Pending Review",
+        "UNDER_REVIEW": "Under Review",
+        "CONDITIONALLY_APPROVED": "Conditionally Approved",
+        "APPROVED_FOR_CLEARANCE": "Approved for Clearance",
+        "RECTIFICATION_REQUIRED": "Rectification Required",
+        "REJECTED": "Rejected",
+    },
+    # Discrepancy rectification ticket status / severity (labels stored this wave)
+    TICKET_STATUS: {
+        "OPEN": "Open",
+        "SENT_TO_SUPPLIER": "Sent to Supplier",
+        "RESOLVED": "Resolved",
+        "WAIVED": "Waived",
+        "CLOSED": "Closed",
+    },
+    TICKET_SEVERITY: {
+        "CRITICAL": "Critical",
+        "MAJOR": "Major",
+        "MINOR": "Minor",
+    },
+    # Landed-cost allocation rule of an expense (API values are still the labels this wave)
+    ALLOCATION_RULE: {
+        "VALUE": "Value-Based",
+        "WEIGHT": "Weight-Based",
+        "VOLUME": "Volume-Based",
+        "EQUAL": "Equal",
+    },
+    # Financial settlement status (read-only legacy set; PUT accepts Draft / Calculated only)
+    SETTLEMENT_STATUS: {
+        "DRAFT": "Draft",
+        "CALCULATED": "Calculated",
+        "APPROVED": "Approved",
+        "CLOSED": "Closed",
+    },
+    # Actual landed-cost bucket (financial_settlement.service.ACTUAL_BUCKETS, stored as `bucket` on approved rows)
+    ACTUAL_COST_BUCKET: {
+        "FREIGHT": "Freight",
+        "INSURANCE": "Insurance",
+        "CUSTOMS_DUTY": "Customs Duty",
+        "VAT_TAXES": "VAT & Taxes",
+        "CLEARANCE_PORT": "Clearance & Port",
+        "INLAND_TRANSPORT": "Inland Transport",
+        "DEMURRAGE_STORAGE": "Demurrage & Storage",
+        "OTHER_ADMIN": "Other & Admin",
+    },
+    # Customs duty component of a settlement row auto-fetched from customs (`duty_component`, stored as the
+    # customs_clearance column name: see the legacy map)
+    DUTY_COMPONENT: {
+        "IMPORT_DUTY": "Import Duty",
+        "VAT": "VAT",
+        "SCHEDULE_TAX": "Schedule Tax",
+        "DEVELOPMENT_FEE": "Development Fee",
+        "CUSTOMS_SERVICE_FEES": "Customs Service Fees",
+        "WHT": "Withholding Tax",
+        "LAB_SERVICE_FEES": "Laboratory Service Fees",
+        "DUTY_TOTAL_OVERRIDE": "Assessed Duty Total (override)",
+    },
+    # Goods receipt note status (warehouse_receiving; labels stored this wave)
+    WAREHOUSE_RECEIVING_STATUS: {
+        "PENDING_COUNT": "Pending Warehouse Count",
+        "GOODS_RECEIVED": "Goods Received",
+        "GRN_AUDITED": "GRN Audited",
+        "DISCREPANCY_REPORTED": "Discrepancy Reported",
+        "UNDER_BOND_QUARANTINE": "Under Bond Quarantine",
+        "UNDER_QUARANTINE_INSPECTION": "Under Quarantine Inspection",
+        "INSPECTION_PASSED": "Inspection Passed",
+        "CLOSED": "Closed",
+    },
+    # Goods receipt discrepancy type (warehouse_receiving; labels stored this wave)
+    GRN_DISCREPANCY_TYPE: {
+        "NONE": "None",
+        "SHORTAGE": "Shortage",
+        "DAMAGE": "Damage",
+        "EXCESS": "Excess",
+        "WRONG_ITEM": "Wrong Item",
+        "SHORTAGE_AND_DAMAGE": "Shortage & Damaged",
+        "QUARANTINE_REJECTION": "Quarantine Rejection",
+        "BROKEN_SEAL": "Broken Seal Discrepancy",
+    },
+    # Inland transport booking status (labels stored this wave)
+    INLAND_TRANSPORT_STATUS: {
+        "BOOKING_CONFIRMED": "Booking Confirmed",
+        "DISPATCHED": "Dispatched",
+        "IN_TRANSIT": "In Transit",
+        "ARRIVED_AT_WAREHOUSE": "Arrived at Warehouse",
+        "DELIVERED": "Delivered",
+    },
+    # File closure record status (labels stored this wave; Reopened = the file was reopened after closing)
+    FILE_CLOSURE_STATUS: {
+        "DRAFT": "Draft",
+        "CLOSED": "Closed",
+        "ARCHIVED": "Archived",
+        "REOPENED": "Reopened",
+    },
 }
 
 # Legacy labels exactly as older clients / defaults sent them -> code.
@@ -598,6 +778,60 @@ _LEGACY: Dict[str, Dict[str, str]] = {
     CONTAINER_TYPE: {
         "LCL Consolidation": "LCL",
         "40FT High Cube Containers (40' HC)": "C40_HC",
+    },
+    # Same aliases as financial_approval.validators._PAYMENT_TYPE_ALIASES (labels map on their own).
+    PAYMENT_TYPE: {
+        "Advance": "ADVANCE_PAYMENT",
+        "Against BL": "AGAINST_BL",
+        "Letter of Credit": "LETTER_OF_CREDIT",
+        "L/C": "LETTER_OF_CREDIT",
+        "LC": "LETTER_OF_CREDIT",
+        "Documentary Collection": "DOCUMENTARY_COLLECTION",
+        "CAD": "DOCUMENTARY_COLLECTION",
+    },
+    # Bilingual names the legal-docs check used as the alert title.
+    LEGAL_DOC_KIND: {
+        "البطاقة الاستيرادية (Import Card)": "IMPORT_CARD",
+        "السجل التجاري (Commercial Registry)": "COMMERCIAL_REGISTRY",
+        "البطاقة الضريبية / ملف القيمة المضافة (Tax Card)": "TAX_CARD",
+    },
+    # Same map as customs_clearance.validators._LAB_RESULT_LEGACY.
+    LAB_TEST_RESULT: {
+        "مطابق": "CONFORMING",
+        "مقبول": "CONFORMING",
+        "Approved": "CONFORMING",
+        "غير مطابق": "NON_CONFORMING",
+        "مرفوض": "NON_CONFORMING",
+        "Non Conforming": "NON_CONFORMING",
+        "Nonconforming": "NON_CONFORMING",
+        "Rejected": "NON_CONFORMING",
+    },
+    ALLOCATION_RULE: {
+        "Value Based": "VALUE",
+        "Weight Based": "WEIGHT",
+        "Volume Based": "VOLUME",
+    },
+    # Values written today: the customs_clearance column names (+ actual_duty_total for an overridden total).
+    DUTY_COMPONENT: {
+        "import_duty_amount": "IMPORT_DUTY",
+        "vat_amount": "VAT",
+        "schedule_tax_amount": "SCHEDULE_TAX",
+        "development_fee_amount": "DEVELOPMENT_FEE",
+        "customs_service_fees": "CUSTOMS_SERVICE_FEES",
+        "wht_amount": "WHT",
+        "lab_service_fees": "LAB_SERVICE_FEES",
+        "actual_duty_total": "DUTY_TOTAL_OVERRIDE",
+    },
+    WAREHOUSE_RECEIVING_STATUS: {
+        "Draft / Pending Warehouse Count": "PENDING_COUNT",
+        "Inspection Passed / Clean Receipt": "INSPECTION_PASSED",
+    },
+    # Labels sent by the report-discrepancy dialog / older clients (warehouse_receiving.validators.WR_DISCREPANCY_TYPES).
+    GRN_DISCREPANCY_TYPE: {
+        "Shortage and Damage": "SHORTAGE_AND_DAMAGE",
+        "Damage & Shortage": "SHORTAGE_AND_DAMAGE",
+        "Shortage Only": "SHORTAGE",
+        "Damage Only": "DAMAGE",
     },
 }
 

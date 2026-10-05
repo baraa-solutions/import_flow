@@ -1,4 +1,17 @@
 {
+  "ACTUAL_COST_BUCKET": {
+    "codes": {
+      "CLEARANCE_PORT": "Clearance & Port",
+      "CUSTOMS_DUTY": "Customs Duty",
+      "DEMURRAGE_STORAGE": "Demurrage & Storage",
+      "FREIGHT": "Freight",
+      "INLAND_TRANSPORT": "Inland Transport",
+      "INSURANCE": "Insurance",
+      "OTHER_ADMIN": "Other & Admin",
+      "VAT_TAXES": "VAT & Taxes"
+    },
+    "legacy": {}
+  },
   "ALERT_SEVERITY": {
     "codes": {
       "CRITICAL": "Critical",
@@ -7,6 +20,19 @@
       "WARNING": "Warning"
     },
     "legacy": {}
+  },
+  "ALLOCATION_RULE": {
+    "codes": {
+      "EQUAL": "Equal",
+      "VALUE": "Value-Based",
+      "VOLUME": "Volume-Based",
+      "WEIGHT": "Weight-Based"
+    },
+    "legacy": {
+      "Value Based": "VALUE",
+      "Volume Based": "VOLUME",
+      "Weight Based": "WEIGHT"
+    }
   },
   "BROKER_EXPENSE_CATEGORY": {
     "codes": {
@@ -78,6 +104,15 @@
       "LCL Consolidation": "LCL"
     }
   },
+  "COURIER_STATUS": {
+    "codes": {
+      "DELAYED": "Delayed",
+      "DELIVERED": "Delivered",
+      "DISPATCHED": "Dispatched",
+      "IN_TRANSIT": "In Transit"
+    },
+    "legacy": {}
+  },
   "CUSTOMS_CATEGORY": {
     "codes": {
       "AUTOMOTIVE": "Automotive",
@@ -112,6 +147,28 @@
       "CRITICAL": "Critical",
       "DEGRADED": "Degraded",
       "HEALTHY": "Healthy"
+    },
+    "legacy": {}
+  },
+  "DOC_APPROVAL_STATUS": {
+    "codes": {
+      "APPROVED_FOR_CLEARANCE": "Approved for Clearance",
+      "CONDITIONALLY_APPROVED": "Conditionally Approved",
+      "DRAFT": "Draft",
+      "PENDING_REVIEW": "Pending Review",
+      "RECTIFICATION_REQUIRED": "Rectification Required",
+      "REJECTED": "Rejected",
+      "UNDER_REVIEW": "Under Review"
+    },
+    "legacy": {}
+  },
+  "DOC_REVIEW_STATUS": {
+    "codes": {
+      "APPROVED": "Approved",
+      "CONDITIONALLY_APPROVED": "Conditionally Approved",
+      "PENDING": "Pending",
+      "REJECTED": "Rejected",
+      "UNDER_REVIEW": "Under Review"
     },
     "legacy": {}
   },
@@ -162,6 +219,28 @@
       "خزينة مصلحة الجمارك (MTS Cashier)": "MTS_CASHIER"
     }
   },
+  "DUTY_COMPONENT": {
+    "codes": {
+      "CUSTOMS_SERVICE_FEES": "Customs Service Fees",
+      "DEVELOPMENT_FEE": "Development Fee",
+      "DUTY_TOTAL_OVERRIDE": "Assessed Duty Total (override)",
+      "IMPORT_DUTY": "Import Duty",
+      "LAB_SERVICE_FEES": "Laboratory Service Fees",
+      "SCHEDULE_TAX": "Schedule Tax",
+      "VAT": "VAT",
+      "WHT": "Withholding Tax"
+    },
+    "legacy": {
+      "actual_duty_total": "DUTY_TOTAL_OVERRIDE",
+      "customs_service_fees": "CUSTOMS_SERVICE_FEES",
+      "development_fee_amount": "DEVELOPMENT_FEE",
+      "import_duty_amount": "IMPORT_DUTY",
+      "lab_service_fees": "LAB_SERVICE_FEES",
+      "schedule_tax_amount": "SCHEDULE_TAX",
+      "vat_amount": "VAT",
+      "wht_amount": "WHT"
+    }
+  },
   "EMPTY_CONTAINER_DEPOT": {
     "codes": {
       "ALEXANDRIA_CARRIER_DEPOT": "Alexandria Port Carrier Depot",
@@ -178,6 +257,33 @@
       "Dekheila Yard (ساحة حاويات الدخيلة)": "DEKHEILA_YARD",
       "Port Said West Depot (مستودع غرب بورسعيد)": "PORT_SAID_WEST_DEPOT",
       "Sokhna Logistics Depot (مستودع السخنة اللوجستي)": "SOKHNA_LOGISTICS_DEPOT"
+    }
+  },
+  "FILE_CLOSURE_STATUS": {
+    "codes": {
+      "ARCHIVED": "Archived",
+      "CLOSED": "Closed",
+      "DRAFT": "Draft",
+      "REOPENED": "Reopened"
+    },
+    "legacy": {}
+  },
+  "GRN_DISCREPANCY_TYPE": {
+    "codes": {
+      "BROKEN_SEAL": "Broken Seal Discrepancy",
+      "DAMAGE": "Damage",
+      "EXCESS": "Excess",
+      "NONE": "None",
+      "QUARANTINE_REJECTION": "Quarantine Rejection",
+      "SHORTAGE": "Shortage",
+      "SHORTAGE_AND_DAMAGE": "Shortage & Damaged",
+      "WRONG_ITEM": "Wrong Item"
+    },
+    "legacy": {
+      "Damage & Shortage": "SHORTAGE_AND_DAMAGE",
+      "Damage Only": "DAMAGE",
+      "Shortage Only": "SHORTAGE",
+      "Shortage and Damage": "SHORTAGE_AND_DAMAGE"
     }
   },
   "HOLD_REASON": {
@@ -202,6 +308,16 @@
       "في انتظار موافقة البنك وإصدار نموذج 4": "AWAITING_BANK_FORM4",
       "مراجعة وتدقيق أسعار بنود التعريفة الجمركية": "TARIFF_VALUATION_REVIEW"
     }
+  },
+  "INLAND_TRANSPORT_STATUS": {
+    "codes": {
+      "ARRIVED_AT_WAREHOUSE": "Arrived at Warehouse",
+      "BOOKING_CONFIRMED": "Booking Confirmed",
+      "DELIVERED": "Delivered",
+      "DISPATCHED": "Dispatched",
+      "IN_TRANSIT": "In Transit"
+    },
+    "legacy": {}
   },
   "INSPECTION_RESULT": {
     "codes": {
@@ -238,6 +354,24 @@
       "قرية البضائع - مطار القاهرة الدولي": "CAIRO_AIRPORT_CARGO"
     }
   },
+  "LAB_TEST_RESULT": {
+    "codes": {
+      "CONFORMING": "Conforming",
+      "NONE": "None",
+      "NON_CONFORMING": "Non-Conforming",
+      "PENDING": "Pending"
+    },
+    "legacy": {
+      "Approved": "CONFORMING",
+      "Non Conforming": "NON_CONFORMING",
+      "Nonconforming": "NON_CONFORMING",
+      "Rejected": "NON_CONFORMING",
+      "غير مطابق": "NON_CONFORMING",
+      "مرفوض": "NON_CONFORMING",
+      "مطابق": "CONFORMING",
+      "مقبول": "CONFORMING"
+    }
+  },
   "LANDED_COST_VARIANCE_STATUS": {
     "codes": {
       "ON_BUDGET": "On budget",
@@ -245,6 +379,19 @@
       "UNDER_BUDGET": "Under budget"
     },
     "legacy": {}
+  },
+  "LEGAL_DOC_KIND": {
+    "codes": {
+      "ACID": "ACID",
+      "COMMERCIAL_REGISTRY": "Commercial Registry",
+      "IMPORT_CARD": "Import Card",
+      "TAX_CARD": "Tax Card"
+    },
+    "legacy": {
+      "البطاقة الاستيرادية (Import Card)": "IMPORT_CARD",
+      "البطاقة الضريبية / ملف القيمة المضافة (Tax Card)": "TAX_CARD",
+      "السجل التجاري (Commercial Registry)": "COMMERCIAL_REGISTRY"
+    }
   },
   "MEASURE_UNIT": {
     "codes": {
@@ -269,6 +416,36 @@
       "م³": "CBM"
     }
   },
+  "ODC_STATUS": {
+    "codes": {
+      "DISCREPANCY_NOTED": "Discrepancy Noted",
+      "DRAFT": "Draft",
+      "FULLY_RECEIVED": "Fully Received",
+      "FULLY_VERIFIED": "Fully Verified",
+      "IN_TRANSIT": "In Transit",
+      "PARTIALLY_RECEIVED": "Partially Received"
+    },
+    "legacy": {}
+  },
+  "ORIGINAL_DOC_REQUIRED": {
+    "codes": {
+      "CONDITIONAL": "Conditional",
+      "NO": "No",
+      "YES": "Yes"
+    },
+    "legacy": {}
+  },
+  "ORIGINAL_DOC_STATUS": {
+    "codes": {
+      "DISCREPANT": "Discrepant",
+      "IN_TRANSIT": "In Transit",
+      "NOT_REQUIRED": "Not Required",
+      "PENDING": "Pending",
+      "RECEIVED": "Received",
+      "VERIFIED": "Verified"
+    },
+    "legacy": {}
+  },
   "PAYMENT_METHOD": {
     "codes": {
       "BANK_TRANSFER": "Bank Transfer",
@@ -284,6 +461,24 @@
       "E-Finance / Sadad": "SADAD_EFINANCE",
       "Sadad": "SADAD_EFINANCE",
       "Sadad / E-Finance": "SADAD_EFINANCE"
+    }
+  },
+  "PAYMENT_TYPE": {
+    "codes": {
+      "ADVANCE_PAYMENT": "Advance Payment",
+      "AGAINST_BL": "Against B/L",
+      "DOCUMENTARY_COLLECTION": "Documentary Collection (CAD)",
+      "FINAL_SETTLEMENT": "Final Settlement",
+      "LETTER_OF_CREDIT": "Letter of Credit (L/C)"
+    },
+    "legacy": {
+      "Advance": "ADVANCE_PAYMENT",
+      "Against BL": "AGAINST_BL",
+      "CAD": "DOCUMENTARY_COLLECTION",
+      "Documentary Collection": "DOCUMENTARY_COLLECTION",
+      "L/C": "LETTER_OF_CREDIT",
+      "LC": "LETTER_OF_CREDIT",
+      "Letter of Credit": "LETTER_OF_CREDIT"
     }
   },
   "PHASE_FOLLOW_UP_TASK": {
@@ -433,6 +628,15 @@
     },
     "legacy": {}
   },
+  "SETTLEMENT_STATUS": {
+    "codes": {
+      "APPROVED": "Approved",
+      "CALCULATED": "Calculated",
+      "CLOSED": "Closed",
+      "DRAFT": "Draft"
+    },
+    "legacy": {}
+  },
   "SHIPMENT_MODE": {
     "codes": {
       "AIR": "Air Freight",
@@ -523,6 +727,24 @@
       "المرحلة السادسة: الاستلام المخزني والتسوية المالية": "PHASE_6"
     }
   },
+  "TICKET_SEVERITY": {
+    "codes": {
+      "CRITICAL": "Critical",
+      "MAJOR": "Major",
+      "MINOR": "Minor"
+    },
+    "legacy": {}
+  },
+  "TICKET_STATUS": {
+    "codes": {
+      "CLOSED": "Closed",
+      "OPEN": "Open",
+      "RESOLVED": "Resolved",
+      "SENT_TO_SUPPLIER": "Sent to Supplier",
+      "WAIVED": "Waived"
+    },
+    "legacy": {}
+  },
   "TRUCK_TYPE": {
     "codes": {
       "BOX_TRUCK": "Box Truck",
@@ -588,5 +810,21 @@
       "REJECTED_QUARANTINED": "Rejected / quarantined"
     },
     "legacy": {}
+  },
+  "WAREHOUSE_RECEIVING_STATUS": {
+    "codes": {
+      "CLOSED": "Closed",
+      "DISCREPANCY_REPORTED": "Discrepancy Reported",
+      "GOODS_RECEIVED": "Goods Received",
+      "GRN_AUDITED": "GRN Audited",
+      "INSPECTION_PASSED": "Inspection Passed",
+      "PENDING_COUNT": "Pending Warehouse Count",
+      "UNDER_BOND_QUARANTINE": "Under Bond Quarantine",
+      "UNDER_QUARANTINE_INSPECTION": "Under Quarantine Inspection"
+    },
+    "legacy": {
+      "Draft / Pending Warehouse Count": "PENDING_COUNT",
+      "Inspection Passed / Clean Receipt": "INSPECTION_PASSED"
+    }
   }
 }
