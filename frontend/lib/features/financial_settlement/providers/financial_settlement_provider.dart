@@ -6,6 +6,8 @@ import '../models/estimated_landed_cost_model.dart';
 import '../models/invoices_aggregation_model.dart';
 import '../models/actual_landed_cost_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../../core/network/api_client.dart';
 
 
@@ -180,14 +182,22 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
         data: request.toJson(),
       );
       final result = ConfirmInvoicesSettlementResponseModel.fromJson(response.data);
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      _invalidateDependents();
       await fetchSettlements();
       return result;
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// A confirm / approve advances the file lifecycle and closes smart tasks, so
+  /// every list that shows that state must reload.
+  void _invalidateDependents() {
+    final ref = _ref;
+    if (ref == null) return;
+    ref.invalidate(importFilesProvider);
+    ref.invalidate(lifecycleBoardSummaryProvider);
+    ref.invalidate(smartTasksProvider);
   }
 
   Future<ActualLandedCostCalculationResponseModel> calculateActualLandedCost(
@@ -211,6 +221,8 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
 
   Future<ApproveActualLandedCostResponseModel> approveActualLandedCost({
     required int importFileId,
+    // Kept for source compatibility: the server records the signed-in user and
+    // ignores any client-supplied approver, so it is not sent.
     required String approvedBy,
     String allocationPreference = 'Value-Based',
     String? notes,
@@ -220,15 +232,12 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
         '${ApiConstants.baseUrl}/financial-settlement/approve-actual-landed-cost',
         data: {
           'import_file_id': importFileId,
-          'approved_by': approvedBy,
           'allocation_preference': allocationPreference,
           if (notes != null) 'notes': notes,
         },
       );
       final result = ApproveActualLandedCostResponseModel.fromJson(response.data);
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      _invalidateDependents();
       await fetchSettlements();
       return result;
     } catch (e) {

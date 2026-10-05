@@ -1,11 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../widgets/settlement_ui.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
 
@@ -52,7 +58,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ApiErrorText.of(context.l10n, e);
           _isLoading = false;
         });
       }
@@ -61,25 +67,32 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
 
   bool _isExporting = false;
 
+  String get _fileCode {
+    final code = _journalEntry?.importFileCode ?? '';
+    return code.isNotEmpty ? code : widget.settlementCode;
+  }
+
   Future<void> _downloadOdooCsv(int settlementId) async {
+    if (_isExporting) return;
+    final l10n = context.l10n;
     setState(() => _isExporting = true);
     try {
       final notifier = ref.read(financialSettlementProvider.notifier);
       final csvData = await notifier.downloadOdooCsv(settlementId);
-      final filename = 'Phase6_Odoo_Landed_Cost_Settlement_$settlementId.csv';
-
       if (!mounted) return;
-      await FileSaveHelper.saveText(
+      await FileSaveHelper.exportAndSaveFile(
         context: context,
-        textContent: csvData,
-        defaultFileName: filename,
-        dialogTitle: context.l10n.odooJournalSaveCsvDialogTitle,
-        allowedExtensions: ['csv'],
+        // UTF-8 BOM so Excel opens Arabic text correctly.
+        bytes: [0xEF, 0xBB, 0xBF, ...utf8.encode(csvData)],
+        stageName: l10n.settlementStageOdooCsv,
+        importFileNameOrCode: _fileCode,
+        extension: 'csv',
+        customDialogTitle: l10n.odooJournalSaveCsvDialogTitle,
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed)), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -88,24 +101,25 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
   }
 
   Future<void> _downloadOdooExcel(int settlementId) async {
+    if (_isExporting) return;
+    final l10n = context.l10n;
     setState(() => _isExporting = true);
     try {
       final notifier = ref.read(financialSettlementProvider.notifier);
       final bytes = await notifier.downloadOdooExcel(settlementId);
-      final filename = 'Phase6_Accounting_Landed_Cost_Voucher_$settlementId.xlsx';
-
       if (!mounted) return;
-      await FileSaveHelper.saveBytes(
+      await FileSaveHelper.exportAndSaveFile(
         context: context,
         bytes: bytes,
-        defaultFileName: filename,
-        dialogTitle: context.l10n.odooJournalSaveExcelDialogTitle,
-        allowedExtensions: ['xlsx', 'xls'],
+        stageName: l10n.settlementStageOdooExcel,
+        importFileNameOrCode: _fileCode,
+        extension: 'xlsx',
+        customDialogTitle: l10n.odooJournalSaveExcelDialogTitle,
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed)), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -115,7 +129,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final l10n = context.l10n;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final dialogWidth = (screenWidth - 32).clamp(320.0, 1100.0);
@@ -124,63 +138,42 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SelectionArea(
-        child: Container(
+        child: SizedBox(
           width: dialogWidth,
           height: dialogHeight,
-          padding: const EdgeInsets.all(24),
           child: _isLoading
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(color: AppTheme.cobalt),
-                      const SizedBox(height: 16),
-                      Text(context.l10n.odooJournalLoading,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                )
+              ? SettlementStateView.loading(message: l10n.odooJournalLoading)
               : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
-                          const SizedBox(height: 12),
-                          Text(context.l10n.odooJournalFetchError(_errorMessage!),
-                              style: const TextStyle(color: AppTheme.crimson)),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _loadJournal,
-                            icon: const Icon(Icons.refresh),
-                            label: Text(context.l10n.retry),
-                          ),
-                        ],
-                      ),
+                  ? SettlementStateView.error(
+                      message: l10n.odooJournalFetchError(_errorMessage!),
+                      actionLabel: l10n.retry,
+                      onAction: _loadJournal,
                     )
-                  : _buildContent(isArabic),
+                  : _buildContent(),
         ),
       ),
     );
   }
 
-  void _copyJournalEntryTSV(BuildContext context, OdooJournalEntryModel entry, bool isArabic) {
+  void _copyJournalEntryTSV(BuildContext context, OdooJournalEntryModel entry) {
+    final l10n = context.l10n;
+    final egp = l10n.financialSettlementCurrencyEgp;
     final buffer = StringBuffer();
-    if (isArabic) {
-      buffer.writeln('قيود اليومية المحاسبية للنظام المالي — تسوية ${entry.settlementCode}');
-      buffer.writeln('المستورد:\t${entry.companyName}\tالمورد:\t${entry.supplierName}');
-      buffer.writeln('ملف الاستيراد:\t${entry.importFileCode}\tالتاريخ:\t${entry.entryDate}');
-      buffer.writeln('إجمالي المدين والدائن:\t${entry.totalDebit.toStringAsFixed(2)} ج.م');
-      buffer.writeln('');
-      buffer.writeln('كود الحساب\tاسم الحساب\tالطرف أو الشريك\tالبيان\tمدين (ج.م)\tدائن (ج.م)\tالعملة الأجنبية\tتصنيف التكلفة');
-    } else {
-      buffer.writeln('Odoo Journal Entry Voucher — Settlement ${entry.settlementCode}');
-      buffer.writeln('Importer:\t${entry.companyName}\tSupplier:\t${entry.supplierName}');
-      buffer.writeln('Import File:\t${entry.importFileCode}\tDate:\t${entry.entryDate}');
-      buffer.writeln('Total Debit / Credit:\t${entry.totalDebit.toStringAsFixed(2)} EGP');
-      buffer.writeln('');
-      buffer.writeln('Account Code\tAccount Name\tPartner\tLabel\tDebit (EGP)\tCredit (EGP)\tForeign Currency\tCost Category');
-    }
+    buffer.writeln(l10n.settlementOdooTsvTitle(entry.settlementCode));
+    buffer.writeln('${l10n.settlementOdooLblImporter}:	${entry.companyName}	${l10n.settlementOdooLblSupplier}:	${entry.supplierName}');
+    buffer.writeln('${l10n.settlementOdooLblImportFile}:	${entry.importFileCode}	${l10n.settlementOdooLblDate}:	${entry.entryDate}');
+    buffer.writeln('${l10n.settlementOdooLblTotalDebitCredit}:	${entry.totalDebit.toStringAsFixed(2)} $egp');
+    buffer.writeln('');
+    buffer.writeln([
+      l10n.odooJournalColAccountCode,
+      l10n.odooJournalColAccountName,
+      l10n.odooJournalColPartner,
+      l10n.odooJournalColLabel,
+      l10n.odooJournalColDebit,
+      l10n.odooJournalColCredit,
+      l10n.odooJournalColForeignCurrency,
+      l10n.odooJournalColCostCategory,
+    ].join('	'));
 
     for (final l in entry.lines) {
       final code = l.accountCode;
@@ -191,330 +184,248 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
       final credit = l.credit > 0 ? l.credit.toStringAsFixed(2) : '0.00';
       final fc = l.amountCurrency != null ? '${l.amountCurrency!.toStringAsFixed(2)} ${l.currency}' : '';
       final cat = _getCategoryLabel(context, l.costCategory);
-      buffer.writeln('$code\t$name\t$partner\t$label\t$debit\t$credit\t$fc\t$cat');
+      buffer.writeln('$code	$name	$partner	$label	$debit	$credit	$fc	$cat');
     }
 
     CopyHelper.copy(
       context,
       buffer.toString(),
-      customMessage: context.l10n.odooJournalCopyTsvSuccess,
+      customMessage: l10n.odooJournalCopyTsvSuccess,
     );
   }
 
-  Widget _buildContent(bool isArabic) {
+  Widget _buildContent() {
+    final l10n = context.l10n;
     final entry = _journalEntry!;
+    final egp = l10n.financialSettlementCurrencyEgp;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Title Bar
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.receipt_long, color: Colors.amber, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Column(
+        SettlementDialogHeader(
+          icon: Icons.receipt_long,
+          title: l10n.odooJournalTitle(entry.settlementCode),
+          subtitle: l10n.odooJournalSubtitle(entry.importFileCode, entry.reference),
+          trailing: SettlementStatusChip(
+            label: entry.isBalanced
+                ? l10n.odooJournalBalanced
+                : l10n.odooJournalUnbalanced(entry.difference.toStringAsFixed(2)),
+            color: entry.isBalanced ? AppTheme.emerald : AppTheme.crimson,
+            icon: entry.isBalanced ? Icons.check_circle : Icons.warning_amber_rounded,
+          ),
+          onClose: () => Navigator.pop(context),
+          closeTooltip: l10n.settlementClose,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  context.l10n.odooJournalTitle(entry.settlementCode),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                // Metadata header strip
+                SettlementPanel(
+                  filled: true,
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      _buildMetaItem(l10n.odooJournalMetaImporter, entry.companyName, Icons.business),
+                      _buildMetaDivider(),
+                      _buildMetaItem(l10n.odooJournalMetaSupplier, entry.supplierName, Icons.flight_takeoff),
+                      _buildMetaDivider(),
+                      _buildMetaItem(l10n.odooJournalMetaProject, entry.projectName ?? l10n.settlementNotAvailable, Icons.account_tree),
+                      _buildMetaDivider(),
+                      _buildMetaItem(l10n.odooJournalMetaDate, entry.entryDate, Icons.calendar_today),
+                      _buildMetaDivider(),
+                      _buildMetaItem(
+                        l10n.odooJournalMetaTotalDebitCredit,
+                        '${formatSettlementMoney(entry.totalDebit)} $egp',
+                        Icons.account_balance_wallet,
+                        isHighlight: true,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  context.l10n.odooJournalSubtitle(entry.importFileCode, entry.reference),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                const SizedBox(height: SettlementTokens.sectionGap),
+                SettlementSectionHeader(
+                  title: l10n.odooJournalLinesSectionHeader,
+                  icon: Icons.menu_book_outlined,
                 ),
+                const SizedBox(height: 8),
+                Expanded(child: _buildLinesTable(entry, l10n, egp)),
               ],
             ),
-            const Spacer(),
-            // Balance Status Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: entry.isBalanced
-                    ? AppTheme.emerald.withOpacity(0.12)
-                    : AppTheme.crimson.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: entry.isBalanced ? AppTheme.emerald : AppTheme.crimson,
-                  width: 1.5,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    entry.isBalanced ? Icons.check_circle : Icons.warning_amber_rounded,
-                    color: entry.isBalanced ? AppTheme.emerald : AppTheme.crimson,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    entry.isBalanced
-                        ? context.l10n.odooJournalBalanced
-                        : context.l10n.odooJournalUnbalanced(entry.difference.toStringAsFixed(2)),
-                    style: TextStyle(
-                      color: entry.isBalanced ? AppTheme.emerald : AppTheme.crimson,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 16),
-
-        // Metadata Header Cards
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Row(
+        ),
+        SettlementDialogFooter(
+          leading: Wrap(
+            spacing: 10,
+            runSpacing: 8,
             children: [
-              _buildMetaItem(context.l10n.odooJournalMetaImporter, entry.companyName, Icons.business),
-              _buildMetaDivider(),
-              _buildMetaItem(context.l10n.odooJournalMetaSupplier, entry.supplierName, Icons.flight_takeoff),
-              _buildMetaDivider(),
-              _buildMetaItem(context.l10n.odooJournalMetaProject, entry.projectName ?? 'N/A', Icons.account_tree),
-              _buildMetaDivider(),
-              _buildMetaItem(context.l10n.odooJournalMetaDate, entry.entryDate, Icons.calendar_today),
-              _buildMetaDivider(),
-              _buildMetaItem(context.l10n.odooJournalMetaTotalDebitCredit, '${entry.totalDebit.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}', Icons.account_balance_wallet, isHighlight: true),
+              SettlementFit(child: AppButton(
+                label: l10n.odooJournalExportCsvBtn,
+                icon: Icons.file_download,
+                variant: AppButtonVariant.primary,
+                isLoading: _isExporting,
+                onPressed: _isExporting ? null : () => _downloadOdooCsv(entry.settlementId),
+              )),
+              SettlementFit(child: AppButton(
+                label: l10n.odooJournalExportExcelBtn,
+                icon: Icons.table_view,
+                variant: AppButtonVariant.success,
+                isLoading: _isExporting,
+                onPressed: _isExporting ? null : () => _downloadOdooExcel(entry.settlementId),
+              )),
+              SettlementFit(child: AppButton(
+                label: l10n.odooJournalCopyTsvBtn,
+                icon: Icons.copy_rounded,
+                variant: AppButtonVariant.secondary,
+                onPressed: () => _copyJournalEntryTSV(context, entry),
+              )),
             ],
           ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Table Header Label
-        Text(
-          context.l10n.odooJournalLinesSectionHeader,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-        ),
-        const SizedBox(height: 8),
-
-        // Table of Journal Lines
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowHeight: 40,
-                    dataRowMinHeight: 38,
-                    dataRowMaxHeight: 46,
-                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.08)),
-                    columns: [
-                      DataColumn(label: Text(context.l10n.odooJournalColAccountCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColAccountName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColPartner, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColDebit, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColCredit, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColForeignCurrency, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text(context.l10n.odooJournalColCostCategory, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: entry.lines.map((l) {
-                      final isDebit = l.debit > 0;
-                      final debitStr = l.debit > 0 ? '${l.debit.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}' : '-';
-                      final creditStr = l.credit > 0 ? '${l.credit.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}' : '-';
-                      final fcStr = l.amountCurrency != null ? '${l.amountCurrency!.toStringAsFixed(2)} ${l.currency}' : '-';
-                      final catStr = _getCategoryLabel(context, l.costCategory);
-                      final rowSummary = '${l.accountCode}\t${l.accountName}\t${l.partnerName}\t${l.label}\t$debitStr\t$creditStr\t$fcStr\t$catStr';
-
-                      return DataRow(
-                        color: WidgetStateProperty.all(
-                          isDebit ? AppTheme.emerald.withOpacity(0.04) : Colors.transparent,
-                        ),
-                        cells: [
-                          DataCell(
-                            CopyableTableCell(
-                              value: l.accountCode,
-                              rowSummary: rowSummary,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isDebit ? AppTheme.emerald.withOpacity(0.1) : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(l.accountCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: l.accountName,
-                              rowSummary: rowSummary,
-                              child: Text(l.accountName, style: const TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: l.partnerName,
-                              rowSummary: rowSummary,
-                              child: Text(l.partnerName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: l.label,
-                              rowSummary: rowSummary,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 280),
-                                child: Text(l.label, style: const TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: debitStr,
-                              rowSummary: rowSummary,
-                              child: Text(
-                                debitStr,
-                                style: TextStyle(
-                                  fontWeight: isDebit ? FontWeight.bold : FontWeight.normal,
-                                  color: isDebit ? AppTheme.emerald : Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: creditStr,
-                              rowSummary: rowSummary,
-                              child: Text(
-                                creditStr,
-                                style: TextStyle(
-                                  fontWeight: !isDebit ? FontWeight.bold : FontWeight.normal,
-                                  color: !isDebit ? AppTheme.charcoal : Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: fcStr,
-                              rowSummary: rowSummary,
-                              child: Text(
-                                fcStr,
-                                style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: catStr,
-                              rowSummary: rowSummary,
-                              child: _buildCategoryBadge(context, l.costCategory),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Action Toolbar
-        Row(
-          children: [
-            // Export Odoo CSV Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: _isExporting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.file_download, color: Colors.white),
-              label: Text(
-                context.l10n.odooJournalExportCsvBtn,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
-              ),
-              onPressed: _isExporting ? null : () => _downloadOdooCsv(entry.settlementId),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Export Excel Workbook Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: _isExporting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.table_view, color: Colors.white),
-              label: Text(
-                context.l10n.odooJournalExportExcelBtn,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
-              ),
-              onPressed: _isExporting ? null : () => _downloadOdooExcel(entry.settlementId),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Copy TSV Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.charcoal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
-              label: Text(
-                context.l10n.odooJournalCopyTsvBtn,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
-              ),
-              onPressed: () => _copyJournalEntryTSV(context, entry, isArabic),
-            ),
-
-            const Spacer(),
-
-            OutlinedButton(
+          actions: [
+            SettlementFit(child: AppButton(
+              label: l10n.close,
+              icon: Icons.close,
+              variant: AppButtonVariant.secondary,
               onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                side: BorderSide(color: Colors.grey.shade400),
-              ),
-              child: Text(context.l10n.close, style: const TextStyle(color: AppTheme.charcoal)),
-            ),
+            )),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildLinesTable(OdooJournalEntryModel entry, AppLocalizations l10n, String egp) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: SettlementTokens.border),
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 40,
+              dataRowMinHeight: 38,
+              dataRowMaxHeight: 46,
+              headingRowColor: WidgetStateProperty.all(SettlementTokens.tableHeadFill),
+              columns: [
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColAccountCode)),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColAccountName)),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColPartner)),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColLabel)),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColDebit), numeric: true),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColCredit), numeric: true),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColForeignCurrency), numeric: true),
+                DataColumn(label: settlementHeadCell(l10n.odooJournalColCostCategory)),
+              ],
+              rows: entry.lines.map((l) {
+                final isDebit = l.debit > 0;
+                final debitStr = l.debit > 0 ? '${l.debit.toStringAsFixed(2)} $egp' : '-';
+                final creditStr = l.credit > 0 ? '${l.credit.toStringAsFixed(2)} $egp' : '-';
+                final fcStr = l.amountCurrency != null ? '${l.amountCurrency!.toStringAsFixed(2)} ${l.currency}' : '-';
+                final catStr = _getCategoryLabel(context, l.costCategory);
+                final rowSummary = '${l.accountCode}\t${l.accountName}\t${l.partnerName}\t${l.label}\t$debitStr\t$creditStr\t$fcStr\t$catStr';
+
+                return DataRow(
+                  color: WidgetStateProperty.all(
+                    isDebit ? AppTheme.emerald.withOpacity(0.04) : Colors.transparent,
+                  ),
+                  cells: [
+                    DataCell(
+                      CopyableTableCell(
+                        value: l.accountCode,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isDebit ? AppTheme.emerald.withOpacity(0.1) : SettlementTokens.tableHeadFill,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: LtrText(l.accountCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: l.accountName,
+                        rowSummary: rowSummary,
+                        child: Text(l.accountName, style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: l.partnerName,
+                        rowSummary: rowSummary,
+                        child: Text(l.partnerName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: l.label,
+                        rowSummary: rowSummary,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Text(l.label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: debitStr,
+                        rowSummary: rowSummary,
+                        child: SettlementMoneyText(
+                          debitStr,
+                          style: TextStyle(
+                            fontWeight: isDebit ? FontWeight.bold : FontWeight.normal,
+                            color: isDebit ? AppTheme.emerald : AppTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: creditStr,
+                        rowSummary: rowSummary,
+                        child: SettlementMoneyText(
+                          creditStr,
+                          style: TextStyle(
+                            fontWeight: !isDebit ? FontWeight.bold : FontWeight.normal,
+                            color: !isDebit ? AppTheme.charcoal : AppTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: fcStr,
+                        rowSummary: rowSummary,
+                        child: SettlementMoneyText(
+                          fcStr,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: catStr,
+                        rowSummary: rowSummary,
+                        child: _buildCategoryBadge(context, l.costCategory),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -522,14 +433,14 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     return Expanded(
       child: Row(
         children: [
-          Icon(icon, size: 18, color: isHighlight ? AppTheme.emerald : Colors.grey.shade600),
+          Icon(icon, size: 18, color: isHighlight ? AppTheme.emerald : AppTheme.textSecondary),
           const SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: TextStyle(color: Colors.grey.shade600, fontSize: DisplayDensityMode.clampFontSize(11.0))),
+                Text(title, style: TextStyle(color: AppTheme.textSecondary, fontSize: DisplayDensityMode.clampFontSize(11.0))),
                 CopyableText(
                   value,
                   style: TextStyle(
@@ -552,7 +463,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     return Container(
       height: 24,
       width: 1,
-      color: Colors.grey.shade300,
+      color: SettlementTokens.border,
       margin: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
@@ -588,10 +499,10 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
         color = AppTheme.cobalt;
         break;
       case 'Customs':
-        color = Colors.indigo;
+        color = AppTheme.wcagCobalt;
         break;
       case 'Clearance':
-        color = Colors.teal;
+        color = AppTheme.wcagEmerald;
         break;
       case 'Transport':
         color = AppTheme.orange;
@@ -600,10 +511,10 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
         color = AppTheme.crimson;
         break;
       case 'Price_Adjustment':
-        color = Colors.purple;
+        color = AppTheme.wcagOrange;
         break;
       default:
-        color = Colors.blueGrey;
+        color = AppTheme.textStrong;
     }
 
     final label = _getCategoryLabel(context, category);

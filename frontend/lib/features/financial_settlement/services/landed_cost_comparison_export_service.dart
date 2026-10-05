@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -6,6 +8,7 @@ import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 
 /// Service responsible for exporting Landed Cost Comparison data across TSV, Excel (CSV), vector PDF, and clipboard dossier.
@@ -99,7 +102,7 @@ class LandedCostComparisonExportService {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_l10n.landedCostCopyDossierSuccess),
-          backgroundColor: const Color(0xFF27AE60),
+          backgroundColor: AppTheme.emerald,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -211,16 +214,13 @@ class LandedCostComparisonExportService {
       ].join('\t'));
     }
 
-    final safeCode = fileCode.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    final filename = 'landed_cost_comparison_${safeCode.isNotEmpty ? safeCode : "shipment"}.tsv';
-
-    await FileSaveHelper.saveText(
+    await FileSaveHelper.exportAndSaveFile(
       context: context,
-      textContent: buffer.toString(),
-      defaultFileName: filename,
-      dialogTitle: l10n.landedCostExportTsvDialogTitle,
-      allowedExtensions: ['tsv', 'txt'],
-      addUtf8Bom: true,
+      bytes: [0xEF, 0xBB, 0xBF, ...utf8.encode(buffer.toString())],
+      stageName: l10n.settlementStageComparison,
+      importFileNameOrCode: fileCode,
+      extension: 'tsv',
+      customDialogTitle: l10n.landedCostExportTsvDialogTitle,
     );
   }
 
@@ -329,16 +329,13 @@ class LandedCostComparisonExportService {
       ].join(','));
     }
 
-    final safeCode = fileCode.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    final filename = 'landed_cost_comparison_${safeCode.isNotEmpty ? safeCode : "shipment"}.csv';
-
-    await FileSaveHelper.saveText(
+    await FileSaveHelper.exportAndSaveFile(
       context: context,
-      textContent: buffer.toString(),
-      defaultFileName: filename,
-      dialogTitle: l10n.landedCostExportExcelDialogTitle,
-      allowedExtensions: ['csv', 'txt'],
-      addUtf8Bom: true,
+      bytes: [0xEF, 0xBB, 0xBF, ...utf8.encode(buffer.toString())],
+      stageName: l10n.settlementStageComparison,
+      importFileNameOrCode: fileCode,
+      extension: 'csv',
+      customDialogTitle: l10n.landedCostExportExcelDialogTitle,
     );
   }
 

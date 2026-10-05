@@ -1,3 +1,5 @@
+import 'actual_landed_cost_model.dart' show SettlementMessageModel;
+
 class EstimatedLandedCostItemModel {
   final int lineNo;
   final String itemCode;
@@ -172,6 +174,9 @@ class EstimatedLandedCostSimulationModel {
   final List<EstimatedLandedCostExpenseItemModel> expensesBreakdown;
   final List<EstimatedLandedCostItemModel> itemsBreakdown;
   final String executiveSummaryAr;
+  final double totalCustomsDutyEgp;
+  final double totalVatAndFeesEgp;
+  final List<SettlementMessageModel> messages;
 
   EstimatedLandedCostSimulationModel({
     required this.importFileId,
@@ -195,6 +200,9 @@ class EstimatedLandedCostSimulationModel {
     this.expensesBreakdown = const [],
     this.itemsBreakdown = const [],
     required this.executiveSummaryAr,
+    this.totalCustomsDutyEgp = 0.0,
+    this.totalVatAndFeesEgp = 0.0,
+    this.messages = const [],
   });
 
   factory EstimatedLandedCostSimulationModel.fromJson(Map<String, dynamic> json) {
@@ -202,7 +210,7 @@ class EstimatedLandedCostSimulationModel {
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       currency: json['currency'] ?? 'USD',
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
       incoterm: json['incoterm'] ?? 'FOB',
       totalFobFc: (json['total_fob_fc'] as num?)?.toDouble() ?? 0.0,
       totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble() ?? 0.0,
@@ -226,6 +234,9 @@ class EstimatedLandedCostSimulationModel {
               .toList() ??
           [],
       executiveSummaryAr: json['executive_summary_ar'] ?? '',
+      totalCustomsDutyEgp: (json['total_customs_duty_egp'] as num?)?.toDouble() ?? 0.0,
+      totalVatAndFeesEgp: (json['total_vat_and_fees_egp'] as num?)?.toDouble() ?? 0.0,
+      messages: SettlementMessageModel.listFrom(json['messages']),
     );
   }
 
@@ -252,6 +263,9 @@ class EstimatedLandedCostSimulationModel {
       'expenses_breakdown': expensesBreakdown.map((e) => e.toJson()).toList(),
       'items_breakdown': itemsBreakdown.map((e) => e.toJson()).toList(),
       'executive_summary_ar': executiveSummaryAr,
+      'total_customs_duty_egp': totalCustomsDutyEgp,
+      'total_vat_and_fees_egp': totalVatAndFeesEgp,
+      'messages': messages.map((m) => m.toJson()).toList(),
     };
   }
 }

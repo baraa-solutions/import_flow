@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'helpers/localized_app.dart';
+import 'package:frontend/core/localization/app_locales.dart';
 import 'package:frontend/features/financial_settlement/models/estimated_landed_cost_model.dart';
 import 'package:frontend/features/financial_settlement/widgets/estimated_landed_cost_dialog.dart';
 
@@ -269,8 +271,9 @@ void main() {
           overrides: [
             dioProvider.overrideWithValue(dio),
           ],
-          child: const MaterialApp(
-            home: Scaffold(
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: const Scaffold(
               body: EstimatedLandedCostDialog(
                 importFileId: 108,
               ),

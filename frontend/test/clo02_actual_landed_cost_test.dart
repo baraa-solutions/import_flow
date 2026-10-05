@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'helpers/localized_app.dart';
+import 'package:frontend/core/localization/app_locales.dart';
 import 'package:frontend/features/financial_settlement/models/actual_landed_cost_model.dart';
 import 'package:frontend/features/financial_settlement/models/financial_settlement_model.dart';
 import 'package:frontend/features/financial_settlement/providers/financial_settlement_provider.dart';
@@ -236,7 +238,8 @@ void main() {
           overrides: [
             financialSettlementProvider.overrideWith((ref) => mockNotifier),
           ],
-          child: MaterialApp(
+          child: localizedApp(
+            locale: AppLocales.arabic,
             home: Scaffold(
               body: Builder(
                 builder: (ctx) => Center(
