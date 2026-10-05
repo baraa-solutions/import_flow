@@ -45,7 +45,8 @@ def db_session():
         requested_amount_egp=2185200.0,
         due_date=date(2026, 8, 20),
         request_date=date(2026, 8, 10),
-        status="Pending Approval",
+        # Phase 2 quality (FA-02 / FA-18): only Approved requests are matched and reconciled.
+        status="Approved",
         is_active=True,
     )
     session.add(pay)

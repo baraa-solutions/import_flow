@@ -309,7 +309,8 @@ def test_approve_import_budget_hard_block_variance(db_session, seed_data):
     with pytest.raises(HTTPException) as exc_info:
         approve_import_budget_service(db_session, budget.budget_id)
     assert exc_info.value.status_code == 400
-    assert "لا يمكن اعتماد الميزانية" in exc_info.value.detail
+    assert exc_info.value.detail["code"] == "FA_BUDGET_HARD_BLOCK"
+    assert "لا يمكن اعتماد الميزانية" in exc_info.value.detail["message"]
 
     # Provide override reason -> Approval succeeds
     budget.variance_override_reason = "Approved by GM due to peak shipping season rate hike"
@@ -373,9 +374,10 @@ def test_execute_payment_advances_lifecycle_and_generates_acid_task(db_session, 
         exchange_rate=48.50,
         requested_amount=30000.0,
         due_date=date.today() + timedelta(days=5),
-        status="Approved",
     )
     payment = create_payment_request_service(db_session, payment_schema)
+    # Phase 2 quality (FA-02): create ignores status="Approved"; approval goes through /approve.
+    approve_payment_request_service(db_session, payment.payment_id)
 
     # Execute payment with SWIFT MT103 reference
     paid_item = execute_payment_service(
@@ -432,9 +434,9 @@ def test_reconcile_swift_service_variance_and_lifecycle(db_session, seed_data):
         exchange_rate=48.50,
         requested_amount=50000.0,
         due_date=date.today() + timedelta(days=3),
-        status="Approved",
     )
     payment = create_payment_request_service(db_session, payment_schema)
+    approve_payment_request_service(db_session, payment.payment_id)  # FA-02: reconcile from Approved only
 
     # SWIFT reconciliation payload with minor bank fee deficit (-25 USD)
     recon_payload = SwiftReconciliationRequest(
@@ -504,7 +506,8 @@ def test_api_budget_approve_and_swift_reconcile_endpoints(db_session, seed_data)
         assert resp_budget.status_code == 200, resp_budget.text
         data_budget = resp_budget.json()
         assert data_budget["budget_status"] == "Budget Approved"
-        assert data_budget["approved_by"] == "Finance Director"
+        # Phase 2 quality (FA-03): the approved_by query parameter is ignored; the approver is the authenticated user.
+        assert data_budget["approved_by"] and data_budget["approved_by"] != "Finance Director"
 
         # 2. Test SWIFT Reconcile Endpoint
         payment_schema = PaymentRequestCreate(
@@ -521,6 +524,9 @@ def test_api_budget_approve_and_swift_reconcile_endpoints(db_session, seed_data)
             status="Approved",
         )
         pay = create_payment_request_service(db_session, payment_schema)
+        assert pay.status == "Draft"  # FA-02: status on create is server-owned
+        resp_approve = client.post(f"/api/v1/financial-approval/payment-requests/{pay.payment_id}/approve")
+        assert resp_approve.status_code == 200, resp_approve.text
 
         swift_payload = {
             "swift_reference_no": "SWF-API-TEST-12345",

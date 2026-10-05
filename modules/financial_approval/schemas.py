@@ -2,9 +2,18 @@
 Pydantic Schemas for Financial & Management Approval (BP-012 & BP-013)
 """
 
-from typing import Optional, List
+from typing import Any, Dict, List, Literal, Optional
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from modules.common.legacy_rows import read_model
+from modules.financial_approval.validators import normalize_payment_type, require_payment_type
+
+PaymentStatusLiteral = Literal["Draft", "Pending Approval", "Approved", "Paid", "Rejected"]
+PaymentStatusFilter = Literal["All", "Draft", "Pending Approval", "Approved", "Paid", "Rejected"]
+BudgetStatusFilter = Literal[
+    "All", "Draft", "Pending Review", "Needs Revalidation", "Budget Approved", "Superseded", "Budget Exceeded", "Rejected"
+]
 
 
 # --- PAYMENT REQUEST SCHEMAS (BP-012) ---
@@ -16,8 +25,9 @@ class PaymentRequestBase(BaseModel):
     supplier_name: str = Field(..., min_length=2, max_length=200)
     project_id: Optional[int] = None
     payment_type: str = Field(
-        default="Advance Payment",
-        description="Advance Payment, Against B/L, Letter of Credit (L/C), Documentary Collection (CAD), Final Settlement",
+        default="ADVANCE_PAYMENT",
+        description="PAYMENT_TYPE code: ADVANCE_PAYMENT, AGAINST_BL, LETTER_OF_CREDIT, DOCUMENTARY_COLLECTION, "
+        "FINAL_SETTLEMENT (legacy English labels are accepted and normalized)",
     )
     requested_amount: float = Field(..., gt=0.0)
     advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0, description="Percentage of PO requested as advance")
@@ -35,7 +45,13 @@ class PaymentRequestBase(BaseModel):
 
 
 class PaymentRequestCreate(PaymentRequestBase):
-    pass
+    # C1: no default rate. C4: ``status`` is server-owned (only Draft / Pending Approval are kept, else Draft).
+    exchange_rate: float = Field(..., gt=0.0)
+
+    @field_validator("payment_type", mode="before")
+    @classmethod
+    def _payment_type_code(cls, value: Any) -> str:
+        return require_payment_type(value)
 
 
 class ClonePaymentRequestRequest(BaseModel):
@@ -47,16 +63,18 @@ class ClonePaymentRequestRequest(BaseModel):
 
 
 class PaymentRequestUpdate(BaseModel):
-    title: Optional[str] = None
+    """C4: the SWIFT reconciliation fields (``swift_reference_no`` ... ``swift_reconciliation_notes``) are ignored
+    (written only by pay / reconcile); ``swift_code`` (beneficiary BIC) stays editable. ``status`` may only follow the user transitions (validators)."""
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
     import_file_id: Optional[int] = None
     payment_type: Optional[str] = None
-    requested_amount: Optional[float] = None
-    advance_percentage: Optional[float] = None
-    currency_code: Optional[str] = None
-    exchange_rate: Optional[float] = None
+    requested_amount: Optional[float] = Field(None, gt=0.0)
+    advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0)
+    currency_code: Optional[str] = Field(None, max_length=10)
+    exchange_rate: Optional[float] = Field(None, gt=0.0)
     due_date: Optional[date] = None
     request_date: Optional[date] = None
-    status: Optional[str] = None
+    status: Optional[PaymentStatusLiteral] = None
     beneficiary_name: Optional[str] = None
     bank_name: Optional[str] = None
     swift_code: Optional[str] = None
@@ -72,6 +90,11 @@ class PaymentRequestUpdate(BaseModel):
     notes: Optional[str] = None
     version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
+    @field_validator("payment_type", mode="before")
+    @classmethod
+    def _payment_type_code(cls, value: Any) -> Optional[str]:
+        return None if value is None else require_payment_type(value)
+
 
 class SwiftReconciliationRequest(BaseModel):
     swift_reference_no: str = Field(..., min_length=2, max_length=100, description="SWIFT Reference / MT103 No")
@@ -81,6 +104,7 @@ class SwiftReconciliationRequest(BaseModel):
     swift_reconciliation_notes: Optional[str] = None
 
 
+@read_model
 class PaymentRequestResponse(PaymentRequestBase):
     payment_id: int
     payment_code: str
@@ -105,6 +129,12 @@ class PaymentRequestResponse(PaymentRequestBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("payment_type", mode="before")
+    @classmethod
+    def _payment_type_code(cls, value: Any) -> Any:
+        # Legacy rows are shown as codes; unknown legacy text is returned unchanged (never a 500 on read).
+        return normalize_payment_type(value)
+
 
 # --- IMPORT BUDGET APPROVAL SCHEMAS (BP-013) ---
 class ImportBudgetBase(BaseModel):
@@ -125,7 +155,7 @@ class ImportBudgetBase(BaseModel):
 
 
 class ImportBudgetCreate(ImportBudgetBase):
-    pass
+    exchange_rate: float = Field(..., gt=0.0)  # C1: no default rate
 
 
 class CloneImportBudgetRequest(BaseModel):
@@ -138,23 +168,26 @@ class CloneImportBudgetRequest(BaseModel):
 
 
 class ImportBudgetUpdate(BaseModel):
-    title: Optional[str] = None
+    """C4: ``budget_status`` and ``approved_by`` are accepted for compatibility and ignored (approval goes through
+    /approve, revisions through /sync)."""
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
     import_file_id: Optional[int] = None
-    invoice_amount_egp: Optional[float] = None
-    invoice_amount_foreign: Optional[float] = None
-    invoice_currency: Optional[str] = None
-    freight_cost_egp: Optional[float] = None
-    freight_cost_foreign: Optional[float] = None
-    freight_currency: Optional[str] = None
-    customs_duties_egp: Optional[float] = None
-    clearance_inland_egp: Optional[float] = None
-    exchange_rate: Optional[float] = None
+    invoice_amount_egp: Optional[float] = Field(None, ge=0.0)
+    invoice_amount_foreign: Optional[float] = Field(None, ge=0.0)
+    invoice_currency: Optional[str] = Field(None, max_length=10)
+    freight_cost_egp: Optional[float] = Field(None, ge=0.0)
+    freight_cost_foreign: Optional[float] = Field(None, ge=0.0)
+    freight_currency: Optional[str] = Field(None, max_length=10)
+    customs_duties_egp: Optional[float] = Field(None, ge=0.0)
+    clearance_inland_egp: Optional[float] = Field(None, ge=0.0)
+    exchange_rate: Optional[float] = Field(None, gt=0.0)
     budget_status: Optional[str] = None
     approved_by: Optional[str] = None
     notes: Optional[str] = None
     version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
+@read_model
 class ImportBudgetResponse(ImportBudgetBase):
     budget_id: int
     budget_code: str
@@ -221,7 +254,9 @@ class BudgetPrefillResponse(BaseModel):
     broker_id: Optional[int] = None
     broker_name: Optional[str] = None
     estimated_grand_total_egp: float = 0.0
-    exchange_rate: float = 50.0
+    # Commercial rate of invoice_currency. FA_FX_RATE_MISSING when the invoice amount > 0 and no rate is recorded;
+    # None for an empty file (invoice amount 0) whose currency has no rate yet.
+    exchange_rate: Optional[float] = None
 
 
 # --- SMART AI SWIFT MT103 EXTRACTOR & RECONCILER SCHEMAS ---
@@ -268,11 +303,11 @@ class SwiftBatchResponse(BaseModel):
 
 class SwiftFieldUpdateRequest(BaseModel):
     value: str = Field(..., description="New value for the field entered by user")
-    user_name: Optional[str] = Field("admin", description="Username performing edit")
+    user_name: Optional[str] = Field(None, description="Ignored: the editor is the authenticated user")
 
 
 class SwiftBatchConfirmRequest(BaseModel):
-    user_name: Optional[str] = Field("admin", description="Username confirming the batch review")
+    user_name: Optional[str] = Field(None, description="Ignored: the reviewer is the authenticated user")
 
 
 class SwiftBatchConfirmResponse(BaseModel):
@@ -281,6 +316,8 @@ class SwiftBatchConfirmResponse(BaseModel):
     batch_code: str
     status: str
     message: str
+    message_code: Optional[str] = None
+    message_params: Dict[str, Any] = {}
     confirmed_fields: dict
     batch: SwiftBatchResponse
 
@@ -298,7 +335,7 @@ class SwiftBatchReconcileRequest(BaseModel):
     payment_id: int
     auto_execute: bool = True
     notes: Optional[str] = None
-    user_name: Optional[str] = "admin"
+    user_name: Optional[str] = Field(None, description="Ignored: the actor is the authenticated user")
 
 
 class SmartSwiftExtractRequest(BaseModel):
@@ -387,4 +424,6 @@ class BudgetSyncResultResponse(BaseModel):
     original_budget_status: Optional[str] = None
     variance_logs: List[BudgetVarianceLogResponse] = []
     message: str
+    message_code: Optional[str] = None
+    message_params: Dict[str, Any] = {}
 
