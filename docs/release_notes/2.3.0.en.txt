@@ -1,0 +1,6 @@
+Editing a purchase order no longer deletes and recreates its lines, so linked shipments stay intact, and a line with shipments cannot be removed.
+Allocating more than the ordered quantity is allowed with a clear warning, and the order status and fulfilment percentage are now accurate even across different units.
+The customs consultation recalculation now uses only the customs tariff and the customs exchange rate, with no fixed rates, and flags lines without a tariff.
+The air volumetric factor is now one setting (167 kg per CBM) used by purchase orders, the CBM calculator and freight RFQs.
+New permissions for the CBM calculator, shipping scenarios, customs consultation and import requirements; deleting a purchase order is now manager-only.
+Import requirements no longer fill in made-up default data, and duplicate studies for the same file show a clear message.
