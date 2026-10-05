@@ -7,6 +7,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../customs_clearance/models/customs_clearance_model.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../shipment_updates/models/shipment_update_model.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
@@ -130,7 +131,7 @@ class ComprehensiveReportExportService {
       if (clearance.declaration46No != null) sb.writeln(l.compReportDeclarationChip(clearance.declaration46No!));
       sb.writeln('Channel: ${clearance.channelType} | Office: ${clearance.customsOfficeName}');
       if (clearance.releasePermitNo != null) sb.writeln(l.compReportReleasePermitChip(clearance.releasePermitNo!));
-      sb.writeln('${l.compReportDutyImport}: ${clearance.importDutyAmount.toStringAsFixed(2)} | ${l.compReportDutyVat}: ${clearance.vatAmount.toStringAsFixed(2)} | ${l.compReportDutyTotal}: ${clearance.totalDutyPayable.toStringAsFixed(2)}');
+      sb.writeln('${l.compReportDutyImport}: ${CcFormat.fixed(clearance.importDutyAmount)} | ${l.compReportDutyVat}: ${CcFormat.fixed(clearance.vatAmount)} | ${l.compReportDutyTotal}: ${CcFormat.fixed(clearance.totalDutyPayable)}');
       sb.writeln();
     }
 
@@ -359,8 +360,8 @@ class ComprehensiveReportExportService {
                     border: pw.TableBorder.all(color: PdfColors.grey300),
                     children: [
                       _pdfTableRow(l.compReportForm46Number, clearance.declaration46No ?? '—', 'Channel / Office', '${clearance.channelType} / ${clearance.customsOfficeName}'),
-                      _pdfTableRow(l.compReportDutyImport, clearance.importDutyAmount.toStringAsFixed(2), l.compReportDutyVat, clearance.vatAmount.toStringAsFixed(2)),
-                      _pdfTableRow(l.compReportDutySchedule, clearance.scheduleTaxAmount.toStringAsFixed(2), l.compReportDutyTotal, clearance.totalDutyPayable.toStringAsFixed(2)),
+                      _pdfTableRow(l.compReportDutyImport, CcFormat.fixed(clearance.importDutyAmount), l.compReportDutyVat, CcFormat.fixed(clearance.vatAmount)),
+                      _pdfTableRow(l.compReportDutySchedule, CcFormat.fixed(clearance.scheduleTaxAmount), l.compReportDutyTotal, CcFormat.fixed(clearance.totalDutyPayable)),
                     ],
                   ),
                   pw.SizedBox(height: 12),
@@ -569,8 +570,8 @@ class ComprehensiveReportExportService {
                     children: [
                       _pdfTableRow('Customs 46', clearance.declaration46No ?? '—', 'Channel / Office', '${clearance.channelType} / ${clearance.customsOfficeName}'),
                       _pdfTableRow('Release Permit', clearance.releasePermitNo ?? '—', 'Release Date', clearance.releaseDate != null ? clearance.releaseDate!.split('T').first : '—'),
-                      _pdfTableRow(l.compReportDutyImport, clearance.importDutyAmount.toStringAsFixed(2), l.compReportDutyVat, clearance.vatAmount.toStringAsFixed(2)),
-                      _pdfTableRow(l.compReportDutySchedule, clearance.scheduleTaxAmount.toStringAsFixed(2), l.compReportDutyTotal, clearance.totalDutyPayable.toStringAsFixed(2)),
+                      _pdfTableRow(l.compReportDutyImport, CcFormat.fixed(clearance.importDutyAmount), l.compReportDutyVat, CcFormat.fixed(clearance.vatAmount)),
+                      _pdfTableRow(l.compReportDutySchedule, CcFormat.fixed(clearance.scheduleTaxAmount), l.compReportDutyTotal, CcFormat.fixed(clearance.totalDutyPayable)),
                     ],
                   ),
                   pw.SizedBox(height: 12),
@@ -803,10 +804,10 @@ class ComprehensiveReportExportService {
       if (clearance.declaration46No != null) addRow(sClr, l.compReportForm46Number, clearance.declaration46No!);
       addRow(sClr, 'Channel', clearance.channelType, clearance.customsOfficeName);
       if (clearance.releasePermitNo != null) addRow(sClr, 'Release Permit', clearance.releasePermitNo!);
-      addRow(sClr, l.compReportDutyImport, clearance.importDutyAmount.toStringAsFixed(2));
-      addRow(sClr, l.compReportDutyVat, clearance.vatAmount.toStringAsFixed(2));
-      addRow(sClr, l.compReportDutySchedule, clearance.scheduleTaxAmount.toStringAsFixed(2));
-      addRow(sClr, l.compReportDutyTotal, clearance.totalDutyPayable.toStringAsFixed(2));
+      addRow(sClr, l.compReportDutyImport, CcFormat.fixed(clearance.importDutyAmount));
+      addRow(sClr, l.compReportDutyVat, CcFormat.fixed(clearance.vatAmount));
+      addRow(sClr, l.compReportDutySchedule, CcFormat.fixed(clearance.scheduleTaxAmount));
+      addRow(sClr, l.compReportDutyTotal, CcFormat.fixed(clearance.totalDutyPayable));
     }
 
     // Warehouse

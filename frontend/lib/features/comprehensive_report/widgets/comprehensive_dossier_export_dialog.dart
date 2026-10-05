@@ -286,7 +286,7 @@ class _ComprehensiveDossierExportDialogState
           child: _kpiCard(
             title: 'قيمة البضاعة FOB',
             value: '${dossier.totalFobFc.toStringAsFixed(2)} ${dossier.fobCurrency}',
-            subtitle: '${dossier.totalFobEgp.toStringAsFixed(0)} EGP',
+            subtitle: dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP',
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
           ),
