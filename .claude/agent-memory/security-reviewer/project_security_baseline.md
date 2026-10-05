@@ -212,3 +212,18 @@ regex misses constant codes (10 routers); route coverage test counts router-leve
 MINOR smart-upload apply services ignore `user` (no updated_by); NIT filename echoed unsanitized in 413/415 details.
 Not reviewed (turn limit): import_documentation service internals beyond draft B/L, shipment_updates/insurance
 services, financial_settlement approve SoD details, ODC verified_by source.
+
+## PR guardrails CI review 2026-10-05 (pr_checks.yml, CODEOWNERS, scripts/ci/guardrails.py, .githooks; uncommitted)
+Live gh api 2026-10-05: org plan free, repo private, allow_forking=false, branch protection + rulesets 403 (need paid
+plan), default token read, fork-PR workflows off, sha_pinning_required=false, allowed_actions=all, collaborators
+kamalsroor1 admin + ahmedsalahsorour88 read, 0 repo secrets, env production-updates policy = `main` branch only (old
+`v*` tag MINOR RESOLVED).
+OK: pull_request only (no _target), contents read, persist-credentials false, actions SHA-pinned, base_ref fixed by
+branches:[main], module names passed via repr (no injection), PR caches are PR-ref scoped (tag builds cannot restore
+them), no artifacts uploaded, CODEOWNERS read from the base branch.
+OPEN (reported): CRITICAL on Free any Write collaborator can push main / v* tag and dispatch publish_update from main ->
+signed malicious update (no branch/tag protection, no env reviewers, publish never checks tag is ancestor of main nor
+triggering_actor); CODEOWNERS + required checks unenforceable on Free; HIGH same-repo PR can rewrite pr_checks.yml /
+guardrails.py / guard tests so "Backend gate" passes trivially; MEDIUM repo-tracked .githooks run branch code on the
+owner's machine at commit/push; MEDIUM Windows-minute burn (2x) via push/label spam; LOW scratch_env inherits
+DATABASE_URL; LOW enable SHA-pinning policy + allowed-actions list.

@@ -15,6 +15,7 @@
 - [Single-laptop deployment](project_deployment_single_laptop.md) — prod = one standalone laptop; external backup needed
 - [Production laptop layout](project_production_laptop_layout.md) — per-user install path, DB/backups location, leftover dev scripts
 - [Repo home](project_repo_home.md) — source of truth is private baraa-solutions/import_flow; origin is legacy
+- [External contributor guardrails](project_external_contributor_guardrails.md) — Antigravity vibe coder; GitHub Free = no branch protection
 
 ## Working conventions
 - User: CTO, Egyptian Arabic, stays on the current branch; agents at medium effort.

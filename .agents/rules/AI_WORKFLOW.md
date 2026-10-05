@@ -64,6 +64,7 @@ python -m venv .venv && .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env            :: fill local values; never commit .env
 cd frontend && flutter pub get && cd ..
+git config core.hooksPath .githooks   :: local guards (GUARDRAILS.md section 3)
 ```
 Tooling: Python 3.12, Flutter 3.44.6 (pinned), Visual Studio with "Desktop development with C++" for
 `flutter run -d windows`.
@@ -164,6 +165,7 @@ cd frontend && flutter analyze lib/features/<feature>
 - [ ] No hard-coded rate/price/date/ID; no fabricated defaults; no secrets.
 - [ ] Backend field names = Flutter `fromJson/toJson` keys; new error codes registered (backend + Flutter catalogs).
 - [ ] Tests added for the change and for each bug fixed; touched test files run green (real numbers in the report).
-- [ ] `python -c "import main"` works (scratch `DATABASE_PATH`); `flutter analyze` clean for touched folders.
+- [ ] `python scripts/ci/guardrails.py pr-gate` passes (boot, Alembic head, guard + touched tests); `flutter analyze`
+      clean for touched folders. GitHub runs the same gate on every PR.
 - [ ] Only files the task needs were changed; no edits to `.env`, `*.db`, `version.json`.
 - [ ] `history/YYYY-MM-DD.md` entry appended.

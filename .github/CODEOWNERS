@@ -1,0 +1,43 @@
+# Owner review required (enforced when branch protection on `main` has "Require review from Code Owners").
+# Keep in sync with PROTECTED_PREFIXES in scripts/ci/guardrails.py. Later rules win, so the catch-all stays first.
+
+# Default: the owner reviews every PR.
+*                                   @kamalsroor1
+
+# Database schema and migrations
+/alembic/                           @kamalsroor1
+/database/                          @kamalsroor1
+
+# Auth, permissions and app-wide plumbing
+/modules/auth/                      @kamalsroor1
+/modules/common/                    @kamalsroor1
+/main.py                            @kamalsroor1
+/settings.py                        @kamalsroor1
+/requirements.txt                   @kamalsroor1
+
+# Money math: customs, tariff, exchange rates, settlement, demurrage
+/modules/customs_tariff/            @kamalsroor1
+/modules/customs_clearance/         @kamalsroor1
+/modules/customs_consultation/      @kamalsroor1
+/modules/financial_settlement/      @kamalsroor1
+/modules/demurrage_detention/       @kamalsroor1
+/modules/currencies/                @kamalsroor1
+
+# Update / release chain and production data
+/modules/app_update/                @kamalsroor1
+/modules/production_sync/           @kamalsroor1
+/scripts/release/                   @kamalsroor1
+/installer/                         @kamalsroor1
+/version.json                       @kamalsroor1
+/package_production.py              @kamalsroor1
+
+# Guardrails themselves and AI agent rules
+/.github/                           @kamalsroor1
+/.githooks/                         @kamalsroor1
+/scripts/ci/                        @kamalsroor1
+/.claude/                           @kamalsroor1
+/.agents/rules/                     @kamalsroor1
+/AGENTS.md                          @kamalsroor1
+/.agents/workflows/                 @kamalsroor1
+/.antigravityrules                  @kamalsroor1
+/.gitattributes                     @kamalsroor1
