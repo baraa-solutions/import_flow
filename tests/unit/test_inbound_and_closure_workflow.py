@@ -1,5 +1,9 @@
 import pytest
 from datetime import datetime, timezone
+
+# Register every table the GRN create / closure touch before the fixture runs create_all.
+import modules.demurrage_detention.model  # noqa: F401
+import modules.inland_transport.model  # noqa: F401
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

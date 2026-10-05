@@ -327,7 +327,7 @@ def test_official_close_blocks_unmet_checklist(db_session, client):
     assert response.status_code == 400
     detail = response.json()["detail"]
     assert detail["code"] == "FC_CLOSURE_BLOCKED"
-    assert detail["blocking"] == "dossier_exported"
+    assert detail["blocking"] == ["dossier_exported"]
 
 
 def test_closure_precheck_not_found(client):

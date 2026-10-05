@@ -2,6 +2,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
+from modules.common.legacy_rows import LegacyRowTolerantModel
+
 class GrnItemSchema(BaseModel):
     item_code: str
     item_name: str
@@ -72,7 +74,8 @@ class WarehouseReceivingUpdate(BaseModel):
     claim_amount_estimated: Optional[float] = None
     claim_currency: Optional[str] = None
 
-class WarehouseReceivingResponse(BaseModel):
+class WarehouseReceivingResponse(LegacyRowTolerantModel):
+    # supplier_claim_filed / claim_* / discrepancy_rate_percent were added on 2026-09-18: NULL on older rows.
     receiving_id: int
     grn_code: str
     import_file_id: int
@@ -103,9 +106,9 @@ class WarehouseReceivingResponse(BaseModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float = 0.0
+    claim_amount_estimated: Optional[float] = 0.0  # amounts / rates: a legacy NULL stays None
     claim_currency: str = "EGP"
-    discrepancy_rate_percent: float = 0.0
+    discrepancy_rate_percent: Optional[float] = 0.0
     status: str
     inspector_name: str
     notes: Optional[str] = None

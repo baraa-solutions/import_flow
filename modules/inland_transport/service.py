@@ -29,6 +29,7 @@ from .validators import (
     validate_actual_times,
     validate_schedule,
     validate_status_label,
+    validate_status_change,
     validate_text_fields,
     validate_transition,
     validate_transport_booking_input,
@@ -108,9 +109,10 @@ def create_transport_booking_service(
         SmartTask.import_file_id == imp_file.import_file_id,
         SmartTask.is_active == True,
         SmartTask.status.in_(["Pending", "In Progress"]),
-        SmartTask.title.ilike("%TR-01%")
-        | SmartTask.title.ilike("%نقل%")
-        | (SmartTask.msg_code == "CC_TASK_INLAND_TRANSPORT"),
+        (SmartTask.msg_code == "CC_TASK_INLAND_TRANSPORT")
+        | (SmartTask.task_type == "TR-01")
+        # legacy rows without a code: title match only
+        | (SmartTask.msg_code.is_(None) & (SmartTask.title.ilike("%TR-01%") | SmartTask.title.ilike("%نقل%"))),
     ).all()
     for t in pending_tasks:
         t.status = "Completed"
@@ -289,6 +291,7 @@ def update_transport_booking_service(
         return data[field] if field in data else getattr(booking, field)
 
     validate_status_label(data.get("status"))
+    validate_status_change(booking.status, data.get("status"))
     validate_text_fields(merged("truck_plate_number"), merged("driver_name"), merged("driver_phone"), merged("waybill_number"))
     validate_schedule(merged("planned_departure_at"), merged("expected_arrival_at"))
     validate_actual_times(merged("actual_departure_at"), merged("actual_arrival_at"))

@@ -187,7 +187,7 @@ def closure_blocked_error(gate: ClosureGate) -> HTTPException:
         400,
         "FC_CLOSURE_BLOCKED",
         "لا يمكن إغلاق الملف نهائياً — المتطلبات التالية غير مستوفاة:\n" + "\n".join(f"• {r}" for r in gate.blocking_reasons),
-        blocking=",".join(gate.blocking_keys),
+        blocking=list(gate.blocking_keys),
     )
 
 

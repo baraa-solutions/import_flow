@@ -110,13 +110,14 @@ def get_comprehensive_shipment_dossier(
 def confirm_dossier_export(
     payload: DossierExportConfirmRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission(EDIT)),
+    # The service requires import_files.edit OR import_files.close (GENERAL_MANAGER exports and closes).
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     """
     CLO-03: Confirm the export of the comprehensive shipment dossier, advance progress to >=99.5%,
     close TSK-0903, dispatch TSK-0904, and post system notification.
     """
-    return confirm_dossier_export_service(db, payload, user=current_user.username)
+    return confirm_dossier_export_service(db, payload, user=current_user.username, actor=current_user)
 
 
 # ==============================================================================

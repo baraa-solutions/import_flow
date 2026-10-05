@@ -201,9 +201,10 @@ def close_import_file_service(
         "archival_notes": schema.archival_notes,
         "status": target_status,
     }
-    now = datetime.now(timezone.utc)
     if existing_record:
-        record = repo.apply_changes(existing_record, {**values, "closed_at": now}, user)
+        # closed_at moves only when the record becomes Closed (a draft re-save keeps it)
+        extra = {} if schema.is_draft else {"closed_at": datetime.now(timezone.utc)}
+        record = repo.apply_changes(existing_record, {**values, **extra}, user)
     else:
         record = _insert_closure(db, {**values, "import_file_id": import_file_id, "created_by": user, "updated_by": user})
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
@@ -302,6 +303,14 @@ def list_closures_service(
     return repo.list_closures(db, include_inactive, import_file_id, search)
 
 
+def _is_locked_closure(db: Session, record: ImportFileClosureRecord) -> bool:
+    """A Closed record of a file that is still Closed (FC-09): same rule for PUT and DELETE."""
+    if record.status != CLOSURE_STATUS_CLOSED:
+        return False
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+    return imp is not None and imp.status == FILE_STATUS_CLOSED
+
+
 # Fields a Closed record still accepts (FC-09): archival metadata only.
 CLOSED_RECORD_EDITABLE = frozenset({"archival_notes", "archive_location"})
 
@@ -316,7 +325,7 @@ def update_closure_service(
     data = schema.model_dump(exclude_unset=True)
     validate_update_status(data.get("status"))
 
-    if record.status == CLOSURE_STATUS_CLOSED and set(data) - CLOSED_RECORD_EDITABLE:
+    if _is_locked_closure(db, record) and set(data) - CLOSED_RECORD_EDITABLE:
         raise closed_record_locked_error(record.closure_code)
 
     values: Dict[str, object] = {}
@@ -337,11 +346,9 @@ def update_closure_service(
 
 def soft_delete_closure_service(db: Session, closure_id: int, user: str = "System") -> bool:
     record = get_closure_service(db, closure_id)
-    if record.status == CLOSURE_STATUS_CLOSED:
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
-        # Q5: deleting the closure of a closed file would leave it Closed without a closure: reopen first.
-        if imp is not None and imp.status == FILE_STATUS_CLOSED:
-            raise closed_record_locked_error(record.closure_code)
+    # Q5: deleting the closure of a closed file would leave it Closed without a closure: reopen first.
+    if _is_locked_closure(db, record):
+        raise closed_record_locked_error(record.closure_code)
     repo.apply_changes(record, {"is_active": False}, user)
     db.commit()
     return True
@@ -383,6 +390,20 @@ def _fob_egp(db: Session, amounts_by_currency: Dict[str, float], on_date: date) 
             return None
         total += amount * rate
     return round(total, 2)
+
+
+def _stored_clearance_fob_egp(clearance, amounts_by_currency: Dict[str, float]) -> Optional[float]:
+    """FOB in EGP at the customs rate stored on the clearance (the rate Nafeza actually applied).
+
+    The clearance keeps the rate without its currency, so it is used only when the FOB is in exactly one foreign
+    currency (the one the declaration was valued in). 1.0 is the column default (rate never entered) and is ignored."""
+    if clearance is None:
+        return None
+    rate = float(clearance.customs_exchange_rate or 0.0)
+    currencies = [c for c, amount in amounts_by_currency.items() if amount]
+    if rate <= 0 or rate == 1.0 or len(currencies) != 1 or currencies[0].strip().upper() == "EGP":
+        return None
+    return round(amounts_by_currency[currencies[0]] * rate, 2)
 
 
 def get_comprehensive_shipment_dossier_service(
@@ -517,8 +538,11 @@ def get_comprehensive_shipment_dossier_service(
     if settlement is not None and settlement.total_fob_egp:
         total_fob_egp: Optional[float] = float(settlement.total_fob_egp)
     else:
-        rate_date = _to_date(imp.customs_released_at) or _to_date(imp.form46_date) or date.today()
-        total_fob_egp = _fob_egp(db, fob_by_currency, rate_date)
+        total_fob_egp = _stored_clearance_fob_egp(clearance, fob_by_currency)
+        if total_fob_egp is None:
+            # Customs valuation date: declaration (Form 46) date, then the release date, then today.
+            rate_date = _to_date(imp.form46_date) or _to_date(imp.customs_released_at) or date.today()
+            total_fob_egp = _fob_egp(db, fob_by_currency, rate_date)
 
     settlement_done = bool(settlement and settlement.status in SETTLED_SETTLEMENT_STATUSES)
     customs_released = bool(
@@ -767,12 +791,14 @@ def confirm_dossier_export_service(
     db: Session,
     payload: DossierExportConfirmRequest,
     user: str = "System",
+    actor: Optional[User] = None,
 ) -> DossierExportConfirmResponse:
     """
     CLO-03: Confirms the export of the comprehensive shipment dossier, records export metadata,
     advances progress to >=99.5%, resolves SmartTask TSK-0903, dispatches TSK-0904, and posts system notification.
     """
     imp = _get_active_file(db, payload.import_file_id)
+    _require_any_permission(db, actor, "import_files.edit", "import_files.close")
     if imp.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp.import_file_code)
 
@@ -900,6 +926,8 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
 
     facts, settlement = _closure_facts(db, imp)
     gate = evaluate_closure_gate(facts)
+    # The close re-uses the active (draft) record and its code; otherwise it issues the next yearly code.
+    existing = repo.get_closure_by_import_file_id(db, import_file_id)
 
     actual_landed = float(imp.actual_landed_cost_total_egp or 0.0)
     markup = float(imp.actual_landed_cost_markup_factor or 1.0)
@@ -921,7 +949,9 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
         dossier_exported_at=imp.dossier_exported_at,
         dossier_exported_by=imp.dossier_exported_by,
         empty_containers_returned_at=imp.empty_containers_returned_at,
-        certificate_code_preview=repo.generate_closure_code(db),
+        certificate_code_preview=(
+            existing.closure_code if existing is not None else repo.generate_closure_code(db)
+        ),
     )
 
 

@@ -120,6 +120,19 @@ def validate_verdict_consistency(verdict: Optional[str], shortage_qty: int, dama
         )
 
 
+def validate_verdict_matches(verdict: Optional[str], expected: frozenset, derived: str) -> None:
+    """A verdict the client sends must fit the outcome the quantities / quarantine give; it is never silently
+    replaced (plan WR-03)."""
+    if verdict is not None and verdict not in expected:
+        raise coded_error(
+            400,
+            "WR_VERDICT_INCONSISTENT",
+            f"قرار الفحص {verdict} لا يتفق مع نتيجة الفحص (المتوقع: {derived}).",
+            verdict=verdict,
+            expected_verdict=derived,
+        )
+
+
 def validate_status_label(status: Optional[str]) -> None:
     if status is not None and status not in WR_STATUS_LABELS:
         raise coded_error(400, "WR_STATUS_INVALID", f"حالة إذن الاستلام '{status}' غير معروفة.", status=status)

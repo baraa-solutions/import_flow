@@ -101,6 +101,25 @@ def validate_transition(current_status: Optional[str], action: str) -> None:
         )
 
 
+# Status changes a PUT may make; gate-out / arrival go through their own endpoints (file sync + checks).
+PUT_STATUS_CHANGES = frozenset({(STATUS_BOOKED, STATUS_DISPATCHED), (STATUS_ARRIVED, STATUS_DELIVERED)})
+ACTION_STATUS_CHANGE = "status_change"
+
+
+def validate_status_change(current_status: Optional[str], target_status: Optional[str]) -> None:
+    if target_status is None or target_status == current_status:
+        return
+    if (current_status, target_status) not in PUT_STATUS_CHANGES:
+        raise coded_error(
+            409,
+            "IT_TRANSITION_NOT_ALLOWED",
+            f"لا يمكن تغيير حالة حجز النقل من {current_status} إلى {target_status} من شاشة التعديل.",
+            current_status=current_status or "",
+            action=ACTION_STATUS_CHANGE,
+            target_status=target_status,
+        )
+
+
 def normalize_waybill(waybill_number: Optional[str]) -> str:
     return (waybill_number or "").strip().lower()
 

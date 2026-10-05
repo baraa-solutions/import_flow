@@ -31,11 +31,16 @@ from .validators import (
     validate_grn_lines,
     normalize_verdict,
     validate_verdict_consistency,
+    validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
+# Module-level so the tables are registered whenever GRNs are (the GRN create syncs both in one transaction).
+from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.demurrage_detention.model import DemurrageTracking
+from modules.inland_transport.model import InlandTransportBooking
 from modules.common.errors import best_effort
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
@@ -132,7 +137,6 @@ def create_warehouse_receiving_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
 
     # LOG-BOND-003: Check if shipment is Under-Bond Released (Quarantine Lock Active)
-    from modules.customs_clearance.model import CustomsClearanceRecord
     clearance = db.query(CustomsClearanceRecord).filter(
         CustomsClearanceRecord.import_file_id == schema.import_file_id,
         CustomsClearanceRecord.is_active == True,
@@ -151,7 +155,6 @@ def create_warehouse_receiving_service(
     if not imp_file.inland_actual_arrival_date:
         imp_file.inland_actual_arrival_date = arrival_dt
 
-    from modules.inland_transport.model import InlandTransportBooking
     active_bookings = db.query(InlandTransportBooking).filter(
         InlandTransportBooking.import_file_id == schema.import_file_id,
         InlandTransportBooking.is_active == True,
@@ -161,7 +164,6 @@ def create_warehouse_receiving_service(
             b.status = "Arrived at Warehouse"
             b.actual_arrival_at = arrival_dt
 
-    from modules.demurrage_detention.model import DemurrageTracking
     active_trackings = db.query(DemurrageTracking).filter(
         DemurrageTracking.import_file_id == schema.import_file_id,
         DemurrageTracking.is_active == True,
@@ -468,10 +470,14 @@ def submit_warehouse_inspection_protocol_service(
     # 5. Determine Verdict and Status (the quarantine branch wins over the discrepancy branch)
     discrepancy_type = schema.discrepancy_type or "None"
     if schema.quarantine_zone_assigned or record.quarantine_lock_active:
+        validate_verdict_matches(verdict, frozenset({"REJECTED_QUARANTINED"}), "REJECTED_QUARANTINED")
         record.inspection_verdict = "REJECTED_QUARANTINED"
         record.status = "Under Quarantine Inspection"
         record.discrepancy_type = discrepancy_type if discrepancy_type != "None" else "Quarantine Rejection"
     elif total_discrepancy > 0:
+        validate_verdict_matches(
+            verdict, frozenset({"ACCEPTED_WITH_DISCREPANCY", "DAMAGE_CLAIM_PENDING"}), "ACCEPTED_WITH_DISCREPANCY"
+        )
         record.inspection_verdict = verdict or "ACCEPTED_WITH_DISCREPANCY"
         record.status = "Discrepancy Reported"
         if discrepancy_type != "None":
@@ -483,6 +489,7 @@ def submit_warehouse_inspection_protocol_service(
         elif (record.total_damaged_qty or 0) > 0:
             record.discrepancy_type = "Damage"
     else:
+        validate_verdict_matches(verdict, frozenset({"ACCEPTED_FULL"}), "ACCEPTED_FULL")
         record.inspection_verdict = "ACCEPTED_FULL"
         record.status = "Inspection Passed / Clean Receipt"
         record.discrepancy_type = "None"

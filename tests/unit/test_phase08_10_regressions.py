@@ -163,7 +163,7 @@ def rbac(db):
     ("POST", "/api/v1/file-closure/official-close"),
     ("DELETE", "/api/v1/file-closure/1"),
     ("PUT", "/api/v1/file-closure/1"),
-    ("POST", "/api/v1/file-closure/confirm-dossier-export"),
+    # confirm-dossier-export: view at the route, edit|close in the service (see test_confirm_dossier_export_...)
 ])
 def test_viewer_gets_403_on_mutations(strict_client, rbac, method, path):
     res = strict_client.request(method, path, headers=_bearer(rbac["viewer"]), json={})
@@ -356,7 +356,7 @@ def test_fc01_empty_checklist_without_prerequisites_is_400(db):
     with pytest.raises(HTTPException) as exc:
         fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
     assert exc.value.status_code == 400
-    blocking = exc.value.detail["blocking"].split(",")
+    blocking = exc.value.detail["blocking"]
     assert {"customs_cleared", "warehouse_received", "landed_cost_settled", "dossier_exported"} <= set(blocking)
     db.refresh(imp)
     assert imp.status == "Active"
@@ -383,7 +383,7 @@ def test_fc01_quarantined_grn_blocks(db):
     db.commit()
     with pytest.raises(HTTPException) as exc:
         fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
-    assert exc.value.detail["blocking"] == "warehouse_quarantine"
+    assert exc.value.detail["blocking"] == ["warehouse_quarantine"]
 
 
 @pytest.mark.parametrize("customs,grn,landed,dossier,skipped", [
@@ -441,6 +441,7 @@ def test_fc09_restore_with_other_active_closure_is_409_and_put_locks_closed(db):
         fc_service.update_closure_service(db, second.closure_id, FileClosureUpdate(status="Closed"))
     assert exc.value.detail["code"] == "FC_STATUS_INVALID"
     second.status = "Closed"
+    imp.status = "Closed"  # the lock applies while the file itself is Closed (same rule as DELETE)
     db.commit()
     with pytest.raises(HTTPException) as exc:
         fc_service.update_closure_service(db, second.closure_id, FileClosureUpdate(auditor_name="x"))
@@ -506,3 +507,121 @@ def test_gate_containers_and_docs_are_warnings_only():
     assert gate.checklist["docs_verified"] is False
     assert gate.checklist["tasks_closed"] is False
     assert len(gate.warnings) == 3
+
+
+def _usd_rates(db, *rows):
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    db.add(usd)
+    db.flush()
+    for eff, rate in rows:
+        db.add(ExchangeRate(currency_id=usd.currency_id, customs_rate=rate, commercial_rate=rate,
+                            effective_date=eff, is_active=True))
+    db.commit()
+
+
+def test_fc02_stored_clearance_rate_wins_when_single_currency(db):
+    imp = _file(db, estimated_cost=100.0, estimated_cost_currency="USD")
+    _usd_rates(db, (date.today() - timedelta(days=30), 50.0))
+    db.add(CustomsClearanceRecord(clearance_code="CC-FX", import_file_id=imp.import_file_id,
+                                  customs_exchange_rate=47.25, is_active=True))
+    db.commit()
+    res = fc_service.get_comprehensive_shipment_dossier_service(db, imp.import_file_id)
+    assert res.total_fob_egp == 4725.0
+
+
+def test_fc02_default_clearance_rate_ignored_and_form46_date_preferred(db):
+    today = date.today()
+    form46 = datetime.combine(today - timedelta(days=20), datetime.min.time())
+    released = datetime.combine(today - timedelta(days=5), datetime.min.time())
+    imp = _file(db, estimated_cost=100.0, estimated_cost_currency="USD", form46_date=form46, customs_released_at=released)
+    # rate valid on the Form 46 date = 40, a newer rate valid on the release date = 60
+    _usd_rates(db, (today - timedelta(days=25), 40.0), (today - timedelta(days=10), 60.0))
+    db.add(CustomsClearanceRecord(clearance_code="CC-DEF", import_file_id=imp.import_file_id,
+                                  customs_exchange_rate=1.0, is_active=True))  # column default: never entered
+    db.commit()
+    res = fc_service.get_comprehensive_shipment_dossier_service(db, imp.import_file_id)
+    assert res.total_fob_egp == 4000.0
+
+
+# ─── Diff-review follow-ups ──────────────────────────────────────────────────
+
+def test_confirm_dossier_export_accepts_edit_or_close(strict_client, rbac, db):
+    imp = _file(db, "IMP-REG-DOSSIER")
+    body = {"import_file_id": imp.import_file_id}
+    assert strict_client.post("/api/v1/file-closure/confirm-dossier-export", json=body,
+                              headers=_bearer(rbac["viewer"])).status_code == 403
+    res = strict_client.post("/api/v1/file-closure/confirm-dossier-export", json=body, headers=_bearer(rbac["manager"]))
+    assert res.status_code == 200, res.text
+    assert res.json()["dossier_exported_by"] == "reg_manager"
+
+
+@pytest.mark.parametrize("rows,quarantine,verdict", [
+    ((10, 10, 0, 0), False, "ACCEPTED_WITH_DISCREPANCY"),  # clean receipt
+    ((10, 8, 2, 0), False, "REJECTED_QUARANTINED"),  # discrepancy, no quarantine
+    ((10, 10, 0, 0), True, "ACCEPTED_WITH_DISCREPANCY"),  # quarantine branch
+])
+def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
+    imp = _file(db)
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items(rows)))
+    with pytest.raises(HTTPException) as exc:
+        wr_service.submit_warehouse_inspection_protocol_service(
+            db, rec.receiving_id,
+            WarehouseInspectionSubmit(inspection_verdict=verdict, quarantine_zone_assigned=quarantine))
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "WR_VERDICT_INCONSISTENT"
+
+
+def test_wr_damage_claim_pending_allowed_with_discrepancy(db):
+    imp = _file(db)
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 8, 0, 2))))
+    out = wr_service.submit_warehouse_inspection_protocol_service(
+        db, rec.receiving_id, WarehouseInspectionSubmit(inspection_verdict="DAMAGE_CLAIM_PENDING"))
+    assert out.inspection_verdict == "DAMAGE_CLAIM_PENDING"
+
+
+def test_it_put_status_change_goes_through_transition_rules(db):
+    imp = _file(db)
+    b = it_service.create_transport_booking_service(db, _booking(imp.import_file_id))
+    with pytest.raises(HTTPException) as exc:
+        it_service.update_transport_booking_service(db, b.transport_id, InlandTransportBookingUpdate(status="Arrived at Warehouse"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["action"] == "status_change"
+    out = it_service.update_transport_booking_service(db, b.transport_id, InlandTransportBookingUpdate(status="Dispatched"))
+    assert out.status == "Dispatched"
+
+
+def test_it_tr01_autocomplete_does_not_close_coded_unrelated_task(db):
+    from modules.smart_tasks.model import SmartTask
+    imp = _file(db)
+    unrelated = SmartTask(task_code="TSK-X1", title="نقل مستندات للبنك", import_file_id=imp.import_file_id,
+                          status="Pending", msg_code="DOC_TASK_SOMETHING", is_active=True)
+    legacy = SmartTask(task_code="TSK-X2", title="حجز النقل الداخلي TR-01", import_file_id=imp.import_file_id,
+                       status="Pending", is_active=True)
+    db.add_all([unrelated, legacy])
+    db.commit()
+    it_service.create_transport_booking_service(db, _booking(imp.import_file_id))
+    db.refresh(unrelated)
+    db.refresh(legacy)
+    assert unrelated.status == "Pending"
+    assert legacy.status == "Completed"
+
+
+def test_precheck_preview_shows_existing_draft_code(db):
+    imp = _ready_file(db)
+    draft = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True))
+    pre = fc_service.get_closure_precheck_service(db, imp.import_file_id)
+    assert pre.certificate_code_preview == draft.closure_code
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    assert rec.closure_code == draft.closure_code
+
+
+def test_put_lock_follows_file_status(db):
+    imp = _ready_file(db)
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    with pytest.raises(HTTPException) as exc:
+        fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="x"))
+    assert exc.value.status_code == 409
+    imp.status = "Active"  # reopened
+    db.commit()
+    out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
+    assert out.auditor_name == "Reviewer"
