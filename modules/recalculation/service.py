@@ -11,49 +11,96 @@ This is the SINGLE place that:
 ARCHITECTURAL RULE:
   No page, screen, or router may implement their own "sync" or "compare" logic.
   All pages call preview() then apply() from this service exclusively.
+
+Transactions: the repository only flushes; every public call commits once (RC-04). A refused apply (permission,
+SoD, hard block) commits its audit log row and then raises.
 """
 
-import json
 from datetime import datetime, date, timezone
 from typing import List, Optional, Any, Dict
-from sqlalchemy import func
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from modules.recalculation.model import RecalculationDependencyMap, RecalculationLog
 import modules.recalculation.repository as repo
 from modules.recalculation.schemas import (
+    DependencyMapResponse,
     RecalculationPreviewItem,
     RecalculationPreviewResponse,
     RecalculationApplyRequest,
     RecalculationApplyResult,
 )
 from modules.users.model import User
-from modules.auth.permissions import has_user_permission
+from modules.auth.permissions import has_user_permission, is_admin_user
+
+
+# Language-neutral message codes (plain {code, params} until registered in the shared catalog).
+RECALC_NO_VARIANCE = "RECALC_NO_VARIANCE"
+RECALC_SOFT_VARIANCE = "RECALC_SOFT_VARIANCE"
+RECALC_HARD_BLOCK = "RECALC_HARD_BLOCK"
+RECALC_APPLIED = "RECALC_APPLIED"
+RECALC_SOURCE_RATE_MISSING = "RATE_MISSING"
+RECALC_RATE_MISSING = "RECALC_RATE_MISSING"
+
+# View permission per target entity type (RC-05).
+TARGET_VIEW_PERMISSIONS: Dict[str, str] = {
+    "import_budget": "financial_approval.view",
+    "financial_settlement": "financial_settlement.view",
+}
+
+
+class SourceRateMissing(Exception):
+    """A source value is in a foreign currency with no exchange rate on its date: that dependency is skipped."""
+
+    def __init__(self, currency: Optional[str], on_date: Optional[str]):
+        super().__init__(f"No exchange rate for {currency} on {on_date}")
+        self.currency = currency
+        self.on_date = on_date
+
+
+def _rate_to_egp(fx: Any, currency: Optional[str], on_date: Optional[date]) -> float:
+    """Commercial rate to EGP (Q2); a missing rate becomes ``SourceRateMissing`` instead of a fake 1.0 (RC-03)."""
+    from modules.financial_settlement.validators import SETTLEMENT_FX_RATE_MISSING
+    try:
+        return fx.rate(currency, on_date)
+    except HTTPException as exc:
+        if isinstance(exc.detail, dict) and exc.detail.get("code") == SETTLEMENT_FX_RATE_MISSING:
+            raise SourceRateMissing(exc.detail.get("currency"), exc.detail.get("on_date")) from exc
+        raise
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Source Fetching Registry
 # ──────────────────────────────────────────────────────────────────────────────
-# Maps source_entity_type → callable(db, join_key_value, source_field, aggregation) → float
+# Maps source_entity_type → callable(db, join_key_value, source_field, aggregation) → float (EGP)
 # Every new source entity type needs ONE entry here and ONE seed row in the DB table.
 # Nothing else changes.
 
 def _fetch_from_customs_consultation(
     db: Session, join_key_value: Any, source_field: str, aggregation: str
 ) -> float:
-    """Fetches live value from CustomsConsultationSession."""
+    """Fetches live value from CustomsConsultationSession (EGP fields), oldest first so 'latest' is the newest."""
     from modules.customs_consultation.model import CustomsConsultationSession
-    q = db.query(CustomsConsultationSession).filter(
-        CustomsConsultationSession.import_file_id == join_key_value,
-        CustomsConsultationSession.is_active == True,
+    pk = sa_inspect(CustomsConsultationSession).primary_key[0]
+    sessions = (
+        db.query(CustomsConsultationSession)
+        .filter(
+            CustomsConsultationSession.import_file_id == join_key_value,
+            CustomsConsultationSession.is_active == True,
+        )
+        .order_by(pk)
+        .all()
     )
-    sessions = q.all()
     if not sessions:
         return 0.0
 
     values = [float(getattr(s, source_field, 0.0) or 0.0) for s in sessions]
     return _aggregate(values, aggregation)
+
+
+def _is_scenario_money_field(source_field: str) -> bool:
+    return source_field == "total_quotation_amount" or source_field.endswith("_price")
 
 
 def _fetch_from_shipping_scenarios(
@@ -63,22 +110,48 @@ def _fetch_from_shipping_scenarios(
     Fetches live value from ShippingEvaluationSession + ShippingScenarioItem.
     For total_quotation_amount: uses the RECOMMENDED item (is_recommended=True),
     falling back to the item with the highest is_selected flag, then max.
+    Money fields are in ``quotation_currency``: converted to EGP at the commercial rate of the session date (RC-03).
     """
+    from modules.financial_settlement.service import SettlementFx, cairo_date
     from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
-    sessions = db.query(ShippingEvaluationSession).filter(
-        ShippingEvaluationSession.import_file_id == join_key_value,
-        ShippingEvaluationSession.is_active == True,
-    ).all()
+    sessions = (
+        db.query(ShippingEvaluationSession)
+        .filter(
+            ShippingEvaluationSession.import_file_id == join_key_value,
+            ShippingEvaluationSession.is_active == True,
+        )
+        .order_by(ShippingEvaluationSession.session_id)
+        .all()
+    )
     if not sessions:
         return 0.0
 
+    # One query for every item of every session (RC-07)
+    session_ids = [s.session_id for s in sessions]
+    items_by_session: Dict[int, List[Any]] = {sid: [] for sid in session_ids}
+    for item in (
+        db.query(ShippingScenarioItem)
+        .filter(ShippingScenarioItem.session_id.in_(session_ids))
+        .order_by(ShippingScenarioItem.item_id)
+        .all()
+    ):
+        items_by_session[item.session_id].append(item)
+
+    fx = SettlementFx(db, "commercial")
+    convert = _is_scenario_money_field(source_field)
+
     values = []
     for session in sessions:
-        items = db.query(ShippingScenarioItem).filter(
-            ShippingScenarioItem.session_id == session.session_id
-        ).all()
+        items = items_by_session.get(session.session_id) or []
         if not items:
             continue
+        on_date = cairo_date(session.created_at) if session.created_at else None
+
+        def _value(item: Any) -> float:
+            raw = float(getattr(item, source_field, 0.0) or 0.0)
+            if not convert or raw == 0.0:
+                return raw
+            return raw * _rate_to_egp(fx, item.quotation_currency or "USD", on_date)
 
         # Priority: recommended → selected → aggregate
         preferred = next((i for i in items if i.is_recommended), None)
@@ -86,12 +159,10 @@ def _fetch_from_shipping_scenarios(
             preferred = next((i for i in items if i.is_selected), None)
 
         if preferred:
-            val = float(getattr(preferred, source_field, 0.0) or 0.0)
-            values.append(val)
+            values.append(_value(preferred))
         else:
             # No recommendation: use the aggregation function across items
-            item_vals = [float(getattr(i, source_field, 0.0) or 0.0) for i in items]
-            values.append(_aggregate(item_vals, aggregation))
+            values.append(_aggregate([_value(i) for i in items], aggregation))
 
     return _aggregate(values, aggregation)
 
@@ -101,22 +172,38 @@ def _fetch_from_purchase_orders(
 ) -> float:
     """
     Fetches live value from PurchaseOrder.
-    total_amount_fob is in foreign currency → convert to EGP using exchange_rate.
+    total_amount_fob is in the PO currency → converted to EGP at the PO rate (EGP = 1, the stored rate when set,
+    else the commercial rate on the order date; a missing rate skips the dependency, RC-03).
     The budgeted field is invoice_amount_egp.
     """
+    from modules.financial_settlement.service import SettlementFx, purchase_order_rate_to_egp
+    from modules.financial_settlement.validators import SETTLEMENT_FX_RATE_MISSING
     from modules.purchase_orders.model import PurchaseOrder
-    pos = db.query(PurchaseOrder).filter(
-        PurchaseOrder.import_file_id == join_key_value,
-        PurchaseOrder.is_active == True,
-    ).all()
+    from modules.financial_settlement.service import _purchase_orders_of_file
+    from modules.import_files.model import ImportFile
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == join_key_value).first()
+    if imp is not None:  # same PO set as the settlement (import_file_id or po_ids, review 2 #14)
+        pos = _purchase_orders_of_file(db, imp)
+    else:
+        pos = (
+            db.query(PurchaseOrder)
+            .filter(PurchaseOrder.import_file_id == join_key_value, PurchaseOrder.is_active == True)
+            .order_by(PurchaseOrder.po_id)
+            .all()
+        )
     if not pos:
         return 0.0
 
+    fx = SettlementFx(db, "commercial")
     values = []
     for po in pos:
         raw = float(getattr(po, source_field, 0.0) or 0.0)
-        # Convert FOB foreign to EGP using PO exchange rate
-        rate = float(po.exchange_rate or 1.0)
+        try:
+            rate = purchase_order_rate_to_egp(po, fx)
+        except HTTPException as exc:
+            if isinstance(exc.detail, dict) and exc.detail.get("code") == SETTLEMENT_FX_RATE_MISSING:
+                raise SourceRateMissing(exc.detail.get("currency"), exc.detail.get("on_date")) from exc
+            raise
         values.append(raw * rate)
 
     return _aggregate(values, aggregation)
@@ -138,7 +225,7 @@ def _aggregate(values: List[float], func_name: str) -> float:
         "max": max,
         "min": min,
         "sum": sum,
-        "latest": lambda v: v[-1],  # assumes list is chronologically ordered
+        "latest": lambda v: v[-1],  # callers pass rows ordered by primary key
     }
     fn = func_map.get(func_name, max)
     return round(fn(values), 4)
@@ -147,6 +234,18 @@ def _aggregate(values: List[float], func_name: str) -> float:
 # ──────────────────────────────────────────────────────────────────────────────
 # Target Entity Registry
 # ──────────────────────────────────────────────────────────────────────────────
+
+def ensure_can_view(db: Session, current_user: User, target_entity_type: str) -> None:
+    """View permission of the target entity type (RC-05)."""
+    perm = TARGET_VIEW_PERMISSIONS.get(target_entity_type)
+    if perm is None:
+        raise HTTPException(status_code=400, detail=f"نوع الكيان المستهدف '{target_entity_type}' غير معروف.")
+    if not has_user_permission(db, current_user, perm):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"ليس لديك صلاحية '{perm}' لعرض بيانات إعادة الاحتساب.",
+        )
+
 
 def _load_target_entity(db: Session, target_entity_type: str, entity_id: int) -> Any:
     """Resolves and returns the target entity from the DB."""
@@ -157,7 +256,7 @@ def _load_target_entity(db: Session, target_entity_type: str, entity_id: int) ->
             ImportBudgetApproval.is_active == True,
         ).first()
         if not entity:
-            raise HTTPException(status_code=404, detail=f"Import Budget [{entity_id}] not found.")
+            raise HTTPException(status_code=404, detail=f"موازنة الاستيراد رقم {entity_id} غير موجودة.")
         return entity
     elif target_entity_type == "financial_settlement":
         from modules.financial_settlement.model import LandedCostSettlementRecord
@@ -166,10 +265,10 @@ def _load_target_entity(db: Session, target_entity_type: str, entity_id: int) ->
             LandedCostSettlementRecord.is_active == True,
         ).first()
         if not entity:
-            raise HTTPException(status_code=404, detail=f"Financial Settlement [{entity_id}] not found.")
+            raise HTTPException(status_code=404, detail=f"التسوية المالية رقم {entity_id} غير موجودة.")
         return entity
     # Future entity types: add here
-    raise HTTPException(status_code=400, detail=f"Unknown target entity type: '{target_entity_type}'")
+    raise HTTPException(status_code=400, detail=f"نوع الكيان المستهدف '{target_entity_type}' غير معروف.")
 
 
 def _get_entity_status(entity: Any, target_entity_type: str) -> str:
@@ -187,39 +286,32 @@ def _get_entity_join_key_value(entity: Any, target_entity_type: str, join_key: s
     if val is None:
         raise HTTPException(
             status_code=422,
-            detail=f"Entity [{target_entity_type}] does not have join key '{join_key}' or its value is None."
+            detail=f"الكيان ({target_entity_type}) لا يحتوي على قيمة لمفتاح الربط '{join_key}'.",
         )
     return val
 
 
+def _is_settlement(entity: Any, target_entity_type: str) -> bool:
+    return target_entity_type == "financial_settlement" or hasattr(entity, "expense_invoices")
+
+
 def _get_entity_field_value(entity: Any, field_name: str, target_entity_type: str = "") -> float:
     """Gets the current float value of a field from the entity."""
-    if target_entity_type == "financial_settlement" or hasattr(entity, "expense_invoices"):
+    if _is_settlement(entity, target_entity_type):
+        from modules.financial_settlement.service import SETTLEMENT_RECALC_FIELDS, settlement_field_total
         if field_name == "total_fob_egp":
             return float(getattr(entity, "total_fob_egp", 0.0) or 0.0)
-
-        # Virtual expense field lookup from JSON expense_invoices
-        category_map = {
-            "freight_cost_egp": ("Freight", "Shipping", "Ocean Freight", "Air Freight"),
-            "customs_duties_egp": ("Customs Duty", "Customs", "Taxes", "VAT", "Import Duty"),
-            "clearance_fees_egp": ("Brokerage", "Clearance", "Brokerage Fees", "Customs Clearance", "Local Transport", "Transport", "Trucking", "Inland Transport"),
-        }
-        if field_name in category_map:
-            kw_list = category_map[field_name]
-            invoices = getattr(entity, "expense_invoices", []) or []
-            tot = 0.0
-            for exp in invoices:
-                cat = exp.get("category", "")
-                if any(kw.lower() in cat.lower() for kw in kw_list):
-                    tot += float(exp.get("amount_egp", 0.0) or 0.0)
-            return round(tot, 4)
+        # Virtual expense field: the rows the settlement classifier puts in that field (RC-01)
+        if field_name in SETTLEMENT_RECALC_FIELDS:
+            return settlement_field_total(getattr(entity, "expense_invoices", []) or [], field_name)
 
     return float(getattr(entity, field_name, 0.0) or 0.0)
 
 
 def _apply_field_to_entity(entity: Any, field_name: str, new_value: float, target_entity_type: str):
     """Sets a field on the entity in memory. Does NOT commit."""
-    if target_entity_type == "financial_settlement" or hasattr(entity, "expense_invoices"):
+    if _is_settlement(entity, target_entity_type):
+        from modules.financial_settlement.service import SETTLEMENT_RECALC_FIELDS, apply_settlement_field_total
         if field_name == "total_fob_egp":
             entity.total_fob_egp = new_value
             items = [dict(i) for i in (entity.item_landed_costs or [])]
@@ -227,41 +319,19 @@ def _apply_field_to_entity(entity: Any, field_name: str, new_value: float, targe
             if old_fob > 0 and new_value > 0:
                 ratio = new_value / old_fob
                 for itm in items:
-                    itm["fob_total_egp"] = round(itm.get("fob_total_egp", 0.0) * ratio, 2)
-                    qty = max(itm.get("qty", 1), 1)
-                    itm["fob_unit_egp"] = round(itm["fob_total_egp"] / qty, 2)
+                    # Unrounded: the engine recomputes fob_total = qty * fob_unit, so a rounded unit drifted
+                    # (1000.00 -> 1000.02) and a second apply saw a fake variance (review 2 #4).
+                    qty = float(itm.get("qty", 1) or 0.0)
+                    if qty <= 0:
+                        continue
+                    itm["fob_total_egp"] = itm.get("fob_total_egp", 0.0) * ratio
+                    itm["fob_unit_egp"] = itm["fob_total_egp"] / qty
                 entity.item_landed_costs = items
             return
 
-        cat_defaults = {
-            "freight_cost_egp": ("Freight", "Volume-Based", ("Freight", "Shipping", "Ocean Freight", "Air Freight")),
-            "customs_duties_egp": ("Customs Duty", "Value-Based", ("Customs Duty", "Customs", "Taxes", "VAT", "Import Duty")),
-            "clearance_fees_egp": ("Brokerage", "Equal", ("Brokerage", "Clearance", "Brokerage Fees", "Customs Clearance")),
-        }
-        if field_name in cat_defaults:
-            default_cat, alloc_rule, kw_tuple = cat_defaults[field_name]
-            invoices = [dict(x) for x in (entity.expense_invoices or [])]
-            matched = False
-            for exp in invoices:
-                cat = exp.get("category", "")
-                if any(kw.lower() in cat.lower() for kw in kw_tuple):
-                    rate = float(exp.get("exchange_rate", 1.0) or 1.0)
-                    exp["amount_egp"] = round(new_value, 2)
-                    exp["amount_fx"] = round(new_value / rate, 2) if rate > 0 else new_value
-                    matched = True
-                    break
-            if not matched:
-                invoices.append({
-                    "invoice_no": f"AUTO-{field_name[:3].upper()}",
-                    "category": default_cat,
-                    "provider_name": "Upstream Sync",
-                    "currency": "EGP",
-                    "amount_fx": round(new_value, 2),
-                    "exchange_rate": 1.0,
-                    "amount_egp": round(new_value, 2),
-                    "allocation_rule": alloc_rule,
-                })
-            entity.expense_invoices = invoices
+        if field_name in SETTLEMENT_RECALC_FIELDS:
+            # One adjustment row per field: user invoices untouched, repeated applies idempotent (RC-01)
+            entity.expense_invoices = apply_settlement_field_total(entity.expense_invoices or [], field_name, new_value)
             return
 
     setattr(entity, field_name, new_value)
@@ -384,8 +454,8 @@ def _apply_in_place_to_entity(
         from modules.financial_settlement.service import calculate_landed_cost_engine
         incoterm = getattr(entity, "incoterm_code", "FOB") or "FOB"
         calc_res = calculate_landed_cost_engine(
-            entity.expense_invoices or [],
-            entity.item_landed_costs or [],
+            [dict(e) for e in (entity.expense_invoices or [])],
+            [dict(i) for i in (entity.item_landed_costs or [])],
             incoterm=incoterm,
         )
         entity.total_fob_egp = calc_res["total_fob_egp"]
@@ -401,6 +471,63 @@ def _apply_in_place_to_entity(
     return action_taken if target_entity_type in ("import_budget", "financial_settlement") else "auto_updated"
 
 
+def _variance(old_value: float, new_value: float, threshold_pct: float) -> Dict[str, Any]:
+    variance_amount = new_value - old_value
+    if old_value == 0.0:
+        variance_pct = 100.0 if abs(variance_amount) > 0.01 else 0.0
+    else:
+        variance_pct = round((abs(variance_amount) / old_value) * 100.0, 4)
+    return {
+        "variance_amount": variance_amount,
+        "variance_pct": variance_pct,
+        "is_hard": variance_pct > threshold_pct and abs(variance_amount) > 1.0,
+    }
+
+
+def _evaluate_dependencies(db: Session, entity: Any, target_entity_type: str, dependencies: list, threshold_pct: float) -> List[RecalculationPreviewItem]:
+    """One preview item per dependency with a known fetcher. A source value without an exchange rate gives an
+    item with status RATE_MISSING and no variance: that field is never applied (RC-03)."""
+    items: List[RecalculationPreviewItem] = []
+    for dep in dependencies:
+        fetcher = _SOURCE_FETCHERS.get(dep.source_entity_type)
+        if fetcher is None:
+            # Unknown source type — skip gracefully
+            continue
+        join_key_value = _get_entity_join_key_value(entity, target_entity_type, dep.join_key)
+        old_value = _get_entity_field_value(entity, dep.target_field, target_entity_type)
+        common = dict(
+            field_name=dep.target_field,
+            label_ar=dep.label_ar or dep.target_field,
+            label_en=dep.label_en or dep.target_field,
+            old_value=old_value,
+            threshold_percentage=threshold_pct,
+            source_entity_type=dep.source_entity_type,
+            dependency_id=dep.id,
+        )
+        try:
+            new_value = fetcher(db, join_key_value, dep.source_field, dep.aggregation_function)
+        except SourceRateMissing as missing:
+            items.append(RecalculationPreviewItem(
+                **common,
+                new_value=old_value,
+                variance_amount=0.0,
+                variance_percentage=0.0,
+                is_hard_block=False,
+                status=RECALC_SOURCE_RATE_MISSING,
+                message_code="SETTLEMENT_FX_RATE_MISSING",
+                params={"currency": missing.currency, "on_date": missing.on_date},
+            ))
+            continue
+        v = _variance(old_value, new_value, threshold_pct)
+        items.append(RecalculationPreviewItem(
+            **common,
+            new_value=new_value,
+            variance_amount=round(v["variance_amount"], 4),
+            variance_percentage=v["variance_pct"],
+            is_hard_block=v["is_hard"],
+        ))
+    return items
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Core Engine: preview()
@@ -412,11 +539,16 @@ def preview(
     target_entity_id: int,
     source_page: str,
     performed_by: Optional[str] = "System",
+    current_user: Optional[User] = None,
 ) -> RecalculationPreviewResponse:
     """
     Compares current stored values in the target entity against live upstream values.
-    Logs the preview action. Does NOT modify any data.
+    Logs the preview action (the log row is the only write). ``current_user`` (router calls) must hold the
+    view permission of the target type.
     """
+    if current_user is not None:
+        ensure_can_view(db, current_user, target_entity_type)
+
     # 1. Load entity and get its dependencies
     entity = _load_target_entity(db, target_entity_type, target_entity_id)
     current_status = _get_entity_status(entity, target_entity_type)
@@ -427,9 +559,6 @@ def preview(
 
     # 3. Check if entity status blocks apply
     blocked_by_status = False
-    items: List[RecalculationPreviewItem] = []
-    has_hard_block = False
-    max_variance_pct = 0.0
     can_apply = True
 
     # Collect all blocked_statuses across all deps
@@ -447,59 +576,34 @@ def preview(
         blocked_by_status = True
         can_apply = True  # Revision creation is always allowed with permission
 
-    # For Approved financial settlements: apply() recalculates and resets to Calculated, so can_apply = True
+    # For Approved financial settlements: apply() recalculates and resets to Calculated (Q1), so can_apply = True
     if target_entity_type == "financial_settlement" and current_status == "Approved":
         blocked_by_status = True
         can_apply = True
+    if target_entity_type == "financial_settlement" and current_status == "Closed":
+        blocked_by_status = True
+        can_apply = False
 
     # 4. Fetch live values and compute variances
-    for dep in dependencies:
-        join_key_value = _get_entity_join_key_value(entity, target_entity_type, dep.join_key)
-        old_value = _get_entity_field_value(entity, dep.target_field, target_entity_type)
-
-
-        fetcher = _SOURCE_FETCHERS.get(dep.source_entity_type)
-        if fetcher is None:
-            # Unknown source type — skip gracefully
-            continue
-
-        new_value = fetcher(db, join_key_value, dep.source_field, dep.aggregation_function)
-        variance_amount = new_value - old_value
-
-        if old_value == 0.0:
-            variance_pct = 100.0 if abs(variance_amount) > 0.01 else 0.0
-        else:
-            variance_pct = round((abs(variance_amount) / old_value) * 100.0, 4)
-
-        is_hard = variance_pct > threshold_pct and abs(variance_amount) > 1.0
-        if is_hard:
-            has_hard_block = True
-        if variance_pct > max_variance_pct:
-            max_variance_pct = variance_pct
-
-        items.append(RecalculationPreviewItem(
-            field_name=dep.target_field,
-            label_ar=dep.label_ar or dep.target_field,
-            label_en=dep.label_en or dep.target_field,
-            old_value=old_value,
-            new_value=new_value,
-            variance_amount=round(variance_amount, 4),
-            variance_percentage=variance_pct,
-            is_hard_block=is_hard,
-            threshold_percentage=threshold_pct,
-            source_entity_type=dep.source_entity_type,
-            dependency_id=dep.id,
-        ))
-
+    items = _evaluate_dependencies(db, entity, target_entity_type, dependencies, threshold_pct)
+    has_hard_block = any(i.is_hard_block for i in items)
+    max_variance_pct = max([i.variance_percentage for i in items] or [0.0])
     has_any_variance = any(abs(i.variance_amount) > 0.01 for i in items)
 
     # 5. Build message
-    if not has_any_variance:
-        message_ar = "✅ لا توجد فوارق — جميع التكاليف متطابقة مع المصادر الحية."
+    missing = [i.field_name for i in items if i.status == RECALC_SOURCE_RATE_MISSING]
+    if not has_any_variance and missing:
+        message_code, params = RECALC_RATE_MISSING, {"fields": ",".join(missing)}
+        message_ar = "تعذر مقارنة بعض البنود لعدم وجود سعر صرف مسجل للعملة. يرجى تسجيل سعر الصرف."
+    elif not has_any_variance:
+        message_code, params = RECALC_NO_VARIANCE, {}
+        message_ar = "لا توجد فوارق — جميع التكاليف متطابقة مع المصادر الحية."
     elif has_hard_block:
-        message_ar = f"🔴 تحذير: تم رصد فارق يتجاوز الحد المسموح ({threshold_pct}%). مطلوب مبرر كتابي قبل التحديث."
+        message_code, params = RECALC_HARD_BLOCK, {"threshold": threshold_pct}
+        message_ar = f"تحذير: تم رصد فارق يتجاوز الحد المسموح ({threshold_pct}%). مطلوب مبرر كتابي قبل التحديث."
     else:
-        message_ar = f"⚠️ تم رصد فوارق في التكاليف (أقل من {threshold_pct}%). يمكنك المزامنة مع تحذير."
+        message_code, params = RECALC_SOFT_VARIANCE, {"threshold": threshold_pct}
+        message_ar = f"تم رصد فوارق في التكاليف (أقل من {threshold_pct}%). يمكنك المزامنة مع تحذير."
 
     # 6. Log the preview action
     preview_data_for_log = [
@@ -510,6 +614,7 @@ def preview(
             "variance_amount": i.variance_amount,
             "variance_pct": i.variance_percentage,
             "is_hard_block": i.is_hard_block,
+            "status": i.status,
         }
         for i in items
     ]
@@ -523,6 +628,7 @@ def preview(
         preview_data=preview_data_for_log,
         result_status="has_variance" if has_any_variance else "no_changes",
     )
+    db.commit()
 
     return RecalculationPreviewResponse(
         target_entity_type=target_entity_type,
@@ -535,12 +641,32 @@ def preview(
         current_entity_status=current_status,
         can_apply=can_apply,
         message_ar=message_ar,
+        message_code=message_code,
+        params=params,
     )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Core Engine: apply()
 # ──────────────────────────────────────────────────────────────────────────────
+
+def _refresh_file_landed_cost(db: Session, settlement: Any) -> None:
+    """The import file KPIs written at approval follow a recalculated approved settlement (review 2 #3)."""
+    from modules.import_files.model import ImportFile
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == settlement.import_file_id).first()
+    if imp is None:
+        return
+    imp.actual_landed_cost_total_egp = settlement.total_landed_cost_egp
+    imp.actual_landed_cost_markup_factor = settlement.average_markup_factor
+    imp.actual_landed_cost_calculated_at = datetime.now(timezone.utc)
+
+
+def _log_refusal_and_raise(db: Session, exc: HTTPException, **log_fields: Any) -> None:
+    """The refused attempt keeps its audit row (committed) before the error reaches the client."""
+    repo.create_log(db=db, action="apply", **log_fields)
+    db.commit()
+    raise exc
+
 
 def apply(
     db: Session,
@@ -555,14 +681,22 @@ def apply(
     2. Segregation of Duties (SoD): user who modified upstream CANNOT sync if entity is Approved/Superseded.
     3. Hard Block: if variance > threshold AND no justification → HTTP 400.
     4. Immutability: if entity status is Approved → create Revision, mark original Superseded.
+       An Approved financial settlement is recalculated in place with justification rules (Q1); the log records
+       ``recalculated_approved``.
     5. Draft / Pending: update in-place.
-    6. Unified audit log entry created for every apply.
+    6. Unified audit log entry created for every apply, in the same transaction as the change.
     """
     target_entity_type = request.target_entity_type
     target_entity_id = request.target_entity_id
     justification = request.justification
     source_page = request.source_page
     performed_by = current_user.username
+    log_base = dict(
+        target_entity_type=target_entity_type,
+        target_entity_id=target_entity_id,
+        performed_by=performed_by,
+        source_page=source_page,
+    )
 
     # 1. Load entity
     entity = _load_target_entity(db, target_entity_type, target_entity_id)
@@ -571,116 +705,108 @@ def apply(
     threshold_pct = _get_variance_threshold(db, target_entity_type)
 
     # 2. Permission check (uses most restrictive permission found in dependency map)
-    required_perms = set(dep.required_permission for dep in dependencies if dep.required_permission)
+    required_perms = sorted(set(dep.required_permission for dep in dependencies if dep.required_permission))
     for perm in required_perms:
         if not has_user_permission(db, current_user, perm):
-            log = repo.create_log(
-                db=db,
-                target_entity_type=target_entity_type,
-                target_entity_id=target_entity_id,
-                action="apply",
-                performed_by=performed_by,
-                source_page=source_page,
-                result_status="blocked_permission",
-                justification=justification,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"ليس لديك صلاحية '{perm}' لتنفيذ المزامنة. يُرجى التواصل مع مدير النظام.",
+            _log_refusal_and_raise(
+                db,
+                HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"ليس لديك صلاحية '{perm}' لتنفيذ المزامنة. يُرجى التواصل مع مدير النظام.",
+                ),
+                **log_base, result_status="blocked_permission", justification=justification,
             )
 
     # 3. Segregation of Duties check (for import_budget)
     if target_entity_type == "import_budget":
         upstream_mod = getattr(entity, "upstream_modified_by", None)
-        is_admin = current_user.role == "ADMIN"
+        is_admin = is_admin_user(current_user)
         if (
             upstream_mod
             and upstream_mod.lower() == performed_by.lower()
             and not is_admin
             and current_status in ("Budget Approved", "Superseded")
         ):
-            repo.create_log(
-                db=db,
-                target_entity_type=target_entity_type,
-                target_entity_id=target_entity_id,
-                action="apply",
-                performed_by=performed_by,
-                source_page=source_page,
-                result_status="blocked_sod",
-                justification=justification,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="فصل المهام (SoD): المستخدم الذي عدّل التكاليف الأصلية لا يمكنه مزامنة الميزانية المعتمدة. يرجى تعيين مستخدم آخر.",
+            _log_refusal_and_raise(
+                db,
+                HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="فصل المهام (SoD): المستخدم الذي عدّل التكاليف الأصلية لا يمكنه مزامنة الميزانية المعتمدة. يرجى تعيين مستخدم آخر.",
+                ),
+                **log_base, result_status="blocked_sod", justification=justification,
             )
 
-    # 4. Fetch live values and build applied_changes
-    applied_changes = []
-    has_hard_block = False
+    # 4. Fetch live values and build applied_changes (RATE_MISSING dependencies are skipped)
+    evaluated = _evaluate_dependencies(db, entity, target_entity_type, dependencies, threshold_pct)
+    changed_items = [i for i in evaluated if i.status == "OK" and abs(i.variance_amount) > 0.01]
+    has_hard_block = any(i.is_hard_block for i in evaluated)
+    applied_changes = [
+        {
+            "field_name": i.field_name,
+            "old_value": i.old_value,
+            "new_value": i.new_value,
+            "variance_amount": i.variance_amount,
+            "variance_pct": i.variance_percentage,
+            "is_hard_block": i.is_hard_block,
+        }
+        for i in changed_items
+    ]
 
-    for dep in dependencies:
-        join_key_value = _get_entity_join_key_value(entity, target_entity_type, dep.join_key)
-        old_value = _get_entity_field_value(entity, dep.target_field, target_entity_type)
-
-        fetcher = _SOURCE_FETCHERS.get(dep.source_entity_type)
-        if fetcher is None:
-            continue
-
-        new_value = fetcher(db, join_key_value, dep.source_field, dep.aggregation_function)
-        variance_amount = new_value - old_value
-
-        if old_value == 0.0:
-            variance_pct = 100.0 if abs(variance_amount) > 0.01 else 0.0
-        else:
-            variance_pct = round((abs(variance_amount) / old_value) * 100.0, 4)
-
-        is_hard = variance_pct > threshold_pct and abs(variance_amount) > 1.0
-        if is_hard:
-            has_hard_block = True
-
-        if abs(variance_amount) > 0.01:
-            applied_changes.append({
-                "field_name": dep.target_field,
-                "old_value": old_value,
-                "new_value": new_value,
-                "variance_amount": round(variance_amount, 4),
-                "variance_pct": variance_pct,
-                "is_hard_block": is_hard,
-            })
+    # 4b. Settlements: Closed is final; an Approved one changes only with a written justification (review 2 #3)
+    if target_entity_type == "financial_settlement" and current_status == "Closed":
+        _log_refusal_and_raise(
+            db,
+            HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "SETTLEMENT_NOT_EDITABLE",
+                    "message": f"لا يمكن إعادة احتساب التسوية {entity.settlement_code} لأنها مغلقة (Closed).",
+                    "status": current_status,
+                    "settlement_code": entity.settlement_code,
+                },
+            ),
+            **log_base, preview_data=applied_changes, result_status="blocked_status", justification=justification,
+        )
+    if (
+        target_entity_type == "financial_settlement"
+        and current_status == "Approved"
+        and applied_changes
+        and not (justification or "").strip()
+    ):
+        _log_refusal_and_raise(
+            db,
+            HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="التسوية معتمدة (Approved): يجب تقديم مبرر كتابي لإعادة احتسابها بالتكاليف الحية.",
+            ),
+            **log_base, preview_data=applied_changes, result_status="approved_no_justification", justification=None,
+        )
 
     # 5. Hard Block check
     if has_hard_block and not justification:
-        repo.create_log(
-            db=db,
-            target_entity_type=target_entity_type,
-            target_entity_id=target_entity_id,
-            action="apply",
-            performed_by=performed_by,
-            source_page=source_page,
-            preview_data=applied_changes,
-            result_status="hard_block_no_justification",
-            justification=None,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"تجاوز الفارق الحد المسموح ({threshold_pct}%). "
-                "يجب تقديم مبرر كتابي لإتمام المزامنة."
+        _log_refusal_and_raise(
+            db,
+            HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"تجاوز الفارق الحد المسموح ({threshold_pct}%). "
+                    "يجب تقديم مبرر كتابي لإتمام المزامنة."
+                ),
             ),
+            **log_base, preview_data=applied_changes, result_status="hard_block_no_justification", justification=None,
         )
 
     # 6. No actual changes?
+    missing = [i.field_name for i in evaluated if i.status == RECALC_SOURCE_RATE_MISSING]
     if not applied_changes:
         log = repo.create_log(
             db=db,
-            target_entity_type=target_entity_type,
-            target_entity_id=target_entity_id,
             action="apply",
-            performed_by=performed_by,
-            source_page=source_page,
+            **log_base,
             result_status="no_changes",
             action_taken="no_op",
         )
+        db.commit()
         return RecalculationApplyResult(
             target_entity_type=target_entity_type,
             target_entity_id=target_entity_id,
@@ -688,57 +814,58 @@ def apply(
             revision_created=False,
             applied_changes=[],
             log_id=log.id,
-            message_ar="✅ لا توجد تغييرات — التكاليف مطابقة للمصادر الحية.",
+            message_ar=(
+                "تعذر تطبيق بعض البنود لعدم وجود سعر صرف مسجل." if missing
+                else "لا توجد تغييرات — التكاليف مطابقة للمصادر الحية."
+            ),
+            message_code=RECALC_RATE_MISSING if missing else RECALC_NO_VARIANCE,
+            params={"fields": ",".join(missing)} if missing else {},
         )
 
     # 7. Apply based on entity status
     revision_created = False
     new_entity_id = None
     new_entity_code = None
-    action_taken = "auto_updated"
+    log_action_taken = None
 
     if target_entity_type == "import_budget" and current_status == "Budget Approved":
         # STRICT: create Revision, mark original Superseded
         new_entity = _create_revision_for_approved_budget(
             db, entity, applied_changes, performed_by, justification
         )
-        db.commit()
-        db.refresh(new_entity)
         revision_created = True
         new_entity_id = new_entity.budget_id
         new_entity_code = new_entity.budget_code
         action_taken = "revision_created"
-        message_ar = f"✅ تم إنشاء مراجعة جديدة ({new_entity_code}) بالتكاليف المحدّثة. الميزانية الأصلية أصبحت 'Superseded'."
+        message_ar = f"تم إنشاء مراجعة جديدة ({new_entity_code}) بالتكاليف المحدّثة. الميزانية الأصلية أصبحت 'Superseded'."
     else:
         # Draft / Pending / Needs Revalidation: update in-place
         action_taken = _apply_in_place_to_entity(
             db, entity, applied_changes, target_entity_type, performed_by, justification
         )
-        db.commit()
-        db.refresh(entity)
         if target_entity_type == "financial_settlement":
-            message_ar = "✅ تمت إعادة احتساب التسوية وتكلفة الوصول بنجاح استناداً إلى التكاليف الحية."
+            if current_status == "Approved":
+                log_action_taken = "recalculated_approved"  # RC-02 / Q1: kept, but visible in the audit trail
+                _refresh_file_landed_cost(db, entity)
+            message_ar = "تمت إعادة احتساب التسوية وتكلفة الوصول بنجاح استناداً إلى التكاليف الحية."
         elif action_taken == "auto_updated":
-            message_ar = "✅ تم تحديث الميزانية بالتكاليف الحية تلقائياً."
+            message_ar = "تم تحديث الميزانية بالتكاليف الحية تلقائياً."
         else:
-            message_ar = "✅ تم تحديث التكاليف. الميزانية في حالة 'Pending Review' للاعتماد."
+            message_ar = "تم تحديث التكاليف. الميزانية في حالة 'Pending Review' للاعتماد."
 
-
-    # 8. Unified audit log
+    # 8. Unified audit log, committed together with the change
     log = repo.create_log(
         db=db,
-        target_entity_type=target_entity_type,
-        target_entity_id=target_entity_id,
         action="apply",
-        performed_by=performed_by,
-        source_page=source_page,
+        **log_base,
         preview_data=applied_changes,
         changes_applied=applied_changes,
         justification=justification,
         result_status="success",
-        action_taken=action_taken,
+        action_taken=log_action_taken or action_taken,
         new_entity_id=new_entity_id,
     )
+    db.commit()
 
     return RecalculationApplyResult(
         target_entity_type=target_entity_type,
@@ -747,9 +874,11 @@ def apply(
         revision_created=revision_created,
         new_entity_id=new_entity_id,
         new_entity_code=new_entity_code,
-        applied_changes=[],  # populated by preview items
+        applied_changes=changed_items,
         log_id=log.id,
         message_ar=message_ar,
+        message_code=RECALC_APPLIED,
+        params={"action_taken": log_action_taken or action_taken, "new_entity_code": new_entity_code},
     )
 
 
@@ -780,6 +909,46 @@ def recalculate(
         ),
         current_user=current_user,
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Read endpoints (RC-05): logs and dependency map
+# ──────────────────────────────────────────────────────────────────────────────
+
+def list_logs(
+    db: Session, current_user: User, target_entity_type: str, target_entity_id: int, limit: int = 50
+) -> List[RecalculationLog]:
+    ensure_can_view(db, current_user, target_entity_type)
+    return repo.get_logs_for_entity(db, target_entity_type, target_entity_id, limit)
+
+
+def list_dependencies(
+    db: Session, current_user: User, target_entity_type: Optional[str] = None
+) -> List[DependencyMapResponse]:
+    """Active dependency rows. Filtering by a target type requires that type's view permission; the unfiltered
+    list is configuration metadata (login only)."""
+    if target_entity_type:
+        ensure_can_view(db, current_user, target_entity_type)
+    deps = repo.get_all_dependencies(db, include_inactive=False)
+    if target_entity_type:
+        deps = [d for d in deps if d.target_entity_type == target_entity_type]
+    return [
+        DependencyMapResponse(
+            id=d.id,
+            target_entity_type=d.target_entity_type,
+            target_field=d.target_field,
+            source_entity_type=d.source_entity_type,
+            source_field=d.source_field,
+            join_key=d.join_key,
+            aggregation_function=d.aggregation_function,
+            blocked_statuses=d.blocked_statuses_list,
+            required_permission=d.required_permission,
+            label_ar=d.label_ar,
+            label_en=d.label_en,
+            is_active=d.is_active,
+        )
+        for d in deps
+    ]
 
 
 # ──────────────────────────────────────────────────────────────────────────────

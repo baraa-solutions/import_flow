@@ -1,21 +1,49 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# Invoice number prefix of the single adjustment row per field written by the recalculation engine (RC-01).
+# Only these rows may carry a negative amount (live total lower than the user invoices).
+RECALC_ADJUSTMENT_PREFIX = "RECALC-ADJ-"
+
+# Statuses a client may set through PUT; "Approved" is reached only through approve-actual-landed-cost (FS-03).
+EDITABLE_SETTLEMENT_STATUSES = ("Draft", "Calculated")
+
+# Allocation rule names accepted from clients (review 2 #13); other values are a 422.
+AllocationRule = Literal["Value-Based", "Weight-Based", "Volume-Based", "Equal"]
+
+
+class SettlementMessage(BaseModel):
+    """Language-neutral message (code + params) the client renders; same shape as ``SystemMessageItem``."""
+    code: str
+    params: Dict[str, Any] = {}
+    severity: str = "warning"
+
 
 class ExpenseInvoiceSchema(BaseModel):
     invoice_no: str
     category: str = Field(..., description="Freight, Customs Duty, Brokerage, Local Transport, Storage, Insurance, Other")
     provider_name: str
     currency: str = "USD"
-    amount_fx: float = Field(..., ge=0.0)
-    exchange_rate: float = Field(..., gt=0.0)
-    amount_egp: float = Field(0.0, ge=0.0)
-    allocation_rule: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    amount_fx: float
+    # Optional: missing = 1.0 for EGP, else the rate table on the invoice date (409 SETTLEMENT_FX_RATE_MISSING).
+    exchange_rate: Optional[float] = Field(None, gt=0.0)
+    amount_egp: float = 0.0
+    allocation_rule: AllocationRule = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+
+    @model_validator(mode="after")
+    def _non_negative_unless_adjustment(self) -> "ExpenseInvoiceSchema":
+        if not (self.invoice_no or "").startswith(RECALC_ADJUSTMENT_PREFIX):
+            if self.amount_fx < 0:
+                raise ValueError("amount_fx must be >= 0")
+            if self.amount_egp < 0:
+                raise ValueError("amount_egp must be >= 0")
+        return self
 
 class ItemLandedCostSchema(BaseModel):
     item_code: str
     item_name: str
-    qty: int = Field(..., gt=0)
+    qty: float = Field(..., gt=0)
     gross_weight_kg: float = Field(0.0, ge=0.0)
     cbm: float = Field(0.0, ge=0.0)
     fob_unit_egp: float = Field(..., ge=0.0)
@@ -34,15 +62,15 @@ class FinancialSettlementCreate(BaseModel):
     incoterm_code: Optional[str] = "FOB"
     expense_invoices: List[ExpenseInvoiceSchema] = []
     item_landed_costs: List[ItemLandedCostSchema] = []
-    accountant_name: str = "Kamal"
+    accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
 class FinancialSettlementUpdate(BaseModel):
     incoterm_code: Optional[str] = None
     expense_invoices: Optional[List[ExpenseInvoiceSchema]] = None
     item_landed_costs: Optional[List[ItemLandedCostSchema]] = None
-    status: Optional[str] = None
-    accountant_name: Optional[str] = None
+    status: Optional[Literal["Draft", "Calculated"]] = None
+    accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
 class FinancialSettlementResponse(BaseModel):
@@ -158,7 +186,7 @@ class EstimatedLandedCostSimulationRequest(BaseModel):
     port_handling_egp_override: Optional[float] = None
     bank_fees_egp_override: Optional[float] = None
     other_expenses_egp_override: Optional[float] = None
-    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based")
+    allocation_preference: AllocationRule = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based")
     estimate_date: Optional[date] = None
 
 class EstimatedLandedCostSimulationResponse(BaseModel):
@@ -183,6 +211,10 @@ class EstimatedLandedCostSimulationResponse(BaseModel):
     expenses_breakdown: List[EstimatedLandedCostExpenseItem] = []
     items_breakdown: List[EstimatedLandedCostItemBreakdown] = []
     executive_summary_ar: str
+    # Additive (phase 09): the real import-duty / VAT-and-fees split of total_customs_and_taxes_egp.
+    total_customs_duty_egp: float = 0.0
+    total_vat_and_fees_egp: float = 0.0
+    messages: List[SettlementMessage] = []
 
 
 # ==============================================================================
@@ -229,7 +261,7 @@ class InvoicesAggregationResponse(BaseModel):
     import_file_code: str
     supplier_name: str
     currency: str = "USD"
-    exchange_rate: float = 48.5
+    exchange_rate: float = 0.0
     total_invoices_count: int = 0
     total_amount_egp: float = 0.0
     total_paid_egp: float = 0.0
@@ -239,14 +271,17 @@ class InvoicesAggregationResponse(BaseModel):
     financial_settlement_status: str = "PENDING_SETTLEMENT"
     parties_summary: List[InvoicesPartySummary] = []
     invoices: List[AggregatedInvoiceItemSchema] = []
-    unsettled_warnings: List[str] = []
+    unsettled_warnings: List[str] = []  # deprecated (Arabic text): render ``messages``
+    messages: List[SettlementMessage] = []
 
 
 class ConfirmInvoicesSettlementRequest(BaseModel):
     import_file_id: int
-    settled_by: str = Field("Cost Accounting Specialist", description="Accountant or specialist name")
+    settled_by: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     settlement_notes: Optional[str] = None
-    invoices_overrides: Optional[List[AggregatedInvoiceItemSchema]] = None
+    invoices_overrides: Optional[List[AggregatedInvoiceItemSchema]] = Field(
+        None, description="Ignored: the server re-aggregates the invoices"
+    )
 
 
 class ConfirmInvoicesSettlementResponse(BaseModel):
@@ -310,7 +345,7 @@ class ActualLandedCostItemLine(BaseModel):
 
 
 class ActualLandedCostCalculationRequest(BaseModel):
-    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    allocation_preference: AllocationRule = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
     custom_category_allocation: Optional[Dict[str, str]] = None
 
 
@@ -319,7 +354,7 @@ class ActualLandedCostCalculationResponse(BaseModel):
     import_file_code: str
     supplier_name: str
     currency: str = "USD"
-    exchange_rate: float = 48.5
+    exchange_rate: float = 0.0
     incoterm: str = "FOB"
     allocation_preference: str = "Value-Based"
     total_items_count: int = 0
@@ -343,12 +378,15 @@ class ActualLandedCostCalculationResponse(BaseModel):
     categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
     items_breakdown: List[ActualLandedCostItemLine] = []
     executive_summary_ar: str = ""
+    # Additive (phase 09): header landed cost minus the sum of the rounded item landed costs (not redistributed).
+    reconciliation_difference_egp: float = 0.0
+    messages: List[SettlementMessage] = []
 
 
 class ApproveActualLandedCostRequest(BaseModel):
     import_file_id: int
-    approved_by: str = Field("Cost Accounting Manager", description="Name/Role of approver")
-    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    approved_by: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
+    allocation_preference: AllocationRule = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
     notes: Optional[str] = None
     custom_category_allocation: Optional[Dict[str, str]] = None
 

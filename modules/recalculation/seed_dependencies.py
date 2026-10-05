@@ -147,6 +147,7 @@ def run_seed(db: Session) -> int:
     for seed in DEPENDENCY_SEEDS:
         repo.upsert_dependency(db=db, **seed)
         count += 1
+    db.commit()
     print(f"[RecalculationEngine] Seeded {count} dependency rows.")
     return count
 

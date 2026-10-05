@@ -367,7 +367,7 @@ class TestCLO02ActualLandedCost:
             allocation_preference="Value-Based",
             notes="تم تدقيق فواتير الشحن والتخليص ومطابقتها مع الإقرار الجمركي 46.",
         )
-        app_res = approve_actual_landed_cost_service(db_session, app_req)
+        app_res = approve_actual_landed_cost_service(db_session, app_req, actor="Financial Controller Magdy")  # FS-04: login user, not the body
 
         assert app_res.success is True
         assert app_res.financial_settlement_status == "COST_ALLOCATED"
