@@ -122,6 +122,11 @@ class SystemMessageRenderer {
   /// Formats one param value by the suffix convention of its [name].
   static String formatParam(String name, Object value, AppLocalizations l10n) {
     final isArabic = l10n.isArabic;
+    if (value is Iterable) {
+      // JSON list params (`missing_statuses`, `blocking`): each item formatted by the same name rule.
+      final items = value.where((v) => v != null).map((v) => formatParam(name, v, l10n)).toList();
+      return items.join(isArabic ? '، ' : ', ');
+    }
     final enumIndex = name.indexOf('_enum_');
     if (enumIndex >= 0) {
       return _isolate(_enumLabel(name.substring(enumIndex + 6), value.toString(), l10n), isArabic);

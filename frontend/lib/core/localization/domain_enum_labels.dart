@@ -54,6 +54,26 @@ class DomainEnumType {
   static const poStatus = 'po_status';
   /// CBM study shipment mode (SHIPMENT_MODE): AIR / SEA.
   static const shipmentMode = 'shipment_mode';
+  // Review wave types (docs/enum_codes.json).
+  static const paymentType = 'payment_type';
+  static const legalDocKind = 'legal_doc_kind';
+  static const labTestResult = 'lab_test_result';
+  static const odcStatus = 'odc_status';
+  static const originalDocStatus = 'original_doc_status';
+  static const originalDocRequired = 'original_doc_required';
+  static const courierStatus = 'courier_status';
+  static const docReviewStatus = 'doc_review_status';
+  static const docApprovalStatus = 'doc_approval_status';
+  static const ticketStatus = 'ticket_status';
+  static const ticketSeverity = 'ticket_severity';
+  static const allocationRule = 'allocation_rule';
+  static const settlementStatus = 'settlement_status';
+  static const actualCostBucket = 'actual_cost_bucket';
+  static const dutyComponent = 'duty_component';
+  static const warehouseReceivingStatus = 'warehouse_receiving_status';
+  static const grnDiscrepancyType = 'grn_discrepancy_type';
+  static const inlandTransportStatus = 'inland_transport_status';
+  static const fileClosureStatus = 'file_closure_status';
 }
 
 class DomainEnums {
@@ -325,6 +345,145 @@ class DomainEnums {
     DomainEnumType.containerType: ['C20_ST', 'C40_HC', 'C40_ST', 'LCL'],
     DomainEnumType.poStatus: ['DRAFT', 'APPROVED', 'PARTIALLY_SHIPPED', 'FULLY_SHIPPED', 'CLOSED', 'CANCELLED'],
     DomainEnumType.shipmentMode: ['AIR', 'SEA'],
+    DomainEnumType.paymentType: [
+      'ADVANCE_PAYMENT',
+      'AGAINST_BL',
+      'DOCUMENTARY_COLLECTION',
+      'FINAL_SETTLEMENT',
+      'LETTER_OF_CREDIT',
+    ],
+    DomainEnumType.legalDocKind: [
+      'ACID',
+      'COMMERCIAL_REGISTRY',
+      'IMPORT_CARD',
+      'TAX_CARD',
+    ],
+    DomainEnumType.labTestResult: [
+      'CONFORMING',
+      'NONE',
+      'NON_CONFORMING',
+      'PENDING',
+    ],
+    DomainEnumType.odcStatus: [
+      'DRAFT',
+      'IN_TRANSIT',
+      'PARTIALLY_RECEIVED',
+      'FULLY_RECEIVED',
+      'FULLY_VERIFIED',
+      'DISCREPANCY_NOTED',
+    ],
+    DomainEnumType.originalDocStatus: [
+      'PENDING',
+      'IN_TRANSIT',
+      'RECEIVED',
+      'VERIFIED',
+      'DISCREPANT',
+      'NOT_REQUIRED',
+    ],
+    DomainEnumType.originalDocRequired: [
+      'YES',
+      'NO',
+      'CONDITIONAL',
+    ],
+    DomainEnumType.courierStatus: [
+      'DISPATCHED',
+      'IN_TRANSIT',
+      'DELIVERED',
+      'DELAYED',
+    ],
+    DomainEnumType.docReviewStatus: [
+      'PENDING',
+      'UNDER_REVIEW',
+      'APPROVED',
+      'CONDITIONALLY_APPROVED',
+      'REJECTED',
+    ],
+    DomainEnumType.docApprovalStatus: [
+      'DRAFT',
+      'PENDING_REVIEW',
+      'UNDER_REVIEW',
+      'RECTIFICATION_REQUIRED',
+      'CONDITIONALLY_APPROVED',
+      'APPROVED_FOR_CLEARANCE',
+      'REJECTED',
+    ],
+    DomainEnumType.ticketStatus: [
+      'OPEN',
+      'SENT_TO_SUPPLIER',
+      'RESOLVED',
+      'CLOSED',
+      'WAIVED',
+    ],
+    DomainEnumType.ticketSeverity: [
+      'MINOR',
+      'MAJOR',
+      'CRITICAL',
+    ],
+    DomainEnumType.allocationRule: [
+      'EQUAL',
+      'VALUE',
+      'VOLUME',
+      'WEIGHT',
+    ],
+    DomainEnumType.settlementStatus: [
+      'DRAFT',
+      'CALCULATED',
+      'APPROVED',
+      'CLOSED',
+    ],
+    DomainEnumType.actualCostBucket: [
+      'CLEARANCE_PORT',
+      'CUSTOMS_DUTY',
+      'DEMURRAGE_STORAGE',
+      'FREIGHT',
+      'INLAND_TRANSPORT',
+      'INSURANCE',
+      'OTHER_ADMIN',
+      'VAT_TAXES',
+    ],
+    DomainEnumType.dutyComponent: [
+      'CUSTOMS_SERVICE_FEES',
+      'DEVELOPMENT_FEE',
+      'DUTY_TOTAL_OVERRIDE',
+      'IMPORT_DUTY',
+      'LAB_SERVICE_FEES',
+      'SCHEDULE_TAX',
+      'VAT',
+      'WHT',
+    ],
+    DomainEnumType.warehouseReceivingStatus: [
+      'PENDING_COUNT',
+      'GOODS_RECEIVED',
+      'INSPECTION_PASSED',
+      'DISCREPANCY_REPORTED',
+      'UNDER_QUARANTINE_INSPECTION',
+      'UNDER_BOND_QUARANTINE',
+      'GRN_AUDITED',
+      'CLOSED',
+    ],
+    DomainEnumType.grnDiscrepancyType: [
+      'BROKEN_SEAL',
+      'DAMAGE',
+      'EXCESS',
+      'NONE',
+      'QUARANTINE_REJECTION',
+      'SHORTAGE',
+      'SHORTAGE_AND_DAMAGE',
+      'WRONG_ITEM',
+    ],
+    DomainEnumType.inlandTransportStatus: [
+      'BOOKING_CONFIRMED',
+      'DISPATCHED',
+      'IN_TRANSIT',
+      'ARRIVED_AT_WAREHOUSE',
+      'DELIVERED',
+    ],
+    DomainEnumType.fileClosureStatus: [
+      'DRAFT',
+      'CLOSED',
+      'ARCHIVED',
+      'REOPENED',
+    ],
   };
 
   /// Labels written by older clients (and by older backend defaults/seeds),
@@ -595,7 +754,187 @@ class DomainEnums {
       'كجم': 'KG',
       'م³': 'CBM',
     },
+    DomainEnumType.paymentType: {
+      'Advance': 'ADVANCE_PAYMENT',
+      'Against BL': 'AGAINST_BL',
+      'CAD': 'DOCUMENTARY_COLLECTION',
+      'Documentary Collection': 'DOCUMENTARY_COLLECTION',
+      'L/C': 'LETTER_OF_CREDIT',
+      'LC': 'LETTER_OF_CREDIT',
+      'Letter of Credit': 'LETTER_OF_CREDIT',
+    },
+    DomainEnumType.legalDocKind: {
+      'البطاقة الاستيرادية (Import Card)': 'IMPORT_CARD',
+      'البطاقة الضريبية / ملف القيمة المضافة (Tax Card)': 'TAX_CARD',
+      'السجل التجاري (Commercial Registry)': 'COMMERCIAL_REGISTRY',
+    },
+    DomainEnumType.labTestResult: {
+      'Approved': 'CONFORMING',
+      'Non Conforming': 'NON_CONFORMING',
+      'Nonconforming': 'NON_CONFORMING',
+      'Rejected': 'NON_CONFORMING',
+      'غير مطابق': 'NON_CONFORMING',
+      'مرفوض': 'NON_CONFORMING',
+      'مطابق': 'CONFORMING',
+      'مقبول': 'CONFORMING',
+    },
+    DomainEnumType.odcStatus: {},
+    DomainEnumType.originalDocStatus: {},
+    DomainEnumType.originalDocRequired: {},
+    DomainEnumType.courierStatus: {},
+    DomainEnumType.docReviewStatus: {},
+    DomainEnumType.docApprovalStatus: {},
+    DomainEnumType.ticketStatus: {},
+    DomainEnumType.ticketSeverity: {},
+    DomainEnumType.allocationRule: {
+      'Value Based': 'VALUE',
+      'Volume Based': 'VOLUME',
+      'Weight Based': 'WEIGHT',
+    },
+    DomainEnumType.settlementStatus: {},
+    DomainEnumType.actualCostBucket: {},
+    DomainEnumType.dutyComponent: {
+      'actual_duty_total': 'DUTY_TOTAL_OVERRIDE',
+      'customs_service_fees': 'CUSTOMS_SERVICE_FEES',
+      'development_fee_amount': 'DEVELOPMENT_FEE',
+      'import_duty_amount': 'IMPORT_DUTY',
+      'lab_service_fees': 'LAB_SERVICE_FEES',
+      'schedule_tax_amount': 'SCHEDULE_TAX',
+      'vat_amount': 'VAT',
+      'wht_amount': 'WHT',
+    },
+    DomainEnumType.warehouseReceivingStatus: {
+      'Draft / Pending Warehouse Count': 'PENDING_COUNT',
+      'Inspection Passed / Clean Receipt': 'INSPECTION_PASSED',
+    },
+    DomainEnumType.grnDiscrepancyType: {
+      'Damage & Shortage': 'SHORTAGE_AND_DAMAGE',
+      'Damage Only': 'DAMAGE',
+      'Shortage Only': 'SHORTAGE',
+      'Shortage and Damage': 'SHORTAGE_AND_DAMAGE',
+    },
+    DomainEnumType.inlandTransportStatus: {},
+    DomainEnumType.fileClosureStatus: {},
   };
+
+  /// Labels of the review-wave types as [English, Arabic]. They are not in the
+  /// `_domainEnumLabels` maps of the localization files yet; [label],
+  /// [labelIfKnown] and [englishLabel] fall back to this table, so a label added
+  /// to the localization files later wins.
+  static const Map<String, List<String>> _supplementalLabels = {
+    'payment_type.ADVANCE_PAYMENT': ['Advance Payment', 'دفعة مقدمة'],
+    'payment_type.AGAINST_BL': ['Against B/L', 'مقابل بوليصة الشحن'],
+    'payment_type.DOCUMENTARY_COLLECTION': ['Documentary Collection (CAD)', 'تحصيل مستندي (CAD)'],
+    'payment_type.FINAL_SETTLEMENT': ['Final Settlement', 'تسوية نهائية'],
+    'payment_type.LETTER_OF_CREDIT': ['Letter of Credit (L/C)', 'اعتماد مستندي (L/C)'],
+    'legal_doc_kind.ACID': ['ACID', 'رقم ACID'],
+    'legal_doc_kind.COMMERCIAL_REGISTRY': ['Commercial Registry', 'السجل التجاري'],
+    'legal_doc_kind.IMPORT_CARD': ['Import Card', 'البطاقة الاستيرادية'],
+    'legal_doc_kind.TAX_CARD': ['Tax Card', 'البطاقة الضريبية'],
+    'lab_test_result.CONFORMING': ['Conforming', 'مطابق'],
+    'lab_test_result.NONE': ['None', 'لا يوجد'],
+    'lab_test_result.NON_CONFORMING': ['Non-Conforming', 'غير مطابق'],
+    'lab_test_result.PENDING': ['Pending', 'قيد الانتظار'],
+    'odc_status.DRAFT': ['Draft', 'مسودة'],
+    'odc_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
+    'odc_status.PARTIALLY_RECEIVED': ['Partially Received', 'تم الاستلام جزئياً'],
+    'odc_status.FULLY_RECEIVED': ['Fully Received', 'تم الاستلام بالكامل'],
+    'odc_status.FULLY_VERIFIED': ['Fully Verified', 'تم التحقق بالكامل'],
+    'odc_status.DISCREPANCY_NOTED': ['Discrepancy Noted', 'تم رصد فروقات'],
+    'original_doc_status.PENDING': ['Pending', 'قيد الانتظار'],
+    'original_doc_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
+    'original_doc_status.RECEIVED': ['Received', 'تم الاستلام'],
+    'original_doc_status.VERIFIED': ['Verified', 'تم التحقق'],
+    'original_doc_status.DISCREPANT': ['Discrepant', 'به فروقات'],
+    'original_doc_status.NOT_REQUIRED': ['Not Required', 'غير مطلوب'],
+    'original_doc_required.YES': ['Yes', 'نعم'],
+    'original_doc_required.NO': ['No', 'لا'],
+    'original_doc_required.CONDITIONAL': ['Conditional', 'حسب الحالة'],
+    'courier_status.DISPATCHED': ['Dispatched', 'تم الإرسال'],
+    'courier_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
+    'courier_status.DELIVERED': ['Delivered', 'تم التسليم'],
+    'courier_status.DELAYED': ['Delayed', 'متأخر'],
+    'doc_review_status.PENDING': ['Pending', 'قيد الانتظار'],
+    'doc_review_status.UNDER_REVIEW': ['Under Review', 'قيد المراجعة'],
+    'doc_review_status.APPROVED': ['Approved', 'معتمد'],
+    'doc_review_status.CONDITIONALLY_APPROVED': ['Conditionally Approved', 'معتمد بشروط'],
+    'doc_review_status.REJECTED': ['Rejected', 'مرفوض'],
+    'doc_approval_status.DRAFT': ['Draft', 'مسودة'],
+    'doc_approval_status.PENDING_REVIEW': ['Pending Review', 'بانتظار المراجعة'],
+    'doc_approval_status.UNDER_REVIEW': ['Under Review', 'قيد المراجعة'],
+    'doc_approval_status.RECTIFICATION_REQUIRED': ['Rectification Required', 'يتطلب تصحيحاً'],
+    'doc_approval_status.CONDITIONALLY_APPROVED': ['Conditionally Approved', 'معتمد بشروط'],
+    'doc_approval_status.APPROVED_FOR_CLEARANCE': ['Approved for Clearance', 'معتمد للتخليص'],
+    'doc_approval_status.REJECTED': ['Rejected', 'مرفوض'],
+    'ticket_status.OPEN': ['Open', 'مفتوحة'],
+    'ticket_status.SENT_TO_SUPPLIER': ['Sent to Supplier', 'أُرسلت إلى المورد'],
+    'ticket_status.RESOLVED': ['Resolved', 'تم الحل'],
+    'ticket_status.CLOSED': ['Closed', 'مغلقة'],
+    'ticket_status.WAIVED': ['Waived', 'تم التنازل'],
+    'ticket_severity.MINOR': ['Minor', 'بسيطة'],
+    'ticket_severity.MAJOR': ['Major', 'كبيرة'],
+    'ticket_severity.CRITICAL': ['Critical', 'حرجة'],
+    'allocation_rule.EQUAL': ['Equal', 'بالتساوي'],
+    'allocation_rule.VALUE': ['Value-Based', 'حسب القيمة'],
+    'allocation_rule.VOLUME': ['Volume-Based', 'حسب الحجم'],
+    'allocation_rule.WEIGHT': ['Weight-Based', 'حسب الوزن'],
+    'settlement_status.DRAFT': ['Draft', 'مسودة'],
+    'settlement_status.CALCULATED': ['Calculated', 'تم الاحتساب'],
+    'settlement_status.APPROVED': ['Approved', 'معتمدة'],
+    'settlement_status.CLOSED': ['Closed', 'مغلقة'],
+    'actual_cost_bucket.CLEARANCE_PORT': ['Clearance & Port', 'التخليص والميناء'],
+    'actual_cost_bucket.CUSTOMS_DUTY': ['Customs Duty', 'الرسوم الجمركية'],
+    'actual_cost_bucket.DEMURRAGE_STORAGE': ['Demurrage & Storage', 'غرامات التأخير والتخزين'],
+    'actual_cost_bucket.FREIGHT': ['Freight', 'النولون'],
+    'actual_cost_bucket.INLAND_TRANSPORT': ['Inland Transport', 'النقل الداخلي'],
+    'actual_cost_bucket.INSURANCE': ['Insurance', 'التأمين'],
+    'actual_cost_bucket.OTHER_ADMIN': ['Other & Admin', 'أخرى ومصروفات إدارية'],
+    'actual_cost_bucket.VAT_TAXES': ['VAT & Taxes', 'القيمة المضافة والضرائب'],
+    'duty_component.CUSTOMS_SERVICE_FEES': ['Customs Service Fees', 'رسوم الخدمات الجمركية'],
+    'duty_component.DEVELOPMENT_FEE': ['Development Fee', 'رسم التنمية'],
+    'duty_component.DUTY_TOTAL_OVERRIDE': ['Assessed Duty Total (override)', 'إجمالي الرسوم المقدرة (تعديل يدوي)'],
+    'duty_component.IMPORT_DUTY': ['Import Duty', 'رسوم الاستيراد'],
+    'duty_component.LAB_SERVICE_FEES': ['Laboratory Service Fees', 'رسوم خدمات المعامل'],
+    'duty_component.SCHEDULE_TAX': ['Schedule Tax', 'ضريبة الجدول'],
+    'duty_component.VAT': ['VAT', 'ضريبة القيمة المضافة'],
+    'duty_component.WHT': ['Withholding Tax', 'ضريبة الخصم من المنبع'],
+    'warehouse_receiving_status.PENDING_COUNT': ['Pending Warehouse Count', 'بانتظار الجرد المخزني'],
+    'warehouse_receiving_status.GOODS_RECEIVED': ['Goods Received', 'تم استلام البضاعة'],
+    'warehouse_receiving_status.INSPECTION_PASSED': ['Inspection Passed', 'اجتاز الفحص'],
+    'warehouse_receiving_status.DISCREPANCY_REPORTED': ['Discrepancy Reported', 'تم الإبلاغ عن فروقات'],
+    'warehouse_receiving_status.UNDER_QUARANTINE_INSPECTION': ['Under Quarantine Inspection', 'قيد فحص الحجر'],
+    'warehouse_receiving_status.UNDER_BOND_QUARANTINE': ['Under Bond Quarantine', 'حجر تحت الضمان'],
+    'warehouse_receiving_status.GRN_AUDITED': ['GRN Audited', 'تمت مراجعة إذن الإضافة'],
+    'warehouse_receiving_status.CLOSED': ['Closed', 'مغلق'],
+    'grn_discrepancy_type.BROKEN_SEAL': ['Broken Seal Discrepancy', 'فرق كسر الختم'],
+    'grn_discrepancy_type.DAMAGE': ['Damage', 'تلف'],
+    'grn_discrepancy_type.EXCESS': ['Excess', 'زيادة'],
+    'grn_discrepancy_type.NONE': ['None', 'لا يوجد'],
+    'grn_discrepancy_type.QUARANTINE_REJECTION': ['Quarantine Rejection', 'رفض الحجر'],
+    'grn_discrepancy_type.SHORTAGE': ['Shortage', 'عجز'],
+    'grn_discrepancy_type.SHORTAGE_AND_DAMAGE': ['Shortage & Damaged', 'عجز وتلف'],
+    'grn_discrepancy_type.WRONG_ITEM': ['Wrong Item', 'صنف خاطئ'],
+    'inland_transport_status.BOOKING_CONFIRMED': ['Booking Confirmed', 'تم تأكيد الحجز'],
+    'inland_transport_status.DISPATCHED': ['Dispatched', 'تم الإرسال'],
+    'inland_transport_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
+    'inland_transport_status.ARRIVED_AT_WAREHOUSE': ['Arrived at Warehouse', 'وصلت إلى المخزن'],
+    'inland_transport_status.DELIVERED': ['Delivered', 'تم التسليم'],
+    'file_closure_status.DRAFT': ['Draft', 'مسودة'],
+    'file_closure_status.CLOSED': ['Closed', 'مغلق'],
+    'file_closure_status.ARCHIVED': ['Archived', 'مؤرشف'],
+    'file_closure_status.REOPENED': ['Reopened', 'أعيد فتحه'],
+  };
+
+  /// Supplemental (review-wave) label of `type.code`, or `null`. Used as the
+  /// fallback of `AppLocalizations.domainEnumLabel` in both languages.
+  static String? supplementalLabel(String type, String code, {required bool arabic}) {
+    final pair = _supplementalLabels['$type.$code'];
+    return pair == null ? null : pair[arabic ? 1 : 0];
+  }
+
+  // `domainEnumLabel` already falls back to [supplementalLabel].
+  static String? _labelOf(AppLocalizations l10n, String type, String code) =>
+      l10n.domainEnumLabel(type, code);
 
   static final Map<String, Map<String, String>> _normalizedLegacy = {
     for (final e in _legacy.entries)
@@ -637,7 +976,7 @@ class DomainEnums {
   }) {
     final resolved = isCode(type, code) ? code : legacyToCode(type, value);
     if (resolved != null) {
-      final text = l10n.domainEnumLabel(type, resolved);
+      final text = _labelOf(l10n, type, resolved);
       if (text != null) return text;
     }
     final raw = value?.trim() ?? '';
@@ -648,13 +987,13 @@ class DomainEnums {
   /// (lets callers keep their own fallback for other vocabularies).
   static String? labelIfKnown(AppLocalizations l10n, String type, String? value) {
     final code = legacyToCode(type, value);
-    return code == null ? null : l10n.domainEnumLabel(type, code);
+    return code == null ? null : _labelOf(l10n, type, code);
   }
 
   /// The English label of [code]; used where the backend needs a readable
   /// English text next to the code (e.g. `hold_reason`).
   static String englishLabel(String type, String code) =>
-      const AppLocalizationsEn().domainEnumLabel(type, code) ?? code;
+      _labelOf(const AppLocalizationsEn(), type, code) ?? code;
 
   /// The code to preselect in a dropdown for a stored value, or [fallback]
   /// when the value is empty or not a known code/legacy label.

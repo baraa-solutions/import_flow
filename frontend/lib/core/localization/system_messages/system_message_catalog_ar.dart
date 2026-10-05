@@ -1172,4 +1172,322 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CUSTOMS_MIXED_CURRENCY': {
     'note': 'أوامر الشراء في هذا الملف الاستيرادي بعملات مختلفة ({currencies}): إعادة الاحتساب تحتاج عملة واحدة لكل جانب.',
   },
+  'FA_FX_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف مسجل للعملة {currency_code}. أضفه من شاشة العملات.',
+  },
+  'FA_CURRENCY_MISSING': {
+    'note': 'لا توجد عملة مسجلة لمبلغ {source}. حدد العملة أولاً.',
+  },
+  'FA_SWIFT_CURRENCY_MISMATCH': {
+    'note': 'عملة السويفت {swift_currency} لا تطابق عملة طلب الدفع {currency_code}.',
+  },
+  'FA_SWIFT_REF_ALREADY_USED': {
+    'note': 'مرجع السويفت {swift_ref} مستخدم بالفعل في طلب الدفع {payment_code}.',
+  },
+  'FA_SWIFT_BATCH_ALREADY_RECONCILED': {
+    'note': 'دفعة السويفت {batch_code} تمت مطابقتها بالفعل مع طلب الدفع {payment_code}.',
+  },
+  'FA_SWIFT_BATCH_STATUS_INVALID': {
+    'note': 'هذا الإجراء غير مسموح على دفعة السويفت {batch_code} وهي في حالة {status}.',
+  },
+  'FA_PAYMENT_STATUS_INVALID': {
+    'note': 'طلب الدفع {payment_code} في حالة {status}: الإجراء {action} غير مسموح.',
+  },
+  'FA_PAYMENT_LOCKED': {
+    'note': 'لا يمكن تعديل أو حذف طلب دفع معتمد أو مدفوع ({payment_code}، {status}).',
+  },
+  'FA_BUDGET_LOCKED': {
+    'note': 'لا يمكن تعديل موازنة معتمدة أو تم استبدالها ({budget_code}، {status}): قم بمزامنتها لإنشاء مراجعة جديدة.',
+  },
+  'FA_BUDGET_STATUS_INVALID': {
+    'note': 'لا يمكن اعتماد الموازنة {budget_code} وهي في حالة {status}.',
+  },
+  'FA_PAYMENT_DUPLICATE_TYPE': {
+    'note': 'يوجد بالفعل طلب دفع مفتوح من نوع {payment_type} لهذا الملف ({payment_code}).',
+  },
+  'FA_BUDGET_DUPLICATE_FILE': {
+    'note': 'توجد بالفعل موازنة للملف الاستيرادي {import_file_code}. عدّلها بدلاً من إنشاء موازنة جديدة.',
+  },
+  'FA_BUDGET_HARD_BLOCK': {
+    'note': 'انحراف التكلفة بنسبة {variance_percentage}% في {field_name} يتجاوز الحد المسموح (حظر إلزامي): قم بمزامنة التكاليف أو اكتب مبرراً مكتوباً.',
+  },
+  'FA_BUDGET_SOD_DENIED': {
+    'note': 'فصل المهام: المستخدم الذي عدّل التكاليف المصدرية لا يمكنه مزامنة الموازنة المعتمدة.',
+  },
+  'FA_BUDGET_SYNC_REVISION_CREATED': {
+    'note': 'تم إنشاء مراجعة الموازنة {budget_code}، وتمت أرشفة النسخة المعتمدة كنسخة مستبدلة.',
+  },
+  'FA_BUDGET_SYNC_DONE': {
+    'note': 'تمت مزامنة الموازنة {budget_code} مع التكاليف الفعلية؛ الحالة {status}.',
+  },
+  'FA_SWIFT_BATCH_CONFIRMED': {
+    'note': 'تم تأكيد بيانات السويفت للدفعة {batch_code}؛ وأصبحت المطابقة متاحة.',
+  },
+  'FA_SWIFT_FILE_TOO_LARGE': {
+    'note': 'حجم ملف السويفت يتجاوز الحد المسموح ({max_mb} ميجابايت).',
+  },
+  'FA_SWIFT_FILE_INVALID_BASE64': {
+    'note': 'محتوى الملف المرفوع ليس بصيغة Base64 صحيحة.',
+  },
+  'FA_CODE_GENERATION_CONFLICT': {
+    'note': 'الرقم المرجعي {reference_code} مستخدم بالفعل. يرجى إعادة المحاولة.',
+  },
+  'DOC_ACID_TRACKER_STATUS': {
+    'note': 'حالة ACID: {status} (متبقي {days} يوم).',
+  },
+  'DOC_LEGAL_DOC_EXPIRED': {
+    'note': '{doc_kind} رقم {doc_number} انتهت صلاحيته بتاريخ {expiry_date}: الشحن والإفراج الجمركي محظوران.',
+  },
+  'DOC_LEGAL_DOC_CRITICAL_BREACH': {
+    'note': '{doc_kind} رقم {doc_number} تنتهي صلاحيته بتاريخ {expiry_date}، أي قبل أقل من 30 يوماً من تاريخ الوصول المتوقع {eta_date}.',
+  },
+  'DOC_LEGAL_DOC_EXPIRING_SOON': {
+    'note': '{doc_kind} رقم {doc_number} تنتهي صلاحيته بتاريخ {expiry_date} (متبقي {days} يوم).',
+  },
+  'DOC_LEGAL_DOC_VALID': {
+    'note': '{doc_kind} رقم {doc_number} ساري حتى {expiry_date}.',
+  },
+  'DOC_LEGAL_ACID_MISSING': {
+    'note': 'لم يتم تسجيل تاريخ صلاحية ACID لهذه الشحنة بعد.',
+  },
+  'DOC_LEGAL_BANNER': {
+    'note': 'تحذير حرج لسلامة الشحنة (تاريخ الوصول المتوقع + هامش 30 يوماً): يوجد عدد {critical_count} مستند يحتاج إلى إجراء.',
+  },
+  'DOC_INVOICE_BL_SYNCED': {
+    'note': 'تمت مطابقة واعتماد الفاتورة {invoice_number} وبوليصة الشحن {draft_bl_number} ومزامنتهما مع الملف الاستيرادي والموافقات الجمركية.',
+  },
+  'ODC_COURIER_NOT_FOUND': {
+    'note': 'شحنة البريد السريع {courier_no} غير مسجلة في جلسة المستندات الأصلية لهذا الملف. أضفها إلى الجلسة أولاً.',
+  },
+  'ODC_SESSION_NOT_FOUND': {
+    'note': 'لا توجد جلسة تجميع مستندات أصلية للملف الاستيرادي {import_file_id}.',
+  },
+  'DCA_SESSION_FINAL_LOCKED': {
+    'note': 'جلسة الاعتماد الجمركي {session_code} تم اعتمادها نهائياً ولا يمكن تعديلها.',
+  },
+  'DCA_SESSION_NOT_READY': {
+    'note': 'لا يمكن اعتماد الجلسة: لم يتم تحديد حالات المستندات ({missing_statuses})؛ عدد تذاكر التصحيح المفتوحة: {open_tickets_count}.',
+  },
+  'DCA_TICKET_CLOSED': {
+    'note': 'تذكرة التصحيح {ticket_code} مغلقة بالفعل ({status}).',
+  },
+  'DCA_SAME_REVIEWER': {
+    'note': '{reviewer} قام بالفعل بالتوقيع على مستوى المراجعة الآخر في {approval_code}: المراجعة التجارية والمراجعة الجمركية تتطلبان مستخدمين مختلفين.',
+  },
+  'SDU_ACID_INVALID': {
+    'note': 'رقم ACID المستخرج {acid_number} غير صحيح: يجب أن يتكون من 19 رقماً.',
+  },
+  'SDU_ACID_CONFLICT': {
+    'note': 'رقم ACID المستخرج {acid_number} يختلف عن الرقم المسجل في الملف {import_file_code} ({current_acid_number}).',
+  },
+  'SDU_FILE_CLOSED': {
+    'note': 'الملف الاستيرادي {import_file_code} في حالة {status}: لا يمكن تطبيق البيانات المستخرجة عليه.',
+  },
+  'SDU_INVOICE_APPLIED': {
+    'note': 'تم تطبيق بيانات الفاتورة {invoice_no} على الملف {import_file_code}.',
+  },
+  'SDU_BL_APPLIED': {
+    'note': 'تم تطبيق بيانات بوليصة الشحن على الشحنة {cargo_shipping_code} (عدد الحاويات: {containers_applied}).',
+  },
+  'SDU_EXTRACTED_ONLY': {
+    'note': 'تم استخراج البيانات وهي جاهزة للاستخدام في ملف جديد.',
+  },
+  'SDU_NO_SHIPPING_RECORD': {
+    'note': 'الملف الاستيرادي {import_file_code} ليس له سجل شحن نشط: أنشئه قبل تطبيق بيانات بوليصة الشحن.',
+  },
+  'XCHK_ACID_MISMATCH': {
+    'note': 'عدم تطابق رقم ACID بين الفاتورة التجارية وبوليصة الشحن',
+  },
+  'XCHK_TAX_ID_MISMATCH': {
+    'note': 'عدم تطابق الرقم الضريبي للمستورد المصري بين الفاتورة وبوليصة الشحن',
+  },
+  'XCHK_SHIPPER_MISMATCH': {
+    'note': 'اسم الشاحن / المصدّر مختلف (نسبة التشابه {similarity_pct}%)',
+  },
+  'XCHK_CONSIGNEE_MISMATCH': {
+    'note': 'اسم المستلم / المستورد مختلف (نسبة التشابه {similarity_pct}%)',
+  },
+  'XCHK_WEIGHT_OVER': {
+    'note': 'فرق الوزن القائم {diff_kg} كجم ({variance_pct}%) يتجاوز الحد المسموح ({tolerance_pct}%)',
+  },
+  'XCHK_WEIGHT_MINOR': {
+    'note': 'فرق بسيط في الوزن القائم قدره {diff_kg} كجم ({variance_pct}%) ضمن الحد المقبول',
+  },
+  'XCHK_PORTS_MISMATCH': {
+    'note': 'ميناء الشحن أو ميناء التفريغ غير متطابق بالكامل',
+  },
+  'XCHK_INCOTERM_PREPAID_CONFLICT': {
+    'note': 'تعارض في شروط الشحن: شرط الفاتورة {incoterm} بينما بوليصة الشحن نولون مدفوع مقدماً (Freight Prepaid)',
+  },
+  'XCHK_INCOTERM_COLLECT_CONFLICT': {
+    'note': 'تعارض في شروط الشحن: شرط الفاتورة {incoterm} يشمل النولون بينما بوليصة الشحن نولون عند الوصول (Freight Collect)',
+  },
+  'XCHK_PACKAGES_MISMATCH': {
+    'note': 'عدد الطرود مختلف بين الفاتورة ({invoice_packages}) وبوليصة الشحن ({bl_packages})',
+  },
+  'DD_SETTLEMENT_STALE': {
+    'note': 'تمت إعادة احتساب غرامات التأخير للتتبع {tracking_code} لكن تسوية تكلفة الوصول الخاصة به مقفلة؛ لم يتم إعادة ترحيلها.',
+  },
+  'CC_RELEASE_RECORD_FILE_MISMATCH': {
+    'note': 'سجل التخليص {clearance_id} لا يتبع الملف الاستيرادي {import_file_id}.',
+  },
+  'CC_DUTY_NOT_ASSESSED': {
+    'note': 'لا يمكن تسجيل سداد الرسوم الجمركية قبل التقدير النهائي للرسوم (CL-02).',
+  },
+  'CC_DUTY_UNDERPAID': {
+    'note': 'المبلغ المسدد {paid_amount} جنيه أقل من الرسوم الجمركية المقدرة {assessed_amount} جنيه.',
+  },
+  'CC_DUTY_NOT_PAID': {
+    'note': 'لا يمكن إصدار الإفراج النهائي قبل سداد الرسوم الجمركية (CL-03).',
+  },
+  'CC_DUTY_PAID_AMOUNT_REQUIRED': {
+    'note': 'مبلغ الرسوم الجمركية المسدد مطلوب ويجب أن يكون أكبر من صفر.',
+  },
+  'CC_ASSESS_REQUIRES_DECLARATION_46': {
+    'note': 'لا يمكن تقدير الرسوم النهائية قبل تسجيل الإقرار الجمركي 46 (CS-03).',
+  },
+  'CC_UPDATE_NULL_NOT_ALLOWED': {
+    'note': 'لا يمكن مسح هذه الحقول: {fields}.',
+  },
+  'CC_RESTORE_DUPLICATE_ACTIVE': {
+    'note': 'لا يمكن الاستعادة: يوجد سجل تخليص نشط آخر ({clearance_code}) لهذا الملف.',
+  },
+  'CC_UNDER_BOND_NOT_ALLOWED': {
+    'note': 'تم رفض الإفراج تحت الضمان: الشحنة مفرج عنها تحت الضمان بالفعل أو تم الإفراج النهائي عنها ({clearance_status}).',
+  },
+  'CC_INVOICE_FX_RATE_REQUIRED': {
+    'note': 'سعر الصرف مطلوب للفاتورة بعملة {currency}.',
+  },
+  'CC_INVOICE_RECORD_FILE_MISMATCH': {
+    'note': 'سجل التخليص {customs_clearance_id} لا يتبع الملف الاستيرادي {import_file_id}.',
+  },
+  'CC_ACID_EXPIRY_INVALID': {
+    'note': 'تاريخ انتهاء ACID المسجل في الملف الاستيرادي {import_file_id} غير صحيح.',
+  },
+  'CC_REFERENCE_CODE_CONFLICT': {
+    'note': 'تعذر إنشاء رقم مرجعي فريد بسبب عمليات حفظ متزامنة؛ يرجى إعادة المحاولة.',
+  },
+  'CC_RELEASE_QUARANTINE_LOCKED': {
+    'note': 'لا يمكن إصدار الإفراج النهائي طالما {clearance_code} تحت قفل الحجر المعملي.',
+  },
+  'CC_LAB_RESULT_ALREADY_FINAL': {
+    'note': 'تم تسجيل نتيجة المعمل ورفع الحجر بالفعل، أو تم الإفراج النهائي عن الشحنة ({clearance_status}).',
+  },
+  'CC_ASSESSED_COMPONENTS_LOCKED': {
+    'note': 'لا يمكن تعديل مكونات الرسوم بعد التقدير ({fields})؛ أعد تقدير الرسوم النهائية (CL-02).',
+  },
+  'CCQ_RFQ_STATUS_INVALID': {
+    'note': 'حالة طلب عروض الأسعار \'{status}\' غير مسموحة؛ الترسية تتم من خلال إجراء الترسية فقط.',
+  },
+  'CCQ_RFQ_CANCELLED': {
+    'note': 'طلب عروض الأسعار {rfq_code} ملغي ولا يمكن ترسيته.',
+  },
+  'CCQ_QUOTE_EXPIRED': {
+    'note': 'انتهت صلاحية عرض السعر بتاريخ {validity_date}.',
+  },
+  'CCQ_AWARDED_QUOTE_DELETE': {
+    'note': 'لا يمكن حذف عرض السعر الذي تمت ترسيته.',
+  },
+  'CCQ_PRICE_LIST_DATE_RANGE': {
+    'note': 'بداية الصلاحية {effective_from} بعد نهايتها {effective_to}.',
+  },
+  'WR_GRN_EXISTS': {
+    'note': 'يوجد بالفعل إذن إضافة مخزنية (GRN) نشط ({grn_code}) لهذا الملف الاستيرادي.',
+  },
+  'WR_GRN_LINE_UNBALANCED': {
+    'note': 'البند {item_code}: المقبول {accepted_qty} + العجز {shortage_qty} + التالف {damaged_qty} يجب أن يساوي الكمية المفوترة {invoiced_qty}.',
+  },
+  'WR_VERDICT_INVALID': {
+    'note': 'قرار الفحص \'{verdict}\' غير معروف.',
+  },
+  'WR_VERDICT_INCONSISTENT': {
+    'note': 'لا يمكن قبول الشحنة بالكامل مع وجود عجز {shortage_qty} وتالف {damaged_qty}.',
+  },
+  'WR_VERDICT_INCONSISTENT_EXPECTED': {
+    'note': 'قرار الفحص {verdict} لا يتوافق مع نتيجة الفحص (المتوقع {expected_verdict}).',
+  },
+  'WR_STATUS_INVALID': {
+    'note': 'حالة إذن الإضافة المخزنية \'{status}\' غير معروفة.',
+  },
+  'WR_DISCREPANCY_TYPE_INVALID': {
+    'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
+  },
+  'IT_BOOKING_EXISTS': {
+    'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
+  },
+  'IT_STATUS_INVALID': {
+    'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
+  },
+  'IT_TRANSITION_NOT_ALLOWED': {
+    'note': 'لا يمكن تسجيل {action} بينما الحجز في حالة \'{current_status}\'.',
+  },
+  'FC_ALREADY_CLOSED': {
+    'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
+  },
+  'FC_CLOSURE_BLOCKED': {
+    'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
+  },
+  'FC_CLOSED_RECORD_LOCKED': {
+    'note': 'سجل الإغلاق {closure_code} يتبع ملفاً مغلقاً: أعد فتح الملف أولاً.',
+  },
+  'FC_CLOSURE_EXISTS': {
+    'note': 'لا يمكن الاستعادة: يوجد سجل إغلاق نشط آخر ({closure_code}) لهذا الملف.',
+  },
+  'FC_STATUS_INVALID': {
+    'note': 'يمكن إعادة سجل الإغلاق إلى حالة مسودة فقط.',
+  },
+  'SETTLEMENT_FX_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف للعملة {currency} بتاريخ {on_date}. سجّل السعر قبل احتساب التسوية.',
+  },
+  'SETTLEMENT_NOT_EDITABLE': {
+    'note': 'التسوية {settlement_code} في حالة {status} ولا يمكن تعديلها أو إعادة احتسابها.',
+  },
+  'SETTLEMENT_COST_ALREADY_APPROVED': {
+    'note': 'تكلفة الوصول الفعلية للملف الاستيرادي {import_file_code} معتمدة بالفعل ({status}).',
+  },
+  'SETTLEMENT_DUPLICATE_ACTIVE': {
+    'note': 'لا يمكن الاستعادة: توجد تسوية نشطة أخرى ({settlement_code}) لهذا الملف الاستيرادي.',
+  },
+  'INVOICES_ALREADY_SETTLED': {
+    'note': 'فواتير الملف {import_file_code} تمت تسويتها بالفعل ({status}).',
+  },
+  'JOURNAL_UNBALANCED': {
+    'note': 'قيد اليومية غير متوازن بفارق {difference} جنيه ولا يمكن تصديره.',
+  },
+  'SETTLEMENT_LINE_NO_HS': {
+    'note': 'البند {item_code} ليس له بند جمركي (HS Code): تم استبعاده من التقدير الجمركي.',
+  },
+  'SETTLEMENT_LINE_ZERO_VALUE': {
+    'note': 'البند {item_code} ليس له قيمة: تم استبعاده من التقدير الجمركي.',
+  },
+  'PAYMENT_STATUS_UNKNOWN': {
+    'note': 'الفاتورة {invoice_no} مسددة جزئياً لكن المبلغ المسدد غير معروف: تم احتسابها كغير مسددة.',
+  },
+  'ESTIMATE_UNAVAILABLE': {
+    'note': 'تكلفة الوصول التقديرية غير متاحة ({reason})؛ يتم احتساب الانحرافات مقابل صفر.',
+  },
+  'SETTLEMENT_UNPAID_INVOICE': {
+    'note': 'رصيد غير مسدد لـ {party_name}: {amount} جنيه (الفاتورة {invoice_no}).',
+  },
+  'WHT_RATE_MISSING_WARNING': {
+    'note': 'لا توجد نسبة ضريبة خصم من المنبع ({tax_code}) سارية بتاريخ {on_date}: لا يوجد خصم على الفاتورة {invoice_no}.',
+  },
+  'WHT_RATE_NOT_CONFIGURED': {
+    'note': 'لا توجد نسبة ضريبة خصم من المنبع ({tax_code}) سارية بتاريخ {on_date} لفاتورة التخليص {invoice_code}: قم بضبط النسبة أو أدخل المبلغ المخصوم في الفاتورة.',
+  },
+  'RECALC_NO_VARIANCE': {
+    'note': 'لا توجد انحرافات: جميع التكاليف مطابقة للمصادر الحية.',
+  },
+  'RECALC_SOFT_VARIANCE': {
+    'note': 'تم رصد انحرافات في التكلفة أقل من {threshold}%. يمكنك المزامنة مع تحذير.',
+  },
+  'RECALC_HARD_BLOCK': {
+    'note': 'تم رصد انحراف أعلى من {threshold}%. يلزم تقديم مبرر مكتوب.',
+  },
+  'RECALC_APPLIED': {
+    'note': 'تم تطبيق إعادة الاحتساب ({action_taken}).',
+  },
+  'RECALC_RATE_MISSING': {
+    'note': 'تعذرت مقارنة بعض البنود: لا يوجد سعر صرف لعملتها ({fields}).',
+  },
 };
