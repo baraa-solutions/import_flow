@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_locales.dart';
+import 'helpers/localized_app.dart';
 import 'package:frontend/features/financial_approval/models/financial_approval_model.dart';
 import 'package:frontend/features/financial_approval/widgets/supplier_advance_payment_dialog.dart';
 
 void main() {
   group('FN-01: Supplier Advance Payment Request Tests', () {
-    test('PaymentRequestModel handles advance_percentage and smart_task_code serialization', () {
+    test(
+        'PaymentRequestModel handles advance_percentage and smart_task_code serialization',
+        () {
       final json = {
         'payment_id': 101,
         'payment_code': 'PAY-2026-000101',
@@ -78,12 +82,15 @@ void main() {
       }
     });
 
-    testWidgets('SupplierAdvancePaymentDialog renders correctly and calculates percentage amounts', (tester) async {
+    testWidgets(
+        'SupplierAdvancePaymentDialog renders correctly and calculates percentage amounts',
+        (tester) async {
       await tester.binding.setSurfaceSize(const Size(1280, 900));
 
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.english,
             home: Scaffold(
               body: SupplierAdvancePaymentDialog(
                 importFileId: 4,
@@ -122,7 +129,13 @@ void main() {
 
       // Verify action buttons
       expect(find.text('Cancel'), findsOneWidget);
-      expect(find.text('Issue Payment Request & Notify Finance'), findsOneWidget);
+      expect(
+          find.text('Issue Payment Request & Notify Finance'), findsOneWidget);
+
+      // No fallback FX rate: the rate field starts empty and must be entered.
+      await tester.enterText(
+          find.byKey(const ValueKey('advanceExchangeRateField')), '50');
+      await tester.pump();
 
       // Tap 50% ChoiceChip and check recalculation
       await tester.tap(find.text('50%'));

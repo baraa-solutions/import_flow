@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -12,6 +15,7 @@ import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
+
 /// Shows the Foreign Supplier Advance Payment Request Dialog (FN-01)
 Future<PaymentRequestModel?> showSupplierAdvancePaymentDialog(
   BuildContext context,
@@ -97,7 +101,13 @@ class _SupplierAdvancePaymentDialogState
   int? _primaryPoId;
   GuideMatchResultModel? _guideMatchResult;
 
-  static const List<double> _standardPercentages = [10.0, 20.0, 30.0, 50.0, 100.0];
+  static const List<double> _standardPercentages = [
+    10.0,
+    20.0,
+    30.0,
+    50.0,
+    100.0
+  ];
 
   @override
   void initState() {
@@ -108,10 +118,12 @@ class _SupplierAdvancePaymentDialogState
     _basePoAmount = widget.totalAmountForeign ?? 0.0;
 
     _titleController = TextEditingController(
-      text: 'طلب دفعة مقدمة (30%) - ${widget.importFileCode} - ${widget.supplierName}',
+      // Stored title: English regardless of the UI language (min 3 chars).
+      text:
+          'Advance Payment (30%) - ${widget.importFileCode} - ${widget.supplierName}',
     );
     _amountController = TextEditingController();
-    _exchangeRateController = TextEditingController(text: '50.0');
+    _exchangeRateController = TextEditingController();
     _beneficiaryController = TextEditingController(text: widget.supplierName);
     _bankNameController = TextEditingController();
     _swiftController = TextEditingController();
@@ -134,7 +146,8 @@ class _SupplierAdvancePaymentDialogState
     super.dispose();
   }
 
-  double _resolveExchangeRate(String currCode) {
+  /// Latest commercial rate, or null when none is registered (no fallback rate).
+  double? _resolveExchangeRate(String currCode) {
     if (currCode.toUpperCase() == 'EGP') return 1.0;
     final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     final cur = currencies
@@ -146,20 +159,31 @@ class _SupplierAdvancePaymentDialogState
         return cur.latestCommercialRate!;
       }
     }
-    return 50.0;
+    return null;
   }
 
   Future<void> _loadPrefillData() async {
     setState(() => _isLoadingPrefill = true);
     try {
-      final prefill = await ref
-          .read(importBudgetsProvider.notifier)
-          .fetchBudgetPrefill(widget.importFileId);
+      BudgetPrefillModel? prefill;
+      try {
+        prefill = await ref
+            .read(importBudgetsProvider.notifier)
+            .fetchBudgetPrefill(widget.importFileId);
+      } catch (e) {
+        // Keep the dialog usable with PO/supplier data; show why the prefill failed.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(ApiError.message(e)),
+                backgroundColor: AppTheme.crimson),
+          );
+        }
+      }
 
       final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
-      final linkedPOs = poList
-          .where((po) => po.importFileId == widget.importFileId)
-          .toList();
+      final linkedPOs =
+          poList.where((po) => po.importFileId == widget.importFileId).toList();
 
       if (linkedPOs.isNotEmpty && _primaryPoId == null) {
         _primaryPoId = linkedPOs.first.poId;
@@ -172,17 +196,21 @@ class _SupplierAdvancePaymentDialogState
         for (final p in linkedPOs) {
           poTotal += p.totalAmountFob > 0
               ? p.totalAmountFob
-              : p.items.fold(0.0, (sum, it) => sum + (it.quantity * it.unitPrice));
+              : p.items
+                  .fold(0.0, (sum, it) => sum + (it.quantity * it.unitPrice));
         }
-      } else if (widget.totalAmountForeign != null && widget.totalAmountForeign! > 0) {
+      } else if (widget.totalAmountForeign != null &&
+          widget.totalAmountForeign! > 0) {
         poTotal = widget.totalAmountForeign!;
       }
 
       final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
       final supObj = suppliers
           .where((s) =>
-              (widget.supplierId != null && s.supplierId == widget.supplierId) ||
-              s.companyName.trim().toLowerCase() == widget.supplierName.trim().toLowerCase() ||
+              (widget.supplierId != null &&
+                  s.supplierId == widget.supplierId) ||
+              s.companyName.trim().toLowerCase() ==
+                  widget.supplierName.trim().toLowerCase() ||
               (prefill != null &&
                   s.companyName.trim().toLowerCase() ==
                       prefill.supplierName.trim().toLowerCase()))
@@ -191,17 +219,20 @@ class _SupplierAdvancePaymentDialogState
       final effBank = (supObj?.bankName != null && supObj!.bankName!.isNotEmpty)
           ? supObj.bankName!
           : (prefill?.bankName ?? '');
-      final effSwift = (supObj?.swiftCode != null && supObj!.swiftCode!.isNotEmpty)
-          ? supObj.swiftCode!
-          : (prefill?.swiftCode ?? '');
+      final effSwift =
+          (supObj?.swiftCode != null && supObj!.swiftCode!.isNotEmpty)
+              ? supObj.swiftCode!
+              : (prefill?.swiftCode ?? '');
       final effIban = (supObj?.iban != null && supObj!.iban!.isNotEmpty)
           ? supObj.iban!
-          : ((supObj?.accountNumber != null && supObj!.accountNumber!.isNotEmpty)
+          : ((supObj?.accountNumber != null &&
+                  supObj!.accountNumber!.isNotEmpty)
               ? supObj.accountNumber!
               : (prefill?.iban ?? prefill?.accountNumber ?? ''));
-      final effBeneficiary = (supObj?.companyName != null && supObj!.companyName.isNotEmpty)
-          ? supObj.companyName
-          : (prefill?.beneficiaryName ?? widget.supplierName);
+      final effBeneficiary =
+          (supObj?.companyName != null && supObj!.companyName.isNotEmpty)
+              ? supObj.companyName
+              : (prefill?.beneficiaryName ?? widget.supplierName);
 
       final effCurr = (prefill != null && prefill.invoiceCurrency.isNotEmpty)
           ? prefill.invoiceCurrency
@@ -209,6 +240,13 @@ class _SupplierAdvancePaymentDialogState
       final effRate = _resolveExchangeRate(effCurr);
 
       if (mounted) {
+        if (effRate == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(context.l10n.faFxRateMissing(effCurr)),
+                backgroundColor: AppTheme.orange),
+          );
+        }
         setState(() {
           _basePoAmount = poTotal;
           _currency = effCurr;
@@ -217,7 +255,9 @@ class _SupplierAdvancePaymentDialogState
           _bankNameController.text = effBank;
           _swiftController.text = effSwift;
           _ibanController.text = effIban;
-          _exchangeRateController.text = effRate.toStringAsFixed(2);
+          _exchangeRateController.text = (effRate != null && effRate > 0)
+              ? effRate.toStringAsFixed(2)
+              : '';
 
           _calculateAndApplyAmount(_selectedPercentage);
           _isLoadingPrefill = false;
@@ -234,11 +274,12 @@ class _SupplierAdvancePaymentDialogState
 
   Future<void> _loadGuide() async {
     try {
-      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
-        supplier: widget.supplierName,
-        paymentMethod: 'ADVANCE_PAYMENT',
-        importFileReference: widget.importFileCode,
-      );
+      final res =
+          await ref.read(experienceGuideProvider.notifier).matchShipment(
+                supplier: widget.supplierName,
+                paymentMethod: 'ADVANCE_PAYMENT',
+                importFileReference: widget.importFileCode,
+              );
       if (mounted) {
         setState(() => _guideMatchResult = res);
       }
@@ -250,7 +291,8 @@ class _SupplierAdvancePaymentDialogState
       _selectedPercentage = percentage;
       _isCustomPercentage = !_standardPercentages.contains(percentage);
       final calculated = _basePoAmount * (percentage / 100.0);
-      _amountController.text = calculated > 0 ? calculated.toStringAsFixed(2) : '';
+      _amountController.text =
+          calculated > 0 ? calculated.toStringAsFixed(2) : '';
       // Stored title: English regardless of the UI language.
       _titleController.text =
           'Advance Payment (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}';
@@ -263,7 +305,8 @@ class _SupplierAdvancePaymentDialogState
       final calculatedPct = (amount / _basePoAmount) * 100.0;
       setState(() {
         _selectedPercentage = double.parse(calculatedPct.toStringAsFixed(1));
-        _isCustomPercentage = !_standardPercentages.contains(_selectedPercentage);
+        _isCustomPercentage =
+            !_standardPercentages.contains(_selectedPercentage);
       });
     }
   }
@@ -276,34 +319,45 @@ class _SupplierAdvancePaymentDialogState
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isAr ? 'يرجى إدخال قيمة دفعة مقدمة صالحة أكبر من الصفر' : 'Please enter a valid advance payment amount greater than zero'),
-          backgroundColor: Colors.red,
+          content: Text(context.l10n.faAdvanceAmountInvalid),
+          backgroundColor: AppTheme.crimson,
         ),
       );
       return;
     }
 
-    final rate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
-    final totalEgp = amount * rate;
+    final rate = double.tryParse(_exchangeRateController.text.trim());
+    if (rate == null || rate <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(context.l10n.faFxRateMissing(_currency)),
+            backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
     try {
+      // Keys follow the backend PaymentRequestCreate contract (exchange_rate,
+      // title and due_date are required; payment_type is a code). The backend
+      // computes the EGP amount and the initial status.
       final payload = {
         'import_file_id': widget.importFileId,
-        'purchase_order_id': _primaryPoId,
+        'po_id': _primaryPoId,
         'supplier_id': _selectedSupplierId,
+        'supplier_name': _beneficiaryController.text.trim(),
         'project_id': widget.projectId,
         'payment_type': 'ADVANCE_PAYMENT',
         'title': _titleController.text.trim(),
-        'amount': amount,
-        'currency': _currency,
+        'requested_amount': amount,
+        'advance_percentage': _selectedPercentage,
+        'currency_code': _currency,
         'exchange_rate': rate,
-        'amount_egp': totalEgp,
         'beneficiary_name': _beneficiaryController.text.trim(),
         'bank_name': _bankNameController.text.trim(),
         'swift_code': _swiftController.text.trim().toUpperCase(),
-        'iban': _ibanController.text.trim().replaceAll(' ', ''),
+        'iban_account_no': _ibanController.text.trim().replaceAll(' ', ''),
         'due_date':
             '${_dueDate.year}-${_dueDate.month.toString().padLeft(2, '0')}-${_dueDate.day.toString().padLeft(2, '0')}',
         'notes': _notesController.text.trim().isEmpty
@@ -322,15 +376,14 @@ class _SupplierAdvancePaymentDialogState
         Navigator.pop(context, created);
 
         final taskInfo = (created?.smartTaskCode != null)
-            ? (isAr ? ' وتم توليد المهمة الذكية ${created!.smartTaskCode}' : ' and smart task ${created!.smartTaskCode} generated')
+            ? (context.l10n.faSmartTaskGenerated(created!.smartTaskCode!))
             : '';
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isAr
-                  ? '✅ تم إصدار طلب سداد الدفعة المقدمة (${created?.paymentCode ?? 'بنجاح'})$taskInfo وإخطار قسم المالية ومتابعة ملف الاستيراد (STEP_04)'
-                  : '✅ Advance payment request issued (${created?.paymentCode ?? 'Success'})$taskInfo and Finance notified (STEP_04)',
+              context.l10n.faAdvanceIssued(
+                  created?.paymentCode ?? context.l10n.faSuccessWord, taskInfo),
             ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 5),
@@ -342,8 +395,9 @@ class _SupplierAdvancePaymentDialogState
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isAr ? 'فشل إصدار طلب السداد: $e' : 'Failed to issue payment request: $e'),
-            backgroundColor: Colors.red.shade700,
+            content:
+                Text(context.l10n.faIssuePaymentFailed(ApiError.message(e))),
+            backgroundColor: AppTheme.crimson,
           ),
         );
       }
@@ -359,15 +413,15 @@ class _SupplierAdvancePaymentDialogState
 
     final currentAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
     final currentRate =
-        double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
+        double.tryParse(_exchangeRateController.text.trim()) ?? 0.0;
     final totalEgp = currentAmount * currentRate;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+          color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
         ),
       ),
       child: ConstrainedBox(
@@ -387,12 +441,12 @@ class _SupplierAdvancePaymentDialogState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD97706).withOpacity(0.15),
+                      color: AppTheme.wcagOrange.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.payments_outlined,
-                      color: Color(0xFFD97706),
+                      color: AppTheme.wcagOrange,
                       size: 24,
                     ),
                   ),
@@ -407,7 +461,7 @@ class _SupplierAdvancePaymentDialogState
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              isAr ? 'طلب سداد الدفعة المقدمة للمورد (FN-01)' : 'Supplier Advance Payment (FN-01)',
+                              context.l10n.faAdvancePaymentTitle,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -438,14 +492,12 @@ class _SupplierAdvancePaymentDialogState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isAr
-                              ? 'المورد الأجنبي: ${widget.supplierName} | المرحلة: STEP_04 (اعتمادات الميزانية وسداد الموردين)'
-                              : 'Supplier: ${widget.supplierName} | Stage: STEP_04 (Budget & Supplier Payment)',
+                          context.l10n.faAdvanceSubtitle(widget.supplierName),
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark
                                 ? AppTheme.darkTextSecondary
-                                : Colors.grey.shade600,
+                                : AppTheme.textSecondary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -457,7 +509,7 @@ class _SupplierAdvancePaymentDialogState
                       Icons.close,
                       color: isDark
                           ? AppTheme.darkTextSecondary
-                          : Colors.grey.shade600,
+                          : AppTheme.textSecondary,
                     ),
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -473,7 +525,7 @@ class _SupplierAdvancePaymentDialogState
                       children: [
                         const CircularProgressIndicator(strokeWidth: 2),
                         const SizedBox(height: 12),
-                        Text(isAr ? 'جاري جلب بيانات أمر الشراء وحسابات المورد...' : 'Fetching purchase order and supplier accounts...'),
+                        Text(context.l10n.faAdvanceLoadingPo),
                       ],
                     ),
                   ),
@@ -486,7 +538,8 @@ class _SupplierAdvancePaymentDialogState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_guideMatchResult != null && _guideMatchResult!.matchedEntries.isNotEmpty)
+                          if (_guideMatchResult != null &&
+                              _guideMatchResult!.matchedEntries.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: ExperienceGuideAlertBanner(
@@ -500,26 +553,27 @@ class _SupplierAdvancePaymentDialogState
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF1E293B)
-                                  : const Color(0xFFF8FAFC),
+                                  ? AppTheme.darkSurface
+                                  : AppTheme.charcoalSurface,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFE2E8F0),
+                                    ? AppTheme.darkBorder
+                                    : AppTheme.cloudWhite,
                               ),
                             ),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        isAr ? 'إجمالي أمر الشراء (PO FOB Total):' : 'PO FOB Total:',
+                                        context.l10n.faPoFobTotal,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey,
+                                          color: AppTheme.textMuted,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -529,8 +583,8 @@ class _SupplierAdvancePaymentDialogState
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                           color: isDark
-                                              ? Colors.amber.shade300
-                                              : Colors.amber.shade800,
+                                              ? AppTheme.orange
+                                              : AppTheme.wcagOrange,
                                         ),
                                       ),
                                     ],
@@ -539,18 +593,19 @@ class _SupplierAdvancePaymentDialogState
                                 Container(
                                   height: 36,
                                   width: 1,
-                                  color: Colors.grey.shade300,
+                                  color: AppTheme.cloudWhite,
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        isAr ? 'سعر صرف العملة المعتمد:' : 'Approved Exchange Rate:',
+                                        context.l10n.faApprovedExchangeRate,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey,
+                                          color: AppTheme.textMuted,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -574,7 +629,7 @@ class _SupplierAdvancePaymentDialogState
 
                           // Advance Percentage Chips Selector
                           Text(
-                            isAr ? 'نسبة الدفعة المقدمة المطلوبة (Advance Percentage):' : 'Required Advance Percentage:',
+                            context.l10n.faAdvancePercentageLabel,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -589,8 +644,8 @@ class _SupplierAdvancePaymentDialogState
                             runSpacing: 6,
                             children: [
                               ..._standardPercentages.map((pct) {
-                                final isSelected =
-                                    !_isCustomPercentage && _selectedPercentage == pct;
+                                final isSelected = !_isCustomPercentage &&
+                                    _selectedPercentage == pct;
                                 final isRecommended = pct == 30.0;
                                 return ChoiceChip(
                                   label: Row(
@@ -603,7 +658,7 @@ class _SupplierAdvancePaymentDialogState
                                               ? FontWeight.bold
                                               : FontWeight.normal,
                                           color: isSelected
-                                              ? Colors.white
+                                              ? AppTheme.white
                                               : (isDark
                                                   ? AppTheme.darkTextPrimary
                                                   : AppTheme.charcoal),
@@ -618,18 +673,21 @@ class _SupplierAdvancePaymentDialogState
                                           ),
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? Colors.white.withOpacity(0.25)
-                                                : Colors.amber.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(4),
+                                                ? AppTheme.white
+                                                    .withOpacity(0.25)
+                                                : AppTheme.orange
+                                                    .withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            isAr ? 'شائع' : 'Common',
+                                            context.l10n.faCommon,
                                             style: TextStyle(
                                               fontSize: 9,
                                               fontWeight: FontWeight.bold,
                                               color: isSelected
-                                                  ? Colors.white
-                                                  : Colors.amber.shade800,
+                                                  ? AppTheme.white
+                                                  : AppTheme.wcagOrange,
                                             ),
                                           ),
                                         ),
@@ -637,22 +695,24 @@ class _SupplierAdvancePaymentDialogState
                                     ],
                                   ),
                                   selected: isSelected,
-                                  selectedColor: const Color(0xFFD97706),
+                                  selectedColor: AppTheme.wcagOrange,
                                   backgroundColor: isDark
                                       ? AppTheme.darkCardBackground
-                                      : Colors.grey.shade100,
-                                  onSelected: (_) => _calculateAndApplyAmount(pct),
+                                      : AppTheme.charcoalSurface,
+                                  onSelected: (_) =>
+                                      _calculateAndApplyAmount(pct),
                                 );
                               }),
                               ChoiceChip(
                                 label: Text(
-                                  isAr ? 'مخصص (${_selectedPercentage.toStringAsFixed(1)}%)' : 'Custom (${_selectedPercentage.toStringAsFixed(1)}%)',
+                                  context.l10n.faCustomPercent(
+                                      _selectedPercentage.toStringAsFixed(1)),
                                   style: TextStyle(
                                     fontWeight: _isCustomPercentage
                                         ? FontWeight.bold
                                         : FontWeight.normal,
                                     color: _isCustomPercentage
-                                        ? Colors.white
+                                        ? AppTheme.white
                                         : (isDark
                                             ? AppTheme.darkTextPrimary
                                             : AppTheme.charcoal),
@@ -662,7 +722,7 @@ class _SupplierAdvancePaymentDialogState
                                 selectedColor: AppTheme.cobalt,
                                 backgroundColor: isDark
                                     ? AppTheme.darkCardBackground
-                                    : Colors.grey.shade100,
+                                    : AppTheme.charcoalSurface,
                                 onSelected: (selected) {
                                   if (selected) {
                                     setState(() => _isCustomPercentage = true);
@@ -681,28 +741,25 @@ class _SupplierAdvancePaymentDialogState
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _amountController,
-                                  keyboardType: const TextInputType.numberWithOptions(
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
                                   decoration: InputDecoration(
-                                    labelText: isAr
-                                        ? 'قيمة الدفعة المقدمة ($_currency) *'
-                                        : 'Advance Payment Amount ($_currency) *',
+                                    labelText: context.l10n
+                                        .faAdvanceAmountLabel(_currency),
                                     border: const OutlineInputBorder(),
                                     prefixIcon: const Icon(Icons.attach_money),
                                     suffixText: _currency,
                                   ),
                                   validator: (v) {
                                     if (v == null || v.trim().isEmpty) {
-                                      return isAr
-                                          ? 'يرجى إدخال قيمة الدفعة'
-                                          : 'Please enter payment amount';
+                                      return context.l10n.faEnterPaymentAmount;
                                     }
                                     final parsed = double.tryParse(v);
                                     if (parsed == null || parsed <= 0) {
-                                      return isAr
-                                          ? 'القيمة يجب أن تكون أكبر من الصفر'
-                                          : 'Amount must be greater than zero';
+                                      return context
+                                          .l10n.faAmountGreaterThanZero;
                                     }
                                     return null;
                                   },
@@ -713,19 +770,25 @@ class _SupplierAdvancePaymentDialogState
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(
+                                  key: const ValueKey(
+                                      'advanceExchangeRateField'),
                                   controller: _exchangeRateController,
-                                  keyboardType: const TextInputType.numberWithOptions(
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
                                   decoration: InputDecoration(
-                                    labelText: isAr ? 'سعر الصرف (EGP) *' : 'Exchange Rate (EGP) *',
+                                    labelText:
+                                        context.l10n.faExchangeRateEgpLabel,
                                     border: const OutlineInputBorder(),
                                     suffixText: 'EGP',
                                   ),
-                                  validator: (v) =>
-                                      (v == null || double.tryParse(v) == null)
-                                          ? (isAr ? 'سعر غير صالح' : 'Invalid rate')
-                                          : null,
+                                  validator: (v) {
+                                    final r = double.tryParse((v ?? '').trim());
+                                    return (r == null || r <= 0)
+                                        ? context.l10n.faExchangeRateInvalid
+                                        : null;
+                                  },
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -755,16 +818,14 @@ class _SupplierAdvancePaymentDialogState
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  isAr
-                                      ? 'المعادل بالجنيه المصري (EGP): '
-                                      : 'Equivalent in EGP: ',
+                                  context.l10n.faEquivalentInEgp,
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 Text(
-                                  '${totalEgp.toStringAsFixed(2)} ${isAr ? 'ج.م' : 'EGP'}',
+                                  '${totalEgp.toStringAsFixed(2)} ${context.l10n.faCurrencyEgpShort}',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -780,19 +841,23 @@ class _SupplierAdvancePaymentDialogState
                           TextFormField(
                             controller: _titleController,
                             decoration: InputDecoration(
-                              labelText: isAr ? 'عنوان طلب السداد *' : 'Payment Request Title *',
+                              labelText: context.l10n.faPaymentTitleLabel,
                               border: const OutlineInputBorder(),
                             ),
-                            validator: (v) =>
-                                (v == null || v.trim().isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null,
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              if (s.isEmpty) return context.l10n.required;
+                              if (s.length < 3) {
+                                return context.l10n.faTitleMinLength;
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 12),
 
                           // Supplier Banking Details Section
                           Text(
-                            isAr
-                                ? 'بيانات الحساب البنكي للمورد المستفيد (Beneficiary Bank):'
-                                : 'Supplier Beneficiary Bank Details:',
+                            context.l10n.faBeneficiaryBankDetails,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -808,11 +873,14 @@ class _SupplierAdvancePaymentDialogState
                                 child: TextFormField(
                                   controller: _beneficiaryController,
                                   decoration: InputDecoration(
-                                    labelText: isAr ? 'اسم المستفيد *' : 'Beneficiary Name *',
+                                    labelText:
+                                        context.l10n.faBeneficiaryNameLabel,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (v) =>
-                                      (v == null || v.trim().isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null,
+                                      (v == null || v.trim().isEmpty)
+                                          ? (context.l10n.required)
+                                          : null,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -820,11 +888,13 @@ class _SupplierAdvancePaymentDialogState
                                 child: TextFormField(
                                   controller: _bankNameController,
                                   decoration: InputDecoration(
-                                    labelText: isAr ? 'اسم البنك *' : 'Bank Name *',
+                                    labelText: context.l10n.faBankNameLabel,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (v) =>
-                                      (v == null || v.trim().isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null,
+                                      (v == null || v.trim().isEmpty)
+                                          ? (context.l10n.required)
+                                          : null,
                                 ),
                               ),
                             ],
@@ -837,13 +907,13 @@ class _SupplierAdvancePaymentDialogState
                                   controller: _swiftController,
                                   textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
-                                    labelText: isAr
-                                        ? 'كود السويفت (SWIFT / BIC) *'
-                                        : 'SWIFT / BIC Code *',
+                                    labelText: context.l10n.faSwiftBicLabel,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (v) =>
-                                      (v == null || v.trim().isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null,
+                                      (v == null || v.trim().isEmpty)
+                                          ? (context.l10n.required)
+                                          : null,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -852,13 +922,13 @@ class _SupplierAdvancePaymentDialogState
                                   controller: _ibanController,
                                   textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
-                                    labelText: isAr
-                                        ? 'رقم الحساب أو الآيبان (IBAN) *'
-                                        : 'Account Number / IBAN *',
+                                    labelText: context.l10n.faAccountIbanLabel,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (v) =>
-                                      (v == null || v.trim().isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null,
+                                      (v == null || v.trim().isEmpty)
+                                          ? (context.l10n.required)
+                                          : null,
                                 ),
                               ),
                             ],
@@ -887,9 +957,11 @@ class _SupplierAdvancePaymentDialogState
                                   },
                                   child: InputDecorator(
                                     decoration: InputDecoration(
-                                      labelText: isAr ? 'تاريخ الاستحقاق المطلوب *' : 'Requested Due Date *',
+                                      labelText:
+                                          context.l10n.faRequestedDueDateLabel,
                                       border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(Icons.calendar_today),
+                                      prefixIcon:
+                                          const Icon(Icons.calendar_today),
                                     ),
                                     child: Text(
                                       '${_dueDate.year}-${_dueDate.month.toString().padLeft(2, '0')}-${_dueDate.day.toString().padLeft(2, '0')}',
@@ -906,9 +978,7 @@ class _SupplierAdvancePaymentDialogState
                             controller: _notesController,
                             maxLines: 2,
                             decoration: InputDecoration(
-                              labelText: isAr
-                                  ? 'ملاحظات وتوجيهات إضافية للمالية'
-                                  : 'Additional notes for Finance',
+                              labelText: context.l10n.faNotesForFinance,
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -934,9 +1004,7 @@ class _SupplierAdvancePaymentDialogState
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    isAr
-                                        ? 'عند التأكيد، سيتم إنشاء طلب السداد بحالة (Pending Approval) وإرسال إشعار فوري لمسؤول المالية (Finance Officer) وتوليد مهمة ذكية (Smart Task)، مع ترقية ملف الشحنة آلياً للمرحلة STEP_04.'
-                                        : 'Upon confirmation, the payment request will be created with status (Pending Approval), notifying the Finance Officer, generating a Smart Task, and advancing the Import File to STEP_04.',
+                                    context.l10n.faAdvanceConfirmNote,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.cobalt,
@@ -959,39 +1027,20 @@ class _SupplierAdvancePaymentDialogState
                 crossAxisAlignment: WrapCrossAlignment.center,
                 runSpacing: 8,
                 children: [
-                  TextButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-                    child: Text(isAr ? 'إلغاء' : 'Cancel'),
+                  AppButton(
+                    label: context.l10n.cancel,
+                    variant: AppButtonVariant.secondary,
+                    onPressed:
+                        _isSubmitting ? null : () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD97706),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.send_rounded, size: 18),
-                    label: Text(
-                      _isSubmitting
-                          ? (isAr ? 'جاري الإصدار والإخطار...' : 'Issuing & Notifying...')
-                          : (isAr ? 'إصدار طلب السداد وإخطار المالية' : 'Issue Payment Request & Notify Finance'),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                  AppButton(
+                    label: _isSubmitting
+                        ? (context.l10n.faIssuingNotifying)
+                        : (context.l10n.faIssueAndNotify),
+                    variant: AppButtonVariant.warning,
+                    icon: Icons.send_rounded,
+                    isLoading: _isSubmitting,
                     onPressed: _isSubmitting ? null : _submitAdvancePayment,
                   ),
                 ],
