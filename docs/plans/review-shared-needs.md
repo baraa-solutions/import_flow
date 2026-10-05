@@ -39,11 +39,14 @@ Owner of `modules/common`, `docs/*.json`, `financial_settlement`. Phase 3b (ODC 
 | Code | HTTP / where | Params | English template |
 |---|---|---|---|
 | `ODC_COURIER_NOT_FOUND` | 404 confirm-receipt | `courier_no`, `import_file_id` | Courier {courier_no} is not registered on this file's original documents session. Add it to the session first. |
+| `ODC_SESSION_NOT_FOUND` | 404 GET /original-documents-collection/sessions/by-file/{id} | `import_file_id` | No original documents collection session exists for import file {import_file_id}. |
 | `DCA_SESSION_FINAL_LOCKED` | 409 POST /docs-customs-approval/sessions | `session_code` | Customs approval session {session_code} is certified and can no longer be changed. |
 | `DCA_SESSION_NOT_READY` | 400 same | `missing_statuses` (list), `open_tickets_count` | The session cannot be certified: document statuses not set ({missing_statuses}); open rectification tickets: {open_tickets_count}. |
 | `DCA_TICKET_CLOSED` | 409 resolve ticket | `ticket_code`, `status` | Rectification ticket {ticket_code} is already closed ({status}). |
 | `SDU_ACID_INVALID` | 400 apply invoice | `acid_number` | The extracted ACID number {acid_number} is invalid: it must be 19 digits. |
 | `SDU_ACID_CONFLICT` | 409 apply invoice | `acid_number`, `current_acid_number`, `import_file_code` | The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}). |
+| `DCA_SAME_REVIEWER` | 409 POST /docs-customs-approval/{id}/commercial-review and /customs-review | `approval_code`, `reviewer` | {reviewer} already signed the other review tier of {approval_code}: the commercial and customs reviews need two different users. |
+| `SDU_FILE_CLOSED` | 409 POST /smart-upload/apply/commercial-invoice and /apply/bill-of-lading | `import_file_code`, `status` | Import file {import_file_code} is {status}: extracted data cannot be applied to it. |
 | `SDU_INVOICE_APPLIED` | apply invoice `msg_code` | `import_file_code`, `invoice_no` | Invoice {invoice_no} data applied to file {import_file_code}. |
 | `SDU_BL_APPLIED` | apply B/L `msg_code` | `cargo_shipping_code`, `containers_applied` | B/L data applied to shipment {cargo_shipping_code} ({containers_applied} containers). |
 | `SDU_EXTRACTED_ONLY` | apply `msg_code` (no target) | - | Data extracted and ready to use for a new file. |
@@ -209,6 +212,11 @@ System message codes (`modules/common/system_messages.py` + `docs/system_message
 - `CCQ_AWARDED_QUOTE_DELETE` (quotation_id): "The awarded quotation cannot be deleted." (409, DELETE /quotations/{id})
 - `CCQ_PRICE_LIST_DATE_RANGE` (effective_from, effective_to): "The validity start {effective_from} is after its end {effective_to}." (400, price-list create / update)
 
+- `CC_RELEASE_QUARANTINE_LOCKED` (clearance_code): "The final release cannot be issued while {clearance_code} is under the laboratory quarantine lock." (409, both release routes)
+- `CC_LAB_RESULT_ALREADY_FINAL` (clearance_status): "The lab result was already recorded and the quarantine lifted, or the shipment is finally released ({clearance_status})." (409, lab-test-result)
+
+- `CC_ASSESSED_COMPONENTS_LOCKED` (fields): "Duty components cannot be edited after the assessment ({fields}); re-assess the final duties (CL-02)." (409, PUT /{id})
+
 Enum (`modules/common/enum_codes.py` + `docs/enum_codes.json`):
 - `LAB_TEST_RESULT`: CONFORMING "Conforming", NON_CONFORMING "Non-Conforming", PENDING "Pending", NONE "None"; legacy: conforming, approved, مطابق, مقبول -> CONFORMING; non-conforming, non conforming, rejected, غير مطابق, مرفوض -> NON_CONFORMING. Local map today: `modules/customs_clearance/validators.py` (`normalize_lab_test_result`). Under-bond still writes the legacy "Pending" value until the enum lands.
 
@@ -244,3 +252,27 @@ to the module constant (= the value below) when the key is missing or invalid, s
 
 No new permission or message codes needed beyond the ones already registered (cargo_insurance.view/manage,
 cargo_shipping.approve). `MANUAL_CHECK_REQUIRED` / `MANUALLY_CONFIRMED` are CargoX checklist `details` values, not catalog codes.
+
+04-05 review addendum: candidate message code `DD_SETTLEMENT_STALE` (warning, no params beyond the tracking code): "The
+demurrage charges of {tracking_code} were recalculated but its landed-cost settlement is locked; they were not re-pushed."
+Returned today as a plain `settlement_warning_code` value (tracking PUT / single container / EIR responses) and as
+`stale_settlement_tracking_codes` (BK-02 response); Flutter maps it until the catalog entry exists.
+
+02 addendum (review fixes):
+
+| Code | HTTP / where | Params | English template |
+|---|---|---|---|
+| `FA_CURRENCY_MISSING` | 400 GET /prefill/{id} (and sync / variance evaluation that use it) | `source` (PO number, invoice number or file code) | No currency is recorded for the amount of {source}. Set the currency first. |
+
+Contract note: `BudgetPrefillResponse.exchange_rate` is nullable (null for an empty file whose currency has no rate).
+- (09 addendum) `RECALC_RATE_MISSING` (fields): "Some items could not be compared: no exchange rate for their currency ({fields})." (recalc preview / no-op apply)
+- (09 addendum) Settlement rows auto-fetched from customs carry `duty_component` (import_duty_amount, vat_amount, schedule_tax_amount, development_fee_amount, customs_service_fees, wht_amount, lab_service_fees, or actual_duty_total for an overridden total): candidate enum `DUTY_COMPONENT`.
+- Update (08-10 diff review): `FC_CLOSURE_BLOCKED.blocking` is a JSON list of keys (not a comma string). `WR_VERDICT_INCONSISTENT` also fires when a sent verdict contradicts the derived outcome; params verdict, expected_verdict (or shortage_qty, damaged_qty for ACCEPTED_FULL with discrepancy). `IT_TRANSITION_NOT_ALLOWED` also covers PUT status changes: action=status_change, extra param target_status (allowed via PUT: Booking Confirmed -> Dispatched, Arrived at Warehouse -> Delivered).
+- (09 addendum) `SETTLEMENT_LINE_ZERO_VALUE` (item_code, line_no): "Line {item_code} has no value: it is left out of the customs estimate." (simulate messages[])
+
+
+### 03b follow-up codes (diff review)
+
+| Code | HTTP / where | Params | English template |
+|---|---|---|---|
+| `SDU_NO_SHIPPING_RECORD` | 409 POST /smart-upload/apply/bill-of-lading | `import_file_id`, `import_file_code` | File {import_file_code} has no active shipping record; create it before applying B/L data. |
