@@ -2,16 +2,18 @@ from typing import Optional, List, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
+from modules.common.system_messages import SystemMessageItem
+
 
 class ImportRequirementHSCodeItem(BaseModel):
     hs_code: str
     commodity_description: Optional[str] = None
     item_code: Optional[str] = None
     country_of_origin: Optional[str] = None
-    currency: str = "USD"
+    currency: Optional[str] = None
     item_value: float = 0.0
     quantity: float = 0.0
-    unit_of_measure: Optional[str] = "PCS"
+    unit_of_measure: Optional[str] = None
     
     # Pillar 1: Decree 43 & Factory Registration
     decree_43_applicable: bool = False
@@ -23,13 +25,13 @@ class ImportRequirementHSCodeItem(BaseModel):
 
     # Pillar 2: COO & Trade Agreements
     coo_required: bool = False
-    coo_type: Optional[str] = "EUR.1"
+    coo_type: Optional[str] = None
     coo_status: str = "Not Required"
     coo_notes: Optional[str] = None
 
     # Pillar 3: Pre-Shipment Inspection
     inspection_required: bool = False
-    inspection_body: Optional[str] = "SGS"
+    inspection_body: Optional[str] = None
     inspection_status: str = "Not Required"
     inspection_report_no: Optional[str] = None
     inspection_notes: Optional[str] = None
@@ -200,7 +202,7 @@ class ImportRequirementPrefillResponse(BaseModel):
     supplier_name: Optional[str] = None
     country_of_origin: Optional[str] = None
     foreign_exporter_id: Optional[str] = None
-    currency: str = "USD"
+    currency: Optional[str] = None
     shipment_value: float = 0.0
     po_number: Optional[str] = None
     pi_number: Optional[str] = None
@@ -246,6 +248,10 @@ class ImportRequirementPrefillResponse(BaseModel):
     coa_required: bool = False
     coa_status: str = "Not Required"
     special_notes: Optional[str] = None
+
+    # System messages ({code, params}): PREFILL_NO_HS when no HS code was found (hs_code_items empty),
+    # PREFILL_LINE_NO_HS per PO line without a tariff. The client renders them from the code.
+    messages: List[SystemMessageItem] = []
 
 
 class ImportRequirementResponse(ImportRequirementBase):

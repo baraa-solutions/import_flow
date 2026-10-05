@@ -66,6 +66,18 @@
       "مصاريف الفحص والعرض": "INSPECTION_FEE"
     }
   },
+  "CONTAINER_TYPE": {
+    "codes": {
+      "C20_ST": "20FT Standard Container (20' ST)",
+      "C40_HC": "40FT High Cube Container (40' HC)",
+      "C40_ST": "40FT Standard Container (40' ST)",
+      "LCL": "LCL Consolidation Container"
+    },
+    "legacy": {
+      "40FT High Cube Containers (40' HC)": "C40_HC",
+      "LCL Consolidation": "LCL"
+    }
+  },
   "CUSTOMS_CATEGORY": {
     "codes": {
       "AUTOMOTIVE": "Automotive",
@@ -237,11 +249,20 @@
   "MEASURE_UNIT": {
     "codes": {
       "CBM": "CBM",
+      "GRM": "gram (GRM)",
       "KG": "kg",
       "PACKAGES": "packages",
-      "PACKAGES_PALLETS": "packages/pallets"
+      "PACKAGES_PALLETS": "packages/pallets",
+      "SET": "set (SET)",
+      "STN": "short ton (STN)"
     },
     "legacy": {
+      "GRAM": "GRM",
+      "KGM": "KG",
+      "KGS": "KG",
+      "KILOGRAM": "KG",
+      "TON": "STN",
+      "TONS": "STN",
       "طرد": "PACKAGES",
       "طرد/بالتة": "PACKAGES_PALLETS",
       "كجم": "KG",
@@ -279,6 +300,24 @@
       "WAREHOUSE_GRN_REVIEW": "Review cargo integrity, warehouse receiving and the GRN"
     },
     "legacy": {}
+  },
+  "PO_STATUS": {
+    "codes": {
+      "APPROVED": "Approved",
+      "CANCELLED": "Cancelled",
+      "CLOSED": "Closed",
+      "DRAFT": "Draft",
+      "FULLY_SHIPPED": "Fully Shipped",
+      "PARTIALLY_SHIPPED": "Partially Shipped"
+    },
+    "legacy": {
+      "Canceled": "CANCELLED",
+      "In Transit": "PARTIALLY_SHIPPED",
+      "مسودة": "DRAFT",
+      "معتمد": "APPROVED",
+      "مغلق": "CLOSED",
+      "ملغي": "CANCELLED"
+    }
   },
   "PRICING_UNIT": {
     "codes": {
@@ -393,6 +432,25 @@
       "VERIFIED": "Verified"
     },
     "legacy": {}
+  },
+  "SHIPMENT_MODE": {
+    "codes": {
+      "AIR": "Air Freight",
+      "SEA": "Sea Freight"
+    },
+    "legacy": {}
+  },
+  "SHIPPING_METHOD": {
+    "codes": {
+      "AIR": "Air Freight",
+      "FCL": "FCL Container",
+      "LCL": "LCL Ocean Freight"
+    },
+    "legacy": {
+      "Air Freight (شحن جوي)": "AIR",
+      "FCL Container (حاوية كاملة بحرية)": "FCL",
+      "LCL Ocean Freight (شحن بحري تجميعي)": "LCL"
+    }
   },
   "SKIP_REASON_CATEGORY": {
     "codes": {

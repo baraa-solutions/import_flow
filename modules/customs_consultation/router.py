@@ -4,11 +4,12 @@ Customs Consultation & Broker Price Lists REST Router (BP-009)
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, Query, status, Header
+from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
-from modules.auth.permissions import resolve_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from modules.customs_consultation.schemas import (
     ClearanceExpenseTypeCreate,
     ClearanceExpenseTypeUpdate,
@@ -30,6 +31,11 @@ from modules.customs_consultation.service import (
     CustomsConsultationService,
 )
 
+VIEW = "customs_clearance.view"
+MANAGE = "customs_consultation.manage"
+MASTER_VIEW = "master_data.view"
+MASTER_EDIT = "master_data.edit"
+
 router = APIRouter(
     prefix="/api/v1/customs-consultations",
     tags=["Customs Consultation & Broker Price Lists (BP-009)"],
@@ -49,11 +55,13 @@ router = APIRouter(
 def recalculate_from_reconciliation(
     payload: CustomsRecalculationRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return CustomsConsultationService.recalculate_from_reconciliation_service(
         db,
         import_file_id=payload.import_file_id,
         exchange_rate=payload.exchange_rate,
+        preliminary_exchange_rate=payload.preliminary_exchange_rate,
         freight_egp=payload.freight_egp,
         insurance_egp=payload.insurance_egp,
         estimate_date=payload.estimate_date,
@@ -75,6 +83,7 @@ def list_expense_types(
     category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, description="Search by code or name"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_VIEW)),
 ):
     return ClearanceExpenseTypeService.list_expense_types(
         db, include_inactive=include_inactive, category=category, search=search
@@ -90,6 +99,7 @@ def list_expense_types(
 def create_expense_type(
     schema: ClearanceExpenseTypeCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
     return ClearanceExpenseTypeService.create_expense_type(db, schema)
 
@@ -102,6 +112,7 @@ def create_expense_type(
 def get_expense_type(
     expense_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_VIEW)),
 ):
     return ClearanceExpenseTypeService.get_expense_type(db, expense_id)
 
@@ -115,6 +126,7 @@ def update_expense_type(
     expense_id: int,
     schema: ClearanceExpenseTypeUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
     return ClearanceExpenseTypeService.update_expense_type(db, expense_id, schema)
 
@@ -127,6 +139,7 @@ def update_expense_type(
 def delete_expense_type(
     expense_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
     return ClearanceExpenseTypeService.delete_expense_type(db, expense_id)
 
@@ -145,6 +158,7 @@ def list_price_lists(
     broker_id: Optional[int] = Query(None, description="Filter by Broker ID"),
     search: Optional[str] = Query(None, description="Search by code, title, broker name"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return BrokerPriceListService.list_price_lists(
         db, include_inactive=include_inactive, broker_id=broker_id, search=search
@@ -160,6 +174,7 @@ def get_active_price_list_for_broker(
     broker_id: int,
     target_date: Optional[date] = Query(None, description="Target date (defaults to today)"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return BrokerPriceListService.get_active_price_list_for_broker(db, broker_id, target_date)
 
@@ -173,6 +188,7 @@ def get_active_price_list_for_broker(
 def create_price_list(
     schema: BrokerPriceListCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     return BrokerPriceListService.create_price_list(db, schema)
 
@@ -185,6 +201,7 @@ def create_price_list(
 def get_price_list(
     price_list_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return BrokerPriceListService.get_price_list(db, price_list_id)
 
@@ -198,6 +215,7 @@ def update_price_list(
     price_list_id: int,
     schema: BrokerPriceListUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     return BrokerPriceListService.update_price_list(db, price_list_id, schema)
 
@@ -210,6 +228,7 @@ def update_price_list(
 def delete_price_list(
     price_list_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     return BrokerPriceListService.soft_delete_price_list(db, price_list_id)
 
@@ -224,6 +243,7 @@ def clone_price_list(
     price_list_id: int,
     payload: CloneBrokerPriceListRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     return BrokerPriceListService.clone_price_list(db, price_list_id, payload)
 
@@ -241,15 +261,10 @@ def clone_price_list(
 )
 def create_consultation(
     session_in: CustomsConsultationCreate,
-    authorization: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
-    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
-    return CustomsConsultationService.create_consultation(
-        db, session_in, modified_by=current_user.username if current_user else "Customs Specialist"
-    )
+    return CustomsConsultationService.create_consultation(db, session_in, modified_by=current_user.username)
 
 
 @router.get(
@@ -266,6 +281,7 @@ def list_consultations(
     project_id: Optional[int] = Query(None, description="Filter by Project ID"),
     status: Optional[str] = Query(None, description="Filter by overall status"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return CustomsConsultationService.list_consultations(
         db,
@@ -287,6 +303,7 @@ def list_consultations(
 def get_consultation(
     consultation_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     return CustomsConsultationService.get_consultation(db, consultation_id)
 
@@ -299,14 +316,11 @@ def get_consultation(
 def update_consultation(
     consultation_id: int,
     update_in: CustomsConsultationUpdate,
-    authorization: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
-    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
     return CustomsConsultationService.update_consultation(
-        db, consultation_id, update_in, modified_by=current_user.username if current_user else "Customs Specialist"
+        db, consultation_id, update_in, modified_by=current_user.username
     )
 
 
@@ -318,8 +332,9 @@ def update_consultation(
 def soft_delete_consultation(
     consultation_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return CustomsConsultationService.soft_delete_consultation(db, consultation_id)
+    return CustomsConsultationService.soft_delete_consultation(db, consultation_id, modified_by=current_user.username)
 
 
 @router.post(
@@ -330,8 +345,9 @@ def soft_delete_consultation(
 def restore_consultation(
     consultation_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return CustomsConsultationService.restore_consultation(db, consultation_id)
+    return CustomsConsultationService.restore_consultation(db, consultation_id, modified_by=current_user.username)
 
 
 @router.post(
@@ -344,6 +360,7 @@ def clone_consultation(
     consultation_id: int,
     payload: CloneConsultationRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return CustomsConsultationService.clone_consultation(db, consultation_id, payload)
+    return CustomsConsultationService.clone_consultation(db, consultation_id, payload, modified_by=current_user.username)
 

@@ -1,17 +1,19 @@
-from typing import List, Optional
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
+from typing import Iterable, List, Optional
+
 from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from modules.common.sequence_generator import next_yearly_code
 from modules.import_requirements.model import ImportRequirementAssessment
+from modules.purchase_orders.model import PurchaseOrder
+
+ASSESSMENT_CODE_PREFIX = "BP011"
 
 
 def generate_assessment_code(db: Session) -> str:
-    year = datetime.now(timezone.utc).year
-    prefix = f"BP011-{year}-"
-    count = db.query(ImportRequirementAssessment).filter(
-        ImportRequirementAssessment.assessment_code.like(f"{prefix}%")
-    ).count()
-    return f"{prefix}{count + 1:04d}"
+    """BP011-YYYY-NNNN: continues from the highest suffix used this year (deleted rows never reuse a number)."""
+    return next_yearly_code(db, ImportRequirementAssessment.assessment_code, ASSESSMENT_CODE_PREFIX, pad=4)
 
 
 def get_all_assessments(
@@ -73,36 +75,54 @@ def create_assessment(db: Session, obj_data: dict) -> ImportRequirementAssessmen
     return obj
 
 
-def update_assessment(db: Session, assessment_id: int, update_data: dict) -> Optional[ImportRequirementAssessment]:
-    obj = get_assessment_by_id_include_inactive(db, assessment_id)
-    if not obj:
-        return None
+def update_assessment(db: Session, obj: ImportRequirementAssessment, update_data: dict) -> ImportRequirementAssessment:
     for key, value in update_data.items():
         if hasattr(obj, key):
             setattr(obj, key, value)
-    obj.is_active = True  # Automatically restore / reactivate on update
-    obj.updated_at = datetime.now(timezone.utc)
+    obj.is_active = True  # an update reactivates a soft-deleted assessment
     db.commit()
     db.refresh(obj)
     return obj
 
 
-def restore_assessment(db: Session, assessment_id: int) -> Optional[ImportRequirementAssessment]:
-    obj = get_assessment_by_id_include_inactive(db, assessment_id)
-    if not obj:
-        return None
+def restore_assessment(db: Session, obj: ImportRequirementAssessment, user: str) -> ImportRequirementAssessment:
     obj.is_active = True
     obj.updated_at = datetime.now(timezone.utc)
+    obj.updated_by = user
     db.commit()
     db.refresh(obj)
     return obj
 
 
-def soft_delete_assessment(db: Session, assessment_id: int) -> bool:
-    obj = get_assessment_by_id(db, assessment_id)
-    if not obj:
-        return False
+def soft_delete_assessment(db: Session, obj: ImportRequirementAssessment, user: str) -> None:
     obj.is_active = False
     obj.updated_at = datetime.now(timezone.utc)
+    obj.updated_by = user
     db.commit()
-    return True
+
+
+# ── Prefill reads ────────────────────────────────────────────────────────────────
+
+def active_pos_for_file(db: Session, import_file_id: int) -> List[PurchaseOrder]:
+    return (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True)
+        .all()
+    )
+
+
+def active_pos_by_ids(db: Session, po_ids: Iterable[int]) -> List[PurchaseOrder]:
+    return (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.po_id.in_(list(po_ids)), PurchaseOrder.is_active == True)
+        .all()
+    )
+
+
+def active_pos_by_number(db: Session, po_number: str) -> List[PurchaseOrder]:
+    po = (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.po_number == po_number, PurchaseOrder.is_active == True)
+        .first()
+    )
+    return [po] if po else []

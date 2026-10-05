@@ -10,6 +10,7 @@ from database.database import Base, get_db
 from modules.purchase_orders.model import PurchaseOrder
 from modules.purchase_orders.schemas import PurchaseOrderUpdate
 from modules.purchase_orders.repository import PurchaseOrderRepository
+from modules.purchase_orders.service import PurchaseOrderService
 from modules.common.concurrency import ConcurrencyConflictException, ConcurrencyConflictLog
 from modules.docs_customs_approval.model import CustomsDocumentApproval, DocsCustomsApprovalSession
 from modules.docs_customs_approval.schemas import CommercialReviewPayload, CustomsBrokerReviewPayload, DocsCustomsApprovalSessionUpdate
@@ -59,12 +60,12 @@ def test_monotonic_version_increment(SessionLocal):
     assert po.version == 1
 
     # 2. Update with version 1
-    updated_1 = repo.update(po, PurchaseOrderUpdate(notes="Note 1", version=1), current_user_name="User1")
+    updated_1 = PurchaseOrderService(db).update(po.po_id, PurchaseOrderUpdate(notes="Note 1", version=1), current_user_name="User1")
     assert updated_1.version == 2
     assert updated_1.notes == "Note 1"
 
     # 3. Update with version 2
-    updated_2 = repo.update(updated_1, PurchaseOrderUpdate(notes="Note 2", version=2), current_user_name="User1")
+    updated_2 = PurchaseOrderService(db).update(po.po_id, PurchaseOrderUpdate(notes="Note 2", version=2), current_user_name="User1")
     assert updated_2.version == 3
     assert updated_2.notes == "Note 2"
 
@@ -99,8 +100,8 @@ def test_concurrent_edit_conflict_detection(SessionLocal):
     assert po_user_b.version == 1
 
     # User A saves first
-    saved_a = repo_a.update(
-        po_user_a,
+    saved_a = PurchaseOrderService(db_user_a).update(
+        po_id,
         PurchaseOrderUpdate(payment_terms="30% Advance, 70% LC", version=1),
         current_user_name="UserA",
     )
@@ -108,8 +109,8 @@ def test_concurrent_edit_conflict_detection(SessionLocal):
 
     # User B attempts to save stale version 1
     with pytest.raises(ConcurrencyConflictException) as exc_info:
-        repo_b.update(
-            po_user_b,
+        PurchaseOrderService(db_user_b).update(
+            po_id,
             PurchaseOrderUpdate(payment_terms="Net 60 Days", version=1),
             current_user_name="UserB",
         )
@@ -138,8 +139,8 @@ def test_concurrent_edit_conflict_detection(SessionLocal):
     assert po_fresh.version == 2
     assert po_fresh.payment_terms == "30% Advance, 70% LC"
 
-    saved_b = repo_b_refresh.update(
-        po_fresh,
+    saved_b = PurchaseOrderService(db_user_b_refresh).update(
+        po_id,
         PurchaseOrderUpdate(payment_terms="30% Advance, 70% LC (Confirmed by B)", version=2),
         current_user_name="UserB",
     )
@@ -178,7 +179,7 @@ def test_api_concurrency_conflict_409(SessionLocal):
 
     # User A bumps version to 2
     repo = PurchaseOrderRepository(db)
-    repo.update(po, PurchaseOrderUpdate(notes="User A Note", version=1), current_user_name="UserA")
+    PurchaseOrderService(db).update(po.po_id, PurchaseOrderUpdate(notes="User A Note", version=1), current_user_name="UserA")
 
     # User B calls PUT /api/purchase-orders/{po_id} with stale version=1
     def override_get_db():

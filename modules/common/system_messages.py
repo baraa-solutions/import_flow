@@ -38,7 +38,9 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
+
+from pydantic import BaseModel, Field
 
 from modules.common import enum_codes
 
@@ -1054,6 +1056,57 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "DOC_TOL_PACKAGES_EXACT": {"note": "0% (package count match)"},
     "DOC_TOL_WEIGHT_DIFFERENCE": {"note": "Difference: {difference_qty} kg ({difference_pct}%)"},
     "DOC_TOL_TERMS_COHERENCE": {"note": "Commercial terms coherence"},
+    # ── Purchase orders: shipment allocation warning (POShipmentAllocationResponse.messages) ──
+    "OVER_SHIPPED": {
+        "note": "Over-shipment: {shipped_qty} shipped against {ordered_qty} ordered on purchase order {po_number} {item_code}",
+    },
+    # ── Purchase orders: packing list validation report (PackingListValidationReport.messages) ──
+    # ── Purchase orders: coded 409 errors (CodedHTTPException detail.code) ──
+    "PO_ITEMS_ALLOCATED": {
+        "note": "Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.",
+    },
+    "PO_NUMBER_TAKEN": {"note": "Purchase order number {po_number} is already in use; please retry."},
+    "PO_PL_NO_ITEMS": {"note": "No packing list items recorded for this purchase order."},
+    "PO_PL_GROSS_BELOW_NET": {
+        "note": "Item #{line_num} ({item_code}): Gross weight per unit ({gross_qty} kg) cannot be less than Net weight ({net_qty} kg).",
+    },
+    "PO_PL_NEGATIVE_WEIGHT": {"note": "Item #{line_num} ({item_code}): Unit weights cannot be negative."},
+    "PO_PL_DIMENSIONS_MISSING": {
+        "note": "Item #{line_num} ({item_code}): Package dimensions missing or zero; CBM cannot be computed accurately.",
+    },
+    "PO_PL_HS_MISSING_IN_PACKING": {
+        "note": "HS Code '{hs_code}' exists in Commercial Invoice but is missing from Packing List.",
+    },
+    "PO_PL_HS_MISSING_IN_INVOICE": {
+        "note": "HS Code '{hs_code}' exists in Packing List but is missing from Commercial Invoice.",
+    },
+    "PO_PL_HS_QTY_MISMATCH": {
+        "note": "HS Code '{hs_code}': Packing List Qty ({packing_qty}) differs from Invoice Qty ({invoice_qty}) [Diff: {signed_difference}].",
+    },
+    "PO_PL_TOTAL_QTY_MISMATCH": {
+        "note": "Total Quantity Mismatch: Packing List total PCS ({packing_qty}) differs from Invoice total PCS ({invoice_qty}) [Diff: {signed_difference}].",
+    },
+    # ── Import requirements (prefill messages[], 409 detail.code) ──
+    "PREFILL_NO_HS": {
+        "note": "No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.",
+    },
+    "PREFILL_LINE_NO_HS": {"note": "PO {po_number} line {item_code} has no tariff (HS code) and was skipped."},
+    "IR_ASSESSMENT_EXISTS": {
+        "note": "An active import-requirements assessment ({assessment_code}) already exists for this import file.",
+    },
+    # ── Shipping scenarios (409 detail.code; detail also carries session_id) ──
+    "SCENARIO_SESSION_EXISTS": {
+        "note": "An active shipping-scenario study ({session_code}) already exists for this import file.",
+    },
+    # ── Customs consultation (409 detail.code; detail also carries consultation_id) ──
+    "CONSULTATION_EXISTS": {
+        "note": "An active customs consultation ({consultation_code}) already exists for this import file.",
+    },
+    # ── Customs consultation recalculation (409 detail.code) ──
+    "CUSTOMS_MIXED_CURRENCY": {
+        "note": "The purchase orders of this import file use different currencies ({currencies}): recalculation needs one currency per side.",
+    },
+    "CUSTOMS_FX_RATE_MISSING": {"note": "No customs exchange rate for {currency} on {on_date}."},
 }
 
 
@@ -1082,6 +1135,19 @@ def msg(code: str, **params: Any) -> SysMsg:
         if value is not None and not isinstance(value, (str, int, float, bool)):
             raise TypeError(f"System message param {name!r} must be a JSON primitive, got {type(value).__name__}")
     return SysMsg(code=code, params=dict(params))
+
+
+class SystemMessageItem(BaseModel):
+    """A coded system message in an API response: the client renders ``code`` + ``params`` (see ``to_item``)."""
+    code: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    severity: Literal["error", "warning"] = "warning"
+
+
+def to_item(code: str, severity: str = "warning", **params: Any) -> SystemMessageItem:
+    """``SystemMessageItem`` validated through ``msg`` (known code, JSON-primitive params)."""
+    m = msg(code, **params)
+    return SystemMessageItem(code=m.code, params=m.params, severity=severity)
 
 
 def coded_text(field: str, code: str, part: str = "note", **params: Any) -> Dict[str, Any]:

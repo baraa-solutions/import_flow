@@ -48,6 +48,10 @@ CUSTOMS_CATEGORY = "CUSTOMS_CATEGORY"
 VALUE_PLACEHOLDER = "VALUE_PLACEHOLDER"
 MEASURE_UNIT = "MEASURE_UNIT"
 DRAFT_BL_FIELD = "DRAFT_BL_FIELD"
+PO_STATUS = "PO_STATUS"
+SHIPPING_METHOD = "SHIPPING_METHOD"
+CONTAINER_TYPE = "CONTAINER_TYPE"
+SHIPMENT_MODE = "SHIPMENT_MODE"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -303,6 +307,11 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "KG": "kg",
         "CBM": "CBM",
         "PACKAGES_PALLETS": "packages/pallets",
+        # Declared weight UOM of packing-list rows (CargoX "Unit of measure list": KG is exported as KGM). A label
+        # only: the stored weights are always kg.
+        "GRM": "gram (GRM)",
+        "STN": "short ton (STN)",
+        "SET": "set (SET)",
     },
     # Draft B/L comparison field (code = upper-cased field_key of the comparison matrix). Used by the
     # blocking reason messages DOC_DRAFT_BLOCKING_* (param field_enum_draft_bl_field).
@@ -327,6 +336,33 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "TOTAL_NET_WEIGHT_KG": "Net Weight (KG)",
         "CBM": "Measurement (CBM)",
         "QTY_PKG": "Number of Packages",
+    },
+    # Purchase order workflow status (purchase_orders.status)
+    PO_STATUS: {
+        "DRAFT": "Draft",
+        "APPROVED": "Approved",
+        "PARTIALLY_SHIPPED": "Partially Shipped",
+        "FULLY_SHIPPED": "Fully Shipped",
+        "CLOSED": "Closed",
+        "CANCELLED": "Cancelled",
+    },
+    # Recommended shipping mode (CBM calculator, shipping planning)
+    SHIPPING_METHOD: {
+        "AIR": "Air Freight",
+        "LCL": "LCL Ocean Freight",
+        "FCL": "FCL Container",
+    },
+    # Recommended container (CBM calculator). Air freight has no container (stored as NULL).
+    CONTAINER_TYPE: {
+        "C20_ST": "20FT Standard Container (20' ST)",
+        "C40_ST": "40FT Standard Container (40' ST)",
+        "C40_HC": "40FT High Cube Container (40' HC)",
+        "LCL": "LCL Consolidation Container",
+    },
+    # Transport mode of a CBM calculation (cbm_calculations.shipment_mode; NULL = unknown legacy row)
+    SHIPMENT_MODE: {
+        "AIR": "Air Freight",
+        "SEA": "Sea Freight",
     },
 }
 
@@ -537,7 +573,38 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "كجم": "KG",
         "م³": "CBM",
         "طرد/بالتة": "PACKAGES_PALLETS",
+        # one kilogram code: KG (CargoX / UN-ECE spelling KGM is an alias)
+        "KGM": "KG",
+        "KGS": "KG",
+        "KILOGRAM": "KG",
+        "GRAM": "GRM",
+        "TON": "STN",
+        "TONS": "STN",
     },
+    PO_STATUS: {
+        # "In Transit" was offered by the old PO form: goods left the supplier, so at least partially shipped.
+        "In Transit": "PARTIALLY_SHIPPED",
+        "Canceled": "CANCELLED",
+        "مسودة": "DRAFT",
+        "معتمد": "APPROVED",
+        "مغلق": "CLOSED",
+        "ملغي": "CANCELLED",
+    },
+    SHIPPING_METHOD: {
+        "Air Freight (شحن جوي)": "AIR",
+        "LCL Ocean Freight (شحن بحري تجميعي)": "LCL",
+        "FCL Container (حاوية كاملة بحرية)": "FCL",
+    },
+    CONTAINER_TYPE: {
+        "LCL Consolidation": "LCL",
+        "40FT High Cube Containers (40' HC)": "C40_HC",
+    },
+}
+
+# Legacy labels that mean "no value" (normalize returns None), e.g. the CBM calculator stored a container text for
+# air freight, which has no container.
+_LEGACY_NO_VALUE: Dict[str, Tuple[str, ...]] = {
+    CONTAINER_TYPE: ("N/A (Air Freight Cargo)",),
 }
 
 ENUM_TYPES: Tuple[str, ...] = tuple(LABELS_EN.keys())
@@ -586,6 +653,7 @@ def _build_lookup() -> Dict[str, Dict[str, str]]:
 
 
 _LOOKUP = _build_lookup()
+_NO_VALUE_KEYS: Dict[str, frozenset] = {t: frozenset(_key(v) for v in values) for t, values in _LEGACY_NO_VALUE.items()}
 
 
 def codes(enum_type: str) -> List[str]:
@@ -655,7 +723,8 @@ def _candidates(text: str) -> Iterable[str]:
 
 def normalize(enum_type: str, value: Any) -> Any:
     """Map a legacy label (or a code in any case) to the enum code. Unknown values are returned unchanged;
-    ``None`` and non-strings pass through. Never raises for a known ``enum_type``."""
+    ``None`` and non-strings pass through; a legacy "no value" label (``_LEGACY_NO_VALUE``) gives ``None``.
+    Never raises for a known ``enum_type``."""
     if enum_type not in LABELS_EN:
         raise KeyError(f"Unknown enum type: {enum_type}")
     if not isinstance(value, str):
@@ -663,6 +732,8 @@ def normalize(enum_type: str, value: Any) -> Any:
     text = value.strip()
     if not text:
         return value
+    if _key(text) in _NO_VALUE_KEYS.get(enum_type, ()):
+        return None
     labels = LABELS_EN[enum_type]
     if text in labels:
         return text
@@ -824,7 +895,8 @@ def finalize_structured_values(item: Dict[str, Any]) -> Dict[str, Any]:
 
 # ── Flutter contract: docs/enum_codes.json ──
 def build_contract() -> Dict[str, Dict[str, Dict[str, str]]]:
-    """``{TYPE: {"codes": {CODE: English label}, "legacy": {legacy label: CODE}}}``."""
+    """``{TYPE: {"codes": {CODE: English label}, "legacy": {legacy label: CODE}}}``. ``_LEGACY_NO_VALUE`` stays
+    backend-only: the API returns the normalized value (null), so the client never sees those labels."""
     return {
         enum_type: {"codes": dict(LABELS_EN[enum_type]), "legacy": dict(_LEGACY.get(enum_type, {}))}
         for enum_type in ENUM_TYPES

@@ -55,9 +55,9 @@ class TestCBMCalculatorBackend:
         assert res.total_qty == 10
         assert res.total_cbm == 2.0  # 10 * 100 * 50 * 40 / 1,000,000
         assert res.total_gross_weight_kg == 150.0  # 10 * 15
-        assert res.total_volumetric_weight_kg == 333.33  # 10 * 100 * 50 * 40 / 6000
-        assert res.air_chargeable_weight_kg == 333.33  # max(150, 333.33)
-        assert "LCL Ocean Freight" in res.recommended_shipping_method
+        assert res.total_volumetric_weight_kg == 334.0  # 2.0 CBM x 167 kg/CBM (configurable air factor)
+        assert res.air_chargeable_weight_kg == 334.0  # max(150, 334.0)
+        assert res.recommended_shipping_method == "LCL"
 
     def test_container_recommendation_logic(self):
         # 1. Small volume -> 20FT Container (e.g. 20 CBM)
@@ -71,7 +71,7 @@ class TestCBMCalculatorBackend:
         )
         res_20ft = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_20ft]))
         assert res_20ft.total_cbm == 19.2
-        assert "20FT Standard Container" in res_20ft.recommended_container_type
+        assert res_20ft.recommended_container_type == "C20_ST"
         assert res_20ft.recommended_container_count == 1
 
         # 2. Large volume -> 40FT High Cube Container (e.g. 70 CBM)
@@ -85,7 +85,7 @@ class TestCBMCalculatorBackend:
         )
         res_hc = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_40ft_hc]))
         assert res_hc.total_cbm == 67.2
-        assert "40FT High Cube" in res_hc.recommended_container_type
+        assert res_hc.recommended_container_type == "C40_HC"
         assert res_hc.recommended_container_count == 1
 
         # 3. Extra Large volume -> Multiple 40FT HC Containers (e.g. 150 CBM)
@@ -307,3 +307,100 @@ class TestCBMCalculatorBackend:
         assert cloned.items[0].is_stackable is True
         assert cloned.items[1].is_stackable is False
 
+
+
+# ── Phase-1 fixes: CBM-02..06 ───────────────────────────────────────────────────
+
+def _one_item(**kw):
+    data = dict(quantity=1, length=100.0, width=100.0, height=100.0, unit="cm", gross_weight_per_unit_kg=10.0)
+    data.update(kw)
+    return CBMItemCreate(**data)
+
+
+def test_unknown_unit_is_rejected():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        CBMItemCreate(quantity=1, length=1.0, width=1.0, height=1.0, unit="in")
+    # Case and blanks are tolerated; None means cm.
+    assert CBMItemCreate(quantity=1, length=1.0, width=1.0, height=1.0, unit="M").length_cm == 100.0
+    assert CBMItemCreate(quantity=1, length=10.0, width=1.0, height=1.0, unit=None).unit == "cm"
+
+
+def test_factor_parameter_drives_volumetric_weight():
+    res = CBMService.quick_calculate(CBMQuickCalcRequest(items=[_one_item()]), kg_per_cbm=200.0)
+    assert res.total_volumetric_weight_kg == 200.0
+    assert res.air_chargeable_weight_kg == 200.0
+
+
+def test_quick_calculate_service_reads_configured_factor(db):
+    from modules.common.system_parameters import AIR_VOLUMETRIC_KG_PER_CBM, SystemParameter
+
+    row = SystemParameter(param_key=AIR_VOLUMETRIC_KG_PER_CBM, param_value="180", is_active=True)
+    db.add(row)
+    db.commit()
+    try:
+        res = CBMService.quick_calculate_service(db, CBMQuickCalcRequest(items=[_one_item()]))
+        assert res.total_volumetric_weight_kg == 180.0
+    finally:
+        db.delete(row)
+        db.commit()
+
+
+def test_link_pushes_measurements_through_po_service_and_bumps_version(db):
+    po = PurchaseOrder(po_number="PO-CBM-LINK-1", project_id=1, company_id=1, supplier_id=1, incoterm_id=1,
+                       currency_id=1, total_amount_fob=1.0, status="Draft", version=1)
+    db.add(po)
+    db.commit()
+    calc = CBMService.create_calculation_service(db, CBMCalculationCreate(title="link", items=[_one_item(quantity=3)]))
+    CBMService.link_to_po_service(db, calc.calc_id, po_id=po.po_id, user="cbm.tester")
+    db.refresh(po)
+    assert (po.total_cbm, po.total_gross_weight_kg, po.total_packages_count) == (3.0, 30.0, 3)
+    assert po.version == 2
+    assert po.updated_by == "cbm.tester"
+
+
+def test_link_to_inactive_po_is_400(db):
+    po = PurchaseOrder(po_number="PO-CBM-OFF-1", project_id=1, company_id=1, supplier_id=1, incoterm_id=1,
+                       currency_id=1, total_amount_fob=1.0, status="Draft", is_active=False)
+    db.add(po)
+    db.commit()
+    calc = CBMService.create_calculation_service(db, CBMCalculationCreate(title="off", items=[_one_item()]))
+    with pytest.raises(HTTPException) as exc:
+        CBMService.link_to_po_service(db, calc.calc_id, po_id=po.po_id)
+    assert exc.value.status_code == 400
+
+
+def test_stores_codes_and_normalizes_legacy_rows_on_read(db):
+    calc = CBMService.create_calculation_service(db, CBMCalculationCreate(title="codes", items=[_one_item()]))
+    assert (calc.recommended_shipping_method, calc.recommended_container_type) == ("AIR", None)
+
+    from modules.cbm_calculator.model import CBMCalculation
+
+    row = db.get(CBMCalculation, calc.calc_id)
+    row.recommended_shipping_method = "FCL Container (حاوية كاملة بحرية)"
+    row.recommended_container_type = "40FT High Cube Containers (40' HC)"
+    db.commit()
+    legacy = CBMService.get_calculation_service(db, calc.calc_id)
+    assert (legacy.recommended_shipping_method, legacy.recommended_container_type) == ("FCL", "C40_HC")
+
+    row.recommended_shipping_method = "Air Freight (شحن جوي)"
+    row.recommended_container_type = "N/A (Air Freight Cargo)"
+    db.commit()
+    air = CBMService.get_calculation_service(db, calc.calc_id)
+    assert (air.recommended_shipping_method, air.recommended_container_type) == ("AIR", None)
+
+
+def test_clone_without_items_has_no_recommendation(db):
+    calc = CBMService.create_calculation_service(db, CBMCalculationCreate(title="src", items=[_one_item(quantity=40)]))
+    clone = CBMService.clone_cbm_calculation(db, calc.calc_id, CloneCBMCalculationRequest(copy_items=False))
+    assert clone.total_cbm == 0.0
+    assert clone.recommended_shipping_method is None
+    assert clone.recommended_container_type is None
+    assert clone.recommended_container_count == 0
+
+
+def test_unknown_calc_is_404(db):
+    with pytest.raises(HTTPException) as exc:
+        CBMService.get_calculation_service(db, 987654)
+    assert exc.value.status_code == 404

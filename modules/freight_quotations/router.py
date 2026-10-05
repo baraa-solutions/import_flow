@@ -5,6 +5,8 @@ Freight Quotations REST Router (BP-008)
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.freight_quotations.schemas import (
@@ -32,6 +34,7 @@ router = APIRouter(
 def create_rfq(
     rfq_in: FreightRFQRequestCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     return FreightQuotationService.create_rfq(db, rfq_in)
 
@@ -50,6 +53,7 @@ def list_rfqs(
     project_id: Optional[int] = Query(None, description="Filter by Project ID"),
     status: Optional[str] = Query(None, description="Filter by RFQ status"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.view")),
 ):
     return FreightQuotationService.list_rfqs(
         db,
@@ -71,6 +75,7 @@ def list_rfqs(
 def get_rfq(
     rfq_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.view")),
 ):
     return FreightQuotationService.get_rfq(db, rfq_id)
 
@@ -84,6 +89,7 @@ def update_rfq(
     rfq_id: int,
     update_in: FreightRFQRequestUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     return FreightQuotationService.update_rfq(db, rfq_id, update_in)
 
@@ -97,6 +103,7 @@ def award_quotation(
     rfq_id: int,
     quotation_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     return FreightQuotationService.award_quotation(db, rfq_id, quotation_id)
 
@@ -109,6 +116,7 @@ def award_quotation(
 def soft_delete_rfq(
     rfq_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     return FreightQuotationService.soft_delete_rfq(db, rfq_id)
 
@@ -121,6 +129,7 @@ def soft_delete_rfq(
 def restore_rfq(
     rfq_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     return FreightQuotationService.restore_rfq(db, rfq_id)
 
@@ -133,6 +142,7 @@ def restore_rfq(
 def benchmark_rfq_quotes(
     rfq_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.view")),
 ):
     return FreightQuotationService.evaluate_and_rank_rfq_quotes(db, rfq_id)
 

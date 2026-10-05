@@ -29,6 +29,7 @@ from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_consultation.model import ClearanceExpenseType
 from modules.common import enum_codes
 from modules.auth.seed_rbac import seed_rbac
+from modules.common.system_parameters import seed_default_parameters
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
 from modules.financial_settlement.model import TaxRate, WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
 
@@ -573,6 +574,7 @@ class MasterDataSyncService:
         expense_catalog_res = self.sync_expense_catalog()
         guide_res = self.sync_experience_guide_seeds()
         tax_rates_added = self.sync_tax_rates()
+        system_parameters_added = seed_default_parameters(self.db)  # insert-only, never overwrites a configured value
 
         return {
             "status": "synchronized_cleanly",
@@ -586,5 +588,6 @@ class MasterDataSyncService:
             "expense_catalog": expense_catalog_res,
             "experience_guide": guide_res,
             "tax_rates_added": tax_rates_added,
+            "system_parameters_added": system_parameters_added,
         }
 

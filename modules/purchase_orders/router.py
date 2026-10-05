@@ -75,7 +75,7 @@ def create_purchase_order(
     current_user: User = Depends(require_permission("purchase_orders.create")),
 ):
     service = PurchaseOrderService(db)
-    return service.create(data)
+    return service.create(data, current_user_name=current_user.username)
 
 
 @router.put("/{po_id}", response_model=PurchaseOrderResponse)
@@ -93,20 +93,20 @@ def update_purchase_order(
 def delete_purchase_order(
     po_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("purchase_orders.edit")),
+    current_user: User = Depends(require_permission("purchase_orders.delete")),
 ):
     service = PurchaseOrderService(db)
-    return service.soft_delete(po_id)
+    return service.soft_delete(po_id, current_user_name=current_user.username)
 
 
 @router.post("/{po_id}/restore", response_model=PurchaseOrderResponse)
 def restore_purchase_order(
     po_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("purchase_orders.edit")),
+    current_user: User = Depends(require_permission("purchase_orders.delete")),
 ):
     service = PurchaseOrderService(db)
-    return service.restore(po_id)
+    return service.restore(po_id, current_user_name=current_user.username)
 
 
 @router.post("/{po_id}/allocations", response_model=POShipmentAllocationResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل شحن جزئي وتخصيص كمية لأمر الشراء")
@@ -117,7 +117,7 @@ def allocate_po_shipment(
     current_user: User = Depends(require_permission("purchase_orders.edit")),
 ):
     service = PurchaseOrderService(db)
-    return service.allocate_shipment(po_id, data)
+    return service.allocate_shipment(po_id, data, current_user_name=current_user.username)
 
 
 @router.get("/{po_id}/balance", response_model=POBalanceSummaryResponse, summary="استخراج ميزان أمر الشراء ونسبة الإنجاز والرصيد المتبقي")
@@ -138,7 +138,7 @@ def clone_purchase_order(
     current_user: User = Depends(require_permission("purchase_orders.create")),
 ):
     service = PurchaseOrderService(db)
-    return service.clone_purchase_order(po_id, payload)
+    return service.clone_purchase_order(po_id, payload, current_user_name=current_user.username)
 
 
 

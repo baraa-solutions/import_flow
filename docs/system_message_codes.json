@@ -365,6 +365,31 @@
       "body"
     ]
   },
+  "CONSULTATION_EXISTS": {
+    "params": [
+      "consultation_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CUSTOMS_FX_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CUSTOMS_MIXED_CURRENCY": {
+    "params": [
+      "currencies"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DAILY_REPORT_FAILED": {
     "params": [
       "error"
@@ -1502,6 +1527,14 @@
       "reason"
     ]
   },
+  "IR_ASSESSMENT_EXISTS": {
+    "params": [
+      "assessment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_FILE_ON_HOLD": {
     "params": [
       "phase_id",
@@ -2496,6 +2529,122 @@
       "body"
     ]
   },
+  "OVER_SHIPPED": {
+    "params": [
+      "item_code",
+      "ordered_qty",
+      "po_number",
+      "shipped_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_ITEMS_ALLOCATED": {
+    "params": [
+      "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_NUMBER_TAKEN": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_DIMENSIONS_MISSING": {
+    "params": [
+      "item_code",
+      "line_num"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_GROSS_BELOW_NET": {
+    "params": [
+      "gross_qty",
+      "item_code",
+      "line_num",
+      "net_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_HS_MISSING_IN_INVOICE": {
+    "params": [
+      "hs_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_HS_MISSING_IN_PACKING": {
+    "params": [
+      "hs_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_HS_QTY_MISMATCH": {
+    "params": [
+      "hs_code",
+      "invoice_qty",
+      "packing_qty",
+      "signed_difference"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_NEGATIVE_WEIGHT": {
+    "params": [
+      "item_code",
+      "line_num"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_NO_ITEMS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_PL_TOTAL_QTY_MISMATCH": {
+    "params": [
+      "invoice_qty",
+      "packing_qty",
+      "signed_difference"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PREFILL_LINE_NO_HS": {
+    "params": [
+      "item_code",
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PREFILL_NO_HS": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "REQ_TASK_COA": {
     "params": [
       "acid_number",
@@ -2615,6 +2764,14 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "SCENARIO_SESSION_EXISTS": {
+    "params": [
+      "session_code"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "TASK_AUTO_PHASE_FOLLOW_UP": {

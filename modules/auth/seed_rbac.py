@@ -13,9 +13,10 @@ Idempotently seeds:
 3. Assigns corresponding role_permissions to each role.
 4. Migrates existing system users to link them to their standard role_id.
 """
-from typing import Dict, List, Any
+from typing import Any, Dict, List, Tuple
 from sqlalchemy.orm import Session
-from modules.users.model import User, Role, Permission, RolePermission
+from modules.common.system_parameters import SystemParameter
+from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 
 
 PERMISSIONS_CATALOG = [
@@ -33,6 +34,13 @@ PERMISSIONS_CATALOG = [
     {"code": "purchase_orders.view", "module": "purchase_orders", "action": "view", "en": "View Purchase Orders", "ar": "عرض أوامر الشراء", "desc": "Can view purchase orders and line item items"},
     {"code": "purchase_orders.create", "module": "purchase_orders", "action": "create", "en": "Create Purchase Order", "ar": "إنشاء أمر شراء", "desc": "Can issue new purchase orders"},
     {"code": "purchase_orders.edit", "module": "purchase_orders", "action": "edit", "en": "Edit Purchase Order", "ar": "تعديل أمر شراء", "desc": "Can modify line items, quantities, and terms in POs"},
+    {"code": "purchase_orders.delete", "module": "purchase_orders", "action": "delete", "en": "Delete / Restore Purchase Order", "ar": "حذف واستعادة أمر شراء", "desc": "Can soft-delete purchase orders and restore deleted ones"},
+
+    # 3b. Import planning tools (Phase 1)
+    {"code": "cbm.manage", "module": "cbm_calculator", "action": "manage", "en": "Manage CBM Calculations", "ar": "إدارة حسابات الحجم والأوزان (CBM)", "desc": "Can create, edit, delete and link CBM calculations to purchase orders"},
+    {"code": "shipping_scenarios.manage", "module": "shipping_scenarios", "action": "manage", "en": "Manage Shipping Scenarios", "ar": "إدارة سيناريوهات الشحن", "desc": "Can create, edit, delete and select shipping scenario evaluations"},
+    {"code": "customs_consultation.manage", "module": "customs_consultation", "action": "manage", "en": "Manage Customs Consultations", "ar": "إدارة الاستشارات الجمركية", "desc": "Can create and edit customs consultation sessions, broker quotes and price lists"},
+    {"code": "import_requirements.manage", "module": "import_requirements", "action": "manage", "en": "Manage Import Requirements", "ar": "إدارة متطلبات الاستيراد", "desc": "Can create and edit import requirement assessments"},
 
     # 4. Freight Booking
     {"code": "freight_booking.view", "module": "freight_booking", "action": "view", "en": "View Freight Bookings", "ar": "عرض حجوزات الشحن", "desc": "Can view freight booking requests and reservations"},
@@ -42,6 +50,9 @@ PERMISSIONS_CATALOG = [
     # 5. Cargo Shipping & Tracking
     {"code": "cargo_shipping.view", "module": "cargo_shipping", "action": "view", "en": "View Cargo Shipping", "ar": "عرض حركة الشحن وتتبع البواخر", "desc": "Can view vessel schedules and tracking waypoints"},
     {"code": "cargo_shipping.update", "module": "cargo_shipping", "action": "update", "en": "Update Shipping Status", "ar": "تحديث حالة السفينة وتتبع المسار", "desc": "Can log arrival notices, vessel discharge, and milestones"},
+    {"code": "cargo_shipping.approve", "module": "cargo_shipping", "action": "approve", "en": "Approve Shipping Documents (Level 2)", "ar": "الاعتماد الثاني لمستندات الشحن وتقدم CargoX", "desc": "Can grant level-2 approval of cargo shipping documents and advance CargoX stages"},
+    {"code": "cargo_insurance.view", "module": "cargo_insurance", "action": "view", "en": "View Cargo Insurance", "ar": "عرض وثائق تأمين البضائع", "desc": "Can view cargo insurance certificates and premium calculations"},
+    {"code": "cargo_insurance.manage", "module": "cargo_insurance", "action": "manage", "en": "Manage Cargo Insurance", "ar": "إصدار وتعديل وثائق تأمين البضائع", "desc": "Can create, edit, issue and cancel cargo insurance certificates"},
 
     # 6. Customs Clearance
     {"code": "customs_clearance.view", "module": "customs_clearance", "action": "view", "en": "View Customs Files", "ar": "عرض ملفات التخليص الجمركي", "desc": "Can view customs clearance records, 46 forms, and declarations"},
@@ -59,10 +70,12 @@ PERMISSIONS_CATALOG = [
     # 9. Import Documentation
     {"code": "import_documentation.view", "module": "import_documentation", "action": "view", "en": "View Shipping Documents", "ar": "استعراض مستندات الشحن والمطابقة", "desc": "Can view packing lists, commercial invoices, and certificates of origin"},
     {"code": "import_documentation.upload", "module": "import_documentation", "action": "upload", "en": "Upload & Approve Docs", "ar": "رفع واعتماد مستندات الشحنة", "desc": "Can upload original documents and execute reconciliation"},
+    {"code": "import_documentation.approve", "module": "import_documentation", "action": "approve", "en": "Approve Shipping Documents", "ar": "اعتماد مستندات الشحن (البوليصة المسودة)", "desc": "Can approve draft B/L reviews and sign off shipping documents"},
 
     # 10. Financial Approval
     {"code": "financial_approval.view", "module": "financial_approval", "action": "view", "en": "View Payment Requests", "ar": "عرض طلبات الصرف وموازنات الاستيراد", "desc": "Can review budget requests, customs duty vouchers, and payments"},
     {"code": "financial_approval.approve", "module": "financial_approval", "action": "approve", "en": "Approve Payments", "ar": "اعتماد طلبات الصرف المالي", "desc": "Can grant financial approval for customs duties, freight, and invoices"},
+    {"code": "financial_approval.manage", "module": "financial_approval", "action": "manage", "en": "Create & Edit Payment Requests", "ar": "إنشاء وتعديل طلبات الصرف والموازنات", "desc": "Can create, edit and delete draft payment requests and import budgets (approval needs financial_approval.approve)"},
     {"code": "budget.sync_variance", "module": "financial_approval", "action": "sync_variance", "en": "Sync Budget Variance", "ar": "مزامنة فوارق الميزانية بالتكاليف الحية", "desc": "Can synchronize live upstream variances, override hard blocks with justification, and manage budget revisions"},
 
     # 11. Financial Settlement & Landed Cost
@@ -120,13 +133,16 @@ ROLES_CONFIG = [
             "import_files.view", "import_files.close",
             "lifecycle_board.view", "lifecycle_board.advance",
             "purchase_orders.view",
+            "purchase_orders.delete", "cbm.manage", "shipping_scenarios.manage",
+            "customs_consultation.manage", "import_requirements.manage",
             "freight_booking.view", "freight_booking.confirm",
-            "cargo_shipping.view",
+            "cargo_insurance.view",
+            "cargo_shipping.view", "cargo_shipping.approve",
             "customs_clearance.view", "customs_clearance.release",
             "customs_tariff.view",
             "cargox_nafeza.view",
-            "import_documentation.view",
-            "financial_approval.view", "financial_approval.approve", "budget.sync_variance",
+            "import_documentation.view", "import_documentation.approve",
+            "financial_approval.view", "financial_approval.approve", "financial_approval.manage", "budget.sync_variance",
             "financial_settlement.view", "financial_settlement.calculate",
             "warehouse_receiving.view",
             "demurrage_detention.view",
@@ -147,9 +163,13 @@ ROLES_CONFIG = [
             "import_files.view", "import_files.create", "import_files.edit",
             "lifecycle_board.view", "lifecycle_board.advance",
             "purchase_orders.view", "purchase_orders.create", "purchase_orders.edit",
+            "cbm.manage", "shipping_scenarios.manage", "import_requirements.manage",
+            "customs_clearance.view",  # requirements / shipment-update screens read GET /customs-consultations
+            "financial_approval.manage",  # advance / duty payment requests raised from operational screens
             "freight_booking.view", "freight_booking.create", "freight_booking.confirm",
-            "cargo_shipping.view", "cargo_shipping.update",
-            "import_documentation.view", "import_documentation.upload",
+            "cargo_insurance.view", "cargo_insurance.manage",
+            "cargo_shipping.view", "cargo_shipping.update", "cargo_shipping.approve",
+            "import_documentation.view", "import_documentation.upload", "import_documentation.approve",
             "warehouse_receiving.view", "warehouse_receiving.receive",
             "demurrage_detention.view", "demurrage_detention.manage",
             "quotations.view", "quotations.manage",
@@ -167,9 +187,12 @@ ROLES_CONFIG = [
             "import_files.view",
             "lifecycle_board.view", "lifecycle_board.advance",
             "customs_clearance.view", "customs_clearance.update", "customs_clearance.release",
+            "customs_consultation.manage",
+            "financial_approval.manage",  # customs duty payment requests
+            "quotations.view",  # consultation screen reads GET /shipping-scenarios
             "customs_tariff.view", "customs_tariff.edit",
             "cargox_nafeza.view", "cargox_nafeza.manage",
-            "import_documentation.view", "import_documentation.upload",
+            "import_documentation.view", "import_documentation.upload", "import_documentation.approve",
             "demurrage_detention.view",
             "master_data.view",
             "reports.view",
@@ -185,7 +208,7 @@ ROLES_CONFIG = [
             "import_files.view",
             "lifecycle_board.view",
             "purchase_orders.view",
-            "financial_approval.view", "financial_approval.approve", "budget.sync_variance",
+            "financial_approval.view", "financial_approval.approve", "financial_approval.manage", "budget.sync_variance",
             "financial_settlement.view", "financial_settlement.calculate",
             "quotations.view",
             "master_data.view",
@@ -203,6 +226,7 @@ ROLES_CONFIG = [
             "lifecycle_board.view",
             "purchase_orders.view",
             "freight_booking.view",
+            "cargo_insurance.view",
             "cargo_shipping.view",
             "customs_clearance.view",
             "customs_tariff.view",
@@ -222,10 +246,91 @@ ROLES_CONFIG = [
 ]
 
 
+# Built-in roles: a code from ROLES_CONFIG is linked only when the role is created, or when the code itself is
+# inserted into the catalog in the same run. Codes an admin removes from a built-in role stay removed after a
+# restart. Grants added later to an existing code go through ONE_TIME_ROLE_GRANTS.
+
+# New permission code -> the existing code whose holders get it ONCE, in the run that inserts the new code:
+# every role (built-in or custom) holding the source code and every per-user override of it (a revoke is copied
+# as a revoke). It never runs again, so removing the new code from any role afterwards sticks.
+# purchase_orders.delete is deliberately absent: delete/restore is manager-level (ADMIN, GENERAL_MANAGER).
+DERIVED_GRANTS: Dict[str, str] = {
+    "cbm.manage": "purchase_orders.edit",
+    "shipping_scenarios.manage": "quotations.manage",
+    "customs_consultation.manage": "customs_clearance.update",
+    "import_requirements.manage": "import_files.edit",
+    "import_documentation.approve": "import_documentation.upload",
+    "financial_approval.manage": "financial_approval.approve",
+    "cargo_shipping.approve": "cargo_shipping.update",
+    "cargo_insurance.view": "freight_booking.view",
+    "cargo_insurance.manage": "freight_booking.create",
+}
+
+
+# Grants of EXISTING codes added to built-in roles after their creation: batch id -> {role code: codes}. Applied
+# once per database (batch ids recorded in system_parameters[RBAC_GRANT_BATCHES_KEY]); fresh databases get the
+# same links from ROLES_CONFIG and just record the batch.
+RBAC_GRANT_BATCHES_KEY = "RBAC_ONE_TIME_GRANT_BATCHES"
+ONE_TIME_ROLE_GRANTS: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    # Phase 1 read access for screens that read another module's list (lead decision 2026-10-05)
+    "2026-10-05-phase1-read-grants": {
+        "CUSTOMS_OFFICER": ("quotations.view",),
+        "LOGISTICS_OPERATOR": ("customs_clearance.view",),
+    },
+}
+
+
+def _apply_one_time_role_grants(db: Session, roles: Dict[str, Role], perms: Dict[str, Permission]) -> int:
+    """Link every not yet applied ONE_TIME_ROLE_GRANTS batch and record it. No commit (caller commits)."""
+    marker = db.query(SystemParameter).filter(SystemParameter.param_key == RBAC_GRANT_BATCHES_KEY).first()
+    applied = set(filter(None, (marker.param_value if marker else "").split(",")))
+    linked = 0
+    for batch_id, grants in ONE_TIME_ROLE_GRANTS.items():
+        if batch_id in applied:
+            continue
+        for role_code, codes in grants.items():
+            role = roles.get(role_code)
+            if role is None:
+                continue
+            have = {rp.permission_id for rp in db.query(RolePermission).filter(RolePermission.role_id == role.role_id)}
+            for code in codes:
+                perm = perms.get(code)
+                if perm is not None and perm.permission_id not in have:
+                    db.add(RolePermission(role_id=role.role_id, permission_id=perm.permission_id))
+                    linked += 1
+        applied.add(batch_id)
+    value = ",".join(sorted(applied))
+    if marker is None:
+        db.add(SystemParameter(param_key=RBAC_GRANT_BATCHES_KEY, param_value=value, created_by="system", updated_by="system",
+                               description="One-time RBAC grant batches already applied (seed_rbac)"))
+    elif marker.param_value != value:
+        marker.param_value = value
+        marker.updated_by = "system"
+    return linked
+
+
+def _copy_grants(db: Session, new_perm: Permission, source_perm: Permission) -> int:
+    """Grant ``new_perm`` to every role holding ``source_perm`` and copy per-user overrides of it."""
+    linked = 0
+    role_ids = {rp.role_id for rp in db.query(RolePermission).filter(RolePermission.permission_id == source_perm.permission_id)}
+    have = {rp.role_id for rp in db.query(RolePermission).filter(RolePermission.permission_id == new_perm.permission_id)}
+    for role_id in sorted(role_ids - have):
+        db.add(RolePermission(role_id=role_id, permission_id=new_perm.permission_id))
+        linked += 1
+    user_have = {up.user_id for up in db.query(UserPermission).filter(UserPermission.permission_id == new_perm.permission_id)}
+    for up in db.query(UserPermission).filter(UserPermission.permission_id == source_perm.permission_id).all():
+        if up.user_id not in user_have:
+            db.add(UserPermission(user_id=up.user_id, permission_id=new_perm.permission_id,
+                                  is_granted=up.is_granted, granted_by=up.granted_by))
+            linked += 1
+    return linked
+
+
 def seed_rbac(db: Session) -> Dict[str, Any]:
     """
     Idempotent seeding of permissions, standard roles, role_permissions,
-    and user role linkages.
+    and user role linkages. One transaction (flushes, single final commit): codes inserted in this run and their
+    role links / grant copies are committed together, so a crash never leaves a "known" code without its links.
     """
     perms_added = 0
     roles_added = 0
@@ -234,6 +339,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
 
     # 1. Upsert Permissions
     existing_perms = {p.permission_code: p for p in db.query(Permission).all()}
+    new_codes = set()
     for item in PERMISSIONS_CATALOG:
         code = item["code"]
         if code not in existing_perms:
@@ -247,6 +353,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
             )
             db.add(perm)
             perms_added += 1
+            new_codes.add(code)
         else:
             # Update fields if modified
             perm = existing_perms[code]
@@ -256,10 +363,17 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
             perm.name_ar = item["ar"]
             perm.description = item.get("desc")
 
-    db.commit()
+    db.flush()
 
     # Re-fetch all permissions map
     all_perms_map = {p.permission_code: p for p in db.query(Permission).all()}
+
+    # 1b. One-time grant copy for newly introduced dedicated codes (existing DBs only: the source code
+    # must already exist, otherwise this is a fresh catalog and the role config below is authoritative).
+    for new_code, source_code in DERIVED_GRANTS.items():
+        if new_code in new_codes and source_code in existing_perms:
+            role_perms_linked += _copy_grants(db, all_perms_map[new_code], all_perms_map[source_code])
+    db.flush()
 
     # 2. Upsert Roles & Role Permissions
     existing_roles = {r.role_code: r for r in db.query(Role).all()}
@@ -267,6 +381,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
     for role_data in ROLES_CONFIG:
         code = role_data["code"]
         role = existing_roles.get(code)
+        role_created = role is None
         if not role:
             role = Role(
                 role_code=code,
@@ -277,7 +392,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
                 is_active=True,
             )
             db.add(role)
-            db.commit()
+            db.flush()
             db.refresh(role)
             roles_added += 1
             existing_roles[code] = role
@@ -286,15 +401,17 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
             role.name_ar = role_data["name_ar"]
             role.description = role_data.get("desc")
             role.is_system_role = role_data.get("is_system", False)
-            db.commit()
+            db.flush()
 
-        # Link permissions to role
+        # Link permissions to the role: all of them for a new role, only codes inserted in this run otherwise
         target_perm_codes = role_data["permissions"]
         if "*" in target_perm_codes:
-            # All permissions
-            perm_ids = [p.permission_id for p in all_perms_map.values()]
-        else:
-            perm_ids = [all_perms_map[c].permission_id for c in target_perm_codes if c in all_perms_map]
+            target_perm_codes = list(all_perms_map)
+        perm_ids = [
+            all_perms_map[c].permission_id
+            for c in target_perm_codes
+            if c in all_perms_map and (role_created or c in new_codes)
+        ]
 
         current_rp_perm_ids = {
             rp.permission_id for rp in db.query(RolePermission).filter(RolePermission.role_id == role.role_id).all()
@@ -306,7 +423,9 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
                 db.add(rp)
                 role_perms_linked += 1
 
-    db.commit()
+    db.flush()  # the one-time batches must see the links added above (no duplicate rows)
+    role_perms_linked += _apply_one_time_role_grants(db, existing_roles, all_perms_map)
+    db.flush()
 
     # 3. Migrate / Link Existing Users to their Roles
     admin_role = existing_roles.get("ADMIN")
@@ -326,7 +445,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
                 u.role_id = operator_role.role_id
                 users_migrated += 1
 
-    db.commit()
+    db.commit()  # the whole seed is one transaction: a failure anywhere leaves nothing half-linked
 
     return {
         "permissions_catalog_total": len(PERMISSIONS_CATALOG),

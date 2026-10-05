@@ -1,7 +1,43 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from modules.common import enum_codes
+from modules.common.cargo_math import LengthUnit
+from modules.common.system_messages import SystemMessageItem  # noqa: F401  (re-exported for the PO API)
+
+# Declared packing-list weight UOM (enum_codes.MEASURE_UNIT; KG is exported to CargoX as KGM).
+# A label only: every *_kg value is kilograms whatever this says (no conversion, CTO decision Q6).
+PACKING_WEIGHT_UNITS = ("KG", "GRM", "STN", "SET")
+DEFAULT_WEIGHT_UNIT = "KG"
+
+
+def normalize_weight_unit(value: Any) -> str:
+    """Blank -> KG; aliases / legacy spellings (KGM, kg, TON ...) -> their code; anything else raises ValueError."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return DEFAULT_WEIGHT_UNIT
+    code = enum_codes.normalize(enum_codes.MEASURE_UNIT, value)
+    if code not in PACKING_WEIGHT_UNITS:
+        raise ValueError(f"weight_unit must be one of {', '.join(PACKING_WEIGHT_UNITS)}")
+    return code
+
+
+def stored_weight_unit(value: Any) -> str:
+    """A stored / legacy weight_unit as an allowed code: the mapped code when it is one, else KG (old clients
+    stored package words such as CT / CTN there). Used when reading rows, never to validate requests."""
+    try:
+        return normalize_weight_unit(value)
+    except ValueError:
+        return DEFAULT_WEIGHT_UNIT
+
+
+def _upper_code(value: Optional[str]) -> Optional[str]:
+    """Business reference typed by the user: trimmed, upper-cased; blank -> None (auto-generated)."""
+    if value is None:
+        return None
+    text = value.strip().upper()
+    return text or None
 
 
 class POLineItemBase(BaseModel):
@@ -20,7 +56,7 @@ class POLineItemBase(BaseModel):
 
 
 class POLineItemCreate(POLineItemBase):
-    pass
+    item_id: Optional[int] = Field(None, description="Existing line id on update: the row is updated in place. Omit for a new line.")
 
 
 class POLineItemResponse(POLineItemBase):
@@ -48,13 +84,13 @@ class PackingListItemBase(BaseModel):
     qty_pcs: float = Field(1.0, gt=0)
     qty_pkg: float = Field(1.0, gt=0)
     package_type: Optional[str] = Field("Carton", max_length=50)
-    unit: Optional[str] = Field("cm", max_length=10)
+    unit: LengthUnit = Field("cm", description="Unit of length / width / height in the request (mm, cm or m); stored as cm")
     length_cm: Optional[float] = Field(0.0, ge=0)
     width_cm: Optional[float] = Field(0.0, ge=0)
     height_cm: Optional[float] = Field(0.0, ge=0)
     net_weight_unit_kg: float = Field(0.0, ge=0)
     gross_weight_unit_kg: float = Field(0.0, ge=0)
-    weight_unit: Optional[str] = Field("KGM", max_length=30, description="Weight Unit of Measure e.g. KGM, GRM, TON, STN")
+    weight_unit: Optional[str] = Field("KG", max_length=30, description="Declared weight UOM code: KG, GRM, STN or SET (KGM accepted)")
     is_stackable: bool = Field(True, description="Stackable vs Non-stackable cargo instruction")
     total_cbm: Optional[float] = Field(0.0, ge=0, description="CBM volume either calculated or directly entered")
     total_net_weight_kg: Optional[float] = Field(0.0, ge=0)
@@ -62,7 +98,12 @@ class PackingListItemBase(BaseModel):
 
 
 class PackingListItemCreate(PackingListItemBase):
-    pass
+    packing_item_id: Optional[int] = Field(None, description="Existing packing row id on update: the row is updated in place. Omit for a new row.")
+
+    @field_validator("weight_unit", mode="before")
+    @classmethod
+    def _weight_unit(cls, value: Any) -> str:
+        return normalize_weight_unit(value)
 
 
 class PackingListItemResponse(PackingListItemBase):
@@ -106,6 +147,8 @@ class PackingListValidationReport(BaseModel):
     missing_hs_in_packing: List[str] = Field(default_factory=list)
     missing_hs_in_invoice: List[str] = Field(default_factory=list)
     hs_code_summary: List[PackingListSummaryByHSCode] = Field(default_factory=list)
+    # Coded twin of errors + warnings (same order); errors / warnings keep their English text for old clients.
+    messages: List[SystemMessageItem] = Field(default_factory=list)
 
 
 class PalletPlanItem(BaseModel):
@@ -149,11 +192,16 @@ class PurchaseOrderBase(BaseModel):
 
 class PurchaseOrderCreate(PurchaseOrderBase):
     po_number: Optional[str] = Field(None, max_length=50, description="Auto-generated if empty (PO-YYYY-XXX)")
+
+    _po_number = field_validator("po_number")(lambda cls, v: _upper_code(v))
     items: List[POLineItemCreate] = Field(default_factory=list)
     packing_list_items: List[PackingListItemCreate] = Field(default_factory=list)
 
 
 class PurchaseOrderUpdate(BaseModel):
+    # Unknown keys (e.g. the removed ``is_active``: use DELETE / restore) are ignored.
+    model_config = ConfigDict(extra="ignore")
+
     import_file_id: Optional[int] = None
     po_reference: Optional[str] = Field(None, max_length=200, description="اسم أو مرجع أمر الشراء")
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
@@ -167,7 +215,7 @@ class PurchaseOrderUpdate(BaseModel):
     expected_delivery_date: Optional[datetime] = None
     exchange_rate: Optional[float] = Field(None, gt=0)
     payment_terms: Optional[str] = Field(None, max_length=100)
-    status: Optional[str] = Field(None, max_length=50) # Draft, Approved, In Transit, Closed, Cancelled
+    status: Optional[str] = Field(None, max_length=50, description="PO_STATUS code (legacy labels accepted)")
     notes: Optional[str] = None
     pallet_count: Optional[int] = Field(None, ge=0)
     pallet_type: Optional[str] = Field(None, max_length=100)
@@ -176,7 +224,6 @@ class PurchaseOrderUpdate(BaseModel):
     pallet_width_cm: Optional[float] = Field(None, ge=0)
     pallet_height_cm: Optional[float] = Field(None, ge=0)
     pallet_plan: Optional[List[PalletPlanItem]] = None
-    is_active: Optional[bool] = None
     version: Optional[int] = Field(None, description="Current version of the record for optimistic concurrency control")
     items: Optional[List[POLineItemCreate]] = None
     packing_list_items: Optional[List[PackingListItemCreate]] = None
@@ -194,10 +241,12 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     total_gross_weight_kg: float
     total_net_weight_kg: float
     total_packages_count: int
-    status: str
+    status: str  # PO_STATUS code
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     project_name: Optional[str] = None
     company_name: Optional[str] = None
     supplier_name: Optional[str] = None
@@ -235,6 +284,9 @@ class POShipmentAllocationResponse(BaseModel):
     shipping_date: datetime
     status: str
     notes: Optional[str] = None
+    created_by: Optional[str] = None
+    # Warnings about this allocation, e.g. OVER_SHIPPED (over-allocation is allowed, CTO decision Q4).
+    messages: List[SystemMessageItem] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -278,6 +330,8 @@ class POBalanceSummaryResponse(BaseModel):
 
 class ClonePurchaseOrderRequest(BaseModel):
     new_po_number: str = Field(..., min_length=2, max_length=50, description="Unique new PO number for the cloned purchase order")
+
+    _new_po_number = field_validator("new_po_number")(lambda cls, v: _upper_code(v))
     new_po_reference: Optional[str] = Field(None, max_length=200, description="Optional new display reference or title")
     copy_items: bool = Field(True, description="Copy commercial PO line items (default True per UX-CLONE-011)")
     copy_packing_list: bool = Field(True, description="Copy packing list items (default True)")

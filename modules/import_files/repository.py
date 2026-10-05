@@ -3,7 +3,7 @@ Repository Layer for Import Files Master & Tracking Module
 """
 
 import re
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -256,6 +256,20 @@ def get_import_file_by_id(db: Session, import_file_id: int) -> Optional[ImportFi
         ImportFile.import_file_id == import_file_id,
         ImportFile.is_active == True
     ).first()
+
+
+def codes_by_ids(db: Session, ids: Iterable[Optional[int]]) -> Dict[int, str]:
+    """Display code per import file id (``import_file_code``, else ``custom_file_number``), one query.
+    Soft-deleted files are included (the code is still the business reference); ids without a code are omitted."""
+    wanted = {i for i in ids if i is not None}
+    if not wanted:
+        return {}
+    rows = (
+        db.query(ImportFile.import_file_id, ImportFile.import_file_code, ImportFile.custom_file_number)
+        .filter(ImportFile.import_file_id.in_(wanted))
+        .all()
+    )
+    return {fid: (code or custom) for fid, code, custom in rows if (code or custom)}
 
 
 def get_import_file_by_code(db: Session, code_or_custom_num: str) -> Optional[ImportFile]:

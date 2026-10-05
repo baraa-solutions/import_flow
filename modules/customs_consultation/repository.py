@@ -5,7 +5,6 @@ Customs Consultation & Broker Price Lists Database Repository (BP-009)
 from datetime import datetime, date, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from modules.customs_consultation.model import (
     ClearanceExpenseType,
     BrokerPriceList,
@@ -359,8 +358,7 @@ class CustomsConsultationRepository:
             )
             db.add(db_quote)
 
-        db.commit()
-        db.refresh(db_session)
+        db.flush()
         return db_session
 
     @staticmethod
@@ -477,22 +475,57 @@ class CustomsConsultationRepository:
             db_session.total_broker_fees_egp = total_broker_fees
 
         db_session.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_session)
+        db.flush()
+        # Child rows were replaced through bulk deletes: reload the collections on next access.
+        db.expire(db_session, ["checklist_items", "broker_quote_items"])
         return db_session
 
     @staticmethod
     def soft_delete(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationSession:
         db_session.is_active = False
         db_session.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_session)
+        db.flush()
         return db_session
 
     @staticmethod
     def restore(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationSession:
         db_session.is_active = True
         db_session.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_session)
+        db.flush()
         return db_session
+
+    # ── Cross-module reads used by the consultation service ─────────────────────
+
+    @staticmethod
+    def latest_reconciliation(db: Session, import_file_id: int):
+        """Latest active PO / packing reconciliation session (final invoice) of the import file."""
+        from modules.import_documentation.model import POPackingReconciliationSession
+
+        return (
+            db.query(POPackingReconciliationSession)
+            .filter(
+                POPackingReconciliationSession.import_file_id == import_file_id,
+                POPackingReconciliationSession.is_active == True,
+            )
+            .order_by(POPackingReconciliationSession.session_id.desc())
+            .first()
+        )
+
+    @staticmethod
+    def active_po_line_items(db: Session, import_file_id: int) -> list:
+        """Line items of the active purchase orders linked to the import file, in PO / line order."""
+        from modules.purchase_orders.model import POLineItem, PurchaseOrder
+
+        from sqlalchemy.orm import joinedload
+
+        return (
+            db.query(POLineItem)
+            .join(PurchaseOrder, POLineItem.po_id == PurchaseOrder.po_id)
+            .options(
+                joinedload(POLineItem.tariff),
+                joinedload(POLineItem.purchase_order).joinedload(PurchaseOrder.currency),
+            )
+            .filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True)
+            .order_by(PurchaseOrder.po_id, POLineItem.item_id)
+            .all()
+        )

@@ -1,9 +1,9 @@
-import math
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.cbm_calculator.model import CBMCalculation
 from modules.cbm_calculator.repository import CBMRepository
 from modules.cbm_calculator.schemas import (
     CBMCalculationCreate,
@@ -14,156 +14,130 @@ from modules.cbm_calculator.schemas import (
     CBMQuickCalcResponse,
     CloneCBMCalculationRequest,
 )
-
 from modules.cbm_calculator.validators import CBMValidator
+from modules.common import cargo_math, enum_codes
+from modules.common.validators import get_or_404
+from modules.common.system_parameters import DEFAULT_AIR_VOLUMETRIC_KG_PER_CBM, air_volumetric_kg_per_cbm
+from modules.import_files.repository import codes_by_ids
 from modules.projects.model import Project
 from modules.purchase_orders.model import PurchaseOrder
+
+# "Not preloaded" marker for _to_response: list rows pass their (possibly None) values and never re-query.
+_LOOKUP: Any = object()
+
+
+def _containers_text(count: int) -> str:
+    return f"{count} x {cargo_math.CONTAINER_C40_HC}"
+
+
+def _method_code(value: Optional[str]) -> Optional[str]:
+    return enum_codes.normalize(enum_codes.SHIPPING_METHOD, value) if value else value
+
+
+def _container_code(value: Optional[str]) -> Optional[str]:
+    # The legacy "N/A (Air Freight Cargo)" text normalizes to None (no container for air).
+    return enum_codes.normalize(enum_codes.CONTAINER_TYPE, value) if value else None
 
 
 class CBMService:
 
     @staticmethod
-    def convert_to_meter(length: float, width: float, height: float, unit: str) -> Tuple[float, float, float]:
-        u = (unit or "cm").lower().strip()
-        if u == "mm":
-            return length / 1000.0, width / 1000.0, height / 1000.0
-        elif u == "cm":
-            return length / 100.0, width / 100.0, height / 100.0
-        elif u == "m":
-            return length, width, height
-        return length / 100.0, width / 100.0, height / 100.0
-
-    @staticmethod
-    def calculate_cbm(length_m: float, width_m: float, height_m: float, qty: int) -> float:
-        return qty * length_m * width_m * height_m
-
-    @staticmethod
-    def calculate_volumetric_weight(length_m: float, width_m: float, height_m: float, qty: int) -> float:
-        length_cm = length_m * 100.0
-        width_cm = width_m * 100.0
-        height_cm = height_m * 100.0
-        return (qty * length_cm * width_cm * height_cm) / 6000.0
-
-    @staticmethod
-    def compute_items_and_totals(items: List[CBMItemCreate]) -> Tuple[List[dict], dict]:
-        """
-        Calculates line item measurements, volumetric weight, total CBM,
-        air chargeable weight, and container recommendations.
-        """
+    def compute_items_and_totals(items: List[CBMItemCreate], kg_per_cbm: float) -> Tuple[List[dict], dict]:
+        """Line measurements, volumetric / chargeable weight (``kg_per_cbm`` = configurable air factor),
+        and the shipping-method / container recommendation as codes."""
         CBMValidator.validate_items(items)
 
         computed_items = []
         total_qty = 0
         sum_cbm = 0.0
         sum_gross_wt = 0.0
-        sum_volumetric_wt = 0.0
 
         for item in items:
-            line_qty = item.quantity
-            unit = getattr(item, "unit", "cm") or "cm"
-            l_m, w_m, h_m = CBMService.convert_to_meter(item.length, item.width, item.height, unit)
-
-            line_cbm = CBMService.calculate_cbm(l_m, w_m, h_m, line_qty)
-            line_volumetric_wt = CBMService.calculate_volumetric_weight(l_m, w_m, h_m, line_qty)
-            line_gross_wt = line_qty * item.gross_weight_per_unit_kg
-
+            qty = item.quantity
+            l_m, w_m, h_m = cargo_math.to_metres(item.length, item.width, item.height, item.unit)
+            line_cbm = qty * l_m * w_m * h_m
+            line_gross_wt = qty * item.gross_weight_per_unit_kg
             sum_cbm += line_cbm
             sum_gross_wt += line_gross_wt
-            sum_volumetric_wt += line_volumetric_wt
-            total_qty += line_qty
+            total_qty += qty
 
             computed_items.append({
                 "package_type": item.package_type,
-                "quantity": line_qty,
+                "quantity": qty,
                 "length": item.length,
                 "width": item.width,
                 "height": item.height,
-                "unit": unit,
+                "unit": item.unit,
                 "length_cm": round(l_m * 100.0, 2),
                 "width_cm": round(w_m * 100.0, 2),
                 "height_cm": round(h_m * 100.0, 2),
                 "gross_weight_per_unit_kg": item.gross_weight_per_unit_kg,
                 "total_cbm": round(line_cbm, 4),
-                "volumetric_weight_kg": round(line_volumetric_wt, 2),
+                "volumetric_weight_kg": round(cargo_math.volumetric_weight_kg(line_cbm, kg_per_cbm), 2),
                 "total_gross_weight_kg": round(line_gross_wt, 2),
-                "is_stackable": getattr(item, "is_stackable", True),
+                "is_stackable": item.is_stackable,
             })
 
         total_cbm = round(sum_cbm, 4)
         total_gross_weight_kg = round(sum_gross_wt, 2)
-        total_volumetric_weight_kg = round(sum_volumetric_wt, 2)
-
-        # Air Chargeable Weight = max(Gross Weight, Volumetric Weight)
-        air_chargeable_weight_kg = round(max(total_gross_weight_kg, total_volumetric_weight_kg), 2)
-
-        # Recommendation Logic
-        if total_cbm <= 1.5 and total_gross_weight_kg <= 300.0:
-            rec_method = "Air Freight (شحن جوي)"
-            rec_container_type = "N/A (Air Freight Cargo)"
-            rec_container_count = 0
-        elif total_cbm <= 15.0:
-            rec_method = "LCL Ocean Freight (شحن بحري تجميعي)"
-            rec_container_type = "LCL Consolidation Container"
-            rec_container_count = 1
-        else:
-            rec_method = "FCL Container (حاوية كاملة بحرية)"
-            if total_cbm <= 33.0:
-                rec_container_type = "20FT Standard Container (20' ST)"
-                rec_container_count = 1
-            elif total_cbm <= 67.0:
-                rec_container_type = "40FT Standard Container (40' ST)"
-                rec_container_count = 1
-            elif total_cbm <= 76.0:
-                rec_container_type = "40FT High Cube Container (40' HC)"
-                rec_container_count = 1
-            else:
-                rec_container_count = math.ceil(total_cbm / 76.0)
-                rec_container_type = f"40FT High Cube Containers (40' HC)"
-
-        # Smart Hybrid vs Flat Only calculations
-        count_40hc_hybrid = math.ceil(total_cbm / 74.0) if total_cbm > 0 else 1
-        count_40hc_flat = math.ceil(total_cbm / 53.0) if total_cbm > 0 else 1
-        hybrid_savings = max(0, count_40hc_flat - count_40hc_hybrid)
+        rec = cargo_math.recommend_container(total_cbm, total_gross_weight_kg)
+        hybrid, flat, savings = cargo_math.container_counts_40hc(total_cbm)
 
         summary_totals = {
             "total_qty": total_qty,
             "total_cbm": total_cbm,
             "total_gross_weight_kg": total_gross_weight_kg,
-            "total_volumetric_weight_kg": total_volumetric_weight_kg,
-            "air_chargeable_weight_kg": air_chargeable_weight_kg,
-            "recommended_shipping_method": rec_method,
-            "recommended_container_type": rec_container_type,
-            "recommended_container_count": rec_container_count,
-            "smart_hybrid_containers": f"{count_40hc_hybrid} x 40FT High Cube Container (40' HC)",
-            "flat_only_containers": f"{count_40hc_flat} x 40FT High Cube Container (40' HC)",
-            "hybrid_savings_count": hybrid_savings,
+            "total_volumetric_weight_kg": round(cargo_math.volumetric_weight_kg(sum_cbm, kg_per_cbm), 2),
+            "air_chargeable_weight_kg": round(
+                cargo_math.chargeable_weight_kg(total_gross_weight_kg, sum_cbm, kg_per_cbm), 2
+            ),
+            "recommended_shipping_method": rec.shipping_method,
+            "recommended_container_type": rec.container_type,
+            "recommended_container_count": rec.container_count,
+            "smart_hybrid_containers": _containers_text(hybrid),
+            "flat_only_containers": _containers_text(flat),
+            "hybrid_savings_count": savings,
+            "smart_hybrid_containers_count": hybrid,
+            "flat_only_containers_count": flat,
         }
-
         return computed_items, summary_totals
 
     @staticmethod
-    def quick_calculate(request: CBMQuickCalcRequest) -> CBMQuickCalcResponse:
-        computed_items, summary = CBMService.compute_items_and_totals(request.items)
-        return CBMQuickCalcResponse(
-            total_qty=summary["total_qty"],
-            total_cbm=summary["total_cbm"],
-            total_gross_weight_kg=summary["total_gross_weight_kg"],
-            total_volumetric_weight_kg=summary["total_volumetric_weight_kg"],
-            air_chargeable_weight_kg=summary["air_chargeable_weight_kg"],
-            recommended_shipping_method=summary["recommended_shipping_method"],
-            recommended_container_type=summary["recommended_container_type"],
-            recommended_container_count=summary["recommended_container_count"],
-            smart_hybrid_containers=summary.get("smart_hybrid_containers"),
-            flat_only_containers=summary.get("flat_only_containers"),
-            hybrid_savings_count=summary.get("hybrid_savings_count", 0),
-            items=computed_items,
+    def quick_calculate(
+        request: CBMQuickCalcRequest, kg_per_cbm: float = DEFAULT_AIR_VOLUMETRIC_KG_PER_CBM
+    ) -> CBMQuickCalcResponse:
+        computed_items, summary = CBMService.compute_items_and_totals(request.items, kg_per_cbm)
+        return CBMQuickCalcResponse(**summary, items=computed_items)
+
+    @staticmethod
+    def quick_calculate_service(db: Session, request: CBMQuickCalcRequest) -> CBMQuickCalcResponse:
+        return CBMService.quick_calculate(request, air_volumetric_kg_per_cbm(db))
+
+    # ── Persistence ─────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _push_to_po(db: Session, calc: CBMCalculation, user: Optional[str]) -> None:
+        """CBM totals onto the linked PO through the PO service (version bump + audit user, no commit)."""
+        from modules.purchase_orders.service import PurchaseOrderService
+
+        PurchaseOrderService(db).apply_measurements(
+            calc.po_id, calc.total_cbm, calc.total_gross_weight_kg, calc.total_qty, user, commit=False
         )
 
     @staticmethod
-    def create_calculation_service(db: Session, payload: CBMCalculationCreate) -> CBMCalculationResponse:
-        CBMValidator.validate_fk_references(db, project_id=payload.project_id, po_id=payload.po_id)
-        computed_items, summary = CBMService.compute_items_and_totals(payload.items)
+    def _commit_and_respond(db: Session, calc: CBMCalculation) -> CBMCalculationResponse:
+        db.commit()
+        db.refresh(calc)
+        return CBMService._to_response(db, calc)
 
+    @staticmethod
+    def create_calculation_service(
+        db: Session, payload: CBMCalculationCreate, user: Optional[str] = None
+    ) -> CBMCalculationResponse:
+        CBMValidator.validate_fk_references(
+            db, project_id=payload.project_id, po_id=payload.po_id, import_file_id=payload.import_file_id
+        )
+        computed_items, summary = CBMService.compute_items_and_totals(payload.items, air_volumetric_kg_per_cbm(db))
         calc_data = {
             "title": payload.title,
             "import_file_id": payload.import_file_id,
@@ -171,31 +145,19 @@ class CBMService:
             "po_id": payload.po_id,
             "notes": payload.notes,
             "is_stackable": payload.is_stackable if payload.is_stackable is not None else True,
+            "shipment_mode": payload.shipment_mode,
+            "created_by": user,
+            "updated_by": user,
             **summary,
         }
-
         calc = CBMRepository.create(db, calc_data, computed_items)
-
-        # Sync measurements back to linked Purchase Order if po_id is set
         if calc.po_id:
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == calc.po_id).first()
-            if po:
-                po.total_cbm = calc.total_cbm
-                po.total_gross_weight_kg = calc.total_gross_weight_kg
-                po.total_packages_count = calc.total_qty
-                db.commit()
-
-        return CBMService._to_response(db, calc)
+            CBMService._push_to_po(db, calc, user)
+        return CBMService._commit_and_respond(db, calc)
 
     @staticmethod
     def get_calculation_service(db: Session, calc_id: int) -> CBMCalculationResponse:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
-        return CBMService._to_response(db, calc)
+        return CBMService._to_response(db, get_or_404(db, CBMCalculation, calc_id, "حساب الحجم"))
 
     @staticmethod
     def list_calculations_service(
@@ -217,28 +179,18 @@ class CBMService:
         if not records:
             return []
 
-        # Batch preload Project, PurchaseOrder, and ImportFile to eliminate N+1 queries
+        # One query per linked table (no N+1).
         project_ids = {r.project_id for r in records if r.project_id}
         po_ids = {r.po_id for r in records if r.po_id}
-        import_file_ids = {r.import_file_id for r in records if r.import_file_id}
-
-        projects_map = {}
+        projects_map: Dict[int, str] = {}
         if project_ids:
             prjs = db.query(Project).filter(Project.project_id.in_(project_ids)).all()
             projects_map = {p.project_id: f"{p.project_code} - {p.project_name}" for p in prjs}
-
-        pos_map = {}
+        pos_map: Dict[int, str] = {}
         if po_ids:
             pos = db.query(PurchaseOrder).filter(PurchaseOrder.po_id.in_(po_ids)).all()
             pos_map = {p.po_id: p.po_number for p in pos}
-
-        import_files_map = {}
-        if import_file_ids:
-            from modules.import_files.model import ImportFile
-            imps = db.query(ImportFile).filter(ImportFile.import_file_id.in_(import_file_ids)).all()
-            import_files_map = {
-                i.import_file_id: (i.import_file_code or i.custom_file_number) for i in imps
-            }
+        file_codes = codes_by_ids(db, [r.import_file_id for r in records])
 
         return [
             CBMService._to_response(
@@ -246,225 +198,162 @@ class CBMService:
                 r,
                 project_name=projects_map.get(r.project_id),
                 po_number=pos_map.get(r.po_id),
-                import_file_code=import_files_map.get(r.import_file_id),
+                import_file_code=file_codes.get(r.import_file_id),
             )
             for r in records
         ]
 
     @staticmethod
     def update_calculation_service(
-        db: Session, calc_id: int, payload: CBMCalculationUpdate
+        db: Session, calc_id: int, payload: CBMCalculationUpdate, user: Optional[str] = None
     ) -> CBMCalculationResponse:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        CBMValidator.validate_fk_references(
+            db, project_id=payload.project_id, po_id=payload.po_id, import_file_id=payload.import_file_id, stored=calc
+        )
 
-        CBMValidator.validate_fk_references(db, project_id=payload.project_id, po_id=payload.po_id)
-
-        calc_data = {}
-        if payload.title is not None:
-            calc_data["title"] = payload.title
-        if payload.import_file_id is not None:
-            calc_data["import_file_id"] = payload.import_file_id
-        if payload.project_id is not None:
-            calc_data["project_id"] = payload.project_id
-        if payload.po_id is not None:
-            calc_data["po_id"] = payload.po_id
-        if payload.notes is not None:
-            calc_data["notes"] = payload.notes
-        if payload.is_stackable is not None:
-            calc_data["is_stackable"] = payload.is_stackable
-
+        calc_data = {
+            name: getattr(payload, name)
+            for name in ("title", "import_file_id", "project_id", "po_id", "notes", "is_stackable", "shipment_mode")
+            if getattr(payload, name) is not None
+        }
+        calc_data["updated_by"] = user
         computed_items = None
         if payload.items is not None:
-            computed_items, summary = CBMService.compute_items_and_totals(payload.items)
+            computed_items, summary = CBMService.compute_items_and_totals(payload.items, air_volumetric_kg_per_cbm(db))
             calc_data.update(summary)
 
         updated_calc = CBMRepository.update(db, calc, calc_data, computed_items)
-        return CBMService._to_response(db, updated_calc)
+        return CBMService._commit_and_respond(db, updated_calc)
 
     @staticmethod
     def link_to_po_service(
-        db: Session, calc_id: int, po_id: Optional[int] = None, project_id: Optional[int] = None
+        db: Session,
+        calc_id: int,
+        po_id: Optional[int] = None,
+        project_id: Optional[int] = None,
+        user: Optional[str] = None,
+        import_file_id: Optional[int] = None,
     ) -> CBMCalculationResponse:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        CBMValidator.validate_fk_references(db, project_id=project_id, po_id=po_id, import_file_id=import_file_id)
 
-        CBMValidator.validate_fk_references(db, project_id=project_id, po_id=po_id)
-
-        calc_data = {}
+        calc_data: dict = {"updated_by": user}
+        if import_file_id is not None:
+            calc_data["import_file_id"] = import_file_id
         if po_id is not None:
             calc_data["po_id"] = po_id
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
-            if po:
-                if po.project_id:
-                    calc_data["project_id"] = po.project_id
-                # Push measurements to PO
-                po.total_cbm = calc.total_cbm
-                po.total_gross_weight_kg = calc.total_gross_weight_kg
-                po.total_packages_count = calc.total_qty
-                db.commit()
-
+            po = db.get(PurchaseOrder, po_id)
+            if po is not None and po.project_id:
+                calc_data["project_id"] = po.project_id
         if project_id is not None:
             calc_data["project_id"] = project_id
 
         updated = CBMRepository.update(db, calc, calc_data)
-        return CBMService._to_response(db, updated)
+        if po_id is not None:
+            CBMService._push_to_po(db, updated, user)
+        return CBMService._commit_and_respond(db, updated)
 
     @staticmethod
-    def soft_delete_service(db: Session, calc_id: int) -> dict:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
+    def soft_delete_service(db: Session, calc_id: int, user: Optional[str] = None) -> dict:
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        calc.updated_by = user
         CBMRepository.soft_delete(db, calc)
+        db.commit()
         return {"message": f"Calculation record '{calc.calc_code}' soft deleted successfully."}
 
     @staticmethod
-    def restore_service(db: Session, calc_id: int) -> CBMCalculationResponse:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
-        restored = CBMRepository.restore(db, calc)
-        return CBMService._to_response(db, restored)
+    def restore_service(db: Session, calc_id: int, user: Optional[str] = None) -> CBMCalculationResponse:
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        calc.updated_by = user
+        CBMRepository.restore(db, calc)
+        return CBMService._commit_and_respond(db, calc)
 
     @staticmethod
     def clone_cbm_calculation(
         db: Session,
         calc_id: int,
         payload: CloneCBMCalculationRequest,
+        user: Optional[str] = None,
     ) -> CBMCalculationResponse:
-        calc = CBMRepository.get_by_id(db, calc_id)
-        if not calc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"CBM Calculation record #{calc_id} not found.",
-            )
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
 
         new_code = (
             payload.new_code.strip()
             if payload.new_code and payload.new_code.strip()
             else CBMRepository.generate_calc_code(db)
         )
-        existing = db.query(CBMCalculation).filter(CBMCalculation.calc_code == new_code).first()
-        if existing:
+        if db.query(CBMCalculation).filter(CBMCalculation.calc_code == new_code).first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"CBM Calculation code '{new_code}' already exists.",
+                detail=f"كود حساب الحجم '{new_code}' مستخدم بالفعل.",
             )
 
-        new_title = payload.new_title or f"Copy of {calc.title or calc.calc_code}"
-
-        cloned_items = []
-        if payload.copy_items and calc.items:
-            for item in calc.items:
-                cloned_items.append({
-                    "package_type": item.package_type,
-                    "quantity": item.quantity,
-                    "length": item.length_cm,
-                    "width": item.width_cm,
-                    "height": item.height_cm,
-                    "unit": "cm",
-                    "gross_weight_per_unit_kg": item.gross_weight_per_unit_kg,
-                    "is_stackable": item.is_stackable,
-                })
-
-        computed_items = []
-        summary = {
+        computed_items: List[dict] = []
+        # No items -> no measurements and no recommendation (CBM-06).
+        summary: dict = {
             "total_qty": 0,
             "total_cbm": 0.0,
             "total_gross_weight_kg": 0.0,
             "total_volumetric_weight_kg": 0.0,
             "air_chargeable_weight_kg": 0.0,
-            "recommended_shipping_method": calc.recommended_shipping_method,
-            "recommended_container_type": calc.recommended_container_type,
-            "recommended_container_count": calc.recommended_container_count,
+            "recommended_shipping_method": None,
+            "recommended_container_type": None,
+            "recommended_container_count": 0,
         }
+        if payload.copy_items and calc.items:
+            item_objs = [
+                CBMItemCreate(
+                    package_type=item.package_type,
+                    quantity=item.quantity,
+                    length=item.length_cm,
+                    width=item.width_cm,
+                    height=item.height_cm,
+                    unit="cm",
+                    gross_weight_per_unit_kg=item.gross_weight_per_unit_kg,
+                    is_stackable=item.is_stackable,
+                )
+                for item in calc.items
+            ]
+            computed_items, summary = CBMService.compute_items_and_totals(item_objs, air_volumetric_kg_per_cbm(db))
 
-        if cloned_items:
-            item_objs = [CBMItemCreate(**ci) for ci in cloned_items]
-            computed_items, summary = CBMService.compute_items_and_totals(item_objs)
-
-        new_calc = CBMCalculation(
-            calc_code=new_code,
-            title=new_title,
-            import_file_id=None,  # Reset linkage for new standalone draft
-            project_id=calc.project_id,
-            po_id=None,  # Reset PO linkage
-            total_qty=summary.get("total_qty", 0),
-            total_cbm=summary.get("total_cbm", 0.0),
-            total_gross_weight_kg=summary.get("total_gross_weight_kg", 0.0),
-            total_volumetric_weight_kg=summary.get("total_volumetric_weight_kg", 0.0),
-            air_chargeable_weight_kg=summary.get("air_chargeable_weight_kg", 0.0),
-            recommended_shipping_method=summary.get("recommended_shipping_method"),
-            recommended_container_type=summary.get("recommended_container_type"),
-            recommended_container_count=summary.get("recommended_container_count", 0),
-            notes=payload.notes if payload.notes is not None else calc.notes,
-            is_stackable=calc.is_stackable,
-            is_active=True,
-        )
-        db.add(new_calc)
-        db.flush()
-
-        for item_dict in computed_items:
-            it = CBMCalculationItem(
-                calc_id=new_calc.calc_id,
-                package_type=item_dict.get("package_type", "Carton"),
-                quantity=item_dict.get("quantity", 1),
-                length_cm=item_dict.get("length_cm", 0.0),
-                width_cm=item_dict.get("width_cm", 0.0),
-                height_cm=item_dict.get("height_cm", 0.0),
-                gross_weight_per_unit_kg=item_dict.get("gross_weight_per_unit_kg", 0.0),
-                total_cbm=item_dict.get("total_cbm", 0.0),
-                volumetric_weight_kg=item_dict.get("volumetric_weight_kg", 0.0),
-                total_gross_weight_kg=item_dict.get("total_gross_weight_kg", 0.0),
-                is_stackable=item_dict.get("is_stackable", True),
-            )
-            db.add(it)
-
-        db.commit()
-        db.refresh(new_calc)
-        return CBMService._to_response(db, new_calc)
+        calc_data = {
+            "title": payload.new_title or f"Copy of {calc.title or calc.calc_code}",
+            "import_file_id": None,  # a clone is a new standalone draft
+            "project_id": calc.project_id,
+            "po_id": None,
+            "notes": payload.notes if payload.notes is not None else calc.notes,
+            "is_stackable": calc.is_stackable,
+            "shipment_mode": calc.shipment_mode,
+            "created_by": user,
+            "updated_by": user,
+            **summary,
+        }
+        new_calc = CBMRepository.create(db, calc_data, computed_items, calc_code=new_code)
+        return CBMService._commit_and_respond(db, new_calc)
 
     @staticmethod
     def _to_response(
-
         db: Session,
         calc: CBMCalculation,
-        project_name: Optional[str] = None,
-        po_number: Optional[str] = None,
-        import_file_code: Optional[str] = None,
+        project_name: Any = _LOOKUP,
+        po_number: Any = _LOOKUP,
+        import_file_code: Any = _LOOKUP,
     ) -> CBMCalculationResponse:
-        if calc.project_id and project_name is None:
-            prj = db.query(Project).filter(Project.project_id == calc.project_id).first()
-            if prj:
-                project_name = f"{prj.project_code} - {prj.project_name}"
-
-        if calc.po_id and po_number is None:
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == calc.po_id).first()
-            if po:
-                po_number = po.po_number
-
-        if calc.import_file_id and import_file_code is None:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == calc.import_file_id).first()
-            if imp:
-                import_file_code = imp.import_file_code or imp.custom_file_number
+        if project_name is _LOOKUP:
+            prj = db.get(Project, calc.project_id) if calc.project_id else None
+            project_name = f"{prj.project_code} - {prj.project_name}" if prj else None
+        if po_number is _LOOKUP:
+            po = db.get(PurchaseOrder, calc.po_id) if calc.po_id else None
+            po_number = po.po_number if po else None
+        if import_file_code is _LOOKUP:
+            import_file_code = codes_by_ids(db, [calc.import_file_id]).get(calc.import_file_id)
 
         resp = CBMCalculationResponse.model_validate(calc)
         resp.project_name = project_name
         resp.po_number = po_number
         resp.import_file_code = import_file_code
+        # Legacy rows hold bilingual labels: answer codes.
+        resp.recommended_shipping_method = _method_code(calc.recommended_shipping_method)
+        resp.recommended_container_type = _container_code(calc.recommended_container_type)
         return resp

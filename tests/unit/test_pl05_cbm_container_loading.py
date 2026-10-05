@@ -86,18 +86,15 @@ class TestPL05CBMContainerLoading:
         # Gross Weight: (2 * 150) + (5 * 20) + (1 * 400) = 300 + 100 + 400 = 800 kg
         assert res.total_gross_weight_kg == 800.0
 
-        # Volumetric Weight (cm / 6000):
-        # item_cm: 2 * (120 * 80 * 100) / 6000 = 320.0 kg
-        # item_mm: 5 * (100 * 50 * 40) / 6000 = 166.67 kg
-        # item_m:  1 * (200 * 100 * 150) / 6000 = 500.0 kg
+        # Volumetric Weight = CBM x 167 kg/CBM (configurable air factor): 5.92 x 167 = 988.64 kg
         # Total Volumetric Wt = 320 + 166.67 + 500 = 986.67 kg
-        assert pytest.approx(res.total_volumetric_weight_kg, 0.1) == 986.67
+        assert res.total_volumetric_weight_kg == 988.64
 
         # Air Chargeable Weight = max(Gross Wt, Volumetric Wt) = max(800, 986.67) = 986.67 kg
-        assert pytest.approx(res.air_chargeable_weight_kg, 0.1) == 986.67
+        assert res.air_chargeable_weight_kg == 988.64
 
         # Since Total CBM is 5.92 m3 (<= 15.0), recommended method is LCL Ocean Freight
-        assert "LCL Ocean Freight" in res.recommended_shipping_method
+        assert res.recommended_shipping_method == "LCL"
 
     def test_recommendation_brackets_and_container_types(self):
         """Verify shipping method and container allocation brackets for Air, LCL, FCL 20, FCL 40, FCL 40HC, and Multi-HC."""
@@ -113,7 +110,8 @@ class TestPL05CBMContainerLoading:
         )
         res_air = CBMService.quick_calculate(CBMQuickCalcRequest(items=[air_item]))
         assert res_air.total_cbm == 0.12
-        assert "Air Freight" in res_air.recommended_shipping_method
+        assert res_air.recommended_shipping_method == "AIR"
+        assert res_air.recommended_container_type is None
         assert res_air.recommended_container_count == 0
 
         # 2. 20FT Standard Container: 15 < CBM <= 33
@@ -128,8 +126,8 @@ class TestPL05CBMContainerLoading:
         )
         res_20ft = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_20ft]))
         assert 15.0 < res_20ft.total_cbm <= 33.0
-        assert "FCL Container" in res_20ft.recommended_shipping_method
-        assert "20FT Standard Container" in res_20ft.recommended_container_type
+        assert res_20ft.recommended_shipping_method == "FCL"
+        assert res_20ft.recommended_container_type == "C20_ST"
         assert res_20ft.recommended_container_count == 1
 
         # 3. 40FT Standard Container: 33 < CBM <= 67
@@ -144,7 +142,7 @@ class TestPL05CBMContainerLoading:
         )
         res_40ft = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_40ft]))
         assert 33.0 < res_40ft.total_cbm <= 67.0
-        assert "40FT Standard Container" in res_40ft.recommended_container_type
+        assert res_40ft.recommended_container_type == "C40_ST"
         assert res_40ft.recommended_container_count == 1
 
         # 4. 40FT High Cube: 67 < CBM <= 76
@@ -159,7 +157,7 @@ class TestPL05CBMContainerLoading:
         )
         res_40hc = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_40hc]))
         assert 67.0 < res_40hc.total_cbm <= 76.0
-        assert "40FT High Cube" in res_40hc.recommended_container_type
+        assert res_40hc.recommended_container_type == "C40_HC"
         assert res_40hc.recommended_container_count == 1
 
         # 5. Multi-Container Allocation: CBM > 76 (e.g. 160 CBM) -> ceil(160 / 76) = 3 containers
@@ -175,7 +173,7 @@ class TestPL05CBMContainerLoading:
         res_multi = CBMService.quick_calculate(CBMQuickCalcRequest(items=[item_multi]))
         assert res_multi.total_cbm > 76.0
         assert res_multi.recommended_container_count == 3
-        assert "40FT High Cube Containers" in res_multi.recommended_container_type
+        assert res_multi.recommended_container_type == "C40_HC"
         assert res_multi.smart_hybrid_containers is not None
         assert res_multi.flat_only_containers is not None
 

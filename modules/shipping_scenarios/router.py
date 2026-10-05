@@ -1,6 +1,8 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -12,6 +14,9 @@ from modules.shipping_scenarios.schemas import (
 )
 from modules.shipping_scenarios.service import ShippingScenarioService
 
+VIEW = "quotations.view"
+MANAGE = "shipping_scenarios.manage"
+
 router = APIRouter(
     prefix="/api/v1/shipping-scenarios",
     tags=["Shipping Scenarios Evaluation Engine (BP-007)"],
@@ -21,12 +26,13 @@ router = APIRouter(
 
 @router.post("", response_model=ShippingEvaluationResponse, status_code=status.HTTP_201_CREATED)
 def create_shipping_evaluation(
-    payload: ShippingEvaluationCreate, db: Session = Depends(get_db)
+    payload: ShippingEvaluationCreate, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Create a new shipping scenarios evaluation session with carrier options.
     """
-    return ShippingScenarioService.create_session_service(db, payload)
+    return ShippingScenarioService.create_session_service(db, payload, user=current_user.username)
 
 
 @router.get("", response_model=List[ShippingEvaluationResponse])
@@ -37,6 +43,7 @@ def list_shipping_evaluations(
     po_id: Optional[int] = Query(None, description="Filter by Purchase Order ID"),
     search: Optional[str] = Query(None, description="Search term for code, title, or notes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     """
     Retrieve stored shipping evaluation history logs with optional search & filters.
@@ -52,7 +59,7 @@ def list_shipping_evaluations(
 
 
 @router.get("/{session_id}", response_model=ShippingEvaluationResponse)
-def get_shipping_evaluation(session_id: int, db: Session = Depends(get_db)):
+def get_shipping_evaluation(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(VIEW))):
     """
     Get detailed information and calculated metrics for a specific shipping evaluation session.
     """
@@ -61,28 +68,29 @@ def get_shipping_evaluation(session_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{session_id}", response_model=ShippingEvaluationResponse)
 def update_shipping_evaluation(
-    session_id: int, payload: ShippingEvaluationUpdate, db: Session = Depends(get_db)
+    session_id: int, payload: ShippingEvaluationUpdate, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Update carrier options, sailing dates, or CRD of a saved shipping evaluation session.
     """
-    return ShippingScenarioService.update_session_service(db, session_id, payload)
+    return ShippingScenarioService.update_session_service(db, session_id, payload, user=current_user.username)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_200_OK)
-def soft_delete_shipping_evaluation(session_id: int, db: Session = Depends(get_db)):
+def soft_delete_shipping_evaluation(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MANAGE))):
     """
     Soft delete a shipping evaluation session.
     """
-    return ShippingScenarioService.soft_delete_service(db, session_id)
+    return ShippingScenarioService.soft_delete_service(db, session_id, user=current_user.username)
 
 
 @router.post("/{session_id}/restore", response_model=ShippingEvaluationResponse)
-def restore_shipping_evaluation(session_id: int, db: Session = Depends(get_db)):
+def restore_shipping_evaluation(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MANAGE))):
     """
     Restore a soft-deleted shipping evaluation session.
     """
-    return ShippingScenarioService.restore_service(db, session_id)
+    return ShippingScenarioService.restore_service(db, session_id, user=current_user.username)
 
 
 @router.post(
@@ -94,9 +102,10 @@ def clone_shipping_evaluation(
     session_id: int,
     payload: Optional[CloneShippingEvaluationRequest] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Clone an existing shipping evaluation study with new unique code and reset operational links.
     """
-    return ShippingScenarioService.clone_session_service(db, session_id, payload)
+    return ShippingScenarioService.clone_session_service(db, session_id, payload, user=current_user.username)
 

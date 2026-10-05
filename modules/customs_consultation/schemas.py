@@ -250,6 +250,8 @@ class CustomsConsultationUpdate(BaseModel):
 
 class CustomsConsultationResponse(CustomsConsultationBase):
     consultation_id: int
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     consultation_code: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
@@ -288,7 +290,10 @@ class CloneConsultationRequest(BaseModel):
 
 class CustomsRecalculationRequest(BaseModel):
     import_file_id: int
+    # Manual customs rates (EGP per unit). exchange_rate = final side; when the preliminary (PO) currency
+    # differs, preliminary_exchange_rate is the preliminary side. A side without a manual rate uses the table.
     exchange_rate: Optional[float] = None
+    preliminary_exchange_rate: Optional[float] = None
     freight_egp: Optional[float] = 0.0
     insurance_egp: Optional[float] = 0.0
     estimate_date: Optional[date] = None
@@ -298,6 +303,9 @@ class LineVarianceComparison(BaseModel):
     item_name: str
     hs_code: str
     country_of_origin: Optional[str] = None
+    # OK, or TARIFF_MISSING: no HS code / no tariff valid on the estimate date. Such a line carries zero
+    # taxes and is excluded from every response total (no fallback rate is used).
+    status: str = "OK"
     preliminary_qty: float = 0.0
     final_qty: float = 0.0
     qty_variance: float = 0.0
@@ -330,7 +338,12 @@ class CustomsRecalculationResponse(BaseModel):
     reconciliation_session_id: Optional[int] = None
     is_reconciled: bool = False
     source_description: str = "Reconciled Final Commercial Invoice"
-    exchange_rate: float
+    exchange_rate: float  # final side (EGP per unit of final_currency)
+    preliminary_exchange_rate: Optional[float] = None
+    preliminary_currency: Optional[str] = None
+    final_currency: Optional[str] = None
+    exchange_rate_source: str = "table"  # final side: "table" (customs rate table on the date) / "manual"
+    preliminary_exchange_rate_source: str = "table"
     estimate_date: date
     preliminary_fob_egp: float = 0.0
     final_fob_egp: float = 0.0
@@ -349,5 +362,6 @@ class CustomsRecalculationResponse(BaseModel):
     total_taxes_variance_egp: float = 0.0
     variance_percentage: float = 0.0
     forecast_status: str = "Balanced"  # "Increased Cost", "Reduced Cost", "Exact Match"
+    tariff_missing_lines_count: int = 0
     comparison_lines: List[LineVarianceComparison] = []
 

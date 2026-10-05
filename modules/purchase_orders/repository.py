@@ -1,34 +1,55 @@
 from datetime import datetime, timezone
-import json
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
-from modules.purchase_orders.schemas import PurchaseOrderCreate, PurchaseOrderUpdate
+from modules.common.sequence_generator import next_yearly_code
+from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PackingListItem, PurchaseOrder
+
+PO_NUMBER_PREFIX = "PO"
+
+# (existing row id or None, column values) for one child row of a PO.
+ChildRow = Tuple[Optional[int], Dict[str, Any]]
 
 
 class PurchaseOrderRepository:
+    """Queries and persistence only. Methods flush; the service owns the single commit per operation."""
 
     def __init__(self, db: Session):
         self.db = db
 
-    def generate_po_number(self) -> str:
-        year = datetime.now().year
-        count = self.db.query(PurchaseOrder).count() + 1
-        return f"PO-{year}-{count:03d}"
+    # ── reads ──
 
-    def get_by_id(self, po_id: int) -> Optional[PurchaseOrder]:
-        return self.db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
+    def next_po_number(self) -> str:
+        return next_yearly_code(self.db, PurchaseOrder.po_number, PO_NUMBER_PREFIX)
 
-    def get_by_number(self, po_number: str) -> Optional[PurchaseOrder]:
-        return self.db.query(PurchaseOrder).filter(PurchaseOrder.po_number == po_number.upper().strip()).first()
+    def get_by_id(self, po_id: int, active_only: bool = False) -> Optional[PurchaseOrder]:
+        query = self.db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id)
+        if active_only:
+            query = query.filter(PurchaseOrder.is_active.is_(True))
+        return query.first()
+
+    def po_number_exists(self, po_number: str, exclude_id: Optional[int] = None) -> bool:
+        query = self.db.query(PurchaseOrder.po_id).filter(PurchaseOrder.po_number == po_number)
+        if exclude_id:
+            query = query.filter(PurchaseOrder.po_id != exclude_id)
+        return query.first() is not None
+
+    def version_info(self, po_id: int) -> Tuple[Optional[int], Optional[datetime], Optional[str]]:
+        """Persisted (version, updated_at, updated_by), read fresh from the database."""
+        row = (
+            self.db.query(PurchaseOrder.version, PurchaseOrder.updated_at, PurchaseOrder.updated_by)
+            .filter(PurchaseOrder.po_id == po_id)
+            .first()
+        )
+        return (row[0], row[1], row[2]) if row else (None, None, None)
 
     def get_all(
         self,
         include_inactive: bool = False,
-        status_filter: Optional[str] = None,
+        status_values: Optional[Sequence[str]] = None,
         project_id: Optional[int] = None,
         company_id: Optional[int] = None,
         supplier_id: Optional[int] = None,
@@ -46,22 +67,16 @@ class PurchaseOrderRepository:
                 selectinload(PurchaseOrder.packing_list_items),
             )
         )
-
         if not include_inactive:
             query = query.filter(PurchaseOrder.is_active.is_(True))
-
-        if status_filter:
-            query = query.filter(PurchaseOrder.status == status_filter)
-
+        if status_values:
+            query = query.filter(PurchaseOrder.status.in_(list(status_values)))
         if project_id:
             query = query.filter(PurchaseOrder.project_id == project_id)
-
         if company_id:
             query = query.filter(PurchaseOrder.company_id == company_id)
-
         if supplier_id:
             query = query.filter(PurchaseOrder.supplier_id == supplier_id)
-
         if search:
             pattern = f"%{search.strip()}%"
             query = query.filter(
@@ -72,424 +87,63 @@ class PurchaseOrderRepository:
                     PurchaseOrder.notes.ilike(pattern),
                 )
             )
-
         return query.order_by(PurchaseOrder.created_at.desc()).all()
 
-    def create(self, data: PurchaseOrderCreate) -> PurchaseOrder:
-        po_num = data.po_number.upper().strip() if data.po_number else self.generate_po_number()
+    def get_import_file(self, import_file_id: int) -> Optional[ImportFile]:
+        return self.db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
 
-        po = PurchaseOrder(
-            po_number=po_num,
-            po_reference=data.po_reference.strip() if data.po_reference else None,
-            import_file_id=data.import_file_id,
-            proforma_invoice_number=data.proforma_invoice_number.strip() if data.proforma_invoice_number else None,
-            country_of_origin=data.country_of_origin.strip() if data.country_of_origin else None,
-            project_id=data.project_id,
-            company_id=data.company_id,
-            supplier_id=data.supplier_id,
-            incoterm_id=data.incoterm_id,
-            currency_id=data.currency_id,
-            order_date=data.order_date or datetime.now(timezone.utc),
-            expected_delivery_date=data.expected_delivery_date,
-            exchange_rate=data.exchange_rate,
-            payment_terms=data.payment_terms.strip() if data.payment_terms else None,
-            notes=data.notes.strip() if data.notes else None,
-            pallet_count=getattr(data, "pallet_count", 0) or 0,
-            pallet_type=getattr(data, "pallet_type", "Euro Pallet (120x80)") or "Euro Pallet (120x80)",
-            is_pallet_stackable=bool(getattr(data, "is_pallet_stackable", False)),
-            pallet_length_cm=float(getattr(data, "pallet_length_cm", 120.0) or 120.0),
-            pallet_width_cm=float(getattr(data, "pallet_width_cm", 80.0) or 80.0),
-            pallet_height_cm=float(getattr(data, "pallet_height_cm", 150.0) or 150.0),
-            pallet_plan=json.dumps([p.model_dump() if hasattr(p, "model_dump") else p for p in data.pallet_plan]) if getattr(data, "pallet_plan", None) else None,
-            status="Draft",
-            is_active=True,
+    def list_allocations(self, po_id: int, newest_first: bool = False) -> List[POShipmentAllocation]:
+        query = self.db.query(POShipmentAllocation).filter(POShipmentAllocation.po_id == po_id)
+        if newest_first:
+            query = query.order_by(POShipmentAllocation.shipping_date.desc())
+        return query.all()
+
+    def allocated_item_ids(self, po_id: int) -> Set[int]:
+        rows = (
+            self.db.query(POShipmentAllocation.po_item_id)
+            .filter(POShipmentAllocation.po_id == po_id, POShipmentAllocation.po_item_id.isnot(None))
+            .distinct()
+            .all()
         )
+        return {r[0] for r in rows}
 
-        total_fob = 0.0
-        total_cbm = 0.0
-        total_gross = 0.0
-        total_net = 0.0
-        total_pkgs = 0
+    # ── writes (flush only) ──
 
-        for item in data.items:
-            line_price = round(item.quantity * item.unit_price, 2)
-            line_cbm = round(item.quantity * item.cbm_per_unit, 4)
-
-            total_fob += line_price
-            total_cbm += line_cbm
-            total_gross += item.gross_weight_kg
-            total_net += item.net_weight_kg
-            total_pkgs += int(item.quantity)
-
-            po_item = POLineItem(
-                item_code=item.item_code.strip() if item.item_code else None,
-                main_description=item.main_description.strip() if item.main_description else None,
-                description_ar=item.description_ar.strip(),
-                description_en=item.description_en.strip() if item.description_en else None,
-                country_of_origin=item.country_of_origin.strip() if item.country_of_origin else None,
-                tariff_id=item.tariff_id,
-                quantity=item.quantity,
-                unit_of_measure=item.unit_of_measure.strip(),
-                unit_price=item.unit_price,
-                total_price=line_price,
-                cbm_per_unit=item.cbm_per_unit,
-                total_cbm=line_cbm,
-                gross_weight_kg=item.gross_weight_kg,
-                net_weight_kg=item.net_weight_kg,
-            )
-            po.line_items.append(po_item)
-
-        # Process Packing List Items
-        if data.packing_list_items:
-            pkg_total_net = 0.0
-            pkg_total_gross = 0.0
-            pkg_total_cbm = 0.0
-            pkg_count = 0.0
-
-            for pitem in data.packing_list_items:
-                tot_net = round(pitem.qty_pkg * pitem.net_weight_unit_kg, 16)
-                tot_gross = round(pitem.qty_pkg * pitem.gross_weight_unit_kg, 16)
-                unit_str = getattr(pitem, "unit", "cm") or "cm"
-                l_val = pitem.length_cm or 0.0
-                w_val = pitem.width_cm or 0.0
-                h_val = pitem.height_cm or 0.0
-
-                if unit_str == "mm":
-                    l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
-                    l_cm_val, w_cm_val, h_cm_val = l_val / 10.0, w_val / 10.0, h_val / 10.0
-                elif unit_str == "m":
-                    l_m, w_m, h_m = l_val, w_val, h_val
-                    l_cm_val, w_cm_val, h_cm_val = l_val * 100.0, w_val * 100.0, h_val * 100.0
-                else:
-                    l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
-                    l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
-
-                direct_cbm = float(getattr(pitem, "total_cbm", 0.0) or 0.0)
-                tot_cbm = round(pitem.qty_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else direct_cbm
-                chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
-
-                pkg_total_net += tot_net
-                pkg_total_gross += tot_gross
-                pkg_total_cbm += tot_cbm
-                pkg_count += pitem.qty_pkg
-
-                pli = PackingListItem(
-                    hs_code=pitem.hs_code.strip(),
-                    item_code=pitem.item_code.strip(),
-                    main_description=pitem.main_description.strip() if getattr(pitem, "main_description", None) else None,
-                    description=pitem.description.strip() if getattr(pitem, "description", None) else None,
-                    qty_pcs=pitem.qty_pcs,
-                    qty_pkg=pitem.qty_pkg,
-                    package_type=pitem.package_type.strip() if pitem.package_type else "Carton",
-                    length_cm=l_cm_val,
-                    width_cm=w_cm_val,
-                    height_cm=h_cm_val,
-                    net_weight_unit_kg=pitem.net_weight_unit_kg,
-                    gross_weight_unit_kg=pitem.gross_weight_unit_kg,
-                    total_net_weight_kg=tot_net,
-                    total_gross_weight_kg=tot_gross,
-                    total_cbm=tot_cbm,
-                    chargeable_weight_kg=chg_wt,
-                    is_stackable=bool(getattr(pitem, "is_stackable", True)),
-                )
-                po.packing_list_items.append(pli)
-
-            # Sync PO totals from Packing List if provided
-            total_cbm = pkg_total_cbm if pkg_total_cbm > 0 else total_cbm
-            if pkg_total_gross > 0:
-                if abs(pkg_total_gross - round(pkg_total_gross)) < 0.005:
-                    pkg_total_gross = float(round(pkg_total_gross))
-                # Preserve certified master gross weight if within 100g rounding tolerance
-                if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
-                    pass
-                else:
-                    total_gross = pkg_total_gross
-            if abs(pkg_total_net - round(pkg_total_net)) < 0.005:
-                pkg_total_net = float(round(pkg_total_net))
-            total_net = pkg_total_net if pkg_total_net > 0 else total_net
-            total_pkgs = int(pkg_count) if pkg_count > 0 else total_pkgs
-
-        # Process Pallet Plan if provided
-        pallet_plan_raw = getattr(data, "pallet_plan", None)
-        pallet_total_cbm = 0.0
-        pallet_total_gross = 0.0
-        pallet_total_count = 0
-        if pallet_plan_raw:
-            for p in pallet_plan_raw:
-                p_cnt = int(getattr(p, "pallet_count", 0) or 0)
-                p_l = float(getattr(p, "length_cm", 0.0) or 0.0)
-                p_w = float(getattr(p, "width_cm", 0.0) or 0.0)
-                p_h = float(getattr(p, "height_cm", 0.0) or 0.0)
-                p_wt = float(getattr(p, "gross_weight_per_pallet_kg", 0.0) or 0.0)
-                if p_cnt > 0:
-                    pallet_total_count += p_cnt
-                    if p_l > 0 and p_w > 0 and p_h > 0:
-                        pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
-                    if p_wt > 0:
-                        pallet_total_gross += (p_wt * p_cnt)
-
-            if abs(pallet_total_gross - round(pallet_total_gross)) < 0.005:
-                pallet_total_gross = float(round(pallet_total_gross))
-
-        # If Pallet Plan is specified, Pallets represent the master cargo shipping volume & units
-        if pallet_total_cbm > 0:
-            total_cbm = pallet_total_cbm
-        if pallet_total_gross > 0:
-            total_gross = pallet_total_gross
-        if pallet_total_count > 0:
-            total_pkgs = pallet_total_count
-            po.pallet_count = pallet_total_count
-        elif (po.pallet_count or 0) > 0 and (po.pallet_length_cm or 0) > 0 and (po.pallet_width_cm or 0) > 0 and (po.pallet_height_cm or 0) > 0:
-            pallet_fallback_cbm = round((float(po.pallet_length_cm) * float(po.pallet_width_cm) * float(po.pallet_height_cm) / 1_000_000.0) * int(po.pallet_count), 4)
-            if pallet_fallback_cbm > 0:
-                total_cbm = pallet_fallback_cbm
-                total_pkgs = int(po.pallet_count)
-
-        po.total_amount_fob = total_fob
-        po.total_cbm = total_cbm
-        po.total_gross_weight_kg = total_gross
-        po.total_net_weight_kg = total_net
-        po.total_packages_count = total_pkgs
-
+    def add(self, po: PurchaseOrder) -> PurchaseOrder:
         self.db.add(po)
-        self.db.commit()
-        self.db.refresh(po)
+        self.db.flush()
         return po
 
-    def update(self, po: PurchaseOrder, data: PurchaseOrderUpdate, current_user_name: Optional[str] = None) -> PurchaseOrder:
-        # Optimistic Concurrency Control Check
-        submitted_version = getattr(data, "version", None)
-        fresh_info = (
-            self.db.query(PurchaseOrder.version, PurchaseOrder.updated_at)
-            .filter(PurchaseOrder.po_id == po.po_id)
-            .first()
-        )
-        current_version = fresh_info[0] if fresh_info and fresh_info[0] is not None else (getattr(po, "version", 1) or 1)
-        persisted_updated_at = fresh_info[1] if fresh_info else po.updated_at
+    def add_allocation(self, allocation: POShipmentAllocation) -> POShipmentAllocation:
+        self.db.add(allocation)
+        self.db.flush()
+        return allocation
 
-        if submitted_version is not None and submitted_version != current_version:
-            from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
-            log_concurrency_conflict(
-                db=self.db,
-                entity_name="PurchaseOrder",
-                record_id=po.po_id,
-                current_version=current_version,
-                submitted_version=submitted_version,
-                attempted_by=current_user_name,
-                details=f"Conflict detected while updating PO #{po.po_number}",
-            )
-            raise ConcurrencyConflictException(
-                entity="PurchaseOrder",
-                record_id=po.po_id,
-                current_version=current_version,
-                submitted_version=submitted_version,
-                updated_at=persisted_updated_at,
-                updated_by=getattr(po, "updated_by", None),
-            )
+    @staticmethod
+    def _sync_children(collection: List[Any], id_attr: str, model: Type, rows: Sequence[ChildRow]) -> List[Any]:
+        """Upsert ``rows`` into ``collection`` by id: rows with an id update that row in place (columns not in
+        the values are left untouched), rows without an id are new, existing rows not sent are removed
+        (delete-orphan). Callers validate the ids first. Returns the rows in payload order."""
+        existing = {getattr(child, id_attr): child for child in collection}
+        result = []
+        for row_id, values in rows:
+            child = existing.get(row_id) if row_id is not None else None
+            if child is None:
+                child = model(**values)
+            else:
+                for field, value in values.items():
+                    setattr(child, field, value)
+            result.append(child)
+        collection[:] = result
+        return result
 
-        update_data = data.model_dump(exclude_unset=True)
-        update_data.pop("version", None)
-        items_data = update_data.pop("items", None)
-        packing_items_data = update_data.pop("packing_list_items", None)
-        pallet_plan_data = update_data.pop("pallet_plan", None)
+    def upsert_line_items(self, po: PurchaseOrder, rows: Sequence[ChildRow]) -> List[POLineItem]:
+        return self._sync_children(po.line_items, "item_id", POLineItem, rows)
 
-        if pallet_plan_data is not None:
-            po.pallet_plan = json.dumps([p.model_dump() if hasattr(p, "model_dump") else p for p in pallet_plan_data])
+    def upsert_packing_items(self, po: PurchaseOrder, rows: Sequence[ChildRow]) -> List[PackingListItem]:
+        return self._sync_children(po.packing_list_items, "packing_item_id", PackingListItem, rows)
 
-        for field, value in update_data.items():
-            if value is not None and isinstance(value, str):
-                value = value.strip()
-            setattr(po, field, value)
-
-        total_fob = float(po.total_amount_fob or 0.0)
-        total_cbm = float(po.total_cbm or 0.0)
-        total_gross = float(po.total_gross_weight_kg or 0.0)
-        total_net = float(po.total_net_weight_kg or 0.0)
-        total_pkgs = int(po.total_packages_count or 0)
-
-        if items_data is not None:
-            # Recreate line items
-            po.line_items.clear()
-
-            total_fob = 0.0
-            total_cbm = 0.0
-            total_gross = 0.0
-            total_net = 0.0
-            total_pkgs = 0
-
-            for item_dict in items_data:
-                qty = item_dict.get("quantity", 0.0)
-                price = item_dict.get("unit_price", 0.0)
-                cbm_unit = item_dict.get("cbm_per_unit", 0.0)
-                gross = item_dict.get("gross_weight_kg", 0.0)
-                net = item_dict.get("net_weight_kg", 0.0)
-
-                line_price = round(qty * price, 2)
-                line_cbm = round(qty * cbm_unit, 4)
-
-                total_fob += line_price
-                total_cbm += line_cbm
-                total_gross += gross
-                total_net += net
-                total_pkgs += int(qty)
-
-                po_item = POLineItem(
-                    item_code=item_dict.get("item_code"),
-                    main_description=item_dict.get("main_description", "").strip() if item_dict.get("main_description") else None,
-                    description_ar=item_dict.get("description_ar", "").strip(),
-                    description_en=item_dict.get("description_en"),
-                    country_of_origin=item_dict.get("country_of_origin", "").strip() if item_dict.get("country_of_origin") else None,
-                    tariff_id=item_dict.get("tariff_id"),
-                    quantity=qty,
-                    unit_of_measure=item_dict.get("unit_of_measure", "PCS"),
-                    unit_price=price,
-                    total_price=line_price,
-                    cbm_per_unit=cbm_unit,
-                    total_cbm=line_cbm,
-                    gross_weight_kg=gross,
-                    net_weight_kg=net,
-                )
-                po.line_items.append(po_item)
-
-        if packing_items_data is not None:
-            po.packing_list_items.clear()
-
-            pkg_total_net = 0.0
-            pkg_total_gross = 0.0
-            pkg_total_cbm = 0.0
-            pkg_count = 0.0
-
-            for pitem in packing_items_data:
-                q_pcs = pitem.get("qty_pcs", 1.0)
-                q_pkg = pitem.get("qty_pkg", 1.0)
-                net_u = pitem.get("net_weight_unit_kg", 0.0)
-                gross_u = pitem.get("gross_weight_unit_kg", 0.0)
-                unit_str = pitem.get("unit", "cm") or "cm"
-                l_val = pitem.get("length_cm") or 0.0
-                w_val = pitem.get("width_cm") or 0.0
-                h_val = pitem.get("height_cm") or 0.0
-
-                if unit_str == "mm":
-                    l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
-                    l_cm_val, w_cm_val, h_cm_val = l_val / 10.0, w_val / 10.0, h_val / 10.0
-                elif unit_str == "m":
-                    l_m, w_m, h_m = l_val, w_val, h_val
-                    l_cm_val, w_cm_val, h_cm_val = l_val * 100.0, w_val * 100.0, h_val * 100.0
-                else:
-                    l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
-                    l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
-
-                tot_net = round(q_pkg * net_u, 16)
-                tot_gross = round(q_pkg * gross_u, 16)
-                direct_cbm = float(pitem.get("total_cbm", 0.0) or 0.0)
-                tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else direct_cbm
-                chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
-
-                pkg_total_net += tot_net
-                pkg_total_gross += tot_gross
-                pkg_total_cbm += tot_cbm
-                pkg_count += q_pkg
-
-                pli = PackingListItem(
-                    hs_code=str(pitem.get("hs_code", "")).strip(),
-                    item_code=str(pitem.get("item_code", "")).strip(),
-                    main_description=str(pitem.get("main_description", "")).strip() if pitem.get("main_description") else None,
-                    description=str(pitem.get("description", "")).strip() if pitem.get("description") else None,
-                    qty_pcs=q_pcs,
-                    qty_pkg=q_pkg,
-                    package_type=pitem.get("package_type", "Carton"),
-                    length_cm=l_cm_val,
-                    width_cm=w_cm_val,
-                    height_cm=h_cm_val,
-                    net_weight_unit_kg=net_u,
-                    gross_weight_unit_kg=gross_u,
-                    total_net_weight_kg=tot_net,
-                    total_gross_weight_kg=tot_gross,
-                    total_cbm=tot_cbm,
-                    chargeable_weight_kg=chg_wt,
-                    is_stackable=bool(pitem.get("is_stackable", True)),
-                )
-                po.packing_list_items.append(pli)
-
-            if pkg_total_cbm > 0:
-                total_cbm = pkg_total_cbm
-            if pkg_total_gross > 0:
-                if abs(pkg_total_gross - round(pkg_total_gross)) < 0.005:
-                    pkg_total_gross = float(round(pkg_total_gross))
-                if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
-                    pass
-                else:
-                    total_gross = pkg_total_gross
-            if abs(pkg_total_net - round(pkg_total_net)) < 0.005:
-                pkg_total_net = float(round(pkg_total_net))
-            if pkg_total_net > 0:
-                total_net = pkg_total_net
-            if pkg_count > 0:
-                total_pkgs = int(pkg_count)
-
-        # Process Pallet Plan if provided or existing on PO
-        pallet_plan_source = pallet_plan_data
-        if pallet_plan_source is None and po.pallet_plan:
-            try:
-                pallet_plan_source = json.loads(po.pallet_plan) if isinstance(po.pallet_plan, str) else po.pallet_plan
-            except Exception:
-                pallet_plan_source = None
-
-        if pallet_plan_source:
-            pallet_total_cbm = 0.0
-            pallet_total_gross = 0.0
-            pallet_total_count = 0
-            for p in pallet_plan_source:
-                p_cnt = int(p.get("pallet_count", 0) if isinstance(p, dict) else getattr(p, "pallet_count", 0) or 0)
-                p_l = float(p.get("length_cm", 0.0) if isinstance(p, dict) else getattr(p, "length_cm", 0.0) or 0.0)
-                p_w = float(p.get("width_cm", 0.0) if isinstance(p, dict) else getattr(p, "width_cm", 0.0) or 0.0)
-                p_h = float(p.get("height_cm", 0.0) if isinstance(p, dict) else getattr(p, "height_cm", 0.0) or 0.0)
-                p_wt = float(p.get("gross_weight_per_pallet_kg", 0.0) if isinstance(p, dict) else getattr(p, "gross_weight_per_pallet_kg", 0.0) or 0.0)
-                if p_cnt > 0:
-                    pallet_total_count += p_cnt
-                    if p_l > 0 and p_w > 0 and p_h > 0:
-                        pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
-                    if p_wt > 0:
-                        pallet_total_gross += (p_wt * p_cnt)
-
-            if abs(pallet_total_gross - round(pallet_total_gross)) < 0.005:
-                pallet_total_gross = float(round(pallet_total_gross))
-
-            if pallet_total_cbm > 0:
-                total_cbm = pallet_total_cbm
-            if pallet_total_gross > 0:
-                total_gross = pallet_total_gross
-            if pallet_total_count > 0:
-                total_pkgs = pallet_total_count
-                po.pallet_count = pallet_total_count
-        elif (po.pallet_count or 0) > 0 and (po.pallet_length_cm or 0) > 0 and (po.pallet_width_cm or 0) > 0 and (po.pallet_height_cm or 0) > 0:
-            pallet_fallback_cbm = round((float(po.pallet_length_cm) * float(po.pallet_width_cm) * float(po.pallet_height_cm) / 1_000_000.0) * int(po.pallet_count), 4)
-            if pallet_fallback_cbm > 0:
-                total_cbm = pallet_fallback_cbm
-                total_pkgs = int(po.pallet_count)
-
-        po.total_amount_fob = total_fob
-        po.total_cbm = total_cbm
-        po.total_gross_weight_kg = total_gross
-        po.total_net_weight_kg = total_net
-        po.total_packages_count = total_pkgs
-
-        # Monotonically increment version for optimistic locking
-        po.version = current_version + 1
-        po.updated_at = datetime.now(timezone.utc)
-
-        self.db.commit()
-        self.db.refresh(po)
-        return po
-
-    def soft_delete(self, po: PurchaseOrder) -> PurchaseOrder:
-        po.is_active = False
-        self.db.commit()
-        self.db.refresh(po)
-        return po
-
-    def restore(self, po: PurchaseOrder) -> PurchaseOrder:
-        po.is_active = True
-        self.db.commit()
-        self.db.refresh(po)
+    def set_active(self, po: PurchaseOrder, is_active: bool) -> PurchaseOrder:
+        po.is_active = is_active
+        self.db.flush()
         return po

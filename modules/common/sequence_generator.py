@@ -3,9 +3,11 @@ modules/common/sequence_generator.py
 Centralized business reference code generator for ImportFlow ERP.
 Avoids race conditions by using max(id)+1 with proper fallback.
 """
+from datetime import datetime
+from typing import Any, Optional, Type
+
+from sqlalchemy import Integer, and_, cast, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import Type
 
 
 def generate_reference_code(
@@ -25,3 +27,35 @@ def generate_reference_code(
     max_id = db.query(func.max(getattr(model, id_field))).scalar() or 0
     next_num = max_id + 1
     return f"{prefix}-{next_num:0{zero_pad}d}"
+
+
+def next_yearly_code(
+    db: Session,
+    column: Any,
+    prefix: str,
+    pad: int = 3,
+    year: Optional[int] = None,
+) -> str:
+    """
+    Next ``<prefix>-<year>-<NNN>`` code for a String column (e.g. ``PurchaseOrder.po_number`` -> "PO-2026-004").
+
+    The sequence restarts every year and continues from the highest numeric suffix already used that
+    year, so user-typed codes in the same pattern are skipped and deletions never reuse a number.
+    Suffixes that are not plain digits ("PO-2026-REF01", "PO-2026-001-COPY") are ignored. The unique
+    constraint on the column stays the final guard: callers retry on IntegrityError.
+    """
+    year = year or datetime.now().year
+    head = f"{prefix}-{year}-"
+    suffix = func.substr(column, len(head) + 1)
+    highest = (
+        db.query(func.max(cast(suffix, Integer)))
+        .filter(
+            and_(
+                column.like(f"{head}%"),
+                suffix != "",
+                suffix.op("NOT GLOB")("*[^0-9]*"),  # SQLite: digits only
+            )
+        )
+        .scalar()
+    )
+    return f"{head}{(highest or 0) + 1:0{pad}d}"

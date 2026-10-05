@@ -1,7 +1,12 @@
+from typing import Optional
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from modules.cbm_calculator.model import CBMCalculation
 from modules.cbm_calculator.schemas import CBMItemCreate
+from modules.common.validators import require_active
+from modules.import_files.model import ImportFile
 from modules.projects.model import Project
 from modules.purchase_orders.model import PurchaseOrder
 
@@ -33,18 +38,25 @@ class CBMValidator:
                 )
 
     @staticmethod
-    def validate_fk_references(db: Session, project_id: int | None = None, po_id: int | None = None):
-        if project_id is not None:
-            project = db.query(Project).filter(Project.project_id == project_id).first()
-            if not project:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Referenced Project ID #{project_id} does not exist.",
-                )
-        if po_id is not None:
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
-            if not po:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Referenced Purchase Order ID #{po_id} does not exist.",
-                )
+    def validate_fk_references(
+        db: Session,
+        project_id: Optional[int] = None,
+        po_id: Optional[int] = None,
+        import_file_id: Optional[int] = None,
+        stored: Optional[CBMCalculation] = None,
+    ) -> None:
+        """Referenced project / PO / import file must exist and be active (400 otherwise). On update
+        (``stored``) a reference that is already saved only has to exist: a resent full payload whose file
+        or PO was deactivated since stays editable."""
+        for model, value, field, label in (
+            (Project, project_id, "project_id", "المشروع"),
+            (PurchaseOrder, po_id, "po_id", "أمر الشراء"),
+            (ImportFile, import_file_id, "import_file_id", "ملف الاستيراد"),
+        ):
+            if value is None:
+                continue
+            if stored is not None and getattr(stored, field) == value:
+                if db.get(model, value) is None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{label} رقم {value} غير موجود أو غير نشط.")
+                continue
+            require_active(db, model, value, label)

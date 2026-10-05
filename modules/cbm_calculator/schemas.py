@@ -1,6 +1,9 @@
 from datetime import datetime
-from typing import Any, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Annotated, Any, List, Literal, Optional, Tuple
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, PrivateAttr, model_validator
+
+from modules.common import cargo_math, enum_codes
 
 
 class CBMItemBase(BaseModel):
@@ -9,7 +12,7 @@ class CBMItemBase(BaseModel):
     length: float = Field(default=100.0, gt=0, json_schema_extra={"example": 120.0})
     width: float = Field(default=80.0, gt=0, json_schema_extra={"example": 80.0})
     height: float = Field(default=60.0, gt=0, json_schema_extra={"example": 100.0})
-    unit: str = Field(default="cm", json_schema_extra={"example": "cm"})  # mm, cm, m
+    unit: cargo_math.LengthUnit = Field(default="cm", json_schema_extra={"example": "cm"})
     gross_weight_per_unit_kg: float = Field(default=0.0, ge=0, json_schema_extra={"example": 25.0})
     is_stackable: bool = Field(default=True, json_schema_extra={"example": True})
 
@@ -25,17 +28,22 @@ class CBMItemBase(BaseModel):
                 data["height"] = data["height_cm"]
         return data
 
+    _dims_cm: Tuple[float, float, float] = PrivateAttr(default=(0.0, 0.0, 0.0))
+
+    def model_post_init(self, __context: Any) -> None:
+        self._dims_cm = cargo_math.to_cm(self.length, self.width, self.height, self.unit)
+
     @property
     def length_cm(self) -> float:
-        return self.length if self.unit == "cm" else (self.length / 10.0 if self.unit == "mm" else self.length * 100.0)
+        return self._dims_cm[0]
 
     @property
     def width_cm(self) -> float:
-        return self.width if self.unit == "cm" else (self.width / 10.0 if self.unit == "mm" else self.width * 100.0)
+        return self._dims_cm[1]
 
     @property
     def height_cm(self) -> float:
-        return self.height if self.unit == "cm" else (self.height / 10.0 if self.unit == "mm" else self.height * 100.0)
+        return self._dims_cm[2]
 
 
 class CBMItemCreate(CBMItemBase):
@@ -65,9 +73,22 @@ class CBMItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def _shipment_mode_code(value: Any) -> Any:
+    """SHIPMENT_MODE code via enum_codes (old clients send "air" / "sea"); blank -> None. Anything else
+    stays as sent and fails the Literal (422)."""
+    if isinstance(value, str):
+        value = value.strip()
+        return enum_codes.normalize(enum_codes.SHIPMENT_MODE, value) if value else None
+    return value
+
+
+# SHIPMENT_MODE code (AIR / SEA); None = not given (legacy rows: unknown)
+ShipmentModeCode = Annotated[Optional[Literal["AIR", "SEA"]], BeforeValidator(_shipment_mode_code)]
+
+
 class CBMCalculationBase(BaseModel):
     title: Optional[str] = Field(default=None, json_schema_extra={"example": "Solar Panels Batch Measurement"})
-    shipment_mode: str = Field(default="air", json_schema_extra={"example": "air"})  # air, sea
+    shipment_mode: ShipmentModeCode = Field(default=None, json_schema_extra={"example": "SEA"})
     import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
@@ -79,8 +100,10 @@ class CBMCalculationCreate(CBMCalculationBase):
     items: List[CBMItemCreate] = Field(..., min_length=1)
 
 
+
 class CBMCalculationUpdate(BaseModel):
     title: Optional[str] = None
+    shipment_mode: ShipmentModeCode = None
     import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
@@ -89,7 +112,9 @@ class CBMCalculationUpdate(BaseModel):
     items: Optional[List[CBMItemCreate]] = None
 
 
+
 class CBMCalculationResponse(CBMCalculationBase):
+    shipment_mode: Optional[str] = None
     calc_id: int
     calc_code: str
     import_file_id: Optional[int] = None
@@ -105,10 +130,14 @@ class CBMCalculationResponse(CBMCalculationBase):
     smart_hybrid_containers: Optional[str] = None
     flat_only_containers: Optional[str] = None
     hybrid_savings_count: Optional[int] = 0
+    smart_hybrid_containers_count: Optional[int] = None
+    flat_only_containers_count: Optional[int] = None
     is_stackable: Optional[bool] = True
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     project_name: Optional[str] = None
     po_number: Optional[str] = None
     items: List[CBMItemResponse] = []
@@ -126,12 +155,16 @@ class CBMQuickCalcResponse(BaseModel):
     total_gross_weight_kg: float
     total_volumetric_weight_kg: float
     air_chargeable_weight_kg: float
+    # SHIPPING_METHOD code (AIR / LCL / FCL); CONTAINER_TYPE code (C20_ST / C40_ST / C40_HC / LCL), None for air
     recommended_shipping_method: str
-    recommended_container_type: str
+    recommended_container_type: Optional[str] = None
     recommended_container_count: int
+    # "<n> x C40_HC" (CONTAINER_TYPE code); the counts are also given as numbers
     smart_hybrid_containers: Optional[str] = None
     flat_only_containers: Optional[str] = None
     hybrid_savings_count: Optional[int] = 0
+    smart_hybrid_containers_count: Optional[int] = None
+    flat_only_containers_count: Optional[int] = None
     items: List[dict]
 
 
