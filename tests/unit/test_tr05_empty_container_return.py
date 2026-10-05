@@ -221,6 +221,8 @@ class TestEmptyContainerReturnServiceAndAPI:
 
         tracking = DemurrageTracking(
             tracking_code="DND-2026-0100",
+            # the model has no default rate any more (no fake FX): the service always sets one
+            exchange_rate=50.0,
             import_file_id=imp_file.import_file_id,
             carrier_name="MSC",
             bill_of_lading_no="MEDU12345678",
@@ -266,6 +268,8 @@ class TestEmptyContainerReturnServiceAndAPI:
         today = date.today()
         tracking = DemurrageTracking(
             tracking_code="DND-2026-0101",
+            # the model has no default rate any more (no fake FX): the service always sets one
+            exchange_rate=50.0,
             import_file_id=imp_file.import_file_id,
             carrier_name="CMA CGM",
             bill_of_lading_no="CMAU88776655",
@@ -320,6 +324,11 @@ class TestEmptyContainerReturnServiceAndAPI:
             "truck_plate_no": "س ق ر 1234",
             "notes": "تم الاستلام من خلال API بنجاح",
         }
+
+        # DD-06e / Q10: no tracking session and no container list -> 404
+        res_404 = client.post("/api/v1/demurrage-detention/empty-container-return", json=payload)
+        assert res_404.status_code == 404
+        payload["returned_containers"] = ["MSCU7766554"]
 
         res = client.post("/api/v1/demurrage-detention/empty-container-return", json=payload)
         assert res.status_code == 201

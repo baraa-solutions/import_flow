@@ -90,6 +90,14 @@ class TestShipmentUpdateEngine:
         assert inspections[4].status == "Future"
 
     def test_soft_delete_and_list_filters(self, db_session):
+        from fastapi import HTTPException
+        missing = ShipmentUpdateLogCreate(import_file_id=1, target_phase="Phase 5", log_date="2026-08-13", note="no file yet")
+        with pytest.raises(HTTPException) as exc:  # SU-03: the import file must exist and be active
+            service.create_update_log_service(db_session, missing)
+        assert exc.value.status_code == 404
+        db_session.add(ImportFile(import_file_id=1, import_file_code="IMP-001", company_name="X", supplier_name="Y", owner="Kamal"))
+        db_session.commit()
+
         schema = ShipmentUpdateLogCreate(
             import_file_id=1,
             import_file_code="IMP-001",

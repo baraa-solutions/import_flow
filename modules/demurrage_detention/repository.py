@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .model import DemurragePolicy, DemurrageTracking
+from modules.common.sequence_generator import next_yearly_code
 
 
 def get_policy_by_id(db: Session, policy_id: int) -> Optional[DemurragePolicy]:
@@ -38,12 +39,12 @@ def get_policies(
 
 
 def create_policy(db: Session, data: dict, user: str = "System") -> DemurragePolicy:
+    """Adds and flushes (the service commits)."""
     policy = DemurragePolicy(**data)
     policy.created_by = user
     policy.updated_by = user
     db.add(policy)
-    db.commit()
-    db.refresh(policy)
+    db.flush()
     return policy
 
 
@@ -53,8 +54,6 @@ def update_policy(db: Session, policy: DemurragePolicy, data: dict, user: str = 
             setattr(policy, key, val)
     policy.updated_by = user
     policy.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(policy)
     return policy
 
 
@@ -62,14 +61,12 @@ def delete_policy(db: Session, policy: DemurragePolicy, user: str = "System") ->
     policy.is_active = False
     policy.updated_by = user
     policy.updated_at = datetime.now(timezone.utc)
-    db.commit()
     return policy
 
 
 def generate_tracking_code(db: Session) -> str:
-    count = db.query(func.count(DemurrageTracking.tracking_id)).scalar() or 0
-    year = datetime.now(timezone.utc).year
-    return f"DND-{year}-{count + 1:04d}"
+    """Next ``DND-YYYY-NNNN`` of the current year (the unique constraint stays the final guard)."""
+    return next_yearly_code(db, DemurrageTracking.tracking_code, "DND", pad=4)
 
 
 def get_tracking_by_id(db: Session, tracking_id: int) -> Optional[DemurrageTracking]:
@@ -104,32 +101,24 @@ def get_trackings(
     return q.order_by(DemurrageTracking.tracking_id.desc()).offset(skip).limit(limit).all()
 
 
-def create_tracking(db: Session, data: dict, user: str = "System") -> DemurrageTracking:
-    if "tracking_code" not in data or not data["tracking_code"]:
-        data["tracking_code"] = generate_tracking_code(db)
-    tracking = DemurrageTracking(**data)
+def add_tracking(db: Session, tracking: DemurrageTracking, user: str = "System") -> DemurrageTracking:
+    """Assigns the next code when missing, adds and flushes (the service commits)."""
+    if not tracking.tracking_code:
+        tracking.tracking_code = generate_tracking_code(db)
     tracking.created_by = user
     tracking.updated_by = user
     db.add(tracking)
-    db.commit()
-    db.refresh(tracking)
+    db.flush()
     return tracking
 
 
-def update_tracking(db: Session, tracking: DemurrageTracking, data: dict, user: str = "System") -> DemurrageTracking:
-    for key, val in data.items():
-        if val is not None:
-            setattr(tracking, key, val)
-    tracking.updated_by = user
-    tracking.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(tracking)
-    return tracking
+def create_tracking(db: Session, data: dict, user: str = "System") -> DemurrageTracking:
+    """Legacy helper: builds and flushes a tracking from a dict (the caller commits)."""
+    return add_tracking(db, DemurrageTracking(**data), user=user)
 
 
 def delete_tracking(db: Session, tracking: DemurrageTracking, user: str = "System") -> DemurrageTracking:
     tracking.is_active = False
     tracking.updated_by = user
     tracking.updated_at = datetime.now(timezone.utc)
-    db.commit()
     return tracking

@@ -2,6 +2,8 @@ from datetime import datetime, date
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
+from modules.common.legacy_rows import read_model
+
 
 class TierRateItem(BaseModel):
     from_day: int = Field(..., ge=1, description="بداية شريحة الأيام (1-indexed)")
@@ -40,6 +42,7 @@ class DemurragePolicyUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+@read_model
 class DemurragePolicyResponse(DemurragePolicyBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,7 +71,7 @@ class DemurrageTrackingBase(BaseModel):
     empty_return_date: Optional[date] = Field(None, description="تاريخ إعادة الحاوية الفارغة لساحة الخط")
     containers: List[ContainerItemInput] = Field(default_factory=list, min_length=1, description="قائمة الحاويات")
     currency: str = Field("USD", min_length=3, max_length=10)
-    exchange_rate: float = Field(50.0, gt=0.0)
+    exchange_rate: Optional[float] = Field(None, gt=0.0, description="null = bank rate of the currency at the discharge date")
     notes: Optional[str] = None
 
 
@@ -108,6 +111,10 @@ class DemurrageTrackingResponse(BaseModel):
     status: str
     is_pushed_to_settlement: bool
     settlement_record_id: Optional[int] = None
+    settlement_warning_code: Optional[str] = Field(
+        None, description="DD_SETTLEMENT_STALE: the tracking was pushed but its settlement is locked or gone, so the "
+        "recalculated charges were not re-pushed"
+    )
     notes: Optional[str] = None
     is_active: bool
     created_at: Optional[datetime] = None
@@ -131,7 +138,7 @@ class DemurrageSimulationRequest(BaseModel):
     empty_return_date: Optional[date] = None
     calculation_date: Optional[date] = None
     currency: str = "USD"
-    exchange_rate: float = Field(50.0, gt=0.0)
+    exchange_rate: float = Field(..., gt=0.0, description="Required: no default FX rate")
 
 
 class DemurrageSimulationResponse(BaseModel):
@@ -162,7 +169,7 @@ class DemurrageSimulationResponse(BaseModel):
 class PushToSettlementRequest(BaseModel):
     tracking_id: int
     import_file_id: Optional[int] = None
-    accountant_name: Optional[str] = "Sorour Logistics Accountant"
+    accountant_name: Optional[str] = Field(None, description="Deprecated and ignored: the accountant is the logged-in user")
 
 
 # =========================================================================
@@ -225,8 +232,8 @@ class FreeDaysAgreementRegister(BaseModel):
     import_file_id: int = Field(..., description="رقم ملف الاستيراد المطلوب تسجيل وتوثيق فترات السماح له")
     carrier_name: Optional[str] = Field(None, description="اسم الخط الملاحي أو الناقل")
     agreed_demurrage_free_days: int = Field(..., ge=0, description="أيام سماح بقاء الحاوية بالميناء المتفق عليها")
-    agreed_detention_free_days: int = Field(default=7, ge=0, description="أيام سماح إعادة الحاوية الفارغة")
-    port_storage_free_days: int = Field(default=5, ge=0, description="أيام سماح تخزين ساحات الميناء")
+    agreed_detention_free_days: Optional[int] = Field(default=None, ge=0, description="أيام سماح إعادة الحاوية الفارغة (null = قيمة سياسة الخط)")
+    port_storage_free_days: Optional[int] = Field(default=None, ge=0, description="أيام سماح تخزين ساحات الميناء (null = قيمة سياسة الخط)")
     agreement_reference: Optional[str] = Field(None, description="رقم أو مرجع وثيقة الاتفاقية (e.g. Booking Confirmation Note Addendum)")
     agreement_date: Optional[date] = Field(None, description="تاريخ توثيق الاتفاقية")
     notes: Optional[str] = Field(None, description="ملاحظات وشروط الاتفاقية الخاصة")
@@ -248,6 +255,10 @@ class FreeDaysAgreementResponse(BaseModel):
     agreement_date: Optional[date] = None
     radar_status: str
     notes: Optional[str] = None
+    skipped_pushed_tracking_codes: List[str] = Field(default_factory=list, description="Deprecated, always empty: pushed trackings are recalculated and re-pushed")
+    stale_settlement_tracking_codes: List[str] = Field(
+        default_factory=list, description="Pushed trackings recalculated whose settlement is locked: warning DD_SETTLEMENT_STALE"
+    )
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -277,6 +288,7 @@ class ContainerRadarItem(BaseModel):
     storage_days_consumed: int
     storage_free_days: int
     storage_days_remaining: int
+    currency: str = "USD"  # currency of accrued_demurrage_usd (the tracking currency, despite the legacy name)
     accrued_demurrage_usd: float = 0.0
     accrued_storage_egp: float = 0.0
     total_accrued_egp: float = 0.0
@@ -289,9 +301,13 @@ class ContainerRadarOverviewResponse(BaseModel):
     warning_containers_count: int
     critical_overdue_count: int
     returned_containers_count: int
-    total_accrued_demurrage_usd: float
+    total_accrued_demurrage_usd: float  # USD trackings only (deprecated: see the per-currency totals)
+    total_accrued_carrier_fx_by_currency: Dict[str, float] = Field(default_factory=dict)
     total_accrued_storage_egp: float
     total_estimated_exposure_egp: float
+    skipped_tracking_codes: List[str] = Field(
+        default_factory=list, description="Trackings without a valid exchange rate: not priced, fix their rate"
+    )
     radar_items: List[ContainerRadarItem]
     generated_at: datetime
 
@@ -306,7 +322,7 @@ class EmptyContainerReturnSubmit(BaseModel):
     eir_number: str = Field(..., min_length=3, description="رقم إيصال استلام الحاوية الفارغة EIR")
     empty_return_date: date = Field(default_factory=date.today, description="تاريخ إعادة الحاوية الفارغة")
     depot_name: Optional[str] = Field(None, description="اسم مستودع أو ساحة الإرجاع (e.g. Dekheila Yard)")
-    returned_containers: Optional[List[str]] = Field(None, description="قائمة أرقام الحاويات المرجعة (إن تركت فارغة يتم تطبيقها على كافة حاويات الشحنة)")
+    returned_containers: Optional[List[str]] = Field(None, description="قائمة أرقام الحاويات المرجعة (إن تركت فارغة يتم تطبيقها على كافة الحاويات التي لم تُرجع بعد)")
     container_condition: str = Field("SOUND_CLEAN", description="حالة الحاوية: SOUND_CLEAN, MINOR_DAMAGE, REPAIR_REQUIRED")
     damage_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل التلفيات إن وجدت")
     damage_fee_estimated: Optional[float] = Field(0.0, ge=0.0, description="قيمة مصاريف الإصلاح أو التعويض المقدرة")
@@ -339,6 +355,7 @@ class EmptyContainerReturnResponse(BaseModel):
     current_stage: str
     progress_percent: float
     message_ar: str
+    settlement_warning_code: Optional[str] = None  # DD_SETTLEMENT_STALE (see DemurrageTrackingResponse)
     returned_at: datetime
 
 

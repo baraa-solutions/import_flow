@@ -1,8 +1,8 @@
 from typing import List, Optional, Tuple
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from modules.cargo_insurance.model import CargoInsuranceCertificate
+from modules.common.sequence_generator import next_yearly_code
 
 
 class CargoInsuranceRepository:
@@ -10,18 +10,13 @@ class CargoInsuranceRepository:
         self.db = db
 
     def generate_next_certificate_code(self) -> str:
-        current_year = func.strftime("%Y", func.now())
-        count = (
-            self.db.query(CargoInsuranceCertificate)
-            .filter(CargoInsuranceCertificate.created_at.isnot(None))
-            .count()
-        )
-        return f"INS-2026-{(count + 1):05d}"
+        """Next ``INS-YYYY-NNNNN`` of the current year (the unique constraint stays the final guard)."""
+        return next_yearly_code(self.db, CargoInsuranceCertificate.certificate_code, "INS", pad=5)
 
-    def create(self, certificate: CargoInsuranceCertificate) -> CargoInsuranceCertificate:
+    def add(self, certificate: CargoInsuranceCertificate) -> CargoInsuranceCertificate:
+        """Adds and flushes (the service commits)."""
         self.db.add(certificate)
-        self.db.commit()
-        self.db.refresh(certificate)
+        self.db.flush()
         return certificate
 
     def get_by_id(self, certificate_id: int) -> Optional[CargoInsuranceCertificate]:
@@ -79,11 +74,6 @@ class CargoInsuranceRepository:
         )
         return items, total
 
-    def update(self, certificate: CargoInsuranceCertificate) -> CargoInsuranceCertificate:
-        self.db.commit()
-        self.db.refresh(certificate)
-        return certificate
-
     def soft_delete(self, certificate: CargoInsuranceCertificate) -> None:
+        """Marks the certificate inactive (the service commits)."""
         certificate.is_active = False
-        self.db.commit()

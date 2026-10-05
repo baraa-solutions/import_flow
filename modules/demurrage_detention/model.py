@@ -90,7 +90,7 @@ class DemurrageTracking(Base):
     total_storage_egp = Column(Float, default=0.0, nullable=False)
     
     currency = Column(String(10), default="USD", nullable=False)
-    exchange_rate = Column(Float, default=50.0, nullable=False)
+    exchange_rate = Column(Float, nullable=False)  # always set by the service (request value or bank rate)
     total_cost_egp = Column(Float, default=0.0, nullable=False)
 
     status = Column(String(50), default="Free Time Active", index=True)  # Free Time Active, Warning, Demurrage Incurred, Detention Incurred, Closed, Pushed to Settlement

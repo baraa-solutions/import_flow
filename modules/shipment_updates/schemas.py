@@ -2,9 +2,24 @@
 Pydantic Schemas for Shipment Update Engine & Daily Log
 """
 
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+UpdateCategory = Literal["Follow-up & Notes", "Phase Cost Adjustment", "Future Phase Alert", "Daily Check-in", "Milestone Phase Progression"]
+PhaseStatus = Literal["Completed", "Current", "Future"]
+AlertPriority = Literal["Normal", "High", "Critical"]
+TARGET_PHASE_PATTERN = r"^Phase (10|[1-9])$"
+
+
+def _check_log_date(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return value
+    try:
+        datetime.strptime(value.strip(), "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("log_date must be YYYY-MM-DD")
+    return value.strip()
 
 
 class ShipmentUpdateLogBase(BaseModel):
@@ -19,11 +34,18 @@ class ShipmentUpdateLogBase(BaseModel):
     previous_cost: Optional[float] = 0.0
     new_cost: Optional[float] = 0.0
     alert_priority: str = Field("Normal", description="Normal, High, Critical")
-    assigned_user: str = Field("Kamal", description="User name")
+    assigned_user: Optional[str] = Field(None, description="User name (defaults to the logged-in user on create)")
 
 
 class ShipmentUpdateLogCreate(ShipmentUpdateLogBase):
-    pass
+    import_file_code: Optional[str] = Field(None, description="Deprecated and ignored: the code is read from the import file")
+    update_category: UpdateCategory = "Follow-up & Notes"
+    target_phase: str = Field(..., pattern=TARGET_PHASE_PATTERN, description="Phase 1 .. Phase 10")
+    phase_status: PhaseStatus = "Current"
+    alert_priority: AlertPriority = "Normal"
+    assigned_user: Optional[str] = Field(None, description="Defaults to the logged-in user")
+
+    _log_date = field_validator("log_date")(_check_log_date)
 
 
 class ShipmentUpdateLogUpdate(BaseModel):
@@ -32,8 +54,10 @@ class ShipmentUpdateLogUpdate(BaseModel):
     adjusted_cost_item: Optional[str] = None
     previous_cost: Optional[float] = None
     new_cost: Optional[float] = None
-    alert_priority: Optional[str] = None
+    alert_priority: Optional[AlertPriority] = None
     assigned_user: Optional[str] = None
+
+    _log_date = field_validator("log_date")(_check_log_date)
 
 
 class ShipmentUpdateLogResponse(ShipmentUpdateLogBase):

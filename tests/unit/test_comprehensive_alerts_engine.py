@@ -82,6 +82,7 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
             discharge_date=date.today() - timedelta(days=12),
             gate_out_date=date.today() - timedelta(days=6),
             empty_return_date=None,
+            exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
             status="Free Time Active",
         )
         self.db.add(tracking)

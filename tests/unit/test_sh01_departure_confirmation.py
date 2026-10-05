@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from database.database import Base, get_db
 from main import app
 from modules.freight_booking.schemas import (
+    ShipmentBookingConfirm,
     ShipmentBookingCreate,
     ShipmentDepartureConfirm,
     ContainerAllocationItem,
@@ -131,6 +132,7 @@ def test_confirm_departure_and_bol_success(db_session):
         port_name="Alexandria Port",
         discharge_date=date(2026, 9, 1),
         containers=[],
+        exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
         is_active=True,
     )
     db_session.add(dem)
@@ -151,10 +153,20 @@ def test_confirm_departure_and_bol_success(db_session):
         cost_charges_data=[
             BookingChargeItem(charge_type="Sea Freight", unit="Per Container", quantity=2, rate=2100.0, total=4200.0)
         ],
-        status="Confirmed",
+        # Confirmed is no longer a manual status on create: request first, then confirm (BK-01)
+        status="Booking Requested",
     )
     booking = create_booking_service(db_session, booking_create)
     assert booking.booking_id is not None
+    booking = confirm_booking_service(
+        db_session,
+        booking.booking_id,
+        ShipmentBookingConfirm(
+            booking_confirmation_no="MSC-CONF-8899",
+            etd=datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc),
+            eta=datetime(2026, 9, 5, 18, 0, tzinfo=timezone.utc),
+        ),
+    )
     assert booking.status == "Confirmed"
 
     # 4. Confirm departure with ATD 2 days after ETD (delayed departure)
@@ -221,9 +233,14 @@ def test_departure_api_endpoint(client, db_session):
         containers_data=[
             ContainerAllocationItem(container_type="20GP", quantity=1)
         ],
-        status="Confirmed",
+        # Confirmed is no longer a manual status on create: request first, then confirm (BK-01)
+        status="Booking Requested",
     )
     booking = create_booking_service(db_session, booking_create)
+    booking = confirm_booking_service(
+        db_session, booking.booking_id, ShipmentBookingConfirm(booking_confirmation_no="CMA-CONF-7711")
+    )
+    assert booking.status == "Confirmed"
 
     # Test valid depart call
     payload = {

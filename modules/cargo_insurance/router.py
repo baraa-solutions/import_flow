@@ -1,6 +1,8 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -12,10 +14,7 @@ from modules.cargo_insurance.schemas import (
     CargoInsuranceCertificateResponse,
     CargoInsuranceCertificateListResponse,
 )
-from modules.cargo_insurance.service import (
-    CargoInsuranceService,
-    calculate_cargo_insurance_engine,
-)
+from modules.cargo_insurance.service import CargoInsuranceService
 
 router = APIRouter(prefix="/api/v1/cargo-insurance", tags=["Cargo & Marine Insurance"], dependencies=[Depends(get_current_user)])
 
@@ -25,12 +24,17 @@ router = APIRouter(prefix="/api/v1/cargo-insurance", tags=["Cargo & Marine Insur
     response_model=InsuranceCalculationResult,
     summary="Calculate Insured Value and Gross Premium",
 )
-def calculate_insurance(payload: InsuranceCalculationInput):
+def calculate_insurance(
+    payload: InsuranceCalculationInput,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.view")),
+):
     """
     Financial engine for calculating 110% CIF Insured Value, Base Premium,
     War & Strikes Add-on, Minimum Premium thresholds, and applicable taxes.
+    Rates come from the system parameters (INSURANCE_*).
     """
-    return calculate_cargo_insurance_engine(payload)
+    return CargoInsuranceService(db).calculate_insurance(payload)
 
 
 @router.post(
@@ -42,9 +46,9 @@ def calculate_insurance(payload: InsuranceCalculationInput):
 def create_certificate(
     payload: CargoInsuranceCertificateCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.manage")),
 ):
-    service = CargoInsuranceService(db)
-    return service.create_certificate(payload)
+    return CargoInsuranceService(db).create_certificate(payload, current_user=current_user.username)
 
 
 @router.get(
@@ -59,9 +63,9 @@ def list_certificates(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.view")),
 ):
-    service = CargoInsuranceService(db)
-    items, total = service.list_certificates(
+    items, total = CargoInsuranceService(db).list_certificates(
         skip=skip,
         limit=limit,
         import_file_id=import_file_id,
@@ -82,23 +86,23 @@ def list_certificates(
 def get_certificate(
     certificate_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.view")),
 ):
-    service = CargoInsuranceService(db)
-    return service.get_certificate(certificate_id)
+    return CargoInsuranceService(db).get_certificate(certificate_id)
 
 
 @router.put(
     "/certificates/{certificate_id}",
     response_model=CargoInsuranceCertificateResponse,
-    summary="Update Cargo Insurance Certificate",
+    summary="Update Cargo Insurance Certificate (DRAFT only; status is ignored)",
 )
 def update_certificate(
     certificate_id: int,
     payload: CargoInsuranceCertificateUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.manage")),
 ):
-    service = CargoInsuranceService(db)
-    return service.update_certificate(certificate_id, payload)
+    return CargoInsuranceService(db).update_certificate(certificate_id, payload, current_user=current_user.username)
 
 
 @router.post(
@@ -109,9 +113,9 @@ def update_certificate(
 def issue_certificate(
     certificate_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.manage")),
 ):
-    service = CargoInsuranceService(db)
-    return service.issue_certificate(certificate_id)
+    return CargoInsuranceService(db).issue_certificate(certificate_id, current_user=current_user.username)
 
 
 @router.delete(
@@ -122,7 +126,7 @@ def issue_certificate(
 def delete_certificate(
     certificate_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.manage")),
 ):
-    service = CargoInsuranceService(db)
-    service.delete_certificate(certificate_id)
+    CargoInsuranceService(db).delete_certificate(certificate_id, current_user=current_user.username)
     return None

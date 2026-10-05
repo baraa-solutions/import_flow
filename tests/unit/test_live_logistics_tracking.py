@@ -96,6 +96,7 @@ def test_live_logistics_tracking_aggregation_and_risk(db_session, client):
         discharge_date=today - timedelta(days=13),
         total_demurrage_fx=250.0,
         total_cost_egp=12500.0,
+        exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
         status="Demurrage Incurred",
         is_active=True,
     )

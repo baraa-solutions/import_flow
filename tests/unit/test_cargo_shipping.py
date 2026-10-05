@@ -316,7 +316,11 @@ class TestCargoShippingModule(unittest.TestCase):
         deleted_check = get_cargo_shipping_by_id(self.db, rec_id, include_inactive=False)
         self.assertIsNone(deleted_check)
 
-        # 2. Update/Edit automatically reactivates
+        # 2. CS-03: editing a deleted record is a 404; only /restore reactivates it
+        with self.assertRaises(HTTPException) as ctx:
+            update_cargo_shipping_service(self.db, rec_id, CargoShippingUpdate(notes="Updated and restored"))
+        self.assertEqual(ctx.exception.status_code, 404)
+        restore_cargo_shipping_service(self.db, rec_id)
         update_cargo_shipping_service(self.db, rec_id, CargoShippingUpdate(notes="Updated and restored"))
         restored_check = get_cargo_shipping_service(self.db, rec_id, include_inactive=False)
         self.assertIsNotNone(restored_check)
@@ -352,8 +356,12 @@ class TestCargoShippingModule(unittest.TestCase):
         submit_level1_approval_service(self.db, record.cargo_shipping_id, DualApprovalLevel1Submit(approved_by="Op User", approved=True))
         submit_level2_approval_service(self.db, record.cargo_shipping_id, DualApprovalLevel2Submit(approved_by="Mgr User", approved=True))
 
-        # Run CargoX verification checklist
+        # Run CargoX verification checklist: no ACID and no invoice confirmation -> not passed (CS-02)
         record = execute_cargox_checklist_service(self.db, record.cargo_shipping_id)
+        self.assertEqual(record.cargox_exchange_data["envelope_status"], "Invited")
+        self.import_file.acid_number = "1234567890123456789"
+        self.db.commit()
+        record = execute_cargox_checklist_service(self.db, record.cargo_shipping_id, invoice_match_confirmed=True, user="op1")
         self.assertEqual(record.cargox_exchange_data["envelope_status"], "Checklist Passed")
 
         # Advance to Ready for Upload
@@ -363,7 +371,7 @@ class TestCargoShippingModule(unittest.TestCase):
         # Advance to Uploaded
         record = advance_cargox_stage_service(self.db, record.cargo_shipping_id, "Uploaded")
         self.assertEqual(record.cargox_exchange_data["envelope_status"], "Uploaded")
-        self.assertIsNotNone(record.cargox_exchange_data["blockchain_tx_hash"])
+        self.assertIsNone(record.cargox_exchange_data["blockchain_tx_hash"])  # never invented (CS-02)
         self.assertEqual(record.status, "CargoX Transfer Completed")
 
     def test_container_reuse_conflict_15_day_window(self):

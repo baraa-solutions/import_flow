@@ -5,24 +5,26 @@ Database Repository for Shipment Update Engine
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_
+
+from modules.common.sequence_generator import next_yearly_code
 
 from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.shipment_updates.schemas import ShipmentUpdateLogCreate, ShipmentUpdateLogUpdate
 
 
 def generate_update_code(db: Session) -> str:
-    year = datetime.now(timezone.utc).year
-    count = db.query(func.count(ShipmentUpdateLog.update_id)).scalar() or 0
-    return f"UPD-{year}-{(count + 1):05d}"
+    return next_yearly_code(db, ShipmentUpdateLog.update_code, "UPD", pad=5)
 
 
-def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: str = "System") -> ShipmentUpdateLog:
+def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: str = "System",
+                      import_file_code: Optional[str] = None, assigned_user: Optional[str] = None) -> ShipmentUpdateLog:
+    """Adds and flushes the log row (the service commits)."""
     code = generate_update_code(db)
     db_obj = ShipmentUpdateLog(
         update_code=code,
         import_file_id=schema.import_file_id,
-        import_file_code=schema.import_file_code,
+        import_file_code=import_file_code or schema.import_file_code,
         update_category=schema.update_category,
         target_phase=schema.target_phase,
         phase_status=schema.phase_status,
@@ -32,13 +34,12 @@ def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: 
         previous_cost=schema.previous_cost or 0.0,
         new_cost=schema.new_cost or 0.0,
         alert_priority=schema.alert_priority,
-        assigned_user=schema.assigned_user,
+        assigned_user=assigned_user or schema.assigned_user or created_by,
         created_by=created_by,
         updated_by=created_by,
     )
     db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
+    db.flush()
     return db_obj
 
 
@@ -65,7 +66,8 @@ def get_all_update_logs(
         query = query.filter(ShipmentUpdateLog.update_category == update_category)
 
     if target_phase and target_phase != "All":
-        query = query.filter(ShipmentUpdateLog.target_phase.ilike(f"%{target_phase}%"))
+        # exact phase ("Phase 1" must not match "Phase 10")
+        query = query.filter(or_(ShipmentUpdateLog.target_phase == target_phase, ShipmentUpdateLog.target_phase.like(f"{target_phase} %")))
 
     if search:
         term = f"%{search}%"

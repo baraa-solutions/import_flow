@@ -9,7 +9,7 @@ class ContainerLoadingTrackingItem(BaseModel):
     tare_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
     gross_weight_kg: float = 0.0
-    vgm_status: str = "Submitted"
+    vgm_status: str = "Pending"  # nothing is submitted until the user says so
     vgm_ref_no: Optional[str] = None
     # 5 Milestones
     container_assignment_date: Optional[str] = None # YYYY-MM-DD
@@ -33,7 +33,7 @@ class ContainerLoadingItem(BaseModel):
     tare_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
     gross_weight_kg: float = 0.0
-    vgm_status: str = "Submitted"
+    vgm_status: str = "Pending"  # nothing is submitted until the user says so
     vgm_ref_no: Optional[str] = None
     # 5-Milestones Tracking Fields
     container_assignment_date: Optional[str] = None
@@ -58,7 +58,7 @@ class ContainerLoadingTrackingUpdate(BaseModel):
     seal_no: Optional[str] = None
     notes: Optional[str] = None
     milestone_notes: Optional[Dict[str, str]] = None
-    updated_by: str = "Kamal"
+    updated_by: Optional[str] = Field(None, description="Deprecated and ignored: the logged-in user is recorded")
 
 class LclLoadingTrackingItem(BaseModel):
     shipment_type: str = "LCL"
@@ -105,16 +105,16 @@ class CargoShippingCreate(BaseModel):
     cargox_exchange_data: Optional[CargoXExchangeItem] = None
     live_tracking_url: Optional[str] = None
     status: str = "Cargo Ready"
-    owner: str = "Kamal"
+    owner: Optional[str] = Field(None, description="Defaults to the logged-in user when not sent")
     notes: Optional[str] = None
 
 class DualApprovalLevel1Submit(BaseModel):
-    approved_by: str
+    approved_by: Optional[str] = Field(None, description="Deprecated and ignored: the approver is the logged-in user")
     approved: bool
     notes: Optional[str] = None
 
 class DualApprovalLevel2Submit(BaseModel):
-    approved_by: str
+    approved_by: Optional[str] = Field(None, description="Deprecated and ignored: the approver is the logged-in user")
     approved: bool
     notes: Optional[str] = None
 
@@ -128,6 +128,7 @@ class CargoShippingUpdate(BaseModel):
     courier_tracking_data: Optional[CourierTrackingItem] = None
     cargox_exchange_data: Optional[CargoXExchangeItem] = None
     live_tracking_url: Optional[str] = None
+    # Only Cargo Ready / Loaded & Sealed / Docs Dispatched are applied, never below a workflow status
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None

@@ -117,6 +117,7 @@ class TestDemurrageDetentionEngine:
             demurrage_free_days=14,
             discharge_date=discharge,
             calculation_date=date.today(),
+            exchange_rate=50.0,  # DD-02: no default FX rate any more
         ))
         assert sim.demurrage_days_consumed == 12
         assert sim.demurrage_days_overdue == 0

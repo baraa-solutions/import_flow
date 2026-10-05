@@ -1,9 +1,12 @@
 from datetime import datetime, timezone, timedelta, date
 import logging
-from typing import List, Optional
+import re
+from typing import Callable, List, Optional
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from modules.freight_booking.model import ShipmentBooking
+from modules.import_files.model import ImportFile
 from modules.freight_booking.schemas import (
     ShipmentBookingCreate,
     ShipmentBookingUpdate,
@@ -12,10 +15,19 @@ from modules.freight_booking.schemas import (
 )
 import modules.freight_booking.repository as repo
 import modules.freight_booking.validators as validators
+from modules.common.errors import best_effort
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+from modules.common.validators import not_found
 
 logger = logging.getLogger(__name__)
+
+# Pending system tasks auto-closed by BK-01 confirmation / SH-01 departure: message codes first, title keywords
+# only for tasks created before message codes existed.
+BOOKING_TASK_MSG_CODES = frozenset({"DOC_TASK_FREIGHT_BOOKING"})
+BOOKING_TASK_TITLE_KEYS = ("bk-01", "حجز", "freight booking")
+DEPARTURE_TASK_MSG_CODES = frozenset()  # no coded SH-01 task exists yet
+DEPARTURE_TASK_TITLE_KEYS = ("sh-01", "إبحار", "sailing", "departure", "بوليصة")
 
 
 def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Session] = None):
@@ -182,30 +194,41 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     booking.quotation_details_data = quot_data
 
 
-def _handle_booking_confirmation_workflow(db: Session, booking: ShipmentBooking):
-    """
-    Central business engine for BK-01: Freight Booking Confirmation.
-    - Two-way sync with ImportFile (target_free_days, required_eta, selected_scenario, progress_percent)
-    - Advances lifecycle to STEP_07 (Container allocation & VGM)
-    - Auto-completes prior BK-01 SmartTasks
-    - Dispatches downstream BK-02 SmartTask (Free Days Tracking)
-    - Dispatches high-priority SystemNotification
-    """
-    if not booking.import_file_id:
-        return
+def _file_code(file_rec: ImportFile) -> str:
+    return file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
 
-    from modules.import_files.model import ImportFile
-    file_rec = db.query(ImportFile).filter(
-        ImportFile.import_file_id == booking.import_file_id,
+
+def _active_import_file(db: Session, import_file_id: Optional[int]) -> Optional[ImportFile]:
+    if not import_file_id:
+        return None
+    return db.query(ImportFile).filter(
+        ImportFile.import_file_id == import_file_id,
         ImportFile.is_active == True,
     ).first()
+
+
+_STEP_NUMBER_RE = re.compile(r"^STEP_(\d+)")
+
+
+def _file_past_step(file_rec: Optional[ImportFile], step_code: str) -> bool:
+    """True when the file's GP-002 step is beyond ``step_code`` (STEP_08_BL is past STEP_07): booking saves
+    never move a file backwards on the board."""
+    if file_rec is None or not file_rec.current_step_code:
+        return False
+    current = _STEP_NUMBER_RE.match(file_rec.current_step_code)
+    target = _STEP_NUMBER_RE.match(step_code)
+    if not current or not target:
+        return False
+    return int(current.group(1)) > int(target.group(1))
+
+
+def _sync_import_file_with_booking(db: Session, booking: ShipmentBooking, tracking_step: Optional[str]) -> Optional[ImportFile]:
+    """Two-way sync of the booking into its import file (no commit; part of the caller's transaction).
+    ``tracking_step``: "STEP_07" (booking confirmed), "STEP_06" (booking still pending) or None (attributes only)."""
+    file_rec = _active_import_file(db, booking.import_file_id)
     if not file_rec:
-        return
+        return None
 
-    file_code = file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
-    is_confirmed = (booking.status == "Confirmed")
-
-    # 1. Update ImportFile attributes
     if booking.free_demurrage_days:
         file_rec.target_free_days = booking.free_demurrage_days
 
@@ -218,7 +241,9 @@ def _handle_booking_confirmation_workflow(db: Session, booking: ShipmentBooking)
             carrier_label += f" ({booking.vessel_name})"
         file_rec.selected_scenario = f"Confirmed booking: {carrier_label}"
 
-    if is_confirmed:
+    if tracking_step and _file_past_step(file_rec, tracking_step):
+        tracking_step = None  # the file is already further on the board: attributes only
+    if tracking_step == "STEP_07":
         set_file_tracking(
             file_rec,
             step_code="STEP_07",
@@ -229,7 +254,7 @@ def _handle_booking_confirmation_workflow(db: Session, booking: ShipmentBooking)
         )
         if (file_rec.progress_percent or 0.0) < 50.0:
             file_rec.progress_percent = 50.0
-    else:
+    elif tracking_step == "STEP_06":
         set_file_tracking(
             file_rec,
             step_code="STEP_06",
@@ -237,141 +262,166 @@ def _handle_booking_confirmation_workflow(db: Session, booking: ShipmentBooking)
         )
         if (file_rec.progress_percent or 0.0) < 45.0:
             file_rec.progress_percent = 45.0
+    return file_rec
 
+
+def _tracking_step_for(booking: ShipmentBooking) -> Optional[str]:
+    """Create / PUT only move a pending booking's file to STEP_06; STEP_07 comes from /confirm."""
+    if booking.status in (validators.STATUS_DRAFT, validators.STATUS_REQUESTED):
+        return "STEP_06"
+    return None
+
+
+def _sync_booking_lifecycle(db: Session, booking: ShipmentBooking, is_confirmed: bool) -> None:
+    from modules.lifecycle_board.service import sync_booking_lifecycle_stage
+    sync_booking_lifecycle_stage(
+        db=db,
+        import_file_id=booking.import_file_id,
+        booking_code=booking.booking_code,
+        booking_confirmation_no=booking.booking_confirmation_no,
+        is_confirmed=is_confirmed,
+        vessel_name=booking.vessel_name,
+    )
     db.commit()
-    db.refresh(file_rec)
 
-    # 2. Advance lifecycle board
+
+def _close_prior_tasks(db: Session, import_file_id: int, msg_codes: frozenset, title_keys: tuple) -> None:
+    """Auto-close pending system tasks of the file: by ``msg_code`` first, by title keywords as a fallback
+    (tasks created before message codes existed, generic lifecycle tasks)."""
+    from modules.smart_tasks.model import SmartTask
+    prior_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == import_file_id,
+        SmartTask.task_type == "System Generated",
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        SmartTask.is_active == True,
+    ).all()
+    for pt in prior_tasks:
+        title_lower = (pt.title or "").lower()
+        if pt.msg_code in msg_codes or any(key in title_lower for key in title_keys):
+            pt.status = "Completed"
+            pt.is_auto_closed = True
+    db.commit()
+
+
+def _dispatch_free_days_task(db: Session, booking: ShipmentBooking, file_id: int, file_code: str) -> None:
+    from modules.smart_tasks.service import create_task_service
+    from modules.smart_tasks.schemas import SmartTaskCreate
+    free_days_msg = msg(
+        "FB_TASK_FREE_DAYS",
+        import_file_code=file_code,
+        booking_no=booking.booking_confirmation_no or booking.booking_code,
+        shipping_line_name=booking.shipping_line_name or "N/A",
+        vessel_name=booking.vessel_name or "TBA",
+        demurrage_free_days=booking.free_demurrage_days or 14,
+    )
+    task_schema = SmartTaskCreate(
+        title=render_en(free_days_msg.code, free_days_msg.params, "title"),
+        description=render_en(free_days_msg.code, free_days_msg.params, "body"),
+        task_type="System Generated",
+        import_file_id=file_id,
+        import_file_code=file_code,
+        phase_name="Phase 3: Booking & Doc Prep",
+        assigned_user="Logistics Officer",
+        priority="High",
+        reminder_type="Free Days Confirmation",
+        due_date=str(date.today() + timedelta(days=2)),
+        status="Pending",
+        notes=f"ACTION:FREE_DAYS_CONFIRMATION | File: {file_code} | Booking: {booking.booking_confirmation_no or booking.booking_code}",
+    )
+    create_task_service(
+        db, task_schema, user_name="Freight Booking Confirmation Engine",
+        msg_code=free_days_msg.code, msg_params=free_days_msg.params,
+    )
+
+
+def _dispatch_booking_confirmed_notification(db: Session, booking: ShipmentBooking, file_code: str) -> None:
+    from modules.notifications.model import SystemNotification
+    notif_msg = msg(
+        "FB_BOOKING_CONFIRMED",
+        booking_no=booking.booking_confirmation_no or booking.booking_code,
+        import_file_code=file_code,
+        shipping_line_name=booking.shipping_line_name or "N/A",
+        vessel_name=booking.vessel_name or "TBA",
+        etd_date=booking.etd.strftime("%Y-%m-%d") if booking.etd else "TBA",
+        eta_date=booking.eta.strftime("%Y-%m-%d") if booking.eta else "TBA",
+        demurrage_free_days=booking.free_demurrage_days or 14,
+    )
+    db.add(SystemNotification(
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
+        severity="INFO",
+        category="FREIGHT_BOOKING_CONFIRMED",
+        entity_type="ShipmentBooking",
+        entity_id=booking.booking_id,
+        target_role="LOGISTICS_OFFICER",
+    ))
+    db.commit()
+
+
+def _log_audit(db: Session, booking: ShipmentBooking, action: str, user: str, new_data: dict, old_data: Optional[dict] = None) -> None:
+    from modules.audit_logs.service import AuditLogService
+    AuditLogService(db).log_activity(
+        entity_type="ShipmentBooking",
+        entity_id=booking.booking_id,
+        entity_code=booking.booking_code,
+        action=action,
+        old_data=old_data,
+        new_data=new_data,
+        performed_by=user,
+    )
+
+
+def _run_pending_followups(db: Session, booking: ShipmentBooking) -> None:
+    """Follow-ups after the commit of a create / PUT (never undo the saved booking)."""
+    file_rec = _active_import_file(db, booking.import_file_id) if booking.import_file_id else None
+    if file_rec and _tracking_step_for(booking) == "STEP_06" and not _file_past_step(file_rec, "STEP_06"):
+        best_effort(db, _sync_booking_lifecycle, "Booking lifecycle sync (STEP_06)", db, booking, False)
+
+
+def _commit_with_code_retry(db: Session, build: Callable[[], ShipmentBooking]) -> ShipmentBooking:
+    """Runs ``build`` (adds + flushes a booking with a fresh code) and commits; one retry when a concurrent
+    create took the same ``BKG`` code (unique constraint)."""
     try:
-        from modules.lifecycle_board.service import sync_booking_lifecycle_stage
-        sync_booking_lifecycle_stage(
-            db=db,
-            import_file_id=booking.import_file_id,
-            booking_code=booking.booking_code,
-            booking_confirmation_no=booking.booking_confirmation_no,
-            is_confirmed=is_confirmed,
-            vessel_name=booking.vessel_name,
-        )
-    except Exception as e:
-        logger.warning("Failed to sync booking lifecycle stage: %s", e)
-
-    # 3. SmartTasks & Notifications (only upon Confirmation)
-    if is_confirmed:
-        # A. Complete prior BK-01 SmartTasks
-        try:
-            from modules.smart_tasks.model import SmartTask
-            prior_tasks = db.query(SmartTask).filter(
-                SmartTask.import_file_id == booking.import_file_id,
-                SmartTask.task_type == "System Generated",
-                SmartTask.status.in_(["Pending", "In Progress"]),
-                SmartTask.is_active == True,
-            ).all()
-            for pt in prior_tasks:
-                title_lower = (pt.title or "").lower()
-                if "bk-01" in title_lower or "حجز" in title_lower or "freight booking" in title_lower:
-                    pt.status = "Completed"
-                    pt.is_auto_closed = True
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to auto-close prior booking smart tasks: %s", e)
-
-        # B. Dispatch downstream SmartTask: BK-02 (Free Days Agreement)
-        try:
-            from modules.smart_tasks.service import create_task_service
-            from modules.smart_tasks.schemas import SmartTaskCreate
-            free_days_msg = msg(
-                "FB_TASK_FREE_DAYS",
-                import_file_code=file_code,
-                booking_no=booking.booking_confirmation_no or booking.booking_code,
-                shipping_line_name=booking.shipping_line_name or "N/A",
-                vessel_name=booking.vessel_name or "TBA",
-                demurrage_free_days=booking.free_demurrage_days or 14,
-            )
-            task_title = render_en(free_days_msg.code, free_days_msg.params, "title")
-            task_desc = render_en(free_days_msg.code, free_days_msg.params, "body")
-            due_dt = date.today() + timedelta(days=2)
-            task_schema = SmartTaskCreate(
-                title=task_title,
-                description=task_desc,
-                task_type="System Generated",
-                import_file_id=file_rec.import_file_id,
-                import_file_code=file_code,
-                phase_name="Phase 3: Booking & Doc Prep",
-                assigned_user="Logistics Officer",
-                priority="High",
-                reminder_type="Free Days Confirmation",
-                due_date=str(due_dt),
-                status="Pending",
-                notes=f"ACTION:FREE_DAYS_CONFIRMATION | File: {file_code} | Booking: {booking.booking_confirmation_no or booking.booking_code}",
-            )
-            create_task_service(
-                db, task_schema, user_name="Freight Booking Confirmation Engine",
-                msg_code=free_days_msg.code, msg_params=free_days_msg.params, commit=False,
-            )
-        except Exception as e:
-            logger.warning("Failed to dispatch BK-02 smart task: %s", e)
-
-        # C. Dispatch SystemNotification
-        try:
-            from modules.notifications.model import SystemNotification
-            etd_str = booking.etd.strftime("%Y-%m-%d") if booking.etd else "TBA"
-            eta_str = booking.eta.strftime("%Y-%m-%d") if booking.eta else "TBA"
-            notif_msg = msg(
-                "FB_BOOKING_CONFIRMED",
-                booking_no=booking.booking_confirmation_no or booking.booking_code,
-                import_file_code=file_code,
-                shipping_line_name=booking.shipping_line_name or "N/A",
-                vessel_name=booking.vessel_name or "TBA",
-                etd_date=etd_str,
-                eta_date=eta_str,
-                demurrage_free_days=booking.free_demurrage_days or 14,
-            )
-            notif = SystemNotification(
-                title=render_en(notif_msg.code, notif_msg.params, "title"),
-                message=render_en(notif_msg.code, notif_msg.params, "body"),
-                msg_code=notif_msg.code,
-                msg_params=notif_msg.params,
-                severity="INFO",
-                category="FREIGHT_BOOKING_CONFIRMED",
-                entity_type="ShipmentBooking",
-                entity_id=booking.booking_id,
-                target_role="LOGISTICS_OFFICER",
-            )
-            db.add(notif)
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to dispatch booking confirmation notification: %s", e)
+        booking = build()
+        db.commit()
+        return booking
+    except IntegrityError:
+        db.rollback()
+        logger.warning("Booking code collision; retrying once with a new code")
+        booking = build()
+        db.commit()
+        return booking
 
 
-def create_booking_service(db: Session, payload: ShipmentBookingCreate) -> ShipmentBooking:
+def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: str = "system") -> ShipmentBooking:
     validators.validate_container_allocation(payload.shipment_type, payload.containers_data)
+    validators.validate_manual_status(payload.status)
     validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
-    booking = repo.create_booking(db, payload)
-    calculate_transit_time_and_costs(booking, db=db)
-    db.commit()
+    owner = payload.owner if "owner" in payload.model_fields_set and payload.owner else user
+
+    def build() -> ShipmentBooking:
+        new_booking = repo.create_booking(db, payload, owner=owner)
+        calculate_transit_time_and_costs(new_booking, db=db)
+        _sync_import_file_with_booking(db, new_booking, _tracking_step_for(new_booking))
+        return new_booking
+
+    booking = _commit_with_code_retry(db, build)
     db.refresh(booking)
 
-    _handle_booking_confirmation_workflow(db, booking)
-
-    try:
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="ShipmentBooking",
-            entity_id=booking.booking_id,
-            entity_code=booking.booking_code,
-            action="CREATE",
-            new_data=payload.model_dump(exclude_unset=True),
-            performed_by=booking.owner or "Kamal",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("AuditLog for ShipmentBooking create failed: %s", e)
-
+    _run_pending_followups(db, booking)
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking create", db, booking, "CREATE", user,
+                payload.model_dump(mode="json", exclude_unset=True))
+    db.refresh(booking)
     return booking
 
 
-def get_booking_service(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
-    return repo.get_booking_by_id(db, booking_id)
+def get_booking_service(db: Session, booking_id: int) -> ShipmentBooking:
+    booking = repo.get_booking_by_id(db, booking_id)
+    if not booking:
+        raise not_found(validators.BOOKING_LABEL_AR, booking_id)
+    return booking
 
 
 def list_bookings_service(
@@ -384,49 +434,34 @@ def list_bookings_service(
     return repo.list_bookings(db, include_inactive, import_file_id, status, search)
 
 
-def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate) -> Optional[ShipmentBooking]:
-    booking = repo.get_booking_by_id(db, booking_id)
-    if not booking:
-        return None
+def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
+    booking = get_booking_service(db, booking_id)
 
+    if "status" in payload.model_fields_set:
+        validators.validate_manual_status(payload.status, booking.status)
     if payload.import_file_id is not None:
         validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id, current_booking_id=booking_id)
 
-    update_data = payload.model_dump(exclude_unset=True, exclude_none=True)
+    update_data = payload.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(booking, k, None) for k in update_data.keys()}
 
-    updated = repo.update_booking(db, booking_id, payload)
-    if updated:
-        calculate_transit_time_and_costs(updated, db=db)
-        db.commit()
-        db.refresh(updated)
+    repo.apply_booking_update(booking, payload)
+    calculate_transit_time_and_costs(booking, db=db)
+    _sync_import_file_with_booking(db, booking, _tracking_step_for(booking))
+    db.commit()
+    db.refresh(booking)
 
-        _handle_booking_confirmation_workflow(db, updated)
-
-        try:
-            from modules.audit_logs.service import AuditLogService
-            AuditLogService(db).log_activity(
-                entity_type="ShipmentBooking",
-                entity_id=updated.booking_id,
-                entity_code=updated.booking_code,
-                action="UPDATE",
-                old_data=old_data,
-                new_data=update_data,
-                performed_by=updated.owner or "Kamal",
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("AuditLog for ShipmentBooking update failed: %s", e)
-
-    return updated
+    _run_pending_followups(db, booking)
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking update", db, booking, "UPDATE", user, update_data, old_data)
+    db.refresh(booking)
+    return booking
 
 
-def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBookingConfirm) -> Optional[ShipmentBooking]:
-    booking = repo.get_booking_by_id(db, booking_id)
-    if not booking:
-        return None
+def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBookingConfirm, user: str = "system") -> ShipmentBooking:
+    booking = get_booking_service(db, booking_id)
+    validators.validate_can_confirm(booking)
 
-    booking.status = "Confirmed"
+    booking.status = validators.STATUS_CONFIRMED
     booking.booking_confirmation_no = payload.booking_confirmation_no
     booking.booking_confirmation_date = datetime.now(timezone.utc)
     if payload.vessel_name:
@@ -443,23 +478,47 @@ def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBooki
         booking.notes = payload.notes
 
     calculate_transit_time_and_costs(booking, db=db)
+    past_step_07 = _file_past_step(_active_import_file(db, booking.import_file_id), "STEP_07")
+    file_rec = _sync_import_file_with_booking(db, booking, "STEP_07")
+    file_id = file_rec.import_file_id if file_rec else None
+    file_code = _file_code(file_rec) if file_rec else None
     db.commit()
     db.refresh(booking)
 
-    _handle_booking_confirmation_workflow(db, booking)
+    # Follow-ups (BK-01): lifecycle STEP_07, close prior BK-01 tasks, BK-02 task, notification
+    if file_id:
+        if not past_step_07:
+            best_effort(db, _sync_booking_lifecycle, "Booking lifecycle sync (STEP_07)", db, booking, True)
+        best_effort(db, _close_prior_tasks, "Auto-close prior booking smart tasks", db, file_id,
+                    BOOKING_TASK_MSG_CODES, BOOKING_TASK_TITLE_KEYS)
+        best_effort(db, _dispatch_free_days_task, "Dispatch BK-02 smart task", db, booking, file_id, file_code)
+        best_effort(db, _dispatch_booking_confirmed_notification, "Booking confirmation notification", db, booking, file_code)
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking confirm", db, booking, "CONFIRM", user,
+                payload.model_dump(mode="json", exclude_unset=True))
+    db.refresh(booking)
     return booking
 
 
-def soft_delete_booking_service(db: Session, booking_id: int) -> bool:
-    return repo.soft_delete_booking(db, booking_id)
+def soft_delete_booking_service(db: Session, booking_id: int, user: str = "system") -> bool:
+    booking = get_booking_service(db, booking_id)
+    validators.validate_deletable(booking)
+    repo.set_booking_active(booking, False)
+    db.commit()
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking delete", db, booking, "DELETE", user, {"is_active": False})
+    return True
 
 
-def restore_booking_service(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
-    booking = repo.restore_booking(db, booking_id)
-    if booking:
-        calculate_transit_time_and_costs(booking, db=db)
-        db.commit()
-        db.refresh(booking)
+def restore_booking_service(db: Session, booking_id: int, user: str = "system") -> ShipmentBooking:
+    booking = repo.get_booking_by_id(db, booking_id, include_inactive=True)
+    if not booking:
+        raise not_found(validators.BOOKING_LABEL_AR, booking_id)
+    validators.validate_no_duplicate_booking_for_file(db, booking.import_file_id, current_booking_id=booking_id)
+    repo.set_booking_active(booking, True)
+    calculate_transit_time_and_costs(booking, db=db)
+    db.commit()
+    db.refresh(booking)
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking restore", db, booking, "RESTORE", user, {"is_active": True})
+    db.refresh(booking)
     return booking
 
 
@@ -467,15 +526,15 @@ def confirm_departure_and_bol_service(
     db: Session,
     booking_id: int,
     payload: ShipmentDepartureConfirm,
-) -> Optional[ShipmentBooking]:
-    booking = repo.get_booking_by_id(db, booking_id)
-    if not booking:
-        return None
+    user: str = "system",
+) -> ShipmentBooking:
+    booking = get_booking_service(db, booking_id)
+    validators.validate_can_depart(booking)
 
     # 1. Update Booking state
     booking.atd = payload.actual_departure_date
     booking.bill_of_lading_no = payload.bill_of_lading_no.strip()
-    booking.status = "Sailed"
+    booking.status = validators.STATUS_SAILED
 
     if payload.revised_eta:
         booking.eta = payload.revised_eta
@@ -491,26 +550,35 @@ def confirm_departure_and_bol_service(
 
     # Recalculate transit times, delay days, and warehouse arrival date
     calculate_transit_time_and_costs(booking, db=db)
+
+    # 2. Same transaction: import file and demurrage trackings of the file
+    file_rec = _sync_import_file_on_departure(db, booking)
+    file_id = file_rec.import_file_id if file_rec else None
+    file_code = file_rec.import_file_code if file_rec else None
     db.commit()
     db.refresh(booking)
 
-    # 2. Workflow synchronization
-    _handle_departure_workflow(db, booking, payload)
+    # 3. Follow-ups: lifecycle STEP_08_BL, prior SH-01 tasks, SH-02 task, notification
+    if file_id:
+        best_effort(db, _advance_departure_lifecycle, "Lifecycle advance for departure", db, booking)
+        best_effort(db, _close_prior_tasks, "Auto-close prior departure smart tasks", db, file_id,
+                    DEPARTURE_TASK_MSG_CODES, DEPARTURE_TASK_TITLE_KEYS)
+        best_effort(db, _dispatch_draft_bl_task, "Dispatch SH-02 smart task", db, booking, file_id, file_code)
+        best_effort(db, _dispatch_departure_notification, "Departure notification", db, booking, file_code)
+    best_effort(db, _log_audit, "AuditLog for ShipmentBooking departure", db, booking, "DEPART", user,
+                payload.model_dump(mode="json", exclude_unset=True))
+    db.refresh(booking)
     return booking
 
 
-def _handle_departure_workflow(db: Session, booking: ShipmentBooking, payload: ShipmentDepartureConfirm):
+def _sync_import_file_on_departure(db: Session, booking: ShipmentBooking) -> Optional[ImportFile]:
+    """No commit: updates the import file and the file's active demurrage trackings with the B/L."""
     if not booking.import_file_id:
-        return
-
-    from modules.import_files.model import ImportFile
+        return None
     file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
     if not file_rec:
-        return
+        return None
 
-    file_code = file_rec.import_file_code
-
-    # A. Synchronize ImportFile
     if booking.eta:
         file_rec.required_eta = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
 
@@ -519,122 +587,85 @@ def _handle_departure_workflow(db: Session, booking: ShipmentBooking, payload: S
     if (file_rec.progress_percent or 0.0) < 60.0:
         file_rec.progress_percent = 60.0
 
+    from modules.demurrage_detention.model import DemurrageTracking
+    dem_records = db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == booking.import_file_id,
+        DemurrageTracking.is_active == True,
+    ).all()
+    for dem in dem_records:
+        dem.bill_of_lading_no = booking.bill_of_lading_no
+        if booking.shipping_line_name and not dem.carrier_name:
+            dem.carrier_name = booking.shipping_line_name
+    return file_rec
+
+
+def _advance_departure_lifecycle(db: Session, booking: ShipmentBooking) -> None:
+    from modules.lifecycle_board.service import advance_lifecycle_step_service
+    atd_str = booking.atd.strftime("%Y-%m-%d") if booking.atd else "N/A"
+    advance_lifecycle_step_service(
+        db=db,
+        completed_step_code="STEP_07",
+        import_file_id=booking.import_file_id,
+        target_step_codes=["STEP_08_BL"],
+        auto_complete_prior=True,
+        notes_msg=msg("FB_SAILING_CONFIRMED", atd_date=atd_str, bl_number=booking.bill_of_lading_no),
+        next_action_msg=msg("NA_STEP08BL_MATCH_BL_PO_INVOICE"),
+        source_module="Freight Booking Departure Engine",
+        min_progress_percent=60.0,
+    )
     db.commit()
-    db.refresh(file_rec)
 
-    # B. Synchronize DemurrageTracking if exists
-    try:
-        from modules.demurrage_detention.model import DemurrageTracking
-        dem_records = db.query(DemurrageTracking).filter(
-            DemurrageTracking.import_file_id == booking.import_file_id,
-            DemurrageTracking.is_active == True,
-        ).all()
-        for dem in dem_records:
-            dem.bill_of_lading_no = booking.bill_of_lading_no
-            if booking.shipping_line_name and not dem.carrier_name:
-                dem.carrier_name = booking.shipping_line_name
-        db.commit()
-    except Exception as e:
-        logger.warning("Failed to sync DemurrageTracking for departure: %s", e)
 
-    # C. Synchronize LifecycleBoard
-    try:
-        from modules.lifecycle_board.service import advance_lifecycle_step_service
-        atd_str = booking.atd.strftime("%Y-%m-%d") if booking.atd else "N/A"
-        advance_lifecycle_step_service(
-            db=db,
-            completed_step_code="STEP_07",
-            import_file_id=booking.import_file_id,
-            target_step_codes=["STEP_08_BL"],
-            auto_complete_prior=True,
-            notes_msg=msg("FB_SAILING_CONFIRMED", atd_date=atd_str, bl_number=booking.bill_of_lading_no),
-            next_action_msg=msg("NA_STEP08BL_MATCH_BL_PO_INVOICE"),
-            source_module="Freight Booking Departure Engine",
-            min_progress_percent=60.0,
-        )
-    except Exception as e:
-        logger.warning("Failed to advance lifecycle board for departure: %s", e)
+def _dispatch_draft_bl_task(db: Session, booking: ShipmentBooking, file_id: int, file_code: str) -> None:
+    from modules.smart_tasks.service import create_task_service
+    from modules.smart_tasks.schemas import SmartTaskCreate
+    bl_task_msg = msg(
+        "FB_TASK_DRAFT_BL_REVIEW",
+        import_file_code=file_code,
+        bl_number=booking.bill_of_lading_no,
+        vessel_name=booking.vessel_name or "TBA",
+        voyage_number=booking.voyage_number or "TBA",
+    )
+    task_schema = SmartTaskCreate(
+        title=render_en(bl_task_msg.code, bl_task_msg.params, "title"),
+        description=render_en(bl_task_msg.code, bl_task_msg.params, "body"),
+        task_type="System Generated",
+        import_file_id=file_id,
+        import_file_code=file_code,
+        phase_name="Phase 3: Booking & Doc Prep",
+        assigned_user="Logistics Officer",
+        priority="High",
+        reminder_type="Draft B/L Dual Review",
+        due_date=str(date.today() + timedelta(days=2)),
+        status="Pending",
+        notes=f"ACTION:DRAFT_BL_DUAL_REVIEW | File: {file_code} | BL: {booking.bill_of_lading_no}",
+    )
+    create_task_service(
+        db, task_schema, user_name="Departure & B/L Confirmation Engine",
+        msg_code=bl_task_msg.code, msg_params=bl_task_msg.params,
+    )
 
-    # D. Auto-close prior SH-01 / Departure SmartTasks
-    try:
-        from modules.smart_tasks.model import SmartTask
-        prior_tasks = db.query(SmartTask).filter(
-            SmartTask.import_file_id == booking.import_file_id,
-            SmartTask.task_type == "System Generated",
-            SmartTask.status.in_(["Pending", "In Progress"]),
-            SmartTask.is_active == True,
-        ).all()
-        for pt in prior_tasks:
-            title_lower = (pt.title or "").lower()
-            if "sh-01" in title_lower or "إبحار" in title_lower or "sailing" in title_lower or "departure" in title_lower or "بوليصة" in title_lower:
-                pt.status = "Completed"
-                pt.is_auto_closed = True
-        db.commit()
-    except Exception as e:
-        logger.warning("Failed to auto-close prior departure smart tasks: %s", e)
 
-    # E. Dispatch downstream SmartTask: SH-02 (Draft B/L Dual Review)
-    try:
-        from modules.smart_tasks.service import create_task_service
-        from modules.smart_tasks.schemas import SmartTaskCreate
-        bl_task_msg = msg(
-            "FB_TASK_DRAFT_BL_REVIEW",
-            import_file_code=file_code,
-            bl_number=booking.bill_of_lading_no,
-            vessel_name=booking.vessel_name or "TBA",
-            voyage_number=booking.voyage_number or "TBA",
-        )
-        task_title = render_en(bl_task_msg.code, bl_task_msg.params, "title")
-        task_desc = render_en(bl_task_msg.code, bl_task_msg.params, "body")
-        due_dt = date.today() + timedelta(days=2)
-        task_schema = SmartTaskCreate(
-            title=task_title,
-            description=task_desc,
-            task_type="System Generated",
-            import_file_id=file_rec.import_file_id,
-            import_file_code=file_code,
-            phase_name="Phase 3: Booking & Doc Prep",
-            assigned_user="Logistics Officer",
-            priority="High",
-            reminder_type="Draft B/L Dual Review",
-            due_date=str(due_dt),
-            status="Pending",
-            notes=f"ACTION:DRAFT_BL_DUAL_REVIEW | File: {file_code} | BL: {booking.bill_of_lading_no}",
-        )
-        create_task_service(
-            db, task_schema, user_name="Departure & B/L Confirmation Engine",
-            msg_code=bl_task_msg.code, msg_params=bl_task_msg.params, commit=False,
-        )
-    except Exception as e:
-        logger.warning("Failed to dispatch SH-02 smart task: %s", e)
-
-    # F. Dispatch SystemNotification
-    try:
-        from modules.notifications.model import SystemNotification
-        atd_str = booking.atd.strftime("%Y-%m-%d") if booking.atd else "TBA"
-        eta_str = booking.eta.strftime("%Y-%m-%d") if booking.eta else "TBA"
-        vessel_str = booking.vessel_name or "TBA"
-        notif_msg = msg(
-            "FB_SAILING_CONFIRMED",
-            bl_number=booking.bill_of_lading_no,
-            import_file_code=file_code,
-            atd_date=atd_str,
-            vessel_name=vessel_str,
-            voyage_number=booking.voyage_number or "TBA",
-            eta_date=eta_str,
-        )
-        notif = SystemNotification(
-            title=render_en(notif_msg.code, notif_msg.params, "title"),
-            message=render_en(notif_msg.code, notif_msg.params, "body"),
-            msg_code=notif_msg.code,
-            msg_params=notif_msg.params,
-            severity="INFO",
-            category="SHIPMENT_DEPARTED",
-            entity_type="ShipmentBooking",
-            entity_id=booking.booking_id,
-            target_role="LOGISTICS_OFFICER",
-        )
-        db.add(notif)
-        db.commit()
-    except Exception as e:
-        logger.warning("Failed to dispatch departure notification: %s", e)
+def _dispatch_departure_notification(db: Session, booking: ShipmentBooking, file_code: str) -> None:
+    from modules.notifications.model import SystemNotification
+    notif_msg = msg(
+        "FB_SAILING_CONFIRMED",
+        bl_number=booking.bill_of_lading_no,
+        import_file_code=file_code,
+        atd_date=booking.atd.strftime("%Y-%m-%d") if booking.atd else "TBA",
+        vessel_name=booking.vessel_name or "TBA",
+        voyage_number=booking.voyage_number or "TBA",
+        eta_date=booking.eta.strftime("%Y-%m-%d") if booking.eta else "TBA",
+    )
+    db.add(SystemNotification(
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
+        severity="INFO",
+        category="SHIPMENT_DEPARTED",
+        entity_type="ShipmentBooking",
+        entity_id=booking.booking_id,
+        target_role="LOGISTICS_OFFICER",
+    ))
+    db.commit()
