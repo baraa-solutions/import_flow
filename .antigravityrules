@@ -6,3 +6,5 @@
 4. **Git Safety Net:** Never commit directly to `main` or production branches without user confirmation of the diff. Always confirm rollback points before major fix passes.
 5. **Conflict Resolution:** If two specifications, color guidelines, or layout rules conflict, flag the discrepancy and ask the user explicitly — do NOT guess or silently pick one.
 6. **Self-Verification per Spec:** Check off every item in the spec's "Definition of Done" before declaring any task complete.
+7. **Task intake:** before coding any requested task, apply `.agents/rules/TASK_INTAKE.md`. If the task is not in
+   `docs/plans/*/TASKS.md` or is not fully specified, stop and tell the user. Never write code for it. Run tasks with `/run-task <id>`.
