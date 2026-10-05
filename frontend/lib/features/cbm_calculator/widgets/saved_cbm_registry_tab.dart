@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/app_localizations_en.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
@@ -20,6 +21,7 @@ import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class SavedCbmRegistryTab extends ConsumerStatefulWidget {
   final void Function(CBMCalculationModel session) onLoadSession;
@@ -113,14 +115,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 ],
               ),
               // Live Refresh button
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(l.refreshRegistry, style: const TextStyle(fontSize: 13)),
+              AppButton(
+                label: l.refreshRegistry,
+                icon: Icons.refresh_rounded,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => ref.read(cbmCalculatorProvider.notifier).fetchCalculations(),
               ),
             ],
@@ -131,8 +130,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+            color: isDark ? AppTheme.darkElevatedSurface : AppTheme.white,
+            boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -152,10 +151,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                  fillColor: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                   isDense: true,
                 ),
@@ -169,13 +168,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   avatar: Icon(
                     state.showInactive ? Icons.visibility_off : Icons.visibility,
                     size: 16,
-                    color: state.showInactive ? AppTheme.crimson : Colors.grey,
+                    color: state.showInactive ? AppTheme.crimson : AppTheme.textMuted,
                   ),
                   label: Text(
                     state.showInactive ? l.showDeleted : l.hideDeleted,
                     style: TextStyle(
                       fontSize: 12,
-                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong),
                       fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
@@ -185,64 +184,39 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   onSelected: (val) => ref.read(cbmCalculatorProvider.notifier).toggleShowInactive(val),
                 ),
                 // Search & Clone Study button (Task D)
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
-                  label: Text(l.searchAndCloneCbmBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                AppButton(
+                  label: l.searchAndCloneCbmBtn,
+                  icon: Icons.control_point_duplicate_rounded,
+                  variant: AppButtonVariant.primary,
+                  size: AppButtonSize.small,
                   onPressed: () => _openSearchAndCloneCBMDialog(context, state.calculations),
                 ),
                 // Task J Export & Copy Buttons
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.emerald,
-                    side: const BorderSide(color: AppTheme.emerald),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.table_chart, size: 16),
-                  label: Text(
-                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                AppButton(
+                  label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                         ? 'تصدير إكسيل'
                         : 'Export Excel',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
+                  icon: Icons.table_chart,
+                  variant: AppButtonVariant.success,
+                  size: AppButtonSize.small,
                   onPressed: () => _exportCbmListToExcel(context, state.calculations),
                 ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.crimson,
-                    side: const BorderSide(color: AppTheme.crimson),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.picture_as_pdf, size: 16),
-                  label: Text(
-                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                AppButton(
+                  label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                         ? 'تصدير PDF'
                         : 'Export PDF',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
+                  icon: Icons.picture_as_pdf,
+                  variant: AppButtonVariant.danger,
+                  size: AppButtonSize.small,
                   onPressed: () => _exportCbmListToPdf(context, state.calculations),
                 ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.cobalt,
-                    side: const BorderSide(color: AppTheme.cobalt),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.content_copy, size: 16),
-                  label: Text(
-                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                AppButton(
+                  label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                         ? 'نسخ الجدول'
                         : 'Copy Table',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
+                  icon: Icons.content_copy,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => _copyCbmTableAsTsv(context, state.calculations),
                 ),
                 // Results count chip
@@ -299,7 +273,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     children: [
                       const CircularProgressIndicator(color: AppTheme.cobalt),
                       const SizedBox(height: 16),
-                      Text(l.loading, style: const TextStyle(color: Colors.grey)),
+                      Text(l.loading, style: const TextStyle(color: AppTheme.textMuted)),
                     ],
                   ),
                 )
@@ -308,11 +282,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade300),
+                          const Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.cloudWhite),
                           const SizedBox(height: 16),
                           Text(
                             l.noDataFound,
-                            style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: 16, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -326,10 +300,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                           child: Card(
                             elevation: 2,
-                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: SelectionArea(
@@ -344,7 +318,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 dividerThickness: 0.5,
                                 headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
                                 headingTextStyle: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                   letterSpacing: 0.3,
@@ -355,9 +329,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                        const Icon(Icons.bolt_rounded, size: 14, color: AppTheme.orange),
                                         const SizedBox(width: 4),
-                                        Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                        Text(l.actionsCol, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                       ],
                                     ),
                                   )),
@@ -377,10 +351,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   final calc = entry.value;
                                   final isEven = idx.isEven;
                                   final rowColor = !calc.isActive
-                                      ? (isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50)
+                                      ? (isDark ? AppTheme.crimson.withOpacity(0.3) : AppTheme.crimsonLight)
                                       : isEven
-                                          ? (isDark ? AppTheme.darkCardBackground : Colors.white)
-                                          : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50);
+                                          ? (isDark ? AppTheme.darkCardBackground : AppTheme.white)
+                                          : (isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface);
 
                                   return DataRow(
                                     color: WidgetStateProperty.all(rowColor),
@@ -453,7 +427,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                         value: resolvedShipmentTitle != null ? '$resolvedShipmentTitle ($rawFileCode)' : (rawFileCode ?? '—'),
                                         rowSummary: calc.calcCode,
                                         child: rawFileCode == null
-                                            ? const Text('—', style: TextStyle(color: Colors.grey))
+                                            ? const Text('—', style: TextStyle(color: AppTheme.textMuted))
                                             : Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -528,13 +502,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange.shade50,
+                                          color: AppTheme.orangeLight,
                                           borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: Colors.orange.shade200),
+                                          border: Border.all(color: AppTheme.orange),
                                         ),
                                         child: Text(
                                           '${calc.totalCbm.toStringAsFixed(3)} m³',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 12),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagOrange, fontSize: 12),
                                         ),
                                       ),
                                     ),
@@ -548,12 +522,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.purple.shade50,
+                                          color: AppTheme.cobaltLight,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple.shade800, fontSize: 12),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt, fontSize: 12),
                                         ),
                                       ),
                                     ),
@@ -576,16 +550,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: calc.isStackable ? Colors.green.shade50 : Colors.red.shade50,
+                                          color: calc.isStackable ? AppTheme.emeraldLight : AppTheme.crimsonLight,
                                           borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: calc.isStackable ? Colors.green.shade300 : Colors.red.shade300),
+                                          border: Border.all(color: calc.isStackable ? AppTheme.emeraldBorder : AppTheme.crimsonBorder),
                                         ),
                                         child: Text(
                                           calc.isStackable ? l.cbmStackingAccepts : l.cbmStackingRejects,
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
-                                            color: calc.isStackable ? Colors.green.shade800 : Colors.red.shade800,
+                                            color: calc.isStackable ? AppTheme.wcagEmerald : AppTheme.crimson,
                                           ),
                                         ),
                                       ),
@@ -595,12 +569,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   // 9. Shipping Recommendation
                                   DataCell(
                                     CopyableTableCell(
-                                      value: calc.recommendedShippingMethod ?? '-',
+                                      value: calc.shippingMethodLabel(l),
                                       rowSummary: calc.calcCode,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-                                        child: Text(calc.recommendedShippingMethod ?? '-', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(8)),
+                                        child: Text(calc.shippingMethodLabel(l), style: const TextStyle(color: AppTheme.cobalt, fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),
@@ -608,12 +582,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   // 10. Container Suggestion
                                   DataCell(
                                     CopyableTableCell(
-                                      value: calc.recommendedContainerType ?? '-',
+                                      value: calc.containerTypeLabel(l),
                                       rowSummary: calc.calcCode,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8)),
-                                        child: Text(calc.recommendedContainerType ?? '-', style: const TextStyle(color: Colors.brown, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(8)),
+                                        child: Text(calc.containerTypeLabel(l), style: const TextStyle(color: AppTheme.wcagOrange, fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),
@@ -634,7 +608,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                                 ? 'PRJ: ${calc.projectName}'
                                                 : l.cbmNotLinked,
                                         style: TextStyle(
-                                          color: calc.poNumber != null ? AppTheme.emerald : Colors.grey,
+                                          color: calc.poNumber != null ? AppTheme.emerald : AppTheme.textMuted,
                                           fontWeight: calc.poNumber != null ? FontWeight.bold : FontWeight.normal,
                                           fontSize: 11,
                                         ),
@@ -664,7 +638,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         builder: (ctx) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
               const SizedBox(width: 8),
               Text(l.confirmSoftDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
@@ -674,14 +648,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             style: const TextStyle(fontSize: 13),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-              icon: const Icon(Icons.delete_rounded, size: 16),
-              label: Text(l.delete),
+            AppButton(
+              label: l.delete,
+              icon: Icons.delete_rounded,
+              variant: AppButtonVariant.danger,
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -708,7 +684,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         l.totalCbmVolumeMetric: '${calc.totalCbm.toStringAsFixed(2)} m³',
         l.grossWeightMetric: '${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
         l.stackingCol: calc.isStackable ? l.stackable : l.nonStackable,
-        l.shippingStrategyCol: (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+        l.shippingStrategyCol: calc.shippingMethodLabel(l),
       },
       mandatorilyResetFields: [
         l.cloneFieldCalcCodeGenerated,
@@ -780,17 +756,17 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final calc = calcs[index];
-        final isAir = (calc.recommendedShippingMethod ?? '').toLowerCase() == 'air';
+        final isAir = calc.isAirRecommended;
 
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: !calc.isActive
-                ? (isDark ? Colors.red.shade900.withOpacity(0.2) : Colors.red.shade50)
-                : (isDark ? AppTheme.darkCardBackground : Colors.white),
+                ? (isDark ? AppTheme.crimson.withOpacity(0.2) : AppTheme.crimsonLight)
+                : (isDark ? AppTheme.darkCardBackground : AppTheme.white),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
             ),
           ),
           child: Column(
@@ -832,17 +808,17 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: isAir
-                          ? Colors.purple.withOpacity(0.15)
+                          ? AppTheme.cobalt.withOpacity(0.15)
                           : AppTheme.cobalt.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isAir ? Colors.purple : AppTheme.cobalt,
+                        color: isAir ? AppTheme.cobalt : AppTheme.cobalt,
                       ),
                     ),
                     child: Text(
-                      (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+                      calc.shippingMethodLabel(l),
                       style: TextStyle(
-                        color: isAir ? Colors.purple : AppTheme.cobalt,
+                        color: isAir ? AppTheme.cobalt : AppTheme.cobalt,
                         fontWeight: FontWeight.bold,
                         fontSize: 10,
                       ),
@@ -863,12 +839,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   ),
                   Text(
                     '${l.grossWeightMetric}: ${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
-                    style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                    style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong),
                   ),
                   if (calc.totalVolumetricWeightKg > 0)
                     Text(
                       '${l.volumetricWeight}: ${calc.totalVolumetricWeightKg.toStringAsFixed(0)} kg',
-                      style: const TextStyle(fontSize: 11.5, color: Colors.purple),
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.cobalt),
                     ),
                 ],
               ),
@@ -877,7 +853,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               // Stacking / packages count
               Text(
                 '${l.stackingCol}: ${calc.isStackable ? l.stackable : l.nonStackable} | ${calc.items.length} ${l.itemsAndPackagesCol}',
-                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
               ),
 
               const Divider(height: 16),
@@ -928,7 +904,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(value, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 15)),
               Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
             ],
           ),
@@ -1018,9 +994,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : Colors.green.shade50.withOpacity(0.6),
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.emeraldLight.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.green.shade200),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.emeraldBorder),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1036,12 +1012,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             ),
                             if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)),
+                              Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontSize: 12)),
                             ],
                             const SizedBox(height: 6),
                             Text(
                               l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 16) : "—"),
-                              style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontSize: 11),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted, fontSize: 11),
                             ),
                           ],
                         ),
@@ -1071,7 +1047,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Text(l.cbmSessionLinkedPo(calc.poNumber!), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
                             ],
                             const SizedBox(height: 4),
-                            Text(l.cbmStrategy(calc.recommendedShippingMethod ?? "—"), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
+                            Text(l.cbmStrategy(calc.shippingMethodLabel(l)), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -1087,12 +1063,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _buildDetailCardBadge(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar_rounded, Colors.orange.shade800),
-                    _buildDetailCardBadge(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} KG', Icons.airplanemode_active, Colors.purple.shade700),
+                    _buildDetailCardBadge(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar_rounded, AppTheme.wcagOrange),
+                    _buildDetailCardBadge(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} KG', Icons.airplanemode_active, AppTheme.wcagCobalt),
                     _buildDetailCardBadge(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} KG', Icons.scale_rounded, AppTheme.cobalt),
-                    _buildDetailCardBadge(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Icons.inventory_2_rounded, calc.isStackable ? AppTheme.emerald : Colors.orange.shade900),
-                    _buildDetailCardBadge(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Icons.directions_boat_rounded, Colors.blue.shade700),
-                    _buildDetailCardBadge(l.recommendedContainerCol, isArabic ? containerRec.recommendationSummary : containerRec.recommendationSummaryEn, Icons.local_shipping_rounded, Colors.brown.shade700),
+                    _buildDetailCardBadge(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Icons.inventory_2_rounded, calc.isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
+                    _buildDetailCardBadge(l.cbmShipmentMode, calc.shipmentModeLabel(l), Icons.flight_takeoff_rounded, AppTheme.cobalt),
+                    _buildDetailCardBadge(l.shippingStrategyCol, calc.shippingMethodLabel(l), Icons.directions_boat_rounded, AppTheme.wcagCobalt),
+                    _buildDetailCardBadge(l.recommendedContainerCol, isArabic ? containerRec.recommendationSummary : containerRec.recommendationSummaryEn, Icons.local_shipping_rounded, AppTheme.wcagOrange),
                   ],
                 ),
 
@@ -1102,9 +1079,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : Colors.blue.shade50.withOpacity(0.5),
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cobaltLight.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cobaltBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1124,14 +1101,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
                             child: Text(
                               calc.isStackable ? l.cbmScenarioApprovedStackable : l.cbmScenarioApprovedNonStackable,
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: AppTheme.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Table(
-                        border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.06)),
@@ -1168,14 +1145,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(l.packageMeasurementsTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      icon: const Icon(Icons.view_in_ar, size: 16),
-                      label: Text(l.visualLoadPlanSimulator, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    AppButton(
+                      label: l.visualLoadPlanSimulator,
+                      icon: Icons.view_in_ar,
+                      variant: AppButtonVariant.success,
+                      size: AppButtonSize.small,
                       onPressed: () {
                         _showVisualLoadPlanDialog(context, calc.items);
                       },
@@ -1186,7 +1160,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                 // 5. Table of Packages
                 Table(
-                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                   columnWidths: const {
                     0: FlexColumnWidth(0.6),
                     1: FlexColumnWidth(1.8),
@@ -1229,9 +1203,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: item.isStackable ? (isDark ? AppTheme.emerald.withOpacity(0.15) : Colors.green.shade50) : (isDark ? AppTheme.crimson.withOpacity(0.15) : Colors.red.shade50),
+                                  color: item.isStackable ? (isDark ? AppTheme.emerald.withOpacity(0.15) : AppTheme.emeraldLight) : (isDark ? AppTheme.crimson.withOpacity(0.15) : AppTheme.crimsonLight),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: item.isStackable ? (isDark ? AppTheme.emerald : Colors.green.shade300) : (isDark ? AppTheme.crimson : Colors.red.shade300)),
+                                  border: Border.all(color: item.isStackable ? (isDark ? AppTheme.emerald : AppTheme.emeraldBorder) : (isDark ? AppTheme.crimson : AppTheme.crimsonBorder)),
                                 ),
                                 child: Text(
                                   item.isStackable ? l.stackableOption : l.nonStackableOption,
@@ -1244,7 +1218,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 ),
                               ),
                             ),
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagOrange, fontSize: 11))),
                           ],
                         );
                       },
@@ -1256,28 +1230,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ),
         ),
         actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.edit_note, size: 16),
-            label: Text(l.cbmReopenInCalcBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+          AppButton(
+            label: l.cbmReopenInCalcBtn,
+            icon: Icons.edit_note,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               Navigator.pop(dialogCtx);
               widget.onLoadSession(calc);
             },
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
-            icon: const Icon(Icons.edit, size: 16),
-            label: Text(l.cbmEditMetadataBtn),
+          AppButton(
+            label: l.cbmEditMetadataBtn,
+            icon: Icons.edit,
+            variant: AppButtonVariant.warning,
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showEditCalcDialog(context, calc);
             },
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal, foregroundColor: Colors.white),
-            icon: const Icon(Icons.link, size: 16),
-            label: Text(l.cbmLinkToPoProjectBtn),
+          AppButton(
+            label: l.cbmLinkToPoProjectBtn,
+            icon: Icons.link,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showLinkToPODialog(
@@ -1288,16 +1262,21 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               );
             },
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            icon: const Icon(Icons.print, size: 16),
-            label: Text(l.cbmPrintExportReportBtn),
+          AppButton(
+            label: l.cbmPrintExportReportBtn,
+            icon: Icons.print,
+            variant: AppButtonVariant.success,
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showPrintReportDialog(context, calc);
             },
           ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+          AppButton(
+            label: l.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(dialogCtx),
+          ),
         ],
       ),
     );
@@ -1321,7 +1300,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
+                Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted, fontWeight: FontWeight.bold)),
                 Text(val, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -1366,9 +1345,15 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+          AppButton(
+            label: l.cancel,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(dialogCtx),
+          ),
+          AppButton(
+            label: l.save,
+            variant: AppButtonVariant.primary,
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(
@@ -1386,7 +1371,6 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 }
               }
             },
-            child: Text(l.save),
           ),
         ],
       ),
@@ -1413,9 +1397,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                color: isDark ? AppTheme.darkElevatedSurface : AppTheme.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1430,7 +1414,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           Text('Sorour Logistics ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                           Text(l.cbmCalculatorTitle, style: const TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
-                          Text(l.cbmCalculatorSubtitle, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 11)),
+                          Text(l.cbmCalculatorSubtitle, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary, fontSize: 11)),
                         ],
                       ),
                       Column(
@@ -1439,10 +1423,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                            child: Text(calc.calcCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            child: Text(calc.calcCode, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
                           const SizedBox(height: 4),
-                          Text(l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                          Text(l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                         ],
                       ),
                     ],
@@ -1459,7 +1443,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   ),
                   if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                    Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                   ],
                   const SizedBox(height: 16),
 
@@ -1467,19 +1451,19 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                      color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildReportStat(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange, isDark),
-                        _buildReportStat(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple, isDark),
+                        _buildReportStat(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', AppTheme.orange, isDark),
+                        _buildReportStat(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt, isDark),
                         _buildReportStat(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt, isDark),
-                        _buildReportStat(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Colors.teal, isDark),
-                        _buildReportStat(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Colors.blue, isDark),
-                        _buildReportStat(l.recommendedContainerCol, calc.recommendedContainerType ?? '-', Colors.brown, isDark),
+                        _buildReportStat(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, AppTheme.emerald, isDark),
+                        _buildReportStat(l.shippingStrategyCol, calc.shippingMethodLabel(l), AppTheme.cobalt, isDark),
+                        _buildReportStat(l.recommendedContainerCol, calc.containerTypeLabel(l), AppTheme.wcagOrange, isDark),
                       ],
                     ),
                   ),
@@ -1489,7 +1473,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   Text(l.packageMeasurementsTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : null)),
                   const SizedBox(height: 8),
                   Table(
-                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.textMuted),
                     children: [
                       TableRow(
                         decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.cloudWhite),
@@ -1516,9 +1500,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm}x${item.widthCm}x${item.heightCm}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text(item.isStackable ? l.stackableOption : l.nonStackableOption, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.isStackable ? Colors.green.shade800 : Colors.red.shade800))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(item.isStackable ? l.stackableOption : l.nonStackableOption, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.isStackable ? AppTheme.wcagEmerald : AppTheme.crimson))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${lineGross.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange))),
                             ],
                           );
                         },
@@ -1531,23 +1515,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ),
         ),
         actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            icon: const Icon(Icons.download, size: 16),
-            label: Text(l.cbmPrintDownloadCsvBtn),
+          AppButton(
+            label: l.cbmPrintDownloadCsvBtn,
+            icon: Icons.download,
+            variant: AppButtonVariant.success,
             onPressed: () {
               _downloadCalcCSV(context, calc);
             },
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.print, size: 16),
-            label: Text(l.cbmPrintReportBtn),
+          AppButton(
+            label: l.cbmPrintReportBtn,
+            icon: Icons.print,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               _triggerReportPrint(context, calc);
             },
           ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+          AppButton(
+            label: l.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(dialogCtx),
+          ),
         ],
       ),
     );
@@ -1556,7 +1545,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   Widget _buildReportStat(String label, String val, Color color, [bool isDark = false]) {
     return Column(
       children: [
-        Text(label, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted, fontWeight: FontWeight.bold)),
         Text(val, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
       ],
     );
@@ -1572,7 +1561,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     buffer.writeln('Total CBM,${calc.totalCbm}');
     buffer.writeln('Air Chargeable Weight (kg),${calc.airChargeableWeightKg}');
     buffer.writeln('Total Gross Weight (kg),${calc.totalGrossWeightKg}');
-    buffer.writeln('Shipping Recommendation,${calc.recommendedShippingMethod ?? ""}');
+    buffer.writeln('Shipment Mode,${calc.shipmentModeLabel(const AppLocalizationsEn())}');
+    buffer.writeln('Shipping Recommendation,${calc.shippingMethodLabel(const AppLocalizationsEn())}');
     buffer.writeln('Cargo Stacking,${calc.isStackable ? "Stackable" : "Non-Stackable"}');
     buffer.writeln('');
     buffer.writeln('Pkg #,Package Type,Qty,Length (cm),Width (cm),Height (cm),Gross Wt/Unit (kg),Stacking,Line CBM (m3),Total Gross Wt (kg)');
@@ -1657,9 +1647,15 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.cancel)),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: () => Navigator.pop(dialogCtx),
+            ),
+            AppButton(
+              label: l.save,
+              variant: AppButtonVariant.primary,
               onPressed: () async {
                 final ok = await ref
                     .read(cbmCalculatorProvider.notifier)
@@ -1671,7 +1667,6 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   );
                 }
               },
-              child: Text(l.save),
             ),
           ],
         ),
@@ -1714,7 +1709,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     child: TabBar(
                       indicatorColor: AppTheme.cobalt,
-                      labelColor: Colors.white,
+                      labelColor: AppTheme.white,
                       unselectedLabelColor: Colors.white70,
                       tabs: [
                         Tab(icon: const Icon(Icons.layers), text: l.allStackableOption),
@@ -1734,7 +1729,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+              AppButton(
+                label: l.close,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
+                onPressed: () => Navigator.pop(dialogCtx),
+              ),
             ],
           ),
         );
@@ -1756,18 +1756,18 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             decoration: BoxDecoration(
               color: rec.isStackable
                   ? (isDark ? AppTheme.emerald.withOpacity(0.15) : AppTheme.emerald.withOpacity(0.1))
-                  : (isDark ? AppTheme.orange.withOpacity(0.15) : Colors.orange.withOpacity(0.1)),
+                  : (isDark ? AppTheme.orange.withOpacity(0.15) : AppTheme.orange.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : Colors.orange.shade800)),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : AppTheme.wcagOrange)),
             ),
             child: Text(
               '${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : Colors.orange.shade900)),
+              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : AppTheme.wcagOrange)),
             ),
           ),
           const SizedBox(height: 12),
           Table(
-            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             columnWidths: const {
               0: FlexColumnWidth(2.0),
               1: FlexColumnWidth(1.2),
@@ -1802,7 +1802,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                          Text('${l.cbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | ${l.grossWtPerUnitCol}: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                          Text('${l.cbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | ${l.grossWtPerUnitCol}: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                         ],
                       ),
                     ),
@@ -1812,11 +1812,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -1824,9 +1824,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                              child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              child: Text(l.bestOptionBadge, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 10)),
                             )
-                          : Text(l.viableAlternative, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                          : Text(l.viableAlternative, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                     ),
                   ],
                 );
@@ -1884,7 +1884,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           title: Text(l.warning),
           content: Text(l.noDataFound),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.ok)),
+            AppButton(
+              label: l.ok,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+            ),
           ],
         ),
       );
@@ -1961,9 +1966,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Wrap(
                         alignment: WrapAlignment.spaceBetween,
@@ -1984,7 +1989,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -2000,9 +2005,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               ChoiceChip(
                                 label: Text(l.flatOnlyOption),
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
-                                selectedColor: Colors.blue.shade700,
+                                selectedColor: AppTheme.wcagCobalt,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -2018,9 +2023,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               ChoiceChip(
                                 label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -2037,7 +2042,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -2058,7 +2063,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2069,14 +2074,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               const SizedBox(width: 8),
                               _buildMetricPill(l.totalGrossWeightRegistryMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildMetricPill(l.stackableOption, '$stackableInActive', Colors.green.shade800),
+                              _buildMetricPill(l.stackableOption, '$stackableInActive', AppTheme.wcagEmerald),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', Colors.red.shade800),
+                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', AppTheme.crimson),
                             ],
                           ),
                         ],
@@ -2086,7 +2091,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                     // 2. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -2155,7 +2160,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
                                   '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
                                 ),
                               ),
                               Padding(
@@ -2166,8 +2171,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: (res.containerCode == 'FAILED' || !res.fits)
-                                        ? Colors.red.shade800
-                                        : (hasNonStackable ? Colors.brown.shade800 : Colors.green.shade800),
+                                        ? AppTheme.crimson
+                                        : (hasNonStackable ? AppTheme.wcagOrange : AppTheme.wcagEmerald),
                                   ),
                                 ),
                               ),
@@ -2188,7 +2193,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             return Container(
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
                               child: Row(
                                 children: [
                                   const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
@@ -2205,7 +2210,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                           const SizedBox(height: 4),
                                           Text(
                                             '${l.packageMeasurementsTitle}: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                            style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                                            style: const TextStyle(color: AppTheme.crimson, fontSize: 11),
                                           ),
                                         ],
                                       ],
@@ -2233,11 +2238,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                       ),
                                       Row(
                                         children: [
-                                          Text(l.cbmWoodenPalletsFloor, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.cbmWoodenPalletsFloor, style: const TextStyle(fontSize: 10, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
                                             child: Text('${l.cbmInternalDimensionsLabel} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
                                           ),
                                         ],
@@ -2251,7 +2256,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                     height: 190,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -2267,7 +2272,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                     height: 140,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -2286,10 +2291,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 ),
               ),
               actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.close),
+                AppButton(
+                  label: l.closePlan,
+                  icon: Icons.close,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => Navigator.pop(context),
-                  label: Text(l.closePlan),
                 ),
               ],
             );
@@ -2319,24 +2326,23 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   Future<void> _exportCbmListToExcel(BuildContext context, List<CBMCalculationModel> calcs) async {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للتصدير' : 'No calculations to export'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoCalculationsToExport), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
-      isArabic ? 'كود الدراسة' : 'Calc Code',
-      isArabic ? 'ملف الشحنة' : 'Import File',
-      isArabic ? 'عنوان الدراسة' : 'Study Title',
-      isArabic ? 'إجمالي CBM' : 'Total CBM',
-      isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
-      isArabic ? 'الوزن القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'قابل للتراص' : 'Stackable',
-      isArabic ? 'طريقة الشحن' : 'Shipping Strategy',
-      isArabic ? 'الحاوية المقترحة' : 'Recommended Container',
+      context.l10n.cbmCalcCode,
+      context.l10n.colImportFile,
+      context.l10n.customsTaxLogTsvHeaderTitle,
+      context.l10n.poTotalCBM2,
+      context.l10n.cbmVolumetricWtKg,
+      context.l10n.grossWeightCol,
+      context.l10n.cbmStackable,
+      context.l10n.cbmShippingStrategy,
+      context.l10n.recommendedContainerCol,
     ];
 
     final rows = calcs.map((c) {
@@ -2347,9 +2353,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         c.totalCbm.toStringAsFixed(3),
         c.totalVolumetricWeightKg.toStringAsFixed(1),
         c.totalGrossWeightKg.toStringAsFixed(1),
-        c.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
-        c.recommendedShippingMethod ?? '-',
-        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+        c.isStackable ? (context.l10n.projectMultiShipmentYes) : (context.l10n.projectMultiShipmentNo),
+        c.shippingMethodLabel(context.l10n),
+        c.recommendedContainersLabel(context.l10n),
       ];
     }).toList();
 
@@ -2357,29 +2363,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'سجل دراسات الحجم CBM' : 'CBM Registry',
+      stageName: context.l10n.cbmCBMRegistry,
       importFileNameOrCode: 'CBM_Calculations_Registry',
     );
   }
 
   Future<void> _exportCbmListToPdf(BuildContext context, List<CBMCalculationModel> calcs) async {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للتصدير' : 'No calculations to export'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoCalculationsToExport), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
-      isArabic ? 'كود الدراسة' : 'Code',
-      isArabic ? 'الملف' : 'File',
-      isArabic ? 'العنوان' : 'Title',
-      isArabic ? 'CBM' : 'CBM',
-      isArabic ? 'حجمي (كجم)' : 'Vol Wt',
-      isArabic ? 'قائم (كجم)' : 'Gross Wt',
-      isArabic ? 'الشحن' : 'Mode',
-      isArabic ? 'الحاوية' : 'Container',
+      context.l10n.cbmCode,
+      context.l10n.cbmFile,
+      context.l10n.titleField,
+      context.l10n.cbmRowLineCbm,
+      context.l10n.cbmVolWt2,
+      context.l10n.cbmGrossWt,
+      context.l10n.cbmMode,
+      context.l10n.containerCol,
     ];
 
     final rows = calcs.map((c) {
@@ -2390,8 +2395,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         c.totalCbm.toStringAsFixed(3),
         c.totalVolumetricWeightKg.toStringAsFixed(1),
         c.totalGrossWeightKg.toStringAsFixed(1),
-        c.recommendedShippingMethod ?? '-',
-        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+        c.shippingMethodLabel(context.l10n),
+        c.recommendedContainersLabel(context.l10n),
       ];
     }).toList();
 
@@ -2399,38 +2404,37 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'سجل دراسات الحجم CBM' : 'CBM Registry',
+      stageName: context.l10n.cbmCBMRegistry,
       importFileNameOrCode: 'CBM_Calculations_Registry',
       headerContext: TableExportHeaderContext(
-        title: isArabic ? 'سجل دراسات الحجم والأوزان CBM' : 'CBM & Volumetric Weight Registry',
+        title: context.l10n.cbmCBMVolumetricWeightRegistry,
         subtitle: 'Sorour Logistics ERP',
         metadata: {
-          isArabic ? 'إجمالي الدراسات' : 'Total Studies': '${calcs.length}',
-          isArabic ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+          context.l10n.totalStudiesMetric: '${calcs.length}',
+          context.l10n.date: DateTime.now().toString().substring(0, 10),
         },
       ),
     );
   }
 
   void _copyCbmTableAsTsv(BuildContext context, List<CBMCalculationModel> calcs) {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للنسخ' : 'No calculations to copy'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoCalculationsToCopy), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
-      isArabic ? 'كود الدراسة' : 'Calc Code',
-      isArabic ? 'ملف الشحنة' : 'Import File',
-      isArabic ? 'عنوان الدراسة' : 'Study Title',
-      isArabic ? 'إجمالي CBM' : 'Total CBM',
-      isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
-      isArabic ? 'الوزن القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'قابل للتراص' : 'Stackable',
-      isArabic ? 'طريقة الشحن' : 'Shipping Strategy',
-      isArabic ? 'الحاوية المقترحة' : 'Recommended Container',
+      context.l10n.cbmCalcCode,
+      context.l10n.colImportFile,
+      context.l10n.customsTaxLogTsvHeaderTitle,
+      context.l10n.poTotalCBM2,
+      context.l10n.cbmVolumetricWtKg,
+      context.l10n.grossWeightCol,
+      context.l10n.cbmStackable,
+      context.l10n.cbmShippingStrategy,
+      context.l10n.recommendedContainerCol,
     ];
 
     final rows = calcs.map((c) {
@@ -2441,9 +2445,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         c.totalCbm.toStringAsFixed(3),
         c.totalVolumetricWeightKg.toStringAsFixed(1),
         c.totalGrossWeightKg.toStringAsFixed(1),
-        c.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
-        c.recommendedShippingMethod ?? '-',
-        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+        c.isStackable ? (context.l10n.projectMultiShipmentYes) : (context.l10n.projectMultiShipmentNo),
+        c.shippingMethodLabel(context.l10n),
+        c.recommendedContainersLabel(context.l10n),
       ];
     }).toList();
 
@@ -2451,7 +2455,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context,
       headers,
       rows,
-      customMessage: isArabic ? 'تم نسخ بيانات دراسات الحجم كجدول بنجاح' : 'CBM calculations table copied to clipboard',
+      customMessage: context.l10n.cbmCBMCalculationsTableCopiedToClipboard,
     );
   }
 }
@@ -2500,7 +2504,7 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
           final code = calc.calcCode.toLowerCase();
           final title = (calc.title ?? '').toLowerCase();
           final notes = (calc.notes ?? '').toLowerCase();
-          final mode = (calc.recommendedShippingMethod ?? '').toLowerCase();
+          final mode = '${calc.recommendedShippingMethod ?? ''} ${calc.shippingMethodLabel(context.l10n)}'.toLowerCase();
           return code.contains(query) ||
               title.contains(query) ||
               notes.contains(query) ||
@@ -2519,7 +2523,7 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       child: Container(
         width: math.min(720.0, screenWidth - 32),
         height: math.min(600.0, screenHeight - 64),
@@ -2552,7 +2556,7 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                         l.searchAndCloneCbmSubtitle,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -2579,10 +2583,10 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                       )
                     : null,
                 filled: true,
-                fillColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                fillColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                 isDense: true,
               ),
@@ -2596,11 +2600,11 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                          const Icon(Icons.search_off_rounded, size: 48, color: AppTheme.textMuted),
                           const SizedBox(height: 12),
                           Text(
                             l.noMatchingCalcsFound,
-                            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -2610,15 +2614,15 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, idx) {
                         final calc = _filteredCalcs[idx];
-                        final isAir = (calc.recommendedShippingMethod ?? '').toLowerCase() == 'air';
+                        final isAir = calc.isAirRecommended;
 
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                            color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
                             ),
                           ),
                           child: Row(
@@ -2637,15 +2641,15 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: (isAir ? Colors.purple : AppTheme.cobalt).withOpacity(0.12),
+                                            color: (isAir ? AppTheme.cobalt : AppTheme.cobalt).withOpacity(0.12),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+                                            calc.shippingMethodLabel(l),
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: isAir ? Colors.purple : AppTheme.cobalt,
+                                              color: isAir ? AppTheme.cobalt : AppTheme.cobalt,
                                             ),
                                           ),
                                         ),
@@ -2666,11 +2670,11 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                                         ),
                                         Text(
                                           '${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
-                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                                         ),
                                         Text(
                                           '${calc.items.length} ${calc.items.length == 1 ? "item" : "items"}',
-                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                                         ),
                                       ],
                                     ),
@@ -2678,15 +2682,11 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.cobalt,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.copy_rounded, size: 14),
-                                label: Text(l.cloneRowTooltip),
+                              AppButton(
+                                label: l.cloneRowTooltip,
+                                icon: Icons.copy_rounded,
+                                variant: AppButtonVariant.primary,
+                                size: AppButtonSize.small,
                                 onPressed: () => widget.onSelectCalculation(calc),
                               ),
                             ],

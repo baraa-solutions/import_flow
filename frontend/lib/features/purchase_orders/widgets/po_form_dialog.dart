@@ -1,7 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/cargo_constants.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
 
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -21,6 +25,7 @@ import '../../projects/providers/projects_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../../suppliers/models/supplier_model.dart';
 import '../models/purchase_order_model.dart';
+import '../utils/po_row_id_matcher.dart';
 import '../providers/purchase_orders_provider.dart';
 import 'dart:async';
 import 'po_reconciliation_warning_dialog.dart';
@@ -40,6 +45,7 @@ import '../../../core/widgets/table_row_clone_helper.dart';
 
 
 import 'package:frontend/core/widgets/ltr_text.dart';
+import 'package:frontend/core/widgets/buttons/app_button.dart';
 class POFormDialog extends ConsumerStatefulWidget {
   final PurchaseOrderModel? po;
   final Map<String, dynamic>? initialExtractedFields;
@@ -133,10 +139,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   void _cloneLineItem(int index) {
     if (index < 0 || index >= _dialogItems.length) return;
     final original = _dialogItems[index];
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     const copySuffix = TableRowCloneHelper.copySuffix;
     final duplicated = original.copyWith(
-      itemId: null,
+      clearId: true,
       itemCode: original.itemCode != null && original.itemCode!.trim().isNotEmpty
           ? '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}'
           : null,
@@ -151,7 +156,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isAr ? 'تم استنساخ سطر الفاتورة بنجاح' : 'Invoice line item cloned successfully'),
+        content: Text(context.l10n.poInvoiceLineItemClonedSuccessfully),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 2),
       ),
@@ -161,10 +166,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   void _clonePackingItem(int index) {
     if (index < 0 || index >= _dialogPackingItems.length) return;
     final original = _dialogPackingItems[index];
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     const copySuffix = TableRowCloneHelper.copySuffix;
     final duplicated = original.copyWith(
-      packingItemId: null,
+      clearId: true,
       itemCode: '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}',
       mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
           ? '${original.mainDescription}$copySuffix'
@@ -178,7 +182,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isAr ? 'تم استنساخ طرد الباكينج ليست بنجاح' : 'Packing list item cloned successfully'),
+        content: Text(context.l10n.poPackingListItemClonedSuccessfully),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 2),
       ),
@@ -267,7 +271,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
                                       'الفئة: ${item.categoryLabelArabic ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textStrong),
                                     ),
                                   ),
                                   onTap: () => Navigator.pop(ctx, item),
@@ -279,9 +283,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 ),
               ),
               actions: [
-                TextButton(
+                AppButton(
+                  label: 'إلغاء',
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => Navigator.pop(ctx, null),
-                  child: const Text('إلغاء'),
                 ),
               ],
             );
@@ -367,6 +373,41 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
     }
     return null;
+  }
+
+  /// EDIT mode: an extraction replaces the row lists; carry the existing row ids across so
+  /// the backend updates lines in place, and keep (with a warning) unmatched lines that
+  /// already have shipments instead of silently dropping them.
+  Future<void> _carryRowIdsAfterExtraction(String targetTab) async {
+    final po = widget.po;
+    if (po == null || po.poId == null) return;
+    final notifier = ref.read(purchaseOrdersProvider.notifier);
+    Set<int> allocated = const {};
+    if (targetTab == 'all' || targetTab == 'invoice') {
+      allocated = await notifier.fetchAllocatedItemIds(po.poId!);
+    }
+    if (!mounted) return;
+    List<POLineItemModel> kept = const [];
+    setState(() {
+      if (targetTab == 'all' || targetTab == 'invoice') {
+        final match = carryLineItemIds(existing: po.items, extracted: _dialogItems, allocatedItemIds: allocated);
+        _dialogItems = match.items;
+        kept = match.keptUnmatched;
+      }
+      if (targetTab == 'all' || targetTab == 'packing') {
+        _dialogPackingItems = carryPackingItemIds(existing: po.packingListItems, extracted: _dialogPackingItems);
+      }
+    });
+    if (kept.isNotEmpty) {
+      final codes = kept.map((i) => i.itemCode ?? '#${i.itemId}').join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.poExtractionKeptAllocatedLines(codes)),
+          backgroundColor: AppTheme.orange,
+          duration: const Duration(seconds: 10),
+        ),
+      );
+    }
   }
 
   void _applyExtractedData(Map<String, dynamic> ext) {
@@ -489,7 +530,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             qtyPcs: (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
             qtyPkg: (p['qty_pkg'] ?? p['package_count'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
             packageType: p['package_type']?.toString() ?? 'Carton',
-            unit: p['unit']?.toString() ?? 'PCS',
+            unit: PackingListItemModel.normalizeLengthUnit(p['unit']?.toString()),
             lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 100.0,
             widthCm: (p['width_cm'] as num?)?.toDouble() ?? 80.0,
             heightCm: (p['height_cm'] as num?)?.toDouble() ?? 60.0,
@@ -504,6 +545,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
     });
 
+    _carryRowIdsAfterExtraction('all');
     final docNum = ext['po_number'] ?? ext['proforma_invoice_number'] ?? '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -873,8 +915,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               pDesc = _dialogItems[idx].descriptionAr.isNotEmpty ? _dialogItems[idx].descriptionAr : _dialogItems[idx].descriptionEn;
             }
             final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
-            final pUnit = p['unit']?.toString() ?? 'cm';
-            final pWeightUnit = p['weight_unit']?.toString() ?? 'KGM';
+            final pUnit = PackingListItemModel.normalizeLengthUnit(p['unit']?.toString());
+            final pWeightUnit = PackingListItemModel.normalizeWeightUnit(p['weight_unit']?.toString());
             final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
             final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
                 ? pCodeRaw.toString().trim()
@@ -915,6 +957,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         }
       }
     });
+    _carryRowIdsAfterExtraction(targetTab);
   }
 
   @override
@@ -945,7 +988,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     _poReferenceCtrl = TextEditingController(text: defaultPoRef);
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
-    _selectedStatus = po?.status ?? 'Draft';
+    _selectedStatus = po?.status ?? 'DRAFT';
     _palletCount = po?.palletCount ?? (ext != null ? _numToInt(ext['pallet_count']) : 0);
     _selectedPalletType = po?.palletType ?? (ext != null ? ext['pallet_type']?.toString() : null) ?? 'Euro Pallet (120x80)';
     _isPalletStackable = po?.isPalletStackable ?? (ext != null ? (ext['is_pallet_stackable'] as bool? ?? false) : false);
@@ -992,6 +1035,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (po != null && po.items.isNotEmpty) {
       _dialogItems = po.items.map((i) => POLineItemModel(
+            itemId: i.itemId, // kept so the backend updates the line in place
             itemCode: i.itemCode,
             mainDescription: i.mainDescription,
             descriptionAr: i.descriptionAr,
@@ -1079,6 +1123,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (po != null && po.packingListItems.isNotEmpty) {
       _dialogPackingItems = po.packingListItems.map((p) => PackingListItemModel(
+            packingItemId: p.packingItemId,
             hsCode: p.hsCode,
             itemCode: p.itemCode,
             mainDescription: p.mainDescription,
@@ -1135,8 +1180,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           qtyPcs: (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
           qtyPkg: (p['qty_pkg'] ?? p['package_count'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
           packageType: p['package_type']?.toString() ?? 'Carton',
-          unit: p['unit']?.toString() ?? 'cm',
-          weightUnit: p['weight_unit']?.toString() ?? 'KGM',
+          unit: PackingListItemModel.normalizeLengthUnit(p['unit']?.toString()),
+          weightUnit: PackingListItemModel.normalizeWeightUnit(p['weight_unit']?.toString()),
           lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 0.0,
           widthCm: (p['width_cm'] as num?)?.toDouble() ?? 0.0,
           heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
@@ -1243,7 +1288,6 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final draft = await PODraftManager.loadDraft(widget.po?.poId);
     if (draft == null || !mounted) return;
     final savedAt = draft['saved_at']?.toString() ?? '';
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     if (!mounted) return;
     final restore = await showDialog<bool>(
@@ -1254,26 +1298,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           children: [
             const Icon(Icons.history_edu_rounded, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            Text(isAr ? 'استعادة مسودة غير محفوظة' : 'Restore Unsaved Draft'),
+            Text(context.l10n.poRestoreUnsavedDraft),
           ],
         ),
         content: Text(
-          isAr
-              ? 'توجد مسودة غير محفوظة تم حفظها تلقائياً لهذه الشاشة ($savedAt).\nهل ترغب في استعادة البيانات غير المحفوظة؟'
-              : 'An autosaved draft exists for this Purchase Order ($savedAt).\nDo you want to restore the unsaved changes?',
+          context.l10n.poAnAutosavedDraftExistsForThis(savedAt),
         ),
         actions: [
-          TextButton(
+          AppButton(
+            label: context.l10n.poDiscardDraft,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () {
               PODraftManager.clearDraft(widget.po?.poId);
               Navigator.of(ctx).pop(false);
             },
-            child: Text(isAr ? 'تجاهل وحذف المسودة' : 'Discard Draft'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+          AppButton(
+            label: context.l10n.poRestoreDraft,
+            variant: AppButtonVariant.success,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(isAr ? 'استعادة المسودة' : 'Restore Draft'),
           ),
         ],
       ),
@@ -1301,7 +1345,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (draft['incoterm_id'] != null) _selectedIncotermId = draft['incoterm_id'];
       if (draft['currency_id'] != null) _selectedCurrencyId = draft['currency_id'];
       if (draft['country_of_origin'] != null) _selectedCountryOfOrigin = draft['country_of_origin'];
-      if (draft['status'] != null) _selectedStatus = draft['status'];
+      if (draft['status'] != null) {
+        _selectedStatus = DomainEnums.legacyToCode(DomainEnumType.poStatus, draft['status'].toString()) ?? _selectedStatus;
+      }
       if (draft['payment_terms'] != null) _selectedPaymentTerms = draft['payment_terms'];
       if (draft['pallet_count'] != null) _palletCount = (draft['pallet_count'] as num).toInt();
       if (draft['pallet_type'] != null) _selectedPalletType = draft['pallet_type'];
@@ -1397,7 +1443,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final isArabic = context.l10n.isArabic;
 
     final cachedCountryItems = [
-      SearchableDropdownItem<String?>(value: null, label: isArabic ? '-- الافتراضي --' : '-- Default --'),
+      SearchableDropdownItem<String?>(value: null, label: context.l10n.poDefault),
       ...countryOptions.map((c) {
         final label = isArabic ? c['name']! : '${c['code']} - ${c['code'] == 'CN' ? 'China' : c['code'] == 'DE' ? 'Germany' : c['code'] == 'IT' ? 'Italy' : c['code'] == 'LT' ? 'Lithuania' : c['name']!.split('(').last.replaceAll(')', '')}';
         return SearchableDropdownItem<String?>(
@@ -1577,12 +1623,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.receipt_long, color: Colors.white),
+                      const Icon(Icons.receipt_long, color: AppTheme.white),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.displayName})',
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: AppTheme.white, fontSize: 16, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -1605,8 +1651,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   const Icon(Icons.cloud_done_outlined, size: 14, color: AppTheme.emerald),
                                   const SizedBox(width: 4),
                                   Text(
-                                    isArabic ? 'مسودة محفوظة' : 'Draft Saved',
-                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                    context.l10n.poDraftSaved,
+                                    style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -1616,7 +1662,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                       const SizedBox(width: 8),
                       SmartUploadButton(
                         module: SmartUploadModule.purchaseOrder,
-                        label: isArabic ? '🚀 استخلاص ذكي (PI / PL)' : '🚀 Smart Extract (PI / PL)',
+                        label: context.l10n.poSmartExtractPIPL,
                         compact: false,
                         onDataExtracted: (result) {
                           _applyExtractedData(result.extractedFields);
@@ -1685,9 +1731,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: AppTheme.cobaltLight,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                border: Border.all(color: AppTheme.cobaltBorder),
                               ),
                               child: Row(
                                 children: [
@@ -1703,7 +1749,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         ),
                                         Text(
                                           'قم برفع الفاتورة المبدئية/التجارية (PDF/صورة) لاستخراج ترويسة الفاتورة، الأسعار، العملة، وبنود الشراء تلقائياً',
-                                          style: TextStyle(fontSize: 11, color: Colors.black54),
+                                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                                         ),
                                       ],
                                     ),
@@ -1989,11 +2035,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: _selectedStatus,
-                                    labelText: 'Status',
-                                    items: ['Draft', 'Approved', 'In Transit', 'Closed', 'Cancelled']
-                                        .map((s) => SearchableDropdownItem<String>(value: s, label: s))
-                                        .toList(),
-                                    onChanged: (v) => setState(() => _selectedStatus = v ?? 'Draft'),
+                                    labelText: l.status,
+                                    // The form sends the PO_STATUS code; the label follows the user's language.
+                                    items: [
+                                      for (final code in DomainEnums.codesOf(DomainEnumType.poStatus))
+                                        SearchableDropdownItem<String>(
+                                          value: code,
+                                          label: DomainEnums.label(l, DomainEnumType.poStatus, code),
+                                        ),
+                                    ],
+                                    onChanged: (v) => setState(() => _selectedStatus = v ?? 'DRAFT'),
                                   ),
                                 ),
                               ],
@@ -2056,9 +2107,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   'PO Line Items (بنود الفاتورة المبدئية) *',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                 ),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Add Item'),
+                                AppButton(
+                                  label: 'Add Item',
+                                  icon: Icons.add,
+                                  variant: AppButtonVariant.secondary,
+                                  size: AppButtonSize.small,
                                   onPressed: () {
                                     setState(() {
                                       _dialogItems.add(
@@ -2085,11 +2138,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
                               return Card(
                                 key: ValueKey('po_line_item_card_${identityHashCode(item)}'),
-                                color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
+                                color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.charcoalSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   side: BorderSide(
-                                    color: isMismatched ? Colors.red.shade300 : Colors.grey.shade300,
+                                    color: isMismatched ? AppTheme.crimsonBorder : AppTheme.cloudWhite,
                                     width: isMismatched ? 1.5 : 1.0,
                                   ),
                                 ),
@@ -2150,7 +2203,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 decoration: InputDecoration(
                                                   labelText: 'Customs Tariff / HS Code (بحث 🔍)',
                                                   isDense: true,
-                                                  suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16) : null,
+                                                  suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 16) : null,
                                                 ),
                                                 child: Text(
                                                   item.tariffId != null
@@ -2160,7 +2213,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       : (item.hsCode != null && item.hsCode!.isNotEmpty ? item.hsCode! : 'None / General'),
                                                   style: TextStyle(
                                                     fontWeight: (item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? FontWeight.bold : FontWeight.normal,
-                                                    color: isMismatched ? Colors.red.shade900 : ((item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? AppTheme.cobalt : Colors.grey.shade700),
+                                                    color: isMismatched ? AppTheme.crimson : ((item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? AppTheme.cobalt : AppTheme.textStrong),
                                                     fontSize: 12,
                                                   ),
                                                   overflow: TextOverflow.ellipsis,
@@ -2248,17 +2301,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                            Container(
                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                              decoration: BoxDecoration(
-                                               color: Colors.green.shade50,
+                                               color: AppTheme.emeraldLight,
                                                borderRadius: BorderRadius.circular(6),
-                                               border: Border.all(color: Colors.green.shade300),
+                                               border: Border.all(color: AppTheme.emeraldBorder),
                                              ),
                                              child: Column(
                                                crossAxisAlignment: CrossAxisAlignment.center,
                                                children: [
-                                                 const Text('Line Total (إجمالي السطر)', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                                 const Text('Line Total (إجمالي السطر)', style: TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.bold)),
                                                  Text(
                                                    '${currencies.firstWhere((c) => c.currencyId == _selectedCurrencyId, orElse: () => CurrencyModel(currencyId: 0, currencyCode: "USD", currencyName: "USD", currencySymbol: "\$")).currencyCode} ${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
-                                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
+                                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                                  ),
                                                ],
                                              ),
@@ -2272,22 +2325,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                            margin: const EdgeInsets.only(top: 8),
                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                            decoration: BoxDecoration(
-                                             color: Colors.amber.shade50,
+                                             color: AppTheme.orangeLight,
                                              borderRadius: BorderRadius.circular(8),
-                                             border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                                             border: Border.all(color: AppTheme.orange, width: 1.2),
                                            ),
                                            child: Column(
                                              crossAxisAlignment: CrossAxisAlignment.start,
                                              children: [
                                                Row(
                                                  children: [
-                                                   Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                                                   const Icon(Icons.warning_amber_rounded, color: AppTheme.wcagOrange, size: 18),
                                                    const SizedBox(width: 6),
                                                    Expanded(
                                                      child: Text(
                                                        '⚠️ بند التعريفة الجمركية (${item.hsCode ?? "غير مسجل"}) غير مسجل في جدول التعريفة المعتمد — يرجى تسجيله عبر Smart Nafeza لتطبيق الرسوم الجمركية وضريبة الوارد بدقة.',
-                                                       style: TextStyle(
-                                                         color: Colors.amber.shade900,
+                                                       style: const TextStyle(
+                                                         color: AppTheme.wcagOrange,
                                                          fontSize: 11,
                                                          fontWeight: FontWeight.bold,
                                                        ),
@@ -2300,26 +2353,18 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                  spacing: 8,
                                                  runSpacing: 4,
                                                  children: [
-                                                   ElevatedButton.icon(
-                                                     style: ElevatedButton.styleFrom(
-                                                       backgroundColor: AppTheme.orange,
-                                                       foregroundColor: Colors.white,
-                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                       visualDensity: VisualDensity.compact,
-                                                     ),
-                                                     icon: const Icon(Icons.auto_fix_high, size: 14),
-                                                     label: const Text('✨ استدعاء Smart Nafeza & Diff Engine لتسجيل البند', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                   AppButton(
+                                                     label: '✨ استدعاء Smart Nafeza & Diff Engine لتسجيل البند',
+                                                     icon: Icons.auto_fix_high,
+                                                     variant: AppButtonVariant.warning,
+                                                     size: AppButtonSize.small,
                                                      onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
                                                    ),
-                                                   OutlinedButton.icon(
-                                                     style: OutlinedButton.styleFrom(
-                                                       foregroundColor: AppTheme.cobalt,
-                                                       side: const BorderSide(color: AppTheme.cobalt),
-                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                       visualDensity: VisualDensity.compact,
-                                                     ),
-                                                     icon: const Icon(Icons.search, size: 14),
-                                                     label: const Text('🔍 بحث واختيار من التعريفة', style: TextStyle(fontSize: 11)),
+                                                   AppButton(
+                                                     label: '🔍 بحث واختيار من التعريفة',
+                                                     icon: Icons.search,
+                                                     variant: AppButtonVariant.secondary,
+                                                     size: AppButtonSize.small,
                                                      onPressed: () async {
                                                        final picked = await _showHsCodeSearchPicker(context, tariffs);
                                                        if (picked != null) {
@@ -2364,9 +2409,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF0FDF4),
+                                color: AppTheme.emeraldLight,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFF86EFAC)),
+                                border: Border.all(color: AppTheme.emeraldBorder),
                               ),
                               child: Row(
                                 children: [
@@ -2382,7 +2427,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         ),
                                         Text(
                                           'قم برفع ملف بيان التعبئة (Packing List PDF/صورة) لاستخراج أعداد الطرود، الأوزان القائمة والصافية، والأحجام CBM تلقائياً',
-                                          style: TextStyle(fontSize: 11, color: Colors.black54),
+                                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                                         ),
                                       ],
                                     ),
@@ -2410,9 +2455,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppTheme.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(color: AppTheme.cloudWhite),
                               ),
                               child: Row(
                                 children: [
@@ -2465,9 +2510,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 padding: const EdgeInsets.all(12),
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: AppTheme.charcoalSurface,
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                                  border: Border.all(color: AppTheme.cloudWhite, width: 1.2),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2510,23 +2555,20 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.12),
+                                                color: AppTheme.orange.withOpacity(0.12),
                                                 borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                                                border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
                                               ),
                                               child: Text(
                                                 '📐 ${context.l10n.palletsVolumePill(_dialogPalletItems.fold<double>(0.0, (sum, p) => sum + p.calculatedCbm).toStringAsFixed(3))}',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
                                               ),
                                             ),
-                                            OutlinedButton.icon(
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: AppTheme.cobalt,
-                                                side: const BorderSide(color: AppTheme.cobalt),
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                              ),
-                                              icon: const Icon(Icons.add_circle_outline, size: 16),
-                                              label: Text(context.l10n.addPalletRowBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                            AppButton(
+                                              label: context.l10n.addPalletRowBtn,
+                                              icon: Icons.add_circle_outline,
+                                              variant: AppButtonVariant.secondary,
+                                              size: AppButtonSize.small,
                                               onPressed: () {
                                                 setState(() {
                                                   _dialogPalletItems.add(PalletPlanItemModel(
@@ -2541,14 +2583,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 });
                                               },
                                             ),
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.orange.shade700,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                              ),
-                                              icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                                              label: Text(context.l10n.simulateAndPackPallets3dBtn(_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                            AppButton(
+                                              label: context.l10n.simulateAndPackPallets3dBtn(_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount)),
+                                              icon: Icons.view_in_ar_rounded,
+                                              variant: AppButtonVariant.warning,
+                                              size: AppButtonSize.small,
                                               onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                             ),
                                           ],
@@ -2556,7 +2595,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                    const Divider(height: 1, color: AppTheme.cloudWhite),
                                     const SizedBox(height: 10),
 
                                     // Multi-Line Pallet List
@@ -2564,9 +2603,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       Center(
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(vertical: 12),
-                                          child: TextButton.icon(
-                                            icon: const Icon(Icons.add, color: AppTheme.cobalt),
-                                            label: Text(context.l10n.clickToAddPalletsPrompt),
+                                          child: AppButton(
+                                            label: context.l10n.clickToAddPalletsPrompt,
+                                            icon: Icons.add,
+                                            variant: AppButtonVariant.secondary,
+                                            size: AppButtonSize.small,
                                             onPressed: () {
                                               setState(() {
                                                 _dialogPalletItems.add(PalletPlanItemModel(
@@ -2593,7 +2634,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           elevation: 1,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
-                                            side: BorderSide(color: Colors.grey.shade300),
+                                            side: const BorderSide(color: AppTheme.cloudWhite),
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.all(10),
@@ -2617,23 +2658,23 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: pLine.isStackable ? Colors.green.shade50 : Colors.orange.shade50,
+                                                        color: pLine.isStackable ? AppTheme.emeraldLight : AppTheme.orangeLight,
                                                         borderRadius: BorderRadius.circular(12),
-                                                        border: Border.all(color: pLine.isStackable ? Colors.green.shade300 : Colors.orange.shade300),
+                                                        border: Border.all(color: pLine.isStackable ? AppTheme.emeraldBorder : AppTheme.orange),
                                                       ),
                                                       child: Text(
                                                         pLine.isStackable ? context.l10n.palletStackableBadge : context.l10n.palletFloorOnlyBadge,
                                                         style: TextStyle(
                                                           fontSize: 10,
                                                           fontWeight: FontWeight.bold,
-                                                          color: pLine.isStackable ? Colors.green.shade900 : Colors.orange.shade900,
+                                                          color: pLine.isStackable ? AppTheme.wcagEmerald : AppTheme.wcagOrange,
                                                         ),
                                                       ),
                                                     ),
                                                     const Spacer(),
                                                     Text(
                                                       context.l10n.palletRowSummary(pLine.calculatedCbm.toStringAsFixed(3), pLine.totalWeightKg.toStringAsFixed(1)),
-                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                                     ),
                                                     const SizedBox(width: 8),
                                                     IconButton(
@@ -2799,10 +2840,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 ),
                                 Row(
                                   children: [
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                                      icon: const Icon(Icons.auto_fix_high, size: 16),
-                                      label: Text(l.autoFillFromInvoice, style: const TextStyle(fontSize: 12)),
+                                    AppButton(
+                                      label: l.autoFillFromInvoice,
+                                      icon: Icons.auto_fix_high,
+                                      variant: AppButtonVariant.primary,
                                       onPressed: () {
                                         if (_dialogItems.isEmpty) return;
                                         setState(() {
@@ -2851,19 +2892,18 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       },
                                     ),
                                     const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.cobalt,
-                                        side: const BorderSide(color: AppTheme.cobalt),
-                                      ),
-                                      icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                                      label: Text(l.simulateAndPack3d, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    AppButton(
+                                      label: l.simulateAndPack3d,
+                                      icon: Icons.view_in_ar_rounded,
+                                      variant: AppButtonVariant.secondary,
                                       onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                     ),
                                     const SizedBox(width: 8),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.cobalt),
-                                      label: Text(l.addPackingEntryBtn, style: const TextStyle(color: AppTheme.cobalt)),
+                                    AppButton(
+                                      label: l.addPackingEntryBtn,
+                                      icon: Icons.playlist_add,
+                                      variant: AppButtonVariant.secondary,
+                                      size: AppButtonSize.small,
                                       onPressed: () {
                                         String defaultHs = '';
                                         String? defaultMainDesc;
@@ -2912,16 +2952,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                          const Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
                                           const SizedBox(height: 12),
                                           Text(
                                             l.noPackingEntriesYet,
-                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textMuted),
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
                                             l.noPackingEntriesYetDesc,
-                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                                           ),
                                         ],
                                       ),
@@ -2937,11 +2977,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
                                           return Card(
                                              key: ValueKey('po_pkg_card_${identityHashCode(p)}'),
-                                            color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.white,
+                                            color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                               side: BorderSide(
-                                                color: isMismatched ? Colors.red.shade400 : Colors.blue.shade200,
+                                                color: isMismatched ? AppTheme.crimson : AppTheme.cobaltBorder,
                                                 width: isMismatched ? 1.5 : 1.0,
                                               ),
                                             ),
@@ -2956,14 +2996,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                        Container(
                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                          decoration: BoxDecoration(
-                                                           color: isMismatched ? Colors.red.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.15),
+                                                           color: isMismatched ? AppTheme.crimson.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.15),
                                                            borderRadius: BorderRadius.circular(4),
                                                          ),
                                                          child: Text(
                                                            l.pkgCardNumber(idx + 1),
                                                            style: TextStyle(
                                                              fontWeight: FontWeight.bold,
-                                                             color: isMismatched ? Colors.red.shade900 : AppTheme.cobalt,
+                                                             color: isMismatched ? AppTheme.crimson : AppTheme.cobalt,
                                                              fontSize: 12,
                                                            ),
                                                          ),
@@ -2984,13 +3024,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                              decoration: InputDecoration(
                                                                labelText: l.hsCodeSearchFieldLabel,
                                                                isDense: true,
-                                                               suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16) : null,
+                                                               suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 16) : null,
                                                              ),
                                                              child: Text(
                                                                p.hsCode.isNotEmpty ? p.hsCode : l.selectTariffItemHint,
                                                                style: TextStyle(
                                                                  fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                                                                 color: isMismatched ? Colors.red.shade900 : (p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600),
+                                                                 color: isMismatched ? AppTheme.crimson : (p.hsCode.isNotEmpty ? AppTheme.cobalt : AppTheme.textSecondary),
                                                                  fontSize: 12,
                                                                ),
                                                                overflow: TextOverflow.ellipsis,
@@ -3170,7 +3210,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      child: SearchableDropdownField<String>(
                                                        value: p.weightUnit,
                                                        labelText: l.weightUnitFieldLabel,
-                                                       items: cachedUomItems,
+                                                       // Only the codes the backend accepts (label only: weights are always kg).
+                                                       items: [
+                                                         for (final code in PackingListItemModel.weightUnits)
+                                                           SearchableDropdownItem<String>(
+                                                             value: code,
+                                                             label: DomainEnums.label(l, DomainEnumType.measureUnit, code),
+                                                           ),
+                                                       ],
                                                        onChanged: (v) {
                                                          if (v != null) {
                                                            setState(() {
@@ -3233,9 +3280,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.white,
+                                                        color: AppTheme.white,
                                                         borderRadius: BorderRadius.circular(6),
-                                                        border: Border.all(color: Colors.blue.shade200),
+                                                        border: Border.all(color: AppTheme.cobaltBorder),
                                                       ),
                                                       child: FittedBox(
                                                         fit: BoxFit.scaleDown,
@@ -3245,20 +3292,20 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         children: [
                                                           Column(
                                                             children: [
-                                                              Text(l.totalVolumePill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                              Text('${p.calculatedCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
+                                                              Text(l.totalVolumePill, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                                                              Text('${p.calculatedCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
-                                                              Text(l.totalGrossWeightPill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text(l.totalGrossWeightPill, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
                                                               Text('${_formatDecimalInput(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
-                                                              Text(l.airChargeablePill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                              Text('${_formatDecimalInput(p.calculatedCbm * 166.67)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
+                                                              Text(l.airChargeablePill, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                                                              Text('${_formatDecimalInput(math.max(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg), p.calculatedCbm * kAirVolumetricKgPerCbm))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                         ],
@@ -3283,41 +3330,29 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               ),
             ),
         actions: [
-          TextButton(
+          AppButton(
+            label: context.l10n.cancel,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => UnsavedChangesGuard.maybePop(
               context,
               isDirty: _isDirty,
               onDiscard: () => PODraftManager.clearDraft(widget.po?.poId),
             ),
-            child: Text(context.l10n.cancel),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.cobalt,
-              side: const BorderSide(color: AppTheme.cobalt, width: 1.5),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-            icon: const Icon(Icons.preview_rounded, size: 18),
-            label: Text(context.l10n.previewPoReportBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+          AppButton(
+            label: context.l10n.previewPoReportBtn,
+            icon: Icons.preview_rounded,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => _showPoComprehensiveReportPreview(context),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            ),
-            icon: _isSubmitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_rounded, size: 18),
-            label: Text(
-              widget.po == null ? context.l10n.savePurchaseOrderBtn : context.l10n.savePoEditsBtn,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
+          AppButton(
+            label: widget.po == null ? context.l10n.savePurchaseOrderBtn : context.l10n.savePoEditsBtn,
+            icon: Icons.save_rounded,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.small,
+            isLoading: _isSubmitting,
             onPressed: _isSubmitting ? null : () => _submitForm(context),
           ),
         ],
@@ -3331,7 +3366,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.crimson,
         ),
       );
       return;
@@ -3345,7 +3380,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.crimson,
         ),
       );
       return;
@@ -3355,7 +3390,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.crimson,
         ),
       );
       return;
@@ -3430,14 +3465,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         items: _dialogItems,
         packingListItems: _dialogPackingItems,
       );
-      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
+      final createError = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
       if (!mounted) return;
-      if (errorMsg != null) {
+      if (createError != null) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
           SnackBar(
-            content: Text('خطأ في إدخال أمر الشراء:\n$errorMsg'),
-            backgroundColor: Colors.red,
+            content: Text('${context.l10n.poCreateErrorPrefix}:\n${ApiErrorText.of(context.l10n, createError)}'),
+            backgroundColor: AppTheme.crimson,
           ),
         );
       } else {
@@ -3446,7 +3481,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('تم إنشاء وحفظ أمر الشراء بنجاح!'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.emerald,
           ),
         );
         if (context.mounted) Navigator.pop(context);
@@ -3567,8 +3602,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
           fieldName: 'حالة أمر الشراء',
-          oldValue: oldPO.status,
-          newValue: _selectedStatus,
+          oldValue: oldPO.statusLabel(context.l10n),
+          newValue: DomainEnums.label(context.l10n, DomainEnumType.poStatus, _selectedStatus),
         ));
       }
 
@@ -3763,8 +3798,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
           SnackBar(
-            content: Text('خطأ في تحديث أمر الشراء:\n${result.errorMessage}'),
-            backgroundColor: Colors.red,
+            content: Text('${context.l10n.poUpdateErrorPrefix}:\n${ApiErrorText.of(context.l10n, result.error)}'),
+            backgroundColor: AppTheme.crimson,
           ),
         );
       } else {
@@ -3773,7 +3808,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('تم حفظ التعديلات بنجاح!'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.emerald,
           ),
         );
         if (context.mounted) Navigator.pop(context);
@@ -3963,7 +3998,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 ),
                                 Text(
                                   context.l10n.containerLoadPlan3dSubtitle,
-                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                                  style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
                                 ),
                               ],
                             ),
@@ -3974,7 +4009,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.image_outlined, color: AppTheme.cobalt),
-                              tooltip: isArabic ? 'تنزيل صور المحاكاة (PNG)' : 'Download Simulation Image (PNG)',
+                              tooltip: context.l10n.poDownloadSimulationImagePNG,
                               onPressed: () async {
                                 await ContainerLoadPlanExportService.exportSimulationImage(
                                   context: dialogCtx,
@@ -3986,7 +4021,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
-                              tooltip: isArabic ? 'تنزيل مخطط التحميل (PDF)' : 'Download Loading Plan (PDF)',
+                              tooltip: context.l10n.poDownloadLoadingPlanPDF,
                               onPressed: () async {
                                 await ContainerLoadPlanExportService.exportLoadingPlanPdf(
                                   context: dialogCtx,
@@ -4016,9 +4051,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppTheme.cloudWhite),
                       ),
                       child: Wrap(
                         spacing: 16,
@@ -4040,7 +4075,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : AppTheme.charcoal,
+                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4058,7 +4093,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : AppTheme.charcoal,
+                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4074,9 +4109,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               ChoiceChip(
                                 label: Text('🚫 ${context.l10n.simulationModeFloorOnly}'),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4093,7 +4128,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.charcoal,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4121,7 +4156,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: viewProjection == 'both',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'both' ? Colors.white : AppTheme.charcoal,
+                                  color: viewProjection == 'both' ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4134,7 +4169,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: viewProjection == 'side',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'side' ? Colors.white : AppTheme.charcoal,
+                                  color: viewProjection == 'side' ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4147,7 +4182,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 selected: viewProjection == 'top',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'top' ? Colors.white : AppTheme.charcoal,
+                                  color: viewProjection == 'top' ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -4219,9 +4254,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade50,
+                                color: AppTheme.crimsonLight,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.shade300),
+                                border: Border.all(color: AppTheme.crimsonBorder),
                               ),
                               child: Row(
                                 children: [
@@ -4280,7 +4315,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                        height: 200,
                                        width: double.infinity,
                                        decoration: BoxDecoration(
-                                         color: Colors.grey.shade900,
+                                         color: AppTheme.charcoal,
                                          borderRadius: BorderRadius.circular(4),
                                        ),
                                        child: CustomPaint(
@@ -4293,7 +4328,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                        height: 155,
                                        width: double.infinity,
                                        decoration: BoxDecoration(
-                                         color: Colors.grey.shade900,
+                                         color: AppTheme.charcoal,
                                          borderRadius: BorderRadius.circular(4),
                                        ),
                                        child: CustomPaint(
@@ -4305,7 +4340,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                        height: 360,
                                        width: double.infinity,
                                        decoration: BoxDecoration(
-                                         color: Colors.grey.shade900,
+                                         color: AppTheme.charcoal,
                                          borderRadius: BorderRadius.circular(4),
                                        ),
                                        child: CustomPaint(
@@ -4330,18 +4365,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                  : '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)',
                                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                            ),
-                                           OutlinedButton.icon(
-                                             style: OutlinedButton.styleFrom(
-                                               visualDensity: VisualDensity.compact,
-                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                               foregroundColor: AppTheme.cobalt,
-                                               side: const BorderSide(color: AppTheme.cobalt),
-                                             ),
-                                             icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
-                                             label: Text(
-                                               showDetailedCoordinates ? 'عرض مجمع حسب الأصناف' : 'عرض تفصيلي بالإحداثيات',
-                                               style: const TextStyle(fontSize: 11),
-                                             ),
+                                           AppButton(
+                                             label: showDetailedCoordinates ? 'عرض مجمع حسب الأصناف' : 'عرض تفصيلي بالإحداثيات',
+                                             icon: showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered,
+                                             variant: AppButtonVariant.secondary,
+                                             size: AppButtonSize.small,
                                              onPressed: () => setDialogState(() => showDetailedCoordinates = !showDetailedCoordinates),
                                            ),
                                          ],
@@ -4349,7 +4377,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                        children: [
                                          if (!showDetailedCoordinates)
                                            Table(
-                                             border: TableBorder.all(color: Colors.grey.shade300),
+                                             border: TableBorder.all(color: AppTheme.cloudWhite),
                                              columnWidths: const {
                                                0: FlexColumnWidth(0.6),
                                                1: FlexColumnWidth(2.5),
@@ -4361,9 +4389,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                7: FlexColumnWidth(1.2),
                                              },
                                              children: [
-                                               TableRow(
-                                                 decoration: BoxDecoration(color: Colors.grey.shade200),
-                                                 children: const [
+                                               const TableRow(
+                                                 decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                                 children: [
                                                    Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                                    Padding(padding: EdgeInsets.all(6), child: Text('الصنف / البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                                    Padding(padding: EdgeInsets.all(6), child: Text('نوع الطرد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
@@ -4404,7 +4432,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                            )
                                          else
                                            Table(
-                                             border: TableBorder.all(color: Colors.grey.shade300),
+                                             border: TableBorder.all(color: AppTheme.cloudWhite),
                                              columnWidths: const {
                                                0: FlexColumnWidth(0.8),
                                                1: FlexColumnWidth(2.2),
@@ -4415,7 +4443,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                              },
                                              children: [
                                                TableRow(
-                                                 decoration: BoxDecoration(color: Colors.grey.shade200),
+                                                 decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                                  children: [
                                                    const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                                    Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),

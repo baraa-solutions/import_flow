@@ -13,6 +13,8 @@ import 'price_list_form_dialog.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 
 class BrokerPriceListsTab extends ConsumerStatefulWidget {
   const BrokerPriceListsTab({super.key});
@@ -94,7 +96,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
               ChoiceChip(
                 label: Text(l.smartClearanceQuoteExtractor, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 2,
-                selectedColor: const Color(0xFF6C5CE7).withOpacity(0.18),
+                selectedColor: AppTheme.cobalt.withOpacity(0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 2),
               ),
             ],
@@ -150,21 +152,18 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       ),
                     ),
                     const Spacer(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C5CE7),
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.auto_awesome, size: 18),
-                      label: Text('🤖 ${l.smartClearanceQuoteExtractor}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    AppButton(
+                      label: '🤖 ${l.smartClearanceQuoteExtractor}',
+                      icon: Icons.auto_awesome,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => showSmartClearanceExtractorDialog(context, ref),
                     ),
                     const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                    AppButton(
+                      label: l.createBrokerPriceListBtn,
+                      icon: Icons.add,
+                      variant: AppButtonVariant.primary,
                       onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: Text(l.createBrokerPriceListBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -179,14 +178,15 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
+                          const Icon(Icons.receipt_long, size: 64, color: AppTheme.textMuted),
                           const SizedBox(height: 12),
-                          Text(l.noBrokerPriceListsFound, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                          Text(l.noBrokerPriceListsFound, style: const TextStyle(color: AppTheme.textMuted, fontSize: 14)),
                           const SizedBox(height: 8),
-                          ElevatedButton.icon(
+                          AppButton(
+                            label: l.addPriceListNowBtn,
+                            icon: Icons.add,
+                            variant: AppButtonVariant.primary,
                             onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
-                            icon: const Icon(Icons.add),
-                            label: Text(l.addPriceListNowBtn),
                           ),
                         ],
                       ),
@@ -211,8 +211,8 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                 const SizedBox(width: 10),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: pl.isActive ? Colors.green.shade100 : Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                                  child: Text(pl.isActive ? l.activePriceListStatus : l.archivedPriceListStatus, style: TextStyle(color: pl.isActive ? Colors.green.shade900 : Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  decoration: BoxDecoration(color: pl.isActive ? AppTheme.emeraldBorder : AppTheme.crimsonBorder, borderRadius: BorderRadius.circular(4)),
+                                  child: Text(pl.isActive ? l.activePriceListStatus : l.archivedPriceListStatus, style: TextStyle(color: pl.isActive ? AppTheme.wcagEmerald : AppTheme.crimson, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
                                 if (pl.clonedFromCode != null && pl.clonedFromCode!.isNotEmpty) ...[
                                   const SizedBox(width: 8),
@@ -234,22 +234,18 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   ),
                                 ],
                                 const Spacer(),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.cobalt,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
+                                AppButton(
+                                  label: l.editPricesAndItemsBtn,
+                                  icon: Icons.edit,
+                                  variant: AppButtonVariant.primary,
+                                  size: AppButtonSize.small,
                                   onPressed: () => showPriceListFormDialog(context, ref, existingPriceList: pl, brokersList: brokersList),
-                                  icon: const Icon(Icons.edit, color: Colors.white, size: 14),
-                                  label: Text(l.editPricesAndItemsBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
                                 const SizedBox(width: 6),
                                 IconButton(
                                   icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 20),
                                   tooltip: l.clonePriceListActionTooltip,
                                   onPressed: () {
-                                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
                                     CloneEntityReviewDialog.show(
                                       context,
                                       entityType: l.clonePriceListDialogTitle,
@@ -257,15 +253,15 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                       suggestedNewCode: '${pl.priceListCode}-CLONE',
                                       sourceTitle: pl.title,
                                       copiedFieldsSummary: {
-                                        isAr ? 'المخلص الجمركي' : 'Customs Broker': pl.brokerName,
-                                        isAr ? 'ميناء التخليص' : 'Target Port': pl.portName ?? '-',
-                                        isAr ? 'عدد بنود الأسعار' : 'Items Count': '${pl.items.length}',
-                                        isAr ? 'تاريخ السريان' : 'Effective From': pl.effectiveFrom,
+                                        context.l10n.operationalTsvHeaderBroker: pl.brokerName,
+                                        context.l10n.ccTargetPort: pl.portName ?? '-',
+                                        context.l10n.ccItemsCount: '${pl.items.length}',
+                                        context.l10n.ccEffectiveFrom: pl.effectiveFrom,
                                       },
                                       mandatorilyResetFields: [
                                         l.cloneFieldStatusDraftBadge,
-                                        isAr ? 'تحديث رقم الإصدار تلقائياً (الإصدار الجديد)' : 'Increment version number',
-                                        isAr ? 'توليد كود مرجعي فريد غير مكرر' : 'Generate unique new reference code',
+                                        context.l10n.ccIncrementVersionNumber,
+                                        context.l10n.ccGenerateUniqueNewReferenceCode,
                                       ],
                                       allowCopyLineItems: true,
                                       allowCopyAttachments: false,
@@ -300,7 +296,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                 ),
                                 const SizedBox(width: 6),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
                                   tooltip: l.archivePriceListTooltip,
                                   onPressed: () async {
                                     final confirm = await showDialog<bool>(
@@ -309,11 +305,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                         title: Text(l.confirmArchivePriceListTitle),
                                         content: Text(l.confirmArchivePriceListMsg(pl.title)),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                          AppButton(
+                                            label: l.cancel,
+                                            variant: AppButtonVariant.secondary,
+                                            size: AppButtonSize.small,
+                                            onPressed: () => Navigator.pop(ctx, false),
+                                          ),
+                                          AppButton(
+                                            label: l.archiveBtn,
+                                            variant: AppButtonVariant.danger,
                                             onPressed: () => Navigator.pop(ctx, true),
-                                            child: Text(l.archiveBtn, style: const TextStyle(color: Colors.white)),
                                           ),
                                         ],
                                       ),
@@ -335,13 +336,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                     if (pl.notes != null && pl.notes!.isNotEmpty) ...[
                                       Container(
                                         padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
+                                        decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.orange)),
                                         child: Text('📝 ${l.priceListNotesHeader} ${pl.notes}', style: const TextStyle(fontSize: 12)),
                                       ),
                                       const SizedBox(height: 12),
                                     ],
                                     Table(
-                                      border: TableBorder.all(color: Colors.grey.shade300),
+                                      border: TableBorder.all(color: AppTheme.cloudWhite),
                                       columnWidths: const {
                                         0: FlexColumnWidth(3.0),
                                         1: FlexColumnWidth(2.0),
@@ -372,7 +373,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                                     itm.minPrice != null && itm.maxPrice != null
                                                         ? '${itm.minPrice!.toStringAsFixed(0)} - ${itm.maxPrice!.toStringAsFixed(0)} ${itm.currency}'
                                                         : (itm.notes ?? '-'),
-                                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
                                                   ),
                                                 ),
                                               ],
@@ -522,11 +523,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                             ),
                           ),
                           const Spacer(),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                          AppButton(
+                            label: l.addNewExpenseTypeBtn,
+                            icon: Icons.add,
+                            variant: AppButtonVariant.primary,
                             onPressed: _showAddExpenseTypeDialog,
-                            icon: const Icon(Icons.add, color: Colors.white),
-                            label: Text(l.addNewExpenseTypeBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -534,49 +535,41 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       // Export Action Buttons Bar
                       Row(
                         children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.table_view_rounded, size: 16),
-                            label: Text(l.expenseCatalogExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.expenseCatalogExportExcelBtn,
+                            icon: Icons.table_view_rounded,
+                            variant: AppButtonVariant.success,
+                            size: AppButtonSize.small,
                             onPressed: () => ClearanceExpenseTypesExportService.exportExcel(context, filtered),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                            label: Text(l.expenseCatalogExportPdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.expenseCatalogExportPdfBtn,
+                            icon: Icons.picture_as_pdf_rounded,
+                            variant: AppButtonVariant.danger,
+                            size: AppButtonSize.small,
                             onPressed: () => ClearanceExpenseTypesExportService.printOrSavePdf(context, filtered),
                           ),
                           const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.grid_on_rounded, size: 16),
-                            label: Text(l.expenseCatalogExportTsvBtn, style: const TextStyle(fontSize: 12)),
+                          AppButton(
+                            label: l.expenseCatalogExportTsvBtn,
+                            icon: Icons.grid_on_rounded,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
                             onPressed: () => ClearanceExpenseTypesExportService.exportTsv(context, filtered),
                           ),
                           const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.copy_all_rounded, size: 16),
-                            label: Text(l.expenseCatalogCopyDossierBtn, style: const TextStyle(fontSize: 12)),
+                          AppButton(
+                            label: l.expenseCatalogCopyDossierBtn,
+                            icon: Icons.copy_all_rounded,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
                             onPressed: () => ClearanceExpenseTypesExportService.copyDossier(context, filtered),
                           ),
                           const Spacer(),
                           Text(
                             l.expenseCatalogTotalCountLabel(filtered.length),
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textStrong),
                           ),
                         ],
                       ),
@@ -615,9 +608,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   dataRowMinHeight: 48,
                                   dataRowMaxHeight: 56,
                                   headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                                   columns: [
-                                    DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions')),
+                                    DataColumn(label: Text(context.l10n.actionsCol)),
                                     DataColumn(label: Text(l.expenseCodeCol)),
                                     DataColumn(label: Text(l.expenseNameArCol)),
                                     DataColumn(label: Text(l.expenseNameEnCol)),
@@ -635,9 +628,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                         DataCell(
                                           Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.shade50,
+                                              color: AppTheme.charcoalSurface,
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.grey.shade300),
+                                              border: Border.all(color: AppTheme.cloudWhite),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -650,16 +643,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                                   padding: EdgeInsets.zero,
                                                   onPressed: () => _showEditExpenseTypeDialog(exp),
                                                 ),
-                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                Container(width: 1, height: 16, color: AppTheme.cloudWhite),
                                                 IconButton(
-                                                  icon: const Icon(Icons.delete_outline_rounded, size: 17, color: Colors.red),
+                                                  icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AppTheme.crimson),
                                                   tooltip: l.deleteExpenseTooltip,
                                                   splashRadius: 16,
                                                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                                   padding: EdgeInsets.zero,
                                                   onPressed: () => _showDeleteExpenseTypeConfirmDialog(exp),
                                                 ),
-                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                Container(width: 1, height: 16, color: AppTheme.cloudWhite),
                                                 IconButton(
                                                   icon: const Icon(Icons.control_point_duplicate_rounded, size: 16, color: AppTheme.cobalt),
                                                   tooltip: l.cloneRowTooltip,
@@ -668,9 +661,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                                   padding: EdgeInsets.zero,
                                                   onPressed: () => _showAddExpenseTypeDialog(template: exp),
                                                 ),
-                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                Container(width: 1, height: 16, color: AppTheme.cloudWhite),
                                                 IconButton(
-                                                  icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.textMuted),
                                                   tooltip: l.copyExpenseRowSummaryTooltip,
                                                   splashRadius: 16,
                                                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -805,7 +798,6 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
 
   void _showEditExpenseTypeDialog(ClearanceExpenseTypeModel exp) {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final formKey = GlobalKey<FormState>();
     final codeCtrl = TextEditingController(text: exp.expenseCode);
     final nameArCtrl = TextEditingController(text: exp.nameAr);
@@ -841,7 +833,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الكود' : 'Code required') : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (context.l10n.ccCodeRequired) : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -851,7 +843,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الاسم العربي' : 'Arabic name required') : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (context.l10n.ccArabicNameRequired) : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -903,12 +895,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
             ),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: Text(l.cancel),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+            AppButton(
+              label: l.saveExpenseBtn,
+              variant: AppButtonVariant.primary,
+              isLoading: isSaving,
               onPressed: isSaving
                   ? null
                   : () async {
@@ -941,14 +937,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
                     },
-              child: isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -958,7 +951,6 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
 
   void _showDeleteExpenseTypeConfirmDialog(ClearanceExpenseTypeModel exp) {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     bool isDeleting = false;
 
     showDialog(
@@ -967,7 +959,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
         builder: (ctx, setDlgState) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.red),
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
               const SizedBox(width: 8),
               Text(l.confirmDeleteExpenseTypeTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
@@ -977,12 +969,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
             style: const TextStyle(fontSize: 14),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-              child: Text(l.cancel),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            AppButton(
+              label: context.l10n.delete,
+              variant: AppButtonVariant.danger,
+              isLoading: isDeleting,
               onPressed: isDeleting
                   ? null
                   : () async {
@@ -995,21 +991,18 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(l.expenseTypeDeletedToast),
-                            backgroundColor: Colors.red,
+                            backgroundColor: AppTheme.crimson,
                           ),
                         );
                       } catch (e) {
                         setDlgState(() => isDeleting = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
                     },
-              child: isDeleting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1019,7 +1012,6 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
 
   void _showAddExpenseTypeDialog({ClearanceExpenseTypeModel? template}) {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final formKey = GlobalKey<FormState>();
     final codeCtrl = TextEditingController(text: TableRowCloneHelper.withCodeSuffix(template?.expenseCode) ?? '');
     final nameArCtrl = TextEditingController(text: TableRowCloneHelper.withCopySuffix(template?.nameAr) ?? '');
@@ -1037,7 +1029,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
         builder: (ctx, setDlgState) => AlertDialog(
           title: Text(
             template != null
-                ? (isArabic ? 'استنساخ بند المصروف المرجعي' : 'Clone Clearance Expense Item')
+                ? (context.l10n.ccCloneClearanceExpenseItem)
                 : l.newExpenseTypeDialogTitle,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -1056,7 +1048,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الكود' : 'Code required') : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (context.l10n.ccCodeRequired) : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1066,7 +1058,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الاسم العربي' : 'Arabic name required') : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (context.l10n.ccArabicNameRequired) : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1118,12 +1110,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
             ),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: Text(l.cancel),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+            AppButton(
+              label: l.saveExpenseBtn,
+              variant: AppButtonVariant.success,
+              isLoading: isSaving,
               onPressed: isSaving
                   ? null
                   : () async {
@@ -1146,14 +1142,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
                     },
-              child: isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

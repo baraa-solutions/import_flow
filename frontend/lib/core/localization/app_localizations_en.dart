@@ -11229,6 +11229,24 @@ class AppLocalizationsEn extends AppLocalizations {
     'measure_unit.KG': 'kg',
     'measure_unit.PACKAGES': 'packages',
     'measure_unit.PACKAGES_PALLETS': 'packages/pallets',
+    'measure_unit.GRM': 'gram (GRM)',
+    'measure_unit.SET': 'set (SET)',
+    'measure_unit.STN': 'short ton (STN)',
+    'po_status.DRAFT': 'Draft',
+    'po_status.APPROVED': 'Approved',
+    'po_status.PARTIALLY_SHIPPED': 'Partially Shipped',
+    'po_status.FULLY_SHIPPED': 'Fully Shipped',
+    'po_status.CLOSED': 'Closed',
+    'po_status.CANCELLED': 'Cancelled',
+    'shipment_mode.AIR': 'Air Freight',
+    'shipment_mode.SEA': 'Sea Freight',
+    'shipping_method.AIR': 'Air Freight',
+    'shipping_method.FCL': 'FCL Container',
+    'shipping_method.LCL': 'LCL Ocean Freight',
+    'container_type.C20_ST': "20FT Standard Container (20' ST)",
+    'container_type.C40_HC': "40FT High Cube Container (40' HC)",
+    'container_type.C40_ST': "40FT Standard Container (40' ST)",
+    'container_type.LCL': 'LCL Consolidation Container',
     'stage.ARCHIVED_CLOSED': 'Archived & Closed',
     'stage.ARRIVED_AT_WAREHOUSE': 'Arrived at Warehouse',
     'stage.CLOSED_EARLY': 'Closed Early',
@@ -11259,8 +11277,536 @@ class AppLocalizationsEn extends AppLocalizations {
     'stage.UNDER_BOND_QUARANTINE': 'Under-Bond Quarantine',
     'stage.UNDER_CUSTOMS_CLEARANCE': 'Under Customs Clearance',
   };
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poImportedSuccessfully => 'Imported successfully';
+  @override String get poPOTableCopiedToClipboard => 'PO table copied to clipboard';
+  @override String get poCopyTableTSV => 'Copy Table (TSV)';
+  @override String get poDownloadTemplate => 'Download Template';
+  @override String get poImportExcel => 'Import Excel';
+  @override String get poExportPurchaseOrdersExcel => 'Export Purchase Orders Excel';
+  @override String get poExportPurchaseOrdersPDF => 'Export Purchase Orders PDF';
+  @override String get poDownloadPurchaseOrdersTemplate => 'Download Purchase Orders Template';
+  @override String get poInvoiceDate => 'Invoice Date';
+  @override String get poQtyUnit => 'Qty Unit';
+  @override String get poTotalQtyPKG => 'Total Qty PKG';
+  @override String get poQtyPKG => 'Qty PKG';
+  @override String get poPackageType => 'Package Type';
+  @override String get poNetWt => 'Net Wt';
+  @override String get poGrossWt => 'Gross Wt';
+  @override String get poCopyRowForExcelTSV => 'Copy row for Excel (TSV)';
+  @override String get poPOLineItemsSummaryByHS => '📊 PO Line Items Summary By HS Code';
+  @override String get poNetWtKg => 'Net Wt (kg)';
+  @override String get poGrossWtKg => 'Gross Wt (kg)';
+  @override String get poDutyVAT => 'Duty / VAT';
+  @override String get poRegulatoryConditionsTradeAgreementsByHS => '🛡️ Regulatory Conditions & Trade Agreements by HS Code';
+  @override String get poInvoicePackingReconciliationDiscrepanciesFound => 'Invoice & Packing Reconciliation: Discrepancies found in quantities or HS codes';
+  @override String get poApprovedJustification => 'Approved Justification:';
+  @override String get poPerfectMatchAllProformaInvoiceLine => 'Perfect Match: All proforma invoice line items match packing list in HS codes and quantities.';
+  @override String get poPackingListValidationErrors => 'Packing List Validation Errors';
+  @override String get poPackingListValidationPassedAllWeights => 'Packing List Validation Passed — All weights and quantities verified.';
+  @override String po3DContainerLoadSimulationAvailableFor(Object? po, Object? toInt) => '3D Container Load Simulation available for $po items ($toInt pkgs)';
+  @override String get poPurchaseOrderProformaInvoiceDetails => '=== Purchase Order / Proforma Invoice Details ===';
+  @override String get poPOReferenceName => 'PO Reference / Name';
+  @override String get poInternalPOCode => 'Internal PO Code';
+  @override String get poProformaInvoice => 'Proforma Invoice';
+  @override String get poProjectCostCenter => 'Project & Cost Center';
+  @override String get poIncoterms => 'Incoterms';
+  @override String get poFXRate => 'FX Rate';
+  @override String get poPaymentTerms => 'Payment Terms';
+  @override String get poTotalCBM => 'Total CBM';
+  @override String get poGrossNetWeight => 'Gross / Net Weight';
+  @override String get poPOLineItemsHSCodes => '--- PO Line Items & HS Codes ---';
+  @override String get poPackingListItems => '--- Packing List Items ---';
+  @override String get poPODetailsCopiedToClipboard => 'PO details copied to clipboard ✅';
+  @override String get poCBM => 'CBM';
+  @override String get poQtyPcs => 'Qty Pcs';
+  @override String get poPackingListSummaryByHSCode => '📊 Packing List Summary By HS Code';
+  @override String get poPackingListSummaryByPackageType => '📊 Packing List Summary By Package Type';
+  @override String get poPurchaseOrder => 'Purchase Order';
+  @override String get poInternalPOCode2 => 'Internal PO Code';
+  @override String get poTotalCBM2 => 'Total CBM';
+  @override String get poTotalNetWeight => 'Total Net Weight';
+  @override String get poTotalQtyPKG2 => 'Total Qty PKG';
+  @override String get poPurchaseOrderItemsSpecification => 'Purchase Order Items Specification';
+  @override String get poNoPackingListOrPalletData => 'No packing list or pallet data available for simulation';
+  @override String get poPleaseAddPackingListOrPallet => 'Please add packing list or pallet items in the purchase order to run 3D container packing simulation.';
+  @override String get poEditPOAddPackingList => 'Edit PO & Add Packing List';
+  @override String get poNoSuitableContainers => 'No suitable containers';
+  @override String get poDownloadSimulationViewsPNG => 'Download Simulation Views (PNG)';
+  @override String get poDownloadLoadingPlanPDF => 'Download Loading Plan (PDF)';
+  @override String get poBothViews => '🖼️ Both Views';
+  @override String poDetailedPlacementCoordinatesPkgs(Object? res) => '📐 Detailed Placement Coordinates ($res pkgs)';
+  @override String poGroupedItemsItemsTotalPkgs(Object? res, Object? res2) => '📊 Grouped Items ($res items | Total $res2 pkgs)';
+  @override String get poGroupByItems => 'Group by Items';
+  @override String get poDetailedCoordinates => 'Detailed Coordinates';
+  @override String get poItemCode => 'Item / Code';
+  @override String get poPkgType => 'Pkg Type';
+  @override String get poDimsCm => 'Dims (cm)';
+  @override String get poGrossWt2 => 'Gross Wt';
+  @override String get poCBM2 => 'CBM';
+  @override String get poStack => 'Stack';
+  @override String get poYes => 'Yes';
+  @override String get poFloor => 'Floor';
+  @override String get poDownloadSimulationImagePNG => 'Download Simulation Image (PNG)';
+  @override String get poProject => 'Project';
+  @override String get poCurrencyIncoterm => 'Currency / Incoterm';
+  @override String get poResetDeliveryAndOrderDates => 'Reset delivery and order dates';
+
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poInvoiceLineItemClonedSuccessfully => 'Invoice line item cloned successfully';
+  @override String get poPackingListItemClonedSuccessfully => 'Packing list item cloned successfully';
+  @override String get poRestoreUnsavedDraft => 'Restore Unsaved Draft';
+  @override String poAnAutosavedDraftExistsForThis(Object? savedAt) => 'An autosaved draft exists for this Purchase Order ($savedAt).\nDo you want to restore the unsaved changes?';
+  @override String get poDiscardDraft => 'Discard Draft';
+  @override String get poRestoreDraft => 'Restore Draft';
+  @override String get poDefault => '-- Default --';
+  @override String get poDraftSaved => 'Draft Saved';
+  @override String get poSmartExtractPIPL => '🚀 Smart Extract (PI / PL)';
+
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poSummaryByPackageType => 'Summary By Package Type';
+  @override String get poUnregistered => '⚠️ Unregistered';
+
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  @override String get cbmNoPackageLinesToExport => 'No package lines to export';
+  @override String get cbmStackable => 'Stackable';
+  @override String get cbmGrossWtUnitKg => 'Gross Wt/Unit (kg)';
+  @override String get cbmTotalCBM => 'Total CBM';
+  @override String get cbmVolumetricWtKg => 'Volumetric Wt (kg)';
+  @override String get cbmChargeableWtKg => 'Chargeable Wt (kg)';
+  @override String get cbmPackageMeasurements => 'Package Measurements';
+  @override String get cbmDimensions => 'Dimensions';
+  @override String get cbmVolWt => 'Vol Wt';
+  @override String get cbmChargeable => 'Chargeable';
+  @override String get cbmCBMCalculator => 'CBM Calculator';
+  @override String get cbmPackageMeasurementsSpecification => 'Package Measurements Specification';
+  @override String get cbmShipmentMode => 'Shipment Mode';
+  @override String get cbmAir => 'Air';
+  @override String get cbmSea => 'Sea';
+  @override String get cbmPackageLines => 'Package Lines';
+  @override String get cbmNoPackageLinesToCopy => 'No package lines to copy';
+  @override String get cbmPackagesTableCopiedToClipboard => 'Packages table copied to clipboard';
+
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  @override String get cbmNoCalculationsToExport => 'No calculations to export';
+  @override String get cbmCalcCode => 'Calc Code';
+  @override String get cbmShippingStrategy => 'Shipping Strategy';
+  @override String get cbmCBMRegistry => 'CBM Registry';
+  @override String get cbmCode => 'Code';
+  @override String get cbmFile => 'File';
+  @override String get cbmVolWt2 => 'Vol Wt';
+  @override String get cbmGrossWt => 'Gross Wt';
+  @override String get cbmMode => 'Mode';
+  @override String get cbmCBMVolumetricWeightRegistry => 'CBM & Volumetric Weight Registry';
+  @override String get cbmNoCalculationsToCopy => 'No calculations to copy';
+  @override String get cbmCBMCalculationsTableCopiedToClipboard => 'CBM calculations table copied to clipboard';
+
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  @override String get ssCarrier => 'Carrier';
+  @override String get ssQuote => 'Quote';
+
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  @override String get ssInactive => 'Inactive';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccCustomsBroker => 'Customs Broker';
+  @override String ccCostLinkageAlertThisImportFile(Object? budgetCode) => '⚠️ Cost Linkage Alert: This import file is linked to budget ($budgetCode). Clearance expenses were updated, please review and update the Budget Approval screen to match live costs.';
+  @override String get ccOK => 'OK';
+  @override String get ccExemption => 'Exemption';
+  @override String get ccACID => 'ACID';
+  @override String get ccCOO => 'COO';
+  @override String get ccGOEIC => 'GOEIC';
+  @override String get ccHSCode => '⚠️ HS Code';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccExpenseItemNameCopied => 'Expense item name copied';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccTargetPort => 'Target Port';
+  @override String get ccItemsCount => 'Items Count';
+  @override String get ccEffectiveFrom => 'Effective From';
+  @override String get ccIncrementVersionNumber => 'Increment version number';
+  @override String get ccGenerateUniqueNewReferenceCode => 'Generate unique new reference code';
+  @override String get ccCodeRequired => 'Code required';
+  @override String get ccArabicNameRequired => 'Arabic name required';
+  @override String get ccCloneClearanceExpenseItem => 'Clone Clearance Expense Item';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccCopyQuoteItems => 'Copy Quote Items';
+  @override String get ccCopiedAllQuoteItemsToClipboard => 'Copied all quote items to clipboard';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccClearanceFees => 'Clearance Fees';
+  @override String get ccProceduresApprovals => 'Procedures & Approvals';
+  @override String get ccInlandTransport => 'Inland Transport';
+  @override String get ccPortHandling => 'Port & Handling';
+  @override String get ccFixedAmount => 'Fixed Amount';
+  @override String get ccPerContainer => 'Per Container';
+  @override String get ccPerInvoice => 'Per Invoice';
+  @override String get ccPerTon => 'Per Ton';
+  @override String get ccPerTruck => 'Per Truck';
+  @override String get ccPerDay => 'Per Day';
+  @override String get ccPerNight => 'Per Night';
+  @override String get ccPerInspection => 'Per Inspection';
+  @override String get ccPerShipment => 'Per Shipment';
+  @override String get ccPerDeclaration => 'Per Declaration';
+  @override String get ccPerBillOfLading => 'Per Bill of Lading';
+  @override String get ccPerSample => 'Per Sample';
+  @override String get ccPerCertificate => 'Per Certificate';
+  @override String get ccClientPaidExpenses => 'Client-Paid Expenses';
+  @override String get ccGeneralOtherFees => 'General Other Fees';
+  @override String get ccStorageDemurrage => 'Storage & Demurrage';
+  @override String get ccLaborHandling => 'Labor & Handling';
+  @override String get ccCommissionsTips => 'Commissions & Tips';
+  @override String get ccExceptionalClearanceFee => 'Exceptional Clearance Fee';
+  @override String get ccInlandTransportCustom => 'Inland Transport Custom';
+  @override String get ccAdditionalApprovals => 'Additional Approvals';
+  @override String get ccPortTerminalExpenses => 'Port Terminal Expenses';
+  @override String get ccNewCustomReferenceCode => '➕ New Custom Reference Code...';
+  @override String get ccEnterCustomCodeManually => 'Enter custom code manually';
+  @override String get ccRowClonedSuccessfullyCtrlD => '✨ Row cloned successfully (Ctrl+D)';
+  @override String get ccCustomsBroker2 => 'Customs Broker';
+  @override String get ccServerConnectionFailed => 'Server connection failed';
+  @override String get ccFailedToSave => 'Failed to save';
+
+
+  // ── Backend contract wiring (round 2) ──────────────────────────────────────
+  @override String get apiNoPermission => 'You do not have permission to perform this action. Ask your administrator to grant it.';
+  @override String get tariffMissingBadge => 'Tariff missing';
+  @override String get tariffMissingLineHint => 'No HS code or no tariff valid on the estimate date: this line is excluded from the tax totals.';
+  @override String tariffMissingLinesWarning(int count) => '$count line(s) have no valid customs tariff and are excluded from the tax totals. Add or update the tariff, then recalculate.';
+
+
+  // ── Backend contract wiring (round 3) ──────────────────────────────────────
+  @override String get poCreateErrorPrefix => 'Error creating the purchase order';
+  @override String get poUpdateErrorPrefix => 'Error updating the purchase order';
+  @override String get poAuditCreatedBy => 'Created by';
+  @override String get poAuditUpdatedBy => 'Last updated by';
+
+
+  // ── Backend contract wiring (round 3b) ──────────────────────────────────────
+  @override String get openExistingRecord => 'Open existing record';
+
+
+  // ── Round 4 ──────────────────────────────────────
+  @override String poExtractionKeptAllocatedLines(String codes) => 'Kept lines that have recorded shipments but were not in the extracted data: $codes. They cannot be removed.';
+
+
+  // ── Round 5 ──────────────────────────────────────
+  @override String get ccRateSourceManual => 'manual';
+  @override String get ccRateSourceTable => 'table';
+  @override String get ccPreliminaryRateLabel => 'Preliminary rate';
+  @override String get ccFinalRateLabel => 'Final rate';
+
   @override
   String? domainEnumLabel(String type, String code) => _domainEnumLabels['$type.$code'];
+
+  // === review phase02 keys (append below this line) ===
+  @override String faFxRateMissing(String currency) => 'No exchange rate is registered for $currency. Enter the rate manually before saving.';
+  @override String get faExchangeRateInvalid => 'Enter an exchange rate greater than zero';
+  // === end review phase02 keys ===
+
+  // === review phase03 keys (append below this line) ===
+  @override String get idocAConfirmNotMatchedTitle => 'Warning: matching conditions are not met';
+  @override String get idocAConfirmNotMatchedBody => 'The match results contain critical discrepancies or unmatched warnings. Enter a justification to continue with the final approval.';
+  @override String get idocAJustificationLabel => 'Justification for approving despite discrepancies';
+  @override String get idocAJustificationRequired => 'Justification is required';
+  @override String get idocAReviewDiffs => 'Review discrepancies';
+  @override String get idocAConfirmFinal => 'Confirm final approval';
+  @override String idocADraftSaved(String code) => 'Draft session ($code) saved to the sessions registry';
+  @override String idocASessionApproved(String code) => 'Session ($code) approved';
+  @override String get idocADraftSaveFailed => 'Failed to save the draft';
+  @override String get idocAFinalApprovalFailed => 'Failed to approve the session';
+  @override String get idocASessionNotesTab => 'Session notes';
+  @override String get idocADeleteSessionFailed => 'Could not delete the session';
+  @override String get idocADraftBlConfirmTitle => 'Confirm saving the review for approval';
+  @override String idocADraftBlConfirmBody(int count) => 'There are $count critical discrepancies recorded in the B/L check. Save the review and send it for dual approval?';
+  @override String get idocADraftBlConfirmAction => 'Save for approval';
+  @override String idocADraftBlSaved(String code) => 'Draft B/L review ($code) saved';
+  @override String idocADraftBlSavedForApproval(String code) => 'B/L review ($code) saved and awaiting dual approval';
+  @override String get idocADraftBlSaveFailed => 'Could not save the B/L review';
+  @override String get idocAChecklistSaveFailed => 'The checklist edit was not saved';
+  @override String get idocATemplateDemurrageExtension => 'Demurrage grace period extension request';
+  @override String get idocATemplateBankDelegation => 'Bank delegation to receive documents and B/Ls';
+  @override String get idocATemplateBankForm4 => 'Customs Form 4 issuance request';
+  @override String get idocATemplateBrokerMandate => 'Official mandate for the customs broker';
+  // === end review phase03 keys ===
+
+  // === review phase03_ui_b keys (append below this line) ===
+  // === end review phase03_ui_b keys ===
+
+  // === review phase04_05 keys (append below this line) ===
+  @override String get dualClockStatusLast3Days => 'Last 3 free days';
+  @override String get dualClockStatusCritical72h => 'Under 72 hours before storage penalties start';
+  @override String dualClockHoursUntilPenalties(int hours) => '$hours hours left before storage penalties start';
+  @override String get dualClockTotalAccruedLabel => 'Total accrued';
+  @override String demCountdownSafe(int days, String date) => 'Free time active: $days days remaining without penalties (until $date).';
+  @override String demCountdownWarning(int days, String date) => 'Warning: only $days days remaining before demurrage charges begin ($date).';
+  @override String demCountdownDemurrage(int days) => 'Demurrage charges incurred: $days days overdue.';
+  @override String demCountdownDetention(int days) => 'Detention charges incurred: $days days overdue.';
+  @override String demCountdownExpired(int demDays, int detDays) => 'Free time expired: $demDays days demurrage + $detDays days detention overdue.';
+  @override String emptyReturnRecordedSuccess(int returned, int total) => 'Empty container return recorded ($returned of $total).';
+  @override String get freeDaysDocumentFailed => 'Failed to document free days';
+  @override String get emptyReturnRecordFailed => 'Failed to record the empty container return';
+  @override String get shipmentUpdateStageNameCustomsConsultation => 'Customs Consultation';
+  @override String get shipmentUpdateBtnSavePdf => 'Save PDF';
+  // === end review phase04_05 keys ===
+
+  // === review phase06_07 keys (append below this line) ===
+  @override String get ccBondReleaseDateLabel => 'Temporary release date';
+  @override String get ccTestCompletionDateLabel => 'Lab test completion date';
+  @override String get ccCustomsFxRateHint => 'Enter the official customs rate';
+  @override String get ccVatAmountLabel => 'VAT amount (entered manually)';
+  @override String get ccVatCheckboxLabel => 'Invoice carries VAT';
+  @override String get ccWhtAmountLabel => 'Withholding tax amount (entered manually)';
+  @override String ccLoadInvoicesError(String error) => 'Could not load clearance invoices: $error';
+  // === end review phase06_07 keys ===
+
+  // === review phase08_10 keys (append below this line) ===
+  @override String get settlementCurrencyLabel => 'Currency *';
+  @override String get settlementCurrencySearchHint => 'Search currency...';
+  @override String get settlementCurrencyRequired => 'Select the invoice currency';
+  @override String get settlementGrossWeightLabel => 'Gross weight (kg)';
+  @override String get settlementCbmLabel => 'Volume (CBM)';
+  @override String get settlementFieldRequired => 'This field is required';
+  @override String get settlementPositiveNumberRequired => 'Enter a number greater than zero';
+  @override String get settlementNonNegativeNumberRequired => 'Enter a valid number (zero or more)';
+  @override String get settlementExchangeRateRequired => 'Enter the exchange rate for a foreign currency';
+  @override String get settlementCloneTargetFileLabel => 'Import file for the new settlement *';
+  @override String get settlementCloneTargetFileMustDiffer => 'Choose a different import file: each file has one active settlement';
+  @override String get settlementCloneHint => 'The invoice and item lines are copied. Pick the import file the new settlement belongs to. The code, totals and status are generated by the system.';
+  @override String get settlementStageOdooCsv => 'Odoo Landed Cost Journal';
+  @override String get settlementStageOdooExcel => 'Landed Cost Accounting Voucher';
+  @override String get settlementStageComparison => 'Landed Cost Comparison';
+  @override String get settlementExportFailed => 'Export failed';
+  @override String get wrItemCodeLabel => 'Item code';
+  @override String get wrItemCodeRequired => 'Item code is required';
+  @override String get wrQtyInvalid => 'Enter a whole number (0 or more)';
+  @override String wrLineUnbalanced(int received, int invoiced) => 'Received $received (accepted + shortage + damaged) does not match invoiced $invoiced';
+  @override String get wrLineUnbalancedShort => 'Quantities do not balance';
+  @override String wrLineExcess(int excess) => 'Excess receipt: $excess more than invoiced';
+  @override String get wrNoLinesHint => 'No lines yet. Pick an import file to load its PO lines, or add the lines received.';
+  @override String get wrNoLinesValidator => 'Add at least one received line';
+  @override String get wrRemoveLineTooltip => 'Remove line';
+  @override String get wrColItemName => 'Item name';
+  @override String get wrColInvoiced => 'Invoiced';
+  @override String get wrColAccepted => 'Accepted';
+  @override String get wrColShortage => 'Shortage';
+  @override String get wrColDamaged => 'Damaged';
+  @override String get wrLineStatusDiscrepancy => 'Discrepancy found';
+  @override String get wrLineStatusClean => 'Matches and intact';
+  @override String get wrClaimRefRequired => 'Enter the claim reference';
+  @override String get wrInspectionProtocolBtn => 'Inspection protocol (TR-04)';
+  @override String get wrInlandBookBtn => 'Book inland transport (TR-01)';
+  @override String get wrNoFilesForBooking => 'No import files are available for transport booking';
+  @override String get wrFilterQuarantineOnly => 'Quarantine only';
+  @override String get wrQuarantineZoneBadge => 'Quarantine zone';
+  @override String wrCloneRecordSummary(int accepted, int shortage, int damaged) => 'Items: $accepted accepted / $shortage short / $damaged damaged';
+  @override String get wrPdfRegistryTitle => 'Goods Receiving Notes (GRN) registry';
+  @override String get wrPdfRegistrySubtitle => 'Goods Receiving Notes & Warehouse Inspection Registry';
+  @override String get wrCloneEntityType => 'Warehouse Receiving Note (GRN)';
+  @override String get wrCloneItemCount => 'Item count';
+  @override String get wrCloneResetReceivingId => 'Receiving ID: cleared so a new GRN is generated';
+  @override String get wrCloneResetGrnCode => 'GRN code: the server issues a new code';
+  @override String get wrCloneResetArrival => 'Arrival date and time: reset to the current time';
+  @override String get wrCloneResetStatus => 'Status: set by the server on save';
+  @override String get wrCloneResetQuarantine => 'Quarantine zone: reset to not quarantined';
+  @override String get wrCloneResetDiscrepancy => 'Discrepancy: reset to none and notes cleared';
+  @override String get wrCloneResetInsuranceClaim => 'Insurance claim: unlinked and claim reference cleared';
+  @override String get wrInspTitle => 'Technical inspection and discrepancy protocol (TR-04)';
+  @override String wrInspSubtitle(String grn, String file) => 'GRN: $grn | Shipment: $file';
+  @override String get wrInspExportBtn => 'Export protocol (Excel)';
+  @override String get wrInspMetricRate => 'Discrepancy rate';
+  @override String get wrInspItemsHeader => 'Shipment line reconciliation:';
+  @override String get wrInspCommitteeLabel => 'Inspection committee';
+  @override String get wrInspCommitteeHint => 'Optional. The standard committee is used when left empty.';
+  @override String get wrInspVerdictLabel => 'Inspection verdict *';
+  @override String get wrInspVerdictRequired => 'Choose the inspection verdict';
+  @override String get wrInspVerdictFull => 'Full acceptance (intact)';
+  @override String get wrInspVerdictDiscrepancy => 'Accepted with recorded shortage/damage';
+  @override String get wrInspVerdictRejected => 'Rejected and held in quarantine';
+  @override String get wrInspFullBlockedHint => 'Full acceptance is not available while shortage or damage is recorded.';
+  @override String get wrInspRootCauseLabel => 'Root cause of discrepancies and damage';
+  @override String get wrRootCauseNone => 'Clean - no damage or shortage';
+  @override String get wrRootCausePort => 'Port handling and rough unloading';
+  @override String get wrRootCauseInland => 'Inland transit vibration and shock';
+  @override String get wrRootCausePackaging => 'Supplier packaging defect';
+  @override String get wrRootCauseWater => 'Container water ingress and humidity';
+  @override String get wrRootCauseFactory => 'Supplier factory shortage';
+  @override String get wrRootCauseOther => 'Other / under investigation';
+  @override String get wrInspNotesLabel => 'Inspection notes and technical findings *';
+  @override String get wrInspNotesRequired => 'Enter the technical notes';
+  @override String get wrInspClaimsHeader => 'Claims, compensation and quarantine actions:';
+  @override String get wrInspInsuranceClaim => 'File a marine/transport insurance claim';
+  @override String get wrInspSupplierCredit => 'Request a credit note from the supplier';
+  @override String get wrInspQuarantine => 'Isolate damaged items in the quarantine zone';
+  @override String get wrInspInsuranceRef => 'Insurance claim reference';
+  @override String get wrInspSupplierRef => 'Supplier credit note / claim reference';
+  @override String get wrInspClaimAmount => 'Estimated claim amount';
+  @override String get wrInspClaimCurrency => 'Currency';
+  @override String get wrInspCurrencySearch => 'Search currency...';
+  @override String get wrInspCertifyBtn => 'Certify inspection protocol (TR-04)';
+  @override String wrInspSuccess(String grn) => 'Inspection protocol certified successfully ($grn)';
+  @override String get inlandDialogTitle => 'Inland transport coordination and truck booking (TR-01)';
+  @override String inlandDialogFileLine(String file, String company) => 'File: $file  |  Importer: $company';
+  @override String get inlandStatusArrived => 'Arrived at warehouse';
+  @override String get inlandStatusInTransit => 'In transit (left the port)';
+  @override String get inlandStatusConfirmed => 'Booking confirmed';
+  @override String get inlandStatusNotBooked => 'Not booked';
+  @override String get inlandCloseTooltip => 'Close';
+  @override String get inlandKpiStatus => 'Inland transport status';
+  @override String get inlandKpiWaybill => 'Inland waybill';
+  @override String get inlandKpiTruckDriver => 'Truck and driver';
+  @override String get inlandKpiFare => 'Transport fare (EGP)';
+  @override String get inlandNotSet => 'Not set';
+  @override String get inlandWaybillPending => 'Not created yet';
+  @override String get inlandCurrencySuffix => 'EGP';
+  @override String inlandCurrentBookingTitle(String code) => 'Current transport booking ($code)';
+  @override String get inlandHideForm => 'Hide the edit form';
+  @override String get inlandEditOrRebook => 'Edit or book another truck';
+  @override String get inlandInfoCarrier => 'Carrier:';
+  @override String get inlandInfoWaybill => 'Waybill no.:';
+  @override String get inlandInfoTruckType => 'Truck type:';
+  @override String get inlandInfoPlate => 'Truck plate:';
+  @override String get inlandInfoDriver => 'Driver:';
+  @override String get inlandInfoContainers => 'Containers:';
+  @override String get inlandInfoPickup => 'Pickup location:';
+  @override String get inlandInfoDestination => 'Destination warehouse:';
+  @override String get inlandInfoPlannedDeparture => 'Planned departure:';
+  @override String get inlandInfoExpectedArrival => 'Expected arrival:';
+  @override String get inlandInfoActualDeparture => 'Actual departure:';
+  @override String get inlandInfoActualArrival => 'Actual arrival:';
+  @override String get inlandGateOutTitle => 'Confirm the truck left the port gate (Gate-Out)';
+  @override String get inlandGateOutDesc => 'Records the actual departure time and starts tracking the trip.';
+  @override String get inlandGateOutBtn => 'Confirm Gate-Out';
+  @override String get inlandArrivalTitle => 'Confirm the truck arrived at the warehouse';
+  @override String get inlandArrivalDesc => 'Records the arrival at the unloading dock and makes receiving possible.';
+  @override String get inlandArrivalBtn => 'Confirm warehouse arrival';
+  @override String get inlandArrivedMsg => 'The truck arrived at the warehouse; the receiving and inspection task (TR-03) is linked.';
+  @override String get inlandNotesOptionalLabel => 'Notes (optional)';
+  @override String get inlandFormTitle => 'Inland transport booking form';
+  @override String get inlandWaybillLabel => 'Inland waybill no. *';
+  @override String get inlandWaybillRequired => 'Enter the waybill number';
+  @override String get inlandCarrierLabel => 'Carrier / transport company *';
+  @override String get inlandCarrierRequired => 'Enter the carrier name';
+  @override String get inlandPlateLabel => 'Truck plate number *';
+  @override String get inlandPlateHint => 'Plate number as printed';
+  @override String get inlandPlateInvalid => 'The plate must have at least 3 characters';
+  @override String get inlandTruckTypeLabel => 'Truck and trailer type *';
+  @override String get inlandTruckTypeHint => 'Choose the truck type';
+  @override String get inlandTruckTypeRequired => 'Choose the truck type';
+  @override String get inlandDriverLabel => 'Driver full name *';
+  @override String get inlandDriverInvalid => 'Enter a valid driver name';
+  @override String get inlandPhoneLabel => 'Driver phone *';
+  @override String get inlandPhoneInvalid => 'Invalid phone number';
+  @override String get inlandNationalIdLabel => 'Driver national ID';
+  @override String get inlandNationalIdHint => '14 digits (optional)';
+  @override String get inlandPickupLabel => 'Pickup port / location *';
+  @override String get inlandPickupRequired => 'Enter the pickup location';
+  @override String get inlandWarehouseLabel => 'Destination warehouse *';
+  @override String get inlandWarehouseRequired => 'Enter the destination warehouse';
+  @override String get inlandContainersLabel => 'Container numbers carried';
+  @override String get inlandFareLabel => 'Transport fare (EGP) *';
+  @override String get inlandFareRequired => 'Enter the transport cost';
+  @override String get inlandFareInvalid => 'The amount must be greater than 0';
+  @override String get inlandDepartureDate => 'Planned departure date';
+  @override String get inlandEtaDate => 'Expected warehouse arrival date (ETA)';
+  @override String get inlandEtaBeforeDeparture => 'The expected arrival must be after the planned departure';
+  @override String get inlandNotesLabel => 'Driver and shipping notes';
+  @override String get inlandNotesHint => 'Handling instructions, assistant driver, route...';
+  @override String get inlandSubmitBtn => 'Save and confirm the transport booking';
+  @override String get inlandFooterNote => 'The file progress and the shipment tracking screens update immediately';
+  @override String get inlandCloseBtn => 'Close window';
+  @override String inlandBookedSnack(String code) => 'Inland transport booked successfully ($code)';
+  @override String inlandGateOutSnack(String code) => 'Truck gate-out confirmed ($code)';
+  @override String inlandArrivalSnack(String code) => 'Truck arrival at the warehouse confirmed ($code)';
+  @override String get inlandLoadErrorTitle => 'The transport booking could not be loaded';
+  @override String get inlandRetryBtn => 'Retry';
+  @override String get closureDialogTitle => 'Official file closure and digital archive (CLO-04)';
+  @override String closureDialogSubtitle(String file, String supplier, String status) => 'File: $file | Supplier: $supplier | File status: $status';
+  @override String get closureCloseTooltip => 'Close window';
+  @override String get closureLoadingPillars => 'Checking the six closure pillars...';
+  @override String closurePrecheckFailed(String error) => 'The pre-closure check failed: $error';
+  @override String get closureRetryBtn => 'Retry';
+  @override String get closureCannotCloseSnack => 'The official closure is blocked by pending requirements';
+  @override String closureOfficialSuccess(String file, String code) => 'File $file was closed officially under certificate $code.';
+  @override String get closureExportCertificateBtn => 'Export certificate (TXT)';
+  @override String get closureLessonBtn => 'Yes, document a lesson learned';
+  @override String get closureLessonPrompt => 'Did you meet operational obstacles, delays or lessons worth recording in the knowledge base?';
+  @override String get closureDoneBtn => 'Done';
+  @override String get closureBlockingTitle => 'Mandatory closure requirements still pending:';
+  @override String get closureWarningsTitle => 'Audit warnings before archiving:';
+  @override String get closurePillarsHeader => 'Final audit pillars (6 core pillars)';
+  @override String get closurePillarCustoms => 'Customs release';
+  @override String get closurePillarWarehouse => 'Warehouse receipt (GRN)';
+  @override String get closurePillarLandedCost => 'Landed cost settlement';
+  @override String get closurePillarDossier => 'Full dossier export';
+  @override String get closurePillarContainers => 'Empty containers returned (EIR)';
+  @override String get closurePillarTasks => 'Tasks closed';
+  @override String get closureCertPreviewLabel => 'Closure certificate preview:';
+  @override String closureLandedCostLine(String cost, String factor) => 'Approved landed cost: $cost EGP  |  Landed factor: ${factor}x';
+  @override String get closureExportAfterCloseHint => 'The certificate can be exported after the official closure.';
+  @override String get closureArchivalSectionTitle => 'Archival details and responsible auditor:';
+  @override String get closureAuditorLabel => 'Approved auditor / responsible *';
+  @override String get closureAuditorRequired => 'Enter the auditor name';
+  @override String get closureArchiveLocationLabel => 'Digital archive vault location *';
+  @override String get closureArchiveLocationRequired => 'Specify the archive location';
+  @override String get closureNotesLabel => 'Archival and final audit notes (optional)';
+  @override String get closureSubmittingLabel => 'Closing and archiving the file...';
+  @override String get closureConfirmBtn => 'Confirm official closure and digital archive';
+  @override String get closureUnavailableBtn => 'Closure unavailable (pending requirements)';
+  @override String get closureCertTitle => 'OFFICIAL IMPORT FILE CLOSURE AND ARCHIVAL CERTIFICATE';
+  @override String get closureCertNumber => 'Certificate number';
+  @override String get closureCertIssuedAt => 'Issued at';
+  @override String get closureCertFileCode => 'Import file code';
+  @override String get closureCertCompany => 'Importing company';
+  @override String get closureCertSupplier => 'Foreign supplier';
+  @override String get closureCertAuditor => 'Closure auditor';
+  @override String get closureCertLocation => 'Digital archive location';
+  @override String get closureCertPillarsHeader => 'Final audit verification pillars:';
+  @override String get closureCertOk => 'Verified';
+  @override String get closureCertNotOk => 'Not met';
+  @override String get closureCertTotalCost => 'Total landed cost';
+  @override String get closureCertMarkup => 'Landed cost factor';
+  @override String get closureCertNotesHeader => 'Archival and audit notes:';
+  @override String get closureCertNoNotes => 'No additional notes';
+  @override String get closureCertStatusLine => 'File status';
+  @override String get closureCertSaveTitle => 'Save the closure and archival certificate';
+  @override String get closureFormClonedSuffix => 'Cloned draft';
+  @override String get closureFormServerChecklistNote => 'The statuses below are evaluated by the system and cannot be edited.';
+  @override String get closureFormSelectFileFirst => 'Select an import file to see its closure checklist.';
+  @override String get closureFormPrecheckMissing => 'The closure check is not loaded yet';
+  @override String get closureStatusDraft => 'Draft / incomplete';
+  @override String get closureArchivedBadge => 'Archived (100%)';
+  @override String get closureFilterAll => 'All';
+  @override String get closureFilterClosed => 'Closed';
+  @override String get closureCloneToDraft => 'Clone to draft';
+  @override String closureVerifiedConditions(int count) => 'Verified conditions: $count / 5';
+  @override String get closureCloneEntityType => 'Import file closure certificate';
+  @override String get closureCloneSourceArchived => 'Archived';
+  @override String get closureCloneSourceDraft => 'Draft';
+  @override String get closureCloneFieldFileId => 'Import file ID';
+  @override String get closureCloneFieldAuditor => 'Auditor / reviewer';
+  @override String get closureCloneFieldVault => 'Archive vault';
+  @override String get closureCloneFieldConditions => 'Conditions verified';
+  @override String get closureCloneFieldNotes => 'Archival notes';
+  @override String get closureCloneReset1 => 'Closure ID: cleared so a new record is created';
+  @override String get closureCloneReset2 => 'Closure code: the server issues a new code';
+  @override String get closureCloneReset3 => 'Closure status: reset to draft / incomplete';
+  @override String get closureCloneReset4 => 'Closed date and auditor: reset to now and the current user';
+  // === end review phase08_10 keys ===
 }
 
 

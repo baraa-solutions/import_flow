@@ -1562,7 +1562,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               Padding(
                                 padding: const EdgeInsets.all(8),
                                 child: Text(
-                                  po.status,
+                                  po.statusLabel(context.l10n),
                                   style: TextStyle(fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                                 ),
                               ),

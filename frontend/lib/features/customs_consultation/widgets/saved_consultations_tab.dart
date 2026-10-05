@@ -18,6 +18,8 @@ import '../../import_files/models/import_file_model.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
@@ -58,7 +60,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
       l.customsInspectionReadiness: '${source.checklistItems.length} ${l.itemsAndDocsCount}',
     };
     if (source.estimatedDutiesEgp > 0) {
-      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}';
+      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${context.l10n.financialSettlementCurrencyEgp}';
     }
     if (source.brokerQuoteItems.isNotEmpty) {
       copiedMap[l.clearanceBrokerFeeItem] = '${source.brokerQuoteItems.length}';
@@ -161,7 +163,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
         builder: (ctx) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
+              const Icon(Icons.restore_from_trash_rounded, color: AppTheme.emerald, size: 22),
               const SizedBox(width: 8),
               Text(l.restoreConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
@@ -171,14 +173,16 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
             style: const TextStyle(fontSize: 13),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              icon: const Icon(Icons.restore_rounded, size: 16),
-              label: Text(l.restoreAndActivateBtn),
+            AppButton(
+              label: l.restoreAndActivateBtn,
+              icon: Icons.restore_rounded,
+              variant: AppButtonVariant.success,
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -199,7 +203,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: Text('❌ $e'),
+                content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
                 backgroundColor: AppTheme.crimson,
               ),
             );
@@ -212,7 +216,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
         builder: (ctx) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
               const SizedBox(width: 8),
               Text(l.deleteConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
@@ -222,17 +226,16 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
             style: const TextStyle(fontSize: 13),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.crimson,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.delete_rounded, size: 16),
-              label: Text(l.deleteAndArchiveBtn),
+            AppButton(
+              label: l.deleteAndArchiveBtn,
+              icon: Icons.delete_rounded,
+              variant: AppButtonVariant.danger,
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -253,7 +256,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: Text('❌ $e'),
+                content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
                 backgroundColor: AppTheme.crimson,
               ),
             );
@@ -268,7 +271,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final egpLabel = context.l10n.financialSettlementCurrencyEgp;
     final consultationsState = ref.watch(customsConsultationsProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
@@ -279,7 +282,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           children: [
             const CircularProgressIndicator(color: AppTheme.cobalt),
             const SizedBox(height: 16),
-            Text(l.loading, style: const TextStyle(color: Colors.grey)),
+            Text(l.loading, style: const TextStyle(color: AppTheme.textMuted)),
           ],
         ),
       ),
@@ -327,7 +330,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           ConsultationMetricBadge(
             title: l.openBlockingIssues,
             value: '$blockedCount',
-            color: blockedCount > 0 ? AppTheme.crimson : Colors.grey,
+            color: blockedCount > 0 ? AppTheme.crimson : AppTheme.textMuted,
           ),
           ConsultationMetricBadge(
             title: l.avgReadinessMetric,
@@ -357,14 +360,14 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
               },
             ),
             filled: true,
-            fillColor: isDark ? const Color(0xFF1E2631) : Colors.white,
+            fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -394,20 +397,12 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
         // Clone Button
         final cloneButton = Tooltip(
           message: l.searchAndCloneConsultationTooltip,
-          child: ElevatedButton.icon(
+          child: AppButton(
             key: const ValueKey('searchAndCloneConsultationBtnTab1'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              elevation: 1,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
-            label: Text(
-              l.searchAndCloneConsultationBtn,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
+            label: l.searchAndCloneConsultationBtn,
+            icon: Icons.control_point_duplicate_rounded,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.small,
             onPressed: () => _openSearchAndCloneConsultationDialog(context, sessions),
           ),
         );
@@ -417,7 +412,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
           label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
           selected: _showInactive,
-          selectedColor: isDark ? Colors.red.shade900.withOpacity(0.5) : Colors.red.shade100,
+          selectedColor: isDark ? AppTheme.crimson.withOpacity(0.5) : AppTheme.crimsonBorder,
           onSelected: (val) {
             setState(() => _showInactive = val);
             ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
@@ -438,57 +433,45 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
         // Export Action Buttons
         final exportButtons = [
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+          AppButton(
+            label: l.customsTaxExportTsvBtn,
+            icon: Icons.table_view_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => CustomsExportService.exportConsultationsLogTsv(
               context: context,
               sessions: filtered,
               shipments: importFiles,
             ),
-            icon: const Icon(Icons.table_view_outlined, size: 15, color: Colors.blueGrey),
-            label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+          AppButton(
+            label: l.customsTaxExportExcelBtn,
+            icon: Icons.description_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => CustomsExportService.exportConsultationsLogExcel(
               context: context,
               sessions: filtered,
               shipments: importFiles,
             ),
-            icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.emerald),
-            label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+          AppButton(
+            label: l.customsTaxPrintPdfBtn,
+            icon: Icons.picture_as_pdf_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => CustomsConsultationPdfService.printOrPreviewConsultationsLogPdf(context, filtered),
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 15, color: AppTheme.crimson),
-            label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+          AppButton(
+            label: l.customsTaxCopyDossierBtn,
+            icon: Icons.copy_all_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => CustomsExportService.copyConsultationsLogDossier(
               context: context,
               sessions: filtered,
               shipments: importFiles,
             ),
-            icon: const Icon(Icons.copy_all_outlined, size: 15, color: AppTheme.cobalt),
-            label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ];
 
@@ -500,7 +483,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.03),
-                  border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
+                  border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                 ),
                 child: LayoutBuilder(
                   builder: (context, tbConstraints) {
@@ -589,13 +572,13 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.folder_open_rounded, size: 64, color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                            Icon(Icons.folder_open_rounded, size: 64, color: isDark ? AppTheme.textStrong : AppTheme.cloudWhite),
                             const SizedBox(height: 16),
                             Text(
                               l.noResultsFound,
                               style: TextStyle(
                                 fontSize: 16,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -612,10 +595,10 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                             child: Card(
                               elevation: 2,
-                              color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                              color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: SingleChildScrollView(
@@ -631,7 +614,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                                   ),
                                   headingTextStyle: const TextStyle(
-                                    color: Colors.white,
+                                    color: AppTheme.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                     letterSpacing: 0.3,
@@ -643,12 +626,12 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                            const Icon(Icons.bolt_rounded, size: 14, color: AppTheme.orange),
                                             const SizedBox(width: 4),
                                             Text(
                                               l.actionsCol,
                                               style: const TextStyle(
-                                                color: Colors.white,
+                                                color: AppTheme.white,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
                                               ),
@@ -671,7 +654,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     final isEven = idx.isEven;
                                     final rowColor = isDark
                                         ? (isEven ? AppTheme.darkCardBackground : AppTheme.darkElevatedSurface)
-                                        : (isEven ? Colors.white : Colors.grey.shade50);
+                                        : (isEven ? AppTheme.white : AppTheme.charcoalSurface);
                                     final readinessPct = session.readinessPercentage;
                                     final hasBlocking = session.hasBlockingIssues || session.blockingIssuesCount > 0;
                                     final rawFileCode = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
@@ -824,7 +807,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                     session.brokerContactPerson!,
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                                                     ),
                                                   ),
                                               ],
@@ -870,7 +853,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 11,
-                                                          color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                                                          color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? AppTheme.orange : AppTheme.crimson),
                                                         ),
                                                       ),
                                                       if (hasBlocking)
@@ -893,16 +876,16 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                     child: LinearProgressIndicator(
                                                       value: (readinessPct / 100).clamp(0.0, 1.0),
                                                       minHeight: 6,
-                                                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                                                      backgroundColor: isDark ? AppTheme.charcoal : AppTheme.cloudWhite,
                                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                                                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? AppTheme.orange : AppTheme.crimson),
                                                       ),
                                                     ),
                                                   ),
                                                   const SizedBox(height: 3),
                                                   Text(
                                                     l.approvedDocsCountBadge(session.approvedDocumentsCount, session.totalDocumentsCount),
-                                                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                                                   ),
                                                 ],
                                               ),
@@ -942,7 +925,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     bool isArabic,
   ) {
     final l = context.l10n;
-    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final egpLabel = context.l10n.financialSettlementCurrencyEgp;
 
     return ListView.separated(
       padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 24),
@@ -964,10 +947,10 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
         return Card(
           elevation: 2,
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -1020,11 +1003,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.folder_outlined, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
+                            Icon(Icons.folder_outlined, size: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                             const SizedBox(width: 4),
                             Text(
                               fileDisplay,
-                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade800),
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                             ),
                           ],
                         ),
@@ -1032,11 +1015,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.person_outline, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
+                            Icon(Icons.person_outline, size: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                             const SizedBox(width: 4),
                             Text(
                               session.brokerName,
-                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade800),
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                             ),
                           ],
                         ),
@@ -1070,7 +1053,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
-                              color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                              color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? AppTheme.orange : AppTheme.crimson),
                             ),
                           ),
                           if (hasBlocking) ...[
@@ -1097,9 +1080,9 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                     child: LinearProgressIndicator(
                       value: (readinessPct / 100).clamp(0.0, 1.0),
                       minHeight: 5,
-                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                      backgroundColor: isDark ? AppTheme.charcoal : AppTheme.cloudWhite,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? AppTheme.orange : AppTheme.crimson),
                       ),
                     ),
                   ),

@@ -46,6 +46,14 @@ class DomainEnumType {
   static const measureUnit = 'measure_unit';
   /// Draft B/L comparison-matrix field (blocking-reason params).
   static const draftBlField = 'draft_bl_field';
+  /// CBM recommendation method (`recommended_shipping_method`): AIR / LCL / FCL.
+  static const shippingMethod = 'shipping_method';
+  /// CBM recommended container (`recommended_container_type`).
+  static const containerType = 'container_type';
+  /// Purchase-order status (PO_STATUS): DRAFT ... CANCELLED.
+  static const poStatus = 'po_status';
+  /// CBM study shipment mode (SHIPMENT_MODE): AIR / SEA.
+  static const shipmentMode = 'shipment_mode';
 }
 
 class DomainEnums {
@@ -306,10 +314,17 @@ class DomainEnums {
     ],
     DomainEnumType.measureUnit: [
       'CBM',
+      'GRM',
       'KG',
       'PACKAGES',
       'PACKAGES_PALLETS',
+      'SET',
+      'STN',
     ],
+    DomainEnumType.shippingMethod: ['AIR', 'FCL', 'LCL'],
+    DomainEnumType.containerType: ['C20_ST', 'C40_HC', 'C40_ST', 'LCL'],
+    DomainEnumType.poStatus: ['DRAFT', 'APPROVED', 'PARTIALLY_SHIPPED', 'FULLY_SHIPPED', 'CLOSED', 'CANCELLED'],
+    DomainEnumType.shipmentMode: ['AIR', 'SEA'],
   };
 
   /// Labels written by older clients (and by older backend defaults/seeds),
@@ -550,7 +565,31 @@ class DomainEnums {
       '— (غير مدرج بالباكينج)': 'NOT_IN_PACKING_LIST',
       '— (غير مدرج بالفاتورة)': 'NOT_IN_INVOICE',
     },
+    DomainEnumType.shippingMethod: {
+      'Air Freight (شحن جوي)': 'AIR',
+      'FCL Container (حاوية كاملة بحرية)': 'FCL',
+      'LCL Ocean Freight (شحن بحري تجميعي)': 'LCL',
+    },
+    DomainEnumType.poStatus: {
+      'Canceled': 'CANCELLED',
+      'In Transit': 'PARTIALLY_SHIPPED',
+      'مسودة': 'DRAFT',
+      'معتمد': 'APPROVED',
+      'مغلق': 'CLOSED',
+      'ملغي': 'CANCELLED',
+    },
+    DomainEnumType.shipmentMode: {},
+    DomainEnumType.containerType: {
+      "40FT High Cube Containers (40' HC)": 'C40_HC',
+      'LCL Consolidation': 'LCL',
+    },
     DomainEnumType.measureUnit: {
+      'GRAM': 'GRM',
+      'KGM': 'KG',
+      'KGS': 'KG',
+      'KILOGRAM': 'KG',
+      'TON': 'STN',
+      'TONS': 'STN',
       'طرد': 'PACKAGES',
       'طرد/بالتة': 'PACKAGES_PALLETS',
       'كجم': 'KG',

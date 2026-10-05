@@ -1,13 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../models/cbm_calculator_model.dart';
 
 class CBMCalculatorState {
   final List<CBMCalculationModel> calculations;
   final bool isLoading;
-  final String? errorMessage;
+  /// Last failure (raw), rendered with `ApiErrorText.of` (localized; a 403 reads as "no permission").
+  final Object? error;
   final String searchQuery;
   final int? projectFilter;
   final int? poFilter;
@@ -19,7 +22,7 @@ class CBMCalculatorState {
   CBMCalculatorState({
     this.calculations = const [],
     this.isLoading = false,
-    this.errorMessage,
+    this.error,
     this.searchQuery = '',
     this.projectFilter,
     this.poFilter,
@@ -30,7 +33,7 @@ class CBMCalculatorState {
   CBMCalculatorState copyWith({
     List<CBMCalculationModel>? calculations,
     bool? isLoading,
-    String? errorMessage,
+    Object? error,
     String? searchQuery,
     int? projectFilter,
     int? poFilter,
@@ -40,7 +43,7 @@ class CBMCalculatorState {
     return CBMCalculatorState(
       calculations: calculations ?? this.calculations,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      error: error,
       searchQuery: searchQuery ?? this.searchQuery,
       projectFilter: projectFilter ?? this.projectFilter,
       poFilter: poFilter ?? this.poFilter,
@@ -48,6 +51,9 @@ class CBMCalculatorState {
       quickCalcResult: quickCalcResult ?? this.quickCalcResult,
     );
   }
+
+  /// Localized text of the last failure.
+  String errorText(AppLocalizations l10n) => ApiErrorText.of(l10n, error, fallback: l10n.operationFailed);
 }
 
 class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
@@ -69,7 +75,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
     final cancelToken = CancelToken();
     _cancelToken = cancelToken;
 
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true);
     try {
       final response = await _dio.get(
         '/cbm-calculator',
@@ -89,7 +95,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       if (e is DioException && CancelToken.isCancel(e)) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load CBM calculations: ${e.toString()}',
+        error: e,
       );
     }
   }
@@ -102,7 +108,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       state = state.copyWith(quickCalcResult: response.data);
       return response.data;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Quick calculation failed: ${e.toString()}');
+      state = state.copyWith(error: e);
       return null;
     }
   }
@@ -133,7 +139,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to save calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -144,7 +150,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to update calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -158,7 +164,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to link calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -169,7 +175,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to delete calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -180,7 +186,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to restore calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -205,7 +211,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       await fetchCalculations();
       return CBMCalculationModel.fromJson(response.data);
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to clone calculation: ${e.toString()}');
+      state = state.copyWith(error: e);
       return null;
     }
   }

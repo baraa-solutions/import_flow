@@ -1,3 +1,4 @@
+import '../constants/cargo_constants.dart';
 enum CargoOrientationPreference {
   smartHybrid, // 🌟 Smart Hybrid (Allows flat, 90° rotation, and on-edge vertical standing to fill residual width/height channels)
   flatOnly,    // 📦 Flat Only (Strictly keeps original height axis vertical; only allows flat 2D rotation if length/width swap)
@@ -283,7 +284,7 @@ class ContainerRequirementEngine {
     required double totalCbm,
     required double totalWeightKg,
   }) {
-    final double airVolumetricWeightKg = totalCbm * 166.67;
+    final double airVolumetricWeightKg = totalCbm * kAirVolumetricKgPerCbm;
     final bool condition1AirHeavy = totalWeightKg > 0 && totalWeightKg >= airVolumetricWeightKg;
     final bool condition2AirSmallVol = totalCbm > 0 && totalCbm < 5.0;
 

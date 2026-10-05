@@ -1118,4 +1118,58 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_TOL_WEIGHT_DIFFERENCE': {
     'note': 'Difference: {difference_qty} kg ({difference_pct}%)',
   },
+  'CUSTOMS_FX_RATE_MISSING': {
+    'note': 'No customs exchange rate for {currency} on {on_date}.',
+  },
+  'IR_ASSESSMENT_EXISTS': {
+    'note': 'An active import-requirements assessment ({assessment_code}) already exists for this import file.',
+  },
+  'OVER_SHIPPED': {
+    'note': 'Over-shipment: {shipped_qty} shipped against {ordered_qty} ordered on purchase order {po_number} {item_code}',
+  },
+  'PO_PL_DIMENSIONS_MISSING': {
+    'note': 'Item #{line_num} ({item_code}): Package dimensions missing or zero; CBM cannot be computed accurately.',
+  },
+  'PO_PL_GROSS_BELOW_NET': {
+    'note': 'Item #{line_num} ({item_code}): Gross weight per unit ({gross_qty} kg) cannot be less than Net weight ({net_qty} kg).',
+  },
+  'PO_PL_HS_MISSING_IN_INVOICE': {
+    'note': 'HS Code \'{hs_code}\' exists in Packing List but is missing from Commercial Invoice.',
+  },
+  'PO_PL_HS_MISSING_IN_PACKING': {
+    'note': 'HS Code \'{hs_code}\' exists in Commercial Invoice but is missing from Packing List.',
+  },
+  'PO_PL_HS_QTY_MISMATCH': {
+    'note': 'HS Code \'{hs_code}\': Packing List Qty ({packing_qty}) differs from Invoice Qty ({invoice_qty}) [Diff: {signed_difference}].',
+  },
+  'PO_PL_NEGATIVE_WEIGHT': {
+    'note': 'Item #{line_num} ({item_code}): Unit weights cannot be negative.',
+  },
+  'PO_PL_NO_ITEMS': {
+    'note': 'No packing list items recorded for this purchase order.',
+  },
+  'PO_PL_TOTAL_QTY_MISMATCH': {
+    'note': 'Total Quantity Mismatch: Packing List total PCS ({packing_qty}) differs from Invoice total PCS ({invoice_qty}) [Diff: {signed_difference}].',
+  },
+  'PREFILL_LINE_NO_HS': {
+    'note': 'PO {po_number} line {item_code} has no tariff (HS code) and was skipped.',
+  },
+  'PREFILL_NO_HS': {
+    'note': 'No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.',
+  },
+  'PO_ITEMS_ALLOCATED': {
+    'note': 'Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.',
+  },
+  'PO_NUMBER_TAKEN': {
+    'note': 'Purchase order number {po_number} is already in use; please retry.',
+  },
+  'SCENARIO_SESSION_EXISTS': {
+    'note': 'An active shipping-scenario study ({session_code}) already exists for this import file.',
+  },
+  'CONSULTATION_EXISTS': {
+    'note': 'An active customs consultation ({consultation_code}) already exists for this import file.',
+  },
+  'CUSTOMS_MIXED_CURRENCY': {
+    'note': 'The purchase orders of this import file use different currencies ({currencies}): recalculation needs one currency per side.',
+  },
 };

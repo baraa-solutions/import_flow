@@ -20,6 +20,8 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../screens/shipping_scenarios_screen.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -103,25 +105,22 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     icon: Icons.schedule_rounded,
                     label: l.avgTransitMetric,
                     value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} d' : '-',
-                    color: Colors.purple.shade300,
+                    color: AppTheme.cobaltBorder,
                   ),
                   _histStatCard(
                     icon: Icons.recommend_rounded,
                     label: l.withRecommendationMetric,
                     value: '$withRecommendation',
-                    color: Colors.orange.shade300,
+                    color: AppTheme.orange,
                   ),
                 ],
               ),
               // Force Refresh button
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(l.refreshRegistry, style: const TextStyle(fontSize: 13)),
+              AppButton(
+                label: l.refreshRegistry,
+                icon: Icons.refresh_rounded,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => ref.read(shippingScenariosProvider.notifier).fetchSessions(),
               ),
             ],
@@ -142,8 +141,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
-            boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+            color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
+            boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -168,10 +167,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     },
                   ),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
+                  fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                   isDense: true,
                 ),
@@ -185,13 +184,13 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   avatar: Icon(
                     state.showInactive ? Icons.visibility_off : Icons.visibility,
                     size: 16,
-                    color: state.showInactive ? AppTheme.crimson : Colors.grey,
+                    color: state.showInactive ? AppTheme.crimson : AppTheme.textMuted,
                   ),
                   label: Text(
                     state.showInactive ? l.showDeleted : l.hideDeleted,
                     style: TextStyle(
                       fontSize: 12,
-                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong),
                       fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
@@ -200,16 +199,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   checkmarkColor: AppTheme.crimson,
                   onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
                 ),
-                ElevatedButton.icon(
+                AppButton(
                   key: const ValueKey('registrySearchAndCloneStudyBtn'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.wcagCobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
-                  label: Text(l.searchAndCloneStudyBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: l.searchAndCloneStudyBtn,
+                  icon: Icons.control_point_duplicate_rounded,
+                  variant: AppButtonVariant.primary,
+                  size: AppButtonSize.small,
                   onPressed: () => _openSearchAndCloneStudyDialog(context, state.sessions),
                 ),
                 Container(
@@ -268,13 +263,13 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey.shade300),
+                          const Icon(Icons.folder_open_rounded, size: 64, color: AppTheme.cloudWhite),
                           const SizedBox(height: 16),
                           Text(
                             _searchController.text.isNotEmpty
                                 ? l.noResultsFound
                                 : l.noDataFound,
-                            style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: 16, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -288,10 +283,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                           child: Card(
                             elevation: 2,
-                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: SingleChildScrollView(
@@ -303,9 +298,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                 horizontalMargin: 16,
                                 columnSpacing: 20,
                                 dividerThickness: 0.5,
-                                headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF141A22) : AppTheme.charcoal),
+                                headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkScaffoldBackground : AppTheme.charcoal),
                             headingTextStyle: const TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                               letterSpacing: 0.3,
@@ -316,9 +311,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                    const Icon(Icons.bolt_rounded, size: 14, color: AppTheme.orange),
                                     const SizedBox(width: 4),
-                                    Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    Text(l.actionsCol, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                   ],
                                 ),
                               )),
@@ -338,10 +333,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               final sess = entry.value;
                               final isEven = idx.isEven;
                               final rowColor = !sess.isActive
-                                  ? (isDark ? const Color(0xFF3B1E22) : Colors.red.shade50)
+                                  ? (AppTheme.crimsonLight)
                                   : isEven
-                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
-                                      : (isDark ? const Color(0xFF1E2631) : Colors.grey.shade50);
+                                      ? (isDark ? AppTheme.darkCardBackground : AppTheme.white)
+                                      : (isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface);
 
                               final isArabic = Localizations.localeOf(context).languageCode == 'ar';
                               final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—');
@@ -411,7 +406,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       value: rawFileCode != '—' ? '$shipmentTitle ($rawFileCode)' : '—',
                                       rowSummary: rowSummary,
                                       child: rawFileCode == '—'
-                                          ? const Text('—', style: TextStyle(color: Colors.grey))
+                                          ? const Text('—', style: TextStyle(color: AppTheme.textMuted))
                                           : Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               mainAxisAlignment: MainAxisAlignment.center,
@@ -475,14 +470,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.purple.shade50,
+                                          color: AppTheme.cobaltLight,
                                           borderRadius: BorderRadius.circular(20),
                                         ),
                                         child: Text(
                                           l.avgTransitDays(sess.avgExpectedTransitDays.toStringAsFixed(1)),
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.purple.shade700,
+                                            color: AppTheme.wcagCobalt,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -523,27 +518,27 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                               constraints: const BoxConstraints(maxWidth: 150),
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [Colors.blue.shade600, Colors.blue.shade400],
+                                                gradient: const LinearGradient(
+                                                  colors: [AppTheme.cobalt, AppTheme.cobalt],
                                                 ),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                                                  const Icon(Icons.star_rounded, size: 12, color: AppTheme.orange),
                                                   const SizedBox(width: 4),
                                                   Flexible(
                                                     child: Text(
                                                       sess.recommendedScenarioProvider!,
                                                       overflow: TextOverflow.ellipsis,
-                                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                                      style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             )
-                                          : Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                                          : const Text('—', style: TextStyle(color: AppTheme.textMuted)),
                                     ),
                                   ),
 
@@ -555,14 +550,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.blueGrey.shade50,
+                                          color: AppTheme.charcoal,
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
                                           l.optionsCount(sess.items.length),
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.blueGrey.shade700,
+                                            color: AppTheme.charcoal,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -590,12 +585,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                               ? Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.folder_special_rounded, size: 13, color: Colors.orange.shade600),
+                                                    const Icon(Icons.folder_special_rounded, size: 13, color: AppTheme.orange),
                                                     const SizedBox(width: 4),
-                                                    Text('PRJ: ${sess.projectName}', style: TextStyle(color: Colors.orange.shade700, fontSize: 11, fontWeight: FontWeight.w600)),
+                                                    Text('PRJ: ${sess.projectName}', style: const TextStyle(color: AppTheme.wcagOrange, fontSize: 11, fontWeight: FontWeight.w600)),
                                                   ],
                                                 )
-                                              : Text(l.independentStudy, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                              : Text(l.independentStudy, style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
                                     ),
                                   ),
 
@@ -607,7 +602,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.event_rounded, size: 13, color: Colors.grey.shade500),
+                                          const Icon(Icons.event_rounded, size: 13, color: AppTheme.textMuted),
                                           const SizedBox(width: 4),
                                           Text(sess.cargoReadyDate, style: const TextStyle(fontSize: 12)),
                                         ],
@@ -625,7 +620,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                         child: Text(
                                           sess.pickUpAddress ?? '—',
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                                         ),
                                       ),
                                     ),
@@ -667,7 +662,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              CopyableText(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              CopyableText(value, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 15)),
               Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
             ],
           ),
@@ -715,7 +710,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   ),
                 ],
                 const SizedBox(height: 6),
-                Text('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? "—"} | ${l.avgForm4DaysLabel}: ${sess.avgForm4Days}d | ${l.avgClearanceDaysLabel}: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? "—"} | ${l.avgForm4DaysLabel}: ${sess.avgForm4Days}d | ${l.avgClearanceDaysLabel}: ${sess.avgClearanceDays}d', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                 const Divider(height: 20),
 
                 SingleChildScrollView(
@@ -741,14 +736,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         cells: [
                           DataCell(CopyableTableCell(value: '${e.key + 1}', rowSummary: rowSummary, child: Text('${e.key + 1}'))),
                           DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                          DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)))),
-                          DataCell(CopyableTableCell(value: '${item.expectedTotalDaysToWarehouse} d', rowSummary: rowSummary, child: Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
+                          DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
+                          DataCell(CopyableTableCell(value: '${item.expectedTotalDaysToWarehouse} d', rowSummary: rowSummary, child: Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                           DataCell(CopyableTableCell(value: item.customsBrokerName ?? '-', rowSummary: rowSummary, child: Text(item.customsBrokerName ?? '-'))),
                           DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
                           DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11)))),
                           DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
                           DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
-                          DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)))),
+                          DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                           DataCell(CopyableTableCell(value: item.isRecommended ? l.recommendedLineMetric : item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge, rowSummary: rowSummary, child: Text(item.isRecommended ? '⭐ ${l.recommendedLineMetric}' : item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge))),
                         ],
                       );
@@ -760,16 +755,18 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ),
         actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.file_download_outlined, size: 16),
+          AppButton(
+            label: l.exportExcel,
+            icon: Icons.file_download_outlined,
+            variant: AppButtonVariant.success,
             onPressed: () => _exportScenarioCsv(context, sess, importFiles),
-            label: Text(l.exportExcel),
           ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+          AppButton(
+            label: l.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(dialogCtx),
+          ),
         ],
       ),
     );
@@ -800,7 +797,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
               Text('CBM: ${cbm.toStringAsFixed(3)} m³ | ${l.weightUtilizationCol}: ${weightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 12),
               Table(
-                border: TableBorder.all(color: Colors.grey.shade300),
+                border: TableBorder.all(color: AppTheme.cloudWhite),
                 children: [
                   TableRow(
                     decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
@@ -821,7 +818,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     children: [
                       Padding(padding: const EdgeInsets.all(8), child: Text(l.requiredCountCol)),
                       Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                     ],
                   ),
                   TableRow(
@@ -837,7 +834,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+          AppButton(
+            label: l.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(dialogCtx),
+          ),
         ],
       ),
     );
@@ -1035,9 +1037,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1053,7 +1055,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == true ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1065,9 +1067,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               ChoiceChip(
                                 label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1081,7 +1083,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1102,7 +1104,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       decoration: BoxDecoration(
                         color: AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1113,14 +1115,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               const SizedBox(width: 8),
                               _buildLoadMetricPill(l.totalWeightMetricLabel, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', Colors.green.shade800),
+                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', AppTheme.wcagEmerald),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', Colors.red.shade800),
+                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', AppTheme.crimson),
                             ],
                           ),
                         ],
@@ -1130,7 +1132,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                     // 3. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: AppTheme.cloudWhite),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -1187,7 +1189,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -1197,8 +1199,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: res.containerCode == 'FAILED'
-                                        ? Colors.red.shade800
-                                        : (res.placedItems.any((p) => !p.item.isStackable) ? Colors.brown.shade800 : Colors.green.shade800),
+                                        ? AppTheme.crimson
+                                        : (res.placedItems.any((p) => !p.item.isStackable) ? AppTheme.wcagOrange : AppTheme.wcagEmerald),
                                   ),
                                 ),
                               ),
@@ -1219,10 +1221,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                             return Container(
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
                               child: CopyableText(
                                 l.itemsExceedCapacity(res.unplacedItems.map((u) => u.itemId).join(", ")),
-                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold),
                               ),
                             );
                           }
@@ -1244,11 +1246,11 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       ),
                                       Row(
                                         children: [
-                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
                                             child: CopyableText(
                                               l.internalDimsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
@@ -1265,7 +1267,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     height: 190,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -1281,7 +1283,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     height: 140,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -1300,10 +1302,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 ),
               ),
               actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.close),
+                AppButton(
+                  label: l.closePlanBtn,
+                  icon: Icons.close,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => Navigator.pop(context),
-                  label: Text(l.closePlanBtn),
                 ),
               ],
             );
@@ -1375,7 +1379,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         builder: (ctx) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
               const SizedBox(width: 8),
               Text(l.confirmDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
@@ -1385,14 +1389,16 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             style: const TextStyle(fontSize: 13),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-              icon: const Icon(Icons.delete_rounded, size: 16),
-              label: Text(l.delete),
+            AppButton(
+              label: l.delete,
+              icon: Icons.delete_rounded,
+              variant: AppButtonVariant.danger,
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -1466,6 +1472,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     backgroundColor: AppTheme.wcagEmerald,
                   ),
                 );
+              } else {
+                // The clone failed: show the (localized) reason instead of staying silent.
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ApiErrorText.of(l, ref.read(shippingScenariosProvider).error, fallback: l.operationFailed)),
+                    backgroundColor: AppTheme.crimson,
+                  ),
+                );
               }
             },
           ),
@@ -1519,14 +1533,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         return Card(
           elevation: 2,
           color: !sess.isActive
-              ? (isDark ? const Color(0xFF3B1E22) : Colors.red.shade50)
-              : (isDark ? AppTheme.darkCardBackground : Colors.white),
+              ? (AppTheme.crimsonLight)
+              : (isDark ? AppTheme.darkCardBackground : AppTheme.white),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: !sess.isActive
-                  ? Colors.red.withOpacity(0.4)
-                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                  ? AppTheme.crimson.withOpacity(0.4)
+                  : (isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             ),
           ),
           child: Padding(
@@ -1557,7 +1571,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        sess.isActive ? l.activeStatus : (isArabic ? 'معطل' : 'Inactive'),
+                        sess.isActive ? l.activeStatus : (context.l10n.ssInactive),
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -1625,7 +1639,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E2631) : Colors.blueGrey.shade50,
+                        color: isDark ? AppTheme.darkInputBackground : AppTheme.charcoal,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1633,7 +1647,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade700,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
                         ),
                       ),
                     ),
@@ -1641,12 +1655,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.1),
+                          color: AppTheme.cobalt.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '⏱️ ${sess.avgExpectedTransitDays.toStringAsFixed(1)} d',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade400),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                         ),
                       ),
                     if (sess.recommendedScenarioProvider != null && sess.recommendedScenarioProvider!.isNotEmpty)
@@ -1665,7 +1679,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     if (sess.cargoReadyDate.isNotEmpty)
                       Text(
                         '📅 CRD: ${sess.cargoReadyDate}',
-                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                       ),
                   ],
                 ),

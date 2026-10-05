@@ -1118,4 +1118,58 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'DOC_TOL_WEIGHT_DIFFERENCE': {
     'note': 'الفرق: {difference_qty} كجم ({difference_pct}%)',
   },
+  'CUSTOMS_FX_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف جمركي للعملة {currency} بتاريخ {on_date}.',
+  },
+  'IR_ASSESSMENT_EXISTS': {
+    'note': 'يوجد بالفعل تقييم متطلبات استيرادية نشط ({assessment_code}) لهذا الملف الاستيرادي.',
+  },
+  'OVER_SHIPPED': {
+    'note': 'شحنة زائدة: تم شحن {shipped_qty} مقابل {ordered_qty} مطلوبة في أمر الشراء {po_number} البند {item_code}',
+  },
+  'PO_PL_DIMENSIONS_MISSING': {
+    'note': 'البند رقم {line_num} ({item_code}): أبعاد الطرد غير مسجلة أو صفر؛ لا يمكن حساب الحجم (CBM) بدقة.',
+  },
+  'PO_PL_GROSS_BELOW_NET': {
+    'note': 'البند رقم {line_num} ({item_code}): الوزن القائم للوحدة ({gross_qty} كجم) لا يمكن أن يقل عن الوزن الصافي ({net_qty} كجم).',
+  },
+  'PO_PL_HS_MISSING_IN_INVOICE': {
+    'note': 'البند الجمركي \'{hs_code}\' موجود في قائمة التعبئة وغير موجود في الفاتورة التجارية.',
+  },
+  'PO_PL_HS_MISSING_IN_PACKING': {
+    'note': 'البند الجمركي \'{hs_code}\' موجود في الفاتورة التجارية وغير موجود في قائمة التعبئة.',
+  },
+  'PO_PL_HS_QTY_MISMATCH': {
+    'note': 'البند الجمركي \'{hs_code}\': كمية قائمة التعبئة ({packing_qty}) تختلف عن كمية الفاتورة ({invoice_qty}) [الفرق: {signed_difference}].',
+  },
+  'PO_PL_NEGATIVE_WEIGHT': {
+    'note': 'البند رقم {line_num} ({item_code}): أوزان الوحدة لا يمكن أن تكون سالبة.',
+  },
+  'PO_PL_NO_ITEMS': {
+    'note': 'لا توجد بنود قائمة تعبئة مسجلة لأمر الشراء هذا.',
+  },
+  'PO_PL_TOTAL_QTY_MISMATCH': {
+    'note': 'عدم تطابق الكمية الإجمالية: إجمالي قطع قائمة التعبئة ({packing_qty}) يختلف عن إجمالي قطع الفاتورة ({invoice_qty}) [الفرق: {signed_difference}].',
+  },
+  'PREFILL_LINE_NO_HS': {
+    'note': 'أمر الشراء {po_number} البند {item_code} بدون بند جمركي (HS Code) وتم تخطيه.',
+  },
+  'PREFILL_NO_HS': {
+    'note': 'لم يتم العثور على بند جمركي (HS Code) للملف الاستيرادي {import_file_code}: أضف البند الجمركي في بنود أمر الشراء أو في الدراسة.',
+  },
+  'PO_ITEMS_ALLOCATED': {
+    'note': 'بنود أمر الشراء {item_ids} لها شحنات مسجلة ولا يمكن حذفها؛ أرسل رقم البند (item_id) لتعديلها.',
+  },
+  'PO_NUMBER_TAKEN': {
+    'note': 'رقم أمر الشراء {po_number} مستخدم بالفعل، يرجى إعادة المحاولة.',
+  },
+  'SCENARIO_SESSION_EXISTS': {
+    'note': 'توجد بالفعل دراسة سيناريوهات شحن نشطة ({session_code}) لهذا الملف الاستيرادي.',
+  },
+  'CONSULTATION_EXISTS': {
+    'note': 'توجد بالفعل دراسة جمركية نشطة ({consultation_code}) لهذا الملف الاستيرادي.',
+  },
+  'CUSTOMS_MIXED_CURRENCY': {
+    'note': 'أوامر الشراء في هذا الملف الاستيرادي بعملات مختلفة ({currencies}): إعادة الاحتساب تحتاج عملة واحدة لكل جانب.',
+  },
 };

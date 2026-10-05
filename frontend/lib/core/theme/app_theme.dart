@@ -86,6 +86,18 @@ class AppTheme {
   static const Color wcagCrimson = Color(0xFFC0392B); // Flat Crimson (Contrast 5.12:1 with white)
   static const Color wcagOrange = Color(0xFFB45309);  // Deep Amber/Orange (Contrast 4.65:1 with white)
 
+  // ── Neutral Tokens (light-theme greys, surfaces on filled colours) ───────────
+  /// Pure white: card surfaces and text/icons on filled (cobalt/emerald/...) backgrounds.
+  static const Color white = Color(0xFFFFFFFF);
+  /// Pure black: shadows and scrims only (use `.withOpacity`/alpha).
+  static const Color black = Color(0xFF000000);
+  /// Secondary text on light surfaces (grey 600, contrast 4.6:1 on white).
+  static const Color textSecondary = Color(0xFF757575);
+  /// Stronger secondary text on light surfaces (grey 700).
+  static const Color textStrong = Color(0xFF616161);
+  /// Hints, disabled icons and placeholders on light surfaces (grey 500).
+  static const Color textMuted = Color(0xFF9E9E9E);
+
   // ── Context-Aware Theme & Decoration Helpers ──────────────────────────────
 
   /// Detect whether the current context is rendering in Dark Mode.

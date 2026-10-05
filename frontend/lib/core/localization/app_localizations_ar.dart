@@ -11230,6 +11230,24 @@ class AppLocalizationsAr extends AppLocalizations {
     'measure_unit.KG': 'كجم',
     'measure_unit.PACKAGES': 'طرد',
     'measure_unit.PACKAGES_PALLETS': 'طرد/بالتة',
+    'measure_unit.GRM': 'جرام (GRM)',
+    'measure_unit.SET': 'طقم (SET)',
+    'measure_unit.STN': 'طن قصير (STN)',
+    'po_status.DRAFT': 'مسودة',
+    'po_status.APPROVED': 'معتمد',
+    'po_status.PARTIALLY_SHIPPED': 'مشحون جزئيا',
+    'po_status.FULLY_SHIPPED': 'مشحون بالكامل',
+    'po_status.CLOSED': 'مغلق',
+    'po_status.CANCELLED': 'ملغي',
+    'shipment_mode.AIR': 'شحن جوي',
+    'shipment_mode.SEA': 'شحن بحري',
+    'shipping_method.AIR': 'شحن جوي',
+    'shipping_method.FCL': 'حاوية كاملة (FCL)',
+    'shipping_method.LCL': 'شحن بحري تجميعي (LCL)',
+    'container_type.C20_ST': "حاوية 20 قدم عادية (20' ST)",
+    'container_type.C40_HC': "حاوية 40 قدم عالية (40' HC)",
+    'container_type.C40_ST': "حاوية 40 قدم عادية (40' ST)",
+    'container_type.LCL': 'حاوية شحن تجميعي (LCL)',
     'stage.ARCHIVED_CLOSED': 'تم الإغلاق والأرشفة',
     'stage.ARRIVED_AT_WAREHOUSE': 'وصلت المخزن',
     'stage.CLOSED_EARLY': 'مغلق مبكراً',
@@ -11260,8 +11278,536 @@ class AppLocalizationsAr extends AppLocalizations {
     'stage.UNDER_BOND_QUARANTINE': 'سحب على عهدة',
     'stage.UNDER_CUSTOMS_CLEARANCE': 'تحت التخليص والكشف 46',
   };
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poImportedSuccessfully => 'تم الاستيراد بنجاح';
+  @override String get poPOTableCopiedToClipboard => 'تم نسخ بيانات أوامر الشراء بنجاح';
+  @override String get poCopyTableTSV => 'نسخ الجدول (TSV)';
+  @override String get poDownloadTemplate => 'تنزيل نموذج إكسل';
+  @override String get poImportExcel => 'استيراد من إكسل';
+  @override String get poExportPurchaseOrdersExcel => 'تصدير أوامر الشراء إكسيل';
+  @override String get poExportPurchaseOrdersPDF => 'تصدير أوامر الشراء PDF';
+  @override String get poDownloadPurchaseOrdersTemplate => 'تنزيل نموذج أوامر الشراء';
+  @override String get poInvoiceDate => 'تاريخ الفاتورة (Invoice Date)';
+  @override String get poQtyUnit => 'وحدة الكمية (Qty Unit)';
+  @override String get poTotalQtyPKG => 'إجمالي الطرود (Total Qty PKG)';
+  @override String get poQtyPKG => 'عدد الطرود';
+  @override String get poPackageType => 'نوع التغليف';
+  @override String get poNetWt => 'الصافي (كجم)';
+  @override String get poGrossWt => 'القائم (كجم)';
+  @override String get poCopyRowForExcelTSV => 'نسخ السطر لإكسيل (TSV)';
+  @override String get poPOLineItemsSummaryByHS => '📊 ملخص بنود أمر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)';
+  @override String get poNetWtKg => 'الصافي (كجم)';
+  @override String get poGrossWtKg => 'القائم (كجم)';
+  @override String get poDutyVAT => 'نسب الرسوم';
+  @override String get poRegulatoryConditionsTradeAgreementsByHS => '🛡️ بطاقات الامتثال والاتفاقيات الجمركية للبند الجمركي (Regulatory Conditions & Trade Agreements)';
+  @override String get poInvoicePackingReconciliationDiscrepanciesFound => 'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية';
+  @override String get poApprovedJustification => 'المبرر المعتمد:';
+  @override String get poPerfectMatchAllProformaInvoiceLine => 'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.';
+  @override String get poPackingListValidationErrors => 'أخطاء مطابقة قائمة التعبئة';
+  @override String get poPackingListValidationPassedAllWeights => 'تم التحقق من قائمة التعبئة بنجاح — كافة الأوزان والكميات مطابقة';
+  @override String po3DContainerLoadSimulationAvailableFor(Object? po, Object? toInt) => 'محاكاة ورص الحاويات 3D متاحة لـ $po صنف ($toInt طرد)';
+  @override String get poPurchaseOrderProformaInvoiceDetails => '=== بيانات أمر الشراء / الفاتورة المبدئية ===';
+  @override String get poPOReferenceName => 'اسم / مرجع أمر الشراء';
+  @override String get poInternalPOCode => 'الرقم الداخلي للنظام';
+  @override String get poProformaInvoice => 'رقم الفاتورة المبدئية';
+  @override String get poProjectCostCenter => 'المشروع ومركز التكلفة';
+  @override String get poIncoterms => 'الشرط التجاري';
+  @override String get poFXRate => 'سعر الصرف';
+  @override String get poPaymentTerms => 'شروط الدفع';
+  @override String get poTotalCBM => 'إجمالي الحجم CBM';
+  @override String get poGrossNetWeight => 'الوزن القائم / الصافي';
+  @override String get poPOLineItemsHSCodes => '--- بنود أمر الشراء والأكواد الجمركية ---';
+  @override String get poPackingListItems => '--- بيان التعبئة (Packing List) ---';
+  @override String get poPODetailsCopiedToClipboard => 'تم نسخ كافة بيانات أمر الشراء للحافظة بنجاح ✅';
+  @override String get poCBM => 'الحجم CBM';
+  @override String get poQtyPcs => 'الكمية (قطع)';
+  @override String get poPackingListSummaryByHSCode => '📊 ملخص بيان التعبئة حسب البند الجمركي (Packing List Summary By HS Code)';
+  @override String get poPackingListSummaryByPackageType => '📊 ملخص قائمة التعبئة حسب نوع التغليف (Packing List Summary By Package Type)';
+  @override String get poPurchaseOrder => 'أمر شراء';
+  @override String get poInternalPOCode2 => 'الرقم الداخلي';
+  @override String get poTotalCBM2 => 'إجمالي CBM';
+  @override String get poTotalNetWeight => 'الوزن الصافي الإجمالي';
+  @override String get poTotalQtyPKG2 => 'إجمالي الطرود';
+  @override String get poPurchaseOrderItemsSpecification => 'بيان بنود أمر الشراء';
+  @override String get poNoPackingListOrPalletData => 'لا توجد بيانات تعبئة أو بالتات متاحة للمحاكاة';
+  @override String get poPleaseAddPackingListOrPallet => 'يرجى استكمال بنود بيان التعبئة أو البالتات في أمر الشراء لتشغيل مخطط ومحاكاة رص الحاويات 3D';
+  @override String get poEditPOAddPackingList => 'تعديل أمر الشراء وإضافة بيان التعبئة';
+  @override String get poNoSuitableContainers => 'لا توجد حاويات مناسبة';
+  @override String get poDownloadSimulationViewsPNG => 'تنزيل صور المحاكاة (PNG)';
+  @override String get poDownloadLoadingPlanPDF => 'تنزيل مخطط التحميل (PDF)';
+  @override String get poBothViews => '🖼️ كلاهما (Both Views)';
+  @override String poDetailedPlacementCoordinatesPkgs(Object? res) => '📐 تفاصيل الرص الإحداثي ($res طرد)';
+  @override String poGroupedItemsItemsTotalPkgs(Object? res, Object? res2) => '📊 الأصناف المرصوصة مجمعة ($res صنف | إجمالي $res2 طرد)';
+  @override String get poGroupByItems => 'عرض مجمع حسب الأصناف';
+  @override String get poDetailedCoordinates => 'عرض تفصيلي بالإحداثيات';
+  @override String get poItemCode => 'الصنف / البند';
+  @override String get poPkgType => 'نوع الطرد';
+  @override String get poDimsCm => 'الأبعاد (سم)';
+  @override String get poGrossWt2 => 'إجمالي الوزن';
+  @override String get poCBM2 => 'الحجم';
+  @override String get poStack => 'الرص';
+  @override String get poYes => '📦 نعم';
+  @override String get poFloor => '🚫 أرضي';
+  @override String get poDownloadSimulationImagePNG => 'تنزيل صور المحاكاة (PNG)';
+  @override String get poProject => 'المشروع';
+  @override String get poCurrencyIncoterm => 'العملة والشرط';
+  @override String get poResetDeliveryAndOrderDates => 'تصفير تواريخ الشحن والاستلام';
+
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poInvoiceLineItemClonedSuccessfully => 'تم استنساخ سطر الفاتورة بنجاح';
+  @override String get poPackingListItemClonedSuccessfully => 'تم استنساخ طرد الباكينج ليست بنجاح';
+  @override String get poRestoreUnsavedDraft => 'استعادة مسودة غير محفوظة';
+  @override String poAnAutosavedDraftExistsForThis(Object? savedAt) => 'توجد مسودة غير محفوظة تم حفظها تلقائياً لهذه الشاشة ($savedAt).\nهل ترغب في استعادة البيانات غير المحفوظة؟';
+  @override String get poDiscardDraft => 'تجاهل وحذف المسودة';
+  @override String get poRestoreDraft => 'استعادة المسودة';
+  @override String get poDefault => '-- الافتراضي --';
+  @override String get poDraftSaved => 'مسودة محفوظة';
+  @override String get poSmartExtractPIPL => '🚀 استخلاص ذكي (PI / PL)';
+
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  @override String get poSummaryByPackageType => 'ملخص نوع التغليف (Summary By Package Type)';
+  @override String get poUnregistered => '⚠️ غير مسجل';
+
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  @override String get cbmNoPackageLinesToExport => 'لا توجد طرود للتصدير';
+  @override String get cbmStackable => 'قابل للتراص';
+  @override String get cbmGrossWtUnitKg => 'الوزن القائم للوحدة (كجم)';
+  @override String get cbmTotalCBM => 'الحجم الإجمالي (CBM)';
+  @override String get cbmVolumetricWtKg => 'الوزن الحجمي (كجم)';
+  @override String get cbmChargeableWtKg => 'الوزن الخاضع للشحن (كجم)';
+  @override String get cbmPackageMeasurements => 'بيان أبعاد وأوزان الطرود';
+  @override String get cbmDimensions => 'الأبعاد';
+  @override String get cbmVolWt => 'الحجمي';
+  @override String get cbmChargeable => 'الخاضع للشحن';
+  @override String get cbmCBMCalculator => 'حساب الحجم CBM';
+  @override String get cbmPackageMeasurementsSpecification => 'بيان أبعاد وحجوم الطرود';
+  @override String get cbmShipmentMode => 'طريقة الشحن';
+  @override String get cbmAir => 'جوي';
+  @override String get cbmSea => 'بحري';
+  @override String get cbmPackageLines => 'إجمالي السطور';
+  @override String get cbmNoPackageLinesToCopy => 'لا توجد طرود للنسخ';
+  @override String get cbmPackagesTableCopiedToClipboard => 'تم نسخ بيانات الطرود كجدول بنجاح';
+
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  @override String get cbmNoCalculationsToExport => 'لا توجد دراسات حجم للتصدير';
+  @override String get cbmCalcCode => 'كود الدراسة';
+  @override String get cbmShippingStrategy => 'طريقة الشحن';
+  @override String get cbmCBMRegistry => 'سجل دراسات الحجم CBM';
+  @override String get cbmCode => 'كود الدراسة';
+  @override String get cbmFile => 'الملف';
+  @override String get cbmVolWt2 => 'حجمي (كجم)';
+  @override String get cbmGrossWt => 'قائم (كجم)';
+  @override String get cbmMode => 'الشحن';
+  @override String get cbmCBMVolumetricWeightRegistry => 'سجل دراسات الحجم والأوزان CBM';
+  @override String get cbmNoCalculationsToCopy => 'لا توجد دراسات حجم للنسخ';
+  @override String get cbmCBMCalculationsTableCopiedToClipboard => 'تم نسخ بيانات دراسات الحجم كجدول بنجاح';
+
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  @override String get ssCarrier => 'ناقل';
+  @override String get ssQuote => 'عرض';
+
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  @override String get ssInactive => 'معطل';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccCustomsBroker => 'مكتب تخليص';
+  @override String ccCostLinkageAlertThisImportFile(Object? budgetCode) => '⚠️ تنبيه ترابط التكاليف: ملف الاستيراد هذا مرتبط بميزانية تقديرية ($budgetCode). تم تحديث مصاريف التخليص الجمركي والرسوم، يُرجى مراجعة وتحديث اعتماد الميزانية لمطابقة التكاليف الحية.';
+  @override String get ccOK => 'حسناً';
+  @override String get ccExemption => 'إعفاء';
+  @override String get ccACID => 'تسجيل مسبق';
+  @override String get ccCOO => 'شهادة منشأ';
+  @override String get ccGOEIC => 'رقابة صادرات';
+  @override String get ccHSCode => '⚠️ بند جمركي';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccExpenseItemNameCopied => 'تم نسخ اسم البند';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccTargetPort => 'ميناء التخليص';
+  @override String get ccItemsCount => 'عدد بنود الأسعار';
+  @override String get ccEffectiveFrom => 'تاريخ السريان';
+  @override String get ccIncrementVersionNumber => 'تحديث رقم الإصدار تلقائياً (الإصدار الجديد)';
+  @override String get ccGenerateUniqueNewReferenceCode => 'توليد كود مرجعي فريد غير مكرر';
+  @override String get ccCodeRequired => 'يرجى إدخال الكود';
+  @override String get ccArabicNameRequired => 'يرجى إدخال الاسم العربي';
+  @override String get ccCloneClearanceExpenseItem => 'استنساخ بند المصروف المرجعي';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccCopyQuoteItems => 'نسخ بنود الأسعار';
+  @override String get ccCopiedAllQuoteItemsToClipboard => 'تم نسخ جميع بنود الأسعار إلى الحافظة';
+
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  @override String get ccClearanceFees => 'أتعاب تخليص';
+  @override String get ccProceduresApprovals => 'إجراءات وموافقات';
+  @override String get ccInlandTransport => 'نقل داخلي';
+  @override String get ccPortHandling => 'موانئ ومناولة';
+  @override String get ccFixedAmount => 'مبلغ مقطوع';
+  @override String get ccPerContainer => 'لكل حاوية';
+  @override String get ccPerInvoice => 'لكل فاتورة';
+  @override String get ccPerTon => 'لكل طن';
+  @override String get ccPerTruck => 'لكل شاحنة';
+  @override String get ccPerDay => 'لكل يوم';
+  @override String get ccPerNight => 'لكل ليلة';
+  @override String get ccPerInspection => 'لكل كشف';
+  @override String get ccPerShipment => 'لكل شحنة';
+  @override String get ccPerDeclaration => 'لكل شهادة إفراج';
+  @override String get ccPerBillOfLading => 'لكل بوليصة شحن';
+  @override String get ccPerSample => 'لكل عينة';
+  @override String get ccPerCertificate => 'لكل شهادة';
+  @override String get ccClientPaidExpenses => 'مصاريف مؤداة بمعرفة العميل';
+  @override String get ccGeneralOtherFees => 'مصاريف ورسوم إضافية عامة';
+  @override String get ccStorageDemurrage => 'أرضيات وحراسات وتخزين';
+  @override String get ccLaborHandling => 'عمالة وتعتيق وكلارك ومناولة';
+  @override String get ccCommissionsTips => 'عمولات ونثريات وإكراميات';
+  @override String get ccExceptionalClearanceFee => 'أتعاب تخليص إضافية استثنائية';
+  @override String get ccInlandTransportCustom => 'نقل داخلي أو شاحنة إضافية';
+  @override String get ccAdditionalApprovals => 'إجراءات وموافقات إضافية';
+  @override String get ccPortTerminalExpenses => 'رسوم ومصاريف موانئ ومحطات';
+  @override String get ccNewCustomReferenceCode => '➕ كود مرجعي مخصص جديد...';
+  @override String get ccEnterCustomCodeManually => 'إدخال كود يدوي جديد';
+  @override String get ccRowClonedSuccessfullyCtrlD => '✨ تم استنساخ السطر بنجاح (كنترول + د)';
+  @override String get ccCustomsBroker2 => 'مستخلص جمركي';
+  @override String get ccServerConnectionFailed => 'فشل الاتصال بالخادم';
+  @override String get ccFailedToSave => 'تعذر الحفظ';
+
+
+  // ── Backend contract wiring (round 2) ──────────────────────────────────────
+  @override String get apiNoPermission => 'ليس لديك صلاحية لتنفيذ هذا الإجراء. تواصل مع مدير النظام لمنحك الصلاحية.';
+  @override String get tariffMissingBadge => 'التعريفة غير متوفرة';
+  @override String get tariffMissingLineHint => 'لا يوجد بند جمركي أو تعريفة سارية بتاريخ التقدير، لذلك البند مستبعد من إجماليات الضرائب.';
+  @override String tariffMissingLinesWarning(int count) => '$count بند بدون تعريفة جمركية سارية، وهي مستبعدة من إجماليات الضرائب. أضف أو حدّث التعريفة ثم أعد الاحتساب.';
+
+
+  // ── Backend contract wiring (round 3) ──────────────────────────────────────
+  @override String get poCreateErrorPrefix => 'خطأ في إدخال أمر الشراء';
+  @override String get poUpdateErrorPrefix => 'خطأ في تحديث أمر الشراء';
+  @override String get poAuditCreatedBy => 'أنشئ بواسطة';
+  @override String get poAuditUpdatedBy => 'آخر تعديل بواسطة';
+
+
+  // ── Backend contract wiring (round 3b) ──────────────────────────────────────
+  @override String get openExistingRecord => 'فتح السجل القائم';
+
+
+  // ── Round 4 ──────────────────────────────────────
+  @override String poExtractionKeptAllocatedLines(String codes) => 'تم الإبقاء على بنود لها شحنات مسجلة ولم ترد في البيانات المستخلصة: $codes. لا يمكن حذفها.';
+
+
+  // ── Round 5 ──────────────────────────────────────
+  @override String get ccRateSourceManual => 'يدوي';
+  @override String get ccRateSourceTable => 'جدول الأسعار';
+  @override String get ccPreliminaryRateLabel => 'السعر الأولي';
+  @override String get ccFinalRateLabel => 'السعر النهائي';
+
   @override
   String? domainEnumLabel(String type, String code) => _domainEnumLabels['$type.$code'];
+
+  // === review phase02 keys (append below this line) ===
+  @override String faFxRateMissing(String currency) => 'لا يوجد سعر صرف مسجل للعملة $currency. أدخل السعر يدويًا قبل الحفظ.';
+  @override String get faExchangeRateInvalid => 'أدخل سعر صرف أكبر من صفر';
+  // === end review phase02 keys ===
+
+  // === review phase03 keys (append below this line) ===
+  @override String get idocAConfirmNotMatchedTitle => 'تنبيه: عدم اكتمال شروط المطابقة';
+  @override String get idocAConfirmNotMatchedBody => 'تحتوي نتائج الفحص على فروقات حرجة أو تحذيرات غير مطابقة. اكتب مبرر الاعتماد النهائي للمتابعة.';
+  @override String get idocAJustificationLabel => 'مبرر الاعتماد رغم الفروقات';
+  @override String get idocAJustificationRequired => 'المبرر مطلوب';
+  @override String get idocAReviewDiffs => 'مراجعة الفروقات';
+  @override String get idocAConfirmFinal => 'تأكيد الاعتماد النهائي';
+  @override String idocADraftSaved(String code) => 'تم حفظ مسودة الجلسة ($code) في سجل الجلسات';
+  @override String idocASessionApproved(String code) => 'تم اعتماد الجلسة ($code)';
+  @override String get idocADraftSaveFailed => 'فشل حفظ المسودة';
+  @override String get idocAFinalApprovalFailed => 'فشل الاعتماد النهائي للجلسة';
+  @override String get idocASessionNotesTab => 'ملاحظات الجلسة';
+  @override String get idocADeleteSessionFailed => 'تعذر حذف الجلسة';
+  @override String get idocADraftBlConfirmTitle => 'تأكيد حفظ المراجعة للاعتماد';
+  @override String idocADraftBlConfirmBody(int count) => 'توجد فروقات حرجة ($count) مسجلة في فحص البوليصة. هل تريد حفظ المراجعة وإرسالها للاعتماد المزدوج؟';
+  @override String get idocADraftBlConfirmAction => 'حفظ للاعتماد';
+  @override String idocADraftBlSaved(String code) => 'تم حفظ مسودة مراجعة البوليصة ($code)';
+  @override String idocADraftBlSavedForApproval(String code) => 'تم حفظ مراجعة البوليصة ($code) وهي بانتظار الاعتماد المزدوج';
+  @override String get idocADraftBlSaveFailed => 'تعذر حفظ مراجعة البوليصة';
+  @override String get idocAChecklistSaveFailed => 'لم يتم حفظ تعديل قائمة المراجعة';
+  @override String get idocATemplateDemurrageExtension => 'طلب مد فترة سماح غرامات التأخير';
+  @override String get idocATemplateBankDelegation => 'تفويض بنكي لاستلام المستندات والبوالص';
+  @override String get idocATemplateBankForm4 => 'طلب استخراج نموذج 4 جمركي';
+  @override String get idocATemplateBrokerMandate => 'تفويض وتوكيل رسمي للمخلص الجمركي';
+  // === end review phase03 keys ===
+
+  // === review phase03_ui_b keys (append below this line) ===
+  // === end review phase03_ui_b keys ===
+
+  // === review phase04_05 keys (append below this line) ===
+  @override String get dualClockStatusLast3Days => 'آخر 3 أيام سماح';
+  @override String get dualClockStatusCritical72h => 'أقل من 72 ساعة قبل بدء غرامات الأرضيات';
+  @override String dualClockHoursUntilPenalties(int hours) => 'متبقي $hours ساعة قبل بدء غرامات الأرضيات';
+  @override String get dualClockTotalAccruedLabel => 'الإجمالي المستحق';
+  @override String demCountdownSafe(int days, String date) => 'فترة السماح سارية: متبقي $days يوم بدون غرامات (حتى $date).';
+  @override String demCountdownWarning(int days, String date) => 'تحذير: متبقي $days يوم فقط قبل بدء غرامات الأرضيات ($date).';
+  @override String demCountdownDemurrage(int days) => 'بدأت غرامات الأرضيات: تجاوز $days يوم.';
+  @override String demCountdownDetention(int days) => 'بدأت غرامات تأخير الحاويات الفارغة: تجاوز $days يوم.';
+  @override String demCountdownExpired(int demDays, int detDays) => 'انتهت فترة السماح: تجاوز $demDays يوم أرضيات و$detDays يوم تأخير حاويات.';
+  @override String emptyReturnRecordedSuccess(int returned, int total) => 'تم تسجيل إرجاع الحاويات الفارغة ($returned من $total).';
+  @override String get freeDaysDocumentFailed => 'فشل في توثيق فترات السماح';
+  @override String get emptyReturnRecordFailed => 'فشل تسجيل إرجاع الحاوية الفارغة';
+  @override String get shipmentUpdateStageNameCustomsConsultation => 'استشارة جمركية';
+  @override String get shipmentUpdateBtnSavePdf => 'حفظ PDF';
+  // === end review phase04_05 keys ===
+
+  // === review phase06_07 keys (append below this line) ===
+  @override String get ccBondReleaseDateLabel => 'تاريخ الإفراج المؤقت';
+  @override String get ccTestCompletionDateLabel => 'تاريخ اكتمال الفحص المعملي';
+  @override String get ccCustomsFxRateHint => 'أدخل سعر الصرف الجمركي المعتمد';
+  @override String get ccVatAmountLabel => 'قيمة ضريبة القيمة المضافة (تُدخل يدوياً)';
+  @override String get ccVatCheckboxLabel => 'الفاتورة تتضمن ضريبة القيمة المضافة';
+  @override String get ccWhtAmountLabel => 'مبلغ ضريبة الخصم المقتطعة (يُدخل يدوياً)';
+  @override String ccLoadInvoicesError(String error) => 'تعذر تحميل فواتير التخليص: $error';
+  // === end review phase06_07 keys ===
+
+  // === review phase08_10 keys (append below this line) ===
+  @override String get settlementCurrencyLabel => 'العملة *';
+  @override String get settlementCurrencySearchHint => 'ابحث عن العملة...';
+  @override String get settlementCurrencyRequired => 'اختر عملة الفاتورة';
+  @override String get settlementGrossWeightLabel => 'الوزن القائم (كجم)';
+  @override String get settlementCbmLabel => 'الحجم (متر مكعب)';
+  @override String get settlementFieldRequired => 'هذا الحقل مطلوب';
+  @override String get settlementPositiveNumberRequired => 'أدخل رقما أكبر من صفر';
+  @override String get settlementNonNegativeNumberRequired => 'أدخل رقما صحيحا (صفر أو أكثر)';
+  @override String get settlementExchangeRateRequired => 'أدخل سعر الصرف للعملة الأجنبية';
+  @override String get settlementCloneTargetFileLabel => 'ملف الاستيراد للتسوية الجديدة *';
+  @override String get settlementCloneTargetFileMustDiffer => 'اختر ملف استيراد مختلفا: لكل ملف تسوية نشطة واحدة';
+  @override String get settlementCloneHint => 'يتم نسخ فواتير المصاريف وبنود الأصناف. اختر ملف الاستيراد الذي تتبعه التسوية الجديدة. الكود والإجماليات والحالة يولدها النظام.';
+  @override String get settlementStageOdooCsv => 'قيد تكلفة الوصول لـ Odoo';
+  @override String get settlementStageOdooExcel => 'سند محاسبي لتكلفة الوصول';
+  @override String get settlementStageComparison => 'مقارنة تكلفة الوصول';
+  @override String get settlementExportFailed => 'فشل التصدير';
+  @override String get wrItemCodeLabel => 'كود الصنف';
+  @override String get wrItemCodeRequired => 'كود الصنف مطلوب';
+  @override String get wrQtyInvalid => 'أدخل عدداً صحيحاً (صفر أو أكثر)';
+  @override String wrLineUnbalanced(int received, int invoiced) => 'المستلم $received (مقبول + عجز + تالف) لا يطابق الكمية بالفاتورة $invoiced';
+  @override String get wrLineUnbalancedShort => 'الكميات غير متوازنة';
+  @override String wrLineExcess(int excess) => 'استلام بالزيادة: $excess فوق الكمية بالفاتورة';
+  @override String get wrNoLinesHint => 'لا توجد بنود بعد. اختر ملف الاستيراد لتحميل بنود أمر الشراء، أو أضف البنود المستلمة.';
+  @override String get wrNoLinesValidator => 'أضف بنداً مستلماً واحداً على الأقل';
+  @override String get wrRemoveLineTooltip => 'حذف البند';
+  @override String get wrColItemName => 'اسم الصنف';
+  @override String get wrColInvoiced => 'الفاتورة';
+  @override String get wrColAccepted => 'المقبول';
+  @override String get wrColShortage => 'العجز';
+  @override String get wrColDamaged => 'التالف';
+  @override String get wrLineStatusDiscrepancy => 'يوجد فروقات';
+  @override String get wrLineStatusClean => 'مطابق وسليم';
+  @override String get wrClaimRefRequired => 'أدخل رقم مرجع المطالبة';
+  @override String get wrInspectionProtocolBtn => 'محضر الفحص (TR-04)';
+  @override String get wrInlandBookBtn => 'حجز وتنسيق النقل (TR-01)';
+  @override String get wrNoFilesForBooking => 'لا توجد ملفات استيراد متاحة لحجز النقل';
+  @override String get wrFilterQuarantineOnly => 'حجر مخزني فقط';
+  @override String get wrQuarantineZoneBadge => 'منطقة حجر';
+  @override String wrCloneRecordSummary(int accepted, int shortage, int damaged) => 'أصناف: $accepted مقبول / $shortage عجز / $damaged تالف';
+  @override String get wrPdfRegistryTitle => 'سجل أذون الإضافة والاستلام المخزني (GRN)';
+  @override String get wrPdfRegistrySubtitle => 'سجل أذون الاستلام والفحص المخزني';
+  @override String get wrCloneEntityType => 'إذن إضافة واستلام مخزني (GRN)';
+  @override String get wrCloneItemCount => 'عدد الأصناف';
+  @override String get wrCloneResetReceivingId => 'معرف الاستلام: يتم تفريغه لتوليد إذن استلام جديد';
+  @override String get wrCloneResetGrnCode => 'كود الإذن: يصدر الخادم كوداً جديداً';
+  @override String get wrCloneResetArrival => 'تاريخ ووقت الوصول: يعاد ضبطه على الوقت الحالي';
+  @override String get wrCloneResetStatus => 'الحالة: يحددها الخادم عند الحفظ';
+  @override String get wrCloneResetQuarantine => 'منطقة الحجر: يعاد ضبطها إلى غير محجور';
+  @override String get wrCloneResetDiscrepancy => 'الفروقات: تعاد إلى لا توجد ومسح الملاحظات';
+  @override String get wrCloneResetInsuranceClaim => 'مطالبة التأمين: يتم فك الربط ومسح رقم المطالبة';
+  @override String get wrInspTitle => 'محضر الفحص الفني ومطابقة العجز والتالف (TR-04)';
+  @override String wrInspSubtitle(String grn, String file) => 'إذن الإضافة: $grn | الشحنة: $file';
+  @override String get wrInspExportBtn => 'تصدير المحضر Excel';
+  @override String get wrInspMetricRate => 'نسبة الفروقات';
+  @override String get wrInspItemsHeader => 'مطابقة بنود وأصناف الشحنة:';
+  @override String get wrInspCommitteeLabel => 'لجنة الفحص الفني والاستلام';
+  @override String get wrInspCommitteeHint => 'اختياري. تُستخدم اللجنة القياسية عند تركه فارغاً.';
+  @override String get wrInspVerdictLabel => 'قرار ونتيجة الفحص *';
+  @override String get wrInspVerdictRequired => 'اختر قرار الفحص';
+  @override String get wrInspVerdictFull => 'قبول كامل ومطابق (سليم)';
+  @override String get wrInspVerdictDiscrepancy => 'قبول مع إثبات عجز/تالف';
+  @override String get wrInspVerdictRejected => 'رفض وحجز في منطقة الحجر';
+  @override String get wrInspFullBlockedHint => 'القبول الكامل غير متاح مع وجود عجز أو تالف مسجل.';
+  @override String get wrInspRootCauseLabel => 'السبب الجذري للفروقات والتلفيات';
+  @override String get wrRootCauseNone => 'سليم - لا توجد تلفيات أو عجز';
+  @override String get wrRootCausePort => 'سوء مناولة وتفريغ بالميناء';
+  @override String get wrRootCauseInland => 'اهتزازات وسوء نقل بري للشاحنة';
+  @override String get wrRootCausePackaging => 'سوء تعبئة وتغليف من المورد';
+  @override String get wrRootCauseWater => 'تسريب مياه ورطوبة بالحاوية';
+  @override String get wrRootCauseFactory => 'عجز مصنعي في الشحن من المصنع';
+  @override String get wrRootCauseOther => 'أسباب أخرى / قيد التحقيق';
+  @override String get wrInspNotesLabel => 'ملاحظات الفحص ومحضر المعاينة الفنية *';
+  @override String get wrInspNotesRequired => 'يرجى تدوين الملاحظات الفنية';
+  @override String get wrInspClaimsHeader => 'إجراءات المطالبات والتعويضات والعزل:';
+  @override String get wrInspInsuranceClaim => 'رفع مطالبة تأمين بحري/نقل';
+  @override String get wrInspSupplierCredit => 'طلب إشعار دائن (Credit Note) من المورد';
+  @override String get wrInspQuarantine => 'عزل الأصناف التالفة في منطقة الحجر';
+  @override String get wrInspInsuranceRef => 'رقم مرجع مطالبة التأمين';
+  @override String get wrInspSupplierRef => 'رقم إشعار خصم/مطالبة المورد';
+  @override String get wrInspClaimAmount => 'قيمة التعويض التقديرية';
+  @override String get wrInspClaimCurrency => 'العملة';
+  @override String get wrInspCurrencySearch => 'بحث عن عملة...';
+  @override String get wrInspCertifyBtn => 'اعتماد محضر الفحص الفني (TR-04)';
+  @override String wrInspSuccess(String grn) => 'تم اعتماد محضر الفحص الفني والمطابقة بنجاح ($grn)';
+  @override String get inlandDialogTitle => 'تنسيق وحجز سيارات وسائقي النقل الداخلي (TR-01)';
+  @override String inlandDialogFileLine(String file, String company) => 'الملف: $file  |  المستورد: $company';
+  @override String get inlandStatusArrived => 'تم الوصول للمخزن';
+  @override String get inlandStatusInTransit => 'في الطريق (خرج من الميناء)';
+  @override String get inlandStatusConfirmed => 'تم تأكيد الحجز';
+  @override String get inlandStatusNotBooked => 'غير محجوز';
+  @override String get inlandCloseTooltip => 'إغلاق';
+  @override String get inlandKpiStatus => 'حالة النقل الداخلي';
+  @override String get inlandKpiWaybill => 'بوليصة النقل الداخلي';
+  @override String get inlandKpiTruckDriver => 'الشاحنة والسائق';
+  @override String get inlandKpiFare => 'نولون النقل (EGP)';
+  @override String get inlandNotSet => 'غير محدد';
+  @override String get inlandWaybillPending => 'لم يتم إنشاؤها بعد';
+  @override String get inlandCurrencySuffix => 'ج.م';
+  @override String inlandCurrentBookingTitle(String code) => 'بيانات حجز النقل الحالية ($code)';
+  @override String get inlandHideForm => 'إخفاء نموذج التعديل';
+  @override String get inlandEditOrRebook => 'تعديل أو حجز شاحنة أخرى';
+  @override String get inlandInfoCarrier => 'شركة النقل:';
+  @override String get inlandInfoWaybill => 'رقم البوليصة:';
+  @override String get inlandInfoTruckType => 'نوع الشاحنة:';
+  @override String get inlandInfoPlate => 'لوحة الشاحنة:';
+  @override String get inlandInfoDriver => 'السائق:';
+  @override String get inlandInfoContainers => 'الحاويات:';
+  @override String get inlandInfoPickup => 'مكان الاستلام:';
+  @override String get inlandInfoDestination => 'المخزن المستلم:';
+  @override String get inlandInfoPlannedDeparture => 'المغادرة المخططة:';
+  @override String get inlandInfoExpectedArrival => 'الوصول المتوقع:';
+  @override String get inlandInfoActualDeparture => 'المغادرة الفعلية:';
+  @override String get inlandInfoActualArrival => 'الوصول الفعلي:';
+  @override String get inlandGateOutTitle => 'تأكيد خروج الشاحنة من بوابة الميناء (Port Gate-Out)';
+  @override String get inlandGateOutDesc => 'تسجيل توقيت المغادرة الفعلي وبدء تتبع الرحلة وتحويل الحالة إلى "في الطريق"';
+  @override String get inlandGateOutBtn => 'تأكيد خروج البوابة (Gate-Out)';
+  @override String get inlandArrivalTitle => 'تأكيد وصول واستلام الشاحنة بالمخزن (Warehouse Arrival)';
+  @override String get inlandArrivalDesc => 'تسجيل وصول الشاحنة لرصيف المخزن وإتاحة استلام الأصناف';
+  @override String get inlandArrivalBtn => 'تأكيد وصول المخزن';
+  @override String get inlandArrivedMsg => 'تم وصول الشاحنة بالمخزن، وتم ربط مهمة الاستلام والفحص (TR-03).';
+  @override String get inlandNotesOptionalLabel => 'ملاحظات (اختياري)';
+  @override String get inlandFormTitle => 'نموذج حجز وتنسيق النقل الداخلي';
+  @override String get inlandWaybillLabel => 'رقم بوليصة النقل الداخلي *';
+  @override String get inlandWaybillRequired => 'يرجى إدخال رقم البوليصة';
+  @override String get inlandCarrierLabel => 'اسم شركة النقل / الناقل *';
+  @override String get inlandCarrierRequired => 'يرجى إدخال اسم شركة النقل';
+  @override String get inlandPlateLabel => 'رقم لوحة الشاحنة / السيارة *';
+  @override String get inlandPlateHint => 'رقم اللوحة كما هو مكتوب';
+  @override String get inlandPlateInvalid => 'رقم اللوحة لا يقل عن 3 أحرف/أرقام';
+  @override String get inlandTruckTypeLabel => 'نوع الشاحنة والمقطورة *';
+  @override String get inlandTruckTypeHint => 'اختر نوع الشاحنة';
+  @override String get inlandTruckTypeRequired => 'يرجى اختيار نوع الشاحنة';
+  @override String get inlandDriverLabel => 'اسم السائق الثلاثي *';
+  @override String get inlandDriverInvalid => 'يرجى إدخال اسم السائق صحيحاً';
+  @override String get inlandPhoneLabel => 'رقم هاتف السائق *';
+  @override String get inlandPhoneInvalid => 'رقم الهاتف غير صالح';
+  @override String get inlandNationalIdLabel => 'الرقم القومي للسائق';
+  @override String get inlandNationalIdHint => '14 رقم (اختياري)';
+  @override String get inlandPickupLabel => 'مكان وميناء الاستلام *';
+  @override String get inlandPickupRequired => 'يرجى تحديد مكان الاستلام';
+  @override String get inlandWarehouseLabel => 'المخزن المستلم (الوجهة) *';
+  @override String get inlandWarehouseRequired => 'يرجى تحديد المخزن المستلم';
+  @override String get inlandContainersLabel => 'أرقام الحاويات المنقولة';
+  @override String get inlandFareLabel => 'نولون النقل (EGP) *';
+  @override String get inlandFareRequired => 'يرجى إدخال تكلفة النقل';
+  @override String get inlandFareInvalid => 'المبلغ يجب أن يكون أكبر من 0';
+  @override String get inlandDepartureDate => 'تاريخ المغادرة المخططة';
+  @override String get inlandEtaDate => 'تاريخ الوصول المتوقع للمخزن (ETA)';
+  @override String get inlandEtaBeforeDeparture => 'يجب أن يكون الوصول المتوقع بعد المغادرة المخططة';
+  @override String get inlandNotesLabel => 'ملاحظات وتوجيهات السائق والشحن';
+  @override String get inlandNotesHint => 'تعليمات المناولة، السائق المساعد، مسار السير...';
+  @override String get inlandSubmitBtn => 'حفظ وتأكيد حجز النقل الداخلي';
+  @override String get inlandFooterNote => 'تحديث فوري لنسبة إنجاز الملف ومزامنة شاشة تتبع الشحنات والمخزن';
+  @override String get inlandCloseBtn => 'إغلاق النافذة';
+  @override String inlandBookedSnack(String code) => 'تم حجز وتأكيد النقل الداخلي بنجاح برقم ($code)';
+  @override String inlandGateOutSnack(String code) => 'تم تأكيد خروج الشاحنة من بوابة الميناء ($code)';
+  @override String inlandArrivalSnack(String code) => 'تم تأكيد وصول الشاحنة للمخزن ($code)';
+  @override String get inlandLoadErrorTitle => 'تعذر تحميل بيانات حجز النقل';
+  @override String get inlandRetryBtn => 'إعادة المحاولة';
+  @override String get closureDialogTitle => 'الإغلاق الرسمي والأرشفة الرقمية (CLO-04)';
+  @override String closureDialogSubtitle(String file, String supplier, String status) => 'رمز الملف: $file | المورد: $supplier | حالة الملف: $status';
+  @override String get closureCloseTooltip => 'إغلاق النافذة';
+  @override String get closureLoadingPillars => 'جاري فحص وتدقيق ركائز الإغلاق الستة...';
+  @override String closurePrecheckFailed(String error) => 'فشل جلب نتائج الفحص والتدقيق المسبق: $error';
+  @override String get closureRetryBtn => 'إعادة المحاولة';
+  @override String get closureCannotCloseSnack => 'لا يمكن إتمام الإغلاق الرسمي لوجود متطلبات معلقة!';
+  @override String closureOfficialSuccess(String file, String code) => 'تم إغلاق الملف $file رسمياً بموجب الشهادة $code.';
+  @override String get closureExportCertificateBtn => 'تصدير الشهادة (TXT)';
+  @override String get closureLessonBtn => 'نعم، وثّق درساً مستفاداً';
+  @override String get closureLessonPrompt => 'هل واجهتك عقبات تشغيلية، تأخيرات، أو دروس مستفادة ترغب في توثيقها في بنك المعرفة؟';
+  @override String get closureDoneBtn => 'تم';
+  @override String get closureBlockingTitle => 'متطلبات إغلاق إلزامية معلقة (يجب استيفاؤها أولاً):';
+  @override String get closureWarningsTitle => 'تنبيهات تدقيقية قبل الأرشفة الرقمية:';
+  @override String get closurePillarsHeader => 'ركائز التدقيق الختامي المعتمدة (6 ركائز)';
+  @override String get closurePillarCustoms => 'الإفراج الجمركي';
+  @override String get closurePillarWarehouse => 'إضافة المخزن (GRN)';
+  @override String get closurePillarLandedCost => 'تسوية التكلفة الفعلية';
+  @override String get closurePillarDossier => 'تصدير الملف الشامل';
+  @override String get closurePillarContainers => 'تسليم الحاويات (EIR)';
+  @override String get closurePillarTasks => 'إغلاق المهام';
+  @override String get closureCertPreviewLabel => 'معاينة شهادة الإغلاق الرقمية:';
+  @override String closureLandedCostLine(String cost, String factor) => 'تكلفة الوصول الفعلية المعتمدة: $cost EGP  |  معامل الوصول: ${factor}x';
+  @override String get closureExportAfterCloseHint => 'يمكن تصدير الشهادة بعد إتمام الإغلاق الرسمي.';
+  @override String get closureArchivalSectionTitle => 'بيانات التوثيق والمدقق المسؤول:';
+  @override String get closureAuditorLabel => 'اسم المدقق / المسؤول المعتمد *';
+  @override String get closureAuditorRequired => 'يرجى إدخال اسم المدقق';
+  @override String get closureArchiveLocationLabel => 'موقع وخزينة الأرشفة الرقمية *';
+  @override String get closureArchiveLocationRequired => 'يرجى تحديد موقع الأرشفة';
+  @override String get closureNotesLabel => 'ملاحظات الأرشفة والتدقيق الختامي (اختياري)';
+  @override String get closureSubmittingLabel => 'جاري إغلاق الملف وأرشفته...';
+  @override String get closureConfirmBtn => 'اعتماد الإغلاق الرسمي والأرشفة الرقمية';
+  @override String get closureUnavailableBtn => 'الإغلاق غير متاح (متطلبات معلقة)';
+  @override String get closureCertTitle => 'شهادة الإغلاق الرسمي والأرشفة الرقمية المكتملة';
+  @override String get closureCertNumber => 'رقم الشهادة المعتمد';
+  @override String get closureCertIssuedAt => 'تاريخ وتوقيت الإصدار';
+  @override String get closureCertFileCode => 'رمز ملف الاستيراد';
+  @override String get closureCertCompany => 'الشركة المستوردة';
+  @override String get closureCertSupplier => 'المورد الأجنبي';
+  @override String get closureCertAuditor => 'مدقق الإغلاق المعتمد';
+  @override String get closureCertLocation => 'موقع ومسار الأرشفة الرقمية';
+  @override String get closureCertPillarsHeader => 'ركائز التدقيق الختامي:';
+  @override String get closureCertOk => 'مستوفى';
+  @override String get closureCertNotOk => 'غير مستوفى';
+  @override String get closureCertTotalCost => 'إجمالي التكلفة الفعلية';
+  @override String get closureCertMarkup => 'معامل تكلفة الوصول';
+  @override String get closureCertNotesHeader => 'ملاحظات الأرشفة والتدقيق:';
+  @override String get closureCertNoNotes => 'لا توجد ملاحظات إضافية';
+  @override String get closureCertStatusLine => 'حالة الملف';
+  @override String get closureCertSaveTitle => 'حفظ شهادة الإغلاق والأرشفة الرقمية';
+  @override String get closureFormClonedSuffix => 'مسودة مستنسخة';
+  @override String get closureFormServerChecklistNote => 'الحالات التالية يقيّمها النظام ولا يمكن تعديلها يدوياً.';
+  @override String get closureFormSelectFileFirst => 'اختر ملف الاستيراد لعرض قائمة التحقق من الإغلاق.';
+  @override String get closureFormPrecheckMissing => 'لم يتم تحميل فحص الإغلاق بعد';
+  @override String get closureStatusDraft => 'مسودة قيد الاستيفاء';
+  @override String get closureArchivedBadge => 'مغلق ومؤرشف';
+  @override String get closureFilterAll => 'الكل';
+  @override String get closureFilterClosed => 'مؤرشف نهائياً';
+  @override String get closureCloneToDraft => 'استنساخ لمسودة';
+  @override String closureVerifiedConditions(int count) => 'الشروط المستوفاة: $count / 5';
+  @override String get closureCloneEntityType => 'شهادة إغلاق وأرشفة ملف استيراد';
+  @override String get closureCloneSourceArchived => 'مغلق ومؤرشف';
+  @override String get closureCloneSourceDraft => 'مسودة';
+  @override String get closureCloneFieldFileId => 'رقم ملف الاستيراد';
+  @override String get closureCloneFieldAuditor => 'المحاسب / المراجع';
+  @override String get closureCloneFieldVault => 'مستودع الأرشيف الرقمي';
+  @override String get closureCloneFieldConditions => 'حالة الشروط المستوفاة';
+  @override String get closureCloneFieldNotes => 'ملاحظات الأرشفة';
+  @override String get closureCloneReset1 => 'معرف الإغلاق: يتم تصفيره لإنشاء سجل أرشفة جديد';
+  @override String get closureCloneReset2 => 'كود الشهادة: يصدر الخادم كوداً جديداً';
+  @override String get closureCloneReset3 => 'حالة الإغلاق: يعاد ضبطها إلى مسودة قيد الاستيفاء';
+  @override String get closureCloneReset4 => 'تاريخ الإغلاق والمراجع: يعاد ضبطهما على اللحظة الحالية والمستخدم الحالي';
+  // === end review phase08_10 keys ===
 }
 
 

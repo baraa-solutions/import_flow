@@ -8578,8 +8578,519 @@ abstract class AppLocalizations {
   String get updateAdminRequiredTooltip;
   String get updateAboutSectionTitle;
 
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  String get poImportedSuccessfully;
+  String get poPOTableCopiedToClipboard;
+  String get poCopyTableTSV;
+  String get poDownloadTemplate;
+  String get poImportExcel;
+  String get poExportPurchaseOrdersExcel;
+  String get poExportPurchaseOrdersPDF;
+  String get poDownloadPurchaseOrdersTemplate;
+  String get poInvoiceDate;
+  String get poQtyUnit;
+  String get poTotalQtyPKG;
+  String get poQtyPKG;
+  String get poPackageType;
+  String get poNetWt;
+  String get poGrossWt;
+  String get poCopyRowForExcelTSV;
+  String get poPOLineItemsSummaryByHS;
+  String get poNetWtKg;
+  String get poGrossWtKg;
+  String get poDutyVAT;
+  String get poRegulatoryConditionsTradeAgreementsByHS;
+  String get poInvoicePackingReconciliationDiscrepanciesFound;
+  String get poApprovedJustification;
+  String get poPerfectMatchAllProformaInvoiceLine;
+  String get poPackingListValidationErrors;
+  String get poPackingListValidationPassedAllWeights;
+  String po3DContainerLoadSimulationAvailableFor(Object? po, Object? toInt);
+  String get poPurchaseOrderProformaInvoiceDetails;
+  String get poPOReferenceName;
+  String get poInternalPOCode;
+  String get poProformaInvoice;
+  String get poProjectCostCenter;
+  String get poIncoterms;
+  String get poFXRate;
+  String get poPaymentTerms;
+  String get poTotalCBM;
+  String get poGrossNetWeight;
+  String get poPOLineItemsHSCodes;
+  String get poPackingListItems;
+  String get poPODetailsCopiedToClipboard;
+  String get poCBM;
+  String get poQtyPcs;
+  String get poPackingListSummaryByHSCode;
+  String get poPackingListSummaryByPackageType;
+  String get poPurchaseOrder;
+  String get poInternalPOCode2;
+  String get poTotalCBM2;
+  String get poTotalNetWeight;
+  String get poTotalQtyPKG2;
+  String get poPurchaseOrderItemsSpecification;
+  String get poNoPackingListOrPalletData;
+  String get poPleaseAddPackingListOrPallet;
+  String get poEditPOAddPackingList;
+  String get poNoSuitableContainers;
+  String get poDownloadSimulationViewsPNG;
+  String get poDownloadLoadingPlanPDF;
+  String get poBothViews;
+  String poDetailedPlacementCoordinatesPkgs(Object? res);
+  String poGroupedItemsItemsTotalPkgs(Object? res, Object? res2);
+  String get poGroupByItems;
+  String get poDetailedCoordinates;
+  String get poItemCode;
+  String get poPkgType;
+  String get poDimsCm;
+  String get poGrossWt2;
+  String get poCBM2;
+  String get poStack;
+  String get poYes;
+  String get poFloor;
+  String get poDownloadSimulationImagePNG;
+  String get poProject;
+  String get poCurrencyIncoterm;
+  String get poResetDeliveryAndOrderDates;
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  String get poInvoiceLineItemClonedSuccessfully;
+  String get poPackingListItemClonedSuccessfully;
+  String get poRestoreUnsavedDraft;
+  String poAnAutosavedDraftExistsForThis(Object? savedAt);
+  String get poDiscardDraft;
+  String get poRestoreDraft;
+  String get poDefault;
+  String get poDraftSaved;
+  String get poSmartExtractPIPL;
+
+  // ── Phase-1 UI strings: po ──────────────────────────────────────
+  String get poSummaryByPackageType;
+  String get poUnregistered;
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  String get cbmNoPackageLinesToExport;
+  String get cbmStackable;
+  String get cbmGrossWtUnitKg;
+  String get cbmTotalCBM;
+  String get cbmVolumetricWtKg;
+  String get cbmChargeableWtKg;
+  String get cbmPackageMeasurements;
+  String get cbmDimensions;
+  String get cbmVolWt;
+  String get cbmChargeable;
+  String get cbmCBMCalculator;
+  String get cbmPackageMeasurementsSpecification;
+  String get cbmShipmentMode;
+  String get cbmAir;
+  String get cbmSea;
+  String get cbmPackageLines;
+  String get cbmNoPackageLinesToCopy;
+  String get cbmPackagesTableCopiedToClipboard;
+
+  // ── Phase-1 UI strings: cbm ──────────────────────────────────────
+  String get cbmNoCalculationsToExport;
+  String get cbmCalcCode;
+  String get cbmShippingStrategy;
+  String get cbmCBMRegistry;
+  String get cbmCode;
+  String get cbmFile;
+  String get cbmVolWt2;
+  String get cbmGrossWt;
+  String get cbmMode;
+  String get cbmCBMVolumetricWeightRegistry;
+  String get cbmNoCalculationsToCopy;
+  String get cbmCBMCalculationsTableCopiedToClipboard;
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  String get ssCarrier;
+  String get ssQuote;
+
+  // ── Phase-1 UI strings: ss ──────────────────────────────────────
+  String get ssInactive;
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  String get ccCustomsBroker;
+  String ccCostLinkageAlertThisImportFile(Object? budgetCode);
+  String get ccOK;
+  String get ccExemption;
+  String get ccACID;
+  String get ccCOO;
+  String get ccGOEIC;
+  String get ccHSCode;
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  String get ccExpenseItemNameCopied;
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  String get ccTargetPort;
+  String get ccItemsCount;
+  String get ccEffectiveFrom;
+  String get ccIncrementVersionNumber;
+  String get ccGenerateUniqueNewReferenceCode;
+  String get ccCodeRequired;
+  String get ccArabicNameRequired;
+  String get ccCloneClearanceExpenseItem;
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  String get ccCopyQuoteItems;
+  String get ccCopiedAllQuoteItemsToClipboard;
+
+  // ── Phase-1 UI strings: cc ──────────────────────────────────────
+  String get ccClearanceFees;
+  String get ccProceduresApprovals;
+  String get ccInlandTransport;
+  String get ccPortHandling;
+  String get ccFixedAmount;
+  String get ccPerContainer;
+  String get ccPerInvoice;
+  String get ccPerTon;
+  String get ccPerTruck;
+  String get ccPerDay;
+  String get ccPerNight;
+  String get ccPerInspection;
+  String get ccPerShipment;
+  String get ccPerDeclaration;
+  String get ccPerBillOfLading;
+  String get ccPerSample;
+  String get ccPerCertificate;
+  String get ccClientPaidExpenses;
+  String get ccGeneralOtherFees;
+  String get ccStorageDemurrage;
+  String get ccLaborHandling;
+  String get ccCommissionsTips;
+  String get ccExceptionalClearanceFee;
+  String get ccInlandTransportCustom;
+  String get ccAdditionalApprovals;
+  String get ccPortTerminalExpenses;
+  String get ccNewCustomReferenceCode;
+  String get ccEnterCustomCodeManually;
+  String get ccRowClonedSuccessfullyCtrlD;
+  String get ccCustomsBroker2;
+  String get ccServerConnectionFailed;
+  String get ccFailedToSave;
+
+  // ── Backend contract wiring (round 2) ──────────────────────────────────────
+  String get apiNoPermission;
+  String get tariffMissingBadge;
+  String get tariffMissingLineHint;
+  String tariffMissingLinesWarning(int count);
+
+  // ── Backend contract wiring (round 3) ──────────────────────────────────────
+  String get poCreateErrorPrefix;
+  String get poUpdateErrorPrefix;
+  String get poAuditCreatedBy;
+  String get poAuditUpdatedBy;
+
+  // ── Backend contract wiring (round 3b) ──────────────────────────────────────
+  String get openExistingRecord;
+
+  // ── Round 4 ──────────────────────────────────────
+  String poExtractionKeptAllocatedLines(String codes);
+
+  // ── Round 5 ──────────────────────────────────────
+  String get ccRateSourceManual;
+  String get ccRateSourceTable;
+  String get ccPreliminaryRateLabel;
+  String get ccFinalRateLabel;
+
   /// Label of a T3 domain code (see DomainEnums); null when [code] is unknown.
   String? domainEnumLabel(String type, String code);
+
+  // === review phase02 keys (append below this line) ===
+  String faFxRateMissing(String currency);
+  String get faExchangeRateInvalid;
+  // === end review phase02 keys ===
+
+  // === review phase03 keys (append below this line) ===
+  String get idocAConfirmNotMatchedTitle;
+  String get idocAConfirmNotMatchedBody;
+  String get idocAJustificationLabel;
+  String get idocAJustificationRequired;
+  String get idocAReviewDiffs;
+  String get idocAConfirmFinal;
+  String idocADraftSaved(String code);
+  String idocASessionApproved(String code);
+  String get idocADraftSaveFailed;
+  String get idocAFinalApprovalFailed;
+  String get idocASessionNotesTab;
+  String get idocADeleteSessionFailed;
+  String get idocADraftBlConfirmTitle;
+  String idocADraftBlConfirmBody(int count);
+  String get idocADraftBlConfirmAction;
+  String idocADraftBlSaved(String code);
+  String idocADraftBlSavedForApproval(String code);
+  String get idocADraftBlSaveFailed;
+  String get idocAChecklistSaveFailed;
+  String get idocATemplateDemurrageExtension;
+  String get idocATemplateBankDelegation;
+  String get idocATemplateBankForm4;
+  String get idocATemplateBrokerMandate;
+  // === end review phase03 keys ===
+
+  // === review phase03_ui_b keys (append below this line) ===
+  // === end review phase03_ui_b keys ===
+
+  // === review phase04_05 keys (append below this line) ===
+  String get dualClockStatusLast3Days;
+  String get dualClockStatusCritical72h;
+  String dualClockHoursUntilPenalties(int hours);
+  String get dualClockTotalAccruedLabel;
+  String demCountdownSafe(int days, String date);
+  String demCountdownWarning(int days, String date);
+  String demCountdownDemurrage(int days);
+  String demCountdownDetention(int days);
+  String demCountdownExpired(int demDays, int detDays);
+  String emptyReturnRecordedSuccess(int returned, int total);
+  String get freeDaysDocumentFailed;
+  String get emptyReturnRecordFailed;
+  String get shipmentUpdateStageNameCustomsConsultation;
+  String get shipmentUpdateBtnSavePdf;
+  // === end review phase04_05 keys ===
+
+  // === review phase06_07 keys (append below this line) ===
+  String get ccBondReleaseDateLabel;
+  String get ccTestCompletionDateLabel;
+  String get ccCustomsFxRateHint;
+  String get ccVatAmountLabel;
+  String get ccVatCheckboxLabel;
+  String get ccWhtAmountLabel;
+  String ccLoadInvoicesError(String error);
+  // === end review phase06_07 keys ===
+
+  // === review phase08_10 keys (append below this line) ===
+  String get settlementCurrencyLabel;
+  String get settlementCurrencySearchHint;
+  String get settlementCurrencyRequired;
+  String get settlementGrossWeightLabel;
+  String get settlementCbmLabel;
+  String get settlementFieldRequired;
+  String get settlementPositiveNumberRequired;
+  String get settlementNonNegativeNumberRequired;
+  String get settlementExchangeRateRequired;
+  String get settlementCloneTargetFileLabel;
+  String get settlementCloneTargetFileMustDiffer;
+  String get settlementCloneHint;
+  String get settlementStageOdooCsv;
+  String get settlementStageOdooExcel;
+  String get settlementStageComparison;
+  String get settlementExportFailed;
+  String get wrItemCodeLabel;
+  String get wrItemCodeRequired;
+  String get wrQtyInvalid;
+  String wrLineUnbalanced(int received, int invoiced);
+  String get wrLineUnbalancedShort;
+  String wrLineExcess(int excess);
+  String get wrNoLinesHint;
+  String get wrNoLinesValidator;
+  String get wrRemoveLineTooltip;
+  String get wrColItemName;
+  String get wrColInvoiced;
+  String get wrColAccepted;
+  String get wrColShortage;
+  String get wrColDamaged;
+  String get wrLineStatusDiscrepancy;
+  String get wrLineStatusClean;
+  String get wrClaimRefRequired;
+  String get wrInspectionProtocolBtn;
+  String get wrInlandBookBtn;
+  String get wrNoFilesForBooking;
+  String get wrFilterQuarantineOnly;
+  String get wrQuarantineZoneBadge;
+  String wrCloneRecordSummary(int accepted, int shortage, int damaged);
+  String get wrPdfRegistryTitle;
+  String get wrPdfRegistrySubtitle;
+  String get wrCloneEntityType;
+  String get wrCloneItemCount;
+  String get wrCloneResetReceivingId;
+  String get wrCloneResetGrnCode;
+  String get wrCloneResetArrival;
+  String get wrCloneResetStatus;
+  String get wrCloneResetQuarantine;
+  String get wrCloneResetDiscrepancy;
+  String get wrCloneResetInsuranceClaim;
+  String get wrInspTitle;
+  String wrInspSubtitle(String grn, String file);
+  String get wrInspExportBtn;
+  String get wrInspMetricRate;
+  String get wrInspItemsHeader;
+  String get wrInspCommitteeLabel;
+  String get wrInspCommitteeHint;
+  String get wrInspVerdictLabel;
+  String get wrInspVerdictRequired;
+  String get wrInspVerdictFull;
+  String get wrInspVerdictDiscrepancy;
+  String get wrInspVerdictRejected;
+  String get wrInspFullBlockedHint;
+  String get wrInspRootCauseLabel;
+  String get wrRootCauseNone;
+  String get wrRootCausePort;
+  String get wrRootCauseInland;
+  String get wrRootCausePackaging;
+  String get wrRootCauseWater;
+  String get wrRootCauseFactory;
+  String get wrRootCauseOther;
+  String get wrInspNotesLabel;
+  String get wrInspNotesRequired;
+  String get wrInspClaimsHeader;
+  String get wrInspInsuranceClaim;
+  String get wrInspSupplierCredit;
+  String get wrInspQuarantine;
+  String get wrInspInsuranceRef;
+  String get wrInspSupplierRef;
+  String get wrInspClaimAmount;
+  String get wrInspClaimCurrency;
+  String get wrInspCurrencySearch;
+  String get wrInspCertifyBtn;
+  String wrInspSuccess(String grn);
+  String get inlandDialogTitle;
+  String inlandDialogFileLine(String file, String company);
+  String get inlandStatusArrived;
+  String get inlandStatusInTransit;
+  String get inlandStatusConfirmed;
+  String get inlandStatusNotBooked;
+  String get inlandCloseTooltip;
+  String get inlandKpiStatus;
+  String get inlandKpiWaybill;
+  String get inlandKpiTruckDriver;
+  String get inlandKpiFare;
+  String get inlandNotSet;
+  String get inlandWaybillPending;
+  String get inlandCurrencySuffix;
+  String inlandCurrentBookingTitle(String code);
+  String get inlandHideForm;
+  String get inlandEditOrRebook;
+  String get inlandInfoCarrier;
+  String get inlandInfoWaybill;
+  String get inlandInfoTruckType;
+  String get inlandInfoPlate;
+  String get inlandInfoDriver;
+  String get inlandInfoContainers;
+  String get inlandInfoPickup;
+  String get inlandInfoDestination;
+  String get inlandInfoPlannedDeparture;
+  String get inlandInfoExpectedArrival;
+  String get inlandInfoActualDeparture;
+  String get inlandInfoActualArrival;
+  String get inlandGateOutTitle;
+  String get inlandGateOutDesc;
+  String get inlandGateOutBtn;
+  String get inlandArrivalTitle;
+  String get inlandArrivalDesc;
+  String get inlandArrivalBtn;
+  String get inlandArrivedMsg;
+  String get inlandNotesOptionalLabel;
+  String get inlandFormTitle;
+  String get inlandWaybillLabel;
+  String get inlandWaybillRequired;
+  String get inlandCarrierLabel;
+  String get inlandCarrierRequired;
+  String get inlandPlateLabel;
+  String get inlandPlateHint;
+  String get inlandPlateInvalid;
+  String get inlandTruckTypeLabel;
+  String get inlandTruckTypeHint;
+  String get inlandTruckTypeRequired;
+  String get inlandDriverLabel;
+  String get inlandDriverInvalid;
+  String get inlandPhoneLabel;
+  String get inlandPhoneInvalid;
+  String get inlandNationalIdLabel;
+  String get inlandNationalIdHint;
+  String get inlandPickupLabel;
+  String get inlandPickupRequired;
+  String get inlandWarehouseLabel;
+  String get inlandWarehouseRequired;
+  String get inlandContainersLabel;
+  String get inlandFareLabel;
+  String get inlandFareRequired;
+  String get inlandFareInvalid;
+  String get inlandDepartureDate;
+  String get inlandEtaDate;
+  String get inlandEtaBeforeDeparture;
+  String get inlandNotesLabel;
+  String get inlandNotesHint;
+  String get inlandSubmitBtn;
+  String get inlandFooterNote;
+  String get inlandCloseBtn;
+  String inlandBookedSnack(String code);
+  String inlandGateOutSnack(String code);
+  String inlandArrivalSnack(String code);
+  String get inlandLoadErrorTitle;
+  String get inlandRetryBtn;
+  String get closureDialogTitle;
+  String closureDialogSubtitle(String file, String supplier, String status);
+  String get closureCloseTooltip;
+  String get closureLoadingPillars;
+  String closurePrecheckFailed(String error);
+  String get closureRetryBtn;
+  String get closureCannotCloseSnack;
+  String closureOfficialSuccess(String file, String code);
+  String get closureExportCertificateBtn;
+  String get closureLessonBtn;
+  String get closureLessonPrompt;
+  String get closureDoneBtn;
+  String get closureBlockingTitle;
+  String get closureWarningsTitle;
+  String get closurePillarsHeader;
+  String get closurePillarCustoms;
+  String get closurePillarWarehouse;
+  String get closurePillarLandedCost;
+  String get closurePillarDossier;
+  String get closurePillarContainers;
+  String get closurePillarTasks;
+  String get closureCertPreviewLabel;
+  String closureLandedCostLine(String cost, String factor);
+  String get closureExportAfterCloseHint;
+  String get closureArchivalSectionTitle;
+  String get closureAuditorLabel;
+  String get closureAuditorRequired;
+  String get closureArchiveLocationLabel;
+  String get closureArchiveLocationRequired;
+  String get closureNotesLabel;
+  String get closureSubmittingLabel;
+  String get closureConfirmBtn;
+  String get closureUnavailableBtn;
+  String get closureCertTitle;
+  String get closureCertNumber;
+  String get closureCertIssuedAt;
+  String get closureCertFileCode;
+  String get closureCertCompany;
+  String get closureCertSupplier;
+  String get closureCertAuditor;
+  String get closureCertLocation;
+  String get closureCertPillarsHeader;
+  String get closureCertOk;
+  String get closureCertNotOk;
+  String get closureCertTotalCost;
+  String get closureCertMarkup;
+  String get closureCertNotesHeader;
+  String get closureCertNoNotes;
+  String get closureCertStatusLine;
+  String get closureCertSaveTitle;
+  String get closureFormClonedSuffix;
+  String get closureFormServerChecklistNote;
+  String get closureFormSelectFileFirst;
+  String get closureFormPrecheckMissing;
+  String get closureStatusDraft;
+  String get closureArchivedBadge;
+  String get closureFilterAll;
+  String get closureFilterClosed;
+  String get closureCloneToDraft;
+  String closureVerifiedConditions(int count);
+  String get closureCloneEntityType;
+  String get closureCloneSourceArchived;
+  String get closureCloneSourceDraft;
+  String get closureCloneFieldFileId;
+  String get closureCloneFieldAuditor;
+  String get closureCloneFieldVault;
+  String get closureCloneFieldConditions;
+  String get closureCloneFieldNotes;
+  String get closureCloneReset1;
+  String get closureCloneReset2;
+  String get closureCloneReset3;
+  String get closureCloneReset4;
+  // === end review phase08_10 keys ===
 }
 
 

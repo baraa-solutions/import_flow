@@ -5,6 +5,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_consultation_model.dart';
 import '../../currencies/models/currency_model.dart';
 import 'broker_cost_row.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class BrokerQuoteDetailsCard extends StatelessWidget {
   final int? selectedBrokerId;
@@ -52,7 +53,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+              const Icon(Icons.info_outline, color: AppTheme.wcagCobalt, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -157,7 +158,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                       if (brokerPriceListTitle != null)
                         Text(
                           brokerPriceListTitle!,
-                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
+                          style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
                         ),
                     ],
                   ),
@@ -172,7 +173,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                 ],
                 IconButton(
                   icon: const Icon(Icons.copy_all, color: AppTheme.cobalt, size: 20),
-                  tooltip: isAr ? 'نسخ بنود الأسعار' : 'Copy Quote Items',
+                  tooltip: context.l10n.ccCopyQuoteItems,
                   onPressed: () {
                     final buffer = StringBuffer();
                     buffer.writeln('Item\tCategory\tUnit\tPrice\tCurrency\tQty\tApplicable\tTotal');
@@ -182,16 +183,16 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                     CopyHelper.copy(
                       context,
                       buffer.toString(),
-                      customMessage: isAr ? 'تم نسخ جميع بنود الأسعار إلى الحافظة' : 'Copied all quote items to clipboard',
+                      customMessage: context.l10n.ccCopiedAllQuoteItemsToClipboard,
                     );
                   },
                 ),
                 const SizedBox(width: 4),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
+                AppButton(
+                  label: l.addCustomExpenseRow,
+                  icon: Icons.add,
+                  variant: AppButtonVariant.secondary,
                   onPressed: onAddCustomExpense,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: Text(l.addCustomExpenseRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -229,15 +230,19 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  TextButton.icon(
+                  AppButton(
+                    label: l.applyAllQuoteItems,
+                    icon: Icons.check_box_outlined,
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.small,
                     onPressed: onApplyAll,
-                    icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
-                    label: Text(l.applyAllQuoteItems, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
                   ),
-                  TextButton.icon(
+                  AppButton(
+                    label: l.disableAllQuoteItems,
+                    icon: Icons.disabled_by_default_outlined,
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.small,
                     onPressed: onDisableAll,
-                    icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
-                    label: Text(l.disableAllQuoteItems, style: const TextStyle(fontSize: 11, color: Colors.red)),
                   ),
                 ],
               ),
@@ -248,7 +253,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                  decoration: BoxDecoration(color: AppTheme.charcoalSurface, borderRadius: BorderRadius.circular(6)),
                   child: Text(l.noResultsFound),
                 )
               else

@@ -58,14 +58,13 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final egpLabel = context.l10n.financialSettlementCurrencyEgp;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
@@ -101,7 +100,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                         const SizedBox(height: 2),
                         Text(
                           l.searchAndCloneConsultationSubtitle,
-                          style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                          style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -131,10 +130,10 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
+                  fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                   isDense: true,
                 ),
@@ -148,11 +147,11 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                            const Icon(Icons.search_off_rounded, size: 48, color: AppTheme.textMuted),
                             const SizedBox(height: 10),
                             Text(
                               l.noMatchingConsultationsFound,
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
                             ),
                           ],
                         ),
@@ -168,9 +167,9 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
+                                color: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                               ),
                               child: Row(
                                 children: [
@@ -203,7 +202,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                                         if (c.brokerName.isNotEmpty)
                                           Text(
                                             '${l.customsBrokerLabel}: ${c.brokerName}',
-                                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -224,9 +223,9 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                                       ),
                                     ),
                                   const SizedBox(width: 8),
-                                  Icon(
-                                    isArabic ? Icons.chevron_left : Icons.chevron_right,
-                                    color: Colors.grey,
+                                  const Icon(
+                                    Icons.chevron_right, // mirrored by Icon itself in RTL
+                                    color: AppTheme.textMuted,
                                   ),
                                 ],
                               ),

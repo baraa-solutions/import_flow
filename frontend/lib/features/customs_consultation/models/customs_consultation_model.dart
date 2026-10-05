@@ -520,10 +520,16 @@ class CustomsConsultationModel {
 // Customs Re-estimation & Variance Comparison Models
 // ==============================================================================
 
+/// `comparison_lines[].status` value for a line with no HS code or no tariff valid on the estimate
+/// date: it carries zero taxes and is excluded from every total.
+const String kLineStatusTariffMissing = 'TARIFF_MISSING';
+
 class LineVarianceComparisonModel {
   final String itemName;
   final String hsCode;
   final String? countryOfOrigin;
+  /// `OK` or [kLineStatusTariffMissing].
+  final String status;
   final double preliminaryQty;
   final double finalQty;
   final double qtyVariance;
@@ -549,6 +555,7 @@ class LineVarianceComparisonModel {
   final double totalTaxesVarianceEgp;
 
   LineVarianceComparisonModel({
+    this.status = 'OK',
     required this.itemName,
     required this.hsCode,
     this.countryOfOrigin,
@@ -577,11 +584,14 @@ class LineVarianceComparisonModel {
     this.totalTaxesVarianceEgp = 0.0,
   });
 
+  bool get isTariffMissing => status == kLineStatusTariffMissing;
+
   factory LineVarianceComparisonModel.fromJson(Map<String, dynamic> json) {
     return LineVarianceComparisonModel(
       itemName: json['item_name'] ?? '',
       hsCode: json['hs_code'] ?? '',
       countryOfOrigin: json['country_of_origin'],
+      status: (json['status'] as String?) ?? 'OK',
       preliminaryQty: (json['preliminary_qty'] as num?)?.toDouble() ?? 0.0,
       finalQty: (json['final_qty'] as num?)?.toDouble() ?? 0.0,
       qtyVariance: (json['qty_variance'] as num?)?.toDouble() ?? 0.0,
@@ -616,7 +626,16 @@ class CustomsRecalculationResponseModel {
   final int? reconciliationSessionId;
   final bool isReconciled;
   final String sourceDescription;
+  /// FINAL side rate (EGP per unit of [finalCurrency]).
   final double exchangeRate;
+  final double? preliminaryExchangeRate;
+  final String? preliminaryCurrency;
+  final String? finalCurrency;
+
+  /// `table` (customs rate table on the date) or `manual` (value sent in the request).
+  final String exchangeRateSource;
+  /// `table` / `manual` for the preliminary side.
+  final String preliminaryExchangeRateSource;
   final String estimateDate;
   final double preliminaryFobEgp;
   final double finalFobEgp;
@@ -636,6 +655,8 @@ class CustomsRecalculationResponseModel {
   final double variancePercentage;
   final String forecastStatus;
   final List<LineVarianceComparisonModel> comparisonLines;
+  /// Lines with status TARIFF_MISSING (excluded from the totals).
+  final int tariffMissingLinesCount;
 
   CustomsRecalculationResponseModel({
     required this.importFileId,
@@ -645,6 +666,11 @@ class CustomsRecalculationResponseModel {
     this.isReconciled = false,
     required this.sourceDescription,
     required this.exchangeRate,
+    this.preliminaryExchangeRate,
+    this.preliminaryCurrency,
+    this.finalCurrency,
+    this.exchangeRateSource = 'table',
+    this.preliminaryExchangeRateSource = 'table',
     required this.estimateDate,
     this.preliminaryFobEgp = 0.0,
     this.finalFobEgp = 0.0,
@@ -664,6 +690,7 @@ class CustomsRecalculationResponseModel {
     this.variancePercentage = 0.0,
     this.forecastStatus = "Balanced",
     this.comparisonLines = const [],
+    this.tariffMissingLinesCount = 0,
   });
 
   factory CustomsRecalculationResponseModel.fromJson(Map<String, dynamic> json) {
@@ -675,6 +702,11 @@ class CustomsRecalculationResponseModel {
       isReconciled: json['is_reconciled'] ?? false,
       sourceDescription: json['source_description'] ?? '',
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      preliminaryExchangeRate: (json['preliminary_exchange_rate'] as num?)?.toDouble(),
+      preliminaryCurrency: json['preliminary_currency'] as String?,
+      finalCurrency: json['final_currency'] as String?,
+      exchangeRateSource: (json['exchange_rate_source'] as String?) ?? 'table',
+      preliminaryExchangeRateSource: (json['preliminary_exchange_rate_source'] as String?) ?? 'table',
       estimateDate: json['estimate_date'] ?? '',
       preliminaryFobEgp: (json['preliminary_fob_egp'] as num?)?.toDouble() ?? 0.0,
       finalFobEgp: (json['final_fob_egp'] as num?)?.toDouble() ?? 0.0,
@@ -697,6 +729,7 @@ class CustomsRecalculationResponseModel {
               ?.map((c) => LineVarianceComparisonModel.fromJson(c))
               .toList() ??
           [],
+      tariffMissingLinesCount: (json['tariff_missing_lines_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -771,3 +804,22 @@ class CustomsItemCalcRow {
   });
 }
 
+
+extension CustomsRecalculationRates on CustomsRecalculationResponseModel {
+  bool get isManualRate => exchangeRateSource == 'manual';
+  bool get isPreliminaryManualRate => preliminaryExchangeRateSource == 'manual';
+
+  /// A separate preliminary rate only makes sense (and can be entered) when the two sides differ in currency.
+  bool get hasDifferentCurrencies =>
+      preliminaryCurrency != null && finalCurrency != null && preliminaryCurrency != finalCurrency;
+
+  static String _piece(String? currency, double rate) =>
+      '${currency == null || currency.isEmpty ? '' : '$currency '}${rate.toStringAsFixed(4)}';
+
+  /// "USD 49.5000" (currency omitted when the backend did not send it).
+  String get finalRateText => _piece(finalCurrency, exchangeRate);
+
+  /// Null when there is no separate preliminary rate to show.
+  String? get preliminaryRateText =>
+      preliminaryExchangeRate == null ? null : _piece(preliminaryCurrency, preliminaryExchangeRate!);
+}

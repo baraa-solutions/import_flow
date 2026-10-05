@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class AddCustomExpenseDialog extends StatefulWidget {
   final Function(CustomsBrokerQuoteItemModel) onExpenseAdded;
@@ -125,9 +126,15 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+        AppButton(
+          label: l.cancel,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+        ),
+        AppButton(
+          label: l.save,
+          variant: AppButtonVariant.success,
           onPressed: () {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) return;
@@ -145,7 +152,6 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
             ));
             Navigator.pop(context);
           },
-          child: Text(l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

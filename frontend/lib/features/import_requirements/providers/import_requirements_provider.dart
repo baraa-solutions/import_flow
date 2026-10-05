@@ -65,10 +65,8 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.post('$_baseUrl/import-requirements', data: data);
       await refreshData();
     } catch (e) {
-      if (e is DioException && e.response?.data != null) {
-        final detail = e.response?.data['detail'] ?? e.message;
-        throw Exception(detail);
-      }
+      // Keep the DioException: the screen renders 403 / coded 409 details from it.
+      if (e is DioException) rethrow;
       throw Exception('Failed to add requirement: $e');
     }
   }
@@ -78,10 +76,8 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.put('$_baseUrl/import-requirements/$id', data: data);
       await refreshData();
     } catch (e) {
-      if (e is DioException && e.response?.data != null) {
-        final detail = e.response?.data['detail'] ?? e.message;
-        throw Exception(detail);
-      }
+      // Keep the DioException: the screen renders 403 / coded 409 details from it.
+      if (e is DioException) rethrow;
       throw Exception('Failed to update requirement: $e');
     }
   }
@@ -91,10 +87,8 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.post('$_baseUrl/import-requirements/$id/restore');
       await refreshData();
     } catch (e) {
-      if (e is DioException && e.response?.data != null) {
-        final detail = e.response?.data['detail'] ?? e.message;
-        throw Exception(detail);
-      }
+      // Keep the DioException: the screen renders 403 / coded 409 details from it.
+      if (e is DioException) rethrow;
       throw Exception('Failed to restore requirement: $e');
     }
   }
@@ -107,6 +101,8 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       }
       return null;
     } catch (e) {
+      // 404 (inactive import file) / 403: let the screen show it.
+      if (e is DioException) rethrow;
       return null;
     }
   }
@@ -116,6 +112,7 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.delete('$_baseUrl/import-requirements/$id');
       await refreshData();
     } catch (e) {
+      if (e is DioException) rethrow;
       throw Exception('Failed to delete requirement: $e');
     }
   }

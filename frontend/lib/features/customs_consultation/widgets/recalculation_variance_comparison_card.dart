@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'tariff_missing_widgets.dart';
 
 class RecalculationVarianceComparisonCard extends StatelessWidget {
   final CustomsRecalculationResponseModel recalculationResult;
@@ -39,7 +41,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
 
     return Card(
       elevation: 4,
-      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: statusColor.withOpacity(0.4), width: 1.5),
@@ -70,19 +72,26 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.charcoal,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${res.sourceDescription} | ${res.finalInvoiceNumber ?? "N/A"} | ${res.estimateDate} | ${res.exchangeRate.toStringAsFixed(4)} EGP',
-                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                        '${res.sourceDescription} | ${res.finalInvoiceNumber ?? "N/A"} | ${res.estimateDate} | ${res.preliminaryRateText != null ? '${l.ccPreliminaryRateLabel} ${res.preliminaryRateText} EGP (${res.isPreliminaryManualRate ? l.ccRateSourceManual : l.ccRateSourceTable}) | ${l.ccFinalRateLabel} ' : ''}${res.finalRateText} EGP (${res.isManualRate ? l.ccRateSourceManual : l.ccRateSourceTable})',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textStrong),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -106,7 +115,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(Icons.close, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, size: 20),
+                  icon: Icon(Icons.close,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
+                      size: 20),
                   tooltip: l.close,
                   onPressed: onClose,
                 ),
@@ -140,7 +151,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   preliminaryVal: res.preliminaryDutyEgp,
                   finalVal: res.finalDutyEgp,
                   varianceVal: res.dutyVarianceEgp,
-                  color: Colors.indigo,
+                  color: AppTheme.cobalt,
                 );
                 final kpi4 = _buildKpiCard(
                   context: context,
@@ -188,13 +199,16 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 18),
+            TariffMissingBanner(count: res.tariffMissingLinesCount),
 
             // ── LINE BY LINE COMPARISON TABLE ──────────────────────────────
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columnSpacing: 14,
-                headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.06)),
+                headingRowColor: WidgetStateProperty.all(isDark
+                    ? AppTheme.darkElevatedSurface
+                    : AppTheme.charcoal.withOpacity(0.06)),
                 headingTextStyle: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
@@ -212,30 +226,35 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
                   DataColumn(label: Text(l.varianceCol)),
                 ],
-
                 rows: res.comparisonLines.map((line) {
                   final lineDiff = line.totalTaxesVarianceEgp;
                   final diffColor = lineDiff > 0
                       ? AppTheme.crimson
-                      : (lineDiff < 0 ? AppTheme.emerald : Colors.grey);
+                      : (lineDiff < 0 ? AppTheme.emerald : AppTheme.textMuted);
 
                   return DataRow(
+                    color: line.isTariffMissing
+                        ? WidgetStateProperty.all(AppTheme.orangeLight)
+                        : null,
                     cells: [
                       DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            line.hsCode,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.cobalt,
-                            ),
-                          ),
-                        ),
+                        line.isTariffMissing
+                            ? const TariffMissingBadge()
+                            : Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cobalt.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  line.hsCode,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.cobalt,
+                                  ),
+                                ),
+                              ),
                       ),
                       DataCell(
                         SizedBox(
@@ -247,12 +266,21 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                               Text(
                                 line.itemName,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? AppTheme.darkTextPrimary
+                                        : AppTheme.charcoal),
                               ),
-                              if (line.countryOfOrigin != null && line.countryOfOrigin!.isNotEmpty)
+                              if (line.countryOfOrigin != null &&
+                                  line.countryOfOrigin!.isNotEmpty)
                                 Text(
                                   '${l.originPrefix} ${line.countryOfOrigin}',
-                                  style: TextStyle(fontSize: 10, color: isDark ? AppTheme.cobalt : Colors.blue.shade900),
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: isDark
+                                          ? AppTheme.cobalt
+                                          : AppTheme.wcagCobalt),
                                 ),
                             ],
                           ),
@@ -265,7 +293,11 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                           children: [
                             Text(
                               '${line.preliminaryQty.toStringAsFixed(0)} ➔ ${line.finalQty.toStringAsFixed(0)}',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.charcoal),
                             ),
                             if (line.qtyVariance != 0)
                               Text(
@@ -273,7 +305,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: line.qtyVariance > 0 ? AppTheme.crimson : AppTheme.emerald,
+                                  color: line.qtyVariance > 0
+                                      ? AppTheme.crimson
+                                      : AppTheme.emerald,
                                 ),
                               ),
                           ],
@@ -282,31 +316,48 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                       DataCell(
                         Text(
                           '${line.preliminaryUnitPrice.toStringAsFixed(2)} ➔ ${line.finalUnitPrice.toStringAsFixed(2)}',
-                          style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
+                          style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.charcoal),
                         ),
                       ),
                       DataCell(
                         Text(
                           '${line.finalFobEgp.toStringAsFixed(2)} EGP',
-                          style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.charcoal),
                         ),
                       ),
                       DataCell(
                         Text(
                           '${line.finalCifEgp.toStringAsFixed(2)} EGP',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.charcoal),
                         ),
                       ),
                       DataCell(
                         Text(
                           '${line.dutyRatePct}% (${line.finalDutyEgp.toStringAsFixed(2)})',
-                          style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
+                          style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.charcoal),
                         ),
                       ),
                       DataCell(
                         Text(
                           '${line.vatRatePct}% (${line.finalVatEgp.toStringAsFixed(2)})',
-                          style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
+                          style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.charcoal),
                         ),
                       ),
                       DataCell(
@@ -314,13 +365,16 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                           '${line.finalTotalTaxesEgp.toStringAsFixed(2)} EGP',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.charcoal,
                           ),
                         ),
                       ),
                       DataCell(
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: diffColor.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(4),
@@ -352,7 +406,8 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 22),
+                  const Icon(Icons.check_circle_outline,
+                      color: AppTheme.emerald, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -363,32 +418,28 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.charcoal,
                           ),
                         ),
                         Text(
                           '${res.finalTotalTaxesEgp.toStringAsFixed(2)} EGP',
-                          style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textStrong),
                         ),
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                  AppButton(
+                    label: l.applyAndLinkFinancialEstimate,
+                    icon: Icons.save_alt,
+                    variant: AppButtonVariant.success,
+                    size: AppButtonSize.small,
                     onPressed: onApplyNewFees,
-                    icon: const Icon(Icons.save_alt, color: Colors.white, size: 18),
-                    label: Text(
-                      l.applyAndLinkFinancialEstimate,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -413,7 +464,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
     final diffSign = varianceVal > 0 ? '+' : '';
     final diffColor = varianceVal > 0
         ? AppTheme.crimson
-        : (varianceVal < 0 ? AppTheme.emerald : Colors.grey.shade700);
+        : (varianceVal < 0 ? AppTheme.emerald : AppTheme.textStrong);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -421,7 +472,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
         color: isDark ? AppTheme.darkElevatedSurface : color.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isGrandTotal ? color : (isDark ? AppTheme.darkBorder : color.withOpacity(0.2)),
+          color: isGrandTotal
+              ? color
+              : (isDark ? AppTheme.darkBorder : color.withOpacity(0.2)),
           width: isGrandTotal ? 1.5 : 1.0,
         ),
       ),
@@ -433,7 +486,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
             ),
           ),
           const SizedBox(height: 8),
@@ -445,7 +498,11 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   children: [
                     Text(
                       l.preliminaryPoLabel,
-                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : AppTheme.textSecondary),
                     ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -454,8 +511,12 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                         '${preliminaryVal.toStringAsFixed(2)} EGP',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                          decoration: varianceVal != 0 ? TextDecoration.lineThrough : null,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : AppTheme.textStrong,
+                          decoration: varianceVal != 0
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                     ),
@@ -464,7 +525,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
+                child: Icon(Icons.arrow_forward, size: 14, color: AppTheme.textMuted),
               ),
               Expanded(
                 child: Column(
@@ -472,7 +533,11 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   children: [
                     Text(
                       l.recalculatedLabel,
-                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : AppTheme.textSecondary),
                     ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -503,7 +568,11 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               children: [
                 Text(
                   '${l.varianceLabel} ',
-                  style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textStrong),
                 ),
                 Text(
                   '$diffSign${varianceVal.toStringAsFixed(2)} EGP',

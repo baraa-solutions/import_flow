@@ -7,7 +7,8 @@ import '../models/shipping_scenario_model.dart';
 class ShippingScenariosState {
   final List<ShippingEvaluationModel> sessions;
   final bool isLoading;
-  final String? errorMessage;
+  /// Last failure (raw): render with `ApiErrorText.of` (localized; 403 = "no permission").
+  final Object? error;
   final String searchQuery;
   final int? projectFilter;
   final int? poFilter;
@@ -16,7 +17,7 @@ class ShippingScenariosState {
   ShippingScenariosState({
     this.sessions = const [],
     this.isLoading = false,
-    this.errorMessage,
+    this.error,
     this.searchQuery = '',
     this.projectFilter,
     this.poFilter,
@@ -26,7 +27,7 @@ class ShippingScenariosState {
   ShippingScenariosState copyWith({
     List<ShippingEvaluationModel>? sessions,
     bool? isLoading,
-    String? errorMessage,
+    Object? error,
     String? searchQuery,
     int? projectFilter,
     int? poFilter,
@@ -35,7 +36,7 @@ class ShippingScenariosState {
     return ShippingScenariosState(
       sessions: sessions ?? this.sessions,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      error: error,
       searchQuery: searchQuery ?? this.searchQuery,
       projectFilter: projectFilter ?? this.projectFilter,
       poFilter: poFilter ?? this.poFilter,
@@ -63,7 +64,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
     final cancelToken = CancelToken();
     _cancelToken = cancelToken;
 
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true);
     try {
       final response = await _dio.get(
         '/shipping-scenarios',
@@ -83,7 +84,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       if (e is DioException && CancelToken.isCancel(e)) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load shipping evaluation studies: ${e.toString()}',
+        error: e,
       );
     }
   }
@@ -114,14 +115,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      String msg = e.toString();
-      if (e is DioException && e.response?.data != null) {
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('detail')) {
-          msg = data['detail'].toString();
-        }
-      }
-      state = state.copyWith(errorMessage: msg);
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -132,14 +126,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      String msg = e.toString();
-      if (e is DioException && e.response?.data != null) {
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('detail')) {
-          msg = data['detail'].toString();
-        }
-      }
-      state = state.copyWith(errorMessage: msg);
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -150,7 +137,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to delete evaluation session: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -161,7 +148,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to restore evaluation session: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -193,14 +180,7 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       }
       return null;
     } catch (e) {
-      String msg = e.toString();
-      if (e is DioException && e.response?.data != null) {
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('detail')) {
-          msg = data['detail'].toString();
-        }
-      }
-      state = state.copyWith(errorMessage: msg);
+      state = state.copyWith(error: e);
       return null;
     }
   }

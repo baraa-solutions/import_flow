@@ -9,6 +9,8 @@ import '../widgets/consultation_metric_badge.dart';
 import '../widgets/add_checklist_item_dialog.dart';
 import '../widgets/add_custom_expense_dialog.dart';
 import '../widgets/recalculation_variance_comparison_card.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/widgets/existing_record_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,6 +44,7 @@ import '../../financial_approval/providers/financial_approval_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -67,6 +70,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   // Customs Calculator State Controllers
   final TextEditingController _exchangeRateController = TextEditingController(text: '50.0');
+  /// Optional manual preliminary rate; only offered when the preliminary and final currencies differ.
+  final TextEditingController _preliminaryRateController = TextEditingController();
   final TextEditingController _freightForeignController = TextEditingController(text: '0.0');
   String _freightCurrency = 'USD';
   final TextEditingController _freightExchangeRateController = TextEditingController(text: '50.0');
@@ -184,6 +189,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     _notesController.dispose();
     _estimatedDutiesController.dispose();
     _exchangeRateController.dispose();
+    _preliminaryRateController.dispose();
     _freightForeignController.dispose();
     _freightExchangeRateController.dispose();
     _freightEgpController.dispose();
@@ -488,7 +494,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.noPoItemsFoundForFileToast),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.orange,
           ),
         );
       }
@@ -637,7 +643,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('⚠️ ${l.selectImportFileFirstToast}'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.orange,
         ),
       );
       return;
@@ -653,6 +659,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final res = await ref.read(customsConsultationsProvider.notifier).recalculateFromReconciliation(
         importFileId: _selectedImportFileId!,
         exchangeRate: fx,
+        preliminaryExchangeRate: (_recalculationResult?.hasDifferentCurrencies ?? false)
+            ? double.tryParse(_preliminaryRateController.text.trim())
+            : null,
         freightEgp: freight,
         insuranceEgp: ins,
         estimateDate: dateStr,
@@ -668,7 +677,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
+                const Icon(Icons.check_circle, color: AppTheme.white),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -688,8 +697,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ $e'),
+            content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
             backgroundColor: AppTheme.crimson,
+            duration: const Duration(seconds: 8),
           ),
         );
       }
@@ -1314,12 +1324,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
       totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
     );
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
       context: context,
       title: _titleController.text.trim(),
       importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
-      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (context.l10n.ccCustomsBroker),
       currency: _customsCurrency,
       exchangeRate: exchangeRate,
       totalFreightEgp: totalFreightEgp,
@@ -1347,12 +1356,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
       totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
     );
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await CustomsConsultationPdfService.printOrPreviewCalculationReportPdf(
       context: context,
       title: _titleController.text.trim(),
       importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
-      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (context.l10n.ccCustomsBroker),
       currency: _customsCurrency,
       exchangeRate: exchangeRate,
       totalFreightEgp: totalFreightEgp,
@@ -1376,12 +1384,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
       totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
     );
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     await CustomsExportService.copyCustomsDutyDossier(
       context: context,
       title: _titleController.text.trim(),
       importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
-      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (context.l10n.ccCustomsBroker),
       currency: _customsCurrency,
       exchangeRate: exchangeRate,
       totalFreightEgp: totalFreightEgp,
@@ -1567,17 +1574,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         final budgets = ref.read(importBudgetsProvider).valueOrNull ?? [];
         final linkedBudget = budgets.where((b) => b.importFileId == _selectedImportFileId && b.isActive).firstOrNull;
         if (linkedBudget != null && mounted) {
-          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-          final warningMsg = isArabic
-              ? '⚠️ تنبيه ترابط التكاليف: ملف الاستيراد هذا مرتبط بميزانية تقديرية (${linkedBudget.budgetCode}). تم تحديث مصاريف التخليص الجمركي والرسوم، يُرجى مراجعة وتحديث اعتماد الميزانية لمطابقة التكاليف الحية.'
-              : '⚠️ Cost Linkage Alert: This import file is linked to budget (${linkedBudget.budgetCode}). Clearance expenses were updated, please review and update the Budget Approval screen to match live costs.';
+          final warningMsg = context.l10n.ccCostLinkageAlertThisImportFile(linkedBudget.budgetCode);
           Future.delayed(const Duration(milliseconds: 1200), () {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                      const Icon(Icons.warning_amber_rounded, color: AppTheme.white),
                       const SizedBox(width: 8),
                       Expanded(child: Text(warningMsg, style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
@@ -1585,8 +1589,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   backgroundColor: AppTheme.orange,
                   duration: const Duration(seconds: 8),
                   action: SnackBarAction(
-                    label: isArabic ? 'حسناً' : 'OK',
-                    textColor: Colors.white,
+                    label: context.l10n.ccOK,
+                    textColor: AppTheme.white,
                     onPressed: () {},
                   ),
                 ),
@@ -1596,7 +1600,28 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && ApiErrorText.code(e) == ApiErrorCode.consultationExists) {
+        // A consultation for this import file already exists: readable message + open it.
+        final existingId = ApiErrorText.detail(e)?['consultation_id'];
+        final existingCode = ApiErrorText.detail(e)?['consultation_code'];
+        showExistingRecordSnack(
+          context,
+          message: ApiErrorText.of(l, e),
+          actionLabel: l.openExistingRecord,
+          onOpen: () async {
+            bool matches(CustomsConsultationModel c) =>
+                c.consultationId == existingId || (existingCode != null && c.consultationCode == existingCode);
+            var list = ref.read(customsConsultationsProvider).valueOrNull ?? const <CustomsConsultationModel>[];
+            var found = list.where(matches).toList();
+            if (found.isEmpty) {
+              await ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+              list = ref.read(customsConsultationsProvider).valueOrNull ?? const <CustomsConsultationModel>[];
+              found = list.where(matches).toList();
+            }
+            if (found.isNotEmpty && mounted) _loadConsultationForEdit(found.first);
+          },
+        );
+      } else if (mounted) {
         await showErrorDetailsDialog(
           context,
           title: '❌ ${l.unableToSaveCustomsStudy}',
@@ -1616,7 +1641,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final egpLabel = context.l10n.financialSettlementCurrencyEgp;
     final consultationsState = ref.watch(customsConsultationsProvider);
     final consultationsList = consultationsState.valueOrNull ?? [];
     final partnersState = ref.watch(partnersProvider);
@@ -1792,37 +1817,32 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     runSpacing: 12,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '$liveReadinessPct%', color: Colors.blue),
-                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${_checklist.length}', color: Colors.grey),
+                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '$liveReadinessPct%', color: AppTheme.cobalt),
+                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${_checklist.length}', color: AppTheme.textMuted),
                       ConsultationMetricBadge(
                         title: l.blockingIssuesCount,
                         value: '$blockingCount',
-                        color: blockingCount > 0 ? Colors.red : Colors.green,
+                        color: blockingCount > 0 ? AppTheme.crimson : AppTheme.emerald,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
                       ),
                       // Search & Clone Consultation Button (UX-CLONE-011)
                       Tooltip(
                         message: l.searchAndCloneConsultationBtn,
-                        child: ElevatedButton.icon(
+                        child: AppButton(
                           key: const ValueKey('searchAndCloneConsultationBtn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.wcagCobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
+                          label: l.searchAndCloneConsultationBtn,
+                          icon: Icons.control_point_duplicate_rounded,
+                          variant: AppButtonVariant.primary,
+                          size: AppButtonSize.small,
                           onPressed: () => _openSearchAndCloneConsultationDialog(context, consultationsList),
-                          icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
-                          label: Text(l.searchAndCloneConsultationBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
                       ),
                       // 1. Live Refresh
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.liveRefresh,
+                        icon: Icons.refresh,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () {
                           if (!ref.read(customsConsultationsProvider).isLoading) {
                             ref.read(customsConsultationsProvider.notifier).fetchConsultations();
@@ -1857,17 +1877,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             }
                           }
                         },
-                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                        label: Text(l.liveRefresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 2. Clear Form & Start New
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey.shade800,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.clearAndStartNew,
+                        icon: Icons.cleaning_services_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () {
                           setState(() {
                             _editingConsultationId = null;
@@ -1882,69 +1899,51 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             _initializeDefaultChecklist();
                           });
                         },
-                        icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-                        label: Text(l.clearAndStartNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 3. TSV Export/Copy Button
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.customsTaxExportTsvBtn,
+                        icon: Icons.table_view_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () => _copyCustomsStudyTsv(calcLines),
-                        icon: const Icon(Icons.table_view_outlined, size: 16, color: Colors.blueGrey),
-                        label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 4. Excel Export Button
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.customsTaxExportExcelBtn,
+                        icon: Icons.description_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () => _exportCustomsStudyExcel(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
-                        icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.emerald),
-                        label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 5. PDF Print/Preview Button
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.customsTaxPrintPdfBtn,
+                        icon: Icons.picture_as_pdf_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () => _printOrSaveCustomsStudyPdf(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
-                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.crimson),
-                        label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 6. Dossier Copy Button
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.customsTaxCopyDossierBtn,
+                        icon: Icons.copy_all_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: () => _copyCustomsStudyDossier(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
-                        icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.cobalt),
-                        label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 7. Smart Clearance Quote Extractor Button (Clearance Mode Only)
                       if (!widget.isTaxReviewMode)
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6C5CE7),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: Text(l.smartClearanceQuoteExtractor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        AppButton(
+                          label: l.smartClearanceQuoteExtractor,
+                          icon: Icons.auto_awesome,
+                          variant: AppButtonVariant.primary,
+                          size: AppButtonSize.small,
                           onPressed: () {
                             showSmartClearanceExtractorDialog(
                               context,
@@ -1955,35 +1954,24 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         ),
 
                       // 8. Save Draft & Continue Later
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEFF6FF),
-                          foregroundColor: AppTheme.cobalt,
-                          elevation: 0,
-                          side: const BorderSide(color: AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
+                      AppButton(
+                        label: l.saveDraftContinueLater,
+                        icon: Icons.save_outlined,
+                        variant: AppButtonVariant.primary,
+                        size: AppButtonSize.small,
                         onPressed: _isSaving ? null : _saveConsultation,
-                        icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
-                        label: Text(l.saveDraftContinueLater, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 9. Final Save / Update
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _editingConsultationId != null ? Colors.orange.shade700 : AppTheme.emerald,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        ),
-                        onPressed: _isSaving ? null : _saveConsultation,
-                        icon: _isSaving
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Icon(_editingConsultationId != null ? Icons.save_as : Icons.save, color: Colors.white),
-                        label: Text(
-                          _editingConsultationId != null
+                      AppButton(
+                        label: _editingConsultationId != null
                               ? l.saveConsultationChanges
                               : (widget.isTaxReviewMode ? l.saveTaxReviewSession : l.saveCustomsStudy),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                        icon: _editingConsultationId != null ? Icons.save_as : Icons.save,
+                        variant: AppButtonVariant.success,
+                        size: AppButtonSize.small,
+                        isLoading: _isSaving,
+                        onPressed: _isSaving ? null : _saveConsultation,
                       ),
                     ],
                   ),
@@ -1995,13 +1983,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: AppTheme.orangeLight,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                        border: Border.all(color: AppTheme.orange, width: 1.5),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
+                          const Icon(Icons.edit_note_rounded, color: AppTheme.orange, size: 28),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -2013,7 +2001,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   children: [
                                     Text(
                                       l.activeEditModeBannerTitle(_editingConsultationCode ?? ''),
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange.shade900),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.wcagOrange),
                                     ),
                                     if (_editingConsultationCode != null)
                                       Tooltip(
@@ -2024,19 +2012,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.orange.shade100,
+                                              color: AppTheme.orangeLight,
                                               borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.orange.shade300),
+                                              border: Border.all(color: AppTheme.orange),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Text(
                                                   _editingConsultationCode!,
-                                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.orange.shade900),
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagOrange),
                                                 ),
                                                 const SizedBox(width: 4),
-                                                Icon(Icons.copy, size: 12, color: Colors.orange.shade900),
+                                                const Icon(Icons.copy, size: 12, color: AppTheme.wcagOrange),
                                               ],
                                             ),
                                           ),
@@ -2047,31 +2035,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 const SizedBox(height: 2),
                                 Text(
                                   l.activeEditModeBannerSub,
-                                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.save_as_rounded, size: 16),
-                            label: Text(l.saveConsultationChanges, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          AppButton(
+                            label: l.saveConsultationChanges,
+                            icon: Icons.save_as_rounded,
+                            variant: AppButtonVariant.warning,
+                            size: AppButtonSize.small,
                             onPressed: _isSaving ? null : _saveConsultation,
                           ),
                           const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.blue.shade800,
-                              side: BorderSide(color: Colors.blue.shade400),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.copy_rounded, size: 16),
-                            label: Text(l.saveAsNewCopy, style: const TextStyle(fontSize: 12)),
+                          AppButton(
+                            label: l.saveAsNewCopy,
+                            icon: Icons.copy_rounded,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
                             onPressed: () {
                               setState(() {
                                 _editingConsultationId = null;
@@ -2079,13 +2061,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 _titleController.text = '${_titleController.text}${TableRowCloneHelper.copySuffix}';
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('📋 ${l.convertedToNewStudyToast}'), backgroundColor: Colors.blue),
+                                SnackBar(content: Text('📋 ${l.convertedToNewStudyToast}'), backgroundColor: AppTheme.cobalt),
                               );
                             },
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.close, color: Colors.grey),
+                            icon: const Icon(Icons.close, color: AppTheme.textMuted),
                             tooltip: l.cancelEditTooltip,
                             onPressed: () {
                               setState(() {
@@ -2106,10 +2088,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // Session Setup Header Card
                   Card(
                     elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -2135,8 +2117,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               if (_editingConsultationCode != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(6)),
-                                  child: Text('${l.statusCol}: $_editingConsultationCode', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(6)),
+                                  child: Text('${l.statusCol}: $_editingConsultationCode', style: const TextStyle(color: AppTheme.wcagOrange, fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                             ],
                           ),
@@ -2355,7 +2337,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Icon(Icons.business, size: 16, color: Colors.blueGrey),
+                                              const Icon(Icons.business, size: 16, color: AppTheme.charcoal),
                                               const SizedBox(width: 6),
                                               CopyableText(l.projectNamedSummary(selFile.projectNames!), style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
                                             ],
@@ -2372,9 +2354,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           return Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.white,
+                                              color: AppTheme.white,
                                               borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.grey.shade300),
+                                              border: Border.all(color: AppTheme.cloudWhite),
                                             ),
                                             child: Text(
                                               '${po.displayName} (${po.poNumber}): ${po.totalAmountFob.toStringAsFixed(2)} $cur',
@@ -2433,10 +2415,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
                   Card(
                     elevation: 3,
-                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -2463,7 +2445,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                                           ),
                                         ),
-                                        Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                        Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                                       ],
                                     ),
                                   ),
@@ -2472,30 +2454,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
                               final actionButtons = <Widget>[
                                 if (widget.isTaxReviewMode) ...[
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.emerald,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    ),
+                                  AppButton(
+                                    label: l.fetchReconciledFinalInvoice,
+                                    icon: Icons.flash_on,
+                                    variant: AppButtonVariant.success,
+                                    size: AppButtonSize.small,
+                                    isLoading: _isRecalculating,
                                     onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
-                                    icon: _isRecalculating
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                          )
-                                        : const Icon(Icons.flash_on, color: Colors.white, size: 16),
-                                    label: Text(
-                                      l.fetchReconciledFinalInvoice,
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
                                   ),
                                 ],
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+                                AppButton(
+                                  label: l.syncHsRequirementsToChecklist,
+                                  icon: Icons.sync_alt,
+                                  variant: AppButtonVariant.primary,
+                                  size: AppButtonSize.small,
                                   onPressed: () => _syncHsRequirementsToChecklist(silent: false),
-                                  icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
-                                  label: Text(l.syncHsRequirementsToChecklist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                                 IconButton(
                                   icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -2637,9 +2610,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.cobalt.withOpacity(0.12) : Colors.blue.shade50.withOpacity(0.5),
+                                color: isDark ? AppTheme.cobalt.withOpacity(0.12) : AppTheme.cobaltLight.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.3) : Colors.blue.shade200),
+                                border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.3) : AppTheme.cobaltBorder),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2659,10 +2632,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                       ),
                                       if (_selectedImportFileId != null)
-                                        TextButton.icon(
-                                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                          icon: const Icon(Icons.download, size: 16, color: AppTheme.cobalt),
-                                          label: Text(l.fetchHighestFreightFromStudy, style: const TextStyle(fontSize: 11)),
+                                        AppButton(
+                                          label: l.fetchHighestFreightFromStudy,
+                                          icon: Icons.download,
+                                          variant: AppButtonVariant.secondary,
+                                          size: AppButtonSize.small,
                                           onPressed: () => _autoFetchFreightFromScenarios(_selectedImportFileId!),
                                         ),
                                     ],
@@ -2789,9 +2763,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.orange.withOpacity(0.12) : Colors.orange.shade50.withOpacity(0.4),
+                                color: isDark ? AppTheme.orange.withOpacity(0.12) : AppTheme.orangeLight.withOpacity(0.4),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : Colors.orange.shade200),
+                                border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : AppTheme.orange),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2845,7 +2819,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             labelText: '${l.insuranceEgpLabel} ($egpLabel)',
                                             border: const OutlineInputBorder(),
                                             filled: _insuranceOption != 'Custom',
-                                            fillColor: _insuranceOption != 'Custom' ? (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100) : null,
+                                            fillColor: _insuranceOption != 'Custom' ? (isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface) : null,
                                             helperText: _insuranceOption != 'Custom' ? l.autoCalculatedCandFInsuranceHelper(_insuranceOption) : null,
                                             suffixIcon: IconButton(
                                               icon: const Icon(Icons.copy, size: 16),
@@ -2913,7 +2887,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
                                         ),
                                       ),
                                     ],
@@ -2997,11 +2971,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: _groupByHsCode ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                      color: _groupByHsCode ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     ),
                                   ),
                                   selectedColor: AppTheme.cobalt,
-                                  checkmarkColor: Colors.white,
+                                  checkmarkColor: AppTheme.white,
                                   onSelected: (val) {
                                     setState(() {
                                       _groupByHsCode = val;
@@ -3013,6 +2987,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             const SizedBox(height: 10),
 
                             if (_recalculationResult != null) ...[
+                              if (_recalculationResult!.hasDifferentCurrencies) ...[
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: 320,
+                                  child: TextFormField(
+                                    controller: _preliminaryRateController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '${l.ccPreliminaryRateLabel} (${_recalculationResult!.preliminaryCurrency} → EGP)',
+                                      border: const OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               RecalculationVarianceComparisonCard(
                                 recalculationResult: _recalculationResult!,
@@ -3026,7 +3016,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             if (calcLines.isEmpty)
                               Container(
                                 padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(8)),
                                 child: Row(
                                   children: [
                                     const Icon(Icons.info_outline, color: AppTheme.cobalt),
@@ -3096,13 +3086,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                       margin: const EdgeInsets.only(top: 2),
                                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.blue.shade50,
+                                                        color: AppTheme.cobaltLight,
                                                         borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: Colors.blue.shade200),
+                                                        border: Border.all(color: AppTheme.cobaltBorder),
                                                       ),
                                                       child: Text(
                                                         line.countryOfOrigin!,
-                                                        style: TextStyle(fontSize: 10, color: Colors.blue.shade900, fontWeight: FontWeight.bold),
+                                                        style: const TextStyle(fontSize: 10, color: AppTheme.wcagCobalt, fontWeight: FontWeight.bold),
                                                       ),
                                                     ),
                                                 ],
@@ -3152,12 +3142,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                     children: [
                                                       Text(
                                                         '${line.baseDutyRate}%',
-                                                        style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 11),
+                                                        style: const TextStyle(decoration: TextDecoration.lineThrough, color: AppTheme.textMuted, fontSize: 11),
                                                       ),
                                                       const SizedBox(width: 4),
                                                       Text(
                                                         '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                                       ),
                                                     ],
                                                   ),
@@ -3165,13 +3155,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                     margin: const EdgeInsets.only(top: 2),
                                                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.green.shade50,
+                                                      color: AppTheme.emeraldLight,
                                                       borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: Colors.green.shade300),
+                                                      border: Border.all(color: AppTheme.emeraldBorder),
                                                     ),
                                                     child: Text(
-                                                      line.appliedAgreementName ?? (isArabic ? 'إعفاء' : 'Exemption'),
-                                                      style: TextStyle(fontSize: 9.5, color: Colors.green.shade900, fontWeight: FontWeight.bold),
+                                                      line.appliedAgreementName ?? (context.l10n.ccExemption),
+                                                      style: const TextStyle(fontSize: 9.5, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
                                                 ] else ...[
@@ -3209,28 +3199,28 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 Container(
                                                   margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(isArabic ? 'تسجيل مسبق' : 'ACID', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                                  decoration: BoxDecoration(color: AppTheme.cobaltBorder, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(context.l10n.ccACID, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
                                               if (line.requiresCoo)
                                                 Container(
                                                   margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(isArabic ? 'شهادة منشأ' : 'COO', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                                  decoration: BoxDecoration(color: AppTheme.emeraldBorder, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(context.l10n.ccCOO, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                                 ),
                                               if (line.requiresInspection)
                                                 Container(
                                                   margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(isArabic ? 'رقابة صادرات' : 'GOEIC', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                                  decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(context.l10n.ccGOEIC, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.orange)),
                                                 ),
                                               if (line.regulatoryAuthority != null)
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: Colors.purple.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple)),
+                                                  decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
                                             ],
                                           ),
@@ -3248,34 +3238,34 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.12),
+                                    color: AppTheme.orange.withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                                    border: Border.all(color: AppTheme.wcagOrange, width: 1.2),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                                          const Icon(Icons.warning_amber_rounded, color: AppTheme.wcagOrange, size: 18),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
-                                              '${isArabic ? "⚠️ بند جمركي" : "⚠️ HS Code"}: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
+                                              '${context.l10n.ccHSCode}: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.wcagOrange),
                                             ),
                                           ),
                                           if (line.hasExemption)
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: Colors.green.shade100,
+                                                color: AppTheme.emeraldBorder,
                                                 borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: Colors.green.shade700),
+                                                border: Border.all(color: AppTheme.wcagEmerald),
                                               ),
                                               child: Text(
-                                                line.appliedAgreementName ?? (isArabic ? 'إعفاء' : 'Exemption'),
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                                line.appliedAgreementName ?? (context.l10n.ccExemption),
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagEmerald),
                                               ),
                                             ),
                                         ],
@@ -3291,7 +3281,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         const SizedBox(height: 3),
                                         Text(
                                           line.requiredDocument!,
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt),
                                         ),
                                       ],
                                       if (line.priorApprovalNote != null && line.priorApprovalNote!.isNotEmpty) ...[
@@ -3324,18 +3314,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ConsultationMetricBadge(
                                       title: l.fobEgpCol,
                                       value: '${totalFobForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalFobEgp.toStringAsFixed(2)} $egpLabel)',
-                                      color: Colors.grey.shade800,
+                                      color: AppTheme.charcoal,
                                     ),
                                     ConsultationMetricBadge(
                                       title: l.cifEgpCol,
                                       value: '${totalCifForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalCifEgp.toStringAsFixed(2)} $egpLabel)',
                                       color: AppTheme.cobalt,
                                     ),
-                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: Colors.indigo),
-                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: Colors.teal),
+                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.cobalt),
+                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.emerald),
                                     ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                                    AppButton(
+                                      label: l.applyAndLinkFinancialEstimate,
+                                      icon: Icons.done_all,
+                                      variant: AppButtonVariant.success,
+                                      size: AppButtonSize.small,
                                       onPressed: () {
                                         setState(() {
                                           _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
@@ -3344,8 +3337,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
                                         );
                                       },
-                                      icon: const Icon(Icons.done_all, color: Colors.white, size: 16),
-                                      label: Text(l.applyAndLinkFinancialEstimate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
                               const SizedBox(height: 16),
 
@@ -3383,10 +3374,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // Checklist Table & Controls
                   Card(
                     elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -3404,11 +3395,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                                 ),
                               );
-                              final btnWidget = ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                              final btnWidget = AppButton(
+                                label: l.addNewChecklistItem,
+                                icon: Icons.add,
+                                variant: AppButtonVariant.primary,
                                 onPressed: _addChecklistItem,
-                                icon: const Icon(Icons.add, color: Colors.white),
-                                label: Text(l.addNewChecklistItem, style: const TextStyle(color: Colors.white)),
                               );
 
                               if (isNarrow) {
@@ -3465,12 +3456,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           if (item.regulatoryAgency != null)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 2.0),
-                                              child: CopyableText('${l.responsiblePartyLabel}: ${item.regulatoryAgency == 'GOEIC' ? l.goeicAgencyName : item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                              child: CopyableText('${l.responsiblePartyLabel}: ${item.regulatoryAgency == 'GOEIC' ? l.goeicAgencyName : item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                                             ),
                                           if (item.remarks != null && item.remarks!.isNotEmpty)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 2.0),
-                                              child: CopyableText(_getLocalizedRemarks(item.remarks, l), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                              child: CopyableText(_getLocalizedRemarks(item.remarks, l), style: const TextStyle(fontSize: 11, color: AppTheme.textStrong)),
                                             ),
                                           const SizedBox(height: 8),
                                           Row(
@@ -3517,7 +3508,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               ),
                                               const SizedBox(width: 8),
                                               IconButton(
-                                                icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
+                                                icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? AppTheme.crimson : AppTheme.textMuted, size: 20),
                                                 tooltip: item.isBlockingShipment ? l.blockingConditionTooltip : l.nonBlockingConditionTooltip,
                                                 onPressed: () {
                                                   setState(() {
@@ -3531,7 +3522,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 onPressed: () => _cloneChecklistItem(index),
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                                icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted, size: 20),
                                                 onPressed: () {
                                                   setState(() {
                                                     _checklist.removeAt(index);
@@ -3568,12 +3559,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               if (item.regulatoryAgency != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 2.0),
-                                                  child: CopyableText('${l.responsiblePartyLabel}: ${item.regulatoryAgency == 'GOEIC' ? l.goeicAgencyName : item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                                  child: CopyableText('${l.responsiblePartyLabel}: ${item.regulatoryAgency == 'GOEIC' ? l.goeicAgencyName : item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                                                 ),
                                               if (item.remarks != null && item.remarks!.isNotEmpty)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 2.0),
-                                                  child: CopyableText(_getLocalizedRemarks(item.remarks, l), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                                  child: CopyableText(_getLocalizedRemarks(item.remarks, l), style: const TextStyle(fontSize: 11, color: AppTheme.textStrong)),
                                                 ),
                                             ],
                                           ),
@@ -3623,7 +3614,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         const SizedBox(width: 8),
                                         IconButton(
-                                          icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
+                                          icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? AppTheme.crimson : AppTheme.textMuted, size: 20),
                                           tooltip: item.isBlockingShipment ? l.blockingConditionTooltip : l.nonBlockingConditionTooltip,
                                           onPressed: () {
                                             setState(() {
@@ -3637,7 +3628,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           onPressed: () => _cloneChecklistItem(index),
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                          icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted, size: 20),
                                           onPressed: () {
                                             setState(() {
                                               _checklist.removeAt(index);
@@ -3718,7 +3709,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       l.customsInspectionReadiness: '${source.checklistItems.length} ${l.itemsAndDocsCount}',
     };
     if (source.estimatedDutiesEgp > 0) {
-      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}';
+      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${context.l10n.financialSettlementCurrencyEgp}';
     }
     if (source.brokerQuoteItems.isNotEmpty) {
       copiedMap[l.clearanceBrokerFeeItem] = '${source.brokerQuoteItems.length}';

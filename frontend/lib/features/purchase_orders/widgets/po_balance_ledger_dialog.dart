@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 void showPOBalanceLedgerDialog(BuildContext context, WidgetRef ref, {required int poId, required String poCode}) {
   showDialog(
@@ -96,7 +97,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                     children: [
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
-                      Text(l.poBalanceLoading, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                      Text(l.poBalanceLoading, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
                     ],
                   ),
                 ),
@@ -112,7 +113,11 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                           const SizedBox(height: 12),
                           Text(l.poBalanceLoadError(_error!), style: const TextStyle(color: AppTheme.crimson)),
                           const SizedBox(height: 12),
-                          ElevatedButton(onPressed: _fetchBalance, child: Text(l.isArabic ? 'إعادة المحاولة' : 'Retry')),
+                          AppButton(
+                            label: l.retry,
+                            variant: AppButtonVariant.primary,
+                            onPressed: _fetchBalance,
+                          ),
                         ],
                       ),
                     ),
@@ -123,19 +128,34 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
     );
   }
 
+  /// First present numeric value of [keys] (backend contract name first, legacy name second).
+  static double _num(Map? m, List<String> keys) {
+    for (final k in keys) {
+      final v = m?[k];
+      if (v is num) return v.toDouble();
+    }
+    return 0.0;
+  }
+
   Widget _buildContent(BuildContext context, bool isDark) {
     final l = context.l10n;
-    final orderedQty = (_balanceData?['total_ordered_quantity'] as num?)?.toDouble() ?? 0.0;
-    final shippedQty = (_balanceData?['total_shipped_quantity'] as num?)?.toDouble() ?? 0.0;
-    final remainingQty = (_balanceData?['total_remaining_quantity'] as num?)?.toDouble() ?? 0.0;
+    final orderedQty = _num(_balanceData, ['total_ordered_qty', 'total_ordered_quantity']);
+    final shippedQty = _num(_balanceData, ['total_shipped_qty', 'total_shipped_quantity']);
+    final remainingQty = _num(_balanceData, ['total_remaining_qty', 'total_remaining_quantity']);
 
-    final orderedUsd = (_balanceData?['total_ordered_fob_usd'] as num?)?.toDouble() ?? 0.0;
-    final shippedUsd = (_balanceData?['total_shipped_fob_usd'] as num?)?.toDouble() ?? 0.0;
-    final remainingUsd = (_balanceData?['total_remaining_fob_usd'] as num?)?.toDouble() ?? 0.0;
+    final orderedUsd = _num(_balanceData, ['total_ordered_amount_fob', 'total_ordered_fob_usd']);
+    final shippedUsd = _num(_balanceData, ['total_shipped_amount_fob', 'total_shipped_fob_usd']);
+    final remainingUsd = _num(_balanceData, ['total_remaining_amount_fob', 'total_remaining_fob_usd']);
 
-    final fulfillment = (_balanceData?['fulfillment_percentage'] as num?)?.toDouble() ?? 0.0;
-    final isFullyShipped = _balanceData?['is_fully_shipped'] == true;
-    final items = (_balanceData?['line_items'] as List<dynamic>?) ?? [];
+    // Value-weighted percentage computed by the backend: shown as is, never recomputed here.
+    final fulfillment = _num(_balanceData, ['overall_fulfillment_percent', 'fulfillment_percentage']);
+    final fulfillmentStatus = _balanceData?['fulfillment_status'];
+    final isFullyShipped = _balanceData?['is_fully_shipped'] == true ||
+        fulfillmentStatus == 'Fully Shipped' ||
+        fulfillmentStatus == 'Over-Shipped';
+    final items = (_balanceData?['line_items_balance'] as List<dynamic>?) ??
+        (_balanceData?['line_items'] as List<dynamic>?) ??
+        [];
 
     return SingleChildScrollView(
       child: Column(
@@ -166,7 +186,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                     ),
                     Text(
                       l.poBalanceSubTitle(widget.poCode, fulfillment.toStringAsFixed(1)),
-                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -182,9 +202,9 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+              color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,7 +232,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                   child: LinearProgressIndicator(
                     value: (fulfillment / 100).clamp(0.0, 1.0),
                     minHeight: 10,
-                    backgroundColor: isDark ? AppTheme.darkSurface : Colors.grey.shade300,
+                    backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite,
                     valueColor: AlwaysStoppedAnimation<Color>(isFullyShipped ? AppTheme.emerald : AppTheme.cobalt),
                   ),
                 ),
@@ -265,10 +285,10 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
           const SizedBox(height: 8),
           Table(
-            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             children: [
               TableRow(
-                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.charcoalSurface),
                 children: [
                   Padding(padding: const EdgeInsets.all(8), child: Text(l.poBalanceColItemCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
                   Padding(padding: const EdgeInsets.all(8), child: Text(l.poBalanceColDescription, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -279,14 +299,14 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 ],
               ),
               ...items.map((it) {
-                final rem = (it['remaining_quantity'] as num?)?.toDouble() ?? 0.0;
-                final isDone = it['is_fully_shipped'] == true;
+                final rem = _num(it as Map, ['remaining_qty', 'remaining_quantity']);
+                final isDone = it['is_fully_shipped'] == true || (rem <= 0 && _num(it, ['ordered_qty', 'ordered_quantity']) > 0);
                 return TableRow(
                   children: [
                     Padding(padding: const EdgeInsets.all(8), child: Text(it['item_code'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text(it['description'] ?? '', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${it['ordered_quantity'] ?? 0}', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${it['shipped_quantity'] ?? 0}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text((it['description_ar'] ?? it['description'] ?? '').toString(), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${_num(it, ['ordered_qty', 'ordered_quantity'])}', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${_num(it, ['shipped_qty', 'shipped_quantity'])}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(padding: const EdgeInsets.all(8), child: Text('$rem', style: TextStyle(color: rem > 0 ? AppTheme.orange : AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(
                       padding: const EdgeInsets.all(8),
@@ -327,9 +347,9 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardBackground : Colors.white,
+        color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,7 +361,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -351,7 +371,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
           const SizedBox(height: 10),
           Text(qtyText, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(usdText, style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontWeight: FontWeight.w500)),
+          Text(usdText, style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary, fontWeight: FontWeight.w500)),
         ],
       ),
     );

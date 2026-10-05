@@ -348,12 +348,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 if (isAr) {
                                   buffer.writeln('الملف: ${f.customFileNumber ?? f.importFileCode} | الشركة: ${f.companyName} | إجمالي CBM: ${fileCbm.toStringAsFixed(3)} م³ | الوزن القائم: ${fileWt.toStringAsFixed(0)} كجم | أوامر الشراء: ${linkedPOs.length}');
                                   for (var po in linkedPOs) {
-                                    buffer.writeln('   - أمر شراء: ${po.poNumber} | فاتورة مبدئية: ${po.proformaInvoiceNumber ?? "-"} | المورد: ${po.supplierName} | القيمة: ${po.currencyCode ?? "USD"} ${po.totalAmountFob} | الحجم: ${po.totalCbm} م³ | الحالة: ${po.status}');
+                                    buffer.writeln('   - أمر شراء: ${po.poNumber} | فاتورة مبدئية: ${po.proformaInvoiceNumber ?? "-"} | المورد: ${po.supplierName} | القيمة: ${po.currencyCode ?? "USD"} ${po.totalAmountFob} | الحجم: ${po.totalCbm} م³ | الحالة: ${po.statusLabel(context.l10n)}');
                                   }
                                 } else {
                                   buffer.writeln('File: ${f.customFileNumber ?? f.importFileCode} | Company: ${f.companyName} | Total CBM: ${fileCbm.toStringAsFixed(3)} m3 | Total Wt: ${fileWt.toStringAsFixed(0)} kg | POs Count: ${linkedPOs.length}');
                                   for (var po in linkedPOs) {
-                                    buffer.writeln('   - PO: ${po.poNumber} | PI: ${po.proformaInvoiceNumber ?? "-"} | Supplier: ${po.supplierName} | Amount: ${po.currencyCode ?? "USD"} ${po.totalAmountFob} | CBM: ${po.totalCbm} m3 | Status: ${po.status}');
+                                    buffer.writeln('   - PO: ${po.poNumber} | PI: ${po.proformaInvoiceNumber ?? "-"} | Supplier: ${po.supplierName} | Amount: ${po.currencyCode ?? "USD"} ${po.totalAmountFob} | CBM: ${po.totalCbm} m3 | Status: ${po.statusLabel(context.l10n)}');
                                   }
                                 }
                               }
@@ -938,7 +938,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                               DataCell(CopyableTableCell(value: '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', rowSummary: poRowSummary, child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)))),
                                               DataCell(CopyableTableCell(value: plText, rowSummary: poRowSummary, child: Text(plText))),
                                               DataCell(CopyableTableCell(value: '${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', rowSummary: poRowSummary, child: Text('${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
-                                              DataCell(CopyableTableCell(value: po.status, rowSummary: poRowSummary, child: Text(po.status, style: TextStyle(color: po.status == 'Approved' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold)))),
+                                              DataCell(CopyableTableCell(value: po.statusLabel(context.l10n), rowSummary: poRowSummary, child: Text(po.statusLabel(context.l10n), style: TextStyle(color: po.status == 'APPROVED' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold)))),
                                             ],
                                           );
                                         }).toList(),

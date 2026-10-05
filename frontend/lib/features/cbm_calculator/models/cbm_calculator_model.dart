@@ -1,3 +1,8 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+
+// The factor lives in core so the PO form and ContainerRequirementEngine share it.
+export '../../../core/constants/cargo_constants.dart';
 double _numToDouble(dynamic val, [double fallback = 0.0]) {
   if (val == null) return fallback;
   if (val is num) return val.toDouble();
@@ -119,9 +124,16 @@ class CBMCalculationModel {
   final double totalGrossWeightKg;
   final double totalVolumetricWeightKg;
   final double airChargeableWeightKg;
+  /// SHIPMENT_MODE code the study was made for (AIR / SEA); null on legacy rows.
+  final String? shipmentMode;
   final String? recommendedShippingMethod;
   final String? recommendedContainerType;
   final int recommendedContainerCount;
+  /// "<n> x C40_HC" (CONTAINER_TYPE code) and the same counts as numbers.
+  final String? smartHybridContainers;
+  final String? flatOnlyContainers;
+  final int? smartHybridContainersCount;
+  final int? flatOnlyContainersCount;
   final String? notes;
   final bool isStackable;
   final bool isActive;
@@ -144,9 +156,14 @@ class CBMCalculationModel {
     this.totalGrossWeightKg = 0.0,
     this.totalVolumetricWeightKg = 0.0,
     this.airChargeableWeightKg = 0.0,
+    this.shipmentMode,
     this.recommendedShippingMethod,
     this.recommendedContainerType,
     this.recommendedContainerCount = 0,
+    this.smartHybridContainers,
+    this.flatOnlyContainers,
+    this.smartHybridContainersCount,
+    this.flatOnlyContainersCount,
     this.notes,
     this.isStackable = true,
     this.isActive = true,
@@ -171,9 +188,14 @@ class CBMCalculationModel {
       totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
       totalVolumetricWeightKg: _numToDouble(json['total_volumetric_weight_kg']),
       airChargeableWeightKg: _numToDouble(json['air_chargeable_weight_kg']),
+      shipmentMode: json['shipment_mode'] as String?,
       recommendedShippingMethod: json['recommended_shipping_method'],
       recommendedContainerType: json['recommended_container_type'],
       recommendedContainerCount: _numToInt(json['recommended_container_count']),
+      smartHybridContainers: json['smart_hybrid_containers'] as String?,
+      flatOnlyContainers: json['flat_only_containers'] as String?,
+      smartHybridContainersCount: json['smart_hybrid_containers_count'] != null ? _numToInt(json['smart_hybrid_containers_count']) : null,
+      flatOnlyContainersCount: json['flat_only_containers_count'] != null ? _numToInt(json['flat_only_containers_count']) : null,
       notes: json['notes'],
       isStackable: json['is_stackable'] as bool? ?? true,
       isActive: json['is_active'] ?? true,
@@ -210,6 +232,7 @@ class CBMCalculationModel {
       if (poId != null) 'po_id': poId,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
       'is_stackable': isStackable,
+      if (shipmentMode != null) 'shipment_mode': shipmentMode,
       'items': items.map((i) => i.toCreateJson()).toList(),
     };
   }
@@ -222,7 +245,59 @@ class CBMCalculationModel {
       'po_id': poId,
       'notes': notes,
       'is_stackable': isStackable,
+      if (shipmentMode != null) 'shipment_mode': shipmentMode,
       'items': items.map((i) => i.toCreateJson()).toList(),
     };
   }
+}
+
+
+/// Display helpers: the backend sends CODES (SHIPPING_METHOD / CONTAINER_TYPE);
+/// these render them in the user's language and never show a raw code.
+extension CBMCalculationLabels on CBMCalculationModel {
+  String shippingMethodLabel(AppLocalizations l10n) => DomainEnums.label(
+        l10n,
+        DomainEnumType.shippingMethod,
+        recommendedShippingMethod,
+        fallback: '-',
+      );
+
+  /// '-' for air (no container) or an unknown value.
+  String containerTypeLabel(AppLocalizations l10n) => DomainEnums.label(
+        l10n,
+        DomainEnumType.containerType,
+        recommendedContainerType,
+        fallback: '-',
+      );
+
+  /// "Air Freight" / "Sea Freight"; '-' for legacy rows saved before the mode was stored.
+  String shipmentModeLabel(AppLocalizations l10n) =>
+      DomainEnums.label(l10n, DomainEnumType.shipmentMode, shipmentMode, fallback: '-');
+
+  bool get isAirRecommended =>
+      DomainEnums.legacyToCode(DomainEnumType.shippingMethod, recommendedShippingMethod) == 'AIR';
+
+  /// "3 x 40FT High Cube Container (40' HC)"; '-' when there is no container.
+  String recommendedContainersLabel(AppLocalizations l10n) {
+    final type = containerTypeLabel(l10n);
+    if (type == '-' || recommendedContainerCount <= 0) return '-';
+    return '$recommendedContainerCount x $type';
+  }
+
+  String? smartHybridContainersLabel(AppLocalizations l10n) =>
+      containersText(smartHybridContainers, l10n);
+
+  String? flatOnlyContainersLabel(AppLocalizations l10n) => containersText(flatOnlyContainers, l10n);
+}
+
+final RegExp _containersTextPattern = RegExp(r'^\s*(\d+)\s*x\s*(\S+)\s*$', caseSensitive: false);
+
+/// Renders the backend's "<n> x C40_HC" as "<n> x <container label>".
+/// Text that does not match the pattern is returned unchanged; null stays null.
+String? containersText(String? raw, AppLocalizations l10n) {
+  if (raw == null) return null;
+  final m = _containersTextPattern.firstMatch(raw);
+  if (m == null) return raw;
+  final label = DomainEnums.labelIfKnown(l10n, DomainEnumType.containerType, m.group(2));
+  return label == null ? raw : '${m.group(1)} x $label';
 }

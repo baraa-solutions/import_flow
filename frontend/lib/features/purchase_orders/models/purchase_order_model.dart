@@ -1,3 +1,6 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+
 const List<Map<String, String>> kMasterPackageTypes = [
   {'code': 'CT', 'name': 'CT - Carton (كرتونة)'},
   {'code': 'BX', 'name': 'BX - Box (صندوق)'},
@@ -117,7 +120,7 @@ class POLineItemModel {
     final rawTotal = _numToDouble(json['total_price']);
     final tot = rawTotal > 0 ? rawTotal : (q * p);
     return POLineItemModel(
-      itemId: _numToInt(json['item_id']),
+      itemId: json['item_id'] != null ? _numToInt(json['item_id']) : null,
       poId: _numToInt(json['po_id']),
       itemCode: json['item_code'] as String?,
       mainDescription: json['main_description'] as String?,
@@ -139,7 +142,9 @@ class POLineItemModel {
     );
   }
 
+  /// [clearId] drops the id (a duplicated row is a NEW row: the backend would update the original in place otherwise).
   POLineItemModel copyWith({
+    bool clearId = false,
     int? itemId,
     int? poId,
     String? itemCode,
@@ -163,7 +168,7 @@ class POLineItemModel {
     final newQty = quantity ?? this.quantity;
     final newPrice = unitPrice ?? this.unitPrice;
     return POLineItemModel(
-      itemId: itemId ?? this.itemId,
+      itemId: clearId ? null : (itemId ?? this.itemId),
       poId: poId ?? this.poId,
       itemCode: itemCode ?? this.itemCode,
       mainDescription: mainDescription ?? this.mainDescription,
@@ -207,6 +212,24 @@ class POLineItemModel {
 }
 
 class PackingListItemModel {
+  /// Lengths are sent in one of these units (the backend answers 422 for anything else).
+  static const List<String> lengthUnits = ['mm', 'cm', 'm'];
+
+  /// Declared weight UOM codes (MEASURE_UNIT). A label only: every weight value is kilograms.
+  static const List<String> weightUnits = ['KG', 'GRM', 'STN', 'SET'];
+
+  /// A valid length unit; blank / unknown (e.g. an AI-extracted "PCS") becomes cm.
+  static String normalizeLengthUnit(String? value) {
+    final u = (value ?? '').trim().toLowerCase();
+    return lengthUnits.contains(u) ? u : 'cm';
+  }
+
+  /// A valid weight-unit code; aliases (KGM, KGS, TON ...) are mapped, anything else is KG.
+  static String normalizeWeightUnit(String? value) {
+    final code = DomainEnums.legacyToCode(DomainEnumType.measureUnit, value);
+    return code != null && weightUnits.contains(code) ? code : 'KG';
+  }
+
   final int? packingItemId;
   final int? poId;
   final String hsCode;
@@ -243,7 +266,7 @@ class PackingListItemModel {
     this.lengthCm = 0.0,
     this.widthCm = 0.0,
     this.heightCm = 0.0,
-    this.weightUnit = 'KGM',
+    this.weightUnit = 'KG',
     this.netWeightUnitKg = 0.0,
     this.grossWeightUnitKg = 0.0,
     this.totalNetWeightKg = 0.0,
@@ -264,7 +287,9 @@ class PackingListItemModel {
     return totalCbm;
   }
 
+  /// [clearId] drops the id (a duplicated row is a NEW row).
   PackingListItemModel copyWith({
+    bool clearId = false,
     int? packingItemId,
     int? poId,
     String? hsCode,
@@ -288,7 +313,7 @@ class PackingListItemModel {
     bool? isStackable,
   }) {
     return PackingListItemModel(
-      packingItemId: packingItemId ?? this.packingItemId,
+      packingItemId: clearId ? null : (packingItemId ?? this.packingItemId),
       poId: poId ?? this.poId,
       hsCode: hsCode ?? this.hsCode,
       itemCode: itemCode ?? this.itemCode,
@@ -314,7 +339,7 @@ class PackingListItemModel {
 
   factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
     return PackingListItemModel(
-      packingItemId: _numToInt(json['packing_item_id']),
+      packingItemId: json['packing_item_id'] != null ? _numToInt(json['packing_item_id']) : null,
       poId: _numToInt(json['po_id']),
       hsCode: json['hs_code'] as String? ?? '',
       itemCode: json['item_code'] as String? ?? '',
@@ -323,11 +348,11 @@ class PackingListItemModel {
       qtyPcs: _numToDouble(json['qty_pcs'], 1.0),
       qtyPkg: _numToDouble(json['qty_pkg'], 1.0),
       packageType: json['package_type'] as String? ?? 'Carton',
-      unit: json['unit'] as String? ?? 'cm',
+      unit: PackingListItemModel.normalizeLengthUnit(json['unit'] as String?),
       lengthCm: _numToDouble(json['length_cm']),
       widthCm: _numToDouble(json['width_cm']),
       heightCm: _numToDouble(json['height_cm']),
-      weightUnit: json['weight_unit'] as String? ?? 'KGM',
+      weightUnit: PackingListItemModel.normalizeWeightUnit(json['weight_unit'] as String?),
       netWeightUnitKg: _numToDouble(json['net_weight_unit_kg']),
       grossWeightUnitKg: _numToDouble(json['gross_weight_unit_kg']),
       totalNetWeightKg: _numToDouble(json['total_net_weight_kg']),
@@ -462,7 +487,10 @@ class PurchaseOrderModel {
   final double palletLengthCm;
   final double palletWidthCm;
   final double palletHeightCm;
+  /// PO_STATUS code (DRAFT, APPROVED, PARTIALLY_SHIPPED, FULLY_SHIPPED, CLOSED, CANCELLED).
   final String status;
+  final String? createdBy;
+  final String? updatedBy;
   final String? notes;
   final int version;
   final bool isActive;
@@ -510,7 +538,9 @@ class PurchaseOrderModel {
     this.palletLengthCm = 120.0,
     this.palletWidthCm = 80.0,
     this.palletHeightCm = 150.0,
-    this.status = 'Draft',
+    this.status = 'DRAFT',
+    this.createdBy,
+    this.updatedBy,
     this.notes,
     this.version = 1,
     this.isActive = true,
@@ -558,7 +588,9 @@ class PurchaseOrderModel {
       palletLengthCm: _numToDouble(json['pallet_length_cm'], 120.0),
       palletWidthCm: _numToDouble(json['pallet_width_cm'], 80.0),
       palletHeightCm: _numToDouble(json['pallet_height_cm'], 150.0),
-      status: json['status'] as String? ?? 'Draft',
+      status: DomainEnums.legacyToCode(DomainEnumType.poStatus, json['status'] as String?) ?? (json['status'] as String? ?? 'DRAFT'),
+      createdBy: json['created_by'] as String?,
+      updatedBy: json['updated_by'] as String?,
       notes: json['notes'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
@@ -615,3 +647,10 @@ class PurchaseOrderModel {
   }
 }
 
+
+
+/// Display helper: the backend sends a PO_STATUS code; never show it raw.
+extension PurchaseOrderStatusLabel on PurchaseOrderModel {
+  String statusLabel(AppLocalizations l10n) =>
+      DomainEnums.label(l10n, DomainEnumType.poStatus, status, fallback: '-');
+}

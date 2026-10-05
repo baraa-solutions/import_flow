@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class AddChecklistItemDialog extends StatefulWidget {
   final Function(CustomsChecklistItemModel) onItemAdded;
@@ -159,12 +159,15 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        AppButton(
+          label: l.cancel,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
           onPressed: () => Navigator.pop(context),
-          child: Text(l.cancel),
         ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+        AppButton(
+          label: l.save,
+          variant: AppButtonVariant.primary,
           onPressed: () {
             final doc = _docController.text.trim();
             if (doc.isEmpty) return;
@@ -180,7 +183,6 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
             ));
             Navigator.pop(context);
           },
-          child: Text(l.save, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );

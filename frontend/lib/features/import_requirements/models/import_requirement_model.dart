@@ -3,10 +3,11 @@ class ImportRequirementHSCodeItemModel {
   final String? commodityDescription;
   final String? itemCode;
   final String? countryOfOrigin;
-  final String currency;
+  final String? currency;
   final double itemValue;
   final double quantity;
-  final String unitOfMeasure;
+  /// Null when the backend has no unit (no default is invented here).
+  final String? unitOfMeasure;
 
   // Pillar 1: Decree 43 & Factory Registration
   final bool decree43Applicable;
@@ -55,10 +56,10 @@ class ImportRequirementHSCodeItemModel {
     this.commodityDescription,
     this.itemCode,
     this.countryOfOrigin,
-    this.currency = 'USD',
+    this.currency,
     this.itemValue = 0.0,
     this.quantity = 1.0,
-    this.unitOfMeasure = 'PCS',
+    this.unitOfMeasure,
     this.decree43Applicable = false,
     this.whiteListRequired = false,
     this.whiteListVerified = false,
@@ -67,11 +68,11 @@ class ImportRequirementHSCodeItemModel {
     this.decree43Justification,
     this.decree43Notes,
     this.cooRequired = false,
-    this.cooType = 'EUR.1',
+    this.cooType,
     this.cooStatus = 'Not Required',
     this.cooNotes,
     this.inspectionRequired = false,
-    this.inspectionBody = 'SGS',
+    this.inspectionBody,
     this.inspectionStatus = 'Not Required',
     this.inspectionReportNo,
     this.inspectionNotes,
@@ -214,10 +215,10 @@ class ImportRequirementHSCodeItemModel {
       commodityDescription: json['commodity_description'],
       itemCode: json['item_code'],
       countryOfOrigin: json['country_of_origin'],
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency'],
       itemValue: (json['item_value'] as num?)?.toDouble() ?? 0.0,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
-      unitOfMeasure: json['unit_of_measure'] ?? 'PCS',
+      unitOfMeasure: json['unit_of_measure'],
       decree43Applicable: json['decree_43_applicable'] ?? false,
       whiteListRequired: json['white_list_required'] ?? false,
       whiteListVerified: json['white_list_verified'] ?? false,
@@ -226,11 +227,11 @@ class ImportRequirementHSCodeItemModel {
       decree43Justification: json['decree_43_justification'],
       decree43Notes: json['decree_43_notes'],
       cooRequired: json['coo_required'] ?? false,
-      cooType: json['coo_type'] ?? 'EUR.1',
+      cooType: json['coo_type'],
       cooStatus: json['coo_status'] ?? 'Not Required',
       cooNotes: json['coo_notes'],
       inspectionRequired: json['inspection_required'] ?? false,
-      inspectionBody: json['inspection_body'] ?? 'SGS',
+      inspectionBody: json['inspection_body'],
       inspectionStatus: json['inspection_status'] ?? 'Not Required',
       inspectionReportNo: json['inspection_report_no'],
       inspectionNotes: json['inspection_notes'],
@@ -299,6 +300,35 @@ class ImportRequirementHSCodeItemModel {
   }
 }
 
+/// A backend system message: `{code, params}`. The client renders it from the code.
+class PrefillMessage {
+  const PrefillMessage({required this.code, this.params = const {}, this.severity = 'warning'});
+
+  static const noHs = 'PREFILL_NO_HS';
+  static const lineNoHs = 'PREFILL_LINE_NO_HS';
+
+  final String code;
+  final Map<String, dynamic> params;
+
+  /// `warning` (default) or `error`.
+  final String severity;
+
+  factory PrefillMessage.fromJson(Map<String, dynamic> json) => PrefillMessage(
+        code: (json['code'] ?? '').toString(),
+        params: json['params'] is Map ? Map<String, dynamic>.from(json['params'] as Map) : const {},
+        severity: (json['severity'] ?? 'warning').toString(),
+      );
+
+  /// Tolerant list parse: null / non-list / malformed entries are skipped.
+  static List<PrefillMessage> listFromJson(dynamic raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final e in raw)
+        if (e is Map && e['code'] != null) PrefillMessage.fromJson(Map<String, dynamic>.from(e)),
+    ];
+  }
+}
+
 class ImportRequirementPrefillModel {
   final int importFileId;
   final String importFileCode;
@@ -307,7 +337,7 @@ class ImportRequirementPrefillModel {
   final String? supplierName;
   final String? countryOfOrigin;
   final String? foreignExporterId;
-  final String currency;
+  final String? currency;
   final double shipmentValue;
   final String? poNumber;
   final String? piNumber;
@@ -350,6 +380,9 @@ class ImportRequirementPrefillModel {
   final String coaStatus;
   final String? specialNotes;
 
+  /// System messages `{code, params}` (PREFILL_NO_HS, PREFILL_LINE_NO_HS); see [PrefillMessage].
+  final List<PrefillMessage> messages;
+
   ImportRequirementPrefillModel({
     required this.importFileId,
     required this.importFileCode,
@@ -358,7 +391,7 @@ class ImportRequirementPrefillModel {
     this.supplierName,
     this.countryOfOrigin,
     this.foreignExporterId,
-    this.currency = 'USD',
+    this.currency,
     this.shipmentValue = 0.0,
     this.poNumber,
     this.piNumber,
@@ -394,6 +427,7 @@ class ImportRequirementPrefillModel {
     this.coaRequired = false,
     this.coaStatus = 'Not Required',
     this.specialNotes,
+    this.messages = const [],
   });
 
   factory ImportRequirementPrefillModel.fromJson(Map<String, dynamic> json) {
@@ -411,7 +445,7 @@ class ImportRequirementPrefillModel {
       supplierName: json['supplier_name'],
       countryOfOrigin: json['country_of_origin'],
       foreignExporterId: json['foreign_exporter_id'],
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency'],
       shipmentValue: (json['shipment_value'] as num?)?.toDouble() ?? 0.0,
       poNumber: json['po_number'],
       piNumber: json['pi_number'],
@@ -447,6 +481,7 @@ class ImportRequirementPrefillModel {
       coaRequired: json['coa_required'] ?? false,
       coaStatus: json['coa_status'] ?? 'Not Required',
       specialNotes: json['special_notes'],
+      messages: PrefillMessage.listFromJson(json['messages']),
     );
   }
 }
@@ -459,7 +494,7 @@ class ImportRequirementModel {
   final String? hsCode;
   final String? commodityDescription;
   final String? countryOfOrigin;
-  final String currency;
+  final String? currency;
   final double shipmentValue;
   final double shipmentValueUsd;
   final List<ImportRequirementHSCodeItemModel> hsCodeItems;
@@ -537,7 +572,7 @@ class ImportRequirementModel {
     this.hsCode,
     this.commodityDescription,
     this.countryOfOrigin,
-    this.currency = 'USD',
+    this.currency,
     this.shipmentValue = 0.0,
     required this.shipmentValueUsd,
     this.hsCodeItems = const [],
@@ -608,7 +643,7 @@ class ImportRequirementModel {
       hsCode: json['hs_code'],
       commodityDescription: json['commodity_description'],
       countryOfOrigin: json['country_of_origin'],
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency'],
       shipmentValue: (json['shipment_value'] ?? json['shipment_value_usd'] ?? 0.0).toDouble(),
       shipmentValueUsd: (json['shipment_value_usd'] ?? 0.0).toDouble(),
       hsCodeItems: items,
