@@ -19,6 +19,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../screens/shipping_scenarios_screen.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -284,7 +285,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           return _buildMobileStudiesCardList(context, state.sessions, importFiles);
                         }
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                           child: Card(
                             elevation: 2,
                             color: isDark ? AppTheme.darkCardBackground : Colors.white,
@@ -1409,8 +1410,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+    final initialName = '${source.title ?? source.sessionCode}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.shippingCarrierOptions: '${source.items.length}',
@@ -1506,7 +1506,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 24),
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

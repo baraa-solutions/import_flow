@@ -363,7 +363,7 @@ class ShippingScenarioService:
         new_title = req.new_title
         if not new_title:
             base_title = source.title or f"Study {source.session_code}"
-            new_title = f"{base_title} (نسخة)"
+            new_title = f"{base_title} (Copy)"
 
         new_crd = req.cargo_ready_date or source.cargo_ready_date
         new_import_file_id = None if req.unlink_import_file else source.import_file_id

@@ -278,3 +278,96 @@ def test_inland_transport_rest_api(client, db_session):
     # 5. DELETE /bookings/{id}
     del_res = client.delete(f"/api/v1/inland-transport/bookings/{transport_id}")
     assert del_res.status_code == 204
+
+
+def _booking_payload(imp_file, waybill="WB-2026-DKH-777"):
+    now = datetime.now(timezone.utc)
+    return InlandTransportBookingCreate(
+        import_file_id=imp_file.import_file_id,
+        waybill_number=waybill,
+        booking_date=now,
+        carrier_name="Nasr Transport",
+        truck_plate_number="ABC 4821",
+        truck_type="FLATBED",
+        driver_name="Mahmoud Attia",
+        driver_phone="01012345678",
+        driver_national_id="28801011234567",
+        container_numbers="MSCU1234567",
+        pickup_port_location="El Dekheila Port",
+        destination_warehouse="Main Warehouse",
+        planned_departure_at=now + timedelta(hours=2),
+        expected_arrival_at=now + timedelta(hours=8),
+        transport_fare_egp=8500.0,
+        status="Booking Confirmed",
+    )
+
+
+def test_create_booking_dispatches_tr03_task_and_closes_tr01_task(db_session):
+    from modules.smart_tasks.model import SmartTask
+
+    imp_file = _create_sample_file(db_session)
+    tr01 = SmartTask(
+        task_code="TSK-TR01-TEST",
+        title="Book inland transport trucks to the warehouse (TR-01) - IMP-2026-0095",
+        import_file_id=imp_file.import_file_id,
+        status="Pending",
+        msg_code="CC_TASK_INLAND_TRANSPORT",
+    )
+    db_session.add(tr01)
+    db_session.commit()
+
+    create_transport_booking_service(db_session, _booking_payload(imp_file), user="TransportOfficer")
+
+    db_session.refresh(tr01)
+    assert tr01.status == "Completed"
+    assert tr01.is_auto_closed is True
+
+    tr03 = db_session.query(SmartTask).filter(SmartTask.msg_code == "TR_TASK_TRACK_ARRIVAL_GRN").all()
+    assert len(tr03) == 1
+    task = tr03[0]
+    assert task.import_file_id == imp_file.import_file_id
+    assert task.step_code == "STEP_19"
+    assert task.status == "Pending"
+    assert "TR-03" in task.title
+    assert task.due_date is not None
+
+
+def test_second_booking_does_not_duplicate_tr03_task(db_session):
+    from modules.smart_tasks.model import SmartTask
+
+    imp_file = _create_sample_file(db_session)
+    create_transport_booking_service(db_session, _booking_payload(imp_file, "WB-A"), user="TransportOfficer")
+    create_transport_booking_service(db_session, _booking_payload(imp_file, "WB-B"), user="TransportOfficer")
+
+    count = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == imp_file.import_file_id,
+        SmartTask.msg_code == "TR_TASK_TRACK_ARRIVAL_GRN",
+    ).count()
+    assert count == 1
+
+
+def test_failure_after_task_step_leaves_no_booking_and_no_task(db_session, monkeypatch):
+    """Phase B review: booking, file sync and the TR-03 task are one transaction (single commit)."""
+    from modules.smart_tasks.model import SmartTask
+    import modules.inland_transport.service as tr_service
+
+    imp_file = _create_sample_file(db_session)
+    file_id = imp_file.import_file_id
+    commits = []
+    real_commit = db_session.commit
+
+    def failing_commit():
+        commits.append(1)
+        raise RuntimeError("simulated failure at the final commit")
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    with pytest.raises(RuntimeError):
+        tr_service.create_transport_booking_service(db_session, _booking_payload(imp_file, "WB-FAIL"), user="T")
+    assert len(commits) == 1  # nothing was committed before the final commit
+    monkeypatch.setattr(db_session, "commit", real_commit)
+    db_session.rollback()
+
+    assert db_session.query(InlandTransportBooking).filter(InlandTransportBooking.waybill_number == "WB-FAIL").count() == 0
+    assert db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == file_id, SmartTask.msg_code == "TR_TASK_TRACK_ARRIVAL_GRN"
+    ).count() == 0

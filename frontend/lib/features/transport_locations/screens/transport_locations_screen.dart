@@ -640,7 +640,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
         rowSummary: rowSummary,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Align(alignment: Alignment.centerLeft, child: child),
+          child: Align(alignment: AlignmentDirectional.centerStart, child: child),
         ),
       );
 

@@ -34,6 +34,7 @@ import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class FreightBookingScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
   const FreightBookingScreen({super.key, this.initialImportFileId});
@@ -864,10 +865,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                         children: [
                                           if (!bkg.isActive)
                                             const Padding(
-                                              padding: EdgeInsets.only(right: 4),
+                                              padding: EdgeInsetsDirectional.only(end: 4),
                                               child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
                                             ),
-                                          Text(
+                                          LtrText(
                                             bkg.bookingCode,
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
@@ -1117,7 +1118,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                           children: [
                                             if (bkg.status != 'Confirmed')
                                               const Padding(
-                                                padding: EdgeInsets.only(left: 3),
+                                                padding: EdgeInsetsDirectional.only(start: 3),
                                                 child: Icon(Icons.touch_app, size: 12, color: AppTheme.orange),
                                               ),
                                             Text(
@@ -2385,6 +2386,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: TextFormField(
                                     controller: _bookingConfirmNoController,
+                                    textDirection: TextDirection.ltr,
                                     decoration: InputDecoration(labelText: l.freightBookingConfirmNoInputLabel, border: const OutlineInputBorder()),
                                     validator: (v) => (v == null || v.trim().isEmpty) ? l.freightBookingConfirmNoValidator : null,
                                   ),
@@ -2781,6 +2783,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: TextFormField(
                                     controller: _voyageNoController,
+                                    textDirection: TextDirection.ltr,
                                     decoration: InputDecoration(labelText: l.freightBookingVoyageNoInput, border: const OutlineInputBorder()),
                                   ),
                                 ),
@@ -3383,6 +3386,7 @@ class _FreightBookingConfirmDialogState extends ConsumerState<_FreightBookingCon
                 TextFormField(
                   key: const Key('bookingConfirmNoInput'),
                   controller: _bookingNoController,
+                  textDirection: TextDirection.ltr,
                   decoration: InputDecoration(
                     labelText: isAr
                         ? 'رقم تأكيد الحجز (Booking No / Booking Confirmation)*'
@@ -3422,6 +3426,7 @@ class _FreightBookingConfirmDialogState extends ConsumerState<_FreightBookingCon
                       child: TextFormField(
                         key: const Key('bookingVoyageNoInput'),
                         controller: _voyageNumberController,
+                        textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: isAr ? 'رقم الرحلة (Voyage No)' : 'Voyage No',
                           hintText: 'e.g. 2608W / 045E',
@@ -4048,7 +4053,7 @@ class _FreightBookingPrintDialog extends StatelessWidget {
                 ...booking.costChargesData.map((ch) => Text('• ${ch.chargeType}: ${ch.total.toStringAsFixed(2)} ${ch.currency}')),
                 const Divider(),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Text(l.freightBookingPrintGrandTotal(booking.totalFreightCostUsd.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.emerald)),
                 ),
                 if (booking.originalFreightCostUsd > 0 || booking.costSavingsUsd > 0) ...[

@@ -288,7 +288,8 @@ def test_acid_verification_workflow_end_to_end(db_session, seed_data):
     assert imp_file.acid_execution_days == 2
 
     # 2. Verify lifecycle auto-advancement to STEP_06 (Phase 3: Booking & Doc Prep)
-    assert imp_file.current_module == "STEP_06 حجز النولون وتأكيد الخط الملاحي" or "STEP_06" in (imp_file.current_stage or "")
+    assert imp_file.current_module == "STEP_06 Freight Booking"
+    assert imp_file.next_action_code == "NA_STEP06_CONFIRM_BOOKING"
     assert (imp_file.progress_percent or 0.0) >= 40.0
 
     # 3. Verify prior pending ACID task is completed
@@ -306,7 +307,7 @@ def test_acid_verification_workflow_end_to_end(db_session, seed_data):
         .first()
     )
     assert booking_task is not None
-    assert "حجز النولون" in booking_task.title
+    assert "freight booking" in booking_task.title
     assert "BK-01" in booking_task.title
 
     # 5. Verify SystemNotification emitted

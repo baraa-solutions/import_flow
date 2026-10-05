@@ -9,6 +9,8 @@ VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 CheckStatus = Literal["up_to_date", "update_available", "offline", "invalid_signature", "disabled"]
 UpdateState = Literal["idle", "downloading", "verifying", "ready", "backing_up", "installing", "failed"]
 LastResult = Literal["none", "success", "failed"]
+# Which file a running download is fetching: the new installer, then (state `verifying`) the rollback copy.
+DownloadPhase = Literal["installer", "rollback_copy"]
 
 
 class ReleaseNotes(BaseModel):
@@ -38,6 +40,8 @@ class UpdateStatusResponse(BaseModel):
     total_bytes: int = 0
     error_code: Optional[str] = None
     error_detail: Optional[str] = None
+    # None outside a running download; bytes/total always describe the file of the current phase.
+    phase: Optional[DownloadPhase] = None
 
 
 class DownloadRequest(BaseModel):

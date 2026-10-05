@@ -22,6 +22,7 @@ import '../widgets/search_and_clone_bank_form4_dialog.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class BankForm4Screen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -221,8 +222,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 _form4Currency = doc.currencyCode;
                 _form4RequestDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
                 _form4NotesCtrl.text = (doc.notes != null && doc.notes!.isNotEmpty)
-                    ? (isAr ? '${doc.notes} (نسخة)' : '${doc.notes} (Copy)')
-                    : (isAr ? '(نسخة نموذج سابق)' : '(Cloned from previous doc)');
+                    ? '${doc.notes}${TableRowCloneHelper.copySuffix}'
+                    : '(Cloned from previous doc)';
               });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -461,7 +462,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             ),
           ],
           body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
+            padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 92),
             child: _selectedSubTab == 0 ? _buildForm4RequestTab() : _buildForm4HistoryRegistryTab(),
           ),
         ),
@@ -547,7 +548,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             ),
                             const SizedBox(height: 8),
                             Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               child: TextButton.icon(
                                 key: const Key('cancelForm4EditModeBtn'),
                                 onPressed: _resetForm4Form,

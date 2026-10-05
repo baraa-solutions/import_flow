@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../models/similar_shipment_model.dart';
 import '../providers/experience_guide_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class SimilarShipmentsCard extends ConsumerWidget {
   final int importFileId;
 
@@ -94,7 +95,7 @@ class SimilarShipmentsCard extends ConsumerWidget {
                   color: AppTheme.flatCobalt.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
+                child: LtrText(
                   s.importFileCode,
                   style: const TextStyle(
                     fontSize: 11,

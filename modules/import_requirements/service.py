@@ -13,6 +13,24 @@ from modules.purchase_orders.model import PurchaseOrder
 from modules.suppliers.model import Supplier
 from modules.customs_consultation.model import CustomsConsultationSession
 from modules.customs_tariff.model import CustomsTariff
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg, render_en
+from modules.common.file_tracking import set_file_tracking
+
+# Verbatim placeholder for a not-yet-issued ACID inside message params (params never carry translated text).
+ACID_PENDING_PLACEHOLDER = "PENDING"
+
+
+def _requirement_item(req_type: str, priority: str, code: str, **params: object) -> dict:
+    """One pending regulatory requirement: English title/description plus the system message code."""
+    m: SysMsg = msg(code, **params)
+    return {
+        "type": req_type,
+        "title": render_en(m.code, m.params, "title"),
+        "desc": render_en(m.code, m.params, "body"),
+        "priority": priority,
+        "msg": m,
+    }
 
 
 def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
@@ -32,7 +50,7 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
         import_file = db.query(ImportFile).filter(ImportFile.import_file_id == assessment.import_file_id).first()
 
     file_code = assessment.import_file_code or (import_file.import_file_code if import_file else f"FILE-{assessment.import_file_id}")
-    acid_str = assessment.acid_number or (import_file.acid_number if import_file else None) or "قيد الإصدار لاحقاً"
+    acid_str = assessment.acid_number or (import_file.acid_number if import_file else None) or ACID_PENDING_PLACEHOLDER
 
     # If import_file has an acid_number but assessment doesn't, sync it
     if import_file and import_file.acid_number and not assessment.acid_number:
@@ -59,12 +77,10 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                 elif itm.get("decree_43_action") == "justified" or (itm.get("decree_43_justification") and itm.get("decree_43_justification").strip()):
                     completed.append(f"Decree43_{hs}")
                 else:
-                    uncompleted.append({
-                        "type": f"Decree43_{hs}",
-                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] المورد يحتاج تسجيل مصنع بالقائمة البيضاء (قرار 43/2016)",
-                        "desc": f"بند التعريفة {hs} يخضع للقرار الوزاري 43 لسنة 2016 والمورد غير مقيد بالقائمة البيضاء لدى GOEIC ويلزم تسجيل المصنع أو استيفاء مبرر استثناء معتمد قبل الشحن",
-                        "priority": "Critical",
-                    })
+                    uncompleted.append(_requirement_item(
+                        f"Decree43_{hs}", "Critical", "REQ_TASK_DECREE43_HS",
+                        import_file_code=file_code, hs_code=hs, acid_number=acid_str,
+                    ))
 
             # 2. Certificate of Origin per HS Code
             if itm.get("coo_required"):
@@ -73,12 +89,12 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                     completed.append(f"COO_{hs}")
                 else:
                     c_type = itm.get("coo_type") or "COO"
-                    uncompleted.append({
-                        "type": f"COO_{hs}",
-                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ ({c_type}) رسمياً",
-                        "desc": f"يلزم استلام وتوثيق شهادة المنشأ للبند {hs} لتطبيق الإعفاء/التخفيض الجمركي - الحالة: {c_status}",
-                        "priority": "High",
-                    })
+                    uncompleted.append(_requirement_item(
+                        f"COO_{hs}", "High", "REQ_TASK_COO_HS",
+                        import_file_code=file_code, hs_code=hs, acid_number=acid_str,
+                        certificate_type=c_type,
+                        status_enum_requirement_status=enum_codes.normalize(enum_codes.REQUIREMENT_STATUS, c_status),
+                    ))
 
             # 3. Pre-Shipment Inspection per HS Code
             if itm.get("inspection_required"):
@@ -87,12 +103,10 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                     completed.append(f"Inspection_{hs}")
                 else:
                     i_body = itm.get("inspection_body") or "GOEIC"
-                    uncompleted.append({
-                        "type": f"Inspection_{hs}",
-                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({i_body})",
-                        "desc": f"البند {hs} يخضع للفحص الفني الإلزامي قبل الشحن بواسطة {i_body}",
-                        "priority": "Critical",
-                    })
+                    uncompleted.append(_requirement_item(
+                        f"Inspection_{hs}", "Critical", "REQ_TASK_INSPECTION_HS",
+                        import_file_code=file_code, hs_code=hs, acid_number=acid_str, authority_enum_regulatory_body=enum_codes.normalize(enum_codes.REGULATORY_BODY, i_body),
+                    ))
 
             # 4. Regulatory Permits per HS Code
             if itm.get("permit_required"):
@@ -100,25 +114,21 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                 if p_status in ["Verified", "Approved", "Received", "Obtained"]:
                     completed.append(f"Permit_{hs}")
                 else:
-                    p_auth = itm.get("regulatory_authority") or "الجهة الرقابية"
-                    uncompleted.append({
-                        "type": f"Permit_{hs}",
-                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة ({p_auth})",
-                        "desc": f"يلزم الحصول على تصريح استيرادي للبند {hs} من {p_auth} قبل الشحن",
-                        "priority": "Critical",
-                    })
+                    p_auth = itm.get("regulatory_authority") or "Regulatory authority"
+                    uncompleted.append(_requirement_item(
+                        f"Permit_{hs}", "Critical", "REQ_TASK_PERMIT_HS",
+                        import_file_code=file_code, hs_code=hs, acid_number=acid_str, authority_enum_regulatory_body=enum_codes.normalize(enum_codes.REGULATORY_BODY, p_auth),
+                    ))
 
     # Global / Assessment-level fallback if hs_code_items is empty
     if not uncompleted and not completed:
         # 1. Decree 43
         if assessment.decree_43_applicable:
             if not assessment.white_list_verified:
-                uncompleted.append({
-                    "type": "Decree43",
-                    "title": f"[{file_code}] [ACID: {acid_str}] توثيق قيد المصنع/المورد الأجنبي بالهيئة العامة للرقابة على الصادرات والواردات (قرار 43)",
-                    "desc": "السلعة تخضع للقرار الوزاري 43 لسنة 2016 ويلزم التحقق من قيد المصنع بالقائمة البيضاء لدى GOEIC قبل الشحن",
-                    "priority": "Critical",
-                })
+                uncompleted.append(_requirement_item(
+                    "Decree43", "Critical", "REQ_TASK_DECREE43",
+                    import_file_code=file_code, acid_number=acid_str,
+                ))
             else:
                 completed.append("Decree43")
 
@@ -127,16 +137,12 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
             if assessment.coo_status not in ["Verified", "Approved", "Received", "Obtained"]:
                 raw_coo = (assessment.coo_type or "COO").strip()
                 clean_coo = raw_coo.replace("(", "").replace(")", "").replace("—", "-").strip()
-                if "شهادة المنشأ" in clean_coo or "COO" in clean_coo or "Certificate of Origin" in clean_coo:
-                    coo_title = f"[{file_code}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ المعتمدة (COO) رسمياً"
-                else:
-                    coo_title = f"[{file_code}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ ({clean_coo}) رسمياً"
-                uncompleted.append({
-                    "type": "COO",
-                    "title": coo_title,
-                    "desc": f"يلزم استلام وتوثيق شهادة المنشأ الأصلية لتطبيق المعاملات التفضيلية والإفراج الجمركي - الحالة الحالية: {assessment.coo_status}",
-                    "priority": "High",
-                })
+                uncompleted.append(_requirement_item(
+                    "COO", "High", "REQ_TASK_COO",
+                    import_file_code=file_code, acid_number=acid_str, status_enum_requirement_status=enum_codes.normalize(
+                        enum_codes.REQUIREMENT_STATUS, assessment.coo_status
+                    ),
+                ))
             else:
                 completed.append("COO")
 
@@ -146,63 +152,50 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                 raw_insp = (assessment.inspection_body or "GOEIC").strip()
                 clean_insp = raw_insp.replace("(", "").replace(")", "").strip()
                 if "GOEIC" in clean_insp or "الصادرات والواردات" in clean_insp:
-                    insp_display = "GOEIC - هيئة الرقابة على الصادرات والواردات"
+                    insp_display = "GOEIC"
                 else:
-                    insp_display = clean_insp or "جهة الفحص المعتمدة"
-                uncompleted.append({
-                    "type": "Inspection",
-                    "title": f"[{file_code}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({insp_display})",
-                    "desc": f"الصنف يخضع للفحص الفني الإلزامي قبل الشحن من بلد المنشأ بواسطة {insp_display}",
-                    "priority": "Critical",
-                })
+                    insp_display = clean_insp or "Approved inspection body"
+                uncompleted.append(_requirement_item(
+                    "Inspection", "Critical", "REQ_TASK_INSPECTION",
+                    import_file_code=file_code, acid_number=acid_str, authority_enum_regulatory_body=enum_codes.normalize(enum_codes.REGULATORY_BODY, insp_display),
+                ))
             else:
                 completed.append("Inspection")
 
         # 4. Import Permit / Regulatory Approvals
         if assessment.import_permit_required:
             if assessment.permit_status not in ["Verified", "Approved", "Received", "Obtained"]:
-                raw_permit = (assessment.permit_issuing_authority or "جهة العرض والرقابة").strip()
+                raw_permit = (assessment.permit_issuing_authority or "Regulatory authority").strip()
                 clean_permit = raw_permit.replace("(", "").replace(")", "").strip()
-                uncompleted.append({
-                    "type": "Permit",
-                    "title": f"[{file_code}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة ({clean_permit})",
-                    "desc": f"يلزم الحصول على تصريح/موافقة استيرادية رسمية من {clean_permit} قبل الشحن",
-                    "priority": "Critical",
-                })
+                uncompleted.append(_requirement_item(
+                    "Permit", "Critical", "REQ_TASK_PERMIT",
+                    import_file_code=file_code, acid_number=acid_str, authority_enum_regulatory_body=enum_codes.normalize(enum_codes.REGULATORY_BODY, clean_permit),
+                ))
             else:
                 completed.append("Permit")
 
     # 5. Technical Documents
     if assessment.msds_required:
         if assessment.msds_status not in ["Verified", "Approved", "Received", "Obtained"]:
-            uncompleted.append({
-                "type": "MSDS",
-                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء صحيفة بيانات سلامة المادة (MSDS) معتمدة ومحدثة",
-                "desc": "يلزم تقديم شهادة الـ MSDS للصنف لتحديد متطلبات السلامة والتعامل المينائي والتخزين",
-                "priority": "Medium",
-            })
+            uncompleted.append(_requirement_item(
+                "MSDS", "Medium", "REQ_TASK_MSDS", import_file_code=file_code, acid_number=acid_str,
+            ))
         else:
             completed.append("MSDS")
 
     if assessment.halal_cert_required:
         if assessment.halal_cert_status not in ["Verified", "Approved", "Received", "Obtained"]:
-            uncompleted.append({
-                "type": "Halal",
-                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة الحلال الرسمية (Halal Certificate)",
-                "desc": "يلزم تقديم شهادة الحلال الصادرة من مركز معتمد من IS EG Halal",
-                "priority": "High",
-            })
+            uncompleted.append(_requirement_item(
+                "Halal", "High", "REQ_TASK_HALAL", import_file_code=file_code, acid_number=acid_str,
+            ))
         else:
             completed.append("Halal")
 
     if assessment.coa_required:
         if assessment.coa_status not in ["Verified", "Approved", "Received", "Obtained"]:
-            uncompleted.append({
-                "type": "COA",
-                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة التحليل المخبري والمطابقة للمواصفات (COA)",
-                "desc": "يلزم استلام تقرير الفحص والتحليل الكيميائي/الميكانيكي من المصنع المنتج",
-                "priority": "Medium",
-            })
+            uncompleted.append(_requirement_item(
+                "COA", "Medium", "REQ_TASK_COA", import_file_code=file_code, acid_number=acid_str,
+            ))
         else:
             completed.append("COA")
 
@@ -228,7 +221,7 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                     task_type="Regulatory Compliance",
                     import_file_id=assessment.import_file_id,
                     import_file_code=file_code,
-                    phase_name="STEP_03: اشتراطات ومتطلبات الاستيراد",
+                    phase_name="STEP_03: Import Regulatory Requirements",
                     assigned_user=import_file.owner if import_file and import_file.owner else "Import Specialist",
                     priority=item["priority"],
                     reminder_type="Regulatory Compliance",
@@ -236,9 +229,14 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                     due_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     notes=f"REQ_TYPE:{item['type']} | ASSESSMENT:{assessment.assessment_code}",
                 )
-                task_repo.create_task(db, task_schema, created_by="Requirements Engine")
+                task_repo.create_task(
+                    db, task_schema, created_by="Requirements Engine",
+                    msg_code=item["msg"].code, msg_params=item["msg"].params, step_code="STEP_03",
+                )
             else:
                 existing_task.title = item["title"]
+                existing_task.msg_code = item["msg"].code
+                existing_task.msg_params = item["msg"].params
 
         # 2. Auto-close completed requirements tasks
         for c_type in completed:
@@ -277,16 +275,21 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                     status="In-Progress",
                     started_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                 )
-                import_file.current_stage = "المرحلة الثانية: بداية الشحنة"
-                import_file.current_module = "STEP_04: اعتمادات الميزانية وسداد الموردين"
-                import_file.next_action = "استكمال سداد دفعة المورد وطلب استخراج رقم ACID (STEP_05)"
+                set_file_tracking(
+                    import_file,
+                    step_code="STEP_04",
+                    next_action=msg("NA_STEP04_COMPLETE_PAYMENT_REQUEST_ACID"),
+                )
                 import_file.progress_percent = max(float(import_file.progress_percent or 0), 30.0)
             else:
                 # Mark STEP_01 and STEP_02 as Completed, and STEP_03 as In-Progress
                 sync_requirements_lifecycle_stage(db, assessment.import_file_id)
                 req_names = [r["type"] for r in uncompleted]
-                req_display = ", ".join(req_names[:3]) if req_names else "مراجعة المتطلبات"
-                import_file.next_action = f"استيفاء {len(uncompleted)} متطلبات رقابية معلقة ({req_display})"
+                req_display = ", ".join(req_names[:3])
+                set_file_tracking(
+                    import_file,
+                    next_action=msg("NA_PENDING_REGULATORY_REQUIREMENTS", count=len(uncompleted), requirements=req_display),
+                )
 
             db.commit()
         except Exception:

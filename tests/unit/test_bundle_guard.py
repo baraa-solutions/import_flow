@@ -617,3 +617,28 @@ def test_build_workflow_runs_no_test_suites():
         assert "flutter test" not in run, step.get("name")
     assert "ci.yml" not in WORKFLOW_TEXT, "no gate on a CI workflow: there is none"
     assert job["permissions"] == {"contents": "read"}
+
+
+LEGACY_LAUNCHER_DELETES = (
+    'Type: files; Name: "{app}\Launch_Sorour_Logistics.vbs"\n'
+    'Type: files; Name: "{app}\Launch_ImportFlow.vbs"\n'
+    'Type: files; Name: "{app}\Sorour_Logistics_App.bat"\n'
+)
+
+
+def test_install_delete_of_the_legacy_launchers_is_allowed():
+    # their port-28080 taskkill also matched the running frontend.exe and closed the app
+    text = SAFE_ISS.replace("[Code]", "[InstallDelete]\n" + LEGACY_DELETES + LEGACY_LAUNCHER_DELETES + "[Code]", 1)
+
+    assert guard.check_iss_text(text) == []
+
+
+@pytest.mark.parametrize("entry", [
+    r'Type: filesandordirs; Name: "{app}\Launch_Sorour_Logistics.vbs"',  # files only
+    r'Type: files; Name: "{app}\Launch_*.vbs"',  # exact names only
+    r'Type: files; Name: "{app}\backups\Sorour_Logistics_App.bat"',  # only directly in {app}
+])
+def test_install_delete_of_launchers_stays_exact(entry):
+    text = SAFE_ISS.replace("[Code]", "[InstallDelete]\n" + entry + "\n[Code]", 1)
+
+    assert guard.check_iss_text(text), entry

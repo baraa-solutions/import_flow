@@ -14,6 +14,9 @@ import urllib.error
 import difflib
 from typing import Any, Dict, List, Optional, Tuple
 
+from modules.common.enum_codes import Measure, Placeholder, finalize_structured_values
+from modules.common.system_messages import coded_text
+
 logger = logging.getLogger(__name__)
 
 # Standard Maritime Legal Clauses & Pre-printed Boilerplate patterns to suppress
@@ -1635,6 +1638,15 @@ def extract_packing_list_data(raw_text: str) -> dict:
 # 2.C 3-WAY PO & PACKING RECONCILIATION ENGINE
 # ==============================================================================
 
+def _abs_difference(a: Any, b: Any) -> Any:
+    """|a - b| for numeric values; the raw pair as text when a value is not numeric."""
+    try:
+        diff = abs(float(a or 0) - float(b or 0))
+    except (TypeError, ValueError):
+        return f"{a} / {b}"
+    return int(diff) if diff.is_integer() else round(diff, 2)
+
+
 def reconcile_po_documents_with_system(
     invoice_data: dict,
     pl_data: dict,
@@ -1664,20 +1676,21 @@ def reconcile_po_documents_with_system(
         inv_num_match = (norm_sys == norm_inv) or (norm_sys in norm_inv) or (norm_inv in norm_sys)
         if not inv_num_match:
             has_warning = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_INVOICE_NO",
         "field_name": "invoice_number",
         "field_name_ar": "رقم الفاتورة التجارية (Commercial Invoice No)",
-        "system_value": sys_inv_num or "غير مسجل بالسستم",
-        "extracted_value": inv_num or "غير متوفر بالمستند",
-        "system_invoice_value": sys_inv_num or "غير مسجل بالسستم",
-        "system_packing_value": file_meta.get("packing_list_number") or sys_inv_num or "غير مسجل بالسستم",
-        "uploaded_invoice_value": inv_num or "غير متوفر بالمستند",
-        "uploaded_packing_value": pl_data.get("packing_list_number") or pl_data.get("order_number") or inv_num or "غير متوفر بالمستند",
+        "system_value": sys_inv_num or Placeholder("NOT_SET"),
+        "extracted_value": inv_num or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_inv_num or Placeholder("NOT_SET"),
+        "system_packing_value": file_meta.get("packing_list_number") or sys_inv_num or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": inv_num or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": pl_data.get("packing_list_number") or pl_data.get("order_number") or inv_num or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if inv_num_match else "MAJOR_VARIANCE",
-        "details": "رقم الفاتورة مطابق تماماً لأمر الشراء والمنظومة" if inv_num_match else f"❌ رقم الفاتورة بالمستند ({inv_num}) يختلف عن رقم الفاتورة بالسستم ({sys_inv_num})!",
-    })
+        **(coded_text("details", "DOC_CHK_INVOICE_NO_MATCH") if inv_num_match else coded_text(
+            "details", "DOC_CHK_INVOICE_NO_MISMATCH", document_value=inv_num, system_value=sys_inv_num)),
+    }))
 
     # 1.1 ACID Check
     inv_acid = invoice_data.get("acid_number") or pl_data.get("acid_number")
@@ -1687,20 +1700,20 @@ def reconcile_po_documents_with_system(
         acid_match = sys_acid == inv_acid
         if not acid_match:
             has_critical = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_ACID",
         "field_name": "acid_number",
         "field_name_ar": "رقم القيد الجمركي المسبق (ACID)",
-        "system_value": sys_acid or "غير مسجل بالسستم",
-        "extracted_value": inv_acid or "غير متوفر بالمستند",
-        "system_invoice_value": sys_acid or "غير مسجل بالسستم",
-        "system_packing_value": sys_acid or "غير مسجل بالسستم",
-        "uploaded_invoice_value": invoice_data.get("acid_number") or "غير متوفر بالمستند",
-        "uploaded_packing_value": pl_data.get("acid_number") or invoice_data.get("acid_number") or "غير متوفر بالمستند",
+        "system_value": sys_acid or Placeholder("NOT_SET"),
+        "extracted_value": inv_acid or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_acid or Placeholder("NOT_SET"),
+        "system_packing_value": sys_acid or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": invoice_data.get("acid_number") or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": pl_data.get("acid_number") or invoice_data.get("acid_number") or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if acid_match else "CRITICAL_VARIANCE",
-        "details": "رقم ACID مطابق تماماً" if acid_match else "❌ رقم ACID في الفاتورة يختلف عن رقم ACID المسجل بالسستم!",
-    })
+        **coded_text("details", "DOC_CHK_ACID_MATCH" if acid_match else "DOC_CHK_ACID_MISMATCH"),
+    }))
 
     # 1.2 Tax ID Check
     inv_tax = invoice_data.get("importer_tax_id")
@@ -1710,20 +1723,20 @@ def reconcile_po_documents_with_system(
         tax_match = sys_tax == inv_tax
         if not tax_match:
             has_critical = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_TAX_ID",
         "field_name": "tax_id",
         "field_name_ar": "البطاقة الضريبية للمستورد (Tax ID)",
-        "system_value": sys_tax or "غير مسجل",
-        "extracted_value": inv_tax or "غير متوفر",
-        "system_invoice_value": sys_tax or "غير مسجل بالسستم",
-        "system_packing_value": sys_tax or "غير مسجل بالسستم",
-        "uploaded_invoice_value": invoice_data.get("importer_tax_id") or "غير متوفر بالمستند",
-        "uploaded_packing_value": pl_data.get("importer_tax_id") or invoice_data.get("importer_tax_id") or "غير متوفر بالمستند",
+        "system_value": sys_tax or Placeholder("NOT_SET"),
+        "extracted_value": inv_tax or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_tax or Placeholder("NOT_SET"),
+        "system_packing_value": sys_tax or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": invoice_data.get("importer_tax_id") or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": pl_data.get("importer_tax_id") or invoice_data.get("importer_tax_id") or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if tax_match else "CRITICAL_VARIANCE",
-        "details": "الرقم الضريبي مطابق" if tax_match else "❌ اختلاف في الرقم الضريبي للمستورد.",
-    })
+        **coded_text("details", "DOC_CHK_TAX_ID_MATCH" if tax_match else "DOC_CHK_TAX_ID_MISMATCH"),
+    }))
 
     # 1.3 Supplier Name Check
     inv_supplier = (invoice_data.get("supplier_name") or invoice_data.get("shipper_name") or "").strip()
@@ -1735,21 +1748,21 @@ def reconcile_po_documents_with_system(
         supplier_match = (s1 == s2) or (s1 in s2) or (s2 in s1)
         if not supplier_match:
             has_warning = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_SUPPLIER_NAME",
         "field_name": "supplier_name",
         "field_name_ar": "اسم المورد الأجنبي (Foreign Supplier)",
-        "system_value": sys_supplier or "غير مسجل بالسستم",
-        "extracted_value": inv_supplier or "غير متوفر بالمستند",
-        "system_invoice_value": sys_supplier or "غير مسجل بالسستم",
-        "system_packing_value": sys_supplier or "غير مسجل بالسستم",
-        "uploaded_invoice_value": (invoice_data.get("supplier_name") or invoice_data.get("shipper") or invoice_data.get("shipper_name") or "").strip() or "غير متوفر بالمستند",
-        "uploaded_packing_value": (pl_data.get("supplier_name") or pl_data.get("shipper") or pl_data.get("shipper_name") or invoice_data.get("supplier_name") or "").strip() or "غير متوفر بالمستند",
+        "system_value": sys_supplier or Placeholder("NOT_SET"),
+        "extracted_value": inv_supplier or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_supplier or Placeholder("NOT_SET"),
+        "system_packing_value": sys_supplier or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": (invoice_data.get("supplier_name") or invoice_data.get("shipper") or invoice_data.get("shipper_name") or "").strip() or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": (pl_data.get("supplier_name") or pl_data.get("shipper") or pl_data.get("shipper_name") or invoice_data.get("supplier_name") or "").strip() or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if (supplier_match or not sys_supplier or not inv_supplier) else "MINOR_VARIANCE",
-        "details": "اسم المورد مطابق" if (supplier_match or not sys_supplier or not inv_supplier)
-                   else f"⚠️ اسم المورد المستخرج ({inv_supplier}) يختلف عن المسجل بالسستم ({sys_supplier})",
-    })
+        **(coded_text("details", "DOC_CHK_SUPPLIER_MATCH") if (supplier_match or not sys_supplier or not inv_supplier)
+            else coded_text("details", "DOC_CHK_SUPPLIER_MISMATCH", document_value=inv_supplier, system_value=sys_supplier)),
+    }))
 
     # 1.4 Importer / Consignee Name Check
     inv_importer = (invoice_data.get("importer_name") or invoice_data.get("consignee_name") or "").strip()
@@ -1761,21 +1774,21 @@ def reconcile_po_documents_with_system(
         importer_match = (i1 == i2) or (i1 in i2) or (i2 in i1)
         if not importer_match:
             has_warning = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_IMPORTER_NAME",
         "field_name": "importer_name",
         "field_name_ar": "اسم الشركة المستوردة (Importing Company)",
-        "system_value": sys_importer or "غير مسجل بالسستم",
-        "extracted_value": inv_importer or "غير متوفر بالمستند",
-        "system_invoice_value": sys_importer or "غير مسجل بالسستم",
-        "system_packing_value": sys_importer or "غير مسجل بالسستم",
-        "uploaded_invoice_value": (invoice_data.get("importer_name") or invoice_data.get("consignee") or invoice_data.get("consignee_name") or invoice_data.get("buyer") or "").strip() or "غير متوفر بالمستند",
-        "uploaded_packing_value": (pl_data.get("importer_name") or pl_data.get("consignee") or pl_data.get("consignee_name") or pl_data.get("customer_name") or invoice_data.get("importer_name") or "").strip() or "غير متوفر بالمستند",
+        "system_value": sys_importer or Placeholder("NOT_SET"),
+        "extracted_value": inv_importer or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_importer or Placeholder("NOT_SET"),
+        "system_packing_value": sys_importer or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": (invoice_data.get("importer_name") or invoice_data.get("consignee") or invoice_data.get("consignee_name") or invoice_data.get("buyer") or "").strip() or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": (pl_data.get("importer_name") or pl_data.get("consignee") or pl_data.get("consignee_name") or pl_data.get("customer_name") or invoice_data.get("importer_name") or "").strip() or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if (importer_match or not sys_importer or not inv_importer) else "MINOR_VARIANCE",
-        "details": "اسم المستورد مطابق" if (importer_match or not sys_importer or not inv_importer)
-                   else f"⚠️ اسم المستورد المستخرج ({inv_importer}) يختلف عن المسجل ({sys_importer})",
-    })
+        **(coded_text("details", "DOC_CHK_IMPORTER_MATCH") if (importer_match or not sys_importer or not inv_importer)
+            else coded_text("details", "DOC_CHK_IMPORTER_MISMATCH", document_value=inv_importer, system_value=sys_importer)),
+    }))
 
     # 1.5 HS Code Check (first item)
     inv_hs = (invoice_data.get("hs_code") or (invoice_data.get("items", [{}])[0].get("hs_code") if invoice_data.get("items") else "") or "").strip()
@@ -1785,21 +1798,21 @@ def reconcile_po_documents_with_system(
         hs_match = sys_hs.replace(".", "") == inv_hs.replace(".", "") or sys_hs in inv_hs or inv_hs in sys_hs
         if not hs_match:
             has_warning = True
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_HS_CODE",
         "field_name": "hs_code",
         "field_name_ar": "البند الجمركي (HS Code)",
-        "system_value": sys_hs or "غير مسجل بالسستم",
-        "extracted_value": inv_hs or "غير متوفر بالمستند",
-        "system_invoice_value": sys_hs or "غير مسجل بالسستم",
-        "system_packing_value": sys_hs or "غير مسجل بالسستم",
-        "uploaded_invoice_value": inv_hs or "غير متوفر بالمستند",
-        "uploaded_packing_value": (pl_data.get("hs_code") or (pl_data.get("items", [{}])[0].get("hs_code") if pl_data.get("items") else "") or inv_hs or "").strip() or "غير متوفر بالمستند",
+        "system_value": sys_hs or Placeholder("NOT_SET"),
+        "extracted_value": inv_hs or Placeholder("NOT_IN_DOCUMENT"),
+        "system_invoice_value": sys_hs or Placeholder("NOT_SET"),
+        "system_packing_value": sys_hs or Placeholder("NOT_SET"),
+        "uploaded_invoice_value": inv_hs or Placeholder("NOT_IN_DOCUMENT"),
+        "uploaded_packing_value": (pl_data.get("hs_code") or (pl_data.get("items", [{}])[0].get("hs_code") if pl_data.get("items") else "") or inv_hs or "").strip() or Placeholder("NOT_IN_DOCUMENT"),
         "status": "MATCH" if (hs_match or not sys_hs or not inv_hs) else "MINOR_VARIANCE",
-        "details": "البند الجمركي مطابق" if (hs_match or not sys_hs or not inv_hs)
-                   else f"⚠️ البند الجمركي المستخرج ({inv_hs}) يختلف عن المسجل ({sys_hs})",
-    })
+        **(coded_text("details", "DOC_CHK_HS_CODE_MATCH") if (hs_match or not sys_hs or not inv_hs)
+            else coded_text("details", "DOC_CHK_HS_CODE_MISMATCH", document_value=inv_hs, system_value=sys_hs)),
+    }))
 
     # 1.6 Total Amount & Currency Check
     inv_tot = float(invoice_data.get("total_amount") or 0.0)
@@ -1813,13 +1826,18 @@ def reconcile_po_documents_with_system(
         has_warning = True
 
     is_amount_matched = (amt_match and curr_match) or (sys_tot == 0.0 and inv_tot == 0.0)
-    details_msg = "القيمة الإجمالية والعملة متطابقة تماماً"
+    details_fields = coded_text("details", "DOC_CHK_AMOUNT_MATCH")
     if not curr_match:
-        details_msg = f"❌ اختلاف في العملة: مسجل بالسستم ({sys_curr}) والمستخرج بالمستند ({inv_curr})"
+        details_fields = coded_text(
+            "details", "DOC_CHK_CURRENCY_MISMATCH", system_currency=sys_curr, document_currency=inv_curr
+        )
     elif not amt_match and sys_tot > 0:
-        details_msg = f"فارق القيمة: {amt_diff:,.2f} {sys_curr} ({amt_pct:.2f}%)"
+        details_fields = coded_text(
+            "details", "DOC_CHK_AMOUNT_VARIANCE",
+            variance_amount=round(amt_diff, 2), currency=sys_curr, variance_pct=round(amt_pct, 2),
+        )
 
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_TOTAL_AMOUNT",
         "field_name": "total_amount",
@@ -1827,12 +1845,12 @@ def reconcile_po_documents_with_system(
         "system_value": f"{sys_tot:,.2f} {sys_curr}",
         "extracted_value": f"{inv_tot:,.2f} {inv_curr}",
         "system_invoice_value": f"{sys_tot:,.2f} {sys_curr}",
-        "system_packing_value": "— (غير مدرج بالباكينج)",
+        "system_packing_value": Placeholder("NOT_IN_PACKING_LIST"),
         "uploaded_invoice_value": f"{inv_tot:,.2f} {inv_curr}",
         "uploaded_packing_value": "—",
         "status": "MATCH" if is_amount_matched else "MINOR_VARIANCE",
-        "details": details_msg,
-    })
+        **details_fields,
+    }))
 
     # Total Packages Check
     # Compute packing-based totals from system_packing_items (real physical values)
@@ -1845,77 +1863,81 @@ def reconcile_po_documents_with_system(
     pl_pkgs = pl_data.get("total_packages") or invoice_data.get("qty_pkg", 0)
     sys_pkgs = file_meta.get("total_packages", 0)
     pkg_match = bool(pl_pkgs == sys_pkgs or sys_pkgs == 0)
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_PACKAGES",
         "field_name": "total_packages",
         "field_name_ar": "إجمالي عدد الطرود (Total Packages / Colli)",
-        "system_value": f"{sys_pkgs} طرد",
-        "extracted_value": f"{pl_pkgs} طرد",
-        "system_invoice_value": f"{sys_pkgs} طرد",
-        "system_packing_value": f"{sys_pl_pkgs} طرد",
-        "uploaded_invoice_value": f"{int(invoice_data.get('qty_pkg') or 0)} طرد" if invoice_data.get('qty_pkg') else "غير مذكور بالفاتورة",
-        "uploaded_packing_value": f"{pl_pkgs} طرد",
+        "system_value": Measure(sys_pkgs, "PACKAGES", decimals=None),
+        "extracted_value": Measure(pl_pkgs, "PACKAGES", decimals=None),
+        "system_invoice_value": Measure(sys_pkgs, "PACKAGES", decimals=None),
+        "system_packing_value": Measure(sys_pl_pkgs, "PACKAGES", decimals=None),
+        "uploaded_invoice_value": Measure(int(invoice_data.get('qty_pkg') or 0), "PACKAGES", decimals=None) if invoice_data.get('qty_pkg') else Placeholder("NOT_IN_INVOICE"),
+        "uploaded_packing_value": Measure(pl_pkgs, "PACKAGES", decimals=None),
         "status": "MATCH" if pkg_match else "MINOR_VARIANCE",
-        "details": "عدد الطرود متطابق" if pkg_match else f"فارق عدد الطرود: {abs(pl_pkgs - sys_pkgs)} طرد",
-    })
+        **(coded_text("details", "DOC_CHK_PACKAGES_MATCH") if pkg_match else coded_text(
+            "details", "DOC_CHK_PACKAGES_VARIANCE", difference_count=_abs_difference(pl_pkgs, sys_pkgs))),
+    }))
 
     # Total Gross Weight Check
     pl_gw = pl_data.get("total_gross_weight_kg") or invoice_data.get("total_gross_weight_kg", 0.0)
     sys_gw = file_meta.get("total_gross_weight_kg", 0.0)
     gw_match, gw_pct, gw_diff = _numeric_tolerance_match(sys_gw, pl_gw, tolerance_pct=2.0)
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_GROSS_WEIGHT",
         "field_name": "gross_weight",
         "field_name_ar": "الوزن القائم الإجمالي (Total Gross Weight KG)",
-        "system_value": f"{sys_gw:,.2f} كجم",
-        "extracted_value": f"{pl_gw:,.2f} كجم",
-        "system_invoice_value": f"{sys_gw:,.2f} كجم",
-        "system_packing_value": f"{sys_pl_gw:,.2f} كجم",
-        "uploaded_invoice_value": f"{float(invoice_data.get('total_gross_weight_kg') or 0):,.2f} كجم" if invoice_data.get('total_gross_weight_kg') else "غير مذكور بالفاتورة",
-        "uploaded_packing_value": f"{pl_gw:,.2f} كجم",
+        "system_value": Measure(sys_gw, "KG"),
+        "extracted_value": Measure(pl_gw, "KG"),
+        "system_invoice_value": Measure(sys_gw, "KG"),
+        "system_packing_value": Measure(sys_pl_gw, "KG"),
+        "uploaded_invoice_value": Measure(float(invoice_data.get('total_gross_weight_kg') or 0), "KG") if invoice_data.get('total_gross_weight_kg') else Placeholder("NOT_IN_INVOICE"),
+        "uploaded_packing_value": Measure(pl_gw, "KG"),
         "status": "MATCH" if (gw_match or sys_gw == 0) else "MINOR_VARIANCE",
-        "details": "الوزن القائم متطابق" if (gw_match or sys_gw == 0) else f"فارق الوزن: {gw_diff:,.2f} كجم ({gw_pct:.2f}%)",
-    })
+        **(coded_text("details", "DOC_CHK_GROSS_WEIGHT_MATCH") if (gw_match or sys_gw == 0) else coded_text(
+            "details", "DOC_CHK_GROSS_WEIGHT_VARIANCE", difference_qty=round(gw_diff, 2), difference_pct=round(gw_pct, 2))),
+    }))
 
     # Net Weight Check
     pl_nw = pl_data.get("total_net_weight_kg") or 0.0
     sys_nw = file_meta.get("total_net_weight_kg", 0.0)
     nw_match, nw_pct, nw_diff = _numeric_tolerance_match(sys_nw, pl_nw, tolerance_pct=2.0)
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_NET_WEIGHT",
         "field_name": "net_weight",
         "field_name_ar": "الوزن الصافي الإجمالي (Total Net Weight KG)",
-        "system_value": f"{sys_nw:,.2f} كجم",
-        "extracted_value": f"{pl_nw:,.2f} كجم",
-        "system_invoice_value": f"{sys_nw:,.2f} كجم",
-        "system_packing_value": f"{sys_pl_nw:,.2f} كجم",
-        "uploaded_invoice_value": f"{float(invoice_data.get('total_net_weight_kg') or 0):,.2f} كجم" if invoice_data.get('total_net_weight_kg') else "غير مذكور بالفاتورة",
-        "uploaded_packing_value": f"{pl_nw:,.2f} كجم",
+        "system_value": Measure(sys_nw, "KG"),
+        "extracted_value": Measure(pl_nw, "KG"),
+        "system_invoice_value": Measure(sys_nw, "KG"),
+        "system_packing_value": Measure(sys_pl_nw, "KG"),
+        "uploaded_invoice_value": Measure(float(invoice_data.get('total_net_weight_kg') or 0), "KG") if invoice_data.get('total_net_weight_kg') else Placeholder("NOT_IN_INVOICE"),
+        "uploaded_packing_value": Measure(pl_nw, "KG"),
         "status": "MATCH" if (nw_match or sys_nw == 0) else "MINOR_VARIANCE",
-        "details": "الوزن الصافي متطابق" if (nw_match or sys_nw == 0) else f"فارق الوزن الصافي: {nw_diff:,.2f} كجم ({nw_pct:.2f}%)",
-    })
+        **(coded_text("details", "DOC_CHK_NET_WEIGHT_MATCH") if (nw_match or sys_nw == 0) else coded_text(
+            "details", "DOC_CHK_NET_WEIGHT_VARIANCE", difference_qty=round(nw_diff, 2), difference_pct=round(nw_pct, 2))),
+    }))
 
     # Total CBM Check
     pl_cbm = pl_data.get("total_cbm") or 0.0
     sys_cbm_val = file_meta.get("total_cbm", 0.0)
     cbm_match, cbm_pct, cbm_diff = _numeric_tolerance_match(sys_cbm_val, pl_cbm, tolerance_pct=3.0)
-    discrepancies.append({
+    discrepancies.append(finalize_structured_values({
         "category": "HEADER",
         "check_code": "CHK_TOTAL_CBM",
         "field_name": "total_cbm",
         "field_name_ar": "الحجم الإجمالي (Total Volume CBM)",
-        "system_value": f"{sys_cbm_val:,.2f} م\u00B3",
-        "extracted_value": f"{pl_cbm:,.2f} م\u00B3",
-        "system_invoice_value": f"{sys_cbm_val:,.2f} م\u00B3",
-        "system_packing_value": f"{sys_pl_cbm:,.2f} م\u00B3",
-        "uploaded_invoice_value": "— (غير مدرج بالفاتورة)",
-        "uploaded_packing_value": f"{pl_cbm:,.2f} م\u00B3",
+        "system_value": Measure(sys_cbm_val, "CBM"),
+        "extracted_value": Measure(pl_cbm, "CBM"),
+        "system_invoice_value": Measure(sys_cbm_val, "CBM"),
+        "system_packing_value": Measure(sys_pl_cbm, "CBM"),
+        "uploaded_invoice_value": Placeholder("NOT_IN_INVOICE"),
+        "uploaded_packing_value": Measure(pl_cbm, "CBM"),
         "status": "MATCH" if (cbm_match or sys_cbm_val == 0) else "MINOR_VARIANCE",
-        "details": "الحجم الإجمالي متطابق" if (cbm_match or sys_cbm_val == 0) else f"فارق الحجم: {cbm_diff:,.2f} م³ ({cbm_pct:.2f}%)",
-    })
+        **(coded_text("details", "DOC_CHK_CBM_MATCH") if (cbm_match or sys_cbm_val == 0) else coded_text(
+            "details", "DOC_CHK_CBM_VARIANCE", difference_qty=round(cbm_diff, 2), difference_pct=round(cbm_pct, 2))),
+    }))
 
     # 2. Line Items Reconciliation
     inv_items = invoice_data.get("items", [])
@@ -2138,7 +2160,7 @@ def match_invoice_with_bl(
     if not inv_acid and not bl_acid:
         acid_status = "EXTRACTION_FAILED"
         has_warning = True
-        acid_details = "⚠️ لم يتم استخراج رقم ACID من الفاتورة أو البوليصة."
+        acid_details = coded_text("details", "DOC_IBL_ACID_NOT_EXTRACTED")
     else:
         acid_matched = bool(inv_acid and bl_acid and inv_acid == bl_acid)
         if sys_acid and inv_acid and sys_acid != inv_acid:
@@ -2146,26 +2168,26 @@ def match_invoice_with_bl(
         if not acid_matched:
             has_critical = True
             acid_status = "MISMATCH_CRITICAL"
-            acid_details = "❌ عدم تطابق رقم ACID يمنع الإفراج الجمركي ويوقف الشحنة فوراً."
+            acid_details = coded_text("details", "DOC_IBL_ACID_MISMATCH")
             disagreeing_acid = ["Invoice", "B/L"]
         else:
             acid_status = "MATCH"
-            acid_details = "رقم ACID الجمركي مطابق بنسبة 100%"
+            acid_details = coded_text("details", "DOC_IBL_ACID_MATCH")
 
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_ACID",
         "field_name_ar": "رقم القيد الجمركي المسبق (ACID)",
         "field_name_en": "ACID Number (19 Digits)",
-        "system_value": sys_acid or "غير مسجل بالسستم",
-        "packing_list_value": pl_acid or "غير موجود بالباكينج",
-        "invoice_value": inv_acid or "غير موجود بالفاتورة",
-        "bl_value": bl_acid or "غير موجود بالبوليصة",
+        "system_value": sys_acid or Placeholder("NOT_SET"),
+        "packing_list_value": pl_acid or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_acid or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_acid or Placeholder("NOT_IN_BL"),
         "match_status": acid_status,
         "severity": "BLOCKING" if acid_status == "MISMATCH_CRITICAL" else ("WARNING" if acid_status == "EXTRACTION_FAILED" else "NONE"),
-        "tolerance": "0% (مطابقة حتمية تامة)",
+        **coded_text("tolerance", "DOC_TOL_EXACT"),
         "disagreeing_sources": disagreeing_acid or None,
-        "details": acid_details,
-    })
+        **acid_details,
+    }))
 
     # 2. Importer Tax ID (9 digits) - Critical
     sys_tax = sys_d.get("importer_tax_id")
@@ -2177,32 +2199,32 @@ def match_invoice_with_bl(
     if not inv_tax and not bl_tax:
         tax_status = "EXTRACTION_FAILED"
         has_warning = True
-        tax_details = "⚠️ لم يتم استخراج البطاقة الضريبية للمستورد من المستندات."
+        tax_details = coded_text("details", "DOC_IBL_TAX_ID_NOT_EXTRACTED")
     else:
         tax_matched = bool(inv_tax and bl_tax and inv_tax == bl_tax)
         if not tax_matched:
             has_critical = True
             tax_status = "MISMATCH_CRITICAL"
-            tax_details = "❌ عدم تطابق البطاقة الضريبية يمنع مطابقة نافذة ونموذج 4."
+            tax_details = coded_text("details", "DOC_IBL_TAX_ID_MISMATCH")
             disagreeing_tax = ["Invoice", "B/L"]
         else:
             tax_status = "MATCH"
-            tax_details = "رقم التسجيل الضريبي للمستورد مطابق"
+            tax_details = coded_text("details", "DOC_IBL_TAX_ID_MATCH")
 
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_TAX_ID",
         "field_name_ar": "البطاقة الضريبية للمستورد (Tax ID)",
         "field_name_en": "Importer Tax ID (9 Digits)",
-        "system_value": sys_tax or "غير متوفر بالسستم",
-        "packing_list_value": pl_tax or "غير متوفر بالباكينج",
-        "invoice_value": inv_tax or "غير متوفر بالفاتورة",
-        "bl_value": bl_tax or "غير متوفر بالبوليصة",
+        "system_value": sys_tax or Placeholder("NOT_SET"),
+        "packing_list_value": pl_tax or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_tax or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_tax or Placeholder("NOT_IN_BL"),
         "match_status": tax_status,
         "severity": "BLOCKING" if tax_status == "MISMATCH_CRITICAL" else ("WARNING" if tax_status == "EXTRACTION_FAILED" else "NONE"),
-        "tolerance": "0% (مطابقة حتمية تامة)",
+        **coded_text("tolerance", "DOC_TOL_EXACT"),
         "disagreeing_sources": disagreeing_tax or None,
-        "details": tax_details,
-    })
+        **tax_details,
+    }))
 
     # 3. Shipper / Exporter & VAT - Critical
     sys_shp = sys_d.get("supplier_name") or sys_d.get("shipper")
@@ -2215,32 +2237,32 @@ def match_invoice_with_bl(
         shp_status = "EXTRACTION_FAILED"
         shp_ratio = 0.0
         has_warning = True
-        shp_details = "⚠️ تعذر استخراج اسم الشاحن/المصدر."
+        shp_details = coded_text("details", "DOC_IBL_SHIPPER_NOT_EXTRACTED")
     else:
         shp_matched, shp_ratio = _fuzzy_match_strings(inv_shp or "", bl_shp or "")
         if not shp_matched:
             has_critical = True
             shp_status = "MISMATCH_CRITICAL"
-            shp_details = "❌ اختلاف في اسم المصدر أو الشاحن بين الفاتورة والبوليصة."
+            shp_details = coded_text("details", "DOC_IBL_SHIPPER_MISMATCH")
             disagreeing_shp = ["Invoice", "B/L"]
         else:
             shp_status = "MATCH"
-            shp_details = "اسم المصدر متطابق في الفاتورة وبوليصة الشحن"
+            shp_details = coded_text("details", "DOC_IBL_SHIPPER_MATCH")
 
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_SHIPPER",
         "field_name_ar": "اسم وبيانات المصدر الأجنبي (Shipper)",
         "field_name_en": "Shipper / Exporter Name",
-        "system_value": sys_shp or "غير محدد بالسستم",
-        "packing_list_value": pl_shp or "غير محدد بالباكينج",
-        "invoice_value": inv_shp or "غير محدد بالفاتورة",
-        "bl_value": bl_shp or "غير محدد بالبوليصة",
+        "system_value": sys_shp or Placeholder("NOT_SET"),
+        "packing_list_value": pl_shp or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_shp or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_shp or Placeholder("NOT_IN_BL"),
         "match_status": shp_status,
         "severity": "BLOCKING" if shp_status == "MISMATCH_CRITICAL" else ("WARNING" if shp_status == "EXTRACTION_FAILED" else "NONE"),
-        "tolerance": f"نسبة التشابه: {round(shp_ratio * 100, 1)}%",
+        **coded_text("tolerance", "DOC_TOL_SIMILARITY", match_pct=round(shp_ratio * 100, 1)),
         "disagreeing_sources": disagreeing_shp or None,
-        "details": shp_details,
-    })
+        **shp_details,
+    }))
 
     # 4. Consignee / Importer - Critical
     sys_csg = sys_d.get("importer_name") or sys_d.get("consignee")
@@ -2253,32 +2275,32 @@ def match_invoice_with_bl(
         csg_status = "EXTRACTION_FAILED"
         csg_ratio = 0.0
         has_warning = True
-        csg_details = "⚠️ تعذر استخراج اسم المستورد/المرسل إليه."
+        csg_details = coded_text("details", "DOC_IBL_CONSIGNEE_NOT_EXTRACTED")
     else:
         csg_matched, csg_ratio = _fuzzy_match_strings(inv_csg or "", bl_csg or "")
         if not csg_matched:
             has_critical = True
             csg_status = "MISMATCH_CRITICAL"
-            csg_details = "❌ اسم المستورد غير متطابق بين الفاتورة والبوليصة."
+            csg_details = coded_text("details", "DOC_IBL_CONSIGNEE_MISMATCH")
             disagreeing_csg = ["Invoice", "B/L"]
         else:
             csg_status = "MATCH"
-            csg_details = "اسم المستورد متطابق قانونياً"
+            csg_details = coded_text("details", "DOC_IBL_CONSIGNEE_MATCH")
 
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_CONSIGNEE",
         "field_name_ar": "اسم الشركة المستوردة (Consignee)",
         "field_name_en": "Consignee / Importer Name",
-        "system_value": sys_csg or "غير محدد بالسستم",
-        "packing_list_value": pl_csg or "غير محدد بالباكينج",
-        "invoice_value": inv_csg or "غير محدد بالفاتورة",
-        "bl_value": bl_csg or "غير محدد بالبوليصة",
+        "system_value": sys_csg or Placeholder("NOT_SET"),
+        "packing_list_value": pl_csg or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_csg or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_csg or Placeholder("NOT_IN_BL"),
         "match_status": csg_status,
         "severity": "BLOCKING" if csg_status == "MISMATCH_CRITICAL" else ("WARNING" if csg_status == "EXTRACTION_FAILED" else "NONE"),
-        "tolerance": f"نسبة التشابه: {round(csg_ratio * 100, 1)}%",
+        **coded_text("tolerance", "DOC_TOL_SIMILARITY", match_pct=round(csg_ratio * 100, 1)),
         "disagreeing_sources": disagreeing_csg or None,
-        "details": csg_details,
-    })
+        **csg_details,
+    }))
 
     # 5. Container Numbers - Critical
     sys_cntrs = {c["container_no"] for c in sys_d.get("containers", []) if c.get("container_no")}
@@ -2288,20 +2310,20 @@ def match_invoice_with_bl(
     cntr_matched = bool(inv_cntrs and bl_cntrs and inv_cntrs == bl_cntrs)
     if not cntr_matched and (inv_cntrs and bl_cntrs):
         has_critical = True
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_CONTAINERS",
         "field_name_ar": "أرقام الحاويات (Container Numbers)",
         "field_name_en": "Container Number(s)",
-        "system_value": ", ".join(sys_cntrs) if sys_cntrs else "غير محدد بالسستم",
-        "packing_list_value": ", ".join(pl_cntrs) if pl_cntrs else "غير محدد بالباكينج",
-        "invoice_value": ", ".join(inv_cntrs) if inv_cntrs else "غير محدد بالفاتورة",
-        "bl_value": ", ".join(bl_cntrs) if bl_cntrs else "غير محدد بالبوليصة",
+        "system_value": ", ".join(sys_cntrs) if sys_cntrs else Placeholder("NOT_SET"),
+        "packing_list_value": ", ".join(pl_cntrs) if pl_cntrs else Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": ", ".join(inv_cntrs) if inv_cntrs else Placeholder("NOT_IN_INVOICE"),
+        "bl_value": ", ".join(bl_cntrs) if bl_cntrs else Placeholder("NOT_IN_BL"),
         "match_status": "MATCH" if cntr_matched else ("MISMATCH_CRITICAL" if (inv_cntrs and bl_cntrs) else "MISMATCH_MINOR"),
         "severity": "NONE" if cntr_matched else ("BLOCKING" if (inv_cntrs and bl_cntrs) else "WARNING"),
-        "tolerance": "0% (مطابقة تامة لأرقام الحاويات)",
+        **coded_text("tolerance", "DOC_TOL_CONTAINERS_EXACT"),
         "disagreeing_sources": ["Invoice", "B/L"] if not cntr_matched and (inv_cntrs and bl_cntrs) else None,
-        "details": "أرقام الحاويات مطابقة تماماً" if cntr_matched else "❌ عدم تطابق في أرقام الحاويات المسجلة بالفاتورة مع البوليصة.",
-    })
+        **coded_text("details", "DOC_IBL_CONTAINERS_MATCH" if cntr_matched else "DOC_IBL_CONTAINERS_MISMATCH"),
+    }))
 
     # 6. Seal Numbers - Warning
     sys_seals = {c["seal_no"] for c in sys_d.get("containers", []) if c.get("seal_no")}
@@ -2311,20 +2333,20 @@ def match_invoice_with_bl(
     seal_matched = bool(inv_seals and bl_seals and inv_seals == bl_seals)
     if not seal_matched and (inv_seals and bl_seals):
         has_warning = True
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_SEALS",
         "field_name_ar": "أرقام الرصاص والختم الملاحي (Seal Numbers)",
         "field_name_en": "Seal Number(s)",
-        "system_value": ", ".join(sys_seals) if sys_seals else "غير محدد بالسستم",
-        "packing_list_value": ", ".join(pl_seals) if pl_seals else "غير محدد بالباكينج",
-        "invoice_value": ", ".join(inv_seals) if inv_seals else "غير محدد بالفاتورة",
-        "bl_value": ", ".join(bl_seals) if bl_seals else "غير محدد بالبوليصة",
+        "system_value": ", ".join(sys_seals) if sys_seals else Placeholder("NOT_SET"),
+        "packing_list_value": ", ".join(pl_seals) if pl_seals else Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": ", ".join(inv_seals) if inv_seals else Placeholder("NOT_IN_INVOICE"),
+        "bl_value": ", ".join(bl_seals) if bl_seals else Placeholder("NOT_IN_BL"),
         "match_status": "MATCH" if seal_matched else ("MISMATCH_MINOR" if (inv_seals and bl_seals) else "MATCH"),
         "severity": "NONE" if (seal_matched or not inv_seals or not bl_seals) else "WARNING",
-        "tolerance": "مطابقة رقم الرصاص",
+        **coded_text("tolerance", "DOC_TOL_SEAL_MATCH"),
         "disagreeing_sources": ["Invoice", "B/L"] if not seal_matched and (inv_seals and bl_seals) else None,
-        "details": "أرقام الرصاص الملاحي متطابقة" if seal_matched else "⚠️ يرجى التأكد من رقم الرصاص الملاحي المثبت على الحاوية.",
-    })
+        **coded_text("details", "DOC_IBL_SEALS_MATCH" if seal_matched else "DOC_IBL_SEALS_CHECK"),
+    }))
 
     # 7. Package / Pallet Count - Critical / Warning
     sys_pkg = sys_d.get("total_packages_count") or sys_d.get("total_packages")
@@ -2334,20 +2356,20 @@ def match_invoice_with_bl(
     pkg_matched = bool(inv_pkg and bl_pkg and int(inv_pkg) == int(bl_pkg))
     if not pkg_matched and inv_pkg and bl_pkg:
         has_warning = True
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_PACKAGES",
         "field_name_ar": "عدد الطرود والبالتات (Packages / Pallets)",
         "field_name_en": "Package & Pallet Quantity",
-        "system_value": f"{sys_pkg} طرد/بالتة" if sys_pkg else "غير محدد بالسستم",
-        "packing_list_value": f"{pl_pkg} طرد/بالتة" if pl_pkg else "غير محدد بالباكينج",
-        "invoice_value": f"{inv_pkg} طرد/بالتة" if inv_pkg else "غير محدد",
-        "bl_value": f"{bl_pkg} طرد/بالتة" if bl_pkg else "غير محدد",
+        "system_value": Measure(sys_pkg, "PACKAGES_PALLETS", decimals=None) if sys_pkg else Placeholder("NOT_SET"),
+        "packing_list_value": Measure(pl_pkg, "PACKAGES_PALLETS", decimals=None) if pl_pkg else Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": Measure(inv_pkg, "PACKAGES_PALLETS", decimals=None) if inv_pkg else Placeholder("NOT_SPECIFIED"),
+        "bl_value": Measure(bl_pkg, "PACKAGES_PALLETS", decimals=None) if bl_pkg else Placeholder("NOT_SPECIFIED"),
         "match_status": "MATCH" if pkg_matched else ("EXTRACTION_FAILED" if not inv_pkg and not bl_pkg else "MISMATCH_MINOR"),
         "severity": "NONE" if pkg_matched else "WARNING",
-        "tolerance": "0% (مطابقة عدد الطرود)",
+        **coded_text("tolerance", "DOC_TOL_PACKAGES_EXACT"),
         "disagreeing_sources": ["Invoice", "B/L"] if not pkg_matched and inv_pkg and bl_pkg else None,
-        "details": "عدد الطرود والبالتات متطابق تماماً" if pkg_matched else "⚠️ اختلاف في عدد الطرود أو وحدة التعبئة (كرتونة vs بالتة).",
-    })
+        **coded_text("details", "DOC_IBL_PACKAGES_MATCH" if pkg_matched else "DOC_IBL_PACKAGES_MISMATCH"),
+    }))
 
     # 8. Gross Cargo Weight (KG) - Tolerance 1.0%
     sys_gw = sys_d.get("total_gross_weight_kg")
@@ -2357,20 +2379,21 @@ def match_invoice_with_bl(
     gw_matched, gw_pct, gw_diff = _numeric_tolerance_match(inv_gw, bl_gw, tolerance_pct=1.0)
     if not gw_matched and (inv_gw and bl_gw):
         has_critical = True
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_GROSS_WEIGHT",
         "field_name_ar": "الوزن القائم الإجمالي (Gross Weight KG)",
         "field_name_en": "Total Gross Weight (KG)",
-        "system_value": f"{sys_gw:,.2f} كجم" if sys_gw else "غير مسجل بالسستم",
-        "packing_list_value": f"{pl_gw:,.2f} كجم" if pl_gw else "غير مسجل بالباكينج",
-        "invoice_value": f"{inv_gw:,.2f} كجم" if inv_gw else "غير محدد",
-        "bl_value": f"{bl_gw:,.2f} كجم" if bl_gw else "غير محدد",
+        "system_value": Measure(sys_gw, "KG") if sys_gw else Placeholder("NOT_SET"),
+        "packing_list_value": Measure(pl_gw, "KG") if pl_gw else Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": Measure(inv_gw, "KG") if inv_gw else Placeholder("NOT_SPECIFIED"),
+        "bl_value": Measure(bl_gw, "KG") if bl_gw else Placeholder("NOT_SPECIFIED"),
         "match_status": "MATCH" if gw_matched else ("EXTRACTION_FAILED" if not inv_gw and not bl_gw else "MISMATCH_CRITICAL"),
         "severity": "NONE" if gw_matched else "BLOCKING",
-        "tolerance": f"الفرق: {gw_diff:,.2f} كجم ({gw_pct:.2f}%)",
+        **coded_text("tolerance", "DOC_TOL_WEIGHT_DIFFERENCE", difference_qty=round(gw_diff, 2), difference_pct=round(gw_pct, 2)),
         "disagreeing_sources": ["Invoice", "B/L"] if not gw_matched and inv_gw and bl_gw else None,
-        "details": "الوزن القائم متطابق وضمن النطاق المسموح به (<= 1%)" if gw_matched else "❌ فارق الوزن القائم يتجاوز نسبة التسامح المسموحة جمركياً.",
-    })
+        **(coded_text("details", "DOC_IBL_GROSS_WEIGHT_MATCH", tolerance_pct=1.0) if gw_matched
+            else coded_text("details", "DOC_IBL_GROSS_WEIGHT_EXCEEDS")),
+    }))
 
     # 9. Net Cargo Weight (KG) - Tolerance 1.0%
     sys_nw = sys_d.get("total_net_weight_kg")
@@ -2380,20 +2403,20 @@ def match_invoice_with_bl(
     nw_matched, nw_pct, nw_diff = _numeric_tolerance_match(inv_nw, bl_nw, tolerance_pct=1.5)
     if not nw_matched and (inv_nw and bl_nw):
         has_warning = True
-    matrix.append({
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_NET_WEIGHT",
         "field_name_ar": "الوزن الصافي الإجمالي (Net Weight KG)",
         "field_name_en": "Total Net Weight (KG)",
-        "system_value": f"{sys_nw:,.2f} كجم" if sys_nw else "غير مسجل بالسستم",
-        "packing_list_value": f"{pl_nw:,.2f} كجم" if pl_nw else "غير مسجل بالباكينج",
-        "invoice_value": f"{inv_nw:,.2f} كجم" if inv_nw else "غير محدد بالفاتورة",
-        "bl_value": f"{bl_nw:,.2f} كجم" if bl_nw else "غير محدد بالبوليصة",
+        "system_value": Measure(sys_nw, "KG") if sys_nw else Placeholder("NOT_SET"),
+        "packing_list_value": Measure(pl_nw, "KG") if pl_nw else Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": Measure(inv_nw, "KG") if inv_nw else Placeholder("NOT_IN_INVOICE"),
+        "bl_value": Measure(bl_nw, "KG") if bl_nw else Placeholder("NOT_IN_BL"),
         "match_status": "MATCH" if (nw_matched or not bl_nw) else "MISMATCH_MINOR",
         "severity": "NONE" if (nw_matched or not bl_nw) else "WARNING",
-        "tolerance": f"الفرق: {nw_diff:,.2f} كجم ({nw_pct:.2f}%)",
+        **coded_text("tolerance", "DOC_TOL_WEIGHT_DIFFERENCE", difference_qty=round(nw_diff, 2), difference_pct=round(nw_pct, 2)),
         "disagreeing_sources": ["Invoice", "B/L"] if not nw_matched and inv_nw and bl_nw else None,
-        "details": "الوزن الصافي متطابق" if (nw_matched or not bl_nw) else "⚠️ يوجد فارق في الوزن الصافي بين الفاتورة ومسودة البوليصة.",
-    })
+        **coded_text("details", "DOC_IBL_NET_WEIGHT_MATCH" if (nw_matched or not bl_nw) else "DOC_IBL_NET_WEIGHT_VARIANCE"),
+    }))
 
     # 10. Incoterms & Freight Terms Coherence
     sys_inco = sys_d.get("incoterm_code") or sys_d.get("incoterms")
@@ -2401,21 +2424,21 @@ def match_invoice_with_bl(
     pl_inco = pl_d.get("incoterm") or inv_inco
     bl_frt = bl_data.get("freight_terms") or "Freight Prepaid"
     inco_coherent = True
-    inco_details = f"شرط التسليم {inv_inco} متوافق مع سداد النولون ({bl_frt})"
-    matrix.append({
+    inco_details = coded_text("details", "DOC_IBL_INCOTERMS_COHERENT", incoterm=inv_inco, freight_terms=bl_frt)
+    matrix.append(finalize_structured_values({
         "item_code": "CHK_INCOTERMS",
         "field_name_ar": "الشروط التجارية وسداد النولون (Incoterms & Freight)",
         "field_name_en": "Incoterms & Freight Terms",
-        "system_value": f"{sys_inco or 'غير محدد بالسستم'}",
+        "system_value": sys_inco or Placeholder("NOT_SET"),
         "packing_list_value": f"{pl_inco}",
         "invoice_value": f"{inv_inco} ({invoice_data.get('freight_terms', 'Collect')})",
         "bl_value": bl_frt,
         "match_status": "MATCH" if inco_coherent else "MISMATCH_MINOR",
         "severity": "NONE" if inco_coherent else "WARNING",
-        "tolerance": "توافق الشروط التجارية",
+        **coded_text("tolerance", "DOC_TOL_TERMS_COHERENCE"),
         "disagreeing_sources": None,
-        "details": inco_details,
-    })
+        **inco_details,
+    }))
 
     # Overall Match Status
     overall_status = "FULLY_MATCHED" if (not has_critical and not has_warning) else ("ACCEPTED_WITH_WARNINGS" if not has_critical else "DISCREPANCY_DETECTED")

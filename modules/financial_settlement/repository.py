@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 
-from .model import LandedCostSettlementRecord
+from .model import LandedCostSettlementRecord, TaxRate
 from .schemas import FinancialSettlementCreate, FinancialSettlementUpdate
 
 def generate_settlement_code(db: Session) -> str:
@@ -121,6 +121,21 @@ def soft_delete_settlement(db: Session, settlement_id: int) -> bool:
     db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
+
+def get_effective_tax_rate(db: Session, tax_code: str, on_date: date) -> Optional[TaxRate]:
+    """The active, non-deleted rate of ``tax_code`` valid on ``on_date`` (latest effective_from wins)."""
+    return (
+        db.query(TaxRate)
+        .filter(
+            TaxRate.tax_code == tax_code,
+            TaxRate.is_active == True,
+            TaxRate.deleted_at == None,
+            TaxRate.effective_from <= on_date,
+            or_(TaxRate.effective_to == None, TaxRate.effective_to >= on_date),
+        )
+        .order_by(TaxRate.effective_from.desc())
+        .first()
+    )
 
 def restore_settlement(db: Session, settlement_id: int) -> Optional[LandedCostSettlementRecord]:
     db_obj = get_settlement_by_id(db, settlement_id, include_inactive=True)

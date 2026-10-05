@@ -205,6 +205,10 @@ class AppTheme {
         ],
       );
 
+  /// Glyph fallback for text styles that set their own `fontFamily` (for
+  /// example 'monospace'): Arabic then still renders with a Windows font.
+  static const List<String> fontFamilyFallback = ['Segoe UI', 'Tahoma'];
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -213,6 +217,7 @@ class AppTheme {
       scaffoldBackgroundColor: cloudWhite,
       cardColor: Colors.white,
       fontFamily: 'Segoe UI',
+      fontFamilyFallback: fontFamilyFallback,
 
       // App Bar Theme
       appBarTheme: const AppBarTheme(
@@ -363,6 +368,7 @@ class AppTheme {
       scaffoldBackgroundColor: darkScaffoldBackground,
       cardColor: darkCardBackground,
       fontFamily: 'Segoe UI',
+      fontFamilyFallback: fontFamilyFallback,
 
       // App Bar Theme
       appBarTheme: const AppBarTheme(

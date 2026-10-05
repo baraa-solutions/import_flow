@@ -4,11 +4,15 @@ import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
+import '../localization/domain_enum_labels.dart';
 
 class HoldShipmentAtStageDialog extends ConsumerStatefulWidget {
   final ImportFileModel importFile;
+  /// Stage title shown in the dialog (UI language).
   final String stageName;
   final String stageCode;
+  /// English stage title sent as `stage_name`; falls back to [stageName].
+  final String? stageNameEn;
   final VoidCallback? onSuccess;
 
   const HoldShipmentAtStageDialog({
@@ -16,6 +20,7 @@ class HoldShipmentAtStageDialog extends ConsumerStatefulWidget {
     required this.importFile,
     required this.stageName,
     this.stageCode = '',
+    this.stageNameEn,
     this.onSuccess,
   });
 
@@ -24,6 +29,7 @@ class HoldShipmentAtStageDialog extends ConsumerStatefulWidget {
     required ImportFileModel importFile,
     required String stageName,
     String stageCode = '',
+    String? stageNameEn,
     VoidCallback? onSuccess,
   }) {
     return showDialog<bool>(
@@ -33,6 +39,7 @@ class HoldShipmentAtStageDialog extends ConsumerStatefulWidget {
         importFile: importFile,
         stageName: stageName,
         stageCode: stageCode,
+        stageNameEn: stageNameEn,
         onSuccess: onSuccess,
       ),
     );
@@ -48,27 +55,8 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
   final TextEditingController _notesController = TextEditingController();
   bool _isSubmitting = false;
 
-  final List<String> _commonReasonsAr = [
-    'في انتظار رد وموافقة المورد الخارجي',
-    'طلب تعديل على مسودة بوليصة الشحن',
-    'في انتظار موافقة البنك وإصدار نموذج 4',
-    'استيفاء موافقة جهة العرض والرقابة',
-    'تأخير الحجز وتأكيد الخط الملاحي',
-    'مراجعة وتدقيق أسعار بنود التعريفة الجمركية',
-    'طلب فحص ومعاينة إضافية للبضاعة',
-    'تعليق إداري مؤقت للشحنة',
-  ];
-
-  final List<String> _commonReasonsEn = [
-    'Awaiting foreign supplier approval',
-    'Requested amendment on draft B/L',
-    'Awaiting bank Form 4 issuance',
-    'Pending regulatory authority approval',
-    'Shipping line booking delayed',
-    'Customs tariff valuation review',
-    'Additional physical inspection required',
-    'Temporary administrative hold',
-  ];
+  /// HOLD_REASON code of the picked chip; cleared when the user edits the text.
+  String? _selectedReasonCode;
 
   @override
   void initState() {
@@ -87,16 +75,26 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isSubmitting = true);
-    final reason = _reasonController.text.trim();
+    final payload = buildHoldRequest(
+      reasonText: _reasonController.text,
+      selectedReasonCode: _selectedReasonCode,
+      displayedReasonLabel: _selectedReasonCode == null
+          ? null
+          : DomainEnums.label(context.l10n, DomainEnumType.holdReason, _selectedReasonCode),
+      stageName: widget.stageName,
+      stageNameEn: widget.stageNameEn,
+      stageCode: widget.stageCode,
+    );
     final notes = _notesController.text.trim();
 
     try {
       final updated = await ref.read(importFilesProvider.notifier).holdShipment(
             widget.importFile.importFileId,
-            reason,
+            payload.holdReason,
+            holdReasonCode: payload.holdReasonCode,
             holdNotes: notes.isNotEmpty ? notes : null,
-            stageName: widget.stageName,
-            stepName: widget.stageCode.isNotEmpty ? widget.stageCode : null,
+            stageName: payload.stageName,
+            stepName: payload.stepName,
           );
 
       if (mounted && updated != null) {
@@ -130,7 +128,8 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final commonReasons = isAr ? _commonReasonsAr : _commonReasonsEn;
+    // OTHER has no chip: typing a free reason is the 'other' path.
+    final commonReasons = DomainEnums.codesOf(DomainEnumType.holdReason).where((c) => c != 'OTHER').toList();
     final file = widget.importFile;
 
     return AlertDialog(
@@ -141,9 +140,9 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.amber.shade50,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
+          borderRadius: const BorderRadiusDirectional.only(
+            topStart: Radius.circular(14),
+            topEnd: Radius.circular(14),
           ),
           border: Border(bottom: BorderSide(color: Colors.amber.shade300)),
         ),
@@ -238,8 +237,9 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: commonReasons.map((r) {
-                    final isSelected = _reasonController.text == r;
+                  children: commonReasons.map((code) {
+                    final r = DomainEnums.label(l, DomainEnumType.holdReason, code);
+                    final isSelected = _selectedReasonCode == code && _reasonController.text == r;
                     return ChoiceChip(
                       label: Text(r, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppTheme.charcoal)),
                       selected: isSelected,
@@ -247,6 +247,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                       backgroundColor: Colors.grey.shade100,
                       onSelected: (selected) {
                         setState(() {
+                          _selectedReasonCode = selected ? code : null;
                           _reasonController.text = selected ? r : '';
                         });
                       },
@@ -317,3 +318,43 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
   }
 }
 
+/// Request fields for `POST /import-files/{id}/hold`.
+class HoldRequest {
+  final String holdReason;
+  final String? holdReasonCode;
+  final String stageName;
+  final String? stepName;
+
+  const HoldRequest({
+    required this.holdReason,
+    required this.holdReasonCode,
+    required this.stageName,
+    required this.stepName,
+  });
+}
+
+/// Builds the language-independent hold request.
+///
+/// A predefined reason that the user did not edit is sent as its HOLD_REASON
+/// code plus the English label; edited or free text is sent as typed with no
+/// code. `stage_name` is the English stage title, `step_name` the stage code.
+HoldRequest buildHoldRequest({
+  required String reasonText,
+  required String? selectedReasonCode,
+  required String? displayedReasonLabel,
+  required String stageName,
+  required String? stageNameEn,
+  required String stageCode,
+}) {
+  final text = reasonText.trim();
+  final usesPredefined = selectedReasonCode != null &&
+      DomainEnums.isCode(DomainEnumType.holdReason, selectedReasonCode) &&
+      text == displayedReasonLabel?.trim();
+  final englishStage = stageNameEn?.trim();
+  return HoldRequest(
+    holdReason: usesPredefined ? DomainEnums.englishLabel(DomainEnumType.holdReason, selectedReasonCode) : text,
+    holdReasonCode: usesPredefined ? selectedReasonCode : null,
+    stageName: (englishStage != null && englishStage.isNotEmpty) ? englishStage : stageName,
+    stepName: stageCode.isNotEmpty ? stageCode : null,
+  );
+}

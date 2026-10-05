@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../smart_tasks/models/smart_task_model.dart';
+import '../../../core/utils/bidi_text.dart';
 
 enum DashboardCardType {
   todaysTasks,
@@ -88,7 +89,7 @@ class DashboardDrillDownHelper {
               : null;
           return DrillDownItem(
             id: t.taskId.toString(),
-            title: DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic),
+            title: t.displayTitle(l),
             subtitle: DisplayNameResolver.resolveTaskType(t.taskType, isArabic: isArabic),
             shipmentCode: t.importFileCode,
             shipmentTitle: shipmentName,
@@ -96,12 +97,7 @@ class DashboardDrillDownHelper {
             byWhen: t.dueDate ?? (isArabic ? 'اليوم' : 'Today'),
             status: DisplayNameResolver.resolveTaskStatus(t.status, isArabic: isArabic),
             statusColorType: 'info',
-            nextAction: DisplayNameResolver.resolveTaskDescription(
-              t.description ?? t.notes,
-              isArabic: isArabic,
-              shipmentCode: t.importFileCode,
-              shipments: shipments,
-            ),
+            nextAction: t.displayDescription(l, shipments: shipments, orNotes: true),
             dataGaps: [l.drillDownTimeDataGap],
             actionLabel: onCompleteTask != null ? l.drillDownActionCompleteTask : null,
             onAction: onCompleteTask != null ? () => onCompleteTask(t.taskId) : null,
@@ -127,7 +123,7 @@ class DashboardDrillDownHelper {
               : null;
           return DrillDownItem(
             id: t.taskId.toString(),
-            title: DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic),
+            title: t.displayTitle(l),
             subtitle: DisplayNameResolver.resolveTaskType(t.taskType, isArabic: isArabic),
             shipmentCode: t.importFileCode,
             shipmentTitle: shipmentName,
@@ -137,12 +133,7 @@ class DashboardDrillDownHelper {
                 : (isArabic ? 'غير محدد' : 'Unspecified'),
             status: DisplayNameResolver.resolveTaskStatus(t.status, isArabic: isArabic),
             statusColorType: 'warning',
-            nextAction: DisplayNameResolver.resolveTaskDescription(
-              t.description ?? t.notes,
-              isArabic: isArabic,
-              shipmentCode: t.importFileCode,
-              shipments: shipments,
-            ),
+            nextAction: t.displayDescription(l, shipments: shipments, orNotes: true),
             dataGaps: [l.drillDownPendingReasonDataGap],
             actionLabel: onCompleteTask != null ? l.drillDownActionCompleteTask : null,
             onAction: onCompleteTask != null ? () => onCompleteTask(t.taskId) : null,
@@ -174,9 +165,9 @@ class DashboardDrillDownHelper {
             byWhen: s.requiredEta != null && s.requiredEta!.isNotEmpty
                 ? '${isArabic ? "وصول متوقع" : "ETA"}: ${s.requiredEta}'
                 : (isArabic ? 'موعد الوصول قيد التنسيق' : 'ETA pending scheduling'),
-            status: DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic),
+            status: (s.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic)),
             statusColorType: 'info',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: const [],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -222,7 +213,7 @@ class DashboardDrillDownHelper {
                 : (isArabic ? 'خلال هذا الأسبوع' : 'This week'),
             status: clearanceStatus,
             statusColorType: s.isCustomsReleased ? 'success' : 'info',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: [l.drillDownTimeDataGap],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -249,7 +240,7 @@ class DashboardDrillDownHelper {
             byWhen: '${isArabic ? 'تاريخ الوصول الفعلي' : 'Recorded ETA'}: ${s.requiredEta}',
             status: isArabic ? 'تاريخ ETA معتمد' : 'Confirmed ETA',
             statusColorType: 'info',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: [l.drillDownEtaChangeDataGap],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -280,7 +271,7 @@ class DashboardDrillDownHelper {
                 : (isArabic ? 'بانتظار الموافقة وصرف الدفعة' : 'Awaiting Payment Approval'),
             status: isArabic ? 'بانتظار الاعتماد المالي وصرف الدفعة' : 'Awaiting Budget Approval',
             statusColorType: 'warning',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: [l.drillDownPaymentDeadlineDataGap],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -309,7 +300,7 @@ class DashboardDrillDownHelper {
                 : (isArabic ? 'لم يتم تقديم الطلب بعد' : 'Not yet submitted'),
             status: isArabic ? 'نموذج 4 معلق' : 'Form 4 Pending',
             statusColorType: 'warning',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: const [],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -344,7 +335,7 @@ class DashboardDrillDownHelper {
             byWhen: '${isArabic ? 'معلق منذ' : 'Pending since'}: ${s.createdAt.contains('T') ? s.createdAt.split('T').first : s.createdAt}',
             status: isArabic ? 'متطلبات إجرائية غير مكتملة' : 'Incomplete Requirements',
             statusColorType: 'danger',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: const [],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -365,7 +356,7 @@ class DashboardDrillDownHelper {
           return DrillDownItem(
             id: s.importFileId.toString(),
             title: DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic),
-            subtitle: '$prioText • ${DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic)}',
+            subtitle: '$prioText • ${(s.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic))}',
             shipmentCode: s.importFileCode,
             shipmentTitle: DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic),
             who: '${isArabic ? 'المسؤول' : 'Owner'}: ${s.owner}',
@@ -374,7 +365,7 @@ class DashboardDrillDownHelper {
                 : (isArabic ? 'إجراء عاجل وفوري' : 'Immediate Action Required'),
             status: s.priority,
             statusColorType: isCrit ? 'danger' : 'warning',
-            nextAction: DisplayNameResolver.resolveActionTitle(s.nextAction, isArabic: isArabic),
+            nextAction: s.displayNextAction(l),
             dataGaps: const [],
             actionLabel: onFocusShipment != null ? l.drillDownActionFocusShipment : null,
             onAction: onFocusShipment != null ? () => onFocusShipment(s.importFileCode) : null,
@@ -494,7 +485,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
       buffer.writeln();
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -524,7 +515,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
       buffer.writeln('[${l.drillDownDataGapBadge}]: ${r.dataGaps.join(" | ")}');
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -656,7 +647,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             // ── Search & Filter Bar ────────────────────────────────────────
             if (totalCount > 0)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 20, 4),
                 child: TextField(
                   controller: _searchController,
                   style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),

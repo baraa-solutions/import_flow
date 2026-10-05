@@ -1,3 +1,8 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/app_localizations_ar.dart';
+import '../../../core/localization/app_localizations_en.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+
 double _numToDouble(dynamic val, [double fallback = 0.0]) {
   if (val == null) return fallback;
   if (val is num) return val.toDouble();
@@ -131,6 +136,26 @@ class CustomsTariffModel {
         'effective_to': effectiveTo?.toIso8601String().split('T').first,
         'notes': notes,
       };
+
+  /// The category in the language of [l10n] (CUSTOMS_CATEGORY code or legacy
+  /// label; free legacy text is shown as stored); `null` when there is none.
+  String? categoryLabel(AppLocalizations l10n) {
+    final raw = customsCategory?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    return DomainEnums.label(l10n, DomainEnumType.customsCategory, raw);
+  }
+
+  /// The category in Arabic (Arabic-only exports).
+  String? get categoryLabelArabic => categoryLabel(const AppLocalizationsAr());
+
+  /// Lower-case text a search box matches: the stored value plus both labels.
+  String get categorySearchText {
+    final raw = customsCategory?.trim();
+    if (raw == null || raw.isEmpty) return '';
+    final en = categoryLabel(const AppLocalizationsEn()) ?? '';
+    final ar = categoryLabelArabic ?? '';
+    return '$raw $en $ar'.toLowerCase();
+  }
 }
 
 class CustomsDutyBreakdownModel {

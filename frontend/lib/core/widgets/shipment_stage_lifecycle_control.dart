@@ -9,11 +9,15 @@ import '../../features/lifecycle_board/widgets/skip_step_dialog_helper.dart';
 import 'hold_shipment_at_stage_dialog.dart';
 import 'resume_shipment_from_stage_dialog.dart';
 import 'searchable_dropdown_field.dart';
+import '../localization/domain_enum_labels.dart';
 
 class ShipmentStageLifecycleControl extends ConsumerWidget {
   final int? importFileId;
   final String stageName;
   final String stageCode;
+  /// English stage title sent to the backend (`stage_name`); [stageName] is
+  /// only for display. Falls back to [stageName] when not given.
+  final String? stageNameEn;
   final VoidCallback? onStatusChanged;
   final bool isHeaderStyle;
 
@@ -22,6 +26,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
     this.importFileId,
     required this.stageName,
     this.stageCode = '',
+    this.stageNameEn,
     this.onStatusChanged,
     this.isHeaderStyle = true,
   });
@@ -39,7 +44,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.amber.shade50,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
               border: Border(bottom: BorderSide(color: Colors.amber.shade200)),
             ),
             child: Row(
@@ -95,6 +100,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
                         importFile: file,
                         stageName: stageName,
                         stageCode: stageCode,
+                        stageNameEn: stageNameEn,
                         onSuccess: onStatusChanged,
                       );
                     },
@@ -120,7 +126,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.orange.withOpacity(0.12),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
               border: Border(bottom: BorderSide(color: AppTheme.orange.withOpacity(0.3))),
             ),
             child: Row(
@@ -376,6 +382,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
               importFile: currentFile!,
               stageName: stageName,
               stageCode: stageCode,
+              stageNameEn: stageNameEn,
               onSuccess: onStatusChanged,
             );
             if (res == true) {
@@ -430,7 +437,13 @@ class ShipmentHoldWarningBanner extends ConsumerWidget {
 
     final l = context.l10n;
     final pausedStage = file.pausedAtStage ?? currentStageName;
-    final holdReason = file.holdReason ?? '-';
+    final holdReason = DomainEnums.label(
+      l,
+      DomainEnumType.holdReason,
+      file.holdReason,
+      code: file.holdReasonCode,
+      fallback: '-',
+    );
 
     return Container(
       width: double.infinity,

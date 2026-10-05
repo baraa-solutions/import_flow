@@ -32,6 +32,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/directional_icon.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
@@ -94,11 +95,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     if (idx < 0 || idx >= _evalItems.length) return;
     final source = _evalItems[idx];
     final l = context.l10n;
-    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
-    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    // The vessel name is a real-world name and is kept as is on the clone.
     final clonedItem = source.copyWith(
-      vesselName: '${source.vesselName}$copySuffix',
       isRecommended: false,
       isSelected: false,
     );
@@ -119,8 +117,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+    final initialName = '${source.title ?? source.sessionCode}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.shippingCarrierOptions: '${source.items.length}',
@@ -797,8 +794,8 @@ Best regards,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.cobalt, Colors.blue.shade700],
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
+                begin: AlignmentDirectional.centerEnd,
+                end: AlignmentDirectional.centerStart,
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
             ),
@@ -856,11 +853,11 @@ Best regards,
                               hintText: 'لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...\n(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
                               hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                              contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
                             ),
                           ),
-                          Positioned(
-                            left: 8,
+                          PositionedDirectional(
+                            start: 8,
                             bottom: 8,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1456,7 +1453,7 @@ Best regards,
             child: KeyedSubtree(
               key: ValueKey('evaluator_form_${_editingSessionId ?? "new"}_$_editFormVersion'),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 85),
+                padding: const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16, bottom: 85),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2862,9 +2859,9 @@ Best regards,
         ),
 
           // Bottom Fixed Action Bar with 3 Standard ERP Action Buttons (WCAG AA & Dark Mode)
-          Positioned(
-            left: 0,
-            right: 0,
+          PositionedDirectional(
+            start: 0,
+            end: 0,
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

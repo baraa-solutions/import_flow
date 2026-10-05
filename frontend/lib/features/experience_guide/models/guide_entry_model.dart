@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/system_messages/system_message_renderer.dart';
 
 class GuideScopeModel {
   final int? scopeId;
@@ -105,6 +107,9 @@ class GuideEntryModel {
   final String? rejectedBy;
   final String? rejectedAt;
   final String? rejectionReason;
+  /// System message code of title/content/evidence/reason (null for human-authored and legacy entries).
+  final String? msgCode;
+  final Map<String, dynamic>? msgParams;
 
   GuideEntryModel({
     required this.entryId,
@@ -139,7 +144,23 @@ class GuideEntryModel {
     this.rejectedBy,
     this.rejectedAt,
     this.rejectionReason,
+    this.msgCode,
+    this.msgParams,
   });
+
+  String _render(AppLocalizations l10n, String part, String fallback) => SystemMessageRenderer.render(
+      code: msgCode, params: msgParams, part: part, l10n: l10n, fallback: fallback);
+
+  /// [title] in the user's language (system-inferred entries carry a message code).
+  String localizedTitle(AppLocalizations l10n) => _render(l10n, SystemMessagePart.title, title);
+  String localizedContent(AppLocalizations l10n) => _render(l10n, SystemMessagePart.body, content);
+  /// Null when there is neither a renderable evidence part nor a stored text.
+  String? localizedEvidence(AppLocalizations l10n) =>
+      SystemMessageRenderer.tryRender(code: msgCode, params: msgParams, part: SystemMessagePart.evidence, l10n: l10n) ??
+      evidenceSummary;
+  String? localizedReason(AppLocalizations l10n) =>
+      SystemMessageRenderer.tryRender(code: msgCode, params: msgParams, part: SystemMessagePart.reason, l10n: l10n) ??
+      reasonWhy;
 
   bool get isCritical => severity.toLowerCase() == 'critical';
   bool get isWarning => severity.toLowerCase() == 'warning';
@@ -260,6 +281,8 @@ class GuideEntryModel {
       rejectedBy: json['rejected_by'],
       rejectedAt: json['rejected_at'],
       rejectionReason: json['rejection_reason'],
+      msgCode: SystemMessageRenderer.parseCode(json['msg_code']),
+      msgParams: SystemMessageRenderer.parseParams(json['msg_params']),
     );
   }
 

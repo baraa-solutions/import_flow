@@ -59,7 +59,7 @@ class PurchaseOrder(Base):
 
     # Workflow Status & Information
     country_of_origin = Column(String(100), nullable=True) # بلد المنشأ لأمر التوريد e.g. "CN", "DE - Germany"
-    payment_terms = Column(String(100), nullable=True, default="LC at Sight / اعتماد مستندي")
+    payment_terms = Column(String(100), nullable=True, default="LC at Sight")
     status = Column(String(50), nullable=False, default="Draft", index=True) # Draft, Approved, In Transit, Closed, Cancelled
     notes = Column(Text, nullable=True)
 

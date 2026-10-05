@@ -416,7 +416,8 @@ class TestCLO02ActualLandedCost:
             SystemNotification.category == "FINANCIAL_SETTLEMENT",
         ).first()
         assert notif is not None
-        assert "تم اعتماد تكلفة الوصول الفعلية" in notif.title
+        assert "Actual landed cost approved" in notif.title
+        assert notif.msg_code == "FS_LANDED_COST_APPROVED"
 
     def test_actual_landed_cost_api_endpoints(self, client, db_session):
         """CLO-02: اختبار نقاط النهاية REST API لحساب واعتماد تكلفة الوصول الفعلية"""

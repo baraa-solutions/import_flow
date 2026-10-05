@@ -2,8 +2,10 @@
 Business Logic & Workflows for Smart Tasks & Reminder Engine
 """
 
+import re
 from typing import List, Optional
 from datetime import datetime, date, timezone
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -16,15 +18,40 @@ from modules.smart_tasks.schemas import (
 import modules.smart_tasks.repository as repo
 import modules.smart_tasks.validators as val
 from modules.import_files.model import ImportFile
+from modules.common.system_messages import msg, render_en
 
 
-def create_task_service(db: Session, schema: SmartTaskCreate, user_name: str = "System") -> SmartTask:
+def create_task_service(
+    db: Session,
+    schema: SmartTaskCreate,
+    user_name: str = "System",
+    msg_code: Optional[str] = None,
+    msg_params: Optional[dict] = None,
+    step_code: Optional[str] = None,
+    commit: bool = True,
+) -> SmartTask:
+    """``msg_code`` / ``msg_params`` / ``step_code`` are for server-generated tasks only (routers never pass them).
+    ``commit=False``: flush only, for callers that commit their own transaction afterwards."""
     val.validate_task_create(schema)
-    return repo.create_task(db, schema, created_by=user_name)
+    return repo.create_task(
+        db, schema, created_by=user_name, msg_code=msg_code, msg_params=msg_params, step_code=step_code,
+        commit=commit,
+    )
+
+
+# Text fields a system message code renders. A user edit that changes one of them makes the text user-owned.
+_CODED_TEXT_FIELDS = ("title", "description", "notes")
 
 
 def update_task_service(db: Session, task_id: int, schema: SmartTaskUpdate, user_name: str = "System") -> SmartTask:
     update_data = schema.model_dump(exclude_unset=True)
+    existing = repo.get_task_by_id(db, task_id)
+    if existing is not None and existing.msg_code and any(
+        field in update_data and update_data[field] != getattr(existing, field) for field in _CODED_TEXT_FIELDS
+    ):
+        # The stored English render no longer matches the code: drop the code so every client shows the edit.
+        update_data["msg_code"] = None
+        update_data["msg_params"] = None
     task = repo.update_task(db, task_id, update_data, updated_by=user_name)
     if not task:
         raise HTTPException(
@@ -34,53 +61,83 @@ def update_task_service(db: Session, task_id: int, schema: SmartTaskUpdate, user
     return task
 
 
+# (phase prefix, PHASE_FOLLOW_UP_TASK code, reminder type, priority, legacy Arabic title suffix).
+# The legacy suffix only matches tasks created before the task codes existed; it is never written.
+SYSTEM_PHASE_TASK_DEFS = [
+    ("Phase 1", "FREIGHT_SCENARIO_FOLLOW_UP", "Carrier Quote Review", "High",
+     "متابعة دراسة وسيناريوهات النولون وشغور الخطوط"),
+    ("Phase 2", "PAYMENT_BUDGET_FOLLOW_UP", "Payment & Budget Follow-up", "High",
+     "متابعة الاعتماد والموافقة المالية وصرف الدفعة"),
+    ("Phase 3", "NAFEZA_ACID_FOLLOW_UP", "Bank Form 4 & ACID Registration", "Critical",
+     "متابعة تسجيل نافذة وحصول على رقم ACID (19-Digit)"),
+    ("Phase 4", "BOOKING_BL_FOLLOW_UP", "Draft B/L & Vessel Confirmation", "High",
+     "متابعة حجز الشحن وتأكيد رص الحاويات وتأكيد B/L"),
+    ("Phase 5", "CARGOX_DOCUMENT_TRANSFER", "CargoX Blockchain Exchange", "Critical",
+     "استلام Commercial Invoice ونقل المستندات عبر CargoX"),
+    ("Phase 6", "ARRIVAL_NOTICE_DECLARATION_46", "Arrival Notice & Customs Declaration 46", "Critical",
+     "متابعة وصول التنويه Arrival Notice وتسجيل إقرار 46 جمارك"),
+    ("Phase 7", "BROKER_RELEASE_FOLLOW_UP", "Customs Broker Inspection & Release", "Critical",
+     "تنفيذ ملاحظات المخلص الجمركي واستخراج إذن الإفراج النهائي"),
+    ("Phase 8", "WAREHOUSE_GRN_REVIEW", "Warehouse Receiving & GRN Verification", "High",
+     "مراجعة سلامة السليم واستلام المخازن وتوليد إذن GRN"),
+    ("Phase 9", "LANDED_COST_SETTLEMENT", "Landed Cost Settlement", "High",
+     "تسوية محرك تكلفة الوصول الكلية Landed Cost وتوزيع المصاريف"),
+    ("Phase 10", "ARCHIVE_REVIEW", "Archival Verification", "Medium",
+     "مراجعة شروط الأرشفة وإغلاق الملف التاريخي"),
+]
+
+
+def _phase_matches(prefix: str, phase_text: str) -> bool:
+    """'Phase 1' must not match 'Phase 10'."""
+    return re.search(rf"{re.escape(prefix)}(?!\d)", phase_text) is not None
+
+
 def auto_generate_system_tasks_for_file(db: Session, import_file: ImportFile):
     """
-    Business Rule 2.4 A: Generate System Tasks automatically based on Phase progression
+    Business Rule 2.4 A: Generate System Tasks automatically based on Phase progression.
+    Titles/descriptions/notes are TASK_AUTO_PHASE_FOLLOW_UP (code + params, English render stored).
     """
     file_id = import_file.import_file_id
     file_code = import_file.custom_file_number or import_file.import_file_code
     phase = import_file.current_module or "Phase 1"
 
-    # Define standard system tasks for phases
-    system_task_defs = [
-        ("Phase 1", "متابعة دراسة وسيناريوهات النولون وشغور الخطوط", "Carrier Quote Review", "High"),
-        ("Phase 2", "متابعة الاعتماد والموافقة المالية وصرف الدفعة", "Payment & Budget Follow-up", "High"),
-        ("Phase 3", "متابعة تسجيل نافذة وحصول على رقم ACID (19-Digit)", "Bank Form 4 & ACID Registration", "Critical"),
-        ("Phase 4", "متابعة حجز الشحن وتأكيد رص الحاويات وتأكيد B/L", "Draft B/L & Vessel Confirmation", "High"),
-        ("Phase 5", "استلام Commercial Invoice ونقل المستندات عبر CargoX", "CargoX Blockchain Exchange", "Critical"),
-        ("Phase 6", "متابعة وصول التنويه Arrival Notice وتسجيل إقرار 46 جمارك", "Arrival Notice & Customs Declaration 46", "Critical"),
-        ("Phase 7", "تنفيذ ملاحظات المخلص الجمركي واستخراج إذن الإفراج النهائي", "Customs Broker Inspection & Release", "Critical"),
-        ("Phase 8", "مراجعة سلامة السليم واستلام المخازن وتوليد إذن GRN", "Warehouse Receiving & GRN Verification", "High"),
-        ("Phase 9", "تسوية محرك تكلفة الوصول الكلية Landed Cost وتوزيع المصاريف", "Landed Cost Settlement", "High"),
-        ("Phase 10", "مراجعة شروط الأرشفة وإغلاق الملف التاريخي", "Archival Verification", "Medium"),
-    ]
+    for ph_prefix, task_enum_code, r_type, priority, legacy_suffix in SYSTEM_PHASE_TASK_DEFS:
+        if not _phase_matches(ph_prefix, phase):
+            continue
+        # Coded tasks are recognised by their reminder type; legacy ones by the Arabic title suffix.
+        existing = db.query(SmartTask).filter(
+            SmartTask.import_file_id == file_id,
+            SmartTask.is_active == True,
+            or_(
+                and_(SmartTask.task_type == "System Generated", SmartTask.reminder_type == r_type),
+                SmartTask.title.ilike(f"%{legacy_suffix}%"),
+            ),
+        ).first()
+        if existing:
+            continue
 
-    for ph_prefix, title_suffix, r_type, priority in system_task_defs:
-        if ph_prefix in phase:
-            # Check if task already exists
-            existing = db.query(SmartTask).filter(
-                SmartTask.import_file_id == file_id,
-                SmartTask.title.ilike(f"%{title_suffix}%"),
-                SmartTask.is_active == True,
-            ).first()
-
-            if not existing:
-                create_schema = SmartTaskCreate(
-                    title=f"{file_code} — {title_suffix}",
-                    description=f"مهمة توليد آلي من النظام لمتابعة إجراءات {ph_prefix}",
-                    task_type="System Generated",
-                    import_file_id=file_id,
-                    import_file_code=file_code,
-                    phase_name=phase,
-                    assigned_user=import_file.owner or "Kamal",
-                    priority=priority,
-                    reminder_type=r_type,
-                    status="Pending",
-                    due_date=date.today().isoformat(),
-                    notes=f"توليد تلقائي للشحنة {file_code}",
-                )
-                repo.create_task(db, create_schema, created_by="System Generator")
+        message = msg(
+            "TASK_AUTO_PHASE_FOLLOW_UP",
+            import_file_code=file_code,
+            task_enum_phase_follow_up_task=task_enum_code,
+        )
+        create_schema = SmartTaskCreate(
+            title=render_en(message.code, message.params, "title"),
+            description=render_en(message.code, message.params, "body"),
+            task_type="System Generated",
+            import_file_id=file_id,
+            import_file_code=file_code,
+            phase_name=phase,
+            assigned_user=import_file.owner or "Kamal",
+            priority=priority,
+            reminder_type=r_type,
+            status="Pending",
+            due_date=date.today().isoformat(),
+            notes=render_en(message.code, message.params, "note"),
+        )
+        repo.create_task(
+            db, create_schema, created_by="System Generator", msg_code=message.code, msg_params=message.params
+        )
 
 
 def auto_close_completed_phase_tasks(db: Session, import_file_id: int, completed_phase: str):

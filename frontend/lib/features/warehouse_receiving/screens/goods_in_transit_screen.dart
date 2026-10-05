@@ -12,6 +12,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../inland_transport/widgets/inland_transport_dialog.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
   const GoodsInTransitScreen({super.key, this.isEmbedded = false});
@@ -74,7 +75,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
           final totalContainers = activeItems.fold<int>(0, (s, i) => s + i.containersCount);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -460,7 +461,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(item.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            LtrText(item.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                             const SizedBox(width: 4),
                                             const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
                                           ],

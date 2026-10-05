@@ -17,6 +17,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
@@ -50,8 +51,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialTitle = '${source.title}$copySuffix';
+    final initialTitle = '${source.title}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.customsBrokerLabel: source.brokerName.isNotEmpty ? source.brokerName : '—',
@@ -514,7 +514,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: metricBadges.map((b) => Padding(padding: const EdgeInsets.only(right: 8), child: b)).toList(),
+                              children: metricBadges.map((b) => Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: b)).toList(),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -540,7 +540,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                 const SizedBox(width: 8),
                                 countBadgeWidget,
                                 const SizedBox(width: 8),
-                                ...exportButtons.map((b) => Padding(padding: const EdgeInsets.only(right: 6), child: b)),
+                                ...exportButtons.map((b) => Padding(padding: const EdgeInsetsDirectional.only(end: 6), child: b)),
                               ],
                             ),
                           ),
@@ -609,7 +609,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           }
 
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                            padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                             child: Card(
                               elevation: 2,
                               color: isDark ? AppTheme.darkCardBackground : Colors.white,
@@ -945,7 +945,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final egpLabel = isArabic ? 'ج.م' : 'EGP';
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 24),
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

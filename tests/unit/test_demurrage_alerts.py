@@ -95,7 +95,9 @@ def test_freetime_warning_creates_warning_alert(checker, mock_db):
     created = result[0]
     assert created.severity == "WARNING"
     assert created.category == "DEMURRAGE_WARNING"
-    assert "2 يوم" in created.message
+    assert "2 days" in created.message
+    assert created.msg_code == "NOTIF_DEMURRAGE_WARNING"
+    assert created.msg_params["days_left"] == 2
 
 
 def test_freetime_warning_zero_days_still_triggers(checker, mock_db):

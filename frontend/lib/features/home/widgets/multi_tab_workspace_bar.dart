@@ -125,7 +125,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                     ref.read(aiAssistantProvider.notifier).updateScreenContext(localizedTitle);
                   },
                   child: Container(
-                    margin: EdgeInsets.only(top: density.isUltraCompact ? 1 : 2, right: 2, left: 2),
+                    margin: EdgeInsetsDirectional.only(top: density.isUltraCompact ? 1 : 2, start: 2, end: 2),
                     padding: EdgeInsets.symmetric(horizontal: density.isUltraCompact ? 6 : 8),
                     constraints: BoxConstraints(
                       maxWidth: density.isUltraCompact ? 130 : 155,
@@ -135,10 +135,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                       color: isActive
                           ? (isDark ? AppTheme.darkCardBackground : Colors.white)
                           : Colors.transparent,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(6),
-                        topRight: Radius.circular(6),
-                      ),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                       border: isActive
                           ? Border.all(
                               color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,

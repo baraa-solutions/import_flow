@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/app_update/models/update_models.dart';
 import 'package:frontend/features/app_update/providers/app_update_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_app_update_service.dart';
 
@@ -9,6 +10,8 @@ ProviderContainer _container(FakeAppUpdateService fake, {DateTime? now}) {
   final c = ProviderContainer(overrides: [
     appUpdateServiceProvider.overrideWithValue(fake),
     updatePollIntervalProvider.overrideWithValue(const Duration(milliseconds: 5)),
+    canInstallUpdatesProvider.overrideWithValue(true),
+    updateUserIdProvider.overrideWithValue(1),
     if (now != null) updateClockProvider.overrideWithValue(() => now),
   ]);
   addTearDown(c.dispose);
@@ -22,6 +25,8 @@ Future<void> _waitFor(bool Function() cond) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('resolveBannerMode', () {
     final now = DateTime(2026, 9, 24, 12);
 
@@ -42,23 +47,38 @@ void main() {
       }
     });
 
-    test('optional is shown and hidden for 24 h after remind-me-later', () {
+    UpdateSnooze snoozed(String version, Duration ago) => UpdateSnooze(version: version, at: now.subtract(ago));
+
+    test('optional is shown and hidden for 24 h after remind-me-later on that version', () {
       expect(resolveBannerMode(optionalCheck, null, now), UpdateBannerMode.optional);
+      expect(resolveBannerMode(optionalCheck, snoozed('2.1.0', const Duration(hours: 1)), now), UpdateBannerMode.hidden);
       expect(
-        resolveBannerMode(optionalCheck, now.subtract(const Duration(hours: 1)), now),
+        resolveBannerMode(optionalCheck, snoozed('2.1.0', const Duration(hours: 23, minutes: 59)), now),
         UpdateBannerMode.hidden,
       );
+      expect(resolveBannerMode(optionalCheck, snoozed('2.1.0', const Duration(hours: 24)), now), UpdateBannerMode.optional);
+    });
+
+    test('a snooze of an older version never hides a newer one', () {
+      expect(resolveBannerMode(optionalCheck, snoozed('2.0.9', const Duration(minutes: 5)), now), UpdateBannerMode.optional);
+    });
+
+    test('mandatory ignores the snooze', () {
       expect(
-        resolveBannerMode(optionalCheck, now.subtract(const Duration(hours: 25)), now),
-        UpdateBannerMode.optional,
+        resolveBannerMode(mandatoryCheck, snoozed('2.1.0', const Duration(minutes: 1)), now),
+        UpdateBannerMode.mandatory,
       );
     });
 
-    test('mandatory is never dismissible', () {
+    test('ready is shown to admins only, even when snoozed or without a check', () {
+      const ready = UpdateStatus(state: UpdateState.ready, version: '2.1.0');
+      expect(resolveBannerMode(null, null, now, status: ready, canInstall: true), UpdateBannerMode.ready);
       expect(
-        resolveBannerMode(mandatoryCheck, now.subtract(const Duration(minutes: 1)), now),
-        UpdateBannerMode.mandatory,
+        resolveBannerMode(optionalCheck, snoozed('2.1.0', const Duration(minutes: 1)), now, status: ready, canInstall: true),
+        UpdateBannerMode.ready,
       );
+      expect(resolveBannerMode(optionalCheck, null, now, status: ready), UpdateBannerMode.optional);
+      expect(resolveBannerMode(null, null, now, status: ready), UpdateBannerMode.hidden);
     });
   });
 
@@ -75,20 +95,20 @@ void main() {
       expect(c.read(updateBannerModeProvider), UpdateBannerMode.hidden);
     });
 
-    test('mandatory stays visible after a dismiss attempt', () async {
+    test('mandatory stays visible after a snooze attempt', () async {
       final now = DateTime(2026, 9, 24);
       final c = _container(FakeAppUpdateService(check: mandatoryCheck), now: now);
       await c.read(updateCheckProvider.future);
-      c.read(updateBannerDismissedProvider.notifier).state = now;
+      await c.read(updateSnoozeProvider.notifier).snooze('2.1.0');
       expect(c.read(updateBannerModeProvider), UpdateBannerMode.mandatory);
     });
 
-    test('optional hides after dismiss', () async {
+    test('optional hides after snooze', () async {
       final now = DateTime(2026, 9, 24);
       final c = _container(FakeAppUpdateService(check: optionalCheck), now: now);
       await c.read(updateCheckProvider.future);
       expect(c.read(updateBannerModeProvider), UpdateBannerMode.optional);
-      c.read(updateBannerDismissedProvider.notifier).state = now;
+      await c.read(updateSnoozeProvider.notifier).snooze('2.1.0');
       expect(c.read(updateBannerModeProvider), UpdateBannerMode.hidden);
     });
   });

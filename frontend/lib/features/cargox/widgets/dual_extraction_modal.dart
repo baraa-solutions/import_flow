@@ -10,6 +10,7 @@ import '../models/cargox_model.dart';
 import '../models/export_configs.dart';
 import '../providers/cargox_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// CGX-004: واجهة الاستخلاص المزدوج — فاتورة + باكينج ليست مستقلان (Task K Independent Dimensions)
 class DualExtractionModal extends ConsumerStatefulWidget {
   final int importFileId;
@@ -186,9 +187,9 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
     return Container(
       decoration: const BoxDecoration(
         color: AppTheme.charcoal,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
+        borderRadius: BorderRadiusDirectional.only(
+          topStart: Radius.circular(16),
+          topEnd: Radius.circular(16),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -204,7 +205,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                   l.dualExtractionEngineTitle,
                   style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                 ),
-                Text(
+                LtrText(
                   widget.importFileCode,
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
@@ -671,9 +672,9 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
+        borderRadius: const BorderRadiusDirectional.only(
+          bottomStart: Radius.circular(16),
+          bottomEnd: Radius.circular(16),
         ),
       ),
       child: Row(

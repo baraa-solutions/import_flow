@@ -196,9 +196,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
+                    borderRadius: const BorderRadiusDirectional.only(
+                      topStart: Radius.circular(16),
+                      topEnd: Radius.circular(16),
                     ),
                   ),
                   child: Row(
@@ -380,9 +380,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
+                    borderRadius: const BorderRadiusDirectional.only(
+                      bottomStart: Radius.circular(16),
+                      bottomEnd: Radius.circular(16),
                     ),
                     boxShadow: [
                       BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 4, offset: const Offset(0, -2)),

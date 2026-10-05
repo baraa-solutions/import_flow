@@ -18,6 +18,7 @@ import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/customs_clearance_quotation_model.dart';
 import '../providers/customs_clearance_quotations_provider.dart';
 import '../services/customs_clearance_quotations_export_service.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 class CustomsClearanceQuotationsScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -764,7 +765,7 @@ class _CustomsClearanceQuotationsScreenState
                                 DataColumn(label: Text(l10n.clearanceQuotesColPriceNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: items.map((item) {
-                                final rowSummary = '${item.providerName} | ${item.portName} | ${item.serviceCategory} | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+                                final rowSummary = '${item.providerName} | ${item.portName} | ${DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory)} | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
                                 return DataRow(cells: [
                                   DataCell(Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -791,9 +792,9 @@ class _CustomsClearanceQuotationsScreenState
                                     child: Text(item.portName),
                                   )),
                                   DataCell(CopyableTableCell(
-                                    value: item.serviceCategory,
+                                    value: DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory),
                                     rowSummary: rowSummary,
-                                    child: Text(item.serviceCategory),
+                                    child: Text(DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory)),
                                   )),
                                   DataCell(CopyableTableCell(
                                     value: item.containerType,
@@ -1287,9 +1288,9 @@ class _CustomsClearanceQuotationsScreenState
     final locations = ref.read(transportLocationsProvider).value ?? [];
 
     int selectedProviderId = partners.isNotEmpty ? partners.first.partnerId! : 1;
-    String selectedProviderName = partners.isNotEmpty ? partners.first.partnerName : l10n.clearanceQuotesColBroker;
+    String selectedProviderName = partners.isNotEmpty ? partners.first.partnerName : 'Customs Broker';
     String portName = locations.isNotEmpty ? locations.first.locationName : 'Alexandria Port';
-    String category = l10n.clearanceQuotesCatClearanceFee;
+    String category = 'CLEARANCE_FEE'; // DomainEnumType.clearanceServiceCategory code
     String containerType = '40HQ';
     final priceCtrl = TextEditingController(text: '3500');
     final notesCtrl = TextEditingController();
@@ -1338,10 +1339,11 @@ class _CustomsClearanceQuotationsScreenState
                       value: category,
                       labelText: l10n.clearanceQuotesFieldServiceCategory,
                       items: [
-                        SearchableDropdownItem(value: l10n.clearanceQuotesCatClearanceFee, label: l10n.clearanceQuotesCatClearanceFee),
-                        SearchableDropdownItem(value: l10n.clearanceQuotesCatInlandTransport, label: l10n.clearanceQuotesCatInlandTransport),
-                        SearchableDropdownItem(value: l10n.clearanceQuotesCatInspectionFee, label: l10n.clearanceQuotesCatInspectionFee),
-                        SearchableDropdownItem(value: l10n.clearanceQuotesCatPortCharges, label: l10n.clearanceQuotesCatPortCharges),
+                        for (final code in DomainEnums.codesOf(DomainEnumType.clearanceServiceCategory))
+                          SearchableDropdownItem(
+                            value: code,
+                            label: DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, code),
+                          ),
                       ],
                       onChanged: (val) {
                         if (val != null) setDState(() => category = val);
@@ -1404,7 +1406,7 @@ class _CustomsClearanceQuotationsScreenState
                   serviceCategory: category,
                   containerType: containerType,
                   unitPrice: double.tryParse(priceCtrl.text) ?? 0.0,
-                  currency: l10n.egpCurrency,
+                  currency: 'EGP',
                   notes: notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
                 );
 

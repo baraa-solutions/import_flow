@@ -58,8 +58,8 @@ def create_transport_booking(
         updated_by=user,
     )
     db.add(booking)
-    db.commit()
-    db.refresh(booking)
+    # Flush only: create_transport_booking_service commits once after the file sync, tasks and notification.
+    db.flush()
     return booking
 
 def get_transport_booking_by_id(db: Session, transport_id: int) -> Optional[InlandTransportBooking]:

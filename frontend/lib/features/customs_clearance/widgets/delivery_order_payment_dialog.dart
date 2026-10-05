@@ -205,9 +205,9 @@ class _DeliveryOrderPaymentDialogState
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: const BoxDecoration(
                 color: Color(0xFF0284C7), // Ocean / Shipping Blue
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+                borderRadius: BorderRadiusDirectional.only(
+                  topStart: Radius.circular(16),
+                  topEnd: Radius.circular(16),
                 ),
               ),
               child: Row(
@@ -608,9 +608,9 @@ class _DeliveryOrderPaymentDialogState
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                borderRadius: const BorderRadiusDirectional.only(
+                  bottomStart: Radius.circular(16),
+                  bottomEnd: Radius.circular(16),
                 ),
                 border: Border(
                   top: BorderSide(

@@ -22,6 +22,10 @@ from .repository import (
 )
 from .validators import validate_seal_integrity, validate_discrepancy_claim
 from modules.import_files.model import ImportFile
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
+
+DEFAULT_INSPECTION_COMMITTEE = "Technical & Warehouse Receiving Inspection Committee"
 
 def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCreate) -> WarehouseReceivingRecord:
     # Check import file exists
@@ -70,7 +74,7 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
         record.quarantine_lock_active = True
         record.dispatch_blocked = True
         record.status = "Under Bond Quarantine"
-        record.notes = (record.notes or "") + f" | بضاعة تحت التحفظ الجمركي (سحب على عهدة - تعهد #{clearance.bond_guarantee_ref}) - يحظر الصرف والتشغيل."
+        record.notes = (record.notes or "") + f" | Goods under customs bond (under-bond release - guarantee #{clearance.bond_guarantee_ref}) - dispatch and production are blocked."
 
     # Auto update import file stage and stop transport/demurrage timers
     imp_file.current_module = "Phase 8 - Warehouse Receiving & Quality Control"
@@ -107,18 +111,13 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
     except Exception:
         pass
 
-    stage_title = (
-        f"Under-Bond Quarantine at {schema.warehouse_name} (GRN: {code})"
+    wh_stage_code = "UNDER_BOND_QUARANTINE" if record.quarantine_lock_active else "GOODS_RECEIVED"
+    wh_next_action = msg(
+        "NA_AWAIT_LAB_APPROVAL_BEFORE_PRODUCTION"
         if record.quarantine_lock_active
-        else f"Goods Received at {schema.warehouse_name} (GRN: {code})"
+        else "NA_TR_INSPECTION_DISCREPANCY_LANDED_COST"
     )
-    next_action_title = (
-        "Awaiting Laboratory Test Approval before Production"
-        if record.quarantine_lock_active
-        else "الفحص الفني ومحضر مطابقة العجز والتالف (TR-04) وتكلفة الوصول (CLO-02)"
-    )
-    imp_file.current_stage = stage_title
-    imp_file.next_action = next_action_title
+    set_file_tracking(imp_file, stage_code=wh_stage_code, next_action=wh_next_action)
     if (imp_file.progress_percent or 0.0) < 98.0:
         imp_file.progress_percent = 98.0
     db.commit()
@@ -131,10 +130,10 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
             import_file_id=schema.import_file_id,
             completed_step_code="STEP_19",
             target_step_codes=["STEP_20"],
-            notes=f"تم استلام البضاعة في المخزن ({schema.warehouse_name}) وإصدار إذن الإضافة ({code}).",
+            notes_msg=msg("WH_GRN_ISSUED", warehouse_name=schema.warehouse_name, grn_code=code),
+            next_action_msg=wh_next_action,
+            stage_code=wh_stage_code,
             assigned_user="Warehouse Manager",
-            custom_stage_title=stage_title,
-            custom_next_action=next_action_title,
             min_progress_percent=98.0,
         )
     except Exception as e:
@@ -143,34 +142,50 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
 
     # Smart Tasks and System Notifications
     try:
-        from modules.smart_tasks.service import create_task_service
+        from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
-        create_task_service(
-            db=db,
-            schema=SmartTaskCreate(
+        task_msg = msg("WH_TASK_INSPECTION_DISCREPANCY", grn_code=code, import_file_code=imp_file.import_file_code)
+        create_smart_task(
+            db,
+            SmartTaskCreate(
                 import_file_id=imp_file.import_file_id,
-                title=f"الفحص الفني ومطابقة العجز والتالف (TR-04) - {code}",
-                description=f"مطابقة كميات إذن الإضافة المخزني ({code}) مع الفاتورة وحصر أي عجز أو تالف للشحنة {imp_file.import_file_code}.",
+                title=render_en(task_msg.code, task_msg.params, "title"),
+                description=render_en(task_msg.code, task_msg.params, "body"),
                 category="Operations",
                 priority="Medium",
                 assigned_to=schema.inspector_name or "Warehouse QC Inspector",
                 task_type="TR-04",
             ),
-            user_name="System",
+            created_by="System",
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_19",
+            commit=False,
         )
     except Exception:
         pass
 
     try:
-        from modules.notifications.service import create_system_notification
-        create_system_notification(
-            db=db,
-            title=f"تم إصدار إذن استلام بضاعة بالمخزن ({code})",
-            message=f"وصلت بضاعة الشحنة {imp_file.import_file_code} لمخزن {schema.warehouse_name} وتم إصدار إذن الإضافة {code}.",
+        from modules.notifications.model import SystemNotification
+        notif_msg = msg(
+            "WH_GRN_ISSUED",
+            grn_code=code,
+            import_file_code=imp_file.import_file_code,
+            warehouse_name=schema.warehouse_name,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
             severity="INFO",
             category="Warehouse Receiving",
-            reference_id=record.receiving_id,
-        )
+            entity_type="ImportFile",
+            entity_id=imp_file.import_file_id,
+            target_role="ALL",
+            is_read=False,
+        ))
+        db.commit()
     except Exception:
         pass
 
@@ -303,7 +318,7 @@ def submit_warehouse_inspection_protocol_service(
 
     # 4. Set inspection details
     record.inspection_date = schema.inspection_date or datetime.now(timezone.utc)
-    record.inspection_committee = schema.inspection_committee or "لجنة الفحص والاستلام الفني والمخزني"
+    record.inspection_committee = schema.inspection_committee or DEFAULT_INSPECTION_COMMITTEE
     record.root_cause = schema.root_cause
     record.quarantine_zone_assigned = schema.quarantine_zone_assigned
     record.insurance_claim_filed = schema.insurance_claim_filed
@@ -349,17 +364,16 @@ def submit_warehouse_inspection_protocol_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
     if imp_file:
         if record.inspection_verdict == "ACCEPTED_FULL":
-            stage_text = f"QC Passed - Ready for Landed Cost (GRN: {record.grn_code})"
-            next_action_text = "احتساب تكلفة الوصول الفعلية والانحراف (CLO-02) والتسوية الختامية (CLO-01)"
+            stage_code = "QC_PASSED"
+            next_action_code = "NA_CLO_CALCULATE_LANDED_COST_AND_SETTLE"
         elif record.inspection_verdict == "REJECTED_QUARANTINED":
-            stage_text = f"Quarantined under Inspection ({record.inspection_protocol_number})"
-            next_action_text = "متابعة نتائج الفحص المعملي ومطالبات الضمان مع المورد"
+            stage_code = "QUARANTINED_UNDER_INSPECTION"
+            next_action_code = "NA_FOLLOW_LAB_RESULTS_WARRANTY_CLAIMS"
         else:
-            stage_text = f"Discrepancy Protocol Filed: {record.inspection_protocol_number} ({record.total_shortage_qty} Short, {record.total_damaged_qty} Damaged)"
-            next_action_text = "متابعة تسوية التعويض مع التأمين/المورد (CLO-01) واحتساب تكلفة الوصول (CLO-02)"
+            stage_code = "DISCREPANCY_PROTOCOL_FILED"
+            next_action_code = "NA_FOLLOW_COMPENSATION_LANDED_COST"
 
-        imp_file.current_stage = stage_text
-        imp_file.next_action = next_action_text
+        set_file_tracking(imp_file, stage_code=stage_code, next_action=msg(next_action_code))
         if (imp_file.progress_percent or 0.0) < 99.0:
             imp_file.progress_percent = 99.0
 
@@ -374,31 +388,50 @@ def submit_warehouse_inspection_protocol_service(
             SmartTask.status.in_(["Pending", "In Progress"]),
         ).all()
         for task in tr04_tasks:
-            if (task.task_type == "TR-04") or ("TR-04" in (task.title or "")) or ("الفحص الفني" in (task.title or "")):
+            if (task.task_type == "TR-04") or ("TR-04" in (task.title or "")) or ("الفحص الفني" in (task.title or "")) or (task.msg_code == "WH_TASK_INSPECTION_DISCREPANCY"):
                 task.status = "Completed"
                 task.completed_at = datetime.now(timezone.utc)
-                task.resolution_notes = f"تم اعتماد محضر الفحص الفني ({record.inspection_protocol_number}) بنتيجة: {record.inspection_verdict} بواسطة {user_name}."
+                task.resolution_notes = f"Technical inspection protocol ({record.inspection_protocol_number}) approved with verdict {record.inspection_verdict} by {user_name}."
         db.commit()
     except Exception:
         pass
 
     # 8. Dispatch System Notification
     try:
-        from modules.notifications.service import create_system_notification
-        claim_info = ""
-        if record.insurance_claim_filed:
-            claim_info += f" | مطالبة تأمين: {record.insurance_claim_ref or 'قيد التسجيل'}"
-        if record.supplier_claim_filed:
-            claim_info += f" | إشعار خصم مورد: {record.supplier_claim_ref or 'قيد التسجيل'}"
-
-        create_system_notification(
-            db=db,
-            title=f"محضر الفحص المخزني والمطابقة ({record.inspection_protocol_number})",
-            message=f"اعتمدت {record.inspection_committee} محضر الفحص للشحنة {imp_file.import_file_code if imp_file else ''}. النتيجة: {record.inspection_verdict} (مقبول: {record.total_accepted_qty}, عجز: {record.total_shortage_qty}, تالف: {record.total_damaged_qty}){claim_info}.",
+        from modules.notifications.model import SystemNotification
+        has_claims = bool(record.insurance_claim_filed or record.supplier_claim_filed)
+        claim_params = (
+            {
+                "insurance_claim_ref": (record.insurance_claim_ref or "-") if record.insurance_claim_filed else "-",
+                "supplier_claim_ref": (record.supplier_claim_ref or "-") if record.supplier_claim_filed else "-",
+            }
+            if has_claims
+            else {}
+        )
+        notif_msg = msg(
+            "WH_INSPECTION_PROTOCOL_APPROVED_CLAIMS" if has_claims else "WH_INSPECTION_PROTOCOL_APPROVED",
+            **claim_params,
+            protocol_no=record.inspection_protocol_number,
+            committee=record.inspection_committee,
+            import_file_code=imp_file.import_file_code if imp_file else "",
+            verdict_enum_warehouse_inspection_verdict=record.inspection_verdict,
+            accepted_qty=record.total_accepted_qty,
+            shortage_qty=record.total_shortage_qty,
+            damaged_qty=record.total_damaged_qty,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
             severity="WARNING" if total_discrepancy > 0 else "INFO",
             category="Quality Control & Inspection",
-            reference_id=record.receiving_id,
-        )
+            entity_type="ImportFile",
+            entity_id=record.import_file_id,
+            target_role="ALL",
+            is_read=False,
+        ))
+        db.commit()
     except Exception:
         pass
 

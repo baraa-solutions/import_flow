@@ -8,6 +8,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 from modules.import_files.model import ImportFile
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_documentation.service import get_central_archive_service
 from .model import OriginalDocumentsCollectionSession
@@ -286,7 +288,7 @@ class OriginalDocumentsCollectionService:
                     imp_file.original_documents_received_at = datetime.now(timezone.utc)
                     if (imp_file.progress_percent or 0) < 75.0:
                         imp_file.progress_percent = 75.0
-                    imp_file.next_action = "تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01)"
+                    set_file_tracking(imp_file, next_action=msg("NA_CS01_ASSIGN_BROKER"))
 
             # 2. Complete pending SH-04 SmartTasks
             try:
@@ -306,7 +308,7 @@ class OriginalDocumentsCollectionService:
                         or "أصول المستندات" in (t.title or "")
                     ):
                         t.status = "Completed"
-                        t.completion_notes = f"تم استلام وتوثيق أصول المستندات بنجاح (الكود: {session.collection_code}) بالحالة {session.status}."
+                        t.completion_notes = f"Original documents received and verified (code: {session.collection_code}) with status {session.status}."
             except Exception as ex_task:
                 logger.warning(f"Error auto-completing SH-04 SmartTasks: {ex_task}")
 
@@ -328,12 +330,19 @@ class OriginalDocumentsCollectionService:
                     if not existing_cs01:
                         due_dt = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%d")
                         task_code = f"TASK-{uuid.uuid4().hex[:8].upper()}"
+                        task_msg = msg(
+                            "ODC_TASK_ASSIGN_BROKER",
+                            import_file_code=file_label,
+                            collection_code=session.collection_code,
+                        )
                         downstream_task = SmartTask(
                             task_code=task_code,
                             import_file_id=session.import_file_id,
                             import_file_code=file_label,
-                            title=f"تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01) — {file_label}".strip(),
-                            description=f"تم استلام وتوثيق أصول المستندات البنكية للملف ({file_label}) بنجاح (الجلسة: {session.collection_code}). يرجى تعيين المخلص الجمركي وإصدار التفويض الإلكتروني لبدء الإعداد الجمركي ونموذج 46 ك.م.",
+                            title=render_en(task_msg.code, task_msg.params, "title").strip(),
+                            description=render_en(task_msg.code, task_msg.params, "body"),
+                            msg_code=task_msg.code,
+                            msg_params=task_msg.params,
                             task_type="CUSTOMS_BROKER_ASSIGNMENT",
                             priority="High",
                             status="Pending",
@@ -348,9 +357,17 @@ class OriginalDocumentsCollectionService:
                 # 4. Emit SystemNotification
                 try:
                     from modules.notifications.model import SystemNotification
+                    notif_msg = msg(
+                        "ODC_ORIGINALS_RECEIVED",
+                        collection_code=session.collection_code,
+                        import_file_code=file_label,
+                        completion_pct=session.completion_percentage,
+                    )
                     notif = SystemNotification(
-                        title=f"تم استلام وتوثيق أصول المستندات البنكية — {session.collection_code}",
-                        message=f"تم استلام وتوثيق كافة أصول المستندات البنكية للشحنة ({file_label}) بنسبة إنجاز {session.completion_percentage}% (الكود: {session.collection_code}). الملف جاهز للبدء في إجراءات التخليص الجمركي.",
+                        title=render_en(notif_msg.code, notif_msg.params, "title"),
+                        message=render_en(notif_msg.code, notif_msg.params, "body"),
+                        msg_code=notif_msg.code,
+                        msg_params=notif_msg.params,
                         category="STAGE_PROGRESSION",
                         severity="INFO",
                         entity_type="ImportFile",
@@ -387,7 +404,7 @@ class OriginalDocumentsCollectionService:
                             customs_reviewed_by=updated_by,
                             customs_reviewed_at=datetime.now(timezone.utc),
                             overall_status="Approved for Clearance",
-                            commercial_notes=f"تم استلام وتوثيق أصول المستندات البنكية بنجاح برقم {session.collection_code}",
+                            commercial_notes=f"Original bank documents received and verified under no. {session.collection_code}",
                         )
                         db.add(approval_rec)
                     else:
@@ -395,7 +412,7 @@ class OriginalDocumentsCollectionService:
                         approval_rec.customs_status = "Approved"
                         approval_rec.overall_status = "Approved for Clearance"
                         approval_rec.document_reference_no = session.collection_code
-                        approval_rec.commercial_notes = f"تم استلام وتوثيق أصول المستندات البنكية بنجاح برقم {session.collection_code}"
+                        approval_rec.commercial_notes = f"Original bank documents received and verified under no. {session.collection_code}"
                 except Exception as ex_appr:
                     logger.warning(f"Error updating CustomsDocumentApproval for Original Docs: {ex_appr}")
 
@@ -407,7 +424,8 @@ class OriginalDocumentsCollectionService:
                         import_file_id=session.import_file_id,
                         completed_step_code="STEP_11",
                         target_step_codes=["STEP_12"],
-                        notes=f"اكتمل استلام وتوثيق أصول المستندات البنكية (الكود: {session.collection_code}). الانتقال إلى مرحلة نموذج 4 البنكي والإعداد الجمركي.",
+                        notes_msg=msg("ODC_ORIGINALS_RECEIVED", collection_code=session.collection_code),
+                        next_action_msg=msg("NA_CS01_ASSIGN_BROKER"),
                         assigned_user=updated_by,
                     )
                 except Exception as ex_lc:

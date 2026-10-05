@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -12,6 +13,12 @@ class CustomTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final Widget? suffixIcon;
 
+  /// Direction of the typed value. Pass [TextDirection.ltr] for codes (HS,
+  /// ACID, container, B/L, SWIFT, IBAN) and numbers so they stay readable in
+  /// Arabic. Null follows the ambient [Directionality]. The label keeps the
+  /// ambient direction either way.
+  final TextDirection? textDirection;
+
   const CustomTextField({
     super.key,
     required this.controller,
@@ -23,6 +30,7 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
     this.suffixIcon,
+    this.textDirection,
   });
 
   @override
@@ -31,7 +39,7 @@ class CustomTextField extends StatelessWidget {
     final effectiveValidator = validator ?? (isRequired
         ? (value) {
             if (value == null || value.trim().isEmpty) {
-              return '$label is required';
+              return context.l10n.requiredField;
             }
             return null;
           }
@@ -66,11 +74,12 @@ class CustomTextField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          textDirection: textDirection,
           validator: effectiveValidator,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           style: const TextStyle(fontSize: 14, color: AppTheme.charcoal),
           decoration: InputDecoration(
-            hintText: hint ?? 'Enter $label...',
+            hintText: hint ?? context.l10n.enterFieldHint(label),
             prefixIcon: icon != null ? Icon(icon, size: 20, color: AppTheme.charcoal.withOpacity(0.7)) : null,
             suffixIcon: suffixIcon,
           ),

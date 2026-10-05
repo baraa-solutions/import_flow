@@ -5,8 +5,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from modules.common import enum_codes
 from . import repository
 from .model import CustomsTariff, PreferentialAgreement
+from .schemas import normalize_customs_category
 from .schemas import (
     CustomsDutyBreakdown,
     CustomsDutyEstimateRequest,
@@ -59,7 +61,21 @@ def get_all_tariffs_service(
         search=search,
         skip=skip,
         limit=limit,
+        category_values=customs_category_search_values(search),
     )
+
+
+def customs_category_search_values(search: Optional[str]) -> List[str]:
+    """customs_category is stored as a CUSTOMS_CATEGORY code (legacy rows keep their old label): map the
+    search text through the enum labels + legacy map to every matching code and its legacy values."""
+    if not search or not search.strip():
+        return []
+    values: List[str] = []
+    for code in enum_codes.codes_matching(enum_codes.CUSTOMS_CATEGORY, search.strip()):
+        for value in enum_codes.legacy_values(enum_codes.CUSTOMS_CATEGORY, code):
+            if value not in values:
+                values.append(value)
+    return values
 
 
 def get_tariff_by_id_service(db: Session, tariff_id: int) -> CustomsTariff:
@@ -330,7 +346,7 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
                 continue
 
             desc_val = row.get(field_map["hs_description"], "").strip() or f"HS Code {hs_code_val}"
-            category_val = row.get(field_map.get("customs_category", ""), "").strip() or "General"
+            category_val = normalize_customs_category(row.get(field_map.get("customs_category", ""), "")) or "GENERAL_GOODS"
 
             duty_val = _parse_decimal(row.get(field_map.get("customs_duty_rate", ""), "0"))
             vat_val = _parse_decimal(row.get(field_map.get("vat_rate", ""), "0"))
@@ -1066,9 +1082,9 @@ def save_tariff_with_agreements_service(
 
     action_name = "UPDATE" if is_update else "CREATE"
     summary_text = (
-        f"تحديث البند الجمركي {tariff.hs_code} مع ربط {len(created_agreements)} اتفاقية تفضيلية"
+        f"Updated customs tariff line {tariff.hs_code} with {len(created_agreements)} preferential agreements"
         if is_update
-        else f"إنشاء وتسجيل بند جمركي جديد {tariff.hs_code} مع {len(created_agreements)} اتفاقية تفضيلية"
+        else f"Created customs tariff line {tariff.hs_code} with {len(created_agreements)} preferential agreements"
     )
 
     AuditLogService(db).log_activity(
@@ -1454,11 +1470,11 @@ def simulate_import_file_customs_duty_service(
                 .first()
             )
             broker_id = broker.provider_id if broker else (import_file.broker_id or 1)
-            broker_name = broker.partner_name if broker else (import_file.broker_name or "المخلص الجمركي المعتمد")
+            broker_name = broker.partner_name if broker else (import_file.broker_name or "Approved Customs Broker")
 
             consultation = CustomsConsultationSession(
                 consultation_code=f"CONS-{import_file.import_file_code}",
-                title=f"دراسة استشارة جمركية — {import_file.import_file_code}",
+                title=f"Customs consultation study - {import_file.import_file_code}",
                 broker_id=broker_id,
                 broker_name=broker_name,
                 import_file_id=import_file_id,
@@ -1481,7 +1497,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Importer Team",
                         regulatory_agency="Nafeza / CargoX",
                         status="Pending",
-                        remarks="رقم القيد الجمركي المبدئي إلزامي لإصدار بوليصة الشحن.",
+                        remarks="The advance ACID number is mandatory before the B/L is issued.",
                     )
                 )
 
@@ -1496,7 +1512,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Supplier / Exporter",
                         regulatory_agency="Chamber of Commerce / Customs",
                         status="Pending",
-                        remarks="شهادة المنشأ الرسمية لتطبيق الإعفاءات الجمركية.",
+                        remarks="Official certificate of origin required to apply customs exemptions.",
                     )
                 )
 
@@ -1511,7 +1527,7 @@ def simulate_import_file_customs_duty_service(
                         responsible_party="Customs Broker",
                         regulatory_agency="GOEIC",
                         status="Pending",
-                        remarks="فحص ظاهري وسحب عينات معملية لهيئة الرقابة على الصادرات والواردات.",
+                        remarks="Physical inspection and lab sampling by GOEIC.",
                     )
                 )
 

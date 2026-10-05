@@ -538,7 +538,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       ),
                     )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
                       child: Card(
                         elevation: 2,
                         shape: RoundedRectangleBorder(
@@ -1779,7 +1779,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
                           color: AppTheme.cloudWhite.withOpacity(0.5),
-                          border: Border(left: BorderSide(color: Colors.grey.shade300)),
+                          border: BorderDirectional(start: BorderSide(color: Colors.grey.shade300)),
                         ),
                         child: SingleChildScrollView(
                           child: Column(

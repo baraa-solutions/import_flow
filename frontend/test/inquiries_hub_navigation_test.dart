@@ -6,6 +6,7 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
 import 'package:frontend/core/providers/navigation_provider.dart';
 import 'package:frontend/features/home/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/features/transport_locations/providers/transport_locations_provider.dart';
 import 'package:frontend/features/freight_quotations/providers/freight_quotations_provider.dart';
 
@@ -43,6 +44,9 @@ List<Override> get _testOverrides => [
 ];
 
 void main() {
+  // aiAssistantProvider (and the update snooze) read SharedPreferences.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('Inquiries Hub (قسم استعلامات) Navigation Tests', () {
     testWidgets('Inquiries Hub exists with Arabic and English titles', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);

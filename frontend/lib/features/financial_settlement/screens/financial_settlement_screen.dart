@@ -21,8 +21,11 @@ import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
 import '../widgets/final_settlement_invoices_dialog.dart';
 import '../widgets/actual_landed_cost_dialog.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
   const FinancialSettlementScreen({super.key, this.initialSubTab = 0});
@@ -156,7 +159,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                   ? source.itemLandedCosts
                       .map((i) => ItemLandedCostModel(
                             itemCode: i.itemCode,
-                            itemName: '${i.itemName} (نسخة)',
+                            itemName: '${i.itemName}${TableRowCloneHelper.copySuffix}',
                             qty: i.qty,
                             grossWeightKg: i.grossWeightKg,
                             cbm: i.cbm,
@@ -412,7 +415,8 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
       case 'Storage':
         return context.l10n.financialSettlementCategoryStorage;
       default:
-        return cat;
+        // Clearance invoices carry an expense_category code (or a legacy label).
+        return DomainEnums.labelIfKnown(context.l10n, DomainEnumType.clearanceExpenseCategory, cat) ?? cat;
     }
   }
 
@@ -727,7 +731,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
 
     return SelectionArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 32),
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -958,7 +962,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                   rows: r.expenseInvoices.map((exp) {
                                     final rowSummary = '${exp.invoiceNo}\t${_getLocalizedCategory(context, exp.category)}\t${exp.providerName}\t${exp.amountFx.toStringAsFixed(2)} ${exp.currency}\t${exp.exchangeRate}\t${exp.amountEgp.toStringAsFixed(2)} $currencyStr\t${_getLocalizedRule(context, exp.allocationRule)}';
                                     return DataRow(cells: [
-                                      DataCell(CopyableTableCell(value: exp.invoiceNo, rowSummary: rowSummary, child: Text(exp.invoiceNo, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                                      DataCell(CopyableTableCell(value: exp.invoiceNo, rowSummary: rowSummary, child: LtrText(exp.invoiceNo, style: const TextStyle(fontWeight: FontWeight.bold)))),
                                       DataCell(CopyableTableCell(value: _getLocalizedCategory(context, exp.category), rowSummary: rowSummary, child: Text(_getLocalizedCategory(context, exp.category)))),
                                       DataCell(CopyableTableCell(value: exp.providerName, rowSummary: rowSummary, child: Text(exp.providerName))),
                                       DataCell(CopyableTableCell(value: '${exp.amountFx.toStringAsFixed(2)} ${exp.currency}', rowSummary: rowSummary, child: Text('${exp.amountFx.toStringAsFixed(2)} ${exp.currency}'))),

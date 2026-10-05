@@ -8,6 +8,8 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modal dialog for CS-03: Customs Declaration 46 Registration
 /// قيد الإقرار الجمركي ونموذج 46 ك.م
@@ -44,9 +46,7 @@ class _CustomsDeclaration46DialogState
   DateTime _declarationDate = DateTime.now();
   String _selectedOffice = 'Alexandria Port Customs';
   String _selectedChannel = 'Red Channel';
-  final Set<String> _selectedRegulatoryBodies = {
-    'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
-  };
+  final Set<String> _selectedRegulatoryBodies = {'GOEIC'};
 
   bool _isSubmitting = false;
 
@@ -98,14 +98,14 @@ class _CustomsDeclaration46DialogState
     },
   ];
 
-  final List<String> _regulatoryAgencyOptions = [
-    'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
-    'الهيئة القومية لسلامة الغذاء (NFSA)',
-    'الجهاز القومي لتنظيم الاتصالات (NTRA)',
-    'مصلحة الكيمياء (Chemistry Dept)',
-    'الحجر الزراعي / البيطري (Quarantine)',
-    'هيئة الدواء المصرية (EDA)',
-    'مصلحة الرقابة الصناعية',
+  final List<String> _regulatoryAgencyOptions = const [
+    'GOEIC',
+    'NFSA',
+    'NTRA',
+    'CHEMISTRY_DEPT',
+    'QUARANTINE',
+    'EDA',
+    'INDUSTRIAL_CONTROL',
   ];
 
   @override
@@ -463,7 +463,7 @@ class _CustomsDeclaration46DialogState
                                       selectedColor: const Color(0xFFD97706).withOpacity(0.18),
                                       checkmarkColor: const Color(0xFFD97706),
                                       label: Text(
-                                        agency,
+                                        DomainEnums.label(context.l10n, DomainEnumType.regulatoryBody, agency),
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

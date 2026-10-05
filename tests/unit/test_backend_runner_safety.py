@@ -377,3 +377,135 @@ def test_watchdog_survives_a_failing_process_check():
 
     _watch(started, running, fake, exits)
     assert exits == [3]
+
+
+
+# ------------------------------------------------------------------------------------------------
+# S2 watchdog check: handle on the frontend.exe that started us, tasklist only as a fallback
+# ------------------------------------------------------------------------------------------------
+# python child (300) -> PyInstaller bootloader backend.exe (200) -> frontend.exe (100) -> explorer (4)
+PYI_TREE = {300: (200, "backend.exe"), 200: (100, "backend.exe"), 100: (4, "frontend.exe"),
+            4: (0, "explorer.exe")}
+
+
+def test_find_ancestor_pid_walks_through_the_pyinstaller_bootloader():
+    assert br.find_ancestor_pid(PYI_TREE, 300) == 100
+    assert br.find_ancestor_pid({300: (100, "x"), 100: (1, "FrontEnd.EXE")}, 300) == 100
+
+
+@pytest.mark.parametrize("table, start", [
+    ({300: (200, "backend.exe"), 200: (7, "wscript.exe"), 7: (0, "explorer.exe")}, 300),  # old .vbs launcher
+    ({300: (200, "backend.exe")}, 300),  # parent already gone
+    ({300: (300, "backend.exe")}, 300),  # self-parent (pid reuse)
+    ({300: (200, "a"), 200: (300, "b")}, 300),  # cycle
+    ({}, 300),  # own pid missing from the snapshot
+])
+def test_find_ancestor_pid_returns_none_without_a_frontend_ancestor(table, start):
+    assert br.find_ancestor_pid(table, start) is None
+
+
+def test_find_ancestor_pid_respects_max_depth():
+    chain = {5: (4, "b"), 4: (3, "b"), 3: (2, "b"), 2: (1, "b"), 1: (0, "frontend.exe")}
+    assert br.find_ancestor_pid(chain, 5, max_depth=3) is None
+    assert br.find_ancestor_pid(chain, 5, max_depth=4) == 1
+
+
+class _FakeWatch:
+    def __init__(self, pid):
+        self.pid = pid
+
+    def is_running(self):
+        return True
+
+
+def _no_tasklist():
+    pytest.fail("tasklist fallback used although the frontend handle is available")
+
+
+def test_select_frontend_check_uses_the_frontend_handle():
+    opened = []
+
+    def open_watch(pid):
+        opened.append(pid)
+        return _FakeWatch(pid)
+
+    check = br.select_frontend_check(platform="win32", own_pid=300, process_table=lambda: PYI_TREE,
+                                     open_watch=open_watch, fallback=_no_tasklist)
+    assert opened == [100]
+    assert check() is True
+
+
+@pytest.mark.parametrize("process_table, open_watch", [
+    (lambda: {300: (7, "backend.exe"), 7: (0, "wscript.exe")}, _FakeWatch),  # no frontend ancestor
+    (lambda: (_ for _ in ()).throw(OSError(8, "Not enough memory resources")), _FakeWatch),  # snapshot failed
+    (lambda: PYI_TREE, lambda pid: (_ for _ in ()).throw(PermissionError(5, "Access is denied"))),  # OpenProcess failed
+])
+def test_select_frontend_check_falls_back_to_tasklist(process_table, open_watch):
+    def fallback():
+        return True
+
+    check = br.select_frontend_check(platform="win32", own_pid=300, process_table=process_table,
+                                     open_watch=open_watch, fallback=fallback)
+    assert check is fallback
+
+
+def test_select_frontend_check_off_windows_keeps_the_old_check():
+    def fallback():
+        return False
+
+    assert br.select_frontend_check(platform="linux", fallback=fallback) is fallback
+
+
+def test_watchdog_thread_uses_the_selected_check(monkeypatch):
+    started = threading.Event()
+    seen = []
+    monkeypatch.setattr(br, "select_frontend_check", lambda: "the-check")
+    monkeypatch.setattr(br, "frontend_watchdog", lambda ev, frontend_running: seen.append((ev, frontend_running)))
+    br.start_watchdog_thread(started)
+    for _ in range(100):
+        if seen:
+            break
+        threading.Event().wait(0.02)
+    assert seen == [(started, "the-check")]
+
+
+@windows_only
+def test_process_handle_watch_follows_a_real_process():
+    child = subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"], stdin=subprocess.PIPE)
+    try:
+        watch = br.ProcessHandleWatch(child.pid)
+        assert watch.is_running() is True
+        child.stdin.close()
+        child.wait(timeout=30)
+        assert watch.is_running() is False
+        watch.close()
+    finally:
+        if child.poll() is None:
+            child.kill()
+
+
+@windows_only
+def test_windows_process_table_sees_this_process_and_its_parent():
+    table = br.windows_process_table()
+    assert table[os.getpid()][0] == os.getppid()
+    assert table[os.getpid()][1].lower().startswith("python")
+
+
+@windows_only
+def test_frontend_ancestor_is_found_through_a_real_process_chain(tmp_path):
+    """Real chain: a copy of python named frontend.exe starts python, which reports its frontend ancestor."""
+    import shutil
+
+    fake_frontend = tmp_path / "frontend.exe"
+    shutil.copy(sys.executable, fake_frontend)
+    code = ("import subprocess, sys; "
+            f"r = subprocess.run([{sys.executable!r}, '-c', "
+            "'import os, backend_runner as b; print(b.find_ancestor_pid(b.windows_process_table(), os.getpid()))'], "
+            "capture_output=True, text=True); print(r.stdout.strip(), r.stderr[-300:]); import os; print(os.getpid())")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(PROJECT_DIR) + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONHOME"] = str(Path(sys.executable).parent) if not env.get("PYTHONHOME") else env["PYTHONHOME"]
+    result = subprocess.run([str(fake_frontend), "-c", code], capture_output=True, text=True, env=env, timeout=60)
+    lines = result.stdout.split()
+    assert result.returncode == 0, result.stderr
+    assert lines[0] == lines[-1], result.stdout + result.stderr

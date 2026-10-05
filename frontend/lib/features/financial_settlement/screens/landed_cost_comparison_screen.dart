@@ -11,6 +11,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../services/landed_cost_comparison_export_service.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 class LandedCostComparisonScreen extends ConsumerStatefulWidget {
   final int? importFileId;
@@ -162,7 +163,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 0),
             child: _buildImportFileSelector(),
           ),
           Expanded(
@@ -719,7 +720,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         ],
         rows: expenses.map((e) {
           final categoryRaw = e['category']?.toString() ?? 'other';
-          final categoryLocalized = l10n.expenseCategoryName(categoryRaw);
+          final categoryLocalized = (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw));
           final provider = e['provider_name']?.toString() ?? '-';
           final cur = e['currency']?.toString() ?? 'EGP';
           final fx = (e['amount_fx'] ?? 0).toString();

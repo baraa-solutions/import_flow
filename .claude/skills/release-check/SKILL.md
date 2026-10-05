@@ -49,7 +49,7 @@ Run every step even if an earlier one fails, then report all results together.
    ```
 
    It refuses when tracked files outside `.claude/` have uncommitted changes, runs the backend pytest suite (scratch
-   `DATABASE_PATH`, JUnit counts) and **then** `flutter test -j 4` (never both at once: this machine runs out of memory),
+   `DATABASE_PATH`, JUnit counts) and **then** `flutter test -j 2 --timeout 120s` (never both at once: this machine runs out of memory),
    prints both summaries, writes `.release/tests_<HEAD sha>.json` and exits non-zero on any failed test or error.
    Skipped (environment-dependent) tests are fine.
 

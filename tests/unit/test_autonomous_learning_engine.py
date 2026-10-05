@@ -416,3 +416,84 @@ def test_auto_retirement_when_confidence_degrades(db_session):
     # Check audit log recorded AUTO_RETIRED
     logs = service.get_autonomous_audit_logs(entry_id=entry.entry_id)
     assert any(l.action == "AUTO_RETIRED" for l in logs)
+
+
+# ── Single-language storage (Phase B): coded guide entries ───────────────────
+def _has_arabic(text):
+    return any("؀" <= ch <= "ۿ" for ch in (text or ""))
+
+
+def test_documentation_risk_is_coded_with_regulatory_body_codes(db_session):
+    files = []
+    for i in range(2):
+        f = ImportFile(import_file_code=f"IMP-HS-{i}", company_name="C", supplier_name="S", hs_code="8518",
+                       status="Closed", is_active=True)
+        db_session.add(f)
+        db_session.flush()
+        files.append(f)
+    db_session.add_all([
+        CustomsClearanceRecord(clearance_code="CLR-HS-0", import_file_id=files[0].import_file_id,
+                               channel_type="Red Channel", is_sample_drawn=True,
+                               regulatory_bodies=["الهيئة القومية لسلامة الغذاء (NFSA)"]),
+        CustomsClearanceRecord(clearance_code="CLR-HS-1", import_file_id=files[1].import_file_id,
+                               channel_type="Red Channel", is_sample_drawn=True, regulatory_bodies=["GOEIC"]),
+    ])
+    db_session.commit()
+
+    cand = AutonomousLearningEngine.mine_documentation_risk_correlations(db_session)[0]
+    assert cand.msg.code == "GUIDE_HS_LAB_INSPECTION"
+    assert cand.msg.params == {
+        "hs_code": "8518", "product_category": "GENERAL_CARGO", "regulatory_bodies_enum_regulatory_body": "GOEIC, NFSA", "shipment_count": 2,
+    }
+    assert "National Food Safety Authority (NFSA)" in cand.content  # English labels in the stored text
+    for text in (cand.title, cand.content, cand.evidence_summary, cand.reason_why):
+        assert text and not _has_arabic(text)
+
+
+def test_seasonal_pattern_uses_month_number_param(db_session):
+    for i in range(2):
+        db_session.add(ImportFile(import_file_code=f"IMP-JUL-{i}", company_name="C", supplier_name="S",
+                                  file_opening_date=date(2026, 7, 5 + i), status="Closed", is_active=True))
+    db_session.commit()
+    cands = [c for c in AutonomousLearningEngine.mine_seasonal_congestion_effects(db_session) if c.category == "SEASONAL_EFFECTS"]
+    assert len(cands) == 1
+    cand = cands[0]
+    assert cand.msg.code == "GUIDE_SEASONAL_CONGESTION"
+    assert cand.msg.params == {"month": 7, "shipment_count": 2}
+    assert cand.title == "Seasonal shipment congestion in July"
+
+
+def test_full_cycle_persists_code_and_user_edit_clears_it(db_session):
+    service = ExperienceGuideService(db_session)
+    for i in range(2):
+        db_session.add(ImportFile(import_file_code=f"IMP-CV-{i}", company_name="C", supplier_name="S",
+                                  port_of_discharge="Dekheila Port", actual_landed_cost_variance_pct=15.0 + i,
+                                  actual_landed_cost_variance_egp=1000.0, status="Closed", is_active=True))
+    db_session.commit()
+    service.recalculate_autonomous()
+
+    entry = db_session.query(GuideEntry).filter(GuideEntry.pattern_category == "COST_VARIANCE").one()
+    assert entry.msg_code == "GUIDE_PORT_COST_VARIANCE"
+    assert entry.msg_params["port_name"] == "Dekheila Port"
+    assert entry.msg_params["shipment_count"] == 2
+    assert not _has_arabic(entry.title + entry.content + entry.evidence_summary + entry.reason_why)
+
+    # promote without edits keeps the code; an edited title replaces the system message
+    service.promote_inferred_entry(entry.entry_id, GuideEntryPromoteRequest(promoted_by="qa"))
+    db_session.refresh(entry)
+    assert entry.msg_code == "GUIDE_PORT_COST_VARIANCE"
+
+
+def test_promote_with_edited_title_clears_code(db_session):
+    service = ExperienceGuideService(db_session)
+    for i in range(2):
+        db_session.add(ImportFile(import_file_code=f"IMP-CE-{i}", company_name="C", supplier_name="S",
+                                  port_of_discharge="Sokhna Port", actual_landed_cost_variance_pct=15.0 + i,
+                                  actual_landed_cost_variance_egp=1000.0, status="Closed", is_active=True))
+    db_session.commit()
+    service.recalculate_autonomous()
+    entry = db_session.query(GuideEntry).filter(GuideEntry.pattern_category == "COST_VARIANCE").one()
+    service.promote_inferred_entry(entry.entry_id, GuideEntryPromoteRequest(promoted_by="qa", edited_title="Sokhna cost check"))
+    db_session.refresh(entry)
+    assert entry.title == "Sokhna cost check"
+    assert entry.msg_code is None and entry.msg_params is None

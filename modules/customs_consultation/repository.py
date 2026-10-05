@@ -76,14 +76,14 @@ class ClearanceExpenseTypeRepository:
     def get_all(
         db: Session,
         include_inactive: bool = False,
-        category: Optional[str] = None,
+        categories: Optional[List[str]] = None,
         search: Optional[str] = None,
     ) -> List[ClearanceExpenseType]:
         query = db.query(ClearanceExpenseType)
         if not include_inactive:
             query = query.filter(ClearanceExpenseType.is_active == True)
-        if category:
-            query = query.filter(ClearanceExpenseType.category == category)
+        if categories:
+            query = query.filter(ClearanceExpenseType.category.in_(categories))
         if search:
             pat = f"%{search}%"
             query = query.filter(

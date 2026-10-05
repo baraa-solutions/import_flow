@@ -11,6 +11,7 @@ import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -467,7 +468,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     try {
       final payload = {
         'import_file_id': _activeFileId,
-        'session_title': isDraft ? 'مسودة فحص مطابقة الفاتورة والبوليصة' : 'اعتماد نهائي لمطابقة الفاتورة والبوليصة',
+        'session_title': isDraft ? 'Invoice & B/L match check (draft)' : 'Invoice & B/L match final approval',
         'is_draft': isDraft,
         'invoice_raw_text': _invoiceTextCtrl.text.isNotEmpty ? _invoiceTextCtrl.text : null,
         'bl_raw_text': _blTextCtrl.text.isNotEmpty ? _blTextCtrl.text : null,
@@ -484,7 +485,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         'invoice_extracted_data': _matchResult?['invoice_data'],
         'bl_extracted_data': _matchResult?['bl_data'],
         'packing_extracted_data': _matchResult?['packing_list_data'],
-        'session_notes': isDraft ? 'حفظ مؤقت لمتابعة التدقيق لاحقاً' : 'تم الاعتماد النهائي وتحديث الموافقة الجمركية',
+        'session_notes': isDraft ? 'Saved as draft to continue the review later' : 'Final approval saved; customs approval updated',
         'created_by': 'system',
       };
 
@@ -1270,7 +1271,8 @@ Total Items: 31 Total: 20,030.000 kgs.
                 DataColumn(label: Text(l.invoiceBlMatcherColActionRequired, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
                 DataColumn(label: Text('إجراءات السطر', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
               ],
-              rows: matrix.map((item) {
+              rows: matrix.map((rawItem) {
+                final item = CodedItemText.localizeRow(rawItem as Map, l);
                 final status = item['match_status'] ?? 'MATCH';
                 final isMatch = status == 'MATCH';
                 final isMinor = status == 'MISMATCH_MINOR';
@@ -1838,7 +1840,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     reportBuffer.writeln('---------------------------------------------------------------');
     reportBuffer.writeln('${l.invoiceBlMatcherColCheckItem}\t${l.invoiceBlMatcherColInvoiceValue}\t${l.invoiceBlMatcherColBlValue}\t${l.invoiceBlMatcherColMatchStatus}\t${l.invoiceBlMatcherColActionRequired}');
     for (final row in matrix) {
-      final r = row as Map<String, dynamic>;
+      final r = CodedItemText.localizeRow(row as Map, l, forExport: true);
       final checkItem = isArabic ? (r['field_name_ar'] ?? r['field_name_en'] ?? '') : (r['field_name_en'] ?? r['field_name_ar'] ?? '');
       final invVal = r['invoice_value'] ?? '—';
       final blVal = r['bl_value'] ?? '—';
@@ -2579,7 +2581,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         title: Row(
           children: [
@@ -2679,7 +2681,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                                         DataColumn(label: Text('التفاصيل ومصادر الاختلاف')),
                                       ],
                                       rows: matrix.map((item) {
-                                        final row = item is Map<String, dynamic> ? item : {};
+                                        final row = item is Map ? CodedItemText.localizeRow(item, context.l10n) : {};
                                         final status = row['match_status']?.toString() ?? 'UNKNOWN';
                                         final isMatch = status == 'MATCH';
                                         final isExtFailed = status == 'EXTRACTION_FAILED';
@@ -3144,7 +3146,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       'حالة التطابق / Match Status',
       'التفاصيل والإجراء / Action & Details',
     ];
-    final rows = matrix.map((item) {
+    final rows = CodedItemText.localizeRows(matrix, context.l10n, forExport: true).map((item) {
       final checkItemName = isArabic
           ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
           : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
@@ -3175,7 +3177,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       'حالة التطابق',
       'التفاصيل والإجراء المطلوب',
     ];
-    final rows = matrix.map((item) {
+    final rows = CodedItemText.localizeRows(matrix, context.l10n, forExport: true).map((item) {
       final checkItemName = isArabic
           ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
           : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
@@ -3207,7 +3209,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       'حالة التطابق',
       'التفاصيل والإجراء المطلوب',
     ];
-    final rows = matrix.map((item) {
+    final rows = CodedItemText.localizeRows(matrix, context.l10n, forExport: true).map((item) {
       final checkItemName = isArabic
           ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
           : (item['field_name_en'] ?? item['field_name_ar'] ?? '');

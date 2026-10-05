@@ -20,7 +20,7 @@ from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.financial_approval.model import ImportBudgetApproval, PaymentRequestSession
-from modules.financial_settlement.model import LandedCostSettlementRecord
+from modules.financial_settlement.model import LandedCostSettlementRecord, TaxRate
 from modules.freight_booking.model import ShipmentBooking
 from modules.freight_quotations.model import FreightQuotationItem, FreightRFQRequest
 from modules.import_companies.model import ImportCompany

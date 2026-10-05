@@ -29,6 +29,8 @@ from modules.docs_customs_approval.schemas import (
 import modules.docs_customs_approval.repository as repo
 import modules.docs_customs_approval.validators as validators
 from modules.import_files.model import ImportFile
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_documentation.model import (
     AcidRegistrationSession,
@@ -544,8 +546,10 @@ def run_cross_document_matrix_check_service(
         overall = "Fully Compliant"
 
     if overall == "Fully Compliant" and completeness_percent >= 100.0:
-        if import_file.next_action and "المستندات" in import_file.next_action:
-            import_file.next_action = "STEP_10 رفع المسودات المعتمدة وشهادات الفحص على منصة CargoX الرقمية"
+        current_na = import_file.next_action or ""
+        # Legacy Arabic text or the English render of a documents-related next action.
+        if "المستندات" in current_na or "documents" in current_na.lower():
+            set_file_tracking(import_file, next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX"))
             db.commit()
 
     return CrossDocumentMatrixCheckResponse(
@@ -699,14 +703,13 @@ def create_customs_approval_session_service(
                 import_file_id=payload.import_file_id,
                 completed_step_code="STEP_09",
                 target_step_codes=["STEP_10"],
-                notes=f"اعتماد الموافقة الجمركية على الأوراق والمستندات رسمياً بالجلسة ({session_res.session_code}) ونقل الشحنة إلى المرحلة الرابعة (منصة CargoX وتحصيل الأصول).",
+                notes=render_en("DOC_CUSTOMS_APPROVAL_GRANTED", {"session_code": session_res.session_code}, "note"),
                 performed_by=payload.created_by or "Customs Broker",
             )
         except Exception:
             pass
 
-        import_file.current_module = "STEP_10 رفع ومتابعة مستندات CargoX"
-        import_file.next_action = "STEP_10 رفع المسودات المعتمدة وشهادات التحليل على منصة CargoX الرقمية"
+        set_file_tracking(import_file, step_code="STEP_10", next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX"))
         if (import_file.progress_percent or 0.0) < 60.0:
             import_file.progress_percent = 60.0
         db.commit()

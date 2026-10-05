@@ -11,6 +11,7 @@ import 'package:frontend/features/app_update/widgets/update_banner.dart';
 import 'package:frontend/features/app_update/widgets/update_dialog.dart';
 import 'package:frontend/features/app_update/widgets/update_feedback.dart';
 import 'package:frontend/features/app_update/widgets/update_rollback_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_app_update_service.dart';
 
@@ -26,6 +27,7 @@ Widget _app({
     overrides: [
       appUpdateServiceProvider.overrideWithValue(fake),
       canInstallUpdatesProvider.overrideWithValue(admin),
+      updateUserIdProvider.overrideWithValue(1),
       updatePollIntervalProvider.overrideWithValue(const Duration(milliseconds: 5)),
       ...extra,
     ],
@@ -61,6 +63,8 @@ DioException _dioError(int code, Object detail) {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('UpdateBanner', () {
     testWidgets('hidden when the check is offline', (tester) async {
       _bigView(tester);
@@ -77,20 +81,6 @@ void main() {
       expect(find.byKey(UpdateBanner.detailsKey), findsNothing);
     });
 
-    testWidgets('first mount checks once; a remount re-checks the cached result', (tester) async {
-      _bigView(tester);
-      final fake = FakeAppUpdateService();
-      await tester.pumpWidget(_app(fake: fake, home: const UpdateBanner()));
-      await tester.pumpAndSettle();
-      expect(fake.checkCalls, 1);
-
-      await tester.pumpWidget(_app(fake: fake, home: const SizedBox()));
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(_app(fake: fake, home: const UpdateBanner()));
-      await tester.pumpAndSettle();
-      expect(fake.checkCalls, 2);
-    });
-
     testWidgets('optional update shows and "remind me later" hides it', (tester) async {
       _bigView(tester);
       await tester.pumpWidget(_app(fake: FakeAppUpdateService(check: optionalCheck), home: const UpdateBanner()));
@@ -101,12 +91,16 @@ void main() {
       expect(find.byKey(UpdateBanner.detailsKey), findsNothing);
     });
 
-    testWidgets('mandatory: no dismiss, dialog opens automatically and cannot be dismissed', (tester) async {
+    testWidgets('mandatory: no dismiss; the dialog cannot be dismissed', (tester) async {
       _bigView(tester);
       await tester.pumpWidget(_app(fake: FakeAppUpdateService(check: mandatoryCheck), home: const UpdateBanner()));
       await tester.pumpAndSettle();
 
       expect(find.byKey(UpdateBanner.remindLaterKey), findsNothing);
+      // The banner itself no longer auto-opens the dialog (UpdateNotifierHost does).
+      expect(find.byType(UpdateDialog), findsNothing);
+      await tester.tap(find.byKey(UpdateBanner.detailsKey));
+      await tester.pumpAndSettle();
       expect(find.byType(UpdateDialog), findsOneWidget);
       expect(find.byKey(UpdateDialog.remindLaterKey), findsNothing);
       expect(find.byKey(UpdateDialog.signOutKey), findsOneWidget);

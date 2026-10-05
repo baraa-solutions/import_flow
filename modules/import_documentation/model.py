@@ -327,6 +327,9 @@ class DraftBLReviewSession(Base):
     has_blocking_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
     open_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0)
     blocking_reasons: Mapped[list] = mapped_column(JSON, nullable=True)
+    # Coded twin of blocking_reasons (same order): [{"code": <system message code>, "params": {...}}].
+    # NULL on legacy rows and when a client supplied blocking_reasons itself.
+    blocking_reasons_coded: Mapped[list] = mapped_column(JSON, nullable=True)
     correction_request_letter: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Dual Approval Stage 4
@@ -453,7 +456,7 @@ class InspectionCertificateReviewSession(Base):
     expiry_date: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Regulatory Authority: 'GOEIC (الرقابة على الصادرات والواردات)', 'NFSA (سلامة الغذاء)', 'EDA (هيئة الدواء المصرية)', 'Atomic Energy Authority (هيئة الطاقة الذرية)'
-    regulatory_authority: Mapped[str] = mapped_column(String(150), default="GOEIC (الرقابة على الصادرات والواردات)", nullable=False)
+    regulatory_authority: Mapped[str] = mapped_column(String(150), default="GOEIC", nullable=False)
     standard_specification: Mapped[str] = mapped_column(String(200), default="Egyptian Standard ES Egyptian Conformity", nullable=True)
 
     raw_input_text: Mapped[str] = mapped_column(Text, nullable=True)

@@ -28,6 +28,11 @@ class VisualDraftBLSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Printed-document replica: always left-to-right, whatever the UI language.
+    return Directionality(textDirection: TextDirection.ltr, child: _buildSheet(context));
+  }
+
+  Widget _buildSheet(BuildContext context) {
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
     final bkgNo = (draftData['booking_no'] ?? bookingNumber ?? systemData['booking_no'] ?? 'BKG-REF').toString();
     final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'EXPORTER / SUPPLIER').toString();
@@ -285,7 +290,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +334,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,7 +432,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,7 +451,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,7 +507,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+                                  border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -593,7 +598,7 @@ class VisualDraftBLSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+          border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,7 +618,7 @@ class VisualDraftBLSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black87, width: 1)),
+          border: BorderDirectional(end: BorderSide(color: Colors.black87, width: 1)),
         ),
         child: Text(
           title,

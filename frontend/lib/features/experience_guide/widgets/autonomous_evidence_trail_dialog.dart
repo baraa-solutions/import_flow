@@ -8,12 +8,18 @@ import '../providers/experience_guide_provider.dart';
 class AutonomousEvidenceTrailDialog extends ConsumerStatefulWidget {
   final int entryId;
   final String? initialTitle;
+  /// Evidence / reason already rendered in the user's language from the entry's message code;
+  /// they win over the provenance texts, which are stored in English.
+  final String? initialEvidence;
+  final String? initialReason;
   final VoidCallback? onStateChanged;
 
   const AutonomousEvidenceTrailDialog({
     super.key,
     required this.entryId,
     this.initialTitle,
+    this.initialEvidence,
+    this.initialReason,
     this.onStateChanged,
   });
 
@@ -21,6 +27,8 @@ class AutonomousEvidenceTrailDialog extends ConsumerStatefulWidget {
     BuildContext context, {
     required int entryId,
     String? initialTitle,
+    String? initialEvidence,
+    String? initialReason,
     VoidCallback? onStateChanged,
   }) {
     return showDialog(
@@ -29,6 +37,8 @@ class AutonomousEvidenceTrailDialog extends ConsumerStatefulWidget {
       builder: (ctx) => AutonomousEvidenceTrailDialog(
         entryId: entryId,
         initialTitle: initialTitle,
+        initialEvidence: initialEvidence,
+        initialReason: initialReason,
         onStateChanged: onStateChanged,
       ),
     );
@@ -350,6 +360,8 @@ class _AutonomousEvidenceTrailDialogState
 
   Widget _buildEvidenceContent() {
     final p = _provenance!;
+    final reasonText = widget.initialReason ?? p.reasonWhy;
+    final evidenceText = widget.initialEvidence ?? p.evidenceSummary;
     final score = p.confidenceScore != null ? (p.confidenceScore! * 100).toInt() : 0;
     final files = p.contributingFiles;
 
@@ -523,7 +535,7 @@ class _AutonomousEvidenceTrailDialogState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        p.reasonWhy ?? 'تم رصد هذا النمط تلقائياً استناداً إلى نتائج وتكرار البيانات في الشحنات السابقة.',
+                        reasonText ?? 'تم رصد هذا النمط تلقائياً استناداً إلى نتائج وتكرار البيانات في الشحنات السابقة.',
                         style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), height: 1.4),
                       ),
                     ],
@@ -536,7 +548,7 @@ class _AutonomousEvidenceTrailDialogState
           const SizedBox(height: 16),
 
           // 4. Evidence Summary Card
-          if (p.evidenceSummary != null && p.evidenceSummary!.isNotEmpty) ...[
+          if (evidenceText != null && evidenceText.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -559,7 +571,7 @@ class _AutonomousEvidenceTrailDialogState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    p.evidenceSummary!,
+                    evidenceText,
                     style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.charcoal),
                   ),
                 ],

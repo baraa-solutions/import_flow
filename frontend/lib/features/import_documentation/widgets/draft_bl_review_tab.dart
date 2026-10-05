@@ -19,6 +19,7 @@ import 'visual_draft_bl_sheet.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -57,7 +58,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // Dual Approval Controllers
   final TextEditingController _importerApproverCtrl = TextEditingController(text: 'Kamal (Import Manager)');
   final TextEditingController _importerNotesCtrl = TextEditingController();
-  final TextEditingController _brokerApproverCtrl = TextEditingController(text: 'Ahmed (Customs Broker)');
+  final TextEditingController _brokerApproverCtrl = TextEditingController();
   final TextEditingController _brokerNotesCtrl = TextEditingController();
 
   bool _isLoading = false;
@@ -79,6 +80,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   @override
   void initState() {
     super.initState();
+    // Default approver = the signed-in user (no hard-coded sample name).
+    _brokerApproverCtrl.text = ref.read(authProvider).user?.fullName ?? '';
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(importFilesProvider).isLoading) {
@@ -472,6 +475,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         'has_blocking_mismatch': _comparisonResult!.hasBlockingMismatch,
         'open_discrepancies_count': _comparisonResult!.openDiscrepanciesCount,
         'blocking_reasons': _comparisonResult!.blockingReasons,
+        'blocking_reasons_coded': _comparisonResult!.blockingReasonsCoded,
         'status': isDraft ? 'DRAFT' : 'APPROVED',
         'is_draft': isDraft,
         'correction_request_letter': _comparisonResult!.correctionRequestLetter,
@@ -558,6 +562,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         status: newStatus,
         requiredCorrection: correction ?? (newStatus == 'Correct' ? null : old.requiredCorrection),
         reason: reason ?? old.reason,
+        // A typed reason replaces the system message: keep the text, drop the code.
+        reasonCode: reason != null ? null : old.reasonCode,
+        reasonParams: reason != null ? null : old.reasonParams,
         notes: old.notes,
         responsibleParty: respParty ?? old.responsibleParty,
         isLocked: old.isLocked,
@@ -1293,7 +1300,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     ),
                     const SizedBox(height: 10),
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal,
@@ -1324,7 +1331,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             onRefresh: () => _runComparison(silent: true),
           ),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: TextButton.icon(
@@ -1724,7 +1731,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               SizedBox(
                                 width: 160,
                                 child: TextFormField(
-                                  initialValue: itm.reason ?? '',
+                                  initialValue: itm.displayReason(context.l10n),
                                   decoration: InputDecoration(
                                     isDense: true,
                                     hintText: context.l10n.draftBlEnterReasonHint,
@@ -1927,7 +1934,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 : itm.responsibleParty == 'Importer'
                                     ? context.l10n.draftBlPartyImporter
                                     : context.l10n.draftBlPartyCustomsBroker;
-                        final rsn = itm.reason ?? 'Mismatch with system master record';
+                        final rsn = itm.reason == null
+                            ? 'Mismatch with system master record'
+                            : itm.displayReason(context.l10n);
                         final rowSummary = [label, corr, resp, rsn].join('\t');
 
                         return DataRow(cells: [
@@ -2129,7 +2138,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // ===========================================================================
   Widget _buildStage4DualApprovalView(List<dynamic> importFiles) {
     final hasBlocking = _comparisonResult?.hasBlockingMismatch ?? false;
-    final reasons = _comparisonResult?.blockingReasons ?? [];
+    final reasons = _comparisonResult == null
+        ? <String>[]
+        : displayBlockingReasons(context.l10n, _comparisonResult!.blockingReasons, _comparisonResult!.blockingReasonsCoded);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2645,7 +2656,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         Expanded(child: searchBar),
                         const SizedBox(width: 10),
                         ...actionButtons.map((btn) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsetsDirectional.only(start: 8),
                           child: btn,
                         )),
                       ],
@@ -3072,7 +3083,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         title: Row(
           children: [
@@ -3150,8 +3161,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       rows: matrix.map((item) {
                         return DataRow(cells: [
                           DataCell(Text(item.fieldLabelAr, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(item.systemValue?.toString() ?? '—')),
-                          DataCell(Text(item.draftValue?.toString() ?? '—')),
+                          DataCell(Text(item.displaySystemValue(context.l10n))),
+                          DataCell(Text(item.displayDraftValue(context.l10n))),
                           DataCell(
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

@@ -61,6 +61,7 @@ import '../../file_closure/widgets/official_file_closure_dialog.dart';
 
 
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFileDetailsDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
   final List<PurchaseOrderModel> linkedPOs;
@@ -1518,7 +1519,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   children: [
                                     Text(po.displayName, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                                     if (po.displayName != po.poNumber)
-                                      Text(po.poNumber, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
+                                      LtrText(po.poNumber, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                                   ],
                                 ),
                               ),
@@ -2145,7 +2146,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                           ),
-                          child: Text(
+                          child: LtrText(
                             item.hsCode,
                             style: TextStyle(
                               fontSize: 10,
@@ -2176,7 +2177,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 ),
                 Padding(
                   padding: const EdgeInsets.all(7),
-                  child: Text(
+                  child: LtrText(
                     item.poNumber,
                     style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey),
                     overflow: TextOverflow.ellipsis,

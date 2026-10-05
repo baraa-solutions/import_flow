@@ -290,7 +290,7 @@ class _ExperienceGuideManagementDialogState
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      entry.title,
+                                      entry.localizedTitle(l10n),
                                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.flatCharcoal),
                                     ),
                                   ),
@@ -303,7 +303,7 @@ class _ExperienceGuideManagementDialogState
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                entry.content,
+                                entry.localizedContent(l10n),
                                 style: const TextStyle(fontSize: 13, height: 1.4, color: AppTheme.flatCharcoal),
                               ),
                               const SizedBox(height: 10),

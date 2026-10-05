@@ -1,0 +1,6 @@
+The whole app is now right-to-left when Arabic is selected, with codes and numbers kept in the correct order.
+Fixed the white-screen hang and crash when closing the app, and the app can no longer be opened twice at the same time.
+New update notice: a badge next to the version number, an alert when the download finishes, and "Remind me later" remembered per version.
+System messages, tasks and notifications appear in the user's language, while data is stored in one fixed language.
+Fixed tasks and notifications that were never created (truck arrival, warehouse receiving, clearance invoices) and duplicate inland transport bookings.
+The withholding tax rate is now a dated setting instead of a fixed value, with no change to totals.

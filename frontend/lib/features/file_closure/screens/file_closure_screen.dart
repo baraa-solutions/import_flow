@@ -434,7 +434,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
       ],
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 88),
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(

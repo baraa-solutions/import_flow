@@ -5,8 +5,12 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
 import 'package:frontend/core/providers/navigation_provider.dart';
 import 'package:frontend/features/home/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // aiAssistantProvider (and the update snooze) read SharedPreferences.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('Sidebar & Navigation Single-Language Presentation Tests', () {
     testWidgets('Sidebar in Arabic mode displays pure Arabic titles and zero English subtitles', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);

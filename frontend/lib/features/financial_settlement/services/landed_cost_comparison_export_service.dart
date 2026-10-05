@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 /// Service responsible for exporting Landed Cost Comparison data across TSV, Excel (CSV), vector PDF, and clipboard dossier.
 class LandedCostComparisonExportService {
@@ -57,7 +58,7 @@ class LandedCostComparisonExportService {
       for (var i = 0; i < _expenses.length; i++) {
         final exp = _expenses[i];
         final catRaw = exp['category']?.toString() ?? 'other';
-        final cat = l10n.expenseCategoryName(catRaw);
+        final cat = (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, catRaw) ?? l10n.expenseCategoryName(catRaw));
         final provider = exp['provider_name']?.toString() ?? '-';
         final cur = exp['currency']?.toString() ?? 'EGP';
         final fx = (exp['amount_fx'] ?? 0).toString();
@@ -170,7 +171,7 @@ class LandedCostComparisonExportService {
     // Expenses Breakdown
     for (final exp in _expenses) {
       final catRaw = exp['category']?.toString() ?? 'other';
-      final cat = l10n.expenseCategoryName(catRaw);
+      final cat = (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, catRaw) ?? l10n.expenseCategoryName(catRaw));
       final provider = exp['provider_name']?.toString() ?? '-';
       final cur = exp['currency']?.toString() ?? 'EGP';
       final fx = (exp['amount_fx'] ?? 0).toString();
@@ -288,7 +289,7 @@ class LandedCostComparisonExportService {
     // Expenses Breakdown
     for (final exp in _expenses) {
       final catRaw = exp['category']?.toString() ?? 'other';
-      final cat = l10n.expenseCategoryName(catRaw);
+      final cat = (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, catRaw) ?? l10n.expenseCategoryName(catRaw));
       final provider = exp['provider_name']?.toString() ?? '-';
       final cur = exp['currency']?.toString() ?? 'EGP';
       final fx = (exp['amount_fx'] ?? 0).toString();
@@ -461,7 +462,7 @@ class LandedCostComparisonExportService {
               data: _expenses.map((exp) {
                 final catRaw = exp['category']?.toString() ?? 'other';
                 return [
-                  l10n.expenseCategoryName(catRaw),
+                  (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, catRaw) ?? l10n.expenseCategoryName(catRaw)),
                   exp['provider_name']?.toString() ?? '-',
                   exp['currency']?.toString() ?? 'EGP',
                   (exp['amount_fx'] ?? 0).toString(),

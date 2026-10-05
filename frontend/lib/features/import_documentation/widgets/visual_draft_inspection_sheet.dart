@@ -32,6 +32,11 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
 
   @override
   Widget build(BuildContext context) {
+    // Printed-document replica: always left-to-right, whatever the UI language.
+    return Directionality(textDirection: TextDirection.ltr, child: _buildSheet(context));
+  }
+
+  Widget _buildSheet(BuildContext context) {
     final l10n = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final t = widget.templateData;

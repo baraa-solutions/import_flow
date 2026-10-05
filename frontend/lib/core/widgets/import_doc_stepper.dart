@@ -30,7 +30,7 @@ class ImportDocStepper extends StatelessWidget {
             final isCompleted = currentStep > index;
 
             return Padding(
-              padding: EdgeInsets.only(right: index < steps.length - 1 ? 8 : 0),
+              padding: EdgeInsetsDirectional.only(end: index < steps.length - 1 ? 8 : 0),
               child: _ImportDocStepButton(
                 step: step,
                 isActive: isActive,

@@ -23,6 +23,7 @@ import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/localization/stored_text.dart';
 
 class CBMCalculatorScreen extends ConsumerStatefulWidget {
   const CBMCalculatorScreen({super.key});
@@ -187,7 +188,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     if (_activeSessionId == null) return;
     final l = context.l10n;
     final payload = {
-      'title': _activeSessionTitle ?? l.calculationSessionTitle,
+      'title': _activeSessionTitle ?? storedText.calculationSessionTitle,
       'import_file_id': _activeSessionImportFileId,
       'notes': _activeSessionNotes,
       'is_stackable': _isStackable,
@@ -237,8 +238,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     colors: isDark
                         ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
                         : [AppTheme.charcoal, AppTheme.cobalt],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+                    begin: AlignmentDirectional.centerStart,
+                    end: AlignmentDirectional.centerEnd,
                   ),
                 ),
                 child: isCompact
@@ -499,7 +500,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
                     if (constraints.maxWidth > 950) {
                       return Row(
-                        children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
+                        children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: c))).toList(),
                       );
                     } else if (constraints.maxWidth > 550) {
                       return Wrap(
@@ -1200,7 +1201,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final formKey = GlobalKey<FormState>();
     final isEditing = _activeSessionId != null;
-    final titleCtrl = TextEditingController(text: isEditing ? (_activeSessionTitle ?? l.calculationSessionTitle) : l.calculationSessionTitle);
+    final titleCtrl = TextEditingController(text: isEditing ? (_activeSessionTitle ?? storedText.calculationSessionTitle) : storedText.calculationSessionTitle);
     final notesCtrl = TextEditingController(text: isEditing ? (_activeSessionNotes ?? '') : '');
     int? selectedImportFileId = isEditing ? _activeSessionImportFileId : null;
     final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];

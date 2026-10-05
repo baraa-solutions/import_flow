@@ -16,6 +16,7 @@ import '../services/shipment_inquiry_export_service.dart';
 import '../widgets/shipment_inquiry_filter_panel.dart';
 import '../widgets/smart_clone_shipment_dialog.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ShipmentInquiryScreen extends ConsumerStatefulWidget {
   const ShipmentInquiryScreen({super.key});
 
@@ -286,7 +287,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
 
                       // 3. Grid Table Header (Matches media_1789045144626.png)
                       Container(
-                        padding: const EdgeInsets.only(bottom: 8, right: 4),
+                        padding: const EdgeInsetsDirectional.only(bottom: 8, end: 4),
                         child: Row(
                           children: [
                             Text(
@@ -429,7 +430,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                                  Row(
                                                    mainAxisSize: MainAxisSize.min,
                                                    children: [
-                                                     Text(
+                                                     LtrText(
                                                        file.importFileCode,
                                                        style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
                                                      ),

@@ -16,7 +16,7 @@ class ClearanceExpenseTypeBase(BaseModel):
     name_ar: str = Field(..., min_length=2, max_length=200)
     name_en: Optional[str] = None
     category: str = Field(..., min_length=2, max_length=100)
-    default_unit: str = Field("Per Invoice (لكل فاتورة)", min_length=2, max_length=100)
+    default_unit: str = Field("PER_INVOICE", min_length=2, max_length=100)
     default_currency: str = "EGP"
     display_order: int = 0
     is_active: bool = True

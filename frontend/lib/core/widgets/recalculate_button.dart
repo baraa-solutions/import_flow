@@ -396,8 +396,8 @@ class _PreviewDialog extends StatelessWidget {
                       ),
                       children: [
                         _DataCell(item.labelAr),
-                        _DataCell(_fmt(item.oldValue), align: TextAlign.right),
-                        _DataCell(_fmt(item.newValue), align: TextAlign.right),
+                        _DataCell(_fmt(item.oldValue), align: TextAlign.end),
+                        _DataCell(_fmt(item.newValue), align: TextAlign.end),
                         _DataCell(
                           item.formattedVariancePct,
                           textColor: item.isHardBlock ? AppTheme.crimson : AppTheme.orange,

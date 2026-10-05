@@ -82,6 +82,8 @@ class GuideEntryResponse(BaseModel):
     rejected_by: Optional[str] = None
     rejected_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None
+    msg_code: Optional[str] = None
+    msg_params: Optional[Dict[str, Any]] = None
 
     @computed_field
     @property

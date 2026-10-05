@@ -18,6 +18,8 @@ from modules.financial_approval.model import (
 )
 from modules.users.model import User
 from modules.notifications.model import SystemNotification
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
     PaymentRequestResponse,
@@ -88,19 +90,22 @@ def create_payment_request_service(
             file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{schema.import_file_id}"
 
     # 2. Automated Notification for Finance Department (Dashboard & In-App Alert)
-    notif_title = (
-        f"💳 طلب سداد دفعة مقدمة للمورد: {db_item.payment_code}"
-        if db_item.payment_type == "Advance Payment"
-        else f"💳 طلب سداد مالي جديد: {db_item.payment_code}"
+    is_advance = db_item.payment_type == "Advance Payment"
+    payment_params = dict(
+        payment_code=db_item.payment_code,
+        supplier_name=db_item.supplier_name,
+        requested_amount=round(float(db_item.requested_amount or 0.0), 2),
+        currency_code=db_item.currency_code,
+        requested_egp_amount=round(float(db_item.requested_amount_egp or 0.0), 2),
+        due_date=str(db_item.due_date),
+        import_file_code=file_code,
     )
-    notif_msg = (
-        f"تم إصدار طلب سداد دفعة مقدمة للمورد ({db_item.supplier_name}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م) للشحنة ({file_code}). يستحق في {db_item.due_date}. يتطلب المراجعة والاعتماد وسداد السويفت البنكي."
-        if db_item.payment_type == "Advance Payment"
-        else f"تم إصدار طلب سداد مالي للمورد ({db_item.supplier_name}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م). يستحق في {db_item.due_date}."
-    )
+    created_msg = msg("FA_PAYMENT_REQUEST_CREATED" if is_advance else "FA_PAYMENT_REQUEST_CREATED_GENERIC", **payment_params)
     notif = SystemNotification(
-        title=notif_title,
-        message=notif_msg,
+        title=render_en(created_msg.code, created_msg.params, "title"),
+        message=render_en(created_msg.code, created_msg.params, "body"),
+        msg_code=created_msg.code,
+        msg_params=created_msg.params,
         severity="WARNING" if db_item.payment_type == "Advance Payment" else "INFO",
         category="PAYMENT_REQUEST",
         entity_type="PaymentRequest",
@@ -114,21 +119,16 @@ def create_payment_request_service(
         from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
 
-        smart_task_title = (
-            f"سداد الدفعة المقدمة للمورد وحساب السويفت: {db_item.supplier_name} ({db_item.payment_code})"
-            if db_item.payment_type == "Advance Payment"
-            else f"سداد مستحقات المورد: {db_item.supplier_name} ({db_item.payment_code})"
-        )
-        smart_task_desc = (
-            f"سداد دفعة المورد بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م) المستحقة في {db_item.due_date} للشحنة ({file_code}) ومطابقة إشعار التحويل البنكي MT103/SWIFT."
-        )
+        task_msg = msg("FA_TASK_SUPPLIER_PAYMENT" if is_advance else "FA_TASK_SUPPLIER_PAYMENT_GENERIC", **payment_params)
+        smart_task_title = render_en(task_msg.code, task_msg.params, "title")
+        smart_task_desc = render_en(task_msg.code, task_msg.params, "body")
         task_schema = SmartTaskCreate(
             title=smart_task_title,
             description=smart_task_desc,
             task_type="System Generated",
             import_file_id=db_item.import_file_id,
             import_file_code=file_code if schema.import_file_id else None,
-            phase_name="المرحلة الثانية: بداية الشحنة والمالية",
+            phase_name="Phase 2: Shipment Initiation",
             assigned_user="Finance Officer",
             priority="High",
             reminder_type="Advance Payment" if db_item.payment_type == "Advance Payment" else "Payment Request",
@@ -136,7 +136,10 @@ def create_payment_request_service(
             status="Pending",
             notes=f"REQ_TYPE:ADVANCE_PAYMENT | Code: {db_item.payment_code} | PayId: {db_item.payment_id}",
         )
-        created_task = create_smart_task(db, task_schema, created_by="Financial Approval Engine")
+        created_task = create_smart_task(
+            db, task_schema, created_by="Financial Approval Engine", msg_code=task_msg.code, msg_params=task_msg.params,
+            commit=False,
+        )
         setattr(db_item, "smart_task_code", created_task.task_code)
     except Exception:
         pass
@@ -152,11 +155,14 @@ def create_payment_request_service(
                 target_step_codes=["STEP_04"],
                 auto_complete_prior=True,
                 assigned_user="Finance Officer",
-                notes=f"تم إصدار طلب سداد الدفعة المقدمة للمورد ({db_item.payment_code}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code}",
+                notes_msg=msg(
+                    "FA_ADVANCE_PAYMENT_REQUESTED",
+                    payment_code=db_item.payment_code,
+                    requested_amount=round(float(db_item.requested_amount or 0.0), 2),
+                    currency_code=db_item.currency_code,
+                ),
+                next_action_msg=msg("NA_STEP04_APPROVE_ADVANCE_PAYMENT"),
                 source_module="Financial Approval Lifecycle",
-                custom_stage_title="المرحلة الثانية: بداية الشحنة",
-                custom_module_name="STEP_04 اعتمادات الميزانية وسداد الموردين",
-                custom_next_action="STEP_04 مراجعة واعتماد سداد الدفعة المقدمة للمورد وتجهيز السويفت البنكي",
                 min_progress_percent=30.0,
             )
         except Exception:
@@ -251,11 +257,9 @@ def _handle_swift_payment_completion_workflow(
             target_step_codes=["STEP_05"],
             auto_complete_prior=True,
             assigned_user="Logistics Officer",
-            notes=f"تم سداد الحوالة البنكية وسويفت MT103 رقم {swift_ref} بمبلغ {amt:,.2f} {curr}",
+            notes_msg=msg("FA_SWIFT_PAID", swift_ref=swift_ref, paid_amount=round(float(amt or 0.0), 2), currency_code=curr),
+            next_action_msg=msg("NA_STEP05_REQUEST_ACID"),
             source_module="Financial SWIFT Engine",
-            custom_stage_title="Phase 2: Approvals & ACID",
-            custom_module_name="STEP_05 إصدار رقم ACID نافذة",
-            custom_next_action="STEP_05 طلب واستخراج رقم القيد الجمركي المبدئي (ACID) عبر منظومة نافذة",
             min_progress_percent=35.0,
         )
     except Exception:
@@ -263,9 +267,18 @@ def _handle_swift_payment_completion_workflow(
 
     # Emit SystemNotification to LOGISTICS_OFFICER
     try:
+        swift_msg = msg(
+            "FA_SWIFT_PAID",
+            import_file_code=file_code,
+            swift_ref=swift_ref,
+            paid_amount=round(float(amt or 0.0), 2),
+            currency_code=curr,
+        )
         notif = SystemNotification(
-            title=f"تم سداد الدفعة وحوالة السويفت - جاهز لطلب ACID ({file_code})",
-            message=f"تم تأكيد سداد التحويل البنكي وحوالة السويفت رقم ({swift_ref}) بمبلغ ({amt:,.2f} {curr}) للملف الاستيرادي ({file_code}). تم فتح مرحلة استخراج ACID عبر نافذة.",
+            title=render_en(swift_msg.code, swift_msg.params, "title"),
+            message=render_en(swift_msg.code, swift_msg.params, "body"),
+            msg_code=swift_msg.code,
+            msg_params=swift_msg.params,
             severity="INFO",
             category="DUTY_PAYMENT",
             entity_type="PaymentRequest",
@@ -290,9 +303,10 @@ def _handle_swift_payment_completion_workflow(
         ).first()
 
         if not acid_task_exists:
+            acid_task_msg = msg("FA_TASK_ISSUE_ACID", import_file_code=file_code, swift_ref=swift_ref)
             task_schema = SmartTaskCreate(
-                title=f"[{file_code}] — استخراج الرقم التعريفي المبدئي للشحنة ACID عبر نافذة",
-                description=f"تم تحويل السويفت البنكي بنجاح برقم {swift_ref}. المطلوب الآن استخراج الرقم المبدئي ACID للشحنة ({file_code}) عبر منصة نافذة ورفع المستندات الأولية.",
+                title=render_en(acid_task_msg.code, acid_task_msg.params, "title"),
+                description=render_en(acid_task_msg.code, acid_task_msg.params, "body"),
                 task_type="System Generated",
                 import_file_id=imp.import_file_id,
                 import_file_code=file_code,
@@ -304,7 +318,10 @@ def _handle_swift_payment_completion_workflow(
                 status="Pending",
                 notes=f"ACTION:ISSUE_ACID | SwiftRef: {swift_ref} | PayId: {db_item.payment_id}",
             )
-            create_smart_task(db, task_schema, created_by="Financial SWIFT Engine")
+            create_smart_task(
+                db, task_schema, created_by="Financial SWIFT Engine",
+                msg_code=acid_task_msg.code, msg_params=acid_task_msg.params, step_code="STEP_05",
+            )
     except Exception:
         pass
 
@@ -330,10 +347,19 @@ def approve_payment_request_service(
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
             if imp:
                 file_code = imp.import_file_code
-        ref_text = f" للملف ({file_code})" if file_code else ""
+        approved_msg = msg(
+            "FA_PAYMENT_REQUEST_APPROVED_FILE" if file_code else "FA_PAYMENT_REQUEST_APPROVED",
+            payment_code=db_item.payment_code,
+            **({"import_file_code": file_code} if file_code else {}),
+            requested_amount=round(float(db_item.requested_amount or 0.0), 2),
+            currency_code=db_item.currency_code,
+            supplier_name=db_item.supplier_name,
+        )
         notif = SystemNotification(
-            title=f"تمت الموافقة على طلب الصرف: {db_item.payment_code}",
-            message=f"تمت الموافقة على طلب الصرف رقم ({db_item.payment_code}){ref_text} بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} لصالح المورد ({db_item.supplier_name}). الطلب جاهز للتنفيذ والتحويل البنكي.",
+            title=render_en(approved_msg.code, approved_msg.params, "title"),
+            message=render_en(approved_msg.code, approved_msg.params, "body"),
+            msg_code=approved_msg.code,
+            msg_params=approved_msg.params,
             severity="INFO",
             category="DUTY_PAYMENT",
             entity_type="PaymentRequest",
@@ -450,7 +476,7 @@ def clone_payment_request_service(
     - Dates are set to current date: request_date=date.today(), due_date=date.today() + 12 days.
     - If unlink_import_file is True, import_file_id and po_id are reset to None.
     - If target_supplier_id is specified, supplier is updated.
-    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    - Title is set to schema.new_title or f"{orig.title} (Copy)".
     """
     from datetime import timedelta
 
@@ -465,7 +491,7 @@ def clone_payment_request_service(
     req_date = date.today()
     due_date = date.today() + timedelta(days=12)
 
-    title = schema.new_title or f"{orig.title} (نسخة)"
+    title = schema.new_title or f"{orig.title} (Copy)"
     supplier_id = schema.target_supplier_id or orig.supplier_id
     supplier_name = orig.supplier_name
     beneficiary_name = orig.beneficiary_name
@@ -577,10 +603,18 @@ def approve_import_budget_service(
 
     # Emit System Notification
     try:
-        ref_text = f" للملف ({file_code})" if file_code else ""
+        budget_msg = msg(
+            "FA_BUDGET_APPROVED_FILE" if file_code else "FA_BUDGET_APPROVED",
+            budget_code=db_item.budget_code,
+            **({"import_file_code": file_code} if file_code else {}),
+            total_amount=round(float(db_item.total_budget_egp or 0.0), 2),
+            approved_by=approved_by,
+        )
         notif = SystemNotification(
-            title=f"تم اعتماد الميزانية التقديرية: {db_item.budget_code}",
-            message=f"تم اعتماد الميزانية التقديرية ({db_item.budget_code}){ref_text} بإجمالي {db_item.total_budget_egp:,.2f} ج.م من قبل {approved_by}.",
+            title=render_en(budget_msg.code, budget_msg.params, "title"),
+            message=render_en(budget_msg.code, budget_msg.params, "body"),
+            msg_code=budget_msg.code,
+            msg_params=budget_msg.params,
             severity="INFO",
             category="DUTY_PAYMENT",
             entity_type="ImportBudget",
@@ -637,7 +671,7 @@ def clone_import_budget_service(
     - If unlink_import_file is True, import_file_id is set to None.
     - If target_import_file_id is provided, validates that no existing budget conflicts.
     - If new_exchange_rate is provided, recalculates invoice_amount_egp and freight_cost_egp.
-    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    - Title is set to schema.new_title or f"{orig.title} (Copy)".
     - total_budget_egp is recalculated dynamically.
     - Notes append remarks if provided.
     """
@@ -664,7 +698,7 @@ def clone_import_budget_service(
             target_file_id = None
 
     code = repo.generate_budget_code(db)
-    title = schema.new_title or f"{orig.title} (نسخة)"
+    title = schema.new_title or f"{orig.title} (Copy)"
     rate = schema.new_exchange_rate if (schema.new_exchange_rate and schema.new_exchange_rate > 0) else orig.exchange_rate
 
     inv_foreign = orig.invoice_amount_foreign
@@ -1170,7 +1204,7 @@ def evaluate_and_record_budget_variance_service(
                 v.resolved_at = now
                 v.resolved_by = "System"
 
-            auto_note = f"[تحديث تلقائي {date.today()}]: تم تحديث التكاليف الحية تلقائياً لميزانية المسودة بواسطة {modified_by}."
+            auto_note = f"[Auto update {date.today()}]: live costs of the draft budget updated automatically by {modified_by}."
             budget.notes = f"{budget.notes}\n{auto_note}".strip() if budget.notes else auto_note
 
         elif current_status in ("Pending Review", "Needs Revalidation"):
@@ -1182,14 +1216,22 @@ def evaluate_and_record_budget_variance_service(
             budget.approved_by = None
             budget.approved_date = None
 
-            status_note = f"[تعديل بالمصدر {date.today()}]: رُصد فارق تكاليف بواسطة {modified_by}. تحولت الحالة إلى 'Needs Revalidation'."
+            status_note = f"[Source change {date.today()}]: cost variance detected by {modified_by}. Status changed to 'Needs Revalidation'."
             budget.notes = f"{budget.notes}\n{status_note}".strip() if budget.notes else status_note
 
             # In-app notification to Finance Officer and Requester
             severity = "CRITICAL" if has_hard_block else "WARNING"
+            reval_msg = msg(
+                "FA_BUDGET_NEEDS_REVALIDATION",
+                import_file_code=file_code,
+                modified_by=modified_by,
+                budget_code=budget.budget_code,
+            )
             notif = SystemNotification(
-                title=f"⚠️ ميزانية تحتاج إعادة تحقق: {file_code}",
-                message=f"تم تعديل تكاليف في مرحلة سابقة بواسطة {modified_by} للشحنة ({file_code}). تم إيقاف دورة الاعتماد وتحويل الميزانية ({budget.budget_code}) إلى 'Needs Revalidation'.",
+                title=render_en(reval_msg.code, reval_msg.params, "title"),
+                message=render_en(reval_msg.code, reval_msg.params, "body"),
+                msg_code=reval_msg.code,
+                msg_params=reval_msg.params,
                 severity=severity,
                 category="BUDGET_VARIANCE",
                 entity_type="ImportBudget",
@@ -1204,13 +1246,21 @@ def evaluate_and_record_budget_variance_service(
             budget.upstream_modified_by = modified_by
             budget.last_variance_check = now
 
-            var_note = f"[تنبيه فارق مالي {date.today()}]: رُصد فارق تكاليف بواسطة {modified_by} لميزانية معتمدة. يلزم إنشاء إصدار مراجعة جديد (Revision)."
+            var_note = f"[Financial variance alert {date.today()}]: cost variance detected by {modified_by} on an approved budget. A new budget revision is required."
             budget.notes = f"{budget.notes}\n{var_note}".strip() if budget.notes else var_note
 
             # Critical In-app notification for Approved Budget variance
+            variance_msg = msg(
+                "FA_APPROVED_BUDGET_VARIANCE",
+                import_file_code=file_code,
+                modified_by=modified_by,
+                budget_code=budget.budget_code,
+            )
             notif = SystemNotification(
-                title=f"🚨 تنبيه فارق مالي بميزانية معتمدة: {file_code}",
-                message=f"تم تعديل تكاليف في المصدر لميزانية معتمدة ({budget.budget_code}) للشحنة ({file_code}) بواسطة {modified_by}. الفارق يتطلب مراجعة واعتماد إصدار جديد (Budget Revision).",
+                title=render_en(variance_msg.code, variance_msg.params, "title"),
+                message=render_en(variance_msg.code, variance_msg.params, "body"),
+                msg_code=variance_msg.code,
+                msg_params=variance_msg.params,
                 severity="CRITICAL",
                 category="BUDGET_VARIANCE",
                 entity_type="ImportBudget",
@@ -1290,10 +1340,10 @@ def sync_budget_with_upstream_service(
     threshold = get_variance_threshold_service(db)
 
     field_diffs = [
-        ("invoice_amount_egp", budget.invoice_amount_egp, prefill.total_invoice_amount_egp, "الفاتورة"),
-        ("freight_cost_egp", budget.freight_cost_egp, prefill.estimated_freight_cost_egp, "النولون"),
-        ("customs_duties_egp", budget.customs_duties_egp, prefill.estimated_customs_duties_egp, "الجمارك"),
-        ("clearance_inland_egp", budget.clearance_inland_egp, prefill.estimated_clearance_fees_egp, "التخليص"),
+        ("invoice_amount_egp", budget.invoice_amount_egp, prefill.total_invoice_amount_egp, "Invoice"),
+        ("freight_cost_egp", budget.freight_cost_egp, prefill.estimated_freight_cost_egp, "Freight"),
+        ("customs_duties_egp", budget.customs_duties_egp, prefill.estimated_customs_duties_egp, "Customs"),
+        ("clearance_inland_egp", budget.clearance_inland_egp, prefill.estimated_clearance_fees_egp, "Clearance"),
     ]
 
     has_hard_block = False
@@ -1301,7 +1351,7 @@ def sync_budget_with_upstream_service(
     for f_name, old_v, new_v, label in field_diffs:
         d = new_v - old_v
         if abs(d) > 1.0:
-            changes_desc.append(f"{label}: {old_v:.2f} -> {new_v:.2f} ج.م")
+            changes_desc.append(f"{label}: {old_v:.2f} -> {new_v:.2f} EGP")
             pct = 100.0 if old_v == 0 else round((abs(d) / old_v) * 100.0, 2)
             if pct > threshold:
                 has_hard_block = True
@@ -1323,7 +1373,7 @@ def sync_budget_with_upstream_service(
         orig_status = budget.budget_status
         budget.budget_status = "Superseded"
         budget.has_unresolved_variance = False
-        archive_note = f"[أرشفة كإصدار ملغي {date.today()}]: استُبدلت هذه النسخة المعتمدة بالإصدار الجديد REV{budget.revision_number + 1} بواسطة {current_username}."
+        archive_note = f"[Archived as superseded {date.today()}]: this approved version was replaced by revision REV{budget.revision_number + 1} by {current_username}."
         budget.notes = f"{budget.notes}\n{archive_note}".strip() if budget.notes else archive_note
 
         # 2. Generate clean revision code
@@ -1357,7 +1407,7 @@ def sync_budget_with_upstream_service(
             variance_override_reason=override_justification,
             variance_overridden_by=current_username if override_justification else None,
             upstream_modified_by=budget.upstream_modified_by,
-            notes=f"[إصدار مراجعة جديد {date.today()}]: أُنشئت هذه الميزانية بمزامنة التكاليف الحية بدلاً من {budget.budget_code} ({', '.join(changes_desc) if changes_desc else 'بدون فوارق'}). المنفذ: {current_username}." + (f" مبرر التجاوز: {override_justification}" if override_justification else ""),
+            notes=f"[New revision {date.today()}]: this budget was created from live costs to replace {budget.budget_code} ({', '.join(changes_desc) if changes_desc else 'no variance'}). By: {current_username}." + (f" Override justification: {override_justification}" if override_justification else ""),
             is_active=True,
         )
         db.add(new_budget)
@@ -1416,7 +1466,7 @@ def sync_budget_with_upstream_service(
         budget.variance_override_reason = override_justification
         budget.variance_overridden_by = current_username if override_justification else None
 
-        sync_note = f"[مزامنة بالتكاليف الحية {date.today()}]: تم تحديث التكاليف ({', '.join(changes_desc) if changes_desc else 'بدون فوارق'}). المنفذ: {current_username}." + (f" مبرر التجاوز: {override_justification}" if override_justification else "")
+        sync_note = f"[Live cost sync {date.today()}]: costs updated ({', '.join(changes_desc) if changes_desc else 'no variance'}). By: {current_username}." + (f" Override justification: {override_justification}" if override_justification else "")
         budget.notes = f"{budget.notes}\n{sync_note}".strip() if budget.notes else sync_note
 
         open_logs = db.query(BudgetVarianceLog).filter(
@@ -1494,7 +1544,7 @@ def override_budget_variance_service(
     budget.variance_override_reason = justification_note.strip()
     budget.variance_overridden_by = current_username
 
-    audit_entry = f"[تجاوز الحظر المالي {date.today()}]: تم تجاوز حظر فارق التكاليف بواسطة {current_username}. المبرر: {justification_note.strip()}."
+    audit_entry = f"[Financial block override {date.today()}]: cost variance block overridden by {current_username}. Justification: {justification_note.strip()}."
     budget.notes = f"{budget.notes}\n{audit_entry}".strip() if budget.notes else audit_entry
 
     # Mark active logs as overridden
@@ -1882,7 +1932,7 @@ def reconcile_reviewed_batch_service(
     if payload.notes:
         recon_notes.append(payload.notes)
     if sender_swift or sender_bank:
-        sender_label = f"البنك المنفذ في مصر: {sender_bank or ''} ({sender_swift or ''})".strip()
+        sender_label = f"Executing bank in Egypt: {sender_bank or ''} ({sender_swift or ''})".strip()
         recon_notes.append(sender_label)
     if recon_notes:
         db_item.swift_reconciliation_notes = " | ".join(recon_notes)

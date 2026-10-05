@@ -15,6 +15,7 @@ Zero Data Loss Guarantee:
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from modules.users.model import User
 import settings
@@ -26,8 +27,29 @@ from modules.incoterms.incoterms_matrix import IncotermsMatrix, Party
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_consultation.model import ClearanceExpenseType
+from modules.common import enum_codes
 from modules.auth.seed_rbac import seed_rbac
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
+from modules.financial_settlement.model import TaxRate, WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
+
+# Withholding tax rates seeded once per tax code (the values the settlement engine used to hard-code).
+# Effective far enough back to cover every existing invoice, so historical totals do not change.
+TAX_RATE_SEED_FROM = date(2000, 1, 1)
+TAX_RATE_SEEDS = (
+    (WHT_CLEARANCE_SERVICES, Decimal("1.0000"), "Withholding tax deducted from customs broker / port invoices"),
+    (WHT_TRANSPORT_SERVICES, Decimal("1.0000"), "Withholding tax deducted from inland transport invoices"),
+)
+
+# Seeded master data is stored in English (single-language storage). Legacy Arabic values are kept
+# only to match rows seeded by older versions (never written again).
+CONTRACTUAL_RESPONSIBILITY_NOTE = "Contractual clause (not defined by ICC)"
+ACOUSTIC_GUIDE_SEED_TITLE = "Acoustic goods: inspection requirements and mandatory port"
+ACOUSTIC_GUIDE_SEED_CONTENT = (
+    "The port of arrival must be Alexandria only, because it has the specialised inspection labs. "
+    "A certified original certificate of origin must be attached before shipping to avoid a customs hold "
+    "or delay penalties."
+)
+LEGACY_ACOUSTIC_GUIDE_SEED_TITLE = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
 
 
 class MasterDataSyncService:
@@ -151,7 +173,7 @@ class MasterDataSyncService:
                 party = matrix.who_pays(term_code, cat.key)
                 expected_resp = "Importer" if party == Party.BUYER else "Exporter"
                 included = (party == Party.SELLER)
-                note = "بند تعاقدي (Contractual)" if not cat.is_icc_defined else None
+                note = CONTRACTUAL_RESPONSIBILITY_NOTE if not cat.is_icc_defined else None
 
                 existing = self.db.query(IncotermResponsibility).filter(
                     IncotermResponsibility.incoterm_id == inc_id,
@@ -366,8 +388,8 @@ class MasterDataSyncService:
                     expense_code=code,
                     name_ar=name_ar,
                     name_en=name_en,
-                    category=cat,
-                    default_unit=unit,
+                    category=enum_codes.normalize(enum_codes.BROKER_EXPENSE_CATEGORY, cat),
+                    default_unit=enum_codes.normalize(enum_codes.PRICING_UNIT, unit),
                     default_currency=curr,
                     display_order=order,
                     is_active=True,
@@ -446,6 +468,27 @@ class MasterDataSyncService:
             self.db.commit()
         return added
 
+    def sync_tax_rates(self) -> int:
+        """Seed the withholding tax rates the settlement used to hard-code (1%), effective from TAX_RATE_SEED_FROM.
+        A code that already has ANY row (even inactive / deleted) is left alone, so edited rates are never reset."""
+        added = 0
+        for tax_code, rate_percent, description in TAX_RATE_SEEDS:
+            if self.db.query(TaxRate.tax_rate_id).filter(TaxRate.tax_code == tax_code).first() is not None:
+                continue
+            self.db.add(
+                TaxRate(
+                    tax_code=tax_code,
+                    rate_percent=rate_percent,
+                    effective_from=TAX_RATE_SEED_FROM,
+                    description=description,
+                    is_active=True,
+                )
+            )
+            added += 1
+        if added > 0:
+            self.db.commit()
+        return added
+
     def sync_expense_catalog(self) -> Dict[str, int]:
         """
         Incremental non-destructive upsert for Coded Reference Expense Catalog (AI-EXPENSE-CATALOG-002).
@@ -492,12 +535,14 @@ class MasterDataSyncService:
     def sync_experience_guide_seeds(self) -> Dict[str, Any]:
         """Ensures default high-value logistics & customs rules exist in the Experience Guide."""
         added = 0
-        acoustic_title = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
-        existing = self.db.query(GuideEntry).filter(GuideEntry.title == acoustic_title).first()
+        # Stored text is English (single-language storage); the legacy Arabic title only matches old seeds.
+        existing = self.db.query(GuideEntry).filter(
+            GuideEntry.title.in_((ACOUSTIC_GUIDE_SEED_TITLE, LEGACY_ACOUSTIC_GUIDE_SEED_TITLE))
+        ).first()
         if not existing:
             entry = GuideEntry(
-                title=acoustic_title,
-                content="يجب أن يكون ميناء الوصول الإسكندرية حصراً لوجود معامل فحص متخصصة. مطلوب شهادة منشأ أصلية مصدقة ومرفقة قبل الشحن لتفادي التحفظ الجمركي أو فرض غرامات تأخير.",
+                title=ACOUSTIC_GUIDE_SEED_TITLE,
+                content=ACOUSTIC_GUIDE_SEED_CONTENT,
                 entry_type="required_document",
                 severity="critical",
                 created_by="System Seed",
@@ -527,6 +572,7 @@ class MasterDataSyncService:
         rbac_res = seed_rbac(self.db)
         expense_catalog_res = self.sync_expense_catalog()
         guide_res = self.sync_experience_guide_seeds()
+        tax_rates_added = self.sync_tax_rates()
 
         return {
             "status": "synchronized_cleanly",
@@ -539,5 +585,6 @@ class MasterDataSyncService:
             "rbac": rbac_res,
             "expense_catalog": expense_catalog_res,
             "experience_guide": guide_res,
+            "tax_rates_added": tax_rates_added,
         }
 

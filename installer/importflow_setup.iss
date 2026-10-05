@@ -30,13 +30,15 @@
 ; =====================================================================
 
 #define MyAppName "Sorour Logistics"
-#define MyAppVersion "2.1.2"
+#define MyAppVersion "2.2.0"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
 ; The app is started through frontend.exe itself (it starts backend.exe and waits for /health).
 ; Nothing in this script may point at the .vbs/.bat launchers: Windows is removing VBScript
 ; (absent in Windows Sandbox), which left the silent-update relaunch on an empty "Choose an app"
-; dialog. The launchers are still shipped as a harmless manual fallback.
+; dialog. The old launchers are no longer shipped and are removed from {app} ([InstallDelete]): they
+; "freed" port 28080 with taskkill on every netstat line containing :28080, which also matched the
+; running frontend.exe's own connections and closed the open app.
 #define MyAppExeName "frontend.exe"
 #define AppIconPath "app_icon.ico"
 
@@ -52,7 +54,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\releases
-OutputBaseFilename=Sorour_Logistics_Setup_v2.1.2
+OutputBaseFilename=Sorour_Logistics_Setup_v2.2.0
 SetupIconFile={#AppIconPath}
 Compression=lzma2/max
 SolidCompression=yes
@@ -82,17 +84,22 @@ Name: "{app}\updates"; Flags: uninsneveruninstall
 ; R1: Excludes keeps databases, secrets, data folders and the destructive maintenance scripts out of
 ; the installer even if they ever appear in the staging folder. There must never be a [Files] entry
 ; for sorour_logistics.db or .env: the live data in {app} is never replaced by Setup.
-Source: "..\dist\Sorour_Logistics_Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db,*.db-wal,*.db-shm,*.db-journal,*.sqlite*,.env,.env.*,*.key,*.pem,*.pfx,*.p12,backups\*,updates\*,reset_clean_production_db.py,clean_and_isolate_databases.py,sync_to_production.py,execute_user_database_updates.py,populate_all_world_transport_locations.py,clean_transport_locations.py,update_db_schema.py,restore_database.py,prepare_uat_environment.py,seed.py,\dist\*"
+Source: "..\dist\Sorour_Logistics_Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db,*.db-wal,*.db-shm,*.db-journal,*.sqlite*,.env,.env.*,*.key,*.pem,*.pfx,*.p12,backups\*,updates\*,reset_clean_production_db.py,clean_and_isolate_databases.py,sync_to_production.py,execute_user_database_updates.py,populate_all_world_transport_locations.py,clean_transport_locations.py,update_db_schema.py,restore_database.py,prepare_uat_environment.py,seed.py,\dist\*,Launch_Sorour_Logistics.vbs,Launch_ImportFlow.vbs,Sorour_Logistics_App.bat"
 
 [InstallDelete]
 ; The ONLY allowed delete entries: destructive maintenance scripts that installers before Phase 0b
-; copied into {app} (audit A4). Exact file names, Type: files, no wildcards. Never add data here
-; (scripts/release/bundle_guard.py fails on anything else).
+; copied into {app} (audit A4) and the legacy script launchers (see the note at the top). Exact file
+; names, Type: files, no wildcards. Never add data here (scripts/release/bundle_guard.py fails on
+; anything else).
 Type: files; Name: "{app}\reset_clean_production_db.py"
 Type: files; Name: "{app}\clean_and_isolate_databases.py"
 Type: files; Name: "{app}\sync_to_production.py"
 ; seed.py: dev seeder with fixed demo passwords, found in the production {app} (2026-09-24).
 Type: files; Name: "{app}\seed.py"
+; Legacy launchers: their port-28080 taskkill closed the running app (2026-10-05). Also excluded above.
+Type: files; Name: "{app}\Launch_Sorour_Logistics.vbs"
+Type: files; Name: "{app}\Launch_ImportFlow.vbs"
+Type: files; Name: "{app}\Sorour_Logistics_App.bat"
 ; {app}\data\ (Flutter runtime: app.so, icudtl.dat, flutter_assets) is only ever overwritten file-by-file
 ; by [Files]; nothing is deleted there. {app}\dist\ (unknown content) is never touched: no [Files]
 ; entry targets it and the staging Excludes "\dist\*" keep a stray dist folder out of the installer.

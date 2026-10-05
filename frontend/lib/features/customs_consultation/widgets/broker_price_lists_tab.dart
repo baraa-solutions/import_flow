@@ -11,6 +11,8 @@ import '../../customs_clearance_quotations/screens/customs_clearance_quotations_
 import '../services/clearance_expense_types_export_service.dart';
 import 'price_list_form_dialog.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 class BrokerPriceListsTab extends ConsumerStatefulWidget {
   const BrokerPriceListsTab({super.key});
@@ -391,7 +393,32 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
       },
     );
   }
+  /// Category picker items: the stored value is the code, the label follows the UI language.
+  List<SearchableDropdownItem<String>> _brokerCategoryItems(AppLocalizations l, [String? current]) {
+    final codes = DomainEnums.codesOf(DomainEnumType.brokerExpenseCategory);
+    return [
+      for (final code in codes)
+        SearchableDropdownItem(value: code, label: DomainEnums.label(l, DomainEnumType.brokerExpenseCategory, code)),
+      if (current != null && current.isNotEmpty && current != 'All' && !codes.contains(current))
+        SearchableDropdownItem(value: current, label: current),
+    ];
+  }
+
+  /// Unit picker items (codes). A legacy free-text unit that is not a known
+  /// code stays selectable as-is so editing an old row does not change it.
+  List<SearchableDropdownItem<String>> _brokerUnitItems(AppLocalizations l, String current) {
+    final codes = DomainEnums.codesOf(DomainEnumType.brokerUnit);
+    return [
+      for (final code in codes)
+        SearchableDropdownItem(value: code, label: DomainEnums.label(l, DomainEnumType.brokerUnit, code)),
+      if (current.isNotEmpty && !codes.contains(current)) SearchableDropdownItem(value: current, label: current),
+    ];
+  }
+
   String _formatCategory(String cat, bool isArabic) {
+    if (DomainEnums.legacyToCode(DomainEnumType.brokerExpenseCategory, cat) != null) {
+      return DomainEnums.label(context.l10n, DomainEnumType.brokerExpenseCategory, cat);
+    }
     if (isArabic) {
       if (cat.contains('(') && cat.contains(')')) {
         final start = cat.indexOf('(') + 1;
@@ -405,6 +432,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
   }
 
   String _formatUnit(String unit, bool isArabic) {
+    if (DomainEnums.legacyToCode(DomainEnumType.brokerUnit, unit) != null) {
+      return DomainEnums.label(context.l10n, DomainEnumType.brokerUnit, unit);
+    }
     if (isArabic) {
       if (unit.contains('(') && unit.contains(')')) {
         final start = unit.indexOf('(') + 1;
@@ -425,7 +455,10 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
       error: (e, s) => Center(child: Text('❌ Error: $e')),
       data: (expenses) {
         final filtered = expenses.where((exp) {
-          if (_mgmtExpenseCategory != 'All' && exp.category != _mgmtExpenseCategory) return false;
+          if (_mgmtExpenseCategory != 'All' &&
+              DomainEnums.legacyToCode(DomainEnumType.brokerExpenseCategory, exp.category) != _mgmtExpenseCategory) {
+            return false;
+          }
           if (_mgmtExpenseSearch.isNotEmpty) {
             final q = _mgmtExpenseSearch.toLowerCase();
             return exp.expenseCode.toLowerCase().contains(q) || exp.nameAr.toLowerCase().contains(q) || (exp.nameEn?.toLowerCase().contains(q) ?? false);
@@ -483,26 +516,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                               labelText: l.filterCategoryLabel,
                               items: [
                                 SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
-                                SearchableDropdownItem(
-                                  value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
-                                  label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
-                                  label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'Inland Transport (نقل بري وشاحنات)',
-                                  label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
-                                  label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'Other Fees (مصاريف أخرى)',
-                                  label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
-                                ),
+                                ..._brokerCategoryItems(l),
                               ],
                               onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
                             ),
@@ -796,8 +810,8 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     final codeCtrl = TextEditingController(text: exp.expenseCode);
     final nameArCtrl = TextEditingController(text: exp.nameAr);
     final nameEnCtrl = TextEditingController(text: exp.nameEn ?? '');
-    String category = exp.category;
-    String defaultUnit = exp.defaultUnit;
+    String category = DomainEnums.initialCode(DomainEnumType.brokerExpenseCategory, exp.category, exp.category);
+    String defaultUnit = DomainEnums.initialCode(DomainEnumType.brokerUnit, exp.defaultUnit, exp.defaultUnit);
     String currency = exp.defaultCurrency;
     bool isSaving = false;
 
@@ -853,26 +867,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       value: category,
                       labelText: l.categoryCol,
                       items: [
-                        SearchableDropdownItem(
-                          value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
-                          label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
-                          label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Inland Transport (نقل بري وشاحنات)',
-                          label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
-                          label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Other Fees (مصاريف أخرى)',
-                          label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
-                        ),
+                        ..._brokerCategoryItems(l, category),
                       ],
                       onChanged: (v) => setDlgState(() => category = v ?? category),
                     ),
@@ -880,14 +875,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            initialValue: defaultUnit,
-                            decoration: InputDecoration(
-                              labelText: l.defaultCalculationUnitField,
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            onChanged: (v) => defaultUnit = v,
+                          child: SearchableDropdownField<String>(
+                            value: defaultUnit,
+                            labelText: l.defaultCalculationUnitField,
+                            items: _brokerUnitItems(l, defaultUnit),
+                            onChanged: (v) => setDlgState(() => defaultUnit = v ?? defaultUnit),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1029,11 +1021,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final formKey = GlobalKey<FormState>();
-    final codeCtrl = TextEditingController(text: template != null ? '${template.expenseCode}-CLONE' : '');
-    final nameArCtrl = TextEditingController(text: template != null ? '${template.nameAr} (نسخة)' : '');
-    final nameEnCtrl = TextEditingController(text: template != null ? (template.nameEn != null ? '${template.nameEn} (Copy)' : '') : '');
-    String category = template?.category ?? 'Clearance Fees (أتعاب ومصاريف تخليص)';
-    String defaultUnit = template?.defaultUnit ?? 'Per Invoice (لكل فاتورة)';
+    final codeCtrl = TextEditingController(text: TableRowCloneHelper.withCodeSuffix(template?.expenseCode) ?? '');
+    final nameArCtrl = TextEditingController(text: TableRowCloneHelper.withCopySuffix(template?.nameAr) ?? '');
+    final nameEnCtrl = TextEditingController(text: TableRowCloneHelper.withCopySuffix(template?.nameEn) ?? '');
+    String category = DomainEnums.initialCode(
+        DomainEnumType.brokerExpenseCategory, template?.category, template?.category ?? 'CLEARANCE_FEES');
+    String defaultUnit =
+        DomainEnums.initialCode(DomainEnumType.brokerUnit, template?.defaultUnit, template?.defaultUnit ?? 'PER_INVOICE');
     String currency = template?.defaultCurrency ?? 'EGP';
     bool isSaving = false;
 
@@ -1088,26 +1082,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       value: category,
                       labelText: l.categoryCol,
                       items: [
-                        SearchableDropdownItem(
-                          value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
-                          label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
-                          label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Inland Transport (نقل بري وشاحنات)',
-                          label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
-                          label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
-                        ),
-                        SearchableDropdownItem(
-                          value: 'Other Fees (مصاريف أخرى)',
-                          label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
-                        ),
+                        ..._brokerCategoryItems(l, category),
                       ],
                       onChanged: (v) => setDlgState(() => category = v ?? category),
                     ),
@@ -1115,14 +1090,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            initialValue: defaultUnit,
-                            decoration: InputDecoration(
-                              labelText: l.defaultCalculationUnitField,
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            onChanged: (v) => defaultUnit = v,
+                          child: SearchableDropdownField<String>(
+                            value: defaultUnit,
+                            labelText: l.defaultCalculationUnitField,
+                            items: _brokerUnitItems(l, defaultUnit),
+                            onChanged: (v) => setDlgState(() => defaultUnit = v ?? defaultUnit),
                           ),
                         ),
                         const SizedBox(width: 8),

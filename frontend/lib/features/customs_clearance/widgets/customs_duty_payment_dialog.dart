@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modal dialog for CL-03: Customs Duty Payment Receipt
 /// تسجيل سداد الرسوم الجمركية عبر سداد / E-Finance وإيصال السداد البنكي
@@ -48,28 +50,22 @@ class _CustomsDutyPaymentDialogState
   late TextEditingController _receiptFileUrlController;
   late TextEditingController _notesController;
 
-  String _paymentMethod = 'E-Finance / Sadad';
-  String _bankName = 'البنك الأهلي المصري (NBE)';
+  // Codes (DomainEnumType.paymentMethod / dutyBank); labels follow the UI language.
+  String _paymentMethod = 'SADAD_EFINANCE';
+  String _bankName = 'NBE';
   DateTime _paymentDate = DateTime.now();
   bool _isSubmitting = false;
 
-  final List<String> _paymentMethods = [
-    'E-Finance / Sadad',
-    'Bank Transfer / تحويل بنكي',
-    'CBE Direct / خصم البنك المركزي',
-    'Cashier Deposit / إيداع خزينة الجمرك',
-  ];
+  // Codes first; a stored value that is not a known code/legacy label stays selectable.
+  List<String> get _paymentMethods => [
+        ...DomainEnums.codesOf(DomainEnumType.paymentMethod),
+        if (!DomainEnums.isCode(DomainEnumType.paymentMethod, _paymentMethod)) _paymentMethod,
+      ];
 
-  final List<String> _bankNames = [
-    'البنك الأهلي المصري (NBE)',
-    'بنك مصر (BM)',
-    'البنك التجاري الدولي (CIB)',
-    'بنك القاهرة (BDC)',
-    'بنك قطر الوطني الأهلي (QNB)',
-    'البنك المركزي المصري (CBE)',
-    'خزينة مصلحة الجمارك (MTS Cashier)',
-    'أخرى',
-  ];
+  List<String> get _bankNames => [
+        ...DomainEnums.codesOf(DomainEnumType.dutyBank),
+        if (!DomainEnums.isCode(DomainEnumType.dutyBank, _bankName)) _bankName,
+      ];
 
   @override
   void initState() {
@@ -105,10 +101,14 @@ class _CustomsDutyPaymentDialogState
     );
 
     // Prefill payment method
-    if (rec != null && rec.paymentMethod.isNotEmpty) {
-      if (_paymentMethods.contains(rec.paymentMethod)) {
-        _paymentMethod = rec.paymentMethod;
-      }
+    // Legacy rows hold the old ar/en label; map it to its code.
+    final storedMethod = rec?.paymentMethod.trim() ?? '';
+    if (storedMethod.isNotEmpty) {
+      _paymentMethod = DomainEnums.initialCode(DomainEnumType.paymentMethod, storedMethod, storedMethod);
+    }
+    final storedBank = rec?.payingBankName?.trim() ?? '';
+    if (storedBank.isNotEmpty) {
+      _bankName = DomainEnums.initialCode(DomainEnumType.dutyBank, storedBank, storedBank);
     }
 
     _receiptFileUrlController = TextEditingController(
@@ -175,15 +175,15 @@ class _CustomsDutyPaymentDialogState
         'import_file_id': widget.file.importFileId,
         'clearance_id': widget.clearanceRecord?.clearanceId,
         'sadad_number': _sadadNumberController.text.trim(),
-        'receipt_number': _receiptNumberController.text.trim(),
+        'bank_receipt_no': _receiptNumberController.text.trim(),
         'payment_method': _paymentMethod,
         'payment_date': _paymentDate.toIso8601String(),
         'duty_paid_amount': amount,
-        'bank_name': _bankName,
+        'paying_bank_name': _bankName,
         'receipt_file_url': _receiptFileUrlController.text.trim().isNotEmpty
             ? _receiptFileUrlController.text.trim()
             : null,
-        'notes': _notesController.text.trim().isNotEmpty
+        'payment_notes': _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
       };
@@ -299,9 +299,9 @@ class _CustomsDutyPaymentDialogState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: AppTheme.charcoal,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
+        borderRadius: BorderRadiusDirectional.only(
+          topStart: Radius.circular(16),
+          topEnd: Radius.circular(16),
         ),
       ),
       child: Row(
@@ -677,7 +677,7 @@ class _CustomsDutyPaymentDialogState
                       items: _paymentMethods.map((m) {
                         return DropdownMenuItem(
                           value: m,
-                          child: Text(m, style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
+                          child: Text(DomainEnums.label(context.l10n, DomainEnumType.paymentMethod, m), style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (v) {
@@ -714,7 +714,7 @@ class _CustomsDutyPaymentDialogState
                       items: _bankNames.map((b) {
                         return DropdownMenuItem(
                           value: b,
-                          child: Text(b, style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
+                          child: Text(DomainEnums.label(context.l10n, DomainEnumType.dutyBank, b), style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (v) {
@@ -819,9 +819,9 @@ class _CustomsDutyPaymentDialogState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
+        borderRadius: const BorderRadiusDirectional.only(
+          bottomStart: Radius.circular(16),
+          bottomEnd: Radius.circular(16),
         ),
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),

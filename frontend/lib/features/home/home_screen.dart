@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/widgets/command_palette_dialog.dart';
+import '../../core/widgets/directional_icon.dart';
 import '../../core/widgets/keyboard_shortcuts_dialog.dart';
 import '../../core/widgets/unsaved_changes_dialog.dart';
 import '../../core/localization/locale_provider.dart';
@@ -72,7 +73,10 @@ import '../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
 import '../app_update/widgets/post_update_notice.dart';
+import '../app_update/widgets/app_update_panel.dart';
 import '../app_update/widgets/update_banner.dart';
+import '../app_update/widgets/update_indicator_pill.dart';
+import '../app_update/widgets/update_notifier_host.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
 import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
@@ -395,13 +399,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Expanded(
                       child: Stack(
                         children: [
+                          // Zero-size update listeners as the FIRST Stack children: their
+                          // position never changes, so toggling focus mode (which adds /
+                          // removes Column children) does not dispose and re-create them.
+                          // Always mounted (also in focus mode): mandatory dialog, 24 h
+                          // re-check and the one-time "update ready" SnackBar.
+                          const UpdateNotifierHost(key: ValueKey('home_update_notifier_host')),
+                          // One-time "updated to vX" / failed-update notice from /last-result.
+                          const PostUpdateNotice(key: ValueKey('home_post_update_notice')),
                           Column(
                             children: [
                               if (isMobile && !ref.watch(focusModeProvider)) _buildMobileTopNav(context),
                               if (!ref.watch(focusModeProvider)) const UnifiedTopBar(),
                               if (!ref.watch(focusModeProvider)) const UpdateBanner(),
-                              // One-time "updated to vX" / failed-update notice from /last-result.
-                              const PostUpdateNotice(),
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(
@@ -431,10 +441,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                           // Floating Focus Mode Action Pill
                           if (ref.watch(focusModeProvider))
-                            Positioned(
+                            PositionedDirectional(
                               bottom: 24,
-                              left: 0,
-                              right: 0,
+                              start: 0,
+                              end: 0,
                               child: Center(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -645,6 +655,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () => SystemSettingsDialog.show(context),
         ),
         const SizedBox(height: 6),
+        // Update state dot (hides itself when up to date).
+        const UpdateIndicatorPill(compact: true),
+        const SizedBox(height: 6),
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -703,7 +716,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         // Logo & Header (Row 1: logo + title + collapse)
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 4, 2),
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 4, 2),
           child: Row(
             children: [
               Container(
@@ -742,7 +755,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                icon: const Icon(Icons.keyboard_double_arrow_left,
+                // Points toward the sidebar's own edge: left in LTR, right in RTL.
+                icon: const DirectionalIcon(Icons.keyboard_double_arrow_left,
                     color: Colors.white70, size: 17),
                 tooltip: l.collapseSidebar,
                 onPressed: () => setState(() => _isSidebarCollapsed = true),
@@ -752,7 +766,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         // Action Buttons Row (Row 2: theme + lang + notifications + email)
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 4, 4),
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 4, 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1119,7 +1133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   loading: () => 'v... (Loading)',
                   error: (_, __) => 'v${ApiConstants.clientVersion} (Build ${ApiConstants.clientBuildNumber})',
                 );
-                return Row(
+                final versionRow = Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
@@ -1158,6 +1172,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ],
                       ),
                     ),
+                  ],
+                );
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Always-visible update state (hides itself, gap included, when up to date).
+                    const UpdateIndicatorPill(padding: EdgeInsetsDirectional.only(bottom: 5)),
+                    versionRow,
                   ],
                 );
               },
@@ -1260,7 +1283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         border: isSelected
-            ? const Border(left: BorderSide(color: AppTheme.cobalt, width: 3))
+            ? const BorderDirectional(start: BorderSide(color: AppTheme.cobalt, width: 3))
             : null,
       ),
       child: Material(
@@ -1423,8 +1446,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             content: SizedBox(
-              width: 480,
-              child: Column(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildInfoRow(Icons.verified, l.systemVersion, 'v$version (Release)'),
@@ -1440,7 +1464,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const Divider(height: 14),
                   _buildInfoRow(Icons.shield_outlined, l.licenseAndRights,
                       '© 2026 Sorour Logistics. All rights reserved.'),
+                  const Divider(height: 20),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      l.updateAboutSectionTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const AppUpdatePanel(),
                 ],
+                ),
               ),
             ),
             actionsPadding:

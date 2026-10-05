@@ -107,7 +107,10 @@ def test_draft_bl_certified_save_approves_customs(db_session):
     ).first()
     assert bl_app.commercial_status == "Approved"
     assert bl_app.document_reference_no == "MEDU12345678"
-    assert "تم اعتماد مسودة بوليصة الشحن" in bl_app.commercial_notes
+    # Single-language storage (docs/plans/single-language-storage-plan.md, rule 1):
+    # system-written notes are stored in English, never in the UI language.
+    assert bl_app.commercial_notes == "Draft B/L MEDU12345678 approved (SH-02 / STEP_08_BL)."
+    assert not any("؀" <= ch <= "ۿ" for ch in bl_app.commercial_notes)
 
     # Verify ImportFile updated
     imp_file = db_session.query(ImportFile).filter(ImportFile.import_file_id == 101).first()
@@ -160,7 +163,11 @@ def test_coo_certified_save_approves_customs(db_session):
     ).first()
     assert coo_app.commercial_status == "Approved"
     assert coo_app.document_reference_no == "EUR1-OFFICIAL-2026"
-    assert "تم اعتماد شهادة المنشأ" in coo_app.commercial_notes
+    # Single-language storage (rule 1): system-written notes are English.
+    assert coo_app.commercial_notes == (
+        "Certificate of origin EUR.1 - EUR1-OFFICIAL-2026 approved (STEP_08_COO)."
+    )
+    assert not any("؀" <= ch <= "ۿ" for ch in coo_app.commercial_notes)
 
 
 def test_sessions_filtering_and_deletion(db_session):

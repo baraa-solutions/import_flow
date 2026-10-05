@@ -198,6 +198,7 @@ class AggregatedInvoiceItemSchema(BaseModel):
     party_name: str
     category: str
     category_ar: str
+    category_code: Optional[str] = None  # enum code when the source stores one (CLEARANCE_EXPENSE_CATEGORY)
     currency: str = "EGP"
     exchange_rate: float = 1.0
     amount_fc: float = 0.0

@@ -9,7 +9,7 @@ class InlandTransportBookingBase(BaseModel):
     carrier_id: Optional[int] = None
     carrier_name: str = Field(..., min_length=2, description="اسم شركة النقل البري أو المقاول")
     truck_plate_number: str = Field(..., min_length=2, description="رقم لوحة الشاحنة")
-    truck_type: str = Field("Flatbed Trailer (تريلا مسطح)", description="نوع سيارة النقل")
+    truck_type: str = Field("FLATBED", description="TRUCK_TYPE code (legacy labels are normalized)")
     driver_name: str = Field(..., min_length=2, description="اسم السائق")
     driver_phone: str = Field(..., min_length=5, description="رقم هاتف السائق")
     driver_national_id: Optional[str] = None

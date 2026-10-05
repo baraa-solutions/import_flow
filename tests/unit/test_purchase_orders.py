@@ -458,6 +458,12 @@ class TestPurchaseOrdersBackend:
         assert cloned_po.po_id != orig_po.po_id
         assert cloned_po.po_number == "PO-2026-CLONED"
         assert cloned_po.po_reference == "Cloned Equipment Order"
+        # Defaults are language-independent: reference (a code field) gets "-COPY", notes "Cloned from: <po_number>"
+        default_clone = service.clone_purchase_order(
+            orig_po.po_id, ClonePurchaseOrderRequest(new_po_number="PO-2026-CLONED-2")
+        )
+        assert default_clone.po_reference == "Original Equipment Order-COPY"
+        assert default_clone.notes == "Cloned from: PO-2026-SOURCE"
         assert cloned_po.status == "Draft"
         assert cloned_po.import_file_id is None
         assert cloned_po.company_id == comp.company_id

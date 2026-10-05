@@ -35,6 +35,7 @@ from modules.system_observability.service import (
     DB_PATH,
     BACKUPS_DIR,
 )
+from modules.common.system_messages import msg as sys_msg
 from modules.system_observability.alert_dispatcher import (
     alert_dispatcher,
     AlertPayload,
@@ -376,8 +377,9 @@ class DailyReportService:
 
                 toast_payload = AlertPayload(
                     condition_key="DAILY_OBSERVABILITY_REPORT_TOAST",
-                    title=f"تقرير المراقبة اليومي — {today_date}",
+                    title=None,
                     message=toast_msg,
+                    msg=sys_msg("DAILY_REPORT_READY", report_date=str(today_date)),
                     severity=toast_severity,
                     channels=["TOAST"],
                     target_tab="telemetry",
@@ -404,8 +406,9 @@ class DailyReportService:
             # Mandatory Self-Alerting Failure Trap
             err_payload = AlertPayload(
                 condition_key="DAILY_REPORT_GENERATION_FAILED",
-                title="فشل توليد التقرير اليومي لمنظومة المراقبة (Daily Report Failure)",
-                message=f"Critical Alert: Automated daily observability report failed to generate: {str(e)}",
+                title=None,
+                message=None,
+                msg=sys_msg("DAILY_REPORT_FAILED", error=str(e)),
                 severity="CRITICAL",
                 channels=["TOAST", "EMAIL"],
                 target_tab="telemetry",

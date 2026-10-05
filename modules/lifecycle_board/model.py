@@ -18,6 +18,8 @@ class ShipmentStageActivity(Base):
     assigned_user = Column(String(100), nullable=True)
     action_data = Column(Text, nullable=True) # JSON String with step parameters
     notes = Column(Text, nullable=True)
+    msg_code = Column(String(80), nullable=True)  # system message code for notes (English render in notes)
+    msg_params = Column(JSON, nullable=True)
 
 
 class StepConfig(Base):

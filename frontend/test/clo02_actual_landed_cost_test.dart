@@ -295,6 +295,11 @@ void main() {
       expect(find.byKey(const Key('actualLandedCostCancelBtn')), findsOneWidget);
       expect(find.byKey(const Key('actualLandedCostApproveBtn')), findsOneWidget);
 
+      // No sample signer is prefilled any more (defaults to the signed-in user).
+      await tester.ensureVisible(find.byKey(const Key('actualLandedCostApprovedByField')));
+      await tester.enterText(find.byKey(const Key('actualLandedCostApprovedByField')), 'Finance Manager');
+      await tester.pumpAndSettle();
+
       // Tap Approve button
       await tester.tap(find.byKey(const Key('actualLandedCostApproveBtn')));
       await tester.pumpAndSettle();

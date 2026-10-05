@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime, timezone, date
 from typing import List, Optional, Dict, Any
@@ -16,6 +17,11 @@ from modules.import_files.schemas import (
 from modules.import_files.model import ImportFile
 import modules.import_files.repository as repo
 import modules.import_files.validators as validators
+from modules.audit_logs.service import AuditLogService
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg, render_en
+
+logger = logging.getLogger(__name__)
 
 
 STEP_INITIAL_CONFIG = {
@@ -178,6 +184,55 @@ STEP_INITIAL_CONFIG = {
 }
 
 
+# NA_* system message code of each STEP_INITIAL_CONFIG next action (English render = the legacy text).
+STEP_INITIAL_NEXT_ACTION_CODES = {
+    "STEP_01": "NA_EVALUATE_SCENARIOS_REQUEST_QUOTES",
+    "STEP_02": "NA_REVIEW_REGULATORY_REQUIREMENTS",
+    "STEP_03": "NA_PREPARE_FINANCIAL_APPROVAL",
+    "STEP_04": "NA_ISSUE_ADVANCE_PAYMENT_REQUEST_ACID",
+    "STEP_05": "NA_CONFIRM_ACID_PROCEED_BOOKING",
+    "STEP_06": "NA_CONFIRM_BOOKING_REVIEW_DRAFT_BL",
+    "STEP_07": "NA_AUDIT_DRAFT_BL_INVOICES",
+    "STEP_08": "NA_OBTAIN_CUSTOMS_APPROVAL_DRAFTS",
+    "STEP_08_PO": "NA_AUDIT_INVOICE_PACKING_VS_PO",
+    "STEP_08_BL": "NA_REVIEW_DRAFT_BL_WITH_CARRIER",
+    "STEP_08_MATCH": "NA_VERIFY_INVOICE_BL_MATCH",
+    "STEP_08_COO": "NA_AUDIT_COO_PREFERENTIAL",
+    "STEP_08_COC": "NA_AUDIT_INSPECTION_CERTIFICATES",
+    "STEP_09": "NA_UPLOAD_DOCS_TO_CARGOX",
+    "STEP_10": "NA_COLLECT_ORIGINALS_FORM4",
+    "STEP_11": "NA_SUBMIT_DOCS_BANK_FORM4",
+    "STEP_12": "NA_REGISTER_DECLARATION_46",
+    "STEP_13": "NA_VALUATION_INSPECTION_SAMPLING",
+    "STEP_14": "NA_INSPECT_CARGO_SETTLE_TAXES",
+    "STEP_15": "NA_TRACK_LAB_RESULTS",
+    "STEP_16": "NA_VERIFY_QUANTITIES_DISCREPANCIES",
+    "STEP_17": "NA_PAY_DUTIES_RELEASE_CARGO",
+    "STEP_18": "NA_TRACK_DEMURRAGE_FREE_TIME",
+    "STEP_19": "NA_INSPECT_GOODS_SETTLE_LANDED_COST",
+    "STEP_20": "NA_AUDIT_LANDED_COST_CLOSURE",
+    "STEP_21": "NA_ARCHIVE_IMPORT_FILE",
+}
+
+
+def _next_action_fields(message: SysMsg) -> Dict[str, Any]:
+    """``next_action`` (English render) + ``next_action_code`` / ``next_action_params`` for an update dict."""
+    return {
+        "next_action": render_en(message.code, message.params, "action"),
+        "next_action_code": message.code,
+        "next_action_params": dict(message.params),
+    }
+
+
+def _phase_action(code: str, phase_text: Optional[str]) -> SysMsg:
+    """``code`` with the lifecycle ``phase_id`` parsed from a client phase reference ('Phase 5', 'PHASE-5: ...'),
+    or ``<code>_GENERIC`` when no known phase can be read from it."""
+    phase_id, _ = enum_codes.parse_stage_reference(phase_text)
+    if phase_id is not None and 1 <= phase_id <= 6:
+        return msg(code, phase_id=phase_id)
+    return msg(f"{code}_GENERIC")
+
+
 def compute_file_formulas(
     form46_no: Optional[str] = None,
     form4_no: Optional[str] = None,
@@ -194,7 +249,7 @@ def compute_file_formulas(
             "current_module": "BP-040 Close Import File & Historical Archive",
             "current_stage": "Phase 10: Import File Closure",
             "progress_percent": 100.0,
-            "next_action": "File Fully Closed & Archived",
+            **_next_action_fields(msg("NA_FILE_FULLY_CLOSED_ARCHIVED")),
         }
 
     if form46_no and form46_no.strip():
@@ -202,7 +257,7 @@ def compute_file_formulas(
             "current_module": "BP-019 Prepare Customs Declaration 46",
             "current_stage": "Phase 3: Import Documentation & ACI",
             "progress_percent": 65.0,
-            "next_action": "Customs Inspection & Duty Settlement (Phase 6/7)",
+            **_next_action_fields(msg("NA_CUSTOMS_INSPECTION_DUTY_SETTLEMENT")),
         }
 
     if (form4_no and form4_no.strip()) or (swift_no and swift_no.strip()):
@@ -210,7 +265,7 @@ def compute_file_formulas(
             "current_module": "BP-015 Process Form 4 / Form 9 / L/C",
             "current_stage": "Phase 3: Import Documentation & ACI",
             "progress_percent": 50.0,
-            "next_action": "Upload Digital Documents to CargoX & Prepare Declaration 46",
+            **_next_action_fields(msg("NA_UPLOAD_CARGOX_PREPARE_DECLARATION_46")),
         }
 
     if selected_scenario and selected_scenario.strip():
@@ -218,7 +273,7 @@ def compute_file_formulas(
             "current_module": "BP-007 Evaluate Shipping Scenarios",
             "current_stage": "Phase 1: Import Planning & Feasibility",
             "progress_percent": 25.0,
-            "next_action": "Create Payment Request (BP-012) & Issue Form 4",
+            **_next_action_fields(msg("NA_CREATE_PAYMENT_REQUEST_FORM4")),
         }
 
     # If starting from a specific custom step (e.g. STEP_13 or STEP_06)
@@ -228,14 +283,14 @@ def compute_file_formulas(
             "current_module": cfg["module"],
             "current_stage": cfg["stage"],
             "progress_percent": cfg["progress"],
-            "next_action": cfg["next_action"],
+            **_next_action_fields(msg(STEP_INITIAL_NEXT_ACTION_CODES[initial_step])),
         }
 
     return {
         "current_module": "BP-001 Receive Purchase Order & Planning",
         "current_stage": "Phase 1: Import Planning & Feasibility",
         "progress_percent": 15.0,
-        "next_action": "Evaluate Shipping Scenarios (BP-007) & Request Freight Quotations (BP-008)",
+        **_next_action_fields(msg("NA_EVALUATE_SCENARIOS_REQUEST_QUOTES")),
     }
 
 
@@ -277,6 +332,10 @@ def create_import_file_service(
     if not data_dict.get("owner"):
         data_dict["owner"] = current_user
     data_dict.update(formulas)
+    # Structured stage of the starting step (legacy current_module/current_stage texts keep the formulas).
+    from modules.common.file_tracking import step_tracking_columns
+    starting_step = payload.initial_starting_step or "STEP_01"
+    data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
 
     created_file = repo.create_import_file(db, data_dict)
 
@@ -422,7 +481,7 @@ def close_shipment_service(
         "current_module": "Phase 10 - Import File Closure & Historical Archive",
         "current_stage": f"Closed at {payload.closed_at_phase} - {payload.closure_reason.strip()}",
         "progress_percent": 100.0,
-        "next_action": f"File Closed Early at {payload.closed_at_phase}",
+        **_next_action_fields(_phase_action("NA_FILE_CLOSED_EARLY", payload.closed_at_phase)),
         "closure_reason": payload.closure_reason.strip(),
         "closed_at_phase": payload.closed_at_phase,
     }
@@ -460,7 +519,7 @@ def reopen_shipment_service(
         "status": "Active",
         "current_module": restored_phase,
         "current_stage": f"Reopened at {restored_phase} - {payload.reopen_reason.strip()}",
-        "next_action": f"Resume Operations at {restored_phase}",
+        **_next_action_fields(_phase_action("NA_RESUME_OPERATIONS", restored_phase)),
         "closure_reason": None,
         "closed_at_phase": None,
     }
@@ -956,7 +1015,15 @@ def hold_import_file_service(
     hold_notes: Optional[str] = None,
     stage_name: Optional[str] = None,
     step_name: Optional[str] = None,
+    hold_reason_code: Optional[str] = None,
+    performed_by: str = "System",
 ) -> ImportFile:
+    """Put a shipment on hold.
+
+    The file's user ``notes`` are never touched: the system text goes to the lifecycle activity notes
+    (``LC_STEP_ON_HOLD*``) and to an ``audit_logs`` HOLD entry (which also keeps ``hold_notes``).
+    ``hold_reason_code`` must be a HOLD_REASON code; a legacy chip label in ``hold_reason`` is mapped to
+    its code. ``paused_at_stage`` holds an English title resolved from the stage code when possible."""
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
         raise HTTPException(
@@ -970,34 +1037,72 @@ def hold_import_file_service(
             detail="يلزم إدخال سبب إيقاف وتعليق الشحنة.",
         )
 
+    reason_text = hold_reason.strip()
+    if hold_reason_code:
+        reason_code = enum_codes.normalize(enum_codes.HOLD_REASON, hold_reason_code)
+        if not enum_codes.is_code(enum_codes.HOLD_REASON, reason_code):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="رمز سبب الإيقاف غير معروف",
+            )
+    else:
+        derived = enum_codes.normalize(enum_codes.HOLD_REASON, reason_text)
+        reason_code = derived if enum_codes.is_code(enum_codes.HOLD_REASON, derived) else None
+
+    from modules.lifecycle_board.service import hold_shipment_activities_service, resolve_hold_stage
+
     now_dt = datetime.now()
-    stage = stage_name or existing.current_stage
-    step = step_name or existing.current_module
+    resolved = resolve_hold_stage(stage_name, step_name)
+    stage = resolved["stage_title"] or stage_name or existing.current_stage
+    step = resolved["step_code"] or step_name or existing.current_step_code or existing.current_module
 
     update_dict = {
         "status": "On Hold",
         "paused_at_stage": stage,
         "paused_at_step": step,
-        "hold_reason": hold_reason.strip(),
+        "hold_reason": reason_text,
+        "hold_reason_code": reason_code,
         "hold_date": now_dt,
-        "notes": f"تم إيقاف الشحنة عند مرحلة [{stage}]: {hold_reason.strip()}" + (f" | {hold_notes}" if hold_notes else ""),
     }
 
-    # Update lifecycle board activities
+    # Lifecycle board activities get the system note; a failure must not block the hold itself.
     try:
-        from modules.lifecycle_board.service import hold_shipment_activities_service
-        hold_shipment_activities_service(db, existing.import_file_code, hold_reason.strip())
-    except Exception:
-        pass
+        hold_shipment_activities_service(db, existing.import_file_code, reason_text, reason_code)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Hold: lifecycle activities of %s not updated: %s", existing.import_file_code, exc, exc_info=True)
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    updated = repo.update_import_file(db, import_file_id, update_dict)
+
+    # Language-independent params: the phase id (rendered as the phase name) and the reason code or user text.
+    hold_phase_id = resolved["phase_id"] or existing.current_phase_id
+    notes_text = hold_notes.strip() if hold_notes and hold_notes.strip() else None
+    base_code = "LC_FILE_ON_HOLD_CODED" if reason_code else "LC_FILE_ON_HOLD"
+    reason_params = {"reason_enum_hold_reason": reason_code} if reason_code else {"reason": reason_text}
+    if notes_text:
+        note = msg(f"{base_code}_WITH_NOTES", phase_id=hold_phase_id, notes=notes_text, **reason_params)
+    else:
+        note = msg(base_code, phase_id=hold_phase_id, **reason_params)
+    AuditLogService(db).log_activity(
+        entity_type="ImportFile",
+        entity_id=existing.import_file_id,
+        entity_code=existing.import_file_code,
+        action="HOLD",
+        new_data={"msg_code": note.code, "msg_params": note.params, "hold_reason_code": reason_code},
+        performed_by=performed_by,
+        changes_summary=render_en(note.code, note.params, "note"),
+    )
+    return updated
 
 
 def resume_import_file_service(
     db: Session,
     import_file_id: int,
     resume_notes: Optional[str] = None,
+    performed_by: str = "System",
 ) -> ImportFile:
+    """Resume a held shipment. Like hold, the file's user ``notes`` are left untouched: the system text goes
+    to the lifecycle activities and an ``audit_logs`` RESUME entry."""
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
         raise HTTPException(
@@ -1014,18 +1119,35 @@ def resume_import_file_service(
     update_dict = {
         "status": "In Progress",
         "hold_reason": None,
+        "hold_reason_code": None,
         "hold_date": None,
-        "notes": f"تم استئناف العمل: {resume_notes or 'استئناف تشغيل الشحنة'}",
     }
 
-    # Resume lifecycle board activities
-    try:
-        from modules.lifecycle_board.service import resume_shipment_activities_service
-        resume_shipment_activities_service(db, existing.import_file_code, resume_notes)
-    except Exception:
-        pass
+    from modules.lifecycle_board.service import resume_shipment_activities_service
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    try:
+        resume_shipment_activities_service(db, existing.import_file_code, resume_notes)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Resume: lifecycle activities of %s not updated: %s", existing.import_file_code, exc, exc_info=True)
+
+    updated = repo.update_import_file(db, import_file_id, update_dict)
+
+    note = (
+        msg("LC_FILE_RESUMED", notes=resume_notes.strip())
+        if resume_notes and resume_notes.strip()
+        else msg("LC_FILE_RESUMED_DEFAULT")
+    )
+    AuditLogService(db).log_activity(
+        entity_type="ImportFile",
+        entity_id=existing.import_file_id,
+        entity_code=existing.import_file_code,
+        action="RESUME",
+        new_data={"msg_code": note.code, "msg_params": note.params},
+        performed_by=performed_by,
+        changes_summary=render_en(note.code, note.params, "note"),
+    )
+    return updated
 
 
 def clone_import_file_service(
@@ -1133,11 +1255,12 @@ def clone_import_file_service(
         "current_module": "Import Documentation",
         "current_stage": "Draft",
         "progress_percent": 0.0,
-        "next_action": "إكمال بيانات الشحنة المستنسخة وفتح إجراءات ACID",
+        **_next_action_fields(msg("NA_COMPLETE_CLONED_FILE")),
+        "current_stage_code": "DRAFT",
         "initial_starting_stage": "Draft",
         "status": "Draft",
         "owner": original.owner or current_user,
-        "notes": payload.notes or f"مستنسخ من الشحنة: {original.import_file_code}",
+        "notes": payload.notes or f"Cloned from: {original.import_file_code}",
         "is_active": True,
         "created_by": current_user,
         "updated_by": current_user,

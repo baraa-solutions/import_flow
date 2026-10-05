@@ -7,6 +7,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_clearance_quotation_model.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 class CustomsClearanceQuotationsExportService {
   CustomsClearanceQuotationsExportService._();
@@ -511,7 +512,7 @@ class CustomsClearanceQuotationsExportService {
       buffer.writeln([
         item.providerName,
         item.portName,
-        item.serviceCategory,
+        DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory),
         item.containerType,
         '${item.unitPrice.toStringAsFixed(2)} ${item.currency}',
         item.notes ?? '-',
@@ -554,7 +555,7 @@ class CustomsClearanceQuotationsExportService {
       buffer.writeln([
         quoteCsv(item.providerName),
         quoteCsv(item.portName),
-        quoteCsv(item.serviceCategory),
+        quoteCsv(DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory)),
         quoteCsv(item.containerType),
         quoteCsv('${item.unitPrice.toStringAsFixed(2)} ${item.currency}'),
         quoteCsv(item.notes ?? '-'),
@@ -643,7 +644,7 @@ class CustomsClearanceQuotationsExportService {
                     children: [
                       _buildPdfTableCell(item.providerName, isBold: true),
                       _buildPdfTableCell(item.portName),
-                      _buildPdfTableCell(item.serviceCategory),
+                      _buildPdfTableCell(DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory)),
                       _buildPdfTableCell(item.containerType),
                       _buildPdfTableCell('${item.unitPrice.toStringAsFixed(2)} ${item.currency}'),
                       _buildPdfTableCell(item.notes ?? '-'),

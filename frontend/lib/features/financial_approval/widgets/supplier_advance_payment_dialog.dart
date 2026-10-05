@@ -11,6 +11,7 @@ import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Shows the Foreign Supplier Advance Payment Request Dialog (FN-01)
 Future<PaymentRequestModel?> showSupplierAdvancePaymentDialog(
   BuildContext context,
@@ -245,15 +246,14 @@ class _SupplierAdvancePaymentDialogState
   }
 
   void _calculateAndApplyAmount(double percentage) {
-    final isAr = mounted ? Localizations.localeOf(context).languageCode == 'ar' : true;
     setState(() {
       _selectedPercentage = percentage;
       _isCustomPercentage = !_standardPercentages.contains(percentage);
       final calculated = _basePoAmount * (percentage / 100.0);
       _amountController.text = calculated > 0 ? calculated.toStringAsFixed(2) : '';
-      _titleController.text = isAr
-          ? 'طلب دفعة مقدمة (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}'
-          : 'Advance Payment (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}';
+      // Stored title: English regardless of the UI language.
+      _titleController.text =
+          'Advance Payment (${percentage.toStringAsFixed(0)}%) - ${widget.importFileCode} - ${widget.supplierName}';
     });
   }
 
@@ -425,7 +425,7 @@ class _SupplierAdvancePaymentDialogState
                                 color: AppTheme.cobalt.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
+                              child: LtrText(
                                 widget.importFileCode,
                                 style: const TextStyle(
                                   fontSize: 11,
@@ -835,6 +835,7 @@ class _SupplierAdvancePaymentDialogState
                               Expanded(
                                 child: TextFormField(
                                   controller: _swiftController,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: isAr
                                         ? 'كود السويفت (SWIFT / BIC) *'
@@ -849,6 +850,7 @@ class _SupplierAdvancePaymentDialogState
                               Expanded(
                                 child: TextFormField(
                                   controller: _ibanController,
+                                  textDirection: TextDirection.ltr,
                                   decoration: InputDecoration(
                                     labelText: isAr
                                         ? 'رقم الحساب أو الآيبان (IBAN) *'

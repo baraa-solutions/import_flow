@@ -154,7 +154,9 @@ class TestBK01FreightBookingConfirmation:
 
         # Check ImportFile initial state
         file_rec = db_session.query(ImportFile).filter_by(import_file_id=1).first()
-        assert file_rec.current_module == "STEP_06 حجز النولون وتأكيد الخط الملاحي"
+        assert file_rec.current_module == "STEP_06 Freight Booking"
+        assert file_rec.current_step_code == "STEP_06"
+        assert file_rec.next_action_code.startswith("NA_STEP06_FOLLOW_BOOKING_CONFIRMATION")
 
         # 2. Confirm booking (BK-01)
         confirm_payload = ShipmentBookingConfirm(
@@ -178,8 +180,8 @@ class TestBK01FreightBookingConfirmation:
         db_session.refresh(file_rec)
         assert file_rec.target_free_days == 21
         assert file_rec.required_eta == date(2026, 8, 28)
-        assert "حجز مؤكد: MSC (MSC OSCAR)" in (file_rec.selected_scenario or "")
-        assert file_rec.current_module == "STEP_07 تخصيص وتوزيع الحاويات والبضائع"
+        assert "Confirmed booking: MSC (MSC OSCAR)" in (file_rec.selected_scenario or "")
+        assert file_rec.current_module == "STEP_07 Freight Allocations"
         assert file_rec.progress_percent >= 50.0
 
         # 4. Verify prior BK-01 SmartTask was completed
@@ -193,7 +195,7 @@ class TestBK01FreightBookingConfirmation:
             SmartTask.title.contains("BK-02"),
         ).first()
         assert bk02_task is not None
-        assert "تسجيل وتثبيت فترات السماح المجانية" in bk02_task.title
+        assert "Record and confirm the container free days" in bk02_task.title
         assert bk02_task.assigned_user == "Logistics Officer"
         assert bk02_task.priority == "High"
 
@@ -203,7 +205,9 @@ class TestBK01FreightBookingConfirmation:
             SystemNotification.entity_id == booking.booking_id,
         ).first()
         assert notif is not None
-        assert "تأكيد حجز الشحن" in notif.title
+        assert "Booking confirmed" in notif.title
+        assert notif.msg_code == "FB_BOOKING_CONFIRMED"
+        assert notif.msg_params["booking_no"] == "MSC-EGY-889977"
         assert "MSC-EGY-889977" in notif.message
 
     def test_api_confirm_booking_endpoint(self, client, db_session):

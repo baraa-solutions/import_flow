@@ -69,9 +69,11 @@ class OperationalDashboardReportRow {
 
     final resolvedShipmentName = DisplayNameResolver.resolveShipmentName(file, isArabic: isArabic);
     final resolvedShipmentTitle = DisplayNameResolver.resolveShipmentTitle(file, isArabic: isArabic, includeCodeSecondary: true);
-    final resolvedPhase = DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic);
-    final resolvedStep = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isArabic);
-    final resolvedNextAction = file.nextAction.isNotEmpty ? DisplayNameResolver.resolveStepName(file.nextAction, isArabic: isArabic) : '-';
+    final resolvedPhase =
+        file.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic);
+    final resolvedStep = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isArabic);
+    final resolvedNextAction =
+        (file.nextActionCode != null || file.nextAction.isNotEmpty) ? file.displayNextAction(l, forExport: true) : '-';
 
     return OperationalDashboardReportRow(
       shipmentName: resolvedShipmentName,

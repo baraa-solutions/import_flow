@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modal dialog for CL-04: Final Customs Release Order
 /// صدور إذن الإفراج الجمركي الأخضر وبدء إجراءات النقل للمخازن
@@ -50,18 +52,14 @@ class _CustomsFinalReleaseDialogState
   late TextEditingController _transportInstructionsController;
   late TextEditingController _notesController;
 
-  String _releaseType = 'نهائي وبات (Final Green Release)';
+  /// Release type code (DomainEnumType.releaseType); the label follows the UI language.
+  String _releaseType = 'FINAL_GREEN';
   DateTime _releaseDate = DateTime.now();
   DateTime? _portGateOutDate = DateTime.now();
   bool _dispatchAuthorized = true;
   bool _isSubmitting = false;
 
-  final List<String> _releaseTypes = [
-    'نهائي وبات (Final Green Release)',
-    'إفراج مؤقت تحت التحفظ (Under-Bond Release)',
-    'إفراج برسم السماح المؤقت (Temporary Admission)',
-    'إفراج قطعي بعد استيفاء العينات (Post-Testing Conforming Release)',
-  ];
+  final List<String> _releaseTypes = DomainEnums.codesOf(DomainEnumType.releaseType);
 
   @override
   void initState() {
@@ -78,7 +76,7 @@ class _CustomsFinalReleaseDialogState
 
     // Prefill officer name
     _releaseOfficerController = TextEditingController(
-      text: rec?.releaseOfficerName ?? file.customsReleaseOfficer ?? 'مأمور تعريفة الجمرك المختص',
+      text: rec?.releaseOfficerName ?? file.customsReleaseOfficer ?? '',
     );
 
     // Prefill gate pass number
@@ -95,18 +93,18 @@ class _CustomsFinalReleaseDialogState
     );
 
     // Prefill release type
-    if (rec != null && rec.releaseType.isNotEmpty && _releaseTypes.contains(rec.releaseType)) {
-      _releaseType = rec.releaseType;
-    } else if (file.customsReleaseType != null && _releaseTypes.contains(file.customsReleaseType)) {
-      _releaseType = file.customsReleaseType!;
-    }
+    // Legacy rows hold the old ar/en label; map it to its code.
+    _releaseType = DomainEnums.legacyToCode(DomainEnumType.releaseType, rec?.releaseType) ??
+        DomainEnums.legacyToCode(DomainEnumType.releaseType, file.customsReleaseType) ??
+        _releaseType;
 
     _documentUrlController = TextEditingController(
       text: rec?.releaseDocumentUrl ?? '',
     );
 
     _transportInstructionsController = TextEditingController(
-      text: rec?.transportInstructions ?? 'التوجيه المباشر لمخازن الشركة - فحص سلامة السيل الجمركي قبل فض الحاوية',
+      text: rec?.transportInstructions ??
+          'Direct delivery to company warehouses - verify customs seal integrity before opening the container',
     );
 
     _notesController = TextEditingController(
@@ -503,7 +501,7 @@ class _CustomsFinalReleaseDialogState
                                 return DropdownMenuItem(
                                   value: type,
                                   child: Text(
-                                    type,
+                                    DomainEnums.label(context.l10n, DomainEnumType.releaseType, type),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13),
                                   ),

@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/financial_approval_model.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Search and Clone Previous Payment Request Dialog (UX-CLONE-012)
 ///
 /// Allows users to quickly search previous payment requests by code,
@@ -232,7 +233,7 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                                 borderRadius: BorderRadius.circular(4),
                                                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                               ),
-                                              child: Text(
+                                              child: LtrText(
                                                 p.paymentCode,
                                                 style: const TextStyle(
                                                   color: AppTheme.cobalt,

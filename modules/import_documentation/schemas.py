@@ -408,6 +408,9 @@ class DraftBLChecklistItem(BaseModel):
     status: str = "Correct"  # 'Correct', 'Incorrect', 'N/A'
     required_correction: Optional[str] = None
     reason: Optional[str] = None
+    # System message code of a system-generated reason (single-language storage); cleared when the text is edited.
+    reason_code: Optional[str] = None
+    reason_params: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
     responsible_party: Optional[str] = None  # 'Shipping Provider', 'Carrier', 'Supplier', 'Importer', 'Customs Broker'
     is_locked: bool = False
@@ -432,7 +435,10 @@ class DraftBLDiscrepancyItem(BaseModel):
     match_status: str  # 'MATCH', 'MISMATCH_MINOR', 'MISMATCH_CRITICAL', 'MISSING_IN_DRAFT'
     severity: str      # 'NONE', 'WARNING', 'BLOCKING'
     tolerance_pct: float = 0.0
-    details: Optional[str] = None
+    details: Optional[str] = None  # English render of details_code (legacy rows: Arabic text, no code)
+    details_code: Optional[str] = None
+    details_params: Optional[Dict[str, Any]] = None
+    structured_values: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 ComparisonMatrixFieldItem = DraftBLDiscrepancyItem
@@ -484,6 +490,8 @@ class DraftBLReviewBase(BaseModel):
     has_blocking_mismatch: bool = False
     open_discrepancies_count: int = 0
     blocking_reasons: Optional[List[str]] = None
+    # [{"code": DOC_DRAFT_BLOCKING_*, "params": {"field_enum_draft_bl_field": <DRAFT_BL_FIELD code>}}]
+    blocking_reasons_coded: Optional[List[Dict[str, Any]]] = None
     correction_request_letter: Optional[str] = None
     importer_approval_status: str = "Pending"
     importer_approved_by: Optional[str] = None
@@ -524,6 +532,7 @@ class DraftBLReviewUpdate(BaseModel):
     has_blocking_mismatch: Optional[bool] = None
     open_discrepancies_count: Optional[int] = None
     blocking_reasons: Optional[List[str]] = None
+    blocking_reasons_coded: Optional[List[Dict[str, Any]]] = None
     correction_request_letter: Optional[str] = None
     importer_approval_status: Optional[str] = None
     importer_approved_by: Optional[str] = None
@@ -797,7 +806,13 @@ class InvoiceBLDiscrepancyMatrixItem(BaseModel):
     match_status: str  # 'MATCH', 'MISMATCH_MINOR', 'MISMATCH_CRITICAL', 'EXTRACTION_FAILED'
     severity: str      # 'NONE', 'WARNING', 'BLOCKING'
     tolerance: Optional[str] = None
-    details: str
+    tolerance_code: Optional[str] = None
+    tolerance_params: Optional[Dict[str, Any]] = None
+    details: str  # English render of details_code (legacy rows: Arabic text, no code)
+    details_code: Optional[str] = None
+    details_params: Optional[Dict[str, Any]] = None
+    # value key -> {"placeholder": VALUE_PLACEHOLDER code} | {"number": n, "unit": MEASURE_UNIT code}
+    structured_values: Optional[Dict[str, Dict[str, Any]]] = None
     disagreeing_sources: Optional[List[str]] = None
 
 
@@ -838,7 +853,11 @@ class POHeaderDiscrepancyItem(BaseModel):
     uploaded_invoice_value: Optional[Any] = None
     uploaded_packing_value: Optional[Any] = None
     status: str  # 'MATCH', 'MINOR_VARIANCE', 'CRITICAL_VARIANCE'
-    details: str
+    details: str  # English render of details_code (legacy rows: Arabic text, no code)
+    details_code: Optional[str] = None
+    details_params: Optional[Dict[str, Any]] = None
+    # value key -> {"placeholder": VALUE_PLACEHOLDER code} | {"number": n, "unit": MEASURE_UNIT code}
+    structured_values: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 class POExtractAndCompareRequest(BaseModel):

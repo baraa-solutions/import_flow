@@ -9,6 +9,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../models/estimated_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 /// Shows the Estimated Landed Cost Simulation Dialog (PL-08).
 Future<void> showEstimatedLandedCostDialog(
   BuildContext context,
@@ -831,7 +832,7 @@ class _EstimatedLandedCostDialogState
                   DataCell(Text('${itm.lineNo}')),
                   DataCell(Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.w600))),
                   DataCell(Text(itm.itemName)),
-                  DataCell(Text(itm.hsCode, style: const TextStyle(fontFamily: 'monospace'))),
+                  DataCell(LtrText(itm.hsCode, style: const TextStyle(fontFamily: 'monospace'))),
                   DataCell(Text('${itm.qty}')),
                   DataCell(Text('${itm.unitPriceFc.toStringAsFixed(2)} ${_data!.currency}')),
                   DataCell(Text(itm.fobTotalEgp.toStringAsFixed(2))),

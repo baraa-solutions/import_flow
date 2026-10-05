@@ -59,7 +59,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
     final content = SelectionArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 92),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

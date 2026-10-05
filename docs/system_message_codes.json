@@ -1,0 +1,2736 @@
+{
+  "ALERT_ACID_EXPIRY_RADAR": {
+    "params": [
+      "acid_numbers",
+      "count"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_BACKUP_OVERDUE": {
+    "params": [
+      "hours"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_DB_HEALTH_DEGRADED": {
+    "params": [
+      "issues",
+      "verdict_enum_db_health_verdict"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_DEMURRAGE_RISK": {
+    "params": [
+      "container_numbers",
+      "count"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_DISK_CRITICAL": {
+    "params": [
+      "free_gb"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_DISK_LOW": {
+    "params": [
+      "free_gb"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_DISPATCHED": {
+    "params": [
+      "alert_message",
+      "alert_title",
+      "severity_enum_alert_severity",
+      "target_tab"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_OFFSITE_BACKUP_OVERDUE": {
+    "params": [
+      "hours"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_SLOW_QUERY_SPIKE": {
+    "params": [
+      "count"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ALERT_STUCK_SHIPMENTS": {
+    "params": [
+      "count",
+      "import_file_codes"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_BROKER_AUTHORIZED": {
+    "params": [
+      "broker_name",
+      "delegation_no",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_CLEARANCE_INVOICE_RECORDED": {
+    "params": [
+      "expense_category_enum_clearance_expense_category",
+      "import_file_code",
+      "invoice_number",
+      "net_amount",
+      "provider_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_DECLARATION_46_REGISTERED": {
+    "params": [
+      "channel_enum_customs_channel",
+      "customs_office",
+      "declaration_no",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_DELIVERY_ORDER_PAID": {
+    "params": [
+      "do_number",
+      "expiry_date",
+      "import_file_code",
+      "shipping_agent_name"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_DUTIES_ASSESSED": {
+    "params": [
+      "claim_no",
+      "import_file_code",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_DUTIES_PAID": {
+    "params": [
+      "import_file_code",
+      "paid_amount",
+      "receipt_no",
+      "sadad_no"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_DUTIES_PAID_BANK": {
+    "params": [
+      "bank_enum_duty_bank",
+      "receipt_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_INSPECTION_RECORDED": {
+    "params": [
+      "import_file_code",
+      "inspection_result_enum_inspection_result",
+      "inspection_yard_enum_inspection_yard",
+      "sampling_record_no"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_RECORD_OPENED": {
+    "params": [
+      "clearance_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_RELEASE_ISSUED": {
+    "params": [
+      "import_file_code",
+      "permit_no"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CC_RELEASE_ISSUED_TO_DEMURRAGE": {
+    "params": [
+      "permit_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_TASK_DECLARATION_46": {
+    "params": [
+      "do_number",
+      "expiry_date",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_DELIVERY_ORDER_PAYMENT": {
+    "params": [
+      "broker_name",
+      "delegation_no",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_DUTY_ASSESSMENT": {
+    "params": [
+      "import_file_code",
+      "inspection_result_enum_inspection_result"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_DUTY_PAYMENT": {
+    "params": [
+      "claim_no",
+      "import_file_code",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_FREE_TIME_MONITOR": {
+    "params": [
+      "free_days",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_INLAND_TRANSPORT": {
+    "params": [
+      "import_file_code",
+      "permit_no"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_INSPECTION": {
+    "params": [
+      "channel_enum_customs_channel",
+      "customs_office",
+      "declaration_no",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CC_TASK_RELEASE": {
+    "params": [
+      "import_file_code",
+      "paid_amount",
+      "sadad_no"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CGX_ENVELOPE_SEALED": {
+    "params": [
+      "acid_number",
+      "envelope_code",
+      "receipt_no"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CGX_TASK_COLLECT_ORIGINALS": {
+    "params": [
+      "envelope_code",
+      "import_file_code",
+      "receipt_no"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "CLO_DOSSIER_EXPORTED": {
+    "params": [
+      "export_format",
+      "exported_by",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CLO_FILE_CLOSED": {
+    "params": [
+      "archive_location",
+      "auditor_name",
+      "closure_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "CLO_TASK_OFFICIAL_CLOSURE": {
+    "params": [
+      "export_format",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DAILY_REPORT_FAILED": {
+    "params": [
+      "error"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DAILY_REPORT_READY": {
+    "params": [
+      "report_date"
+    ],
+    "parts": [
+      "title"
+    ]
+  },
+  "DD_CHARGES_POSTED": {
+    "params": [
+      "tracking_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DD_EMPTY_CONTAINERS_RETURNED": {
+    "params": [
+      "container_count",
+      "depot_enum_empty_container_depot",
+      "eir_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "DD_FREE_DAYS_RECORDED": {
+    "params": [
+      "agreement_reference",
+      "demurrage_free_days",
+      "detention_free_days",
+      "estimated_saving_amount",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DD_TASK_SETTLE_FINAL_INVOICES": {
+    "params": [
+      "eir_number"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_ACID_REGISTERED": {
+    "params": [
+      "acid_number",
+      "expiry_date",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "DOC_BANK_DOCUMENT_RECORDED": {
+    "params": [
+      "bank_name",
+      "doc_type",
+      "import_file_code",
+      "reference_no"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "DOC_CHK_ACID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_ACID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_AMOUNT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_AMOUNT_VARIANCE": {
+    "params": [
+      "currency",
+      "variance_amount",
+      "variance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CBM_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CBM_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_CURRENCY_MISMATCH": {
+    "params": [
+      "document_currency",
+      "system_currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_GROSS_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_GROSS_WEIGHT_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_HS_CODE_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_HS_CODE_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_IMPORTER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_IMPORTER_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_INVOICE_NO_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_INVOICE_NO_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_NET_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_NET_WEIGHT_VARIANCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_PACKAGES_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_PACKAGES_VARIANCE": {
+    "params": [
+      "difference_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_SUPPLIER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_SUPPLIER_MISMATCH": {
+    "params": [
+      "document_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_TAX_ID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CHK_TAX_ID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_COO_APPROVED": {
+    "params": [
+      "certificate_number",
+      "certificate_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_COO_SIMILARITY": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_COO_VALUE_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_CUSTOMS_APPROVAL_GRANTED": {
+    "params": [
+      "session_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_APPROVED_VALUE_MISMATCH": {
+    "params": [
+      "draft_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_BLOCKING_CRITICAL_MISMATCH": {
+    "params": [
+      "field_enum_draft_bl_field"
+    ],
+    "parts": [
+      "reason"
+    ]
+  },
+  "DOC_DRAFT_BLOCKING_FIELD_EMPTY": {
+    "params": [
+      "field_enum_draft_bl_field"
+    ],
+    "parts": [
+      "reason"
+    ]
+  },
+  "DOC_DRAFT_BL_REVIEWED": {
+    "params": [
+      "draft_bl_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "DOC_DRAFT_FIELD_MISSING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_FUZZY_MATCH": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_MATCH": {
+    "params": [
+      "diff_pct",
+      "tolerance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_UNVERIFIABLE": {
+    "params": [
+      "draft_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_NUMERIC_VARIANCE": {
+    "params": [
+      "diff_pct",
+      "draft_qty",
+      "system_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_TEXT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_VALUE_FROM_DRAFT": {
+    "params": [
+      "draft_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_DRAFT_VALUE_MISMATCH": {
+    "params": [
+      "draft_value",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ACID_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONSIGNEE_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONTAINERS_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONTAINERS_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_GROSS_WEIGHT_EXCEEDS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_GROSS_WEIGHT_MATCH": {
+    "params": [
+      "tolerance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_INCOTERMS_COHERENT": {
+    "params": [
+      "freight_terms",
+      "incoterm"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NET_WEIGHT_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NET_WEIGHT_VARIANCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_PACKAGES_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_PACKAGES_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SEALS_CHECK": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SEALS_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_SHIPPER_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_TAX_ID_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_MATCH_RATE": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_REVIEW_APPROVED": {
+    "params": [
+      "review_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_REVIEW_UPDATED": {
+    "params": [
+      "review_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INSPECTION_VALUE_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_INVOICE_BL_MATCH_DONE": {
+    "params": [
+      "draft_bl_number",
+      "invoice_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_PO_RECONCILIATION_DONE": {
+    "params": [
+      "session_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_PO_RECONCILIATION_UPDATED": {
+    "params": [
+      "session_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TASK_CARGOX_TRANSFER": {
+    "params": [
+      "draft_bl_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_DECLARATION_46": {
+    "params": [
+      "bank_name",
+      "doc_type",
+      "import_file_code",
+      "reference_no"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_FREIGHT_BOOKING": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TOL_CONTAINERS_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_PACKAGES_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_SEAL_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_SIMILARITY": {
+    "params": [
+      "match_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_TERMS_COHERENCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_WEIGHT_DIFFERENCE": {
+    "params": [
+      "difference_pct",
+      "difference_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_MATCHED": {
+    "params": [
+      "import_file_code",
+      "reference",
+      "task_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_NO_REFERENCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_ACID": {
+    "params": [
+      "acid_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_BL": {
+    "params": [
+      "bl_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_PARSE_UNMATCHED_PO": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_SYNC_EMPTY": {
+    "params": [],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_ERROR": {
+    "params": [
+      "error"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_ERROR_OUTLOOK": {
+    "params": [
+      "error"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_SUMMARY": {
+    "params": [
+      "count",
+      "matched_count",
+      "tasks_count"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_SYNC_SUMMARY_OUTLOOK": {
+    "params": [
+      "count",
+      "matched_count",
+      "tasks_count"
+    ],
+    "parts": [
+      "body"
+    ]
+  },
+  "EMAIL_TASK_APPROVED": {
+    "params": [
+      "import_file_code",
+      "user_name"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "EMAIL_TASK_AUTO_GENERATED": {
+    "params": [
+      "reference"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "EMAIL_TASK_DELIVERY_ORDER_PAYMENT": {
+    "params": [
+      "eta_date",
+      "import_file_code",
+      "reference"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "FA_ADVANCE_PAYMENT_REQUESTED": {
+    "params": [
+      "currency_code",
+      "payment_code",
+      "requested_amount"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_APPROVED_BUDGET_VARIANCE": {
+    "params": [
+      "budget_code",
+      "import_file_code",
+      "modified_by"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_BUDGET_APPROVED": {
+    "params": [
+      "approved_by",
+      "budget_code",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_BUDGET_APPROVED_FILE": {
+    "params": [
+      "approved_by",
+      "budget_code",
+      "import_file_code",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_BUDGET_NEEDS_REVALIDATION": {
+    "params": [
+      "budget_code",
+      "import_file_code",
+      "modified_by"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_APPROVED": {
+    "params": [
+      "currency_code",
+      "payment_code",
+      "requested_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_APPROVED_FILE": {
+    "params": [
+      "currency_code",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_CREATED": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_PAYMENT_REQUEST_CREATED_GENERIC": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_SWIFT_PAID": {
+    "params": [
+      "currency_code",
+      "import_file_code",
+      "paid_amount",
+      "swift_ref"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "FA_TASK_ISSUE_ACID": {
+    "params": [
+      "import_file_code",
+      "swift_ref"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_TASK_SUPPLIER_PAYMENT": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FA_TASK_SUPPLIER_PAYMENT_GENERIC": {
+    "params": [
+      "currency_code",
+      "due_date",
+      "import_file_code",
+      "payment_code",
+      "requested_amount",
+      "requested_egp_amount",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FB_BOOKING_CONFIRMED": {
+    "params": [
+      "booking_no",
+      "demurrage_free_days",
+      "eta_date",
+      "etd_date",
+      "import_file_code",
+      "shipping_line_name",
+      "vessel_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FB_SAILING_CONFIRMED": {
+    "params": [
+      "atd_date",
+      "bl_number",
+      "eta_date",
+      "import_file_code",
+      "vessel_name",
+      "voyage_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "FB_TASK_DRAFT_BL_REVIEW": {
+    "params": [
+      "bl_number",
+      "import_file_code",
+      "vessel_name",
+      "voyage_number"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FB_TASK_FREE_DAYS": {
+    "params": [
+      "booking_no",
+      "demurrage_free_days",
+      "import_file_code",
+      "shipping_line_name",
+      "vessel_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FS_INVOICES_SETTLED": {
+    "params": [
+      "import_file_code",
+      "invoice_count",
+      "settled_by",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FS_LANDED_COST_APPROVED": {
+    "params": [
+      "approved_by",
+      "import_file_code",
+      "markup_factor",
+      "settlement_code",
+      "total_amount",
+      "variance_pct",
+      "variance_status_enum_landed_cost_variance_status"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "FS_SETTLEMENT_CREATED": {
+    "params": [
+      "settlement_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FS_TASK_CALCULATE_LANDED_COST": {
+    "params": [
+      "import_file_code",
+      "invoice_count",
+      "total_amount"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "FS_TASK_EXPORT_DOSSIER": {
+    "params": [
+      "import_file_code",
+      "total_amount",
+      "variance_pct"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "GUIDE_HS_LAB_INSPECTION": {
+    "params": [
+      "hs_code",
+      "product_category",
+      "regulatory_bodies_enum_regulatory_body",
+      "shipment_count"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "GUIDE_PORT_COST_VARIANCE": {
+    "params": [
+      "avg_variance_pct",
+      "port_name",
+      "shipment_count"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "GUIDE_SEASONAL_CONGESTION": {
+    "params": [
+      "month",
+      "shipment_count"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "GUIDE_SUPPLIER_DELAY": {
+    "params": [
+      "avg_delay_days",
+      "delayed_count",
+      "frequency_pct",
+      "supplier_name",
+      "total_shipment_count"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "GUIDE_SUPPLIER_DOC_ERRORS": {
+    "params": [
+      "category",
+      "mismatch_count",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "GUIDE_TRANSIT_DEVIATION": {
+    "params": [
+      "avg_extra_days",
+      "carrier_name",
+      "delayed_count",
+      "port_name",
+      "total_shipment_count"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "evidence",
+      "reason"
+    ]
+  },
+  "LC_FILE_ON_HOLD": {
+    "params": [
+      "phase_id",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_ON_HOLD_CODED": {
+    "params": [
+      "phase_id",
+      "reason_enum_hold_reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_ON_HOLD_CODED_WITH_NOTES": {
+    "params": [
+      "notes",
+      "phase_id",
+      "reason_enum_hold_reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_ON_HOLD_WITH_NOTES": {
+    "params": [
+      "notes",
+      "phase_id",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_RESUMED": {
+    "params": [
+      "notes"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_RESUMED_DEFAULT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_INITIAL_ACTIVITY": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_MULTI_STAGE_ACTIVATED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_PENDING_REFERENCE": {
+    "params": [
+      "reason",
+      "reference_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STARTING_POINT_SET": {
+    "params": [
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ACTIVATED": {
+    "params": [
+      "completed_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ACTIVATED_AFTER_SKIP": {
+    "params": [
+      "skipped_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_AUTO_CLOSED_PRIOR": {
+    "params": [
+      "completed_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_AUTO_COMPLETED": {
+    "params": [
+      "target_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_BYPASSED_FOR_LATER_START": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_COMPLETED": {
+    "params": [
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ON_HOLD": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ON_HOLD_CODED": {
+    "params": [
+      "reason_enum_hold_reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_RESUMED": {
+    "params": [
+      "notes"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_RESUMED_DEFAULT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_SKIPPED": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BOOKING_CONFIRMED": {
+    "params": [
+      "booking_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BOOKING_CONFIRMED_DETAILS": {
+    "params": [
+      "booking_code",
+      "confirmation_no",
+      "vessel_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BOOKING_PENDING": {
+    "params": [
+      "booking_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BUDGET_APPROVED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_BUDGET_UNDER_REVIEW": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_CARGO_ALLOCATION_DONE": {
+    "params": [
+      "cargo_shipping_code",
+      "container_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_CARGO_ALLOCATION_DRAFT": {
+    "params": [
+      "cargo_shipping_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_CUSTOMS_STUDY_DONE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SYNC_FREIGHT_STUDIES_DONE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_TASK_NEXT_STEP": {
+    "params": [
+      "completed_step_code",
+      "import_file_code",
+      "phase_id",
+      "step_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "LC_TASK_NEXT_STEP_SKIPPED": {
+    "params": [
+      "completed_step_code",
+      "import_file_code",
+      "phase_id",
+      "step_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "NA_ARCHIVE_IMPORT_FILE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AUDIT_COO_PREFERENTIAL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AUDIT_DRAFT_BL_INVOICES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AUDIT_INSPECTION_CERTIFICATES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AUDIT_INVOICE_PACKING_VS_PO": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AUDIT_LANDED_COST_CLOSURE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_AWAIT_LAB_APPROVAL_BEFORE_PRODUCTION": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_CALCULATE_LANDED_COST": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_CALCULATE_LANDED_COST_AND_SETTLE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_COMPLETE_CHECKLIST": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_EXPORT_DOSSIER": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_OFFICIAL_CLOSURE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CLO_SETTLE_FINAL_INVOICES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_ASSESS_FINAL_DUTIES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_AWAIT_LAB_RESULTS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_ISSUE_GREEN_RELEASE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_RECORD_DUTY_PAYMENT": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_RECORD_INSPECTION": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CL_RE_EXPORT_OR_DISPOSAL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_COLLECT_ORIGINALS_FORM4": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_COMPLETE_CLONED_FILE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CONFIRM_ACID_PROCEED_BOOKING": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CONFIRM_BOOKING_REVIEW_DRAFT_BL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CREATE_PAYMENT_REQUEST_FORM4": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CS01_ASSIGN_BROKER": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CS_PAY_DELIVERY_ORDER": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CS_REGISTER_DECLARATION_46": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_CUSTOMS_INSPECTION_DUTY_SETTLEMENT": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_EVALUATE_SCENARIOS_REQUEST_QUOTES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_ARCHIVED_READ_ONLY": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_CLOSED": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_CLOSED_EARLY": {
+    "params": [
+      "phase_id"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_CLOSED_EARLY_GENERIC": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FILE_FULLY_CLOSED_ARCHIVED": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FOLLOW_COMPENSATION_LANDED_COST": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FOLLOW_LAB_RESULTS_WARRANTY_CLAIMS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_FOLLOW_UP_STEP": {
+    "params": [
+      "step_code"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_INSPECT_CARGO_SETTLE_TAXES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_INSPECT_GOODS_SETTLE_LANDED_COST": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_ISSUE_ADVANCE_PAYMENT_REQUEST_ACID": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_OBTAIN_CUSTOMS_APPROVAL_DRAFTS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_PAY_DUTIES_RELEASE_CARGO": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_PENDING_REGULATORY_REQUIREMENTS": {
+    "params": [
+      "count",
+      "requirements"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_PREPARE_FINANCIAL_APPROVAL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_REGISTER_DECLARATION_46": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_RESUME_OPERATIONS": {
+    "params": [
+      "phase_id"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_RESUME_OPERATIONS_GENERIC": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_REVIEW_DRAFT_BL_WITH_CARRIER": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_REVIEW_REGULATORY_REQUIREMENTS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_REVIEW_SETTLEMENT_AND_CLOSE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_SH04_COLLECT_ORIGINALS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP03_REVIEW_REGULATORY_APPROVALS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP04_APPROVE_ADVANCE_PAYMENT": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP04_APPROVE_BUDGET_SUPPLIER_PAYMENT": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP04_COMPLETE_PAYMENT_REQUEST_ACID": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP04_REVIEW_BUDGET_SUPPLIER_TRANSFER": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP05_REQUEST_ACID": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP06_CONFIRM_BOOKING": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP06_FOLLOW_BOOKING_CONFIRMATION": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP06_FOLLOW_BOOKING_CONFIRMATION_REF": {
+    "params": [
+      "booking_no"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP07_AUDIT_ALLOCATION_VGM": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP07_COMPLETE_CONTAINERS_VGM": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP07_FOLLOW_LOADING_PLAN": {
+    "params": [
+      "booking_no"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP08BL_MATCH_BL_PO_INVOICE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP08BL_REVIEW_DRAFT_BL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP08COO_REVIEW_COO": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP08PO_RECONCILE_INVOICE_PACKING_PO": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP09_CARGOX_ENVELOPE": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP09_FINAL_DOCS_APPROVAL": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_STEP10_UPLOAD_APPROVED_TO_CARGOX": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_SUBMIT_DOCS_BANK_FORM4": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TRACK_DEMURRAGE_FREE_TIME": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TRACK_LAB_RESULTS": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_BOOK_INLAND_TRANSPORT": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_BOOK_INLAND_TRANSPORT_MONITOR_FREE_TIME": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_CHECK_SEALS_ISSUE_GRN": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_FOLLOW_DISPATCH_FREE_TIME_RECEIVING": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_INSPECTION_DISCREPANCY_LANDED_COST": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_TR_RECEIVE_TRUCK_ISSUE_GRN": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_UPLOAD_CARGOX_PREPARE_DECLARATION_46": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_UPLOAD_DOCS_TO_CARGOX": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_VALUATION_INSPECTION_SAMPLING": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_VERIFY_INVOICE_BL_MATCH": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_VERIFY_QUANTITIES_DISCREPANCIES": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NA_WAREHOUSE_READY_FOR_DISPATCH": {
+    "params": [],
+    "parts": [
+      "action"
+    ]
+  },
+  "NOTIF_ACID_REQUEST_EXPIRY": {
+    "params": [
+      "acid_number",
+      "days_left",
+      "expiry_date"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_BUDGET_OVERRUN": {
+    "params": [
+      "actual_amount",
+      "estimated_amount",
+      "import_file_code",
+      "overrun_pct"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CARGOX_UPLOAD_DELAY": {
+    "params": [
+      "days_left",
+      "eta_date",
+      "import_file_code",
+      "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_COMPANY_IMPORTER_ID_EXPIRY": {
+    "params": [
+      "company_name",
+      "days_left",
+      "expiry_date",
+      "importer_id"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_COMPANY_REGISTRATION_EXPIRY": {
+    "params": [
+      "company_name",
+      "days_left",
+      "expiry_date",
+      "registration_number"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CUSTOMS_FX_DROP": {
+    "params": [
+      "change_pct",
+      "current_rate",
+      "previous_rate"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CUSTOMS_FX_RISE": {
+    "params": [
+      "change_pct",
+      "current_rate",
+      "previous_rate"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CUSTOMS_FX_VOLATILITY": {
+    "params": [
+      "change_pct",
+      "current_rate",
+      "previous_rate"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_DEMURRAGE_ACTIVE": {
+    "params": [
+      "egp_amount",
+      "fx_amount",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_DEMURRAGE_WARNING": {
+    "params": [
+      "days_left",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_DETENTION_RETURN_DEADLINE": {
+    "params": [
+      "bl_number",
+      "carrier_name",
+      "days_left",
+      "tracking_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_DOCUMENT_SHORTAGE": {
+    "params": [
+      "import_file_code",
+      "readiness_pct",
+      "verified_count"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_ETA_WITHOUT_CLEARANCE": {
+    "params": [
+      "hours",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_FORM4_DELAY": {
+    "params": [
+      "bank_doc_code",
+      "bank_name",
+      "pending_days"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_IMPORT_FILE_ACID_EXPIRY": {
+    "params": [
+      "acid_number",
+      "days_left",
+      "expiry_date",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_ORIGINALS_COLLECTION_DELAY": {
+    "params": [
+      "days_left",
+      "eta_date",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_REGULATORY_PENDING": {
+    "params": [
+      "authority_enum_regulatory_body",
+      "hs_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "ODC_ORIGINALS_RECEIVED": {
+    "params": [
+      "collection_code",
+      "completion_pct",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "ODC_TASK_ASSIGN_BROKER": {
+    "params": [
+      "collection_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_COA": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_COO": {
+    "params": [
+      "acid_number",
+      "import_file_code",
+      "status_enum_requirement_status"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_COO_HS": {
+    "params": [
+      "acid_number",
+      "certificate_type",
+      "hs_code",
+      "import_file_code",
+      "status_enum_requirement_status"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_DECREE43": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_DECREE43_HS": {
+    "params": [
+      "acid_number",
+      "hs_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_HALAL": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_INSPECTION": {
+    "params": [
+      "acid_number",
+      "authority_enum_regulatory_body",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_INSPECTION_HS": {
+    "params": [
+      "acid_number",
+      "authority_enum_regulatory_body",
+      "hs_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_MSDS": {
+    "params": [
+      "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_PERMIT": {
+    "params": [
+      "acid_number",
+      "authority_enum_regulatory_body",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "REQ_TASK_PERMIT_HS": {
+    "params": [
+      "acid_number",
+      "authority_enum_regulatory_body",
+      "hs_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "TASK_AUTO_PHASE_FOLLOW_UP": {
+    "params": [
+      "import_file_code",
+      "task_enum_phase_follow_up_task"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "TR_BOOKING_CONFIRMED": {
+    "params": [
+      "destination_warehouse",
+      "driver_name",
+      "driver_phone",
+      "import_file_code",
+      "pickup_location",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "TR_TASK_TRACK_ARRIVAL_GRN": {
+    "params": [],
+    "parts": [
+      "title"
+    ]
+  },
+  "WH_GRN_ISSUED": {
+    "params": [
+      "grn_code",
+      "import_file_code",
+      "warehouse_name"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
+  "WH_INSPECTION_PROTOCOL_APPROVED": {
+    "params": [
+      "accepted_qty",
+      "committee",
+      "damaged_qty",
+      "import_file_code",
+      "protocol_no",
+      "shortage_qty",
+      "verdict_enum_warehouse_inspection_verdict"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "WH_INSPECTION_PROTOCOL_APPROVED_CLAIMS": {
+    "params": [
+      "accepted_qty",
+      "committee",
+      "damaged_qty",
+      "import_file_code",
+      "insurance_claim_ref",
+      "protocol_no",
+      "shortage_qty",
+      "supplier_claim_ref",
+      "verdict_enum_warehouse_inspection_verdict"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "WH_TASK_INSPECTION_DISCREPANCY": {
+    "params": [
+      "grn_code",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "_param_rules": {
+    "enum_infix": "_enum_",
+    "enum_list_separator": ",",
+    "month": [
+      "month"
+    ],
+    "number_names": [
+      "count",
+      "hours",
+      "days_left"
+    ],
+    "number_suffixes": [
+      "_amount",
+      "_pct",
+      "_count",
+      "_days",
+      "_qty",
+      "_gb",
+      "_factor",
+      "_rate",
+      "_num"
+    ]
+  },
+  "_phases": {
+    "1": "1. Pre-Planning & Studies",
+    "2": "2. Shipment Initiation",
+    "3": "3. Booking & Doc Prep",
+    "4": "4. Digital & Banking",
+    "5": "5. Port Operations & Clearance",
+    "6": "6. Inbound & Final Closure"
+  }
+}

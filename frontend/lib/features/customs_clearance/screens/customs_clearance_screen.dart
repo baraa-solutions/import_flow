@@ -33,6 +33,7 @@ import '../widgets/clearance_expenses_dialog.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
+import '../../auth/providers/auth_provider.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -245,7 +246,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 dispatchAuthorized: false,
                 dispatchDate: null,
                 status: 'Inspection In Progress',
-                owner: 'Current User',
+                owner: ref.read(authProvider).user?.fullName ?? '',
                 notes: notes ?? 'Cloned from ${rec.clearanceCode}',
                 isActive: true,
                 createdAt: DateTime.now().toIso8601String(),
@@ -784,7 +785,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       onShipmentStatusChanged: _refreshData,
       topBanner: (_clearanceGuideMatchResult != null && _clearanceGuideMatchResult!.matchedEntries.isNotEmpty)
           ? Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 0),
               child: ExperienceGuideAlertBanner(
                 matchResult: _clearanceGuideMatchResult!,
               ),
@@ -1587,7 +1588,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                 ),
                 const SizedBox(height: 14),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: Text(l.customsClearanceDutyBreakdownHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                 ),
                 const SizedBox(height: 8),

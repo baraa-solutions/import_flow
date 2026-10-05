@@ -178,3 +178,65 @@ def test_alerts_api_endpoints(client: TestClient):
     eval_data = eval_resp.json()
     assert "evaluated_at" in eval_data
     assert "results" in eval_data
+
+
+# ── Single-language storage (Phase B): coded alert notifications ─────────────
+def test_coded_alert_persists_code_and_english_text(isolated_db, tmp_path, monkeypatch):
+    from modules.common.system_messages import msg
+    from modules.notifications.model import SystemNotification
+    import modules.system_observability.alert_dispatcher as ad
+
+    monkeypatch.setattr(ad, "LOGS_DIR", tmp_path)
+    monkeypatch.setattr(ad, "ALERTS_LOG_FILE", tmp_path / "alerts.log")
+    for var in ("ALERT_SMTP_HOST", "SMTP_HOST"):
+        monkeypatch.delenv(var, raising=False)
+
+    payload = AlertPayload(
+        condition_key="DISK_SPACE_WARNING", title=None, message=None, severity="HIGH",
+        channels=["EMAIL"], target_tab="deep-health", msg=msg("ALERT_DISK_LOW", free_gb=4.2),
+    )
+    assert payload.title == "Low disk space warning"
+    assert "(4.2 GB)" in payload.message
+    assert payload.to_dict()["msg_code"] == "ALERT_DISK_LOW"
+
+    AlertDispatcher().send_email(payload, db=isolated_db)
+    notif = isolated_db.query(SystemNotification).one()
+    assert notif.msg_code == "ALERT_DISK_LOW"
+    assert notif.msg_params == {"free_gb": 4.2}
+    assert notif.title == "[High] Low disk space warning"  # ALERT_SEVERITY label
+    assert notif.message.endswith("(Action: check the deep-health tab)")
+
+
+def test_uncoded_alert_uses_dispatch_wrapper(isolated_db, tmp_path, monkeypatch):
+    from modules.notifications.model import SystemNotification
+    import modules.system_observability.alert_dispatcher as ad
+
+    monkeypatch.setattr(ad, "LOGS_DIR", tmp_path)
+    monkeypatch.setattr(ad, "ALERTS_LOG_FILE", tmp_path / "alerts.log")
+    for var in ("ALERT_SMTP_HOST", "SMTP_HOST"):
+        monkeypatch.delenv(var, raising=False)
+
+    payload = AlertPayload(
+        condition_key="X", title="Custom", message="Body", severity="LOW", channels=["EMAIL"], target_tab="telemetry",
+    )
+    AlertDispatcher().send_email(payload, db=isolated_db)
+    notif = isolated_db.query(SystemNotification).one()
+    assert notif.msg_code == "ALERT_DISPATCHED"
+    assert notif.title == "[LOW] Custom"
+    assert notif.message == "Body (Action: check the telemetry tab)"
+
+
+def test_evaluate_all_writes_no_arabic(isolated_db):
+    from modules.notifications.model import SystemNotification
+
+    dispatcher = AlertDispatcher()
+    dispatcher.reset_cooldown()
+    results = dispatcher.evaluate_all(
+        isolated_db, force=True, disk_free_gb_override=1.0, backup_age_hours_override=30.0,
+        offsite_age_hours_override=30.0, probe_override={"verdict": "DEGRADED", "issues": ["wal"]},
+    )
+    assert results
+    for rec in dispatcher.toast_history + dispatcher.email_history:
+        assert not any("؀" <= ch <= "ۿ" for ch in rec["title"] + rec["message"])
+    codes = {n.msg_code for n in isolated_db.query(SystemNotification).all()}
+    assert {"ALERT_BACKUP_OVERDUE", "ALERT_OFFSITE_BACKUP_OVERDUE", "ALERT_DB_HEALTH_DEGRADED"} <= codes

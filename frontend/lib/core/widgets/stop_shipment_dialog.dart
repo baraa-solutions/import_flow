@@ -97,9 +97,9 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: AppTheme.crimson.withOpacity(0.08),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
+          borderRadius: const BorderRadiusDirectional.only(
+            topStart: Radius.circular(12),
+            topEnd: Radius.circular(12),
           ),
         ),
         child: Row(

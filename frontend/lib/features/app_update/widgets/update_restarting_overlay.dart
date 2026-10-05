@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/app_update_providers.dart';
+import 'update_feedback.dart';
 
 /// Shows the non-dismissible "installing, the app will restart" overlay after
 /// `/apply` or `/rollback` returned 202, then closes the app after
@@ -21,6 +22,20 @@ Future<void> showRestartingAndExit(BuildContext context, WidgetRef ref) async {
   ));
   await Future<void>.delayed(updateExitDelay);
   exitApp();
+}
+
+/// Installs the already downloaded [version] (`POST /apply`), then shows the
+/// restarting overlay and exits. Errors (403, 409, ...) become a SnackBar.
+/// Returns false when the backend refused.
+Future<bool> installUpdateAndRestart(BuildContext context, WidgetRef ref, String version) async {
+  try {
+    await ref.read(updateStatusProvider.notifier).applyUpdate(version);
+  } catch (e) {
+    if (context.mounted) showUpdateErrorSnackBar(context, e);
+    return false;
+  }
+  if (context.mounted) await showRestartingAndExit(context, ref);
+  return true;
 }
 
 class UpdateRestartingOverlay extends StatelessWidget {

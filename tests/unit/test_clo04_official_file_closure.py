@@ -272,7 +272,7 @@ def test_official_close_success(db_session, client):
     assert res["closure_code"].startswith("CLR-")
     assert res["auditor_name"] == "Dr. Ahmed Sorour (Auditor)"
     assert res["archive_location"] == "Central Secure Cloud Vault - Volume A/2026"
-    assert res["next_action"] == "File Archived - Read-Only Historical State"
+    assert res["next_action"] == "File archived - read-only historical state"
 
     # Verify ImportFile in DB
     db_session.refresh(imp)
@@ -295,7 +295,8 @@ def test_official_close_success(db_session, client):
         SystemNotification.category == "FILE_CLOSURE",
     ).first()
     assert notif is not None
-    assert "الإغلاق الرسمي" in notif.title
+    assert "Officially closed" in notif.title
+    assert notif.msg_code == "CLO_FILE_CLOSED"
 
 
 def test_official_close_blocks_unmet_checklist(db_session, client):

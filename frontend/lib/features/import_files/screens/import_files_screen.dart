@@ -42,7 +42,9 @@ import '../../../core/widgets/action_toolbar.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/utils/bidi_text.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -302,8 +304,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
 
                                 final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                                final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                                final act = f.displayNextAction(context.l10n);
 
                                 buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                               }
@@ -356,7 +358,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 }
                               }
 
-                              Clipboard.setData(ClipboardData(text: buffer.toString()));
+                              Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l.reportCopiedToClipboard),
@@ -481,7 +483,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -536,7 +538,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -599,7 +601,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                            final act = f.displayNextAction(context.l10n);
                                             return [
                                               f.owner,
                                               shipName,
@@ -674,8 +676,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       final ownerText = f.owner.contains('Broker') ? f.owner : l.customsBrokerLabel;
                                       final isAr = Localizations.localeOf(context).languageCode == 'ar';
                                       final shipName = DisplayNameResolver.resolveShipmentName(f, isArabic: isAr);
-                                      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                                      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                                      final resolvedAction = f.displayNextAction(context.l10n);
                                       final stageProgressText = '$resolvedStage (${f.progressPercent.toInt()}%) - $resolvedAction';
 
                                       return DataRow(
@@ -695,7 +697,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(shipName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
-                                                    Text(f.importFileCode, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                    LtrText(f.importFileCode, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                                   ],
                                                 ),
                                               ),
@@ -921,7 +923,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
 
                                           return DataRow(
                                             cells: [
-                                              DataCell(CopyableTableCell(value: po.poNumber, rowSummary: poRowSummary, child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                              DataCell(CopyableTableCell(value: po.poNumber, rowSummary: poRowSummary, child: LtrText(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                                               DataCell(CopyableTableCell(value: po.proformaInvoiceNumber ?? '-', rowSummary: poRowSummary, child: Text(po.proformaInvoiceNumber ?? '-'))),
                                               DataCell(CopyableTableCell(value: po.supplierName ?? file.supplierName, rowSummary: poRowSummary, child: Text(po.supplierName ?? file.supplierName))),
                                               DataCell(CopyableTableCell(
@@ -944,7 +946,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     ),
                                     const SizedBox(height: 12),
                                     Align(
-                                      alignment: Alignment.centerRight,
+                                      alignment: AlignmentDirectional.centerEnd,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppTheme.emerald,
@@ -1006,8 +1008,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                            final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
-                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                            final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
+                            final act = f.displayNextAction(context.l10n);
                             buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                           }
 
@@ -1321,9 +1323,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         builder: (context, screenConstraints) {
           final isMobile = screenConstraints.maxWidth < AppTheme.tabletBreakpoint;
           return Padding(
-            padding: EdgeInsets.only(
-              left: isMobile ? 8 : 16,
-              right: isMobile ? 8 : 16,
+            padding: EdgeInsetsDirectional.only(
+              start: isMobile ? 8 : 16,
+              end: isMobile ? 8 : 16,
               top: isMobile ? 4 : 6,
               bottom: 2,
             ),
@@ -1490,7 +1492,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                      // ── Dedicated Scrollable Table Body (Vertical Scrollbar Flipped to Left via RTL Direction Trick) ──
                                      Expanded(
                                        child: Directionality(
-                                         textDirection: TextDirection.rtl,
+                                         textDirection: ambientDirection == TextDirection.ltr ? TextDirection.rtl : ambientDirection, // LTR keeps the scrollbar on the left; RTL uses the native side
                                          child: Scrollbar(
                                            controller: _verticalTableScrollController,
                                            thumbVisibility: true,
@@ -1526,8 +1528,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                }
                                final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
                                final isAr = Directionality.of(context) == TextDirection.rtl || ref.watch(localeProvider).languageCode == 'ar';
-                               final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
-                               final resolvedAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
+                               final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
+                               final resolvedAction = file.displayNextAction(context.l10n);
                                final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
                                final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
 
@@ -1671,7 +1673,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                  ),
                                                ),
                                                if (shipDisplayName != file.importFileCode)
-                                                 Text(
+                                                 LtrText(
                                                    file.importFileCode,
                                                    style: TextStyle(
                                                      fontSize: density.tableCellSecondaryFontSize,
@@ -1903,7 +1905,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         final priorityText = _getPriorityLabel(file.priority, l);
         final statusText = _getStatusLabel(file.status, l);
         final isAr = Localizations.localeOf(context).languageCode == 'ar';
-        final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+        final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
         final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
 
         String poDisplay;
@@ -1954,7 +1956,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          LtrText(
                             file.importFileCode,
                             style: TextStyle(
                               fontSize: 11,
@@ -2148,8 +2150,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final rows = files.map((f) {
       final priorityText = _getPriorityLabel(f.priority, l);
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
-      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
+      final resolvedAction = f.displayNextAction(context.l10n);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       final piDisplay = (f.piNumber != null && f.piNumber!.isNotEmpty) ? f.piNumber! : '-';
@@ -2202,7 +2204,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
 
     final rows = files.map((f) {
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       return [
@@ -2263,8 +2265,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final rows = files.map((f) {
       final priorityText = _getPriorityLabel(f.priority, l);
       final statusText = _getStatusLabel(f.status, l);
-      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isArabic);
-      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isArabic);
+      final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isArabic);
+      final resolvedAction = f.displayNextAction(context.l10n);
       final fileDisplay = f.customFileNumber ?? f.importFileCode;
       final poDisplay = (f.poNumber != null && f.poNumber!.isNotEmpty) ? f.poNumber! : '-';
       final piDisplay = (f.piNumber != null && f.piNumber!.isNotEmpty) ? f.piNumber! : '-';
@@ -2869,7 +2871,7 @@ class _SearchAndCloneImportFileDialogState extends State<_SearchAndCloneImportFi
                       itemBuilder: (context, idx) {
                         final file = _filteredFiles[idx];
                         final shipName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
-                        final stageName = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+                        final stageName = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
 
                         return Container(
                           padding: const EdgeInsets.all(12),
@@ -2896,7 +2898,7 @@ class _SearchAndCloneImportFileDialogState extends State<_SearchAndCloneImportFi
                                         ),
                                         if (shipName != file.importFileCode) ...[
                                           const SizedBox(width: 8),
-                                          Text(
+                                          LtrText(
                                             file.importFileCode,
                                             style: TextStyle(
                                               fontSize: 11,

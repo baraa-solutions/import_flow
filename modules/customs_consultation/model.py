@@ -25,10 +25,10 @@ class ClearanceExpenseType(Base):
     name_ar: Mapped[str] = mapped_column(String(200), nullable=False)
     name_en: Mapped[str] = mapped_column(String(200), nullable=True)
     category: Mapped[str] = mapped_column(
-        String(100), nullable=False, default="Clearance Fees (أتعاب ومصاريف تخليص)"
+        String(100), nullable=False, default="CLEARANCE_FEES"
     )  # Clearance Fees, Procedures & Approvals, Inland Transport, Port & Handling, Other Fees
     default_unit: Mapped[str] = mapped_column(
-        String(100), nullable=False, default="Per Invoice (لكل فاتورة)"
+        String(100), nullable=False, default="PER_INVOICE"
     )  # Per Invoice, Per Ton, Per Container 20ft, Per Container 40ft, Per Vehicle, Per Inspection, Per Trip, Fixed
     default_currency: Mapped[str] = mapped_column(String(10), default="EGP", nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0)

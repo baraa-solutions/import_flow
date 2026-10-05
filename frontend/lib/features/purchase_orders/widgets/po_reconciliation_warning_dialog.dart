@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../models/purchase_order_model.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class POReconciliationItem {
   final String hsCode;
   final double invoiceQty;

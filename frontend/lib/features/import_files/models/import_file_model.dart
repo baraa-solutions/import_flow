@@ -1,3 +1,9 @@
+import '../../../core/localization/system_messages/system_message_renderer.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/utils/bidi_text.dart';
+
 class InvoiceItemModel {
   final String invoiceNo;
   final String invoiceType;
@@ -182,6 +188,16 @@ class ImportFileModel {
   final String? pausedAtStage;
   final String? pausedAtStep;
   final String? holdReason;
+  /// HOLD_REASON code when the hold used a predefined reason (null for free text / legacy rows).
+  final String? holdReasonCode;
+  /// Single-language storage codes next to the English text columns (null on legacy rows):
+  /// [currentModule] -> [currentStepCode], [currentStage] -> [currentPhaseId] / [currentStageCode],
+  /// [nextAction] -> [nextActionCode] + [nextActionParams].
+  final String? currentStepCode;
+  final int? currentPhaseId;
+  final String? currentStageCode;
+  final String? nextActionCode;
+  final Map<String, dynamic>? nextActionParams;
   final String? holdDate;
   final List<String> skippedStages;
   final String status;
@@ -320,6 +336,12 @@ class ImportFileModel {
     this.pausedAtStage,
     this.pausedAtStep,
     this.holdReason,
+    this.holdReasonCode,
+    this.currentStepCode,
+    this.currentPhaseId,
+    this.currentStageCode,
+    this.nextActionCode,
+    this.nextActionParams,
     this.holdDate,
     this.skippedStages = const [],
     this.status = 'Open',
@@ -335,6 +357,44 @@ class ImportFileModel {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Value for DisplayNameResolver.resolveStepName: [currentStepCode] when the backend
+  /// sent it, else the legacy [currentModule] text (`STEP_xx ...`).
+  String get displayStepKey => currentStepCode ?? currentModule;
+
+  /// Stage/phase label for coded rows, or null for legacy rows (callers then resolve the
+  /// legacy text with DisplayNameResolver):
+  /// - a special stage code (CUSTOMS_RELEASED, DUTY_PAID, ...) -> its STAGE label, else the
+  ///   stored [currentStage] text;
+  /// - otherwise [currentPhaseId] (or PHASE_n) -> the backend phase title.
+  String? codedStageLabel(AppLocalizations l10n) {
+    final stage = currentStageCode;
+    if (stage != null && !stage.startsWith('PHASE_')) {
+      return DomainEnums.labelIfKnown(l10n, DomainEnumType.stage, stage) ??
+          (currentStage.trim().isNotEmpty ? currentStage : stage);
+    }
+    final id = currentPhaseId ?? (stage == null ? null : int.tryParse(stage.substring(6)));
+    return id == null ? null : SystemMessageRenderer.phaseTitle(id, isArabic: l10n.isArabic);
+  }
+
+  /// Stage/phase to show: [codedStageLabel], else [legacy] applied to [currentStage].
+  String displayStage(AppLocalizations l10n, String Function(String legacyText) legacy) =>
+      codedStageLabel(l10n) ?? legacy(currentStage);
+
+  /// [nextAction] rendered from [nextActionCode], or null when there is no usable code.
+  String? renderedNextAction(AppLocalizations l10n) => SystemMessageRenderer.tryRender(
+      code: nextActionCode, params: nextActionParams, part: SystemMessagePart.action, l10n: l10n);
+
+  /// Next action to show: the rendered code, else the stored text through
+  /// [DisplayNameResolver.resolveActionTitle] (legacy rows).
+  /// [forExport] strips the bidi isolates (clipboard, CSV/Excel/PDF).
+  String displayNextAction(AppLocalizations l10n, {bool forExport = false}) {
+    final text = renderedNextAction(l10n) ?? DisplayNameResolver.resolveActionTitle(nextAction, isArabic: l10n.isArabic);
+    return forExport ? stripBidiIsolates(text) : text;
+  }
+
+  static int? _parseInt(Object? raw) =>
+      raw is num ? raw.toInt() : int.tryParse(raw?.toString().trim() ?? '');
 
   factory ImportFileModel.fromJson(Map<String, dynamic> json) {
     var rawInvoices = json['invoices_data'] as List<dynamic>? ?? [];
@@ -450,6 +510,12 @@ class ImportFileModel {
       pausedAtStage: json['paused_at_stage'],
       pausedAtStep: json['paused_at_step'],
       holdReason: json['hold_reason'],
+      holdReasonCode: json['hold_reason_code'] as String?,
+      currentStepCode: SystemMessageRenderer.parseCode(json['current_step_code']),
+      currentPhaseId: _parseInt(json['current_phase_id']),
+      currentStageCode: SystemMessageRenderer.parseCode(json['current_stage_code']),
+      nextActionCode: SystemMessageRenderer.parseCode(json['next_action_code']),
+      nextActionParams: SystemMessageRenderer.parseParams(json['next_action_params']),
       holdDate: json['hold_date'],
       skippedStages: rawSkipped.map((s) => s.toString()).toList(),
       status: json['status'] ?? 'Open',
@@ -576,6 +642,7 @@ class ImportFileModel {
       if (pausedAtStage != null) 'paused_at_stage': pausedAtStage,
       if (pausedAtStep != null) 'paused_at_step': pausedAtStep,
       if (holdReason != null) 'hold_reason': holdReason,
+      if (holdReasonCode != null) 'hold_reason_code': holdReasonCode,
       if (holdDate != null) 'hold_date': holdDate,
       'skipped_stages': skippedStages,
       'status': status,

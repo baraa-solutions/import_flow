@@ -28,6 +28,18 @@ from modules.purchase_orders.validators import PurchaseOrderValidator
 
 
 
+PO_REFERENCE_MAX_LENGTH = 200
+COPY_CODE_SUFFIX = "-COPY"
+
+
+def _copy_reference(reference: Optional[str]) -> Optional[str]:
+    """Default clone reference: ``<reference>-COPY``; the base is truncated so the result fits the column."""
+    if not reference:
+        return None
+    base = reference[: PO_REFERENCE_MAX_LENGTH - len(COPY_CODE_SUFFIX)]
+    return f"{base}{COPY_CODE_SUFFIX}"
+
+
 class PurchaseOrderService:
 
     def __init__(self, db: Session):
@@ -749,7 +761,7 @@ class PurchaseOrderService:
 
         cloned_create = PurchaseOrderCreate(
             po_number=target_po_number,
-            po_reference=payload.new_po_reference or original.po_reference,
+            po_reference=payload.new_po_reference or _copy_reference(original.po_reference),
             import_file_id=None,  # Reset shipment link
             proforma_invoice_number=original.proforma_invoice_number,
             country_of_origin=original.country_of_origin,
@@ -762,7 +774,7 @@ class PurchaseOrderService:
             expected_delivery_date=None,
             exchange_rate=float(original.exchange_rate or 1.0),
             payment_terms=original.payment_terms,
-            notes=payload.notes or f"مستنسخ من أمر الشراء: {original.po_number}",
+            notes=payload.notes or f"Cloned from: {original.po_number}",
             pallet_count=original.pallet_count if payload.copy_pallet_plan else 0,
             pallet_type=original.pallet_type or "Euro Pallet (120x80)",
             is_pallet_stackable=bool(original.is_pallet_stackable),

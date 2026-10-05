@@ -191,9 +191,9 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
         : '0.0';
 
     return AlertDialog(
-      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 12),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 16),
       title: Row(
         children: [
           Container(

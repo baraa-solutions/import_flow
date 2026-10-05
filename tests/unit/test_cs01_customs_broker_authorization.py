@@ -169,7 +169,8 @@ def test_authorize_customs_broker_service_full_workflow(db_session, sample_data)
     )
     assert downstream_cs02 is not None
     assert "CS-02" in downstream_cs02.title
-    assert "سداد إذن التسليم" in downstream_cs02.title
+    assert "delivery order" in downstream_cs02.title
+    assert downstream_cs02.msg_code == "CC_TASK_DELIVERY_ORDER_PAYMENT"
     assert downstream_cs02.status == "Pending"
 
     # 4. Verify SystemNotification emitted
@@ -182,9 +183,12 @@ def test_authorize_customs_broker_service_full_workflow(db_session, sample_data)
         .all()
     )
     assert len(notifs) >= 1
-    broker_notif = [n for n in notifs if "تفويض المخلص" in n.title]
+    broker_notif = [n for n in notifs if n.msg_code == "CC_BROKER_AUTHORIZED"]
     assert len(broker_notif) >= 1
     assert "DEL-2026-ALEX-01" in broker_notif[0].message
+    assert broker_notif[0].title.startswith("Customs broker authorized electronically")
+    assert broker_notif[0].msg_params["delegation_no"] == "DEL-2026-ALEX-01"
+    assert imp_file.next_action_code == "NA_CS_PAY_DELIVERY_ORDER"
 
     # 5. Verify Lifecycle Stage Activity
     activities = (

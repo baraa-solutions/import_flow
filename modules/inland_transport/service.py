@@ -24,6 +24,9 @@ from .validators import (
     validate_import_file_for_transport,
 )
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 
 def create_transport_booking_service(
     db: Session,
@@ -32,6 +35,7 @@ def create_transport_booking_service(
 ) -> InlandTransportBooking:
     validate_transport_booking_input(schema)
     imp_file = validate_import_file_for_transport(db, schema.import_file_id)
+    schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
 
     code = generate_transport_code(db)
     booking = create_transport_booking(db, schema, code, user)
@@ -51,52 +55,81 @@ def create_transport_booking_service(
         imp_file.inland_departure_date = schema.actual_departure_at
 
     imp_file.current_module = "Phase 8 - Inland Transport & Warehouse Delivery"
-    imp_file.current_stage = f"Inland Transport (حجز سيارات النقل: {schema.truck_plate_number})"
-    imp_file.next_action = "متابعة خروج الشحنة (TR-01) ورادار فترات السماح (TR-02) والاستلام بالمخزن (TR-03)"
+    set_file_tracking(
+        imp_file,
+        stage_code="INLAND_TRANSPORT_BOOKED",
+        next_action=msg("NA_TR_FOLLOW_DISPATCH_FREE_TIME_RECEIVING"),
+    )
     if (imp_file.progress_percent or 0.0) < 97.0:
         imp_file.progress_percent = 97.0
 
-    # Auto-complete pending TR-01 smart tasks
-    try:
-        from modules.smart_tasks.model import SmartTask
-        pending_tasks = db.query(SmartTask).filter(
-            SmartTask.import_file_id == imp_file.import_file_id,
-            SmartTask.is_active == True,
-            SmartTask.status.in_(["PENDING", "IN_PROGRESS"]),
-            SmartTask.task_name.ilike("%نقل%") | SmartTask.task_name.ilike("%TR-01%"),
-        ).all()
-        for t in pending_tasks:
-            t.status = "COMPLETED"
-            t.completed_at = datetime.now(timezone.utc)
-            t.completed_by = user
-    except Exception:
-        pass
+    from modules.smart_tasks.model import SmartTask
+    from modules.smart_tasks.repository import create_task as create_smart_task
+    from modules.smart_tasks.schemas import SmartTaskCreate
 
-    # Create downstream TR-02/TR-03 smart task
-    try:
-        from modules.smart_tasks.model import SmartTask
-        downstream_task = SmartTask(
-            import_file_id=imp_file.import_file_id,
-            task_code=f"TSK-TR02-{imp_file.import_file_id}",
-            task_name="متابعة وصول الشاحنة للمخزن وإصدار إذن الاستلام GRN (TR-03)",
-            stage_name="Phase 8 - Inland Transport & Warehouse Delivery",
-            assigned_role="Warehouse Manager",
-            status="PENDING",
-            priority="HIGH",
-            due_date=schema.expected_arrival_at,
+    # Auto-complete pending TR-01 (inland transport booking) smart tasks
+    pending_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == imp_file.import_file_id,
+        SmartTask.is_active == True,
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        SmartTask.title.ilike("%TR-01%")
+        | SmartTask.title.ilike("%نقل%")
+        | (SmartTask.msg_code == "CC_TASK_INLAND_TRANSPORT"),
+    ).all()
+    for t in pending_tasks:
+        t.status = "Completed"
+        t.is_auto_closed = True
+        t.updated_by = user
+
+    # Create the downstream TR-03 smart task (truck arrival & GRN), once per file
+    task_msg = msg("TR_TASK_TRACK_ARRIVAL_GRN")
+    already_open = db.query(SmartTask).filter(
+        SmartTask.import_file_id == imp_file.import_file_id,
+        SmartTask.is_active == True,
+        SmartTask.msg_code == task_msg.code,
+        SmartTask.status.in_(["Pending", "In Progress"]),
+    ).first()
+    if already_open is None:
+        create_smart_task(
+            db,
+            SmartTaskCreate(
+                title=render_en(task_msg.code, task_msg.params, "title"),
+                task_type="System Generated",
+                import_file_id=imp_file.import_file_id,
+                import_file_code=imp_file.import_file_code,
+                phase_name="Phase 6: Inbound & Final Closure",
+                assigned_user="Warehouse Manager",
+                priority="High",
+                reminder_type="Warehouse Receiving",
+                due_date=schema.expected_arrival_at.date().isoformat() if schema.expected_arrival_at else None,
+                status="Pending",
+                notes=f"ACTION:WAREHOUSE_GRN | Waybill: {schema.waybill_number}",
+            ),
             created_by=user,
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_19",
+            commit=False,  # the booking commit below writes the task too (no half-saved booking on failure)
         )
-        db.add(downstream_task)
-    except Exception:
-        pass
 
     # Emit Central System Notification
     try:
         from modules.notifications.model import SystemNotification
+        notif_msg = msg(
+            "TR_BOOKING_CONFIRMED",
+            truck_plate_number=schema.truck_plate_number,
+            import_file_code=imp_file.import_file_code,
+            pickup_location=schema.pickup_port_location,
+            destination_warehouse=schema.destination_warehouse,
+            driver_name=schema.driver_name,
+            driver_phone=schema.driver_phone,
+        )
         notification = SystemNotification(
             notification_code=f"NOTIF-TR01-{imp_file.import_file_id}",
-            title="تأكيد حجز سيارات النقل الداخلي (TR-01)",
-            message=f"تم تأكيد حجز الشاحنة ({schema.truck_plate_number}) لنقل الشحنة {imp_file.import_file_code} من {schema.pickup_port_location} إلى {schema.destination_warehouse}. السائق: {schema.driver_name} ({schema.driver_phone}).",
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
             category="STAGE_PROGRESSION",
             severity="INFO",
             target_role="ALL",
@@ -124,15 +157,18 @@ def record_port_gate_out_service(
     booking.actual_departure_at = payload.actual_departure_at
     booking.status = "In Transit"
     if payload.notes:
-        booking.tracking_notes = (booking.tracking_notes or "") + f" | خروج البوابة: {payload.notes}"
+        booking.tracking_notes = (booking.tracking_notes or "") + f" | Gate-out: {payload.notes}"
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
     if imp_file:
         imp_file.inland_transport_status = "IN_TRANSIT"
         imp_file.inland_departure_date = payload.actual_departure_at
-        imp_file.current_stage = f"In Transit to Warehouse (الشحنة في الطريق للمخزن)"
-        imp_file.next_action = "استقبال الشاحنة وتفريغ الحاويات وإصدار إذن الإضافة GRN (TR-03)"
+        set_file_tracking(
+            imp_file,
+            stage_code="IN_TRANSIT_TO_WAREHOUSE",
+            next_action=msg("NA_TR_RECEIVE_TRUCK_ISSUE_GRN"),
+        )
 
     db.commit()
     db.refresh(booking)
@@ -151,15 +187,18 @@ def record_warehouse_arrival_service(
     booking.actual_arrival_at = payload.actual_arrival_at
     booking.status = "Arrived at Warehouse"
     if payload.notes:
-        booking.tracking_notes = (booking.tracking_notes or "") + f" | وصول المخزن: {payload.notes}"
+        booking.tracking_notes = (booking.tracking_notes or "") + f" | Warehouse arrival: {payload.notes}"
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
     if imp_file:
         imp_file.inland_transport_status = "ARRIVED"
         imp_file.inland_actual_arrival_date = payload.actual_arrival_at
-        imp_file.current_stage = f"Arrived at {booking.destination_warehouse} (وصلت للمخزن - بانتظار إذن الاستلام)"
-        imp_file.next_action = "فحص سلامة الأختام وإصدار إذن الاستلام GRN (TR-03)"
+        set_file_tracking(
+            imp_file,
+            stage_code="ARRIVED_AT_WAREHOUSE",
+            next_action=msg("NA_TR_CHECK_SEALS_ISSUE_GRN"),
+        )
 
     db.commit()
     db.refresh(booking)
@@ -190,6 +229,8 @@ def update_transport_booking_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
+    if schema.truck_type is not None:
+        schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
     return update_transport_booking(db, booking, schema, user)
 
 def soft_delete_transport_booking_service(

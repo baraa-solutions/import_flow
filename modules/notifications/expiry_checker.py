@@ -16,8 +16,38 @@ from modules.import_requirements.model import ImportRequirementAssessment
 from modules.demurrage_detention.model import DemurrageTracking
 from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.currencies.model import Currency, ExchangeRate
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg
 from .repository import NotificationRepository
 from .schemas import NotificationCreate
+
+
+def _iso(value) -> Optional[str]:
+    """ISO date string for a ``*_date`` message param (params must be JSON primitives)."""
+    if value is None:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def _coded_notification(
+    m: SysMsg,
+    *,
+    severity: str,
+    category: str,
+    entity_type: str,
+    entity_id: int,
+    target_role: str = "ALL",
+) -> NotificationCreate:
+    """System notification stored as a message code; title/message get the English render."""
+    return NotificationCreate(
+        msg_code=m.code,
+        msg_params=m.params,
+        severity=severity,
+        category=category,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        target_role=target_role,
+    )
 
 
 class ExpiryCheckerService:
@@ -93,9 +123,14 @@ class ExpiryCheckerService:
                     severity = "CRITICAL" if days_left <= 7 else "WARNING"
                     category = "COMPANY_EXPIRY_IMP_ID"
                     if not self.repo.exists_active_for_entity("ImportCompany", company.company_id, category):
-                        schema = NotificationCreate(
-                            title=f"تنبيه انتهاء البطاقة الاستيرادية: {company.importer_name}",
-                            message=f"البطاقة الاستيرادية (رقم {company.importer_id}) متبقي عليها {days_left} يوماً وتنتهي في {company.importer_id_expiry}. يرجى التجديد فوراً.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_COMPANY_IMPORTER_ID_EXPIRY",
+                                company_name=company.importer_name,
+                                importer_id=company.importer_id,
+                                days_left=days_left,
+                                expiry_date=_iso(company.importer_id_expiry),
+                            ),
                             severity=severity,
                             category=category,
                             entity_type="ImportCompany",
@@ -112,9 +147,14 @@ class ExpiryCheckerService:
                     severity = "CRITICAL" if days_left <= 7 else "WARNING"
                     category = "COMPANY_EXPIRY_REG"
                     if not self.repo.exists_active_for_entity("ImportCompany", company.company_id, category):
-                        schema = NotificationCreate(
-                            title=f"تنبيه انتهاء السجل التجاري: {company.importer_name}",
-                            message=f"السجل التجاري (رقم {company.registration_number}) متبقي عليه {days_left} يوماً وينتهي في {company.registration_expiry}.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_COMPANY_REGISTRATION_EXPIRY",
+                                company_name=company.importer_name,
+                                registration_number=company.registration_number,
+                                days_left=days_left,
+                                expiry_date=_iso(company.registration_expiry),
+                            ),
                             severity=severity,
                             category=category,
                             entity_type="ImportCompany",
@@ -145,9 +185,13 @@ class ExpiryCheckerService:
                 if days_left <= 14:
                     severity = "CRITICAL" if days_left <= 3 else "WARNING"
                     if not self.repo.exists_active_for_entity("AcidRegistrationSession", acid.acid_id, "ACID_EXPIRY"):
-                        schema = NotificationCreate(
-                            title=f"تنبيه قرب انتهاء الرقم المبدئي ACID: {acid.acid_number}",
-                            message=f"رقم الـ ACID ({acid.acid_number}) للشحنة متبقي عليه {days_left} أيام فقط قبل الشحن وتنتهي صلاحيته في {acid.expiry_date}.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_ACID_REQUEST_EXPIRY",
+                                acid_number=acid.acid_number,
+                                days_left=days_left,
+                                expiry_date=_iso(acid.expiry_date),
+                            ),
                             severity=severity,
                             category="ACID_EXPIRY",
                             entity_type="AcidRegistrationSession",
@@ -175,9 +219,14 @@ class ExpiryCheckerService:
                 severity = "CRITICAL" if days_left <= 3 else "WARNING"
                 if not self.repo.exists_active_for_entity("ImportFile", imp.import_file_id, "ACID_EXPIRY"):
                     file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
-                    schema = NotificationCreate(
-                        title=f"تنبيه قرب انتهاء صلاحية ACID للشحنة: {file_code}",
-                        message=f"رقم القيد الجمركي ({imp.acid_number}) للشحنة ({file_code}) متبقي عليه {days_left} يوماً وينتهي في {imp.acid_expiry_date}. يرجى التمديد عبر نافذة لتفادي حظر الإفراج.",
+                    schema = _coded_notification(
+                        msg(
+                            "NOTIF_IMPORT_FILE_ACID_EXPIRY",
+                            import_file_code=file_code,
+                            acid_number=imp.acid_number,
+                            days_left=days_left,
+                            expiry_date=_iso(imp.acid_expiry_date),
+                        ),
                         severity=severity,
                         category="ACID_EXPIRY",
                         entity_type="ImportFile",
@@ -219,9 +268,14 @@ class ExpiryCheckerService:
                     category = "CARGOX_UPLOAD_PENDING"
                     if not self.repo.exists_active_for_entity("ImportFile", file.import_file_id, category):
                         file_code = file.custom_file_number or file.import_file_code
-                        schema = NotificationCreate(
-                            title=f"تنبيه تأخر رفع مستندات CargoX: {file_code}",
-                            message=f"الشحنة {file_code} متوقع وصولها خلال {days_to_eta} يوماً (ETA: {file.required_eta}) ولم يتم رفع أو اعتماد مظروف المستندات على منصة CargoX من المورد {file.supplier_name}. يرجى المتابعة العاجلة.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_CARGOX_UPLOAD_DELAY",
+                                import_file_code=file_code,
+                                days_left=days_to_eta,
+                                eta_date=_iso(file.required_eta),
+                                supplier_name=file.supplier_name,
+                            ),
                             severity=severity,
                             category=category,
                             entity_type="ImportFile",
@@ -253,9 +307,13 @@ class ExpiryCheckerService:
                 severity = "CRITICAL" if days_pending >= 14 else "WARNING"
                 category = "BANK_FORM4_PENDING"
                 if not self.repo.exists_active_for_entity("BankingDocumentSession", doc.bank_doc_id, category):
-                    schema = NotificationCreate(
-                        title=f"تنبيه تأخر صدور نموذج 4 البنكي: {doc.bank_name}",
-                        message=f"طلب نموذج 4 مع بنك {doc.bank_name} معلق منذ {days_pending} يوماً (مرجع: {doc.bank_doc_code}). يرجى مراجعة البنك لتسريع الاعتماد قبل وصول البضاعة.",
+                    schema = _coded_notification(
+                        msg(
+                            "NOTIF_FORM4_DELAY",
+                            bank_name=doc.bank_name,
+                            pending_days=days_pending,
+                            bank_doc_code=doc.bank_doc_code,
+                        ),
                         severity=severity,
                         category=category,
                         entity_type="BankingDocumentSession",
@@ -295,9 +353,14 @@ class ExpiryCheckerService:
                 severity = "CRITICAL" if days_left <= 0 else "WARNING"
                 category = "CONTAINER_DETENTION_RISK"
                 if not self.repo.exists_active_for_entity("DemurrageTracking", tr.tracking_id, category):
-                    schema = NotificationCreate(
-                        title=f"تحذير مهلة إرجاع الحاويات الفارغة (Detention): {tr.tracking_code}",
-                        message=f"متبقي {days_left} يوماً على انتهاء فترة سماح الحاويات الفارغة للخط الملاحي {tr.carrier_name} (بوليصة {tr.bill_of_lading_no}). يرجى إرجاع الحاويات للساحة لتفادي غرامات الحراسات بالدولار.",
+                    schema = _coded_notification(
+                        msg(
+                            "NOTIF_DETENTION_RETURN_DEADLINE",
+                            tracking_code=tr.tracking_code,
+                            days_left=days_left,
+                            carrier_name=tr.carrier_name,
+                            bl_number=tr.bill_of_lading_no,
+                        ),
                         severity=severity,
                         category=category,
                         entity_type="DemurrageTracking",
@@ -335,9 +398,13 @@ class ExpiryCheckerService:
                     severity = "CRITICAL" if days_to_eta <= 1 else "WARNING"
                     category = "COURIER_DELAY"
                     if not self.repo.exists_active_for_entity("OriginalDocumentsCollectionSession", col.collection_id, category):
-                        schema = NotificationCreate(
-                            title=f"تنبيه تأخر استلام أصول المستندات: {col.import_file_code}",
-                            message=f"البوليصة وأصول المستندات للشحنة {col.import_file_code} لم يتم استلامها بالكامل بينما موعد وصول الباخرة متبقي عليه {days_to_eta} أيام (ETA: {linked_file.required_eta}). يرجى مراجعة التتبع مع شركة الشحن السريع.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_ORIGINALS_COLLECTION_DELAY",
+                                import_file_code=col.import_file_code,
+                                days_left=days_to_eta,
+                                eta_date=_iso(linked_file.required_eta),
+                            ),
                             severity=severity,
                             category=category,
                             entity_type="OriginalDocumentsCollectionSession",
@@ -367,9 +434,15 @@ class ExpiryCheckerService:
             category = "REGULATORY_INSPECTION_PENDING"
             if not self.repo.exists_active_for_entity("ImportRequirementAssessment", ass.assessment_id, category):
                 file_code = ass.import_file_code or f"ASSESS-{ass.assessment_id}"
-                schema = NotificationCreate(
-                    title=f"تنبيه متطلبات رقابية وفحص مسبق: {file_code}",
-                    message=f"الشحنة {file_code} تحتوي على أصناف (بند تعريفي: {ass.hs_code or 'عام'}) تتطلب شهادة فحص مسبق أو موافقة رقابية ({ass.permit_issuing_authority or 'رقابة على الصادرات/واردات'}) وهي معلقة حتى الآن.",
+                schema = _coded_notification(
+                    msg(
+                        "NOTIF_REGULATORY_PENDING",
+                        import_file_code=file_code,
+                        hs_code=ass.hs_code or "-",
+                        authority_enum_regulatory_body=enum_codes.normalize(
+                            enum_codes.REGULATORY_BODY, ass.permit_issuing_authority or "GOEIC"
+                        ),
+                    ),
                     severity="WARNING",
                     category=category,
                     entity_type="ImportRequirementAssessment",
@@ -406,9 +479,14 @@ class ExpiryCheckerService:
                     category = "BUDGET_VARIANCE"
                     if not self.repo.exists_active_for_entity("LandedCostSettlementRecord", rec.settlement_id, category):
                         file_code = file.custom_file_number or file.import_file_code
-                        schema = NotificationCreate(
-                            title=f"تنبيه تجاوز ميزانية الشحنة: {file_code}",
-                            message=f"المصروفات الفعلية المسجلة للشحنة {file_code} تجاوزت الميزانية التقديرية بنسبة {pct}% (الفعلي: {actual_egp:,.2f} ج.م مقابل التقديري: {est_egp:,.2f} ج.م). يرجى مراجعة الفروق.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_BUDGET_OVERRUN",
+                                import_file_code=file_code,
+                                overrun_pct=pct,
+                                actual_amount=round(float(actual_egp), 2),
+                                estimated_amount=round(float(est_egp), 2),
+                            ),
                             severity=severity,
                             category=category,
                             entity_type="LandedCostSettlementRecord",
@@ -442,9 +520,13 @@ class ExpiryCheckerService:
                     pct = round(((current_rate - prev_rate) / prev_rate) * 100, 2)
                     category = "CURRENCY_FLUCTUATION"
                     if not self.repo.exists_active_for_entity("Currency", usd_curr.currency_id, category):
-                        schema = NotificationCreate(
-                            title="تنبيه تقلب سعر الدولار الجمركي",
-                            message=f"تم رصد تغير في سعر الصرف الجمركي للدولار بنسبة {pct:+.2f}% (السعر الحالي: {current_rate:.2f} ج.م مقارنة بـ {prev_rate:.2f} ج.م). يرجى تحديث دراسات الرسوم الجمركية للشحنات الجارية.",
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_CUSTOMS_FX_RISE" if pct > 0 else "NOTIF_CUSTOMS_FX_DROP",
+                                change_pct=abs(pct),
+                                current_rate=round(current_rate, 2),
+                                previous_rate=round(prev_rate, 2),
+                            ),
                             severity="WARNING",
                             category=category,
                             entity_type="Currency",
@@ -474,13 +556,12 @@ class ExpiryCheckerService:
             if not self.repo.exists_active_for_entity("DemurrageTracking", entity_id, category):
                 total_fx = getattr(session, 'total_demurrage_fx', 0.0)
                 total_egp = getattr(session, 'total_cost_egp', 0.0)
-                schema = NotificationCreate(
-                    title=f"🚨 غرامات أرضيات نشطة: {session.import_file_code}",
-                    message=(
-                        f"شحنة {session.import_file_code} تتراكم عليها غرامات أرضيات "
-                        f"بقيمة ${total_fx:.0f} "
-                        f"({total_egp:.0f} ج.م). "
-                        f"يُرجى التدخل الفوري للتخليص والسحب."
+                schema = _coded_notification(
+                    msg(
+                        "NOTIF_DEMURRAGE_ACTIVE",
+                        import_file_code=session.import_file_code,
+                        fx_amount=round(float(total_fx or 0.0)),
+                        egp_amount=round(float(total_egp or 0.0)),
                     ),
                     severity="CRITICAL",
                     category=category,
@@ -524,12 +605,11 @@ class ExpiryCheckerService:
                 entity_id = getattr(session, 'tracking_id', getattr(session, 'id', 0))
                 if not self.repo.exists_active_for_entity("DemurrageTracking", entity_id, category):
                     days_left = int(free_days_remaining if free_days_remaining is not None else 3)
-                    schema = NotificationCreate(
-                        title=f"⚠️ تحذير أرضيات: {session.import_file_code}",
-                        message=(
-                            f"شحنة {session.import_file_code} متبقي لها {days_left} يوم "
-                            f"قبل انتهاء فترة السماح وبدء احتساب الغرامات. "
-                            f"الرجاء التعجيل في إجراءات التخليص."
+                    schema = _coded_notification(
+                        msg(
+                            "NOTIF_DEMURRAGE_WARNING",
+                            import_file_code=session.import_file_code,
+                            days_left=days_left,
                         ),
                         severity="WARNING",
                         category=category,
@@ -570,12 +650,12 @@ class ExpiryCheckerService:
             category = "INCOMPLETE_DOCS"
             entity_id = getattr(f, 'import_file_id', getattr(f, 'id', 0))
             if not self.repo.exists_active_for_entity("ImportFile", entity_id, category):
-                schema = NotificationCreate(
-                    title=f"📄 نقص مستندي: {f.import_file_code}",
-                    message=(
-                        f"شحنة {f.import_file_code} وصلت أو قاربت الوصول لكن اكتمال المستندات "
-                        f"{readiness_pct:.0f}% فقط ({verified}/7 مستندات). "
-                        f"يُرجى استكمال الملف المستندي فوراً."
+                schema = _coded_notification(
+                    msg(
+                        "NOTIF_DOCUMENT_SHORTAGE",
+                        import_file_code=f.import_file_code,
+                        readiness_pct=round(readiness_pct),
+                        verified_count=verified,
                     ),
                     severity="WARNING",
                     category=category,
@@ -636,12 +716,11 @@ class ExpiryCheckerService:
             entity_id = getattr(import_file, 'import_file_id', getattr(import_file, 'id', 0))
             if not self.repo.exists_active_for_entity("ImportFile", entity_id, category):
                 hours_left = max(0, int((eta_dt - now).total_seconds() / 3600))
-                schema = NotificationCreate(
-                    title=f"🚢 ETA وشيك بدون تخليص: {import_file.import_file_code}",
-                    message=(
-                        f"شحنة {import_file.import_file_code} ستصل خلال {hours_left} ساعة "
-                        f"ولم يُفتح لها ملف تخليص جمركي بعد. "
-                        f"يُرجى المباشرة فوراً في إجراءات إقرار 46 ك.م."
+                schema = _coded_notification(
+                    msg(
+                        "NOTIF_ETA_WITHOUT_CLEARANCE",
+                        import_file_code=import_file.import_file_code,
+                        hours=hours_left,
                     ),
                     severity="CRITICAL",
                     category=category,

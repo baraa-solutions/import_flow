@@ -142,7 +142,7 @@ import '../widgets/verify_tariff_dialog.dart';
                           ),
                           const SizedBox(height: 8),
                           Padding(
-                            padding: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsetsDirectional.only(end: 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -399,7 +399,7 @@ Widget _buildNafezaRulesList(
             ),
           ),
           child: Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: Text(
               ruleText,
               style: const TextStyle(

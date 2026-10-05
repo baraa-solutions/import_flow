@@ -117,7 +117,7 @@ def test_issue_final_customs_release_success(db_session: Session):
         SystemNotification.entity_id == imp_file.import_file_id,
         SystemNotification.entity_type == "ImportFile",
     ).all()
-    assert any("الإفراج الجمركي الأخضر" in n.title for n in notifs)
+    assert any("Green customs release issued" in n.title and n.msg_code == "CC_RELEASE_ISSUED" for n in notifs)
 
 
 def test_issue_final_customs_release_blocks_if_duties_unpaid(db_session: Session):

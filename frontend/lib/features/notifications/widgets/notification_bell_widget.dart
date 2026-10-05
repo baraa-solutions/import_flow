@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
 import '../models/notification_model.dart';
 import '../providers/notifications_provider.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class NotificationBellWidget extends ConsumerWidget {
   const NotificationBellWidget({super.key});
@@ -29,6 +30,7 @@ class NotificationBellWidget extends ConsumerWidget {
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final isAr = ref.watch(localeProvider).languageCode == 'ar';
+        final l10n = context.l10n;
 
         return PopupMenuButton<void>(
           tooltip: isAr ? 'إشعارات النظام والتنبيهات' : 'System Notifications & Alerts',
@@ -44,9 +46,9 @@ class NotificationBellWidget extends ConsumerWidget {
             children: [
               const Icon(Icons.notifications, color: Colors.white, size: 24),
               if (unreadCount > 0)
-                Positioned(
+                PositionedDirectional(
                   top: -4,
-                  right: -4,
+                  end: -4,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -166,9 +168,9 @@ class NotificationBellWidget extends ConsumerWidget {
                                   ? (isDark ? AppTheme.darkElevatedSurface.withOpacity(0.5) : Colors.transparent)
                                   : (isDark ? sevColor.withOpacity(0.2) : sevColor.withOpacity(0.08)),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border(
-                                right: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
-                                left: !isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                              border: BorderDirectional(
+                                end: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                                start: !isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
                               ),
                             ),
                             child: Column(
@@ -188,7 +190,7 @@ class NotificationBellWidget extends ConsumerWidget {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        n.title,
+                                        n.localizedTitle(l10n),
                                         style: TextStyle(
                                           fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
                                           fontSize: 12,
@@ -204,7 +206,7 @@ class NotificationBellWidget extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  n.message,
+                                  n.localizedMessage(l10n),
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,

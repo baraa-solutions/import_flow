@@ -479,7 +479,7 @@ class _ShipmentLifecycleNavigatorState
               return Expanded(
                 child: Container(
                   height: 6,
-                  margin: EdgeInsets.only(right: index < 9 ? 2 : 0),
+                  margin: EdgeInsetsDirectional.only(end: index < 9 ? 2 : 0),
                   decoration: BoxDecoration(
                     color: isFilled ? toneColor : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(2),

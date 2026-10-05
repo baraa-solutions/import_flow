@@ -18,12 +18,32 @@ from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.docs_customs_approval.model import DiscrepancyRectificationTicket
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg, render_en
 
 logger = logging.getLogger(__name__)
 
 # Minimum thresholds for autonomous surfacing (Section 5A.3)
 MIN_SAMPLE_SIZE = 2
 MIN_CONFIDENCE_THRESHOLD = 0.60
+
+# Language-independent defaults (single-language storage): codes / ISO-like values, never UI text.
+DEFAULT_DISCREPANCY_CATEGORY = "Other"  # one of the ticket issue_category values
+DEFAULT_PRODUCT_CATEGORY = "GENERAL_CARGO"
+DEFAULT_REGULATORY_BODY = "GOEIC"
+
+_GUIDE_PARTS = {"title": "title", "content": "body", "evidence_summary": "evidence", "reason_why": "reason"}
+
+
+def guide_texts(m: SysMsg, **english_overrides: Any) -> Dict[str, str]:
+    """English render of a guide message for the legacy text columns.
+
+    ``english_overrides`` replace params for the English text only (for example the month NAME for the
+    ``month`` number param); ``m.params`` keeps the language-independent values the UI localizes.
+    """
+    params = dict(m.params)
+    params.update(english_overrides)
+    return {field: render_en(m.code, params, part) for field, part in _GUIDE_PARTS.items()}
 
 
 class CandidatePattern:
@@ -42,7 +62,9 @@ class CandidatePattern:
         reason_why: str,
         contributing_files: List[Dict[str, Any]],
         scopes: List[Tuple[str, str]],
+        msg: Optional[SysMsg] = None,
     ):
+        self.msg = msg
         self.pattern_key = pattern_key
         self.category = category
         self.title = title
@@ -146,18 +168,17 @@ class AutonomousLearningEngine:
                     avg_delay = round(total_delay_days / len(delayed_files), 1)
                     pct = int(round((len(delayed_files) / total_shipments) * 100))
                     pattern_key = f"DELIVERY_RELIABILITY:SUPPLIER:{supplier_name.lower()}"
-                    title = f"تأخيرات متكررة في تسليم المورد {supplier_name} (+{avg_delay} يوم)"
-                    content = (
-                        f"يُلاحظ من واقع تحليل بيانات الشحنات السابقة أن المورد {supplier_name} "
-                        f"يتأخر في جاهزية البضاعة بمتوسط +{avg_delay} يوم عن التاريخ التعاقدي "
-                        f"(نسبة التكرار {pct}% عبر {len(delayed_files)} من أصل {total_shipments} شحنات). "
-                        f"يُوصى بإضافة هامش زمني للجدول الزمني وأخذ ذلك في الاعتبار عند إصدار ACID."
+                    guide_msg = msg(
+                        "GUIDE_SUPPLIER_DELAY",
+                        supplier_name=supplier_name,
+                        avg_delay_days=avg_delay,
+                        frequency_pct=pct,
+                        delayed_count=len(delayed_files),
+                        total_shipment_count=total_shipments,
                     )
-                    evidence_summary = (
-                        f"تم رصد تأخير في {len(delayed_files)} شحنة من إجمالي {total_shipments} شحنة "
-                        f"بمتوسط تأخير قدره {avg_delay} يوم."
-                    )
-                    reason_why = f"تكرار تأخر المورد {supplier_name} في استيفاء مواعيد التوريد التعاقدية في أكثر من شحنة."
+                    texts = guide_texts(guide_msg)
+                    title, content = texts["title"], texts["content"]
+                    evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
                     severity = "critical" if avg_delay >= 10 else "warning"
 
                     patterns.append(CandidatePattern(
@@ -172,6 +193,7 @@ class AutonomousLearningEngine:
                         evidence_summary=evidence_summary,
                         reason_why=reason_why,
                         contributing_files=delayed_files,
+                        msg=guide_msg,
                         scopes=[("supplier", supplier_name), ("pattern_key", pattern_key)],
                     ))
         except Exception as e:
@@ -237,17 +259,17 @@ class AutonomousLearningEngine:
                 if len(delayed_transits) >= MIN_SAMPLE_SIZE:
                     avg_extra = round(total_extra_days / len(delayed_transits), 1)
                     pattern_key = f"TRANSIT_TIME_ACCURACY:LINE:{carrier.lower()}:POD:{pod.lower()}"
-                    title = f"انحراف زمن الإبحار للخط {carrier} إلى {pod} (+{avg_extra} يوم)"
-                    content = (
-                        f"يُظهر الرصد الإحصائي أن رحلات الخط الملاحي {carrier} المتجهة إلى {pod} "
-                        f"تسجل زيادة فعلية عن زمن الترانزيت المجدول بمتوسط +{avg_extra} يوم عبر {len(delayed_transits)} شحنات. "
-                        f"يُنصح باشتراط فترة سماح كافية (Free Time >= 21 days) لتجنب غرامات التأخير."
+                    guide_msg = msg(
+                        "GUIDE_TRANSIT_DEVIATION",
+                        carrier_name=carrier,
+                        port_name=pod,
+                        avg_extra_days=avg_extra,
+                        delayed_count=len(delayed_transits),
+                        total_shipment_count=total_shipments,
                     )
-                    evidence_summary = (
-                        f"تأخرت {len(delayed_transits)} شحنة من أصل {total_shipments} بمعدل تأخير "
-                        f"إضافي قدره {avg_extra} يوم مقارنة بزمن الترانزيت التعاقدي."
-                    )
-                    reason_why = f"تكرار تجاوز الخط الملاحي {carrier} لأزمنة الترانزيت المجدولة على ميناء {pod}."
+                    texts = guide_texts(guide_msg)
+                    title, content = texts["title"], texts["content"]
+                    evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
 
                     patterns.append(CandidatePattern(
                         pattern_key=pattern_key,
@@ -261,6 +283,7 @@ class AutonomousLearningEngine:
                         evidence_summary=evidence_summary,
                         reason_why=reason_why,
                         contributing_files=delayed_transits,
+                        msg=guide_msg,
                         scopes=[("shipping_line", carrier), ("destination_port", pod), ("pattern_key", pattern_key)],
                     ))
         except Exception as e:
@@ -291,7 +314,7 @@ class AutonomousLearningEngine:
                     continue
 
                 categories = [t.issue_category for t in t_list if t.issue_category]
-                most_common_cat = max(set(categories), key=categories.count) if categories else "اختلاف بيانات الفاتورة وقائمة التعبئة"
+                most_common_cat = max(set(categories), key=categories.count) if categories else DEFAULT_DISCREPANCY_CATEGORY
 
                 evidence_files: List[Dict[str, Any]] = []
                 for t in t_list:
@@ -311,17 +334,15 @@ class AutonomousLearningEngine:
                 ).count() or len(t_list)
 
                 pattern_key = f"RECONCILIATION_FAILURES:SUPPLIER:{supplier_name.lower()}"
-                title = f"أخطاء مستندية متكررة من المورد {supplier_name} ({most_common_cat})"
-                content = (
-                    f"تم تسجيل {len(t_list)} بطاقات عدم تطابق مستندي تخص المورد {supplier_name}، "
-                    f"أبرزها ({most_common_cat}). "
-                    f"يجب إلزام المورد بتدقيق مسودات الشحن ومطابقة الأوزان والأوصاف قبل إصدار بوليصة الشحن النهائية."
+                guide_msg = msg(
+                    "GUIDE_SUPPLIER_DOC_ERRORS",
+                    supplier_name=supplier_name,
+                    category=most_common_cat,
+                    mismatch_count=len(t_list),
                 )
-                evidence_summary = (
-                    f"تسجيل {len(t_list)} حالات عدم تطابق مستندي سابقة في شحنات المورد، "
-                    f"تتركز معظمها في {most_common_cat}."
-                )
-                reason_why = f"تكرار إصدار مستندات بها اختلافات من المورد {supplier_name}."
+                texts = guide_texts(guide_msg)
+                title, content = texts["title"], texts["content"]
+                evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
 
                 patterns.append(CandidatePattern(
                     pattern_key=pattern_key,
@@ -335,6 +356,7 @@ class AutonomousLearningEngine:
                     evidence_summary=evidence_summary,
                     reason_why=reason_why,
                     contributing_files=evidence_files,
+                    msg=guide_msg,
                     scopes=[("supplier", supplier_name), ("pattern_key", pattern_key)],
                 ))
         except Exception as e:
@@ -381,16 +403,15 @@ class AutonomousLearningEngine:
                 } for f in f_list]
 
                 pattern_key = f"COST_VARIANCE:PORT:{port.lower()}"
-                title = f"ارتفاع تكلفة التخليص الفعلية عن التقديرات بميناء {port} (+{avg_var}%)"
-                content = (
-                    f"تُشير الحسابات الختامية للشحنات المفرغة في {port} إلى زيادة فعلية في التكلفة النهائية "
-                    f"(Landed Cost) عن الموازنة التقديرية بمتوسط +{avg_var}% عبر {len(f_list)} شحنات. "
-                    f"يُوصى بمراجعة بنود غرامات الأرضيات والمصاريف الإدارية المينائية مسبقاً."
+                guide_msg = msg(
+                    "GUIDE_PORT_COST_VARIANCE",
+                    port_name=port,
+                    avg_variance_pct=avg_var,
+                    shipment_count=len(f_list),
                 )
-                evidence_summary = (
-                    f"تجاوزت {len(f_list)} شحنات سابقة بميناء {port} التكلفة التقديرية بمتوسط زيادة +{avg_var}%."
-                )
-                reason_why = f"تكرار انحراف التكاليف الإجمالية الفعلية بالزيادة في ميناء {port}."
+                texts = guide_texts(guide_msg)
+                title, content = texts["title"], texts["content"]
+                evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
 
                 patterns.append(CandidatePattern(
                     pattern_key=pattern_key,
@@ -404,6 +425,7 @@ class AutonomousLearningEngine:
                     evidence_summary=evidence_summary,
                     reason_why=reason_why,
                     contributing_files=evidence_files,
+                    msg=guide_msg,
                     scopes=[("destination_port", port), ("pattern_key", pattern_key)],
                 ))
         except Exception as e:
@@ -429,20 +451,13 @@ class AutonomousLearningEngine:
                 if dt:
                     month_shipments.setdefault(dt.month, []).append(f)
 
-            month_names = {
-                1: "يناير (بداية العام/العطلات)",
-                2: "فبراير (رأس السنة الصينية)",
-                7: "يوليو (بدء موسم الذروة)",
-                8: "أغسطس (موسم الذروة Q3)",
-                9: "سبتمبر (ذروة الشحن الخريفي)",
-                12: "ديسمبر (إغلاقات نهاية العام)",
-            }
+            # Months with a known seasonal congestion (holidays / Chinese New Year / Q3 peak / year-end closures).
+            congestion_months = {1, 2, 7, 8, 9, 12}
 
             for month, f_list in month_shipments.items():
-                if month not in month_names or len(f_list) < MIN_SAMPLE_SIZE:
+                if month not in congestion_months or len(f_list) < MIN_SAMPLE_SIZE:
                     continue
 
-                m_name = month_names[month]
                 evidence_files = [{
                     "import_file_id": f.import_file_id,
                     "import_file_code": f.import_file_code,
@@ -451,14 +466,11 @@ class AutonomousLearningEngine:
                 } for f in f_list]
 
                 pattern_key = f"SEASONAL_EFFECTS:MONTH:{month}"
-                title = f"تأثيرات الازدحام الموسمي للشحنات خلال شهر {m_name}"
-                content = (
-                    f"تشهد الشحنات المفتوحة خلال شهر {m_name} بطئاً عاماً في سلاسل الإمداد "
-                    f"بسبب الإجازات الرسمية أو ذروة الشحن البحري العالمي. "
-                    f"يُنصح بالبدء المبكر في استخراج ACID وحجز المساحات الملاحية قبل موعد الشحن بـ 3 أسابيع على الأقل."
-                )
-                evidence_summary = f"تسجيل حركة استيرادية مكثفة وتأخيرات موسمية في {len(f_list)} شحنة خلال هذا الشهر."
-                reason_why = f"تكرار بطء التوريد والترانزيت في دورة شهر {m_name} السنوية."
+                # ``month`` param = month number (the UI renders the localized month name).
+                guide_msg = msg("GUIDE_SEASONAL_CONGESTION", month=month, shipment_count=len(f_list))
+                texts = guide_texts(guide_msg)
+                title, content = texts["title"], texts["content"]
+                evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
 
                 patterns.append(CandidatePattern(
                     pattern_key=pattern_key,
@@ -472,6 +484,7 @@ class AutonomousLearningEngine:
                     evidence_summary=evidence_summary,
                     reason_why=reason_why,
                     contributing_files=evidence_files,
+                    msg=guide_msg,
                     scopes=[("season_timing", f"Month-{month}"), ("pattern_key", pattern_key)],
                 ))
         except Exception as e:
@@ -513,14 +526,17 @@ class AutonomousLearningEngine:
                 ).count() or len(pairs)
 
                 first_file = pairs[0][1]
-                prod_cat = first_file.product_category or "بضائع متنوعة"
+                prod_cat = first_file.product_category or DEFAULT_PRODUCT_CATEGORY
 
                 # Extract regulatory bodies
                 all_bodies = set()
                 for r, _ in pairs:
                     if r.regulatory_bodies and isinstance(r.regulatory_bodies, list):
                         all_bodies.update(r.regulatory_bodies)
-                bodies_str = "، ".join(all_bodies) if all_bodies else "الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)"
+                body_codes = sorted(
+                    {str(b) for b in (enum_codes.normalize_list(enum_codes.REGULATORY_BODY, list(all_bodies)) or [])}
+                ) or [DEFAULT_REGULATORY_BODY]
+                bodies_str = ", ".join(body_codes)
 
                 evidence_files = [{
                     "clearance_id": r.customs_clearance_id,
@@ -532,16 +548,16 @@ class AutonomousLearningEngine:
                 } for r, f in pairs]
 
                 pattern_key = f"DOCUMENTATION_RISK:HS:{hs_code}"
-                title = f"فحص معملي وعرض رقابي إلزامي للبند الجمركي {hs_code}"
-                content = (
-                    f"البند الجمركي {hs_code} ({prod_cat}) يخضع بشكل نمطي لمسار الكشف الأحمر وسحب العينات "
-                    f"لصالح ({bodies_str}) بنسبة 100% عبر {len(pairs)} شحنات سابقة. "
-                    f"يجب تجهيز الفواتير الأصلية المعتمدة وشهادات التحليل والمطابقة مسبقاً لتفادي غرامات الحاويات."
+                guide_msg = msg(
+                    "GUIDE_HS_LAB_INSPECTION",
+                    hs_code=hs_code,
+                    product_category=prod_cat,
+                    regulatory_bodies_enum_regulatory_body=bodies_str,
+                    shipment_count=len(pairs),
                 )
-                evidence_summary = (
-                    f"خضعت جميع الشحنات السابقة للبند {hs_code} ({len(pairs)} شحنة) للفحص المعملي ومسار الكشف الأحمر."
-                )
-                reason_why = f"تكرار تحويل البند الجمركي {hs_code} إلى المسار الأحمر وسحب العينات في الشحنات السابقة."
+                texts = guide_texts(guide_msg)
+                title, content = texts["title"], texts["content"]
+                evidence_summary, reason_why = texts["evidence_summary"], texts["reason_why"]
 
                 patterns.append(CandidatePattern(
                     pattern_key=pattern_key,
@@ -555,6 +571,7 @@ class AutonomousLearningEngine:
                     evidence_summary=evidence_summary,
                     reason_why=reason_why,
                     contributing_files=evidence_files,
+                    msg=guide_msg,
                     scopes=[("hs_code", hs_code), ("product_category", prod_cat), ("pattern_key", pattern_key)],
                 ))
         except Exception as e:
@@ -648,6 +665,8 @@ class AutonomousLearningEngine:
                     if existing_entry.status != "CONFIRMED":
                         existing_entry.title = cand.title
                         existing_entry.content = cand.content
+                        existing_entry.msg_code = cand.msg.code if cand.msg else None
+                        existing_entry.msg_params = cand.msg.params if cand.msg else None
                         existing_entry.severity = cand.severity
                         existing_entry.status = "ACTIVE"
                         existing_entry.is_active = True
@@ -686,6 +705,8 @@ class AutonomousLearningEngine:
                         evidence_summary=cand.evidence_summary,
                         contributing_files_json=json.dumps(cand.contributing_files, ensure_ascii=False),
                         reason_why=cand.reason_why,
+                        msg_code=cand.msg.code if cand.msg else None,
+                        msg_params=cand.msg.params if cand.msg else None,
                         first_detected_at=now,
                         last_recalculated_at=now,
                     )

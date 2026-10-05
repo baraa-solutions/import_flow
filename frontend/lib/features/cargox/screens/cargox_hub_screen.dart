@@ -457,8 +457,8 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.cobalt.withOpacity(0.12), Colors.blue.shade50],
-                  begin: Alignment.centerRight,
-                  end: Alignment.centerLeft,
+                  begin: AlignmentDirectional.centerEnd,
+                  end: AlignmentDirectional.centerStart,
                 ),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
@@ -550,6 +550,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _blNumberCtrl,
+                            textDirection: TextDirection.ltr,
                             decoration: InputDecoration(
                               labelText: context.l10n.cargoxBlNumberField,
                               prefixIcon: const Icon(Icons.directions_boat_outlined, size: 18),

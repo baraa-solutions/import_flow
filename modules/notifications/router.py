@@ -72,6 +72,8 @@ async def create_notification(
             "message": created.message,
             "severity": created.severity,
             "category": created.category,
+            "msg_code": created.msg_code,
+            "msg_params": created.msg_params,
             "created_at": created.created_at.isoformat(),
         }
     })
@@ -121,6 +123,8 @@ async def trigger_expiry_check(
                 "message": notif.message,
                 "severity": notif.severity,
                 "category": notif.category,
+                "msg_code": notif.msg_code,
+                "msg_params": notif.msg_params,
                 "created_at": notif.created_at.isoformat(),
             }
         })

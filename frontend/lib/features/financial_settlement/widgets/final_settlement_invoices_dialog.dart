@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/invoices_aggregation_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
+import 'package:frontend/core/widgets/ltr_text.dart';
 class FinalSettlementInvoicesDialog extends ConsumerStatefulWidget {
   final int importFileId;
   final String importFileCode;
@@ -42,13 +44,14 @@ class _FinalSettlementInvoicesDialogState
   InvoicesAggregationResponseModel? _aggregationData;
 
   String _selectedPartyFilter = 'ALL';
-  final _settledByController =
-      TextEditingController(text: 'أحمد كمال (أخصائي التكاليف والتسويات)');
+  final _settledByController = TextEditingController();
   final _notesController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    // Default to the signed-in user (no hard-coded sample name).
+    _settledByController.text = ref.read(authProvider).user?.fullName ?? '';
     _loadData();
   }
 
@@ -208,9 +211,9 @@ class _FinalSettlementInvoicesDialogState
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
         color: AppTheme.charcoal,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
+        borderRadius: BorderRadiusDirectional.only(
+          topStart: Radius.circular(12),
+          topEnd: Radius.circular(12),
         ),
       ),
       child: Row(
@@ -514,7 +517,7 @@ class _FinalSettlementInvoicesDialogState
         children: partyFilters.map((filter) {
           final isSelected = _selectedPartyFilter == filter['key'];
           return Padding(
-            padding: const EdgeInsets.only(left: 8.0),
+            padding: const EdgeInsetsDirectional.only(start: 8.0),
             child: FilterChip(
               label: Text(filter['label']!),
               selected: isSelected,
@@ -601,7 +604,7 @@ class _FinalSettlementInvoicesDialogState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      LtrText(
                         inv.invoiceNo,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
@@ -790,9 +793,9 @@ class _FinalSettlementInvoicesDialogState
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
+        borderRadius: const BorderRadiusDirectional.only(
+          bottomStart: Radius.circular(12),
+          bottomEnd: Radius.circular(12),
         ),
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),

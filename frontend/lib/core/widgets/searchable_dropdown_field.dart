@@ -163,8 +163,8 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
     final filtered = _filteredItems;
 
     return AlertDialog(
-      titlePadding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-      contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      titlePadding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 8),
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -232,7 +232,8 @@ def test_sync_consultation_lifecycle_stage(db_session):
     # Check that ImportFile next action points to STEP_03
     db_session.refresh(file1)
     assert "STEP_02" in file1.current_module
-    assert "STEP_03" in file1.next_action
+    assert file1.next_action_code == "NA_STEP03_REVIEW_REGULATORY_APPROVALS"
+    assert file1.next_action == "Review the shipment's import requirements and regulatory approvals"
 
 
 def test_sync_budget_lifecycle_stage(db_session):
@@ -251,7 +252,8 @@ def test_sync_budget_lifecycle_stage(db_session):
     assert step3.status == "Completed"
     step4 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_04")
     assert step4.status == "In-Progress"
-    assert file1.current_stage == "Phase 2: Approvals & ACID"
+    assert file1.current_stage == "Phase 2: Shipment Initiation"
+    assert file1.current_phase_id == 2
     assert "STEP_04" in file1.current_module
 
     # Case 2: Budget approved -> completes STEP_04 and activates STEP_05 (ACID)
@@ -262,9 +264,10 @@ def test_sync_budget_lifecycle_stage(db_session):
     assert step4.status == "Completed"
     step5 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_05")
     assert step5.status == "In-Progress"
-    assert file1.current_stage == "Phase 2: Approvals & ACID"
+    assert file1.current_stage == "Phase 2: Shipment Initiation"
     assert "STEP_05" in file1.current_module
-    assert "STEP_05" in file1.next_action
+    assert file1.current_step_code == "STEP_05"
+    assert file1.next_action_code == "NA_STEP05_REQUEST_ACID"
 
 
 def test_full_stage_advancement_and_phase_transition(db_session):
@@ -300,7 +303,7 @@ def test_full_stage_advancement_and_phase_transition(db_session):
     db_session.refresh(file1)
     assert file1.current_stage == "Phase 3: Booking & Doc Prep"
     assert "STEP_06" in file1.current_module
-    assert "حجز النولون" in file1.current_module
+    assert file1.current_module == "STEP_06 Freight Booking"
     assert file1.progress_percent >= 24.0
 
     # Verify SmartTask created for STEP_06

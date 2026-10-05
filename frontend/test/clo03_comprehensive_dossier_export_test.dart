@@ -338,7 +338,10 @@ void main() {
       expect(find.byKey(const Key('dossierExportNotesField')), findsOneWidget);
       expect(find.byKey(const Key('confirmDossierExportBtn')), findsOneWidget);
 
-      // 6. Enter notes and confirm export
+      // 6. Enter the signer (no sample name is prefilled any more), notes, and confirm export
+      await tester.ensureVisible(find.byKey(const Key('dossierExportedByField')));
+      await tester.enterText(find.byKey(const Key('dossierExportedByField')), 'Finance Controller');
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('dossierExportNotesField')));
       await tester.enterText(
         find.byKey(const Key('dossierExportNotesField')),

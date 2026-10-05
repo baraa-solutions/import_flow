@@ -64,7 +64,7 @@ class UnsavedChangesDialog extends StatelessWidget {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 14),
               child: Row(
                 children: [
                   Container(

@@ -36,6 +36,42 @@ from .repository import (
 )
 from .validators import validate_bank_receipt_no, validate_release_permit
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+from modules.common.file_tracking import set_file_tracking
+from modules.common.system_messages import SysMsg, msg, render_en
+
+
+# ── Single-language storage: system texts are message codes + English render ──
+def _render(m: SysMsg, part: str, **english_overrides) -> str:
+    """English render of ``m``; ``english_overrides`` replace params for the English text only (e.g. an
+    enum label instead of its code), ``m.params`` keeps the language-independent values."""
+    params = dict(m.params)
+    params.update(english_overrides)
+    return render_en(m.code, params, part)
+
+
+def _task_fields(m: SysMsg, **english_overrides) -> dict:
+    """SmartTask title/description (English) + message code."""
+    return {
+        "title": _render(m, "title", **english_overrides)[:255],
+        "description": _render(m, "body", **english_overrides),
+        "msg_code": m.code,
+        "msg_params": m.params,
+    }
+
+
+def _notification_fields(m: SysMsg, **english_overrides) -> dict:
+    """SystemNotification title/message (English) + message code."""
+    return {
+        "title": _render(m, "title", **english_overrides)[:200],
+        "message": _render(m, "body", **english_overrides),
+        "msg_code": m.code,
+        "msg_params": m.params,
+    }
+
+
+def _money(value) -> float:
+    return round(float(value or 0.0), 2)
 
 def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate) -> CustomsClearanceRecord:
     # Check import file exists
@@ -98,7 +134,7 @@ def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate
             import_file_id=schema.import_file_id,
             completed_step_code="STEP_12",
             target_step_codes=["STEP_13"],
-            notes=f"تم فتح سجل التخليص الجمركي ({code}) وانتقال الملف إلى مرحلة قيد ومطابقة الإقرار الجمركي 46.",
+            notes_msg=msg("CC_RECORD_OPENED", clearance_code=code),
             assigned_user="Customs Broker",
         )
     except Exception as e:
@@ -235,10 +271,16 @@ def authorize_customs_broker_service(
     imp_file.customs_broker_delegated_at = delegation_dt
     imp_file.customs_broker_authorization_status = "Authorized"
     imp_file.current_module = "Phase 6 - Customs Preparation"
-    imp_file.current_stage = "Customs Broker Authorized (تفويض المخلص الجمركي)"
+    set_file_tracking(imp_file, stage_code="CUSTOMS_BROKER_AUTHORIZED", next_action=msg("NA_CS_PAY_DELIVERY_ORDER"))
     if (imp_file.progress_percent or 0.0) < 80.0:
         imp_file.progress_percent = 80.0
-    imp_file.next_action = "سداد إذن التسليم الملاحي واستلام D/O (CS-02)"
+    file_label = imp_file.import_file_code or f"IMP-{imp_file.import_file_id}"
+    broker_msg = msg(
+        "CC_BROKER_AUTHORIZED",
+        broker_name=broker.partner_name,
+        import_file_code=file_label,
+        delegation_no=delegation_no,
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -261,7 +303,7 @@ def authorize_customs_broker_service(
                 or "التفويض الإلكتروني" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم تعيين وتفويض المخلص الجمركي ({broker.partner_name}) برقم تفويض ({delegation_no})."
+                t.completion_notes = _render(broker_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -288,8 +330,12 @@ def authorize_customs_broker_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"سداد إذن التسليم الملاحي واستلام D/O (CS-02) — {file_label}".strip(),
-                description=f"تم تعيين وتفويض المخلص الجمركي ({broker.partner_name}) برقم تفويض ({delegation_no}). يرجى سداد مصاريف التوكيل الملاحي واستلام إذن التسليم (Delivery Order) لبدء الكشف والمعاينة وقيد نموذج 46.",
+                **_task_fields(msg(
+                    "CC_TASK_DELIVERY_ORDER_PAYMENT",
+                    import_file_code=file_label,
+                    broker_name=broker.partner_name,
+                    delegation_no=delegation_no,
+                )),
                 task_type="DELIVERY_ORDER_PAYMENT",
                 priority="High",
                 status="Pending",
@@ -306,8 +352,7 @@ def authorize_customs_broker_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم تفويض المخلص الجمركي إلكترونياً — {broker.partner_name}",
-            message=f"تم اعتماد وتفويض المخلص الجمركي ({broker.partner_name}) للشحنة ({file_label}) برقم تفويض ({delegation_no}). الملف جاهز لسداد إذن التسليم والبدء في الإقرار الجمركي 46 ك.م.",
+            **_notification_fields(broker_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -328,9 +373,9 @@ def authorize_customs_broker_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_12",
             target_step_codes=["STEP_13"],
-            notes=f"تم تعيين وتفويض المخلص الجمركي ({broker.partner_name}) برقم تفويض ({delegation_no}). انتقال الملف إلى مرحلة إقرار 46 ك.م.",
+            notes_msg=broker_msg,
             assigned_user="Customs Broker",
-            custom_next_action="سداد إذن التسليم الملاحي واستلام D/O (CS-02)",
+            next_action_msg=msg("NA_CS_PAY_DELIVERY_ORDER"),
             min_progress_percent=80.0,
         )
     except Exception as ex_lb:
@@ -476,10 +521,18 @@ def record_delivery_order_payment_service(
     imp_file.delivery_order_expiry_date = expiry_dt
     imp_file.delivery_order_status = "PAID_AND_RECEIVED"
     imp_file.current_module = "Phase 6 - Customs Preparation"
-    imp_file.current_stage = "Delivery Order Paid & Received (سداد إذن التسليم الملاحي)"
+    set_file_tracking(imp_file, stage_code="DELIVERY_ORDER_PAID", next_action=msg("NA_CS_REGISTER_DECLARATION_46"))
     if (imp_file.progress_percent or 0.0) < 83.0:
         imp_file.progress_percent = 83.0
-    imp_file.next_action = "قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03)"
+    do_file_label = imp_file.import_file_code or f"IMP-{imp_file.import_file_id}"
+    do_exp_str = expiry_dt.strftime("%Y-%m-%d") if hasattr(expiry_dt, "strftime") else str(expiry_dt)
+    do_msg = msg(
+        "CC_DELIVERY_ORDER_PAID",
+        import_file_code=do_file_label,
+        shipping_agent_name=shipping_agent_name or "-",
+        do_number=do_number,
+        expiry_date=do_exp_str,
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -502,7 +555,7 @@ def record_delivery_order_payment_service(
                 or "D/O" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم سداد مصاريف التوكيل واستلام إذن التسليم رقم ({do_number}) بإيصال ({payment_ref})."
+                t.completion_notes = _render(do_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -530,8 +583,12 @@ def record_delivery_order_payment_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03) — {file_label}".strip(),
-                description=f"تم سداد مصاريف التوكيل الملاحي واستلام إذن التسليم (D/O: {do_number}) بصلاحية حتى {exp_str}. يرجى سرعة قيد وتثبيت الإقرار الجمركي ونموذج 46 ك.م عبر نافذة MTS للبدء في إجراءات الكشف والتثمين.",
+                **_task_fields(msg(
+                    "CC_TASK_DECLARATION_46",
+                    import_file_code=file_label,
+                    do_number=do_number,
+                    expiry_date=exp_str,
+                )),
                 task_type="CUSTOMS_DECLARATION_46",
                 priority="High",
                 status="Pending",
@@ -548,8 +605,7 @@ def record_delivery_order_payment_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم سداد إذن التسليم واستلام D/O — {file_label}",
-            message=f"تم تسجيل سداد مصاريف التوكيل الملاحي ({shipping_agent_name or 'التوكيل المختص'}) واستلام إذن التسليم ({do_number}) للشحنة ({file_label}). تنتهي الصلاحية في ({exp_str}). الملف جاهز لقيد نموذج 46.",
+            **_notification_fields(do_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -570,9 +626,9 @@ def record_delivery_order_payment_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_12",
             target_step_codes=["STEP_13"],
-            notes=f"تم سداد مصاريف التوكيل الملاحي واستلام إذن التسليم ({do_number}). جاهز لقيد 46 ك.م.",
+            notes_msg=do_msg,
             assigned_user="Customs Broker",
-            custom_next_action="قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03)",
+            next_action_msg=msg("NA_CS_REGISTER_DECLARATION_46"),
             min_progress_percent=83.0,
         )
     except Exception as ex_lb:
@@ -628,7 +684,7 @@ def register_customs_declaration_46_service(
     dec_dt = payload.declaration_46_date or datetime.now(timezone.utc)
     channel = payload.channel_type or "Red Channel"
     office = (payload.customs_office_name or "").strip() or "Alexandria Port Customs"
-    reg_bodies = payload.regulatory_bodies if payload.regulatory_bodies is not None else []
+    reg_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.regulatory_bodies) or []
     tariff_count = payload.customs_tariff_items_count if payload.customs_tariff_items_count and payload.customs_tariff_items_count > 0 else 1
     mts_cert = payload.mts_certificate_number.strip() if payload.mts_certificate_number else None
 
@@ -680,10 +736,16 @@ def register_customs_declaration_46_service(
     imp_file.form46_date = dec_dt
     imp_file.form46_status = "REGISTERED"
     imp_file.current_module = "Phase 7 - Customs Clearance"
-    imp_file.current_stage = "Under Customs Clearance (تحت التخليص والكشف 46)"
+    set_file_tracking(imp_file, stage_code="UNDER_CUSTOMS_CLEARANCE", next_action=msg("NA_CL_RECORD_INSPECTION"))
     if (imp_file.progress_percent or 0.0) < 86.0:
         imp_file.progress_percent = 86.0
-    imp_file.next_action = "تسجيل الكشف والمعاينة وسحب العينات (CL-01)"
+    d46_msg = msg(
+        "CC_DECLARATION_46_REGISTERED",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+        declaration_no=dec_no,
+        channel_enum_customs_channel=enum_codes.normalize(enum_codes.CUSTOMS_CHANNEL, channel),
+        customs_office=office,
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -706,7 +768,7 @@ def register_customs_declaration_46_service(
                 or "نموذج 46" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم قيد الإقرار الجمركي ونموذج 46 ك.م برقم ({dec_no}) على المسار ({channel})."
+                t.completion_notes = _render(d46_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -733,8 +795,13 @@ def register_customs_declaration_46_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"تسجيل الكشف والمعاينة وسحب العينات (CL-01) — {file_label}".strip(),
-                description=f"تم قيد وتثبيت الإقرار الجمركي 46 ك.م برقم ({dec_no}) على المسار ({channel}) بمكتب جمارك ({office}). يرجى البدء في إجراءات المعاينة الميدانية وسحب العينات لجهات العرض المحددة.",
+                **_task_fields(msg(
+                    "CC_TASK_INSPECTION",
+                    import_file_code=file_label,
+                    declaration_no=dec_no,
+                    channel_enum_customs_channel=enum_codes.normalize(enum_codes.CUSTOMS_CHANNEL, channel),
+                    customs_office=office,
+                )),
                 task_type="CUSTOMS_INSPECTION_SAMPLING",
                 priority="High",
                 status="Pending",
@@ -751,8 +818,7 @@ def register_customs_declaration_46_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم قيد الإقرار الجمركي 46 ك.م — {file_label}",
-            message=f"تم قيد وتثبيت الإقرار الجمركي 46 ك.م برقم ({dec_no}) على المسار ({channel}) للشحنة ({file_label}) بمكتب جمارك ({office}). الملف قيد الكشف والمعاينة وسحب العينات (CL-01).",
+            **_notification_fields(d46_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -773,9 +839,9 @@ def register_customs_declaration_46_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_13",
             target_step_codes=["STEP_14", "STEP_15"],
-            notes=f"تم قيد وتثبيت الإقرار الجمركي 46 ك.م برقم ({dec_no}) على المسار ({channel}). انتقال الشحنة إلى الكشف والمعاينة وسحب العينات.",
+            notes_msg=d46_msg,
             assigned_user="Customs Broker",
-            custom_next_action="تسجيل الكشف والمعاينة وسحب العينات (CL-01)",
+            next_action_msg=msg("NA_CL_RECORD_INSPECTION"),
             min_progress_percent=86.0,
         )
     except Exception as ex_lb:
@@ -835,11 +901,12 @@ def record_customs_inspection_sampling_service(
 
     insp_dt = payload.inspection_date or datetime.now(timezone.utc)
     sampling_dt = payload.sampling_date or (insp_dt if payload.is_sample_drawn else None)
-    insp_yard = (payload.inspection_yard or "").strip() or "ساحة الفحص المشترك"
+    # INSPECTION_YARD code when picked from the list (legacy Arabic names mapped); free text stays as typed.
+    insp_yard = enum_codes.normalize(enum_codes.INSPECTION_YARD, (payload.inspection_yard or "").strip()) or "Joint Inspection Yard"
     insp_type = (payload.inspection_type or "").strip() or "Physical & Sampling"
     insp_result = (payload.inspection_result or "").strip() or "Conforming"
     sample_status = payload.sample_test_status or ("Samples Under Testing" if payload.is_sample_drawn else "None")
-    sampled_bodies = payload.sampled_regulatory_bodies if payload.sampled_regulatory_bodies is not None else []
+    sampled_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.sampled_regulatory_bodies) or []
     goeic_cert = (payload.goeic_certificate_no or "").strip() if payload.goeic_certificate_no else None
     lab_fees = float(payload.lab_service_fees or 0.0)
 
@@ -902,10 +969,17 @@ def record_customs_inspection_sampling_service(
 
     # 4. Synchronize ImportFile
     imp_file.current_module = "Phase 7 - Customs Clearance & Inspection"
-    imp_file.current_stage = "Customs Inspection & Sampling Completed (تم الكشف وسحب العينات)"
+    set_file_tracking(imp_file, stage_code="CUSTOMS_INSPECTION_COMPLETED", next_action=msg("NA_CL_ASSESS_FINAL_DUTIES"))
     if (imp_file.progress_percent or 0.0) < 88.0:
         imp_file.progress_percent = 88.0
-    imp_file.next_action = "احتساب الرسوم والضرائب الجمركية النهائية (CL-02)"
+    # inspection_yard is an INSPECTION_YARD code when picked from the list (render_en uses its English label).
+    insp_msg = msg(
+        "CC_INSPECTION_RECORDED",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+        inspection_result_enum_inspection_result=enum_codes.normalize(enum_codes.INSPECTION_RESULT, insp_result),
+        inspection_yard_enum_inspection_yard=enum_codes.normalize(enum_codes.INSPECTION_YARD, insp_yard),
+        sampling_record_no=sampling_rec if payload.is_sample_drawn else "-",
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -928,7 +1002,7 @@ def record_customs_inspection_sampling_service(
                 or "سحب العينات" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم إنجاز الكشف والمعاينة بنتيجة ({insp_result}) وسحب العينات بمحضر ({sampling_rec if payload.is_sample_drawn else 'بدون سحب'})."
+                t.completion_notes = _render(insp_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -955,8 +1029,13 @@ def record_customs_inspection_sampling_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"احتساب الرسوم والضرائب الجمركية النهائية (CL-02) — {file_label}".strip(),
-                description=f"تم تسجيل الكشف والمعاينة وسحب العينات للشحنة ({file_label}) بنجاح بنتيجة ({insp_result}). يرجى مراجعة المطالبة الجمركية واحتساب الرسوم والضرائب الجمركية النهائية (الوارد، القيمة المضافة، رسم التنمية، ورسوم الخدمات).",
+                **_task_fields(msg(
+                    "CC_TASK_DUTY_ASSESSMENT",
+                    import_file_code=file_label,
+                    inspection_result_enum_inspection_result=enum_codes.normalize(
+                        enum_codes.INSPECTION_RESULT, insp_result
+                    ),
+                )),
                 task_type="FINAL_DUTY_ASSESSMENT",
                 priority="High",
                 status="Pending",
@@ -973,8 +1052,7 @@ def record_customs_inspection_sampling_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم تسجيل الكشف والمعاينة وسحب العينات — {file_label}",
-            message=f"تم تسجيل محضر الكشف والمعاينة الميدانية للشحنة ({file_label}) بنتيجة ({insp_result}) في ({insp_yard}). محضر سحب العينات: ({sampling_rec if payload.is_sample_drawn else 'لا يوجد'}). جاهز لاحتساب الرسوم النهائية (CL-02).",
+            **_notification_fields(insp_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -995,9 +1073,9 @@ def record_customs_inspection_sampling_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_14",
             target_step_codes=["STEP_15", "STEP_17"],
-            notes=f"تم إنجاز الكشف والمعاينة بنتيجة ({insp_result}). محضر سحب العينات: ({sampling_rec if payload.is_sample_drawn else 'لا يوجد'}). انتقال الشحنة لاحتساب الرسوم الجمركية.",
+            notes_msg=insp_msg,
             assigned_user="Customs Broker",
-            custom_next_action="احتساب الرسوم والضرائب الجمركية النهائية (CL-02)",
+            next_action_msg=msg("NA_CL_ASSESS_FINAL_DUTIES"),
             min_progress_percent=88.0,
         )
     except Exception as ex_lb:
@@ -1085,7 +1163,7 @@ def assess_final_customs_duties_service(
         record = CustomsClearanceRecord(
             clearance_code=clearance_code,
             import_file_id=payload.import_file_id,
-            customs_office_name=imp_file.port_of_discharge or "ميناء الدخيلة الإسكندرية",
+            customs_office_name=imp_file.port_of_discharge or "Dekheila Port Customs, Alexandria",
             owner=imp_file.owner or "Kamal",
             created_by=user,
             updated_by=user,
@@ -1122,7 +1200,7 @@ def assess_final_customs_duties_service(
     if payload.nafeza_assessment_json:
         record.nafeza_assessment_json = payload.nafeza_assessment_json
     if payload.assessment_notes:
-        record.notes = (record.notes or "") + f" | تثمين نافذة: {payload.assessment_notes}"
+        record.notes = (record.notes or "") + f" | Nafeza assessment: {payload.assessment_notes}"
 
     record.status = "Customs Duties Assessed - Ready for Payment"
     record.payment_status = "Payment Requested" if record.payment_status in ("Unpaid", None) else record.payment_status
@@ -1131,10 +1209,15 @@ def assess_final_customs_duties_service(
 
     # 7. Synchronize ImportFile
     imp_file.current_module = "Phase 7 - Customs Clearance & Duty Assessment"
-    imp_file.current_stage = "Customs Duty Assessed (احتساب الرسوم الجمركية والمطالبة)"
+    set_file_tracking(imp_file, stage_code="CUSTOMS_DUTY_ASSESSED", next_action=msg("NA_CL_RECORD_DUTY_PAYMENT"))
     if (imp_file.progress_percent or 0.0) < 90.0:
         imp_file.progress_percent = 90.0
-    imp_file.next_action = "تسجيل سداد الرسوم الجمركية بسداد (CL-03)"
+    assess_msg = msg(
+        "CC_DUTIES_ASSESSED",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+        claim_no=claim_no,
+        total_amount=_money(actual_total),
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -1157,7 +1240,7 @@ def assess_final_customs_duties_service(
                 or "تثمين الرسوم" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم احتساب واعتماد المطالبة الجمركية رقم ({claim_no}) بإجمالي ({actual_total:,.2f} ج.م)."
+                t.completion_notes = _render(assess_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -1184,8 +1267,12 @@ def assess_final_customs_duties_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"تسجيل سداد الرسوم الجمركية عبر سداد / E-Finance (CL-03) — {file_label}".strip(),
-                description=f"صدرت المطالبة الجمركية رقم ({claim_no}) بإجمالي رسوم ({actual_total:,.2f} ج.م) للشحنة ({file_label}). يرجى إصدار أمر التحويل والسداد عبر منظومة سداد وتوثيق إيصال السداد البنكي.",
+                **_task_fields(msg(
+                    "CC_TASK_DUTY_PAYMENT",
+                    import_file_code=file_label,
+                    claim_no=claim_no,
+                    total_amount=_money(actual_total),
+                )),
                 task_type="CUSTOMS_DUTY_PAYMENT",
                 priority="Urgent",
                 status="Pending",
@@ -1202,8 +1289,7 @@ def assess_final_customs_duties_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم احتساب الرسوم والضرائب الجمركية — {file_label}",
-            message=f"تم تثمين واعتماد المطالبة الجمركية رقم ({claim_no}) للشحنة ({file_label}) بإجمالي مستحق ({actual_total:,.2f} ج.م). جاهز للسداد عبر منظومة سداد (CL-03).",
+            **_notification_fields(assess_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -1224,9 +1310,9 @@ def assess_final_customs_duties_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_15",
             target_step_codes=["STEP_16", "STEP_17"],
-            notes=f"تم احتساب الرسوم والضرائب الجمركية بمطالبة نافذة #{claim_no} بإجمالي ({actual_total:,.2f} ج.م). جاهز للسداد عبر سداد.",
+            notes_msg=assess_msg,
             assigned_user="Customs Broker",
-            custom_next_action="تسجيل سداد الرسوم الجمركية بسداد (CL-03)",
+            next_action_msg=msg("NA_CL_RECORD_DUTY_PAYMENT"),
             min_progress_percent=90.0,
         )
     except Exception as ex_lb:
@@ -1320,16 +1406,16 @@ def record_customs_duty_payment_service(
     pay_dt = payload.payment_date or datetime.now(timezone.utc)
     record.bank_receipt_no = receipt_no
     record.sadad_number = sadad_no
-    record.paying_bank_name = payload.paying_bank_name.strip()
+    record.paying_bank_name = enum_codes.normalize(enum_codes.DUTY_BANK, payload.paying_bank_name.strip())
     record.payment_date = pay_dt
-    record.payment_method = payload.payment_method or "Sadad / E-Finance"
+    record.payment_method = enum_codes.normalize(enum_codes.PAYMENT_METHOD, payload.payment_method) or "SADAD_EFINANCE"
     record.duty_paid_amount = payload.duty_paid_amount
     record.actual_duty_total = payload.duty_paid_amount
     if payload.receipt_file_url:
         record.receipt_file_url = payload.receipt_file_url
     if payload.payment_notes:
         record.payment_notes = payload.payment_notes
-        record.notes = (record.notes or "") + f" | سداد جمركي: {payload.payment_notes}"
+        record.notes = (record.notes or "") + f" | Customs payment: {payload.payment_notes}"
 
     # Recalculate variance if estimated exists
     if record.estimated_duty_total and record.estimated_duty_total > 0:
@@ -1348,10 +1434,16 @@ def record_customs_duty_payment_service(
     imp_file.customs_duty_payment_date = pay_dt
     imp_file.customs_duty_payment_status = "PAID"
     imp_file.current_module = "Phase 7 - Customs Clearance & Duty Payment"
-    imp_file.current_stage = "Duty Paid (تم سداد الرسوم الجمركية بسداد)"
+    set_file_tracking(imp_file, stage_code="DUTY_PAID", next_action=msg("NA_CL_ISSUE_GREEN_RELEASE"))
     if (imp_file.progress_percent or 0.0) < 92.0:
         imp_file.progress_percent = 92.0
-    imp_file.next_action = "صدور أمر الإفراج الجمركي الأخضر (CL-04)"
+    paid_msg = msg(
+        "CC_DUTIES_PAID",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+        paid_amount=_money(payload.duty_paid_amount),
+        sadad_no=sadad_no,
+        receipt_no=receipt_no,
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -1375,7 +1467,7 @@ def record_customs_duty_payment_service(
                 or "سداد" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم تأكيد سداد الرسوم الجمركية برقم سداد ({sadad_no}) وإيصال #{receipt_no} بمبلغ ({payload.duty_paid_amount:,.2f} ج.م)."
+                t.completion_notes = _render(paid_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         import logging
@@ -1401,8 +1493,12 @@ def record_customs_duty_payment_service(
                 task_code=task_code,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"صدور أمر الإفراج الجمركي الأخضر وبدء إجراءات النقل (CL-04) — {file_label}".strip(),
-                description=f"تم سداد الرسوم الجمركية بمبلغ ({payload.duty_paid_amount:,.2f} ج.م) بنجاح عبر سداد برقم ({sadad_no}) للشحنة ({file_label}). يرجى استخراج إذن الإفراج النهائي الأخضر وتنسيق خروج الحاويات من الميناء.",
+                **_task_fields(msg(
+                    "CC_TASK_RELEASE",
+                    import_file_code=file_label,
+                    paid_amount=_money(payload.duty_paid_amount),
+                    sadad_no=sadad_no,
+                )),
                 task_type="CUSTOMS_FINAL_RELEASE",
                 priority="Urgent",
                 status="Pending",
@@ -1419,8 +1515,7 @@ def record_customs_duty_payment_service(
     try:
         from modules.notifications.model import SystemNotification
         notif = SystemNotification(
-            title=f"تم سداد الرسوم الجمركية — {file_label}",
-            message=f"تم تأكيد سداد الرسوم الجمركية للشحنة ({file_label}) بمبلغ ({payload.duty_paid_amount:,.2f} ج.م) عبر منظومة سداد ({sadad_no}) وإيصال #{receipt_no}. جاهز لصدور أمر الإفراج الجمركي الأخضر (CL-04).",
+            **_notification_fields(paid_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -1441,9 +1536,9 @@ def record_customs_duty_payment_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_16",
             target_step_codes=["STEP_17"],
-            notes=f"تم سداد الرسوم الجمركية بنجاح برقم سداد {sadad_no} وإيصال {receipt_no}. بانتظار صدور إذن الإفراج النهائي.",
+            notes_msg=paid_msg,
             assigned_user="Customs Broker",
-            custom_next_action="صدور أمر الإفراج الجمركي الأخضر (CL-04)",
+            next_action_msg=msg("NA_CL_ISSUE_GREEN_RELEASE"),
             min_progress_percent=92.0,
         )
     except Exception as ex_lb:
@@ -1461,7 +1556,7 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
     
     record = get_customs_clearance_service(db, record_id)
     record.bank_receipt_no = payload.bank_receipt_no
-    record.paying_bank_name = payload.paying_bank_name
+    record.paying_bank_name = enum_codes.normalize(enum_codes.DUTY_BANK, payload.paying_bank_name)
     record.payment_date = payload.payment_date
     record.payment_notes = payload.payment_notes
     
@@ -1498,7 +1593,11 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
             import_file_id=record.import_file_id,
             completed_step_code="STEP_16",
             target_step_codes=["STEP_17"],
-            notes=f"تم سداد الرسوم الجمركية برقم إيصال ({payload.bank_receipt_no}) لدى {payload.paying_bank_name or 'البنك التجاري'}. بانتظار صدور إذن الإفراج النهائي.",
+            notes_msg=msg(
+                "CC_DUTIES_PAID_BANK",
+                receipt_no=payload.bank_receipt_no,
+                bank_enum_duty_bank=record.paying_bank_name or "-",
+            ),
             assigned_user="Customs Broker",
         )
     except Exception as e:
@@ -1607,7 +1706,7 @@ def issue_final_customs_release_service(
     record.release_date = rel_dt
     if payload.release_officer_name:
         record.release_officer_name = payload.release_officer_name
-    record.release_type = payload.release_type or "نهائي وبات (Final Green Release)"
+    record.release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type) or "FINAL_GREEN"
     if payload.release_document_url:
         record.release_document_url = payload.release_document_url
     if payload.gate_pass_number:
@@ -1621,7 +1720,7 @@ def issue_final_customs_release_service(
         record.transport_instructions = payload.transport_instructions
     record.status = "Final Release Granted"
     if payload.notes:
-        record.notes = (record.notes or "") + f" | إفراج جمركي: {payload.notes}"
+        record.notes = (record.notes or "") + f" | Customs release: {payload.notes}"
     record.updated_at = datetime.now(timezone.utc)
     record.updated_by = user
 
@@ -1629,16 +1728,22 @@ def issue_final_customs_release_service(
     imp_file.is_customs_released = True
     imp_file.customs_released_at = rel_dt
     imp_file.customs_release_permit_no = permit_no
-    imp_file.customs_release_type = payload.release_type or "نهائي وبات (Final Green Release)"
+    imp_file.customs_release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type) or "FINAL_GREEN"
     if payload.release_officer_name:
         imp_file.customs_release_officer = payload.release_officer_name
     if payload.gate_pass_number:
         imp_file.customs_gate_pass_no = payload.gate_pass_number
     imp_file.current_module = "Phase 7 - Customs Clearance & Release"
-    imp_file.current_stage = "Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)"
+    set_file_tracking(
+        imp_file, stage_code="CUSTOMS_RELEASED", next_action=msg("NA_TR_BOOK_INLAND_TRANSPORT_MONITOR_FREE_TIME")
+    )
     if (imp_file.progress_percent or 0.0) < 95.0:
         imp_file.progress_percent = 95.0
-    imp_file.next_action = "تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01) ومراقبة فترات السماح (TR-02)"
+    release_msg = msg(
+        "CC_RELEASE_ISSUED",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+        permit_no=permit_no,
+    )
     imp_file.updated_at = datetime.now(timezone.utc)
     imp_file.updated_by = user
 
@@ -1662,7 +1767,7 @@ def issue_final_customs_release_service(
                 or "إفراج" in (t.title or "")
             ):
                 t.status = "Completed"
-                t.completion_notes = f"تم استلام واعتماد إذن الإفراج النهائي الأخضر برقم ({permit_no}) بتاريخ {rel_dt.strftime('%Y-%m-%d')}."
+                t.completion_notes = _render(release_msg, "note")
                 t.updated_at = datetime.now(timezone.utc)
     except Exception as ex_task:
         logger.warning("Error completing CL-04 SmartTasks: %s", ex_task)
@@ -1690,8 +1795,7 @@ def issue_final_customs_release_service(
                 task_code=task_code_tr01,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01) — {file_label}".strip(),
-                description=f"تم صدور إذن الإفراج النهائي الأخضر برقم ({permit_no}). يرجى تأكيد وحجز شاحنات النقل وتوثيق أرقام السيارات والسائقين لنقل الشحنة من الميناء إلى المستودع.",
+                **_task_fields(msg("CC_TASK_INLAND_TRANSPORT", import_file_code=file_label, permit_no=permit_no)),
                 task_type="INLAND_TRANSPORT",
                 priority="High",
                 status="Pending",
@@ -1715,8 +1819,11 @@ def issue_final_customs_release_service(
                 task_code=task_code_tr02,
                 import_file_id=payload.import_file_id,
                 import_file_code=file_label,
-                title=f"مراقبة فترات السماح وتفادي غرامات الأرضيات والتأخير (TR-02) — {file_label}".strip(),
-                description=f"متابعة خروج الحاويات من الميناء وتفريغها بالمخزن قبل انتهاء فترات السماح ({record.free_days_allowed or imp_file.target_free_days or 14} يوم) لتفادي غرامات الخط الملاحي.",
+                **_task_fields(msg(
+                    "CC_TASK_FREE_TIME_MONITOR",
+                    import_file_code=file_label,
+                    free_days=record.free_days_allowed or imp_file.target_free_days or 14,
+                )),
                 task_type="DEMURRAGE_TRACKING",
                 priority="Medium",
                 status="Pending",
@@ -1731,8 +1838,7 @@ def issue_final_customs_release_service(
     try:
         from modules.notifications.model import SystemNotification
         db.add(SystemNotification(
-            title=f"صدور إذن الإفراج الجمركي الأخضر — {file_label}",
-            message=f"صدر إذن الإفراج الجمركي الأخضر النهائي برقم ({permit_no}) للشحنة ({file_label}). تم الترخيص بالصرف والتحميل على سيارات النقل الداخلي (TR-01).",
+            **_notification_fields(release_msg),
             category="STAGE_PROGRESSION",
             severity="INFO",
             entity_type="ImportFile",
@@ -1751,10 +1857,10 @@ def issue_final_customs_release_service(
             import_file_id=payload.import_file_id,
             completed_step_code="STEP_17",
             target_step_codes=["STEP_18"],
-            notes=f"صدر أمر الإفراج النهائي الأخضر برقم ({permit_no}). تم ترخيص الصرف والنقل إلى مرحلة النقل والمخازن.",
+            notes_msg=release_msg,
             assigned_user="Customs Broker",
-            custom_stage_title="Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)",
-            custom_next_action="تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01)",
+            stage_code="CUSTOMS_RELEASED",
+            next_action_msg=msg("NA_TR_BOOK_INLAND_TRANSPORT"),
             min_progress_percent=95.0,
         )
     except Exception as ex_lb:
@@ -1792,7 +1898,7 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     if payload.release_officer_name:
         record.release_officer_name = payload.release_officer_name
     if payload.release_type:
-        record.release_type = payload.release_type
+        record.release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type)
     if payload.release_document_url:
         record.release_document_url = payload.release_document_url
     if payload.gate_pass_number:
@@ -1806,7 +1912,7 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
         record.transport_instructions = payload.transport_instructions
     record.status = "Final Release Granted"
     if payload.notes:
-        record.notes = (record.notes or "") + f" | إفراج: {payload.notes}"
+        record.notes = (record.notes or "") + f" | Release: {payload.notes}"
     record.updated_at = datetime.now(timezone.utc)
 
     # Update import file operational stage and release state
@@ -1816,16 +1922,17 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
         imp_file.customs_released_at = rel_dt
         imp_file.customs_release_permit_no = payload.release_permit_no
         if payload.release_type:
-            imp_file.customs_release_type = payload.release_type
+            imp_file.customs_release_type = enum_codes.normalize(enum_codes.RELEASE_TYPE, payload.release_type)
         if payload.release_officer_name:
             imp_file.customs_release_officer = payload.release_officer_name
         if payload.gate_pass_number:
             imp_file.customs_gate_pass_no = payload.gate_pass_number
         imp_file.current_module = "Phase 7 - Customs Clearance & Release"
-        imp_file.current_stage = "Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)"
+        set_file_tracking(
+            imp_file, stage_code="CUSTOMS_RELEASED", next_action=msg("NA_TR_BOOK_INLAND_TRANSPORT_MONITOR_FREE_TIME")
+        )
         if (imp_file.progress_percent or 0.0) < 95.0:
             imp_file.progress_percent = 95.0
-        imp_file.next_action = "تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01) ومراقبة فترات السماح (TR-02)"
         imp_file.updated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -1839,10 +1946,10 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
             import_file_id=record.import_file_id,
             completed_step_code="STEP_17",
             target_step_codes=["STEP_18"],
-            notes=f"صدر أمر الإفراج النهائي برقم ({payload.release_permit_no}). تم نقل الملف إلى مرحلة إدارة الغرامات وفترات السماح.",
+            notes_msg=msg("CC_RELEASE_ISSUED_TO_DEMURRAGE", permit_no=payload.release_permit_no),
             assigned_user="Customs Broker",
-            custom_stage_title="Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)",
-            custom_next_action="تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01)",
+            stage_code="CUSTOMS_RELEASED",
+            next_action_msg=msg("NA_TR_BOOK_INLAND_TRANSPORT"),
             min_progress_percent=95.0,
         )
     except Exception as e:
@@ -1852,8 +1959,27 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     return record
 
 
+def _normalize_clearance_update(schema: CustomsClearanceUpdate) -> CustomsClearanceUpdate:
+    """Tier-3 fields of a generic update: legacy labels -> enum codes (unknown values unchanged)."""
+    changes = {}
+    for field_name, enum_type in (
+        ("release_type", enum_codes.RELEASE_TYPE),
+        ("payment_method", enum_codes.PAYMENT_METHOD),
+        ("paying_bank_name", enum_codes.DUTY_BANK),
+    ):
+        value = getattr(schema, field_name, None)
+        if value is not None:
+            changes[field_name] = enum_codes.normalize(enum_type, value)
+    for field_name in ("regulatory_bodies", "sampled_regulatory_bodies"):
+        value = getattr(schema, field_name, None)
+        if value is not None:
+            changes[field_name] = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, value)
+    return schema.model_copy(update=changes) if changes else schema
+
+
 def update_customs_clearance_service(db: Session, record_id: int, schema: CustomsClearanceUpdate) -> CustomsClearanceRecord:
     existing = get_customs_clearance_service(db, record_id)
+    schema = _normalize_clearance_update(schema)
     update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
 
@@ -1914,15 +2040,14 @@ def issue_under_bond_release_service(db: Session, record_id: int, payload: Under
     record.status = "Under Bond Released"
     record.release_date = payload.temporary_release_date
     record.port_gate_out_date = payload.temporary_release_date
-    record.notes = (record.notes or "") + f" | تم السحب على عهدة بموجب تعهد #{record.bond_guarantee_ref} لمقر: {payload.customs_warehouse_location}"
+    record.notes = (record.notes or "") + f" | Under-bond withdrawal, undertaking #{record.bond_guarantee_ref} to: {payload.customs_warehouse_location}"
     record.updated_at = datetime.now(timezone.utc)
 
     # Sync to ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
     if imp_file:
         imp_file.current_module = "Phase 7 - Customs Clearance & Inspection"
-        imp_file.current_stage = "Under-Bond Quarantine (سحب على عهدة)"
-        imp_file.next_action = "Awaiting Laboratory Test Results (بانتظار نتيجة المعامل)"
+        set_file_tracking(imp_file, stage_code="UNDER_BOND_QUARANTINE", next_action=msg("NA_CL_AWAIT_LAB_RESULTS"))
 
     db.commit()
     db.refresh(record)
@@ -1953,9 +2078,10 @@ def record_lab_result_and_lift_quarantine_service(db: Session, record_id: int, p
 
             imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
             if imp_file:
-                imp_file.current_stage = "Lab Approved & Final Released"
+                set_file_tracking(
+                    imp_file, stage_code="LAB_APPROVED_RELEASED", next_action=msg("NA_WAREHOUSE_READY_FOR_DISPATCH")
+                )
                 imp_file.is_customs_released = True
-                imp_file.next_action = "Warehouse Inventory Ready for Dispatch"
     else:
         # Non-conforming
         record.quarantine_lock = True
@@ -1963,8 +2089,7 @@ def record_lab_result_and_lift_quarantine_service(db: Session, record_id: int, p
         record.status = "Lab Non-Conforming - Rejected"
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
         if imp_file:
-            imp_file.current_stage = "Lab Rejected (مرفوض معملياً)"
-            imp_file.next_action = "Re-export or Disposal (إعادة تصدير أو إعدام)"
+            set_file_tracking(imp_file, stage_code="LAB_REJECTED", next_action=msg("NA_CL_RE_EXPORT_OR_DISPOSAL"))
 
     record.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -2022,7 +2147,7 @@ def _recalculate_clearance_expenses_aggregates(db: Session, import_file_id: int,
         imp_file.clearance_invoices_status = "Invoices Logged & Verified" if len(invoices) > 0 else "Pending Invoices"
         if imp_file.progress_percent < 96.0:
             imp_file.progress_percent = 96.0
-        imp_file.next_action = "تنسيق وحجز سيارات النقل الداخلي للمخزن (TR-01) ومتابعة رادار فترات السماح (TR-02)"
+        set_file_tracking(imp_file, next_action=msg("NA_TR_BOOK_INLAND_TRANSPORT_MONITOR_FREE_TIME"))
         imp_file.updated_at = datetime.now(timezone.utc)
 
     # Sync to LandedCostSettlementRecord
@@ -2040,7 +2165,7 @@ def _recalculate_clearance_expenses_aggregates(db: Session, import_file_id: int,
                 current_invoices.append({
                     "invoice_no": inv.invoice_number,
                     "invoice_code": inv.invoice_code,
-                    "category": f"Clearance / {inv.expense_category}",
+                    "category": f"Clearance / {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, inv.expense_category)}",
                     "provider_name": inv.provider_name,
                     "currency": inv.currency,
                     "amount_fx": inv.amount_fx,
@@ -2099,7 +2224,7 @@ def record_clearance_invoice_service(
         invoice_date=payload.invoice_date or datetime.now(timezone.utc),
         provider_id=payload.provider_id,
         provider_name=payload.provider_name.strip(),
-        expense_category=payload.expense_category.strip(),
+        expense_category=enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, payload.expense_category.strip()),
         currency=payload.currency or "EGP",
         amount_fx=payload.amount_fx or 0.0,
         exchange_rate=payload.exchange_rate or 1.0,
@@ -2126,6 +2251,16 @@ def record_clearance_invoice_service(
     # Recalculate totals across clearance record, file, and landed cost
     _recalculate_clearance_expenses_aggregates(db, payload.import_file_id, clearance_id)
 
+    invoice_msg = msg(
+        "CC_CLEARANCE_INVOICE_RECORDED",
+        invoice_number=new_invoice.invoice_number,
+        expense_category_enum_clearance_expense_category=new_invoice.expense_category,
+        net_amount=_money(new_invoice.net_payable_egp),
+        provider_name=new_invoice.provider_name or "-",
+        import_file_code=imp_file.import_file_code or f"IMP-{imp_file.import_file_id}",
+    )
+    invoice_en = {}
+
     # Auto-complete pending CL-05 SmartTasks
     try:
         from modules.smart_tasks.model import SmartTask
@@ -2139,27 +2274,25 @@ def record_clearance_invoice_service(
             if "cl-05" in t_name or "فواتير المخلص" in t_name or "أتعاب التخليص" in t_name or "مصاريف التخليص" in t_name or t_code in ["CL-05", "TSK-0205"]:
                 t.status = "Completed"
                 t.completed_at = datetime.now(timezone.utc)
-                t.notes = f"تم تسجيل فاتورة التخليص برقم {new_invoice.invoice_number} بمبلغ {new_invoice.net_payable_egp:,.2f} ج.م"
+                t.notes = _render(invoice_msg, "body", **invoice_en)
     except Exception as ex:
         print(f"SmartTasks completion warning: {ex}")
 
-    # Emit SystemNotification
+    # Emit SystemNotification (the previous helper import never existed, so no notification was created)
     try:
-        from modules.notifications.service import create_system_notification
-        from modules.notifications.schemas import SystemNotificationCreate
-        create_system_notification(
-            db,
-            SystemNotificationCreate(
-                recipient_role="Accounting & Operations",
-                title="تسجيل فاتورة تخليص ومصاريف موانئ (CL-05)",
-                message=f"تم تسجيل فاتورة {new_invoice.expense_category} برقم ({new_invoice.invoice_number}) بمبلغ {new_invoice.net_payable_egp:,.2f} ج.م للمقدم {new_invoice.provider_name} للشحنة {imp_file.import_file_code}.",
-                priority="NORMAL",
-                reference_type="CustomsClearanceInvoice",
-                reference_id=str(new_invoice.invoice_id),
-            )
-        )
-    except Exception:
-        pass
+        from modules.notifications.model import SystemNotification
+        db.add(SystemNotification(
+            **_notification_fields(invoice_msg, **invoice_en),
+            category="STAGE_PROGRESSION",
+            severity="INFO",
+            entity_type="ImportFile",
+            entity_id=imp_file.import_file_id,
+            target_role="ALL",
+            is_read=False,
+        ))
+    except Exception as ex_notif:
+        import logging
+        logging.getLogger(__name__).warning("Error emitting CL-05 invoice notification: %s", ex_notif)
 
     db.commit()
     db.refresh(new_invoice)

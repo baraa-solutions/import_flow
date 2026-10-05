@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/localization/stored_text.dart';
 
 void showUnderBondReleaseDialog(BuildContext context, WidgetRef ref, {
   required int clearanceId,
@@ -67,7 +68,7 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
     if (!_initializedDefaults) {
       _initializedDefaults = true;
       if (_quarantineLocController.text.isEmpty) {
-        _quarantineLocController.text = context.l10n.underBondDefaultQuarantineLoc;
+        _quarantineLocController.text = storedText.underBondDefaultQuarantineLoc;
       }
     }
   }

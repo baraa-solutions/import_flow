@@ -1,3 +1,6 @@
+import '../../../core/localization/system_messages/system_message_renderer.dart';
+import '../../../core/localization/app_localizations.dart';
+
 class PhaseSummaryModel {
   final int phaseId;
   final String titleEn;
@@ -52,6 +55,9 @@ class ShipmentStageCardModel {
   final String status;
   final String? startedAt;
   final String? notes;
+  /// System message code of [notes] (null for legacy rows / user notes).
+  final String? msgCode;
+  final Map<String, dynamic>? msgParams;
 
   ShipmentStageCardModel({
     required this.importFileCode,
@@ -75,7 +81,14 @@ class ShipmentStageCardModel {
     required this.status,
     this.startedAt,
     this.notes,
+    this.msgCode,
+    this.msgParams,
   });
+
+  /// [notes] in the user's language; the stored text when there is no usable code.
+  String? localizedNotes(AppLocalizations l10n) =>
+      SystemMessageRenderer.tryRender(code: msgCode, params: msgParams, part: SystemMessagePart.note, l10n: l10n) ??
+      notes;
 
   factory ShipmentStageCardModel.fromJson(Map<String, dynamic> json) {
     return ShipmentStageCardModel(
@@ -100,6 +113,8 @@ class ShipmentStageCardModel {
       status: json['status'] ?? 'In-Progress',
       startedAt: json['started_at'],
       notes: json['notes'],
+      msgCode: SystemMessageRenderer.parseCode(json['msg_code']),
+      msgParams: SystemMessageRenderer.parseParams(json['msg_params']),
     );
   }
 }
@@ -179,6 +194,9 @@ class LiveLogisticsTrackingItemModel {
   final String currentStepNameAr;
   final String currentStepNameEn;
   final String nextAction;
+  /// NA_* system message code of [nextAction] (null for legacy rows).
+  final String? nextActionCode;
+  final Map<String, dynamic>? nextActionParams;
 
   LiveLogisticsTrackingItemModel({
     required this.importFileId,
@@ -219,6 +237,8 @@ class LiveLogisticsTrackingItemModel {
     required this.currentStepNameAr,
     required this.currentStepNameEn,
     required this.nextAction,
+    this.nextActionCode,
+    this.nextActionParams,
   });
 
   factory LiveLogisticsTrackingItemModel.fromJson(Map<String, dynamic> json) {
@@ -265,6 +285,8 @@ class LiveLogisticsTrackingItemModel {
       currentStepNameAr: json['current_step_name_ar'] ?? '',
       currentStepNameEn: json['current_step_name_en'] ?? '',
       nextAction: json['next_action'] ?? '',
+      nextActionCode: SystemMessageRenderer.parseCode(json['next_action_code']),
+      nextActionParams: SystemMessageRenderer.parseParams(json['next_action_params']),
     );
   }
 }

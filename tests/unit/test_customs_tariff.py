@@ -288,6 +288,64 @@ class TestCustomsTariffBackend(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].hs_code, "8703.23.90")
 
+    def _category_rows(self):
+        """Coded rows (normalized on create) + one legacy row that still stores the old Arabic label."""
+        from modules.customs_tariff import repository
+
+        create_tariff_service(self.db, CustomsTariffCreate(
+            hs_code="8418.10.00", hs_description="Refrigerators", customs_category="آلات وأجهزة وتجهيزات",
+            customs_duty_rate=Decimal("30.00"), vat_rate=Decimal("14.00"),
+        ))
+        create_tariff_service(self.db, CustomsTariffCreate(
+            hs_code="8517.12.00", hs_description="Mobile phones", customs_category="Electronics",
+            customs_duty_rate=Decimal("5.00"), vat_rate=Decimal("14.00"),
+        ))
+        create_tariff_service(self.db, CustomsTariffCreate(
+            hs_code="6109.10.00", hs_description="Cotton T-shirts", customs_category="Textiles",
+            customs_duty_rate=Decimal("40.00"), vat_rate=Decimal("14.00"),
+        ))
+        repository.create_tariff(self.db, {
+            "hs_code": "8450.11.00", "hs_description": "Washing machines",
+            "customs_category": "آلات وأجهزة وتجهيزات",  # legacy row, never normalized
+            "customs_duty_rate": Decimal("30.00"), "vat_rate": Decimal("14.00"),
+            "effective_from": date(2024, 1, 1),
+        })
+
+    def test_coded_categories_are_stored_as_codes(self):
+        self._category_rows()
+        stored = {t.hs_code: t.customs_category for t in get_all_tariffs_service(self.db)}
+        self.assertEqual(stored["8418.10.00"], "MACHINERY_EQUIPMENT")
+        self.assertEqual(stored["8517.12.00"], "ELECTRONICS")
+
+    def test_search_by_arabic_legacy_label_matches_coded_and_legacy_rows(self):
+        self._category_rows()
+        hs = sorted(t.hs_code for t in get_all_tariffs_service(self.db, search="آلات"))
+        self.assertEqual(hs, ["8418.10.00", "8450.11.00"])
+
+    def test_search_by_english_label_fragment_matches_coded_and_legacy_rows(self):
+        self._category_rows()
+        hs = sorted(t.hs_code for t in get_all_tariffs_service(self.db, search="machinery"))
+        self.assertEqual(hs, ["8418.10.00", "8450.11.00"])
+        hs = [t.hs_code for t in get_all_tariffs_service(self.db, search="Electronics")]
+        self.assertEqual(hs, ["8517.12.00"])
+
+    def test_search_by_code_and_unmatched_term(self):
+        self._category_rows()
+        hs = [t.hs_code for t in get_all_tariffs_service(self.db, search="textiles")]
+        self.assertEqual(hs, ["6109.10.00"])
+        self.assertEqual(get_all_tariffs_service(self.db, search="no-such-category"), [])
+        # Blank search is not a filter.
+        self.assertEqual(len(get_all_tariffs_service(self.db, search="  ")), 4)
+
+    def test_category_search_values_helper(self):
+        from modules.customs_tariff.service import customs_category_search_values
+
+        self.assertEqual(customs_category_search_values(None), [])
+        values = customs_category_search_values("general")
+        self.assertIn("GENERAL_GOODS", values)
+        self.assertIn("أصناف عامة", values)
+        self.assertIn("General", values)
+
     def test_feed_hs_code_3925900090_building_plastics(self):
         """
         Verification of official Nafeza Tariff data for HS 3925900090:

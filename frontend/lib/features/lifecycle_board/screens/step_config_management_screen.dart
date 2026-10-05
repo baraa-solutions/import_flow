@@ -9,6 +9,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/step_config_model.dart';
 import '../providers/step_config_provider.dart';
 import '../services/step_config_export_service.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 
 class StepConfigManagementScreen extends ConsumerStatefulWidget {
   const StepConfigManagementScreen({super.key});
@@ -727,7 +728,9 @@ class _StepConfigManagementScreenState
             value: reasonCountStr,
             rowSummary: rowSummary,
             child: Tooltip(
-              message: cfg.reasonCategories.join('\n'),
+              message: cfg.reasonCategories
+                  .map((c) => DomainEnums.label(context.l10n, DomainEnumType.skipReasonCategory, c))
+                  .join('\n'),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

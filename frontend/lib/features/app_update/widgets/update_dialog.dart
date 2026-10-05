@@ -82,7 +82,9 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
       });
 
   void _remindLater() {
-    ref.read(updateBannerDismissedProvider.notifier).state = ref.read(updateClockProvider)();
+    final version = _check.latestVersion;
+    // Mandatory updates never offer this button; the banner ignores snoozes for them anyway.
+    if (version != null && !_check.mandatory) ref.read(updateSnoozeProvider.notifier).snooze(version);
     Navigator.of(context).pop();
   }
 
@@ -139,11 +141,11 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                   const SizedBox(height: 4),
                   for (final note in notes)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      padding: const EdgeInsetsDirectional.only(bottom: 2),
                       child: Text('• $note', style: const TextStyle(fontSize: 12)),
                     ),
                 ],
-                UpdateProgressSection(status: status),
+                UpdateProgressSection(status: status, installerSizeBytes: _check.installerSizeBytes),
                 if (!canInstall) _hint(l.updateAdminOnlyNotice),
                 if (canInstall && !_check.applySupported) _hint(l.updateDevModeDisabled),
               ],
@@ -156,7 +158,7 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   }
 
   Widget _hint(String text) => Padding(
-        padding: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsetsDirectional.only(top: 12),
         child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.orange)),
       );
 

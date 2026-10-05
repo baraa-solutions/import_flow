@@ -39,6 +39,9 @@ import '../services/customs_consultation_pdf_service.dart';
 import '../widgets/search_and_clone_consultation_dialog.dart';
 export '../widgets/search_and_clone_consultation_dialog.dart';
 import '../../financial_approval/providers/financial_approval_provider.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/stored_text.dart';
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -1158,17 +1161,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       } else {
         // Fallback to Master Expense Catalog
         final catalog = ref.read(clearanceExpenseTypesProvider).valueOrNull ?? [];
-        final l = context.l10n;
         setState(() {
           _brokerPriceListId = null;
-          _brokerPriceListTitle = l.customPriceListNoRegisteredTitle;
+          _brokerPriceListTitle = storedText.customPriceListNoRegisteredTitle;
           _brokerQuoteItems.clear();
           for (final exp in catalog) {
             _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
               expenseTypeId: exp.expenseId,
               expenseName: exp.nameAr,
-              category: exp.category,
-              unitType: exp.defaultUnit,
+              // Quote items keep English category/unit names; the catalog stores codes.
+              category: DomainEnums.isCode(DomainEnumType.brokerExpenseCategory, exp.category)
+                  ? DomainEnums.englishLabel(DomainEnumType.brokerExpenseCategory, exp.category)
+                  : exp.category,
+              unitType: DomainEnums.isCode(DomainEnumType.brokerUnit, exp.defaultUnit)
+                  ? DomainEnums.englishLabel(DomainEnumType.brokerUnit, exp.defaultUnit)
+                  : exp.defaultUnit,
               unitPrice: 0.0, // defaults to 0.0 as requested
               currency: exp.defaultCurrency,
               qty: 1.0,
@@ -2069,7 +2076,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               setState(() {
                                 _editingConsultationId = null;
                                 _editingConsultationCode = null;
-                                _titleController.text = '${_titleController.text} (${l.modifiedCopySuffix})';
+                                _titleController.text = '${_titleController.text}${TableRowCloneHelper.copySuffix}';
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('📋 ${l.convertedToNewStudyToast}'), backgroundColor: Colors.blue),
@@ -3200,21 +3207,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             children: [
                                               if (line.requiresAcid)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'تسجيل مسبق' : 'ACID', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
                                                 ),
                                               if (line.requiresCoo)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'شهادة منشأ' : 'COO', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                                                 ),
                                               if (line.requiresInspection)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 4),
+                                                  margin: const EdgeInsetsDirectional.only(start: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
                                                   child: Text(isArabic ? 'رقابة صادرات' : 'GOEIC', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
@@ -3681,13 +3688,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (index < 0 || index >= _checklist.length) return;
     final l = context.l10n;
     final orig = _checklist[index];
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
     final cloned = orig.copyWith(
       itemId: null,
       remarks: orig.remarks != null && orig.remarks!.isNotEmpty
-          ? '${orig.remarks}$copySuffix'
-          : copySuffix.trim(),
+          ? '${orig.remarks}${TableRowCloneHelper.copySuffix}'
+          : TableRowCloneHelper.copySuffix.trim(),
       status: 'Pending',
     );
     setState(() {
@@ -3706,8 +3711,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final l = context.l10n;
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
-    final initialTitle = '${source.title}$copySuffix';
+    final initialTitle = '${source.title}${TableRowCloneHelper.copySuffix}';
 
     final copiedMap = <String, String>{
       l.customsBrokerLabel: source.brokerName.isNotEmpty ? source.brokerName : '—',

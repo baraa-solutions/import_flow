@@ -729,7 +729,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
                       decoration: const BoxDecoration(
                         color: AppTheme.charcoal,
-                        borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                        borderRadius: BorderRadiusDirectional.only(topStart: Radius.circular(16), topEnd: Radius.circular(16)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -971,6 +971,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                                         Expanded(
                                           child: CustomTextField(
                                             controller: swiftCodeCtrl,
+                                            textDirection: TextDirection.ltr,
                                             suffixIcon: buildCopySuffix(swiftCodeCtrl),
                                             label: l10n.beneficiarySwiftCodeLabel,
                                             icon: Icons.code,
@@ -992,6 +993,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                                     const SizedBox(height: 12),
                                     CustomTextField(
                                       controller: ibanCtrl,
+                                      textDirection: TextDirection.ltr,
                                       suffixIcon: buildCopySuffix(ibanCtrl),
                                       label: l10n.beneficiaryIbanLabel,
                                       icon: Icons.credit_card,
@@ -1068,7 +1070,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                        borderRadius: const BorderRadiusDirectional.only(bottomStart: Radius.circular(16), bottomEnd: Radius.circular(16)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,

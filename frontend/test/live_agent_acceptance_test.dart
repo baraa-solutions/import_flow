@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/services/ai_agent_tool_executor.dart';
 
+// Opt-in only: this test WRITES to whatever backend listens on the app port (possibly a live install).
+// Run it deliberately with IMPORTFLOW_LIVE_TESTS=1.
+final bool _liveTestsEnabled = Platform.environment['IMPORTFLOW_LIVE_TESTS'] == '1';
+
 void main() {
-  test('Live Acceptance Test: Execute real writes with RAW verification and live queries on local backend', () async {
+  test('Live Acceptance Test: Execute real writes with RAW verification and live queries on local backend',
+      skip: _liveTestsEnabled ? false : 'opt-in: set IMPORTFLOW_LIVE_TESTS=1 (writes to the live backend)', () async {
     final dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
       connectTimeout: const Duration(milliseconds: 600),

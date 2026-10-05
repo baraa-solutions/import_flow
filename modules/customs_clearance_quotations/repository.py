@@ -143,7 +143,7 @@ def get_price_list_items(
     db: Session,
     provider_id: Optional[int] = None,
     port_name: Optional[str] = None,
-    service_category: Optional[str] = None,
+    service_categories: Optional[List[str]] = None,
     include_inactive: bool = False,
 ) -> List[ClearanceServicePriceListItem]:
     stmt = select(ClearanceServicePriceListItem).order_by(ClearanceServicePriceListItem.provider_name.asc())
@@ -153,8 +153,8 @@ def get_price_list_items(
         stmt = stmt.where(ClearanceServicePriceListItem.provider_id == provider_id)
     if port_name:
         stmt = stmt.where(ClearanceServicePriceListItem.port_name.ilike(f"%{port_name}%"))
-    if service_category:
-        stmt = stmt.where(ClearanceServicePriceListItem.service_category == service_category)
+    if service_categories:
+        stmt = stmt.where(ClearanceServicePriceListItem.service_category.in_(service_categories))
 
     return list(db.execute(stmt).scalars().all())
 

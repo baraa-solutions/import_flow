@@ -6,6 +6,8 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/inland_transport_model.dart';
 import '../providers/inland_transport_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// TR-01 Modal Dialog: Inland Transport Coordination
 /// حجز وتنسيق سيارات وسائقي النقل الداخلي للمخزن وتتبع زمن الخروج والوصول
@@ -54,7 +56,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   late TextEditingController _gateOutNotesController;
   late TextEditingController _arrivalNotesController;
 
-  String _truckType = 'Flatbed Trailer (تريلا مسطح)';
+  String _truckType = 'FLATBED'; // DomainEnumType.truckType code
   DateTime _plannedDepartureDate = DateTime.now();
   final TimeOfDay _plannedDepartureTime = const TimeOfDay(hour: 10, minute: 0);
   DateTime _expectedArrivalDate = DateTime.now().add(const Duration(hours: 6));
@@ -63,15 +65,11 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   final DateTime _actualDepartureDate = DateTime.now();
   final DateTime _actualArrivalDate = DateTime.now();
 
-  final List<String> _truckTypes = [
-    'Flatbed Trailer (تريلا مسطح)',
-    'Side-Drop Trailer (تريلا جوانب)',
-    'Curtainsider (تريلا ستارة)',
-    'Container Chassis (شاسية حاوية 40/20 قدم)',
-    'Box Truck (جامبو مغلق)',
-    'Reefer Truck (شاحنة مبردة)',
-    'Heavy Low-bed (لوبد ثقيل للطرود الضخمة)',
-  ];
+  List<String> get _truckTypes => [
+        ...DomainEnums.codesOf(DomainEnumType.truckType),
+        // A legacy free value that is not a known code stays selectable.
+        if (!DomainEnums.isCode(DomainEnumType.truckType, _truckType)) _truckType,
+      ];
 
   @override
   void initState() {
@@ -87,14 +85,14 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     final randomSuffix = (now.millisecondsSinceEpoch % 10000).toString().padLeft(4, '0');
 
     _waybillController = TextEditingController(text: 'WB-${now.year}-$portCode-$randomSuffix');
-    _carrierNameController = TextEditingController(text: widget.file.inlandCarrierName ?? 'شركة النيل للنقل البري واللوجستيات');
-    _truckPlateController = TextEditingController(text: widget.file.inlandTruckPlateNo ?? 'ط د ر 7541 / د س 128');
-    _driverNameController = TextEditingController(text: widget.file.inlandDriverName ?? 'محمد أحمد السيد إبراهيم');
-    _driverPhoneController = TextEditingController(text: widget.file.inlandDriverPhone ?? '01012345678');
-    _driverNationalIdController = TextEditingController(text: '28910150102345');
-    _containerNumbersController = TextEditingController(text: 'MSKU9876543, MEDU1234567');
-    _pickupLocationController = TextEditingController(text: widget.file.portOfDischarge ?? 'ميناء الدخيلة - الإسكندرية');
-    _destinationWarehouseController = TextEditingController(text: 'مخزن القاهرة الرئيسي (مدينة 6 أكتوبر)');
+    _carrierNameController = TextEditingController(text: widget.file.inlandCarrierName ?? '');
+    _truckPlateController = TextEditingController(text: widget.file.inlandTruckPlateNo ?? '');
+    _driverNameController = TextEditingController(text: widget.file.inlandDriverName ?? '');
+    _driverPhoneController = TextEditingController(text: widget.file.inlandDriverPhone ?? '');
+    _driverNationalIdController = TextEditingController();
+    _containerNumbersController = TextEditingController();
+    _pickupLocationController = TextEditingController(text: widget.file.portOfDischarge ?? 'El Dekheila Port - Alexandria');
+    _destinationWarehouseController = TextEditingController(text: 'Cairo Main Warehouse (6th of October City)');
     _fareEgpController = TextEditingController(
       text: widget.file.inlandTransportCostEgp > 0
           ? widget.file.inlandTransportCostEgp.toStringAsFixed(2)
@@ -151,7 +149,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             if (booking.trackingNotes != null) {
               _trackingNotesController.text = booking.trackingNotes!;
             }
-            _truckType = booking.truckType;
+            _truckType = DomainEnums.initialCode(DomainEnumType.truckType, booking.truckType, booking.truckType);
             _waybillController.text = booking.waybillNumber;
           } else {
             _showBookingForm = true;
@@ -257,7 +255,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       'actual_departure_at': _actualDepartureDate.toIso8601String(),
       'tracking_notes': _gateOutNotesController.text.trim().isNotEmpty
           ? _gateOutNotesController.text.trim()
-          : 'تمت مغادرة الشاحنة بوابة الميناء بنجاح والتحرك باتجاه المخزن',
+          : 'Truck left the port gate and is moving to the warehouse',
     };
 
     setState(() => _isSubmitting = true);
@@ -296,7 +294,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       'actual_arrival_at': _actualArrivalDate.toIso8601String(),
       'tracking_notes': _arrivalNotesController.text.trim().isNotEmpty
           ? _arrivalNotesController.text.trim()
-          : 'وصلت الشاحنة إلى رصيف تفريغ المخزن وجاهزة لاستلام وفحص البضاعة',
+          : 'Truck arrived at the warehouse unloading dock, ready for receiving and inspection',
     };
 
     setState(() => _isSubmitting = true);
@@ -627,7 +625,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             children: [
               _buildInfoRow('شركة النقل:', b.carrierName),
               _buildInfoRow('رقم البوليصة:', b.waybillNumber),
-              _buildInfoRow('نوع الشاحنة:', b.truckType),
+              _buildInfoRow('نوع الشاحنة:', DomainEnums.label(context.l10n, DomainEnumType.truckType, b.truckType)),
               _buildInfoRow('لوحة الشاحنة:', b.truckPlateNumber),
               _buildInfoRow('السائق:', '${b.driverName} (${b.driverPhone})'),
               if (b.containerNumbers != null) _buildInfoRow('الحاويات:', b.containerNumbers!),
@@ -875,7 +873,8 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                     hintText: 'اختر نوع الشاحنة',
                     value: _truckType,
                     items: _truckTypes
-                        .map((t) => SearchableDropdownItem<String>(value: t, label: t))
+                        .map((t) => SearchableDropdownItem<String>(
+                            value: t, label: DomainEnums.label(context.l10n, DomainEnumType.truckType, t)))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _truckType = val);
@@ -980,6 +979,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                   flex: 3,
                   child: TextFormField(
                     controller: _containerNumbersController,
+                    textDirection: TextDirection.ltr,
                     decoration: const InputDecoration(
                       labelText: 'أرقام الحاويات المنقولة',
                       hintText: 'مثال: MSKU9876543, MEDU1234567',
@@ -1077,7 +1077,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
 
             // Submit Button
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: ElevatedButton.icon(
                 key: const Key('inlandSubmitBookingBtn'),
                 style: ElevatedButton.styleFrom(

@@ -1,29 +1,38 @@
 import 'package:flutter/material.dart';
 
-/// A set of icons that are known to indicate forward/backward direction
-/// and should be mirrored when rendering in a Right-to-Left (RTL) locale.
-final Set<IconData> _directionalIcons = {
-  Icons.arrow_forward,
-  Icons.arrow_back,
-  Icons.arrow_forward_ios,
-  Icons.arrow_back_ios,
-  Icons.arrow_forward_rounded,
-  Icons.arrow_back_rounded,
-  Icons.chevron_right,
-  Icons.chevron_left,
-  Icons.navigate_next,
-  Icons.navigate_before,
-  Icons.arrow_right_alt,
+/// Direction-sensitive icons whose glyph does NOT set
+/// `IconData.matchTextDirection`, so [Icon] never mirrors them by itself.
+///
+/// Icons such as `arrow_forward`, `arrow_back(_ios)`, `chevron_left/right`,
+/// `navigate_*`, `first_page/last_page` and `arrow_right_alt` already carry
+/// `matchTextDirection: true`: [Icon] mirrors them in RTL. Adding them here
+/// would flip them twice (back to the LTR glyph).
+final Set<IconData> _manuallyMirroredIcons = {
   Icons.keyboard_arrow_right,
   Icons.keyboard_arrow_left,
+  Icons.keyboard_arrow_right_rounded,
+  Icons.keyboard_arrow_left_rounded,
+  Icons.keyboard_double_arrow_right,
+  Icons.keyboard_double_arrow_left,
+  Icons.keyboard_double_arrow_right_rounded,
+  Icons.keyboard_double_arrow_left_rounded,
   Icons.double_arrow,
-  Icons.forward,
-  Icons.last_page,
-  Icons.first_page,
+  Icons.double_arrow_rounded,
+  Icons.menu_open,
+  Icons.menu_open_rounded,
 };
 
-/// A shared icon widget that automatically mirrors direction-sensitive icons
-/// (such as forward/back arrows and navigation chevrons) when active in RTL mode.
+/// Whether [icon] points in a reading direction and should look mirrored in
+/// RTL (either automatically by [Icon] or manually by [DirectionalIcon]).
+bool isDirectionalIcon(IconData icon) =>
+    icon.matchTextDirection || _manuallyMirroredIcons.contains(icon);
+
+/// An icon that points in the reading direction: mirrored in RTL.
+///
+/// Glyphs with `matchTextDirection` are left to [Icon] (no second flip);
+/// the keyboard-arrow / double-arrow / menu-open family is flipped here.
+/// [forceMirror] sets the wanted final state explicitly (true = mirrored,
+/// false = never mirrored, even for `matchTextDirection` glyphs in RTL).
 class DirectionalIcon extends StatelessWidget {
   final IconData icon;
   final double? size;
@@ -43,7 +52,9 @@ class DirectionalIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRtl = Directionality.of(context) == TextDirection.rtl;
-    final shouldMirror = forceMirror ?? (isRtl && _directionalIcons.contains(icon));
+    // What Icon already does on its own.
+    final mirroredByIcon = isRtl && icon.matchTextDirection;
+    final wantMirrored = forceMirror ?? (isRtl && isDirectionalIcon(icon));
 
     final iconWidget = Icon(
       icon,
@@ -52,7 +63,7 @@ class DirectionalIcon extends StatelessWidget {
       semanticLabel: semanticLabel,
     );
 
-    if (shouldMirror) {
+    if (wantMirrored != mirroredByIcon) {
       return Transform.scale(
         scaleX: -1.0,
         alignment: Alignment.center,

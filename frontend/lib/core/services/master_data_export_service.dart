@@ -1224,7 +1224,7 @@ Sorour Logistics ERP
                                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                               ),
                               child: pw.Text(
-                                tariff.customsCategory!,
+                                tariff.categoryLabelArabic ?? tariff.customsCategory!,
                                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
                               ),
                             ),
@@ -1353,7 +1353,7 @@ Sorour Logistics ERP
 
     for (final t in tariffs) {
       buffer.writeln(
-        '"${t.hsCode}","${t.hsDescription.replaceAll('"', '""')}","${(t.customsCategory ?? "").replaceAll('"', '""')}",${t.customsDutyRate},${t.vatRate},${t.scheduleTaxRate},${t.developmentFeeRate},${t.importFeeRate},"${(t.regulatoryAuthority ?? "").replaceAll('"', '""')}",${t.requiresAcid ? "نعم" : "لا"},${t.requiresCoo ? "نعم" : "لا"},${t.requiresInspection ? "نعم" : "لا"},"${t.isActive ? "نشط" : "متوقف"}","${(t.notes ?? "").replaceAll('"', '""')}"',
+        '"${t.hsCode}","${t.hsDescription.replaceAll('"', '""')}","${(t.categoryLabelArabic ?? "").replaceAll('"', '""')}",${t.customsDutyRate},${t.vatRate},${t.scheduleTaxRate},${t.developmentFeeRate},${t.importFeeRate},"${(t.regulatoryAuthority ?? "").replaceAll('"', '""')}",${t.requiresAcid ? "نعم" : "لا"},${t.requiresCoo ? "نعم" : "لا"},${t.requiresInspection ? "نعم" : "لا"},"${t.isActive ? "نشط" : "متوقف"}","${(t.notes ?? "").replaceAll('"', '""')}"',
       );
     }
 
@@ -1375,7 +1375,7 @@ Sorour Logistics ERP
     b.writeln('*Sorour Logistics ERP — بطاقة بند التعريفة الجمركية*');
     b.writeln('🏷️ *كود البند:* ${tariff.hsCode}');
     b.writeln('📝 *الوصف:* ${tariff.hsDescription}');
-    if (tariff.customsCategory != null) b.writeln('📂 *التصنيف:* ${tariff.customsCategory}');
+    if (tariff.customsCategory != null) b.writeln('📂 *التصنيف:* ${tariff.categoryLabelArabic}');
     b.writeln('⚡ *الحالة:* ${tariff.isActive ? "✅ مفعّل" : "❌ متوقف"}');
     b.writeln('\n*📊 نسب الضرائب والرسوم:*');
     b.writeln('• ضريبة الوارد: ${tariff.customsDutyRate}%');
@@ -1412,7 +1412,7 @@ Sorour Logistics ERP
     b.writeln('مرفق لسيادتكم بيان بنسب الضرائب والرسوم والاشتراطات الرقابية لبند التعريفة الجمركية:\n');
     b.writeln('- كود البند: ${tariff.hsCode}');
     b.writeln('- الوصف: ${tariff.hsDescription}');
-    if (tariff.customsCategory != null) b.writeln('- التصنيف الجمركي: ${tariff.customsCategory}');
+    if (tariff.customsCategory != null) b.writeln('- التصنيف الجمركي: ${tariff.categoryLabelArabic}');
     b.writeln('- ضريبة الوارد: ${tariff.customsDutyRate}%');
     b.writeln('- ضريبة القيمة المضافة: ${tariff.vatRate}%');
     if (tariff.scheduleTaxRate > 0) b.writeln('- ضريبة الجدول: ${tariff.scheduleTaxRate}%');

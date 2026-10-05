@@ -3,8 +3,10 @@ Business Service for Shipment Stage Activity & 6-Phase Lifecycle Board
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException, status
@@ -30,6 +32,11 @@ from modules.lifecycle_board.schemas import (
     SkipStepPayload,
 )
 from modules.import_files.model import ImportFile
+from modules.common import enum_codes
+from modules.common.system_messages import SysMsg, msg, render_en
+from modules.common.file_tracking import phase_title_en, set_file_tracking
+
+logger = logging.getLogger(__name__)
 
 PHASES_DEFINITION = [
     {
@@ -227,6 +234,8 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
                 status=act.status,
                 started_at=act.started_at,
                 notes=act.notes,
+                msg_code=act.msg_code,
+                msg_params=act.msg_params,
             )
         )
 
@@ -280,8 +289,22 @@ def advance_lifecycle_step_service(
     custom_module_name: Optional[str] = None,
     custom_next_action: Optional[str] = None,
     min_progress_percent: Optional[float] = None,
+    notes_msg: Optional[SysMsg] = None,
+    next_action_msg: Optional[SysMsg] = None,
+    stage_code: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
+    Single-language storage (Phase B):
+    - ``notes_msg``: system message for the completed step's activity notes (English render stored in
+      ``notes``, code in ``msg_code``). Plain ``notes`` is user/caller text and carries no code. Default when
+      neither is given: LC_STEP_COMPLETED.
+    - ``next_action_msg``: ``NA_*`` message for ``import_files.next_action``. Default: NA_FOLLOW_UP_STEP
+      (NA_FILE_CLOSED after STEP_21). ``custom_next_action`` (legacy text) is still honoured when no message is
+      given; it is stored as-is without a code.
+    - ``stage_code``: optional special STAGE code (e.g. CUSTOMS_RELEASED) for ``current_stage_code``.
+    - ``custom_stage_title`` / ``custom_module_name`` are ignored: the stage and module come from
+      ``current_phase_id`` / ``current_step_code`` and their English legacy texts from the step catalog.
+
     Generic Central Synchronization Mechanism for Shipment Lifecycle Operations Board (6 Phases / 25 Steps).
     - Idempotent and transaction-safe.
     - Resolves file by either import_file_code or import_file_id.
@@ -294,10 +317,6 @@ def advance_lifecycle_step_service(
     - Auto-closes prior SmartTasks and creates the next step SmartTask.
     """
     from modules.import_files.model import ImportFile
-    from modules.smart_tasks.model import SmartTask
-    from modules.smart_tasks.schemas import SmartTaskCreate
-    import modules.smart_tasks.repository as task_repo
-    from datetime import date
 
     # 1. Resolve ImportFile record and code
     file_rec: Optional[ImportFile] = None
@@ -334,20 +353,25 @@ def advance_lifecycle_step_service(
         for prior_code in prior_codes:
             existing_act = repo.get_activity(db, import_file_code, prior_code)
             if not existing_act:
+                auto_msg = msg("LC_STEP_AUTO_COMPLETED", target_step_code=completed_step_code)
                 repo.save_or_update_activity(
                     db,
                     import_file_code=import_file_code,
                     step_code=prior_code,
                     status="Completed",
                     completed_at=now_str,
-                    notes=f"تم الاستيفاء التلقائي عند الانتقال إلى {completed_step_code}",
+                    notes=render_en(auto_msg.code, auto_msg.params, "note"),
+                    msg_code=auto_msg.code,
+                    msg_params=auto_msg.params,
                 )
                 auto_completed_steps.append(prior_code)
             elif existing_act.status in ["In-Progress", "Pending"]:
                 existing_act.status = "Completed"
                 if not existing_act.completed_at:
                     existing_act.completed_at = now_str
-                existing_act.notes = (existing_act.notes or "") + f" [تم الإكمال التلقائي عند إنجاز {completed_step_code}]"
+                _append_system_note(
+                    existing_act, msg("LC_STEP_AUTO_CLOSED_PRIOR", completed_step_code=completed_step_code)
+                )
                 db.commit()
                 auto_completed_steps.append(prior_code)
 
@@ -357,6 +381,17 @@ def advance_lifecycle_step_service(
         if (action_data and isinstance(action_data, dict))
         else (action_data if isinstance(action_data, str) else None)
     )
+    if notes_msg is not None:
+        completed_notes, completed_code, completed_params = (
+            render_en(notes_msg.code, notes_msg.params, "note"), notes_msg.code, dict(notes_msg.params)
+        )
+    elif notes:
+        completed_notes, completed_code, completed_params = notes, None, None
+    else:
+        default_msg = msg("LC_STEP_COMPLETED", step_code=completed_step_code)
+        completed_notes, completed_code, completed_params = (
+            render_en(default_msg.code, default_msg.params, "note"), default_msg.code, default_msg.params
+        )
     repo.save_or_update_activity(
         db,
         import_file_code=import_file_code,
@@ -365,10 +400,13 @@ def advance_lifecycle_step_service(
         completed_at=now_str,
         assigned_user=assigned_user,
         action_data=act_data_json,
-        notes=notes or f"تم إنجاز {completed_step_code} بنجاح",
+        notes=completed_notes,
+        msg_code=completed_code,
+        msg_params=completed_params,
     )
 
     # 6. Activate target steps as In-Progress
+    activated_msg = msg("LC_STEP_ACTIVATED", completed_step_code=completed_step_code)
     for target_code in target_step_codes:
         existing_target = repo.get_activity(db, import_file_code, target_code)
         if not existing_target or existing_target.status != "Completed":
@@ -378,19 +416,12 @@ def advance_lifecycle_step_service(
                 step_code=target_code,
                 status="In-Progress",
                 started_at=now_str,
-                notes=f"تم التفعيل بعد إكمال {completed_step_code}",
+                notes=render_en(activated_msg.code, activated_msg.params, "note"),
+                msg_code=activated_msg.code,
+                msg_params=activated_msg.params,
             )
 
-    # 7. Calculate dynamic progress percentage & phase definitions
-    phase_titles = {
-        1: "Phase 1: Pre-Planning & Studies",
-        2: "Phase 2: Approvals & ACID",
-        3: "Phase 3: Booking & Doc Prep",
-        4: "Phase 4: Digital & Banking",
-        5: "Phase 5: Port Operations & Clearance",
-        6: "Phase 6: Inbound & Final Closure",
-    }
-
+    # 7. Calculate dynamic progress percentage
     if completed_step_code == "STEP_21":
         calc_progress = 100.0
         target_phase_id = 6
@@ -415,60 +446,36 @@ def advance_lifecycle_step_service(
     if min_progress_percent is not None:
         calc_progress = max(calc_progress, min_progress_percent)
 
-    target_names = STEP_NAME_MAP.get(first_target, (first_target, first_target))
-    stage_title = custom_stage_title or phase_titles.get(target_phase_id, f"Phase {target_phase_id}")
-
-    # 8. Update ImportFile tracking attributes
+    # 8. Update ImportFile tracking attributes (structured codes + English legacy text)
     if file_rec:
-        file_rec.current_stage = stage_title
-        file_rec.current_module = custom_module_name or f"{first_target} {target_names[1]}"
-
         if completed_step_code == "STEP_21":
-            file_rec.next_action = custom_next_action or "تم إغلاق الملف الاستيرادي بنجاح"
+            default_next = msg("NA_FILE_CLOSED")
             file_rec.progress_percent = 100.0
         else:
-            file_rec.next_action = custom_next_action or f"{first_target} متابعة وتنفيذ {target_names[1]}"
+            default_next = msg("NA_FOLLOW_UP_STEP", step_code=first_target)
             file_rec.progress_percent = max(float(file_rec.progress_percent or 0.0), calc_progress)
+        _apply_file_tracking(
+            file_rec,
+            step_code=first_target,
+            phase_id=target_phase_id,
+            stage_code=stage_code,
+            next_action_msg=next_action_msg or default_next,
+            legacy_next_action=None if next_action_msg is not None else custom_next_action,
+        )
 
         # 9. SmartTask management
-        steps_to_close = [completed_step_code] + auto_completed_steps
-        for stc in steps_to_close:
-            prior_tasks = db.query(SmartTask).filter(
-                SmartTask.import_file_id == file_rec.import_file_id,
-                SmartTask.task_type == "System Generated",
-                SmartTask.status.in_(["Pending", "In Progress"]),
-                SmartTask.title.ilike(f"%{stc}%"),
-                SmartTask.is_active == True,
-            ).all()
-            for pt in prior_tasks:
-                pt.status = "Completed"
-                pt.is_auto_closed = True
-
-        # Generate smart task for target step if active and not STEP_21
+        _close_step_tasks(db, file_rec.import_file_id, [completed_step_code] + auto_completed_steps)
         if target_step_codes and completed_step_code != "STEP_21":
-            task_title_suffix = f"{target_names[1]} ({first_target})"
-            existing_task = db.query(SmartTask).filter(
-                SmartTask.import_file_id == file_rec.import_file_id,
-                SmartTask.title.ilike(f"%{task_title_suffix}%"),
-                SmartTask.is_active == True,
-            ).first()
-
-            if not existing_task:
-                schema = SmartTaskCreate(
-                    title=f"[{import_file_code}] — {task_title_suffix}",
-                    description=f"تم إكمال {completed_step_code} للشحنة {import_file_code} والانتقال إلى {target_names[1]} ({first_target}) ضمن {stage_title}. الإجراء المطلوب: متابعة واستكمال متطلبات المرحلة.",
-                    task_type="System Generated",
-                    import_file_id=file_rec.import_file_id,
-                    import_file_code=import_file_code,
-                    phase_name=stage_title,
-                    assigned_user=file_rec.owner or assigned_user or "Operations",
-                    priority="High",
-                    reminder_type=f"Lifecycle {first_target}",
-                    status="Pending",
-                    due_date=date.today().isoformat(),
-                    notes=f"توليد آلي بعد إكمال {completed_step_code}",
-                )
-                task_repo.create_task(db, schema, created_by=source_module or "Lifecycle Operations Board")
+            _create_next_step_task(
+                db,
+                file_rec,
+                import_file_code=import_file_code,
+                completed_step_code=completed_step_code,
+                next_step_code=first_target,
+                phase_id=target_phase_id,
+                assigned_user=file_rec.owner or assigned_user or "Operations",
+                created_by=source_module or "Lifecycle Operations Board",
+            )
 
         db.commit()
         db.refresh(file_rec)
@@ -483,7 +490,116 @@ def advance_lifecycle_step_service(
         "current_stage": file_rec.current_stage if file_rec else None,
         "current_module": file_rec.current_module if file_rec else None,
         "next_action": file_rec.next_action if file_rec else None,
+        "current_step_code": file_rec.current_step_code if file_rec else None,
+        "current_phase_id": file_rec.current_phase_id if file_rec else None,
+        "current_stage_code": file_rec.current_stage_code if file_rec else None,
+        "next_action_code": file_rec.next_action_code if file_rec else None,
+        "next_action_params": file_rec.next_action_params if file_rec else None,
     }
+
+
+def _apply_file_tracking(
+    file_rec: Any,
+    *,
+    step_code: str,
+    phase_id: Optional[int],
+    next_action_msg: SysMsg,
+    stage_code: Optional[str] = None,
+    legacy_next_action: Optional[str] = None,
+) -> None:
+    """set_file_tracking + the legacy ``custom_next_action`` text path (stored without a code)."""
+    set_file_tracking(
+        file_rec,
+        step_code=step_code,
+        phase_id=str(phase_id) if phase_id is not None else None,
+        next_action=next_action_msg,
+        stage_code=stage_code,
+    )
+    if legacy_next_action:
+        file_rec.next_action = legacy_next_action[:255]
+        file_rec.next_action_code = None
+        file_rec.next_action_params = None
+
+
+def _close_step_tasks(db: Session, import_file_id: int, step_codes: List[str]) -> None:
+    """Auto-close open system tasks of the given steps: by ``step_code`` (coded tasks) or, for legacy rows
+    without one, by the step code in the title."""
+    from modules.smart_tasks.model import SmartTask
+
+    for stc in step_codes:
+        prior_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == import_file_id,
+            SmartTask.task_type == "System Generated",
+            SmartTask.status.in_(["Pending", "In Progress"]),
+            SmartTask.is_active == True,
+            or_(
+                SmartTask.step_code == stc,
+                and_(SmartTask.step_code.is_(None), SmartTask.title.ilike(f"%{stc}%")),
+            ),
+        ).all()
+        for pt in prior_tasks:
+            pt.status = "Completed"
+            pt.is_auto_closed = True
+
+
+def _create_next_step_task(
+    db: Session,
+    file_rec: Any,
+    *,
+    import_file_code: str,
+    completed_step_code: str,
+    next_step_code: str,
+    phase_id: Optional[int],
+    assigned_user: str,
+    created_by: str,
+    is_skipped: bool = False,
+) -> None:
+    """Create the system task of the next step unless one exists (coded by ``step_code``, or a legacy task
+    whose title holds the step's Arabic name + code)."""
+    from datetime import date
+    from modules.smart_tasks.model import SmartTask
+    from modules.smart_tasks.schemas import SmartTaskCreate
+    import modules.smart_tasks.repository as task_repo
+
+    names = STEP_NAME_MAP.get(next_step_code, (next_step_code, next_step_code))
+    legacy_suffix = f"{names[1]} ({next_step_code})"
+    existing_task = db.query(SmartTask).filter(
+        SmartTask.import_file_id == file_rec.import_file_id,
+        SmartTask.is_active == True,
+        or_(
+            and_(SmartTask.step_code == next_step_code, SmartTask.task_type == "System Generated"),
+            and_(SmartTask.step_code.is_(None), SmartTask.title.ilike(f"%{legacy_suffix}%")),
+        ),
+    ).first()
+    if existing_task:
+        return
+
+    message = msg(
+        "LC_TASK_NEXT_STEP_SKIPPED" if is_skipped else "LC_TASK_NEXT_STEP",
+        import_file_code=import_file_code,
+        step_code=next_step_code,
+        completed_step_code=completed_step_code,
+        phase_id=phase_id,
+    )
+    schema = SmartTaskCreate(
+        title=render_en(message.code, message.params, "title"),
+        description=render_en(message.code, message.params, "body"),
+        task_type="System Generated",
+        import_file_id=file_rec.import_file_id,
+        import_file_code=import_file_code,
+        phase_name=phase_title_en(phase_id) if phase_id else None,
+        assigned_user=assigned_user,
+        priority="High",
+        reminder_type=f"Lifecycle {next_step_code}",
+        status="Pending",
+        due_date=date.today().isoformat(),
+        notes=render_en(message.code, message.params, "note"),
+    )
+    # Flush only: the calling advance/skip commits once for activities, file tracking and the task.
+    task_repo.create_task(
+        db, schema, created_by=created_by, msg_code=message.code, msg_params=message.params,
+        step_code=next_step_code, commit=False,
+    )
 
 
 def sync_consultation_lifecycle_stage(db: Session, import_file_id: int):
@@ -497,11 +613,9 @@ def sync_consultation_lifecycle_stage(db: Session, import_file_id: int):
         import_file_id=import_file_id,
         target_step_codes=["STEP_02"],
         auto_complete_prior=True,
-        notes="تم إنجاز دراسات النولون والشحن والانتقال للدراسات الجمركية",
+        notes_msg=msg("LC_SYNC_FREIGHT_STUDIES_DONE"),
         source_module="Customs Engine Lifecycle",
-        custom_stage_title="المرحلة الأولى: التخطيط والدراسات المسبقة",
-        custom_module_name="STEP_02 الدراسات والاستشارات الجمركية",
-        custom_next_action="STEP_03 مراجعة اشتراطات ومتطلبات الاستيراد للشحنة والموافقات الرقابية",
+        next_action_msg=msg("NA_STEP03_REVIEW_REGULATORY_APPROVALS"),
         min_progress_percent=20.0,
     )
 
@@ -517,11 +631,9 @@ def sync_requirements_lifecycle_stage(db: Session, import_file_id: int):
         import_file_id=import_file_id,
         target_step_codes=["STEP_03"],
         auto_complete_prior=True,
-        notes="تم إنجاز وتوثيق الاستشارة الجمركية والتعريفة",
+        notes_msg=msg("LC_SYNC_CUSTOMS_STUDY_DONE"),
         source_module="Requirements Engine Lifecycle",
-        custom_stage_title="المرحلة الأولى: التخطيط والدراسات المسبقة",
-        custom_module_name="STEP_03 متطلبات واشتراطات الاستيراد للشحنة",
-        custom_next_action="STEP_04 مراجعة اعتمادات الميزانية والتحويل البنكي للمورد",
+        next_action_msg=msg("NA_STEP04_REVIEW_BUDGET_SUPPLIER_TRANSFER"),
         min_progress_percent=25.0,
     )
 
@@ -544,11 +656,9 @@ def sync_budget_lifecycle_stage(
             target_step_codes=["STEP_05"],
             auto_complete_prior=True,
             assigned_user=approved_by or "Finance Manager",
-            notes="تم اعتماد الميزانية التقديرية للشحنة بنجاح",
+            notes_msg=msg("LC_SYNC_BUDGET_APPROVED"),
             source_module="Budget Approval Lifecycle",
-            custom_stage_title="Phase 2: Approvals & ACID",
-            custom_module_name="STEP_05 إصدار رقم ACID نافذة",
-            custom_next_action="STEP_05 طلب واستخراج رقم القيد الجمركي المبدئي (ACID) عبر منظومة نافذة",
+            next_action_msg=msg("NA_STEP05_REQUEST_ACID"),
             min_progress_percent=40.0,
         )
     else:
@@ -558,11 +668,9 @@ def sync_budget_lifecycle_stage(
             import_file_id=import_file_id,
             target_step_codes=["STEP_04"],
             auto_complete_prior=True,
-            notes="تم إعداد الميزانية التقديرية وهي قيد المراجعة والاعتماد المالي",
+            notes_msg=msg("LC_SYNC_BUDGET_UNDER_REVIEW"),
             source_module="Budget Approval Lifecycle",
-            custom_stage_title="Phase 2: Approvals & ACID",
-            custom_module_name="STEP_04 اعتمادات الميزانية وسداد الموردين",
-            custom_next_action="STEP_04 مراجعة واعتماد الميزانية التقديرية وسداد دفعة المورد",
+            next_action_msg=msg("NA_STEP04_APPROVE_BUDGET_SUPPLIER_PAYMENT"),
             min_progress_percent=30.0,
         )
 
@@ -580,19 +688,24 @@ def sync_booking_lifecycle_stage(
     when a Freight Booking is created or updated.
     """
     if is_confirmed:
-        conf_text = f" برقم تأكيد {booking_confirmation_no}" if booking_confirmation_no else ""
-        vessel_text = f" على الباخرة {vessel_name}" if vessel_name else ""
         return advance_lifecycle_step_service(
             db=db,
             completed_step_code="STEP_06",
             import_file_id=import_file_id,
             target_step_codes=["STEP_07"],
             auto_complete_prior=True,
-            notes=f"تم تأكيد حجز الشحن {booking_code or ''}{conf_text}{vessel_text}",
+            notes_msg=(
+                msg(
+                    "LC_SYNC_BOOKING_CONFIRMED_DETAILS",
+                    booking_code=booking_code or "-",
+                    confirmation_no=booking_confirmation_no or "-",
+                    vessel_name=vessel_name or "-",
+                )
+                if (booking_confirmation_no or vessel_name)
+                else msg("LC_SYNC_BOOKING_CONFIRMED", booking_code=booking_code or "-")
+            ),
             source_module="Freight Booking Lifecycle",
-            custom_stage_title="Phase 3: Booking & Doc Prep",
-            custom_module_name="STEP_07 تخصيص وتوزيع الحاويات والبضائع",
-            custom_next_action="STEP_07 تدقيق بيانات تخصيص الحاويات وأوزان VGM ومراجعة مسودات مستندات الشحن",
+            next_action_msg=msg("NA_STEP07_AUDIT_ALLOCATION_VGM"),
             min_progress_percent=50.0,
         )
     else:
@@ -602,11 +715,9 @@ def sync_booking_lifecycle_stage(
             import_file_id=import_file_id,
             target_step_codes=["STEP_06"],
             auto_complete_prior=True,
-            notes=f"طلب حجز الشحن {booking_code or ''} قيد المتابعة والتأكيد مع الخط الملاحي",
+            notes_msg=msg("LC_SYNC_BOOKING_PENDING", booking_code=booking_code or ""),
             source_module="Freight Booking Lifecycle",
-            custom_stage_title="Phase 3: Booking & Doc Prep",
-            custom_module_name="STEP_06 حجز النولون وتأكيد الخط الملاحي",
-            custom_next_action="STEP_06 متابعة تأكيد حجز الشحن واستلام إشعار التأكيد (Booking Confirmation)",
+            next_action_msg=msg("NA_STEP06_FOLLOW_BOOKING_CONFIRMATION"),
             min_progress_percent=45.0,
         )
 
@@ -623,18 +734,19 @@ def sync_cargo_shipping_lifecycle_stage(
     when Cargo Shipping allocations & container records are saved and finalized.
     """
     if is_final_completed:
-        containers_text = f" ({container_count} حاوية/طرد)" if container_count else ""
         return advance_lifecycle_step_service(
             db=db,
             completed_step_code="STEP_07",
             import_file_id=import_file_id,
             target_step_codes=["STEP_08_PO"],
             auto_complete_prior=True,
-            notes=f"تم إتمام وتدقيق بيانات تخصيص الحاويات وأوزان VGM لسجل الشحن {cargo_shipping_code or ''}{containers_text}",
+            notes_msg=msg(
+                "LC_SYNC_CARGO_ALLOCATION_DONE",
+                cargo_shipping_code=cargo_shipping_code or "",
+                container_count=int(container_count or 0),
+            ),
             source_module="Cargo Shipping Lifecycle",
-            custom_stage_title="Phase 3: Booking & Doc Prep",
-            custom_module_name="STEP_08_PO مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء",
-            custom_next_action="STEP_08_PO مراجعة وتدقيق بنود الفاتورة والباكينج ومطابقة أمر الشراء",
+            next_action_msg=msg("NA_STEP08PO_RECONCILE_INVOICE_PACKING_PO"),
             min_progress_percent=48.0,
         )
     else:
@@ -644,11 +756,9 @@ def sync_cargo_shipping_lifecycle_stage(
             import_file_id=import_file_id,
             target_step_codes=["STEP_07"],
             auto_complete_prior=True,
-            notes=f"سجل تخصيص الحاويات والشحن {cargo_shipping_code or ''} قيد الإعداد والتدقيق (مسودة)",
+            notes_msg=msg("LC_SYNC_CARGO_ALLOCATION_DRAFT", cargo_shipping_code=cargo_shipping_code or ""),
             source_module="Cargo Shipping Lifecycle",
-            custom_stage_title="Phase 3: Booking & Doc Prep",
-            custom_module_name="STEP_07 تخصيص وتوزيع الحاويات والبضائع",
-            custom_next_action="STEP_07 استكمال أرقام الحاويات والأختام وأوزان VGM",
+            next_action_msg=msg("NA_STEP07_COMPLETE_CONTAINERS_VGM"),
             min_progress_percent=50.0,
         )
 
@@ -661,27 +771,12 @@ def _sync_import_file_and_tasks_on_advance(
     is_skipped: bool = False,
     skip_reason: Optional[str] = None,
 ):
-    from modules.smart_tasks.model import SmartTask
-    from modules.smart_tasks.schemas import SmartTaskCreate
-    import modules.smart_tasks.repository as task_repo
-    from datetime import date
-
     file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == file_code).first()
     if not file_rec:
         return
 
-    phase_titles = {
-        1: "Phase 1: Pre-Planning & Studies",
-        2: "Phase 2: Approvals & ACID",
-        3: "Phase 3: Booking & Doc Prep",
-        4: "Phase 4: Digital & Banking",
-        5: "Phase 5: Port Operations & Clearance",
-        6: "Phase 6: Inbound & Final Closure",
-    }
-
     if activated_step_codes:
         first_next = activated_step_codes[0]
-        names = STEP_NAME_MAP.get(first_next, (first_next, first_next))
         phase_id = STEP_TO_PHASE_MAP.get(first_next, 1)
 
         if first_next in ORDERED_STEP_CODES:
@@ -690,53 +785,29 @@ def _sync_import_file_and_tasks_on_advance(
         else:
             calc_progress = float(file_rec.progress_percent or 0.0)
 
-        file_rec.current_stage = phase_titles.get(phase_id, f"Phase {phase_id}")
-        file_rec.current_module = f"{first_next} {names[1]}"
-        file_rec.next_action = f"{first_next} متابعة وتنفيذ {names[1]}"
+        set_file_tracking(
+            file_rec,
+            step_code=first_next,
+            phase_id=str(phase_id),
+            next_action=msg("NA_FOLLOW_UP_STEP", step_code=first_next),
+        )
         file_rec.progress_percent = max(float(file_rec.progress_percent or 0.0), calc_progress)
 
-        # Close prior tasks for the completed step
-        prior_tasks = db.query(SmartTask).filter(
-            SmartTask.import_file_id == file_rec.import_file_id,
-            SmartTask.task_type == "System Generated",
-            SmartTask.status.in_(["Pending", "In Progress"]),
-            SmartTask.title.ilike(f"%{completed_step_code}%"),
-            SmartTask.is_active == True,
-        ).all()
-        for pt in prior_tasks:
-            pt.status = "Completed"
-            pt.is_auto_closed = True
-
-        # Generate smart task for the next step if not already present
-        task_title_suffix = f"{names[1]} ({first_next})"
-        existing_task = db.query(SmartTask).filter(
-            SmartTask.import_file_id == file_rec.import_file_id,
-            SmartTask.title.ilike(f"%{task_title_suffix}%"),
-            SmartTask.is_active == True,
-        ).first()
-
-        if not existing_task:
-            action_desc = f"تم تخطي المرحلة: {skip_reason} للشحنة" if is_skipped else "تم إكمال الخطوة السابقة للشحنة"
-            schema = SmartTaskCreate(
-                title=f"[{file_code}] — {task_title_suffix}",
-                description=f"{action_desc} {file_code} والانتقال إلى {names[1]} ({first_next}) ضمن {phase_titles.get(phase_id, f'Phase {phase_id}')}. الإجراء المطلوب: متابعة واستكمال متطلبات المرحلة.",
-                task_type="System Generated",
-                import_file_id=file_rec.import_file_id,
-                import_file_code=file_code,
-                phase_name=phase_titles.get(phase_id, f"Phase {phase_id}"),
-                assigned_user=file_rec.owner or "Operations",
-                priority="High",
-                reminder_type=f"Lifecycle {first_next}",
-                status="Pending",
-                due_date=date.today().isoformat(),
-                notes=f"توليد آلي بعد {'تخطي' if is_skipped else 'إكمال'} {completed_step_code}",
-            )
-            task_repo.create_task(db, schema, created_by="Lifecycle Operations Board")
+        _close_step_tasks(db, file_rec.import_file_id, [completed_step_code])
+        _create_next_step_task(
+            db,
+            file_rec,
+            import_file_code=file_code,
+            completed_step_code=completed_step_code,
+            next_step_code=first_next,
+            phase_id=phase_id,
+            assigned_user=file_rec.owner or "Operations",
+            created_by="Lifecycle Operations Board",
+            is_skipped=is_skipped,
+        )
 
     elif completed_step_code == "STEP_21":
-        file_rec.current_stage = "Phase 6: Inbound & Final Closure"
-        file_rec.current_module = "STEP_21 الإغلاق النهائي للملف الاستيرادي"
-        file_rec.next_action = "تم إغلاق الملف الاستيرادي بنجاح"
+        set_file_tracking(file_rec, step_code="STEP_21", phase_id="6", next_action=msg("NA_FILE_CLOSED"))
         file_rec.progress_percent = 100.0
 
     db.commit()
@@ -765,7 +836,9 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
             step_code=step_code,
             status="In-Progress",
             started_at=now_str,
-            notes=payload.notes or "تفعيل مرحلي متزامن",
+            notes=payload.notes or render_en("LC_MULTI_STAGE_ACTIVATED", {}, "note"),
+            msg_code=None if payload.notes else "LC_MULTI_STAGE_ACTIVATED",
+            msg_params=None if payload.notes else {},
         )
 
     return {
@@ -776,12 +849,9 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
 
 # ─── Configurable Step Risk & Settings Service (Addendum: Section 10) ───
 
-DEFAULT_REASON_CATEGORIES = [
-    "Client Agreement / العميل يتولى الإجراء حسب الاتفاقية",
-    "Not Applicable to Mode / لا تنطبق على نمط الشحن",
-    "Regulatory Exemption / إعفاء رسمي أو رقابي",
-    "Other / أخرى",
-]
+# SKIP_REASON_CATEGORY codes (modules/common/enum_codes.py). Existing step_configs rows keep their legacy
+# bilingual strings; the UI maps them with DomainEnums.legacyToCode.
+DEFAULT_REASON_CATEGORIES = enum_codes.codes(enum_codes.SKIP_REASON_CATEGORY)
 
 
 def _ensure_step_configs(db: Session):
@@ -892,7 +962,7 @@ def update_step_config_service(
     if payload.skip_policy is not None:
         cfg.skip_policy = payload.skip_policy
     if payload.reason_categories is not None:
-        cfg.reason_categories = payload.reason_categories
+        cfg.reason_categories = enum_codes.normalize_list(enum_codes.SKIP_REASON_CATEGORY, payload.reason_categories)
     if payload.approver_roles is not None:
         cfg.approver_roles = payload.approver_roles
     if payload.supports_pending_reference is not None:
@@ -973,6 +1043,11 @@ def register_pending_reference_service(
         "type": "PENDING_REFERENCE",
     }, ensure_ascii=False)
 
+    pending_msg = msg(
+        "LC_PENDING_REFERENCE",
+        reference_number=payload.reference_number.strip(),
+        reason=payload.reason_text.strip(),
+    )
     repo.save_or_update_activity(
         db,
         import_file_code=payload.import_file_code,
@@ -980,7 +1055,9 @@ def register_pending_reference_service(
         status="Reference recorded – pending full documentation",
         assigned_user=username,
         action_data=action_data_json,
-        notes=f"مرجع معلق: {payload.reference_number} — {payload.reason_text}",
+        notes=render_en(pending_msg.code, pending_msg.params, "note"),
+        msg_code=pending_msg.code,
+        msg_params=pending_msg.params,
     )
 
     # 4. Central Audit Log
@@ -1070,16 +1147,20 @@ def skip_step_service(
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Mark current step as Skipped
+    skipped_msg = msg("LC_STEP_SKIPPED", reason=payload.skip_reason)
     repo.save_or_update_activity(
         db,
         import_file_code=payload.import_file_code,
         step_code=payload.current_step_code,
         status="Skipped",
         completed_at=now_str,
-        notes=f"تم تخطي المرحلة: {payload.skip_reason}",
+        notes=render_en(skipped_msg.code, skipped_msg.params, "note"),
+        msg_code=skipped_msg.code,
+        msg_params=skipped_msg.params,
     )
 
     # Activate next step(s)
+    after_skip_msg = msg("LC_STEP_ACTIVATED_AFTER_SKIP", skipped_step_code=payload.current_step_code)
     for next_code in payload.next_step_codes:
         repo.save_or_update_activity(
             db,
@@ -1087,7 +1168,9 @@ def skip_step_service(
             step_code=next_code,
             status="In-Progress",
             started_at=now_str,
-            notes=f"تم التفعيل بعد تخطي {payload.current_step_code}",
+            notes=render_en(after_skip_msg.code, after_skip_msg.params, "note"),
+            msg_code=after_skip_msg.code,
+            msg_params=after_skip_msg.params,
         )
 
     # Update ImportFile record's skipped_stages list
@@ -1145,6 +1228,7 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
         start_idx = 0
 
     # Mark prior steps in ORDERED_STEP_CODES as Pre-Completed / Skipped
+    bypass_msg = msg("LC_STEP_BYPASSED_FOR_LATER_START")
     has_step_08_sub = False
     for i in range(0, start_idx):
         prior_code = ORDERED_STEP_CODES[i]
@@ -1156,7 +1240,9 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             step_code=prior_code,
             status="Completed",
             completed_at=now_str,
-            notes="تم تجاوزها واكتمالها لبدء الشحنة مباشرة من مرحلة لاحقة",
+            notes=render_en(bypass_msg.code, bypass_msg.params, "note"),
+            msg_code=bypass_msg.code,
+            msg_params=bypass_msg.params,
         )
 
     # Legacy STEP_08 fallback record for backward-compatibility
@@ -1167,29 +1253,76 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             step_code="STEP_08",
             status="Completed",
             completed_at=now_str,
-            notes="تم تجاوزها واكتمالها لبدء الشحنة مباشرة من مرحلة لاحقة",
+            notes=render_en(bypass_msg.code, bypass_msg.params, "note"),
+            msg_code=bypass_msg.code,
+            msg_params=bypass_msg.params,
         )
 
     # Activate starting step
+    start_msg = msg("LC_STARTING_POINT_SET", step_code=normalized_starting_step)
     repo.save_or_update_activity(
         db,
         import_file_code=import_file_code,
         step_code=normalized_starting_step,
         status="In-Progress",
         started_at=now_str,
-        notes=f"نقطة البداية المحددة للشحنة: {normalized_starting_step}",
+        notes=render_en(start_msg.code, start_msg.params, "note"),
+        msg_code=start_msg.code,
+        msg_params=start_msg.params,
     )
 
 
-def hold_shipment_activities_service(db: Session, import_file_code: str, hold_reason: str) -> None:
+def _append_system_note(act: Any, message: SysMsg) -> None:
+    """Append the English render of a system message to an activity's notes and keep its code/params
+    as the latest event (earlier system text stays in ``notes``)."""
+    text = render_en(message.code, message.params, "note")
+    act.notes = f"{act.notes} | {text}" if act.notes else text
+    act.msg_code = message.code
+    act.msg_params = dict(message.params)
+
+
+def resolve_hold_stage(stage_name: Optional[str], step_name: Optional[str]) -> Dict[str, Any]:
+    """Language-independent stage reference for hold/pause.
+
+    Clients send ``stage_name`` (a title, possibly Arabic, or a code) and ``step_name`` (a stage code such
+    as 'STEP_08_BL', 'PHASE-4: STEP_11', 'PHASE-5'). Returns ``phase_id``, ``step_code`` and the English
+    ``stage_title`` (None when nothing resolves, so the caller keeps its fallback)."""
+    phase_id, step_code = enum_codes.parse_stage_reference(step_name)
+    name_phase, name_step = enum_codes.parse_stage_reference(stage_name)
+    step_code = step_code or name_step
+    if step_code and step_code not in STEP_TO_PHASE_MAP:
+        step_code = None
+    phase_id = phase_id or name_phase or (STEP_TO_PHASE_MAP.get(step_code) if step_code else None)
+    titles = {p["phase_id"]: p["title_en"] for p in PHASES_DEFINITION}
+    if phase_id not in titles:
+        phase_id = STEP_TO_PHASE_MAP.get(step_code) if step_code else None
+
+    stage_title: Optional[str] = None
+    explicit = (stage_name or "").strip()
+    is_code_like = bool(name_phase or name_step)
+    if explicit and not is_code_like and not enum_codes.contains_arabic(explicit):
+        stage_title = explicit  # an English title chosen by the client
+    elif phase_id in titles:
+        stage_title = titles[phase_id]
+    return {"phase_id": phase_id, "step_code": step_code, "stage_title": stage_title}
+
+
+def hold_shipment_activities_service(
+    db: Session, import_file_code: str, hold_reason: str, hold_reason_code: Optional[str] = None
+) -> None:
     activities = db.query(repo.ShipmentStageActivity).filter(
         repo.ShipmentStageActivity.import_file_code == import_file_code,
         repo.ShipmentStageActivity.status == "In-Progress",
     ).all()
 
+    message = (
+        msg("LC_STEP_ON_HOLD_CODED", reason_enum_hold_reason=hold_reason_code)
+        if hold_reason_code
+        else msg("LC_STEP_ON_HOLD", reason=hold_reason)
+    )
     for act in activities:
         act.status = "On-Hold"
-        act.notes = f"معلقة مؤقتاً: {hold_reason}"
+        _append_system_note(act, message)
     db.commit()
 
 
@@ -1199,9 +1332,10 @@ def resume_shipment_activities_service(db: Session, import_file_code: str, resum
         repo.ShipmentStageActivity.status == "On-Hold",
     ).all()
 
+    message = msg("LC_STEP_RESUMED", notes=resume_notes) if resume_notes else msg("LC_STEP_RESUMED_DEFAULT")
     for act in activities:
         act.status = "In-Progress"
-        act.notes = f"تم الاستئناف: {resume_notes or 'استئناف تشغيل الشحنة'}"
+        _append_system_note(act, message)
     db.commit()
 
 
@@ -1219,7 +1353,9 @@ def _ensure_initial_stages(db: Session):
                 step_code=step_code,
                 status="In-Progress",
                 started_at=now_str,
-                notes="تهيئة أولية لنشاط الشحنة",
+                notes=render_en("LC_INITIAL_ACTIVITY", {}, "note"),
+                msg_code="LC_INITIAL_ACTIVITY",
+                msg_params={},
             )
 
 
@@ -1496,7 +1632,9 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
                 current_step_code=current_step,
                 current_step_name_ar=step_names[1],
                 current_step_name_en=step_names[0],
-                next_action=f.next_action or f"تنفيذ {step_names[1]}",
+                next_action=f.next_action or render_en("NA_FOLLOW_UP_STEP", {"step_code": current_step}, "action"),
+                next_action_code=f.next_action_code if f.next_action else "NA_FOLLOW_UP_STEP",
+                next_action_params=f.next_action_params if f.next_action else {"step_code": current_step},
             )
         )
 

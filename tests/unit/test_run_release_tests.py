@@ -107,7 +107,7 @@ def test_backend_runs_first_then_flutter_never_together(repo):
     assert len(runner.calls) == 2
     backend, flutter = runner.calls
     assert backend["cmd"][1:3] == ["-m", "pytest"] and backend["cwd"] == repo
-    assert flutter["cmd"][1:4] == ["test", "-j", "4"] and flutter["cwd"] == repo / "frontend"
+    assert flutter["cmd"][1:6] == ["test", "-j", "2", "--timeout", "120s"] and flutter["cwd"] == repo / "frontend"
     assert "--reporter" in flutter["cmd"]
 
 

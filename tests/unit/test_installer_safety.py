@@ -2,7 +2,8 @@
 Installer safety invariants for installer/importflow_setup.iss (plan docs/plans/update-system-plan.md, section 0).
 
 R1  no [Files] entry ships a database / .env, the wildcard entry excludes them, there is no
-    [UninstallDelete], and [InstallDelete] only removes the 3 legacy destructive scripts by exact name.
+    [UninstallDelete], and [InstallDelete] only removes the legacy destructive scripts and the old
+    script launchers by exact name.
     One install mode only (no PrivilegesRequiredOverridesAllowed).
 R2m chosen {app} without a DB + exactly one other install folder with a DB: the DB (+ -wal/-shm) is copied
     read-only into {app}\\backups\\pre_migrate_*\\ (kept) and \\staging\\, verified by size + SHA-256, moved into
@@ -16,7 +17,8 @@ R3  uninstall keeps the data: data folders carry uninsneveruninstall, the DB is 
 C11 a silent install relaunches the app only with /RELAUNCH=1; the interactive checkbox is unchanged.
 K2  StopRunningApp kills by image name without /T (Setup is a child of backend.exe during an in-app update).
 L1  shortcuts, the launch checkbox and the silent relaunch start {app}\\frontend.exe directly; nothing in the
-    script references the .vbs/.bat launchers (Windows is removing VBScript).
+    script launches the .vbs/.bat launchers (Windows is removing VBScript). They are only named to be
+    excluded from [Files] and removed by [InstallDelete]: their port-28080 taskkill closed the open app.
 
 These are static checks on the script text; ISCC compiles it in CI (build_and_release.yml).
 """
@@ -106,16 +108,20 @@ def test_no_uninstall_delete_section():
     assert "uninstalldelete" not in SECTIONS
 
 
+LEGACY_LAUNCHERS = ("Launch_ImportFlow.vbs", "Launch_Sorour_Logistics.vbs", "Sorour_Logistics_App.bat")
+
+
 def test_install_delete_removes_only_the_legacy_destructive_scripts():
     entries = _entries("installdelete")
     targets = sorted(_param(e, "Name") for e in entries)
 
-    assert targets == [
+    assert targets == sorted([
         "{app}\\clean_and_isolate_databases.py",
         "{app}\\reset_clean_production_db.py",
         "{app}\\seed.py",
         "{app}\\sync_to_production.py",
-    ]
+        *("{app}\\" + name for name in LEGACY_LAUNCHERS),
+    ])
     assert all(_param(e, "Type").lower() == "files" for e in entries)
 
 
@@ -669,11 +675,26 @@ def test_no_icons_or_run_entry_references_a_script_launcher():
 
 
 def test_script_never_references_the_vbs_launcher_outside_comments():
+    """Only [InstallDelete] (removal) and the [Files] Excludes may name a launcher."""
+    removal_lines = set(_entries("installdelete"))
     for line in ISS_TEXT.splitlines():
         stripped = line.strip()
-        if stripped.startswith(";") or stripped.startswith("//"):
+        if stripped.startswith(";") or stripped.startswith("//") or stripped in removal_lines:
             continue
-        assert not SCRIPT_LAUNCHER_RE.search(stripped), line
+        without_excludes = re.sub(r'\bExcludes\s*:\s*"[^"]*"', "", stripped, flags=re.I)
+        assert not SCRIPT_LAUNCHER_RE.search(without_excludes), line
+
+
+@pytest.mark.parametrize("launcher", LEGACY_LAUNCHERS)
+def test_legacy_launchers_are_never_shipped_and_removed_from_app(launcher):
+    # they killed every PID on a netstat line with :28080, i.e. also the running frontend.exe
+    wildcard_entries = [e for e in _entries("files") if "*" in _param(e, "Source")]
+    assert wildcard_entries
+    for entry in wildcard_entries:
+        excludes = [x.strip().lower() for x in _param(entry, "Excludes").split(",")]
+        assert launcher.lower() in excludes, f"[Files] would ship {launcher} again: {entry}"
+    deletes = [e for e in _entries("installdelete") if _param(e, "Name").lower() == "{app}\\" + launcher.lower()]
+    assert len(deletes) == 1 and _param(deletes[0], "Type").lower() == "files", deletes
 
 
 def test_every_app_launch_starts_frontend_exe_in_app_dir():

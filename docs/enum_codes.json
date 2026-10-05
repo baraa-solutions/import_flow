@@ -1,0 +1,534 @@
+{
+  "ALERT_SEVERITY": {
+    "codes": {
+      "CRITICAL": "Critical",
+      "HIGH": "High",
+      "INFO": "Info",
+      "WARNING": "Warning"
+    },
+    "legacy": {}
+  },
+  "BROKER_EXPENSE_CATEGORY": {
+    "codes": {
+      "CLEARANCE_FEES": "Clearance Fees",
+      "INLAND_TRANSPORT": "Inland Transport",
+      "OFFICIAL_RECEIPTS": "Official Port & Shipping Line Receipts",
+      "OTHER_FEES": "Other Fees",
+      "PORT_HANDLING": "Port & Handling",
+      "PROCEDURES_APPROVALS": "Procedures & Approvals"
+    },
+    "legacy": {
+      "Clearance Fees (أتعاب ومصاريف تخليص)": "CLEARANCE_FEES",
+      "Inland Transport (نقل بري وشاحنات)": "INLAND_TRANSPORT",
+      "Official Port & Shipping Line Receipts": "OFFICIAL_RECEIPTS",
+      "Other Fees (مصاريف أخرى)": "OTHER_FEES",
+      "Port & Handling (موانئ وتعتيق وتفريغ)": "PORT_HANDLING",
+      "Port Handling & Storage": "PORT_HANDLING",
+      "Procedures & Approvals (إجراءات وموافقات وفحص)": "PROCEDURES_APPROVALS",
+      "أتعاب ومصاريف تخليص": "CLEARANCE_FEES"
+    }
+  },
+  "CLEARANCE_EXPENSE_CATEGORY": {
+    "codes": {
+      "BROKER_FEES": "Customs Broker Fees",
+      "INSPECTION_WEIGHING": "Inspection & Weighing",
+      "LABORATORY_TESTING": "Laboratory & Testing Fees",
+      "OTHER_CLEARANCE": "Other Clearance Expenses",
+      "PORT_DUES_WHARFAGE": "Port Dues & Wharfage",
+      "STEVEDORING_HANDLING": "Stevedoring & Handling",
+      "STORAGE_DEMURRAGE": "Storage & Demurrage"
+    },
+    "legacy": {
+      "Customs Broker Fees (أتعاب التخليص الجمركي)": "BROKER_FEES",
+      "Inspection & Weighing (رسوم الفحص والوزن والمعاينة)": "INSPECTION_WEIGHING",
+      "Laboratory & Testing Fees (مصاريف التحاليل والمعامل)": "LABORATORY_TESTING",
+      "Other Clearance Expenses (مصاريف تخليص أخرى)": "OTHER_CLEARANCE",
+      "Port Dues & Wharfage (نولون ورسوم الميناء والرصيف)": "PORT_DUES_WHARFAGE",
+      "Stevedoring & Handling (مصاريف العتالة والشحن والتفريغ)": "STEVEDORING_HANDLING",
+      "Storage & Demurrage (رسوم الأرضيات وغرامات التأخير)": "STORAGE_DEMURRAGE"
+    }
+  },
+  "CLEARANCE_QUOTE_SERVICE_CATEGORY": {
+    "codes": {
+      "CLEARANCE_FEE": "Clearance Agency Fee",
+      "INLAND_TRANSPORT": "Inland Transport",
+      "INSPECTION_FEE": "Inspection & Examination Fee",
+      "PORT_CHARGES": "Port & Demurrage Charges"
+    },
+    "legacy": {
+      "Clearance Agency Fee": "CLEARANCE_FEE",
+      "Clearance Fee": "CLEARANCE_FEE",
+      "Inspection & Examination Fee": "INSPECTION_FEE",
+      "Port & Demurrage Charges": "PORT_CHARGES",
+      "أتعاب التخليص الجمركي": "CLEARANCE_FEE",
+      "النقل الداخلي": "INLAND_TRANSPORT",
+      "رسوم ومصاريف الموانئ": "PORT_CHARGES",
+      "مصاريف الفحص والعرض": "INSPECTION_FEE"
+    }
+  },
+  "CUSTOMS_CATEGORY": {
+    "codes": {
+      "AUTOMOTIVE": "Automotive",
+      "AUTOMOTIVE_SPARE_PARTS": "Automotive Spare Parts",
+      "ELECTRONICS": "Electronics",
+      "FOOD_AGRICULTURAL": "Food & Agricultural",
+      "GENERAL_GOODS": "General goods",
+      "INDUSTRIAL_MACHINERY": "Industrial Machinery",
+      "MACHINERY_EQUIPMENT": "Machinery, appliances & equipment",
+      "PHARMACEUTICALS": "Pharmaceuticals",
+      "PLASTICS_POLYMERS": "Plastics & Polymers",
+      "RAW_MATERIALS_METALS": "Raw Materials & Metals",
+      "TELECOMMUNICATIONS": "Telecommunications",
+      "TEXTILES": "Textiles"
+    },
+    "legacy": {
+      "General": "GENERAL_GOODS",
+      "آلات وأجهزة وتجهيزات": "MACHINERY_EQUIPMENT",
+      "أصناف عامة": "GENERAL_GOODS"
+    }
+  },
+  "CUSTOMS_CHANNEL": {
+    "codes": {
+      "GREEN": "Green Channel",
+      "RED": "Red Channel",
+      "YELLOW": "Yellow Channel"
+    },
+    "legacy": {}
+  },
+  "DB_HEALTH_VERDICT": {
+    "codes": {
+      "CRITICAL": "Critical",
+      "DEGRADED": "Degraded",
+      "HEALTHY": "Healthy"
+    },
+    "legacy": {}
+  },
+  "DRAFT_BL_FIELD": {
+    "codes": {
+      "ACID_NUMBER": "ACID Number",
+      "BOOKING_NO": "Booking Number",
+      "CBM": "Measurement (CBM)",
+      "CONSIGNEE": "Consignee Name, Address & Phone",
+      "CONTAINER_SUMMARY": "Container No + Seal No + Size",
+      "FREIGHT_TERMS": "Freight Terms (Prepaid/Collect)",
+      "GOODS_DESCRIPTION": "Packing Summary & Goods Description",
+      "IMPORTER_TAX_ID": "Egyptian Importer Tax ID",
+      "NOTIFY_PARTY": "Notify Party Name, Address & Phone",
+      "PLACE_OF_DELIVERY": "Place of Delivery",
+      "POD": "Port of Discharge (POD)",
+      "POL": "Port of Loading (POL)",
+      "QTY_PKG": "Number of Packages",
+      "SHIPPER": "Shipper Name, Address & Phone",
+      "SHIPPER_REG_ID": "Shipper Registration/ID",
+      "SHIPPING_MODE": "Shipping Mode (FCL/LCL/Air)",
+      "TOTAL_GROSS_WEIGHT_KG": "Gross Weight (KG)",
+      "TOTAL_NET_WEIGHT_KG": "Net Weight (KG)",
+      "VESSEL_NAME": "Vessel Name",
+      "VOYAGE_NUMBER": "Voyage Number"
+    },
+    "legacy": {}
+  },
+  "DUTY_BANK": {
+    "codes": {
+      "BDC": "Banque du Caire (BDC)",
+      "BM": "Banque Misr (BM)",
+      "CBE": "Central Bank of Egypt (CBE)",
+      "CIB": "Commercial International Bank (CIB)",
+      "MTS_CASHIER": "Customs Authority Cashier (MTS)",
+      "NBE": "National Bank of Egypt (NBE)",
+      "OTHER": "Other",
+      "QNB": "QNB Alahli (QNB)"
+    },
+    "legacy": {
+      "أخرى": "OTHER",
+      "البنك الأهلي المصري (NBE)": "NBE",
+      "البنك التجاري الدولي (CIB)": "CIB",
+      "البنك المركزي المصري (CBE)": "CBE",
+      "بنك القاهرة (BDC)": "BDC",
+      "بنك قطر الوطني الأهلي (QNB)": "QNB",
+      "بنك مصر (BM)": "BM",
+      "خزينة مصلحة الجمارك (MTS Cashier)": "MTS_CASHIER"
+    }
+  },
+  "EMPTY_CONTAINER_DEPOT": {
+    "codes": {
+      "ALEXANDRIA_CARRIER_DEPOT": "Alexandria Port Carrier Depot",
+      "DAMIETTA_EMPTY_YARD": "Damietta Port Empty Yard",
+      "DEKHEILA_YARD": "Dekheila Yard",
+      "PORT_SAID_WEST_DEPOT": "Port Said West Depot",
+      "SOKHNA_DP_WORLD_YARD": "Ain Sokhna DP World Yard",
+      "SOKHNA_LOGISTICS_DEPOT": "Sokhna Logistics Depot"
+    },
+    "legacy": {
+      "Ain Sokhna DP World Yard (ساحة موانئ دبي السخنة)": "SOKHNA_DP_WORLD_YARD",
+      "Alexandria Port Carrier Depot (مستودع الإسكندرية الفارغ)": "ALEXANDRIA_CARRIER_DEPOT",
+      "Damietta Port Empty Yard (ساحة دمياط الفارغ)": "DAMIETTA_EMPTY_YARD",
+      "Dekheila Yard (ساحة حاويات الدخيلة)": "DEKHEILA_YARD",
+      "Port Said West Depot (مستودع غرب بورسعيد)": "PORT_SAID_WEST_DEPOT",
+      "Sokhna Logistics Depot (مستودع السخنة اللوجستي)": "SOKHNA_LOGISTICS_DEPOT"
+    }
+  },
+  "HOLD_REASON": {
+    "codes": {
+      "ADDITIONAL_INSPECTION": "Additional physical inspection required",
+      "ADMIN_HOLD": "Temporary administrative hold",
+      "AWAITING_BANK_FORM4": "Awaiting bank Form 4 issuance",
+      "AWAITING_SUPPLIER_APPROVAL": "Awaiting foreign supplier approval",
+      "BOOKING_DELAYED": "Shipping line booking delayed",
+      "DRAFT_BL_AMENDMENT": "Requested amendment on draft B/L",
+      "OTHER": "Other",
+      "PENDING_REGULATORY_APPROVAL": "Pending regulatory authority approval",
+      "TARIFF_VALUATION_REVIEW": "Customs tariff valuation review"
+    },
+    "legacy": {
+      "استيفاء موافقة جهة العرض والرقابة": "PENDING_REGULATORY_APPROVAL",
+      "تأخير الحجز وتأكيد الخط الملاحي": "BOOKING_DELAYED",
+      "تعليق إداري مؤقت للشحنة": "ADMIN_HOLD",
+      "طلب تعديل على مسودة بوليصة الشحن": "DRAFT_BL_AMENDMENT",
+      "طلب فحص ومعاينة إضافية للبضاعة": "ADDITIONAL_INSPECTION",
+      "في انتظار رد وموافقة المورد الخارجي": "AWAITING_SUPPLIER_APPROVAL",
+      "في انتظار موافقة البنك وإصدار نموذج 4": "AWAITING_BANK_FORM4",
+      "مراجعة وتدقيق أسعار بنود التعريفة الجمركية": "TARIFF_VALUATION_REVIEW"
+    }
+  },
+  "INSPECTION_RESULT": {
+    "codes": {
+      "CONFORMING": "Conforming",
+      "DISCREPANCY": "Discrepancy",
+      "SHORTAGE": "Shortage",
+      "SURPLUS": "Surplus"
+    },
+    "legacy": {}
+  },
+  "INSPECTION_YARD": {
+    "codes": {
+      "ADABIYA": "Joint Inspection Yard - Adabiya Port (Suez)",
+      "AIN_SOKHNA": "Joint Inspection Yard - Ain Sokhna Port",
+      "ALEXANDRIA_BERTH_42": "Joint Inspection Yard - Alexandria Port (Berth 42)",
+      "CAIRO_AIRPORT_CARGO": "Cargo Village - Cairo International Airport",
+      "DAMIETTA": "Inspection Yard - Damietta Port",
+      "DEKHEILA": "Joint Inspection Yard - Dekheila Port",
+      "EAST_PORT_SAID": "Customs Inspection Yard - East Port Said Port",
+      "OCTOBER_DRY_PORT": "Joint Inspection Yard - 6th of October Dry Port",
+      "TENTH_RAMADAN_DRY_PORT": "Inspection Yard - 10th of Ramadan Dry Port",
+      "WEST_PORT_SAID": "Inspection Yard - West Port Said Port"
+    },
+    "legacy": {
+      "ساحة الفحص الجمركي - ميناء شرق بورسعيد": "EAST_PORT_SAID",
+      "ساحة الفحص المشترك - ميناء الأدبية بالسويس": "ADABIYA",
+      "ساحة الفحص المشترك - ميناء الإسكندرية (رصيف 42)": "ALEXANDRIA_BERTH_42",
+      "ساحة الفحص المشترك - ميناء الدخيلة": "DEKHEILA",
+      "ساحة الفحص المشترك بالميناء الجاف بمدينة 6 أكتوبر": "OCTOBER_DRY_PORT",
+      "ساحة الفحص بالميناء الجاف بمدينة العاشر من رمضان": "TENTH_RAMADAN_DRY_PORT",
+      "ساحة الفحص والكشف المشترك - ميناء العين السخنة": "AIN_SOKHNA",
+      "ساحة المعاينة والفحص - ميناء غرب بورسعيد": "WEST_PORT_SAID",
+      "ساحة المعاينة والكشف - ميناء دمياط البحري": "DAMIETTA",
+      "قرية البضائع - مطار القاهرة الدولي": "CAIRO_AIRPORT_CARGO"
+    }
+  },
+  "LANDED_COST_VARIANCE_STATUS": {
+    "codes": {
+      "ON_BUDGET": "On budget",
+      "OVER_BUDGET": "Over budget",
+      "UNDER_BUDGET": "Under budget"
+    },
+    "legacy": {}
+  },
+  "MEASURE_UNIT": {
+    "codes": {
+      "CBM": "CBM",
+      "KG": "kg",
+      "PACKAGES": "packages",
+      "PACKAGES_PALLETS": "packages/pallets"
+    },
+    "legacy": {
+      "طرد": "PACKAGES",
+      "طرد/بالتة": "PACKAGES_PALLETS",
+      "كجم": "KG",
+      "م³": "CBM"
+    }
+  },
+  "PAYMENT_METHOD": {
+    "codes": {
+      "BANK_TRANSFER": "Bank Transfer",
+      "CASHIER_DEPOSIT": "Customs Cashier Deposit",
+      "CBE_DIRECT": "CBE Direct Debit",
+      "SADAD_EFINANCE": "E-Finance / Sadad"
+    },
+    "legacy": {
+      "Bank Transfer / تحويل بنكي": "BANK_TRANSFER",
+      "CBE Direct / خصم البنك المركزي": "CBE_DIRECT",
+      "Cashier Deposit / إيداع خزينة الجمرك": "CASHIER_DEPOSIT",
+      "E-Finance": "SADAD_EFINANCE",
+      "E-Finance / Sadad": "SADAD_EFINANCE",
+      "Sadad": "SADAD_EFINANCE",
+      "Sadad / E-Finance": "SADAD_EFINANCE"
+    }
+  },
+  "PHASE_FOLLOW_UP_TASK": {
+    "codes": {
+      "ARCHIVE_REVIEW": "Review archiving conditions and close the historical file",
+      "ARRIVAL_NOTICE_DECLARATION_46": "Follow up the arrival notice and register declaration 46",
+      "BOOKING_BL_FOLLOW_UP": "Follow up the booking, container stuffing and B/L confirmation",
+      "BROKER_RELEASE_FOLLOW_UP": "Execute the broker's notes and obtain the final release",
+      "CARGOX_DOCUMENT_TRANSFER": "Receive the commercial invoice and transfer documents via CargoX",
+      "FREIGHT_SCENARIO_FOLLOW_UP": "Follow up freight studies, scenarios and line availability",
+      "LANDED_COST_SETTLEMENT": "Settle the landed cost engine and allocate expenses",
+      "NAFEZA_ACID_FOLLOW_UP": "Follow up the Nafeza registration and the ACID number",
+      "PAYMENT_BUDGET_FOLLOW_UP": "Follow up the financial approval and the payment release",
+      "WAREHOUSE_GRN_REVIEW": "Review cargo integrity, warehouse receiving and the GRN"
+    },
+    "legacy": {}
+  },
+  "PRICING_UNIT": {
+    "codes": {
+      "FIXED": "Fixed",
+      "PER_BL": "Per B/L",
+      "PER_CASE": "Per Case",
+      "PER_CONTAINER": "Per Container",
+      "PER_CONTAINER_20FT": "Per Container 20ft",
+      "PER_CONTAINER_40FT": "Per Container 40ft",
+      "PER_DAY": "Per Day",
+      "PER_DECLARATION": "Per Declaration",
+      "PER_EXTRA_TON": "Per Extra Ton",
+      "PER_INSPECTION": "Per Inspection",
+      "PER_INVOICE": "Per Invoice",
+      "PER_NIGHT": "Per Night",
+      "PER_SAMPLE": "Per Sample",
+      "PER_SHIPMENT": "Per Shipment",
+      "PER_TON": "Per Ton",
+      "PER_TRAILER": "Per Trailer",
+      "PER_TRIP": "Per Trip",
+      "PER_TRUCK": "Per Truck",
+      "PER_VEHICLE": "Per Vehicle",
+      "RANGE": "Range"
+    },
+    "legacy": {
+      "Fixed (مبلغ ثابت)": "FIXED",
+      "Fixed Amount": "FIXED",
+      "Per B/L": "PER_BL",
+      "Per B/L (لكل بوليصة)": "PER_BL",
+      "Per Case (لكل حالة)": "PER_CASE",
+      "Per Case (لكل عرض)": "PER_CASE",
+      "Per Container (لكل حاوية إضافية)": "PER_CONTAINER",
+      "Per Container (لكل حاوية)": "PER_CONTAINER",
+      "Per Container (لكل نقلة وزن)": "PER_CONTAINER",
+      "Per Inspection (لكل عرض)": "PER_INSPECTION",
+      "Per Inspection (لكل كشف)": "PER_INSPECTION",
+      "Per Invoice (لكل فاتورة)": "PER_INVOICE",
+      "Per Night (لكل ليلة)": "PER_NIGHT",
+      "Per Sample (لكل إجراء)": "PER_SAMPLE",
+      "Per Sample (لكل عينة)": "PER_SAMPLE",
+      "Per Shipment (لكل إقرار)": "PER_SHIPMENT",
+      "Per Shipment (لكل تعتيق)": "PER_SHIPMENT",
+      "Per Shipment (لكل شحنة)": "PER_SHIPMENT",
+      "Per Shipment (لكل وزن)": "PER_SHIPMENT",
+      "Per Ton (لكل طن إضافي)": "PER_EXTRA_TON",
+      "Per Ton (لكل طن)": "PER_TON",
+      "Per Trailer (لكل تريلا)": "PER_TRAILER",
+      "Per Vehicle (لكل سيارة)": "PER_VEHICLE"
+    }
+  },
+  "REGULATORY_BODY": {
+    "codes": {
+      "AGRICULTURAL_QUARANTINE": "Agricultural Quarantine",
+      "ATOMIC_ENERGY": "Radiation Protection / Atomic Energy Authority",
+      "CHEMISTRY_DEPT": "Chemistry Administration",
+      "EDA": "Egyptian Drug Authority (EDA)",
+      "GOEIC": "General Organization for Export & Import Control (GOEIC)",
+      "INDUSTRIAL_CONTROL": "Industrial Control Authority",
+      "NFSA": "National Food Safety Authority (NFSA)",
+      "NTRA": "National Telecom Regulatory Authority (NTRA)",
+      "QUARANTINE": "Agricultural / Veterinary Quarantine",
+      "VETERINARY_QUARANTINE": "Veterinary Quarantine",
+      "WEIGHTS_MEASURES": "Weights, Measures & Hallmarks Authority"
+    },
+    "legacy": {
+      "Chemistry": "CHEMISTRY_DEPT",
+      "Chemistry Dept": "CHEMISTRY_DEPT",
+      "Food Safety": "NFSA",
+      "Food Safety Authority": "NFSA",
+      "Radiation": "ATOMIC_ENERGY",
+      "إدارة الوقاية الإشعاعية وهيئة الطاقة الذرية": "ATOMIC_ENERGY",
+      "الجهاز القومي لتنظيم الاتصالات (NTRA)": "NTRA",
+      "الحجر البيطري": "VETERINARY_QUARANTINE",
+      "الحجر الزراعي / البيطري (Quarantine)": "QUARANTINE",
+      "الحجر الزراعي المصري": "AGRICULTURAL_QUARANTINE",
+      "الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)": "GOEIC",
+      "الهيئة القومية لسلامة الغذاء (NFSA)": "NFSA",
+      "مصلحة الرقابة الصناعية": "INDUSTRIAL_CONTROL",
+      "مصلحة الكيمياء (Chemistry Dept)": "CHEMISTRY_DEPT",
+      "مصلحة الكيمياء المصرية (Chemistry Dept)": "CHEMISTRY_DEPT",
+      "مصلحة الموازين والدمغة": "WEIGHTS_MEASURES",
+      "هيئة الدواء المصرية (EDA)": "EDA"
+    }
+  },
+  "RELEASE_TYPE": {
+    "codes": {
+      "FINAL_GREEN": "Final Green Release",
+      "POST_TESTING_CONFORMING": "Post-Testing Conforming Release",
+      "TEMPORARY_ADMISSION": "Temporary Admission",
+      "UNDER_BOND": "Under-Bond Release"
+    },
+    "legacy": {
+      "إفراج برسم السماح المؤقت (Temporary Admission)": "TEMPORARY_ADMISSION",
+      "إفراج قطعي بعد استيفاء العينات (Post-Testing Conforming Release)": "POST_TESTING_CONFORMING",
+      "إفراج مؤقت تحت التحفظ (Under-Bond Release)": "UNDER_BOND",
+      "نهائي وبات": "FINAL_GREEN",
+      "نهائي وبات (Final Green Release)": "FINAL_GREEN"
+    }
+  },
+  "REQUIREMENT_STATUS": {
+    "codes": {
+      "APPLIED": "Applied",
+      "APPROVED": "Approved",
+      "COMPLETED": "Completed",
+      "EXPIRED": "Expired",
+      "IN_PROGRESS": "In Progress",
+      "NOT_REQUIRED": "Not Required",
+      "OBTAINED": "Obtained",
+      "PENDING": "Pending",
+      "RECEIVED": "Received",
+      "REJECTED": "Rejected",
+      "VERIFIED": "Verified"
+    },
+    "legacy": {}
+  },
+  "SKIP_REASON_CATEGORY": {
+    "codes": {
+      "CLIENT_AGREEMENT": "Client Agreement",
+      "NOT_APPLICABLE_TO_MODE": "Not Applicable to Mode",
+      "OTHER": "Other",
+      "REGULATORY_EXEMPTION": "Regulatory Exemption"
+    },
+    "legacy": {
+      "Client Agreement / العميل يتولى الإجراء حسب الاتفاقية": "CLIENT_AGREEMENT",
+      "Not Applicable to Mode / لا تنطبق على نمط الشحن": "NOT_APPLICABLE_TO_MODE",
+      "Other / أخرى": "OTHER",
+      "Regulatory Exemption / إعفاء رسمي أو رقابي": "REGULATORY_EXEMPTION"
+    }
+  },
+  "STAGE": {
+    "codes": {
+      "ARCHIVED_CLOSED": "Archived & Closed",
+      "ARRIVED_AT_WAREHOUSE": "Arrived at Warehouse",
+      "CLOSED_EARLY": "Closed Early",
+      "CLOSURE_IN_PROGRESS": "Closure In-Progress",
+      "CUSTOMS_BROKER_AUTHORIZED": "Customs Broker Authorized",
+      "CUSTOMS_DUTY_ASSESSED": "Customs Duty Assessed",
+      "CUSTOMS_INSPECTION_COMPLETED": "Customs Inspection & Sampling Completed",
+      "CUSTOMS_RELEASED": "Customs Released",
+      "DELIVERY_ORDER_PAID": "Delivery Order Paid & Received",
+      "DISCREPANCY_PROTOCOL_FILED": "Discrepancy Protocol Filed",
+      "DRAFT": "Draft",
+      "DUTY_PAID": "Duty Paid",
+      "GOODS_RECEIVED": "Goods Received",
+      "INLAND_TRANSPORT_BOOKED": "Inland Transport Booked",
+      "IN_TRANSIT_TO_WAREHOUSE": "In Transit to Warehouse",
+      "LAB_APPROVED_RELEASED": "Lab Approved & Final Released",
+      "LAB_REJECTED": "Lab Rejected",
+      "LANDED_COST_CALCULATED": "Landed Cost Calculated",
+      "PHASE_1": "1. Pre-Planning & Studies",
+      "PHASE_2": "2. Shipment Initiation",
+      "PHASE_3": "3. Booking & Doc Prep",
+      "PHASE_4": "4. Digital & Banking",
+      "PHASE_5": "5. Port Operations & Clearance",
+      "PHASE_6": "6. Inbound & Final Closure",
+      "QC_PASSED": "QC Passed - Ready for Landed Cost",
+      "QUARANTINED_UNDER_INSPECTION": "Quarantined under Inspection",
+      "REOPENED": "Reopened",
+      "UNDER_BOND_QUARANTINE": "Under-Bond Quarantine",
+      "UNDER_CUSTOMS_CLEARANCE": "Under Customs Clearance"
+    },
+    "legacy": {
+      "Customs Broker Authorized (تفويض المخلص الجمركي)": "CUSTOMS_BROKER_AUTHORIZED",
+      "Customs Duty Assessed (احتساب الرسوم الجمركية والمطالبة)": "CUSTOMS_DUTY_ASSESSED",
+      "Customs Inspection & Sampling Completed (تم الكشف وسحب العينات)": "CUSTOMS_INSPECTION_COMPLETED",
+      "Customs Released (تم الإفراج الجمركي النهائي وبدء النقل)": "CUSTOMS_RELEASED",
+      "Delivery Order Paid & Received (سداد إذن التسليم الملاحي)": "DELIVERY_ORDER_PAID",
+      "Duty Paid (تم سداد الرسوم الجمركية بسداد)": "DUTY_PAID",
+      "In Transit to Warehouse (الشحنة في الطريق للمخزن)": "IN_TRANSIT_TO_WAREHOUSE",
+      "Lab Rejected (مرفوض معملياً)": "LAB_REJECTED",
+      "Phase 1: Pre-Planning & Studies": "PHASE_1",
+      "Phase 2: Approvals & ACID": "PHASE_2",
+      "Phase 3: Booking & Doc Prep": "PHASE_3",
+      "Phase 4: Digital & Banking": "PHASE_4",
+      "Phase 5: Port Operations & Clearance": "PHASE_5",
+      "Phase 6: Inbound & Final Closure": "PHASE_6",
+      "Under Customs Clearance (تحت التخليص والكشف 46)": "UNDER_CUSTOMS_CLEARANCE",
+      "Under-Bond Quarantine (سحب على عهدة)": "UNDER_BOND_QUARANTINE",
+      "المرحلة الأولى: التخطيط والدراسات المسبقة": "PHASE_1",
+      "المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي": "PHASE_3",
+      "المرحلة الثانية: بداية الشحنة": "PHASE_2",
+      "المرحلة الخامسة: عمليات الميناء والتخليص الجمركي": "PHASE_5",
+      "المرحلة الرابعة: التوثيق الرقمي والاعتماد البنكي": "PHASE_4",
+      "المرحلة السادسة: الاستلام المخزني والتسوية المالية": "PHASE_6"
+    }
+  },
+  "TRUCK_TYPE": {
+    "codes": {
+      "BOX_TRUCK": "Box Truck",
+      "CONTAINER_CHASSIS": "Container Chassis (20/40 ft)",
+      "CURTAINSIDER": "Curtainsider",
+      "FLATBED": "Flatbed Trailer",
+      "LOW_BED": "Heavy Low-bed",
+      "REEFER": "Reefer Truck",
+      "SIDE_DROP": "Side-Drop Trailer"
+    },
+    "legacy": {
+      "Box Truck (جامبو مغلق)": "BOX_TRUCK",
+      "Container Chassis (شاسية حاوية 40/20 قدم)": "CONTAINER_CHASSIS",
+      "Curtainsider (تريلا ستارة)": "CURTAINSIDER",
+      "Flatbed Trailer (تريلا مسطح)": "FLATBED",
+      "Heavy Low-bed (لوبد ثقيل للطرود الضخمة)": "LOW_BED",
+      "Reefer Truck (شاحنة مبردة)": "REEFER",
+      "Side-Drop Trailer (تريلا جوانب)": "SIDE_DROP"
+    }
+  },
+  "VALUE_PLACEHOLDER": {
+    "codes": {
+      "NOT_EXTRACTED": "Not extracted",
+      "NOT_IN_BL": "Not found in the B/L",
+      "NOT_IN_DOCUMENT": "Not found in the document",
+      "NOT_IN_INVOICE": "Not stated in the invoice",
+      "NOT_IN_PACKING_LIST": "Not included in the packing list",
+      "NOT_SET": "Not set in the system",
+      "NOT_SPECIFIED": "Not specified",
+      "OPTIONAL_NOT_INCLUDED": "Optional / not included"
+    },
+    "legacy": {
+      "اختياري / غير مدرج": "OPTIONAL_NOT_INCLUDED",
+      "غير متوفر": "NOT_IN_DOCUMENT",
+      "غير متوفر بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير متوفر بالبوليصة": "NOT_IN_BL",
+      "غير متوفر بالسستم": "NOT_SET",
+      "غير متوفر بالفاتورة": "NOT_IN_INVOICE",
+      "غير متوفر بالمستند": "NOT_IN_DOCUMENT",
+      "غير محدد": "NOT_SPECIFIED",
+      "غير محدد بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير محدد بالبوليصة": "NOT_IN_BL",
+      "غير محدد بالسستم": "NOT_SET",
+      "غير محدد بالفاتورة": "NOT_IN_INVOICE",
+      "غير مذكور بالفاتورة": "NOT_IN_INVOICE",
+      "غير مسجل": "NOT_SET",
+      "غير مسجل بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير مسجل بالسستم": "NOT_SET",
+      "غير موجود بالباكينج": "NOT_IN_PACKING_LIST",
+      "غير موجود بالبوليصة": "NOT_IN_BL",
+      "غير موجود بالفاتورة": "NOT_IN_INVOICE",
+      "لم يتم الاستخراج": "NOT_EXTRACTED",
+      "— (غير مدرج بالباكينج)": "NOT_IN_PACKING_LIST",
+      "— (غير مدرج بالفاتورة)": "NOT_IN_INVOICE"
+    }
+  },
+  "WAREHOUSE_INSPECTION_VERDICT": {
+    "codes": {
+      "ACCEPTED_FULL": "Accepted in full",
+      "ACCEPTED_WITH_DISCREPANCY": "Accepted with discrepancy",
+      "DAMAGE_CLAIM_PENDING": "Damage claim pending",
+      "PENDING": "Pending",
+      "REJECTED_QUARANTINED": "Rejected / quarantined"
+    },
+    "legacy": {}
+  }
+}

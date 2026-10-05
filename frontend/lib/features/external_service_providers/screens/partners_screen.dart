@@ -613,7 +613,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     borderRadius: BorderRadius.circular(6),
                                                     child: Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                      margin: const EdgeInsets.only(right: 6),
+                                                      margin: const EdgeInsetsDirectional.only(end: 6),
                                                       decoration: BoxDecoration(
                                                         color: AppTheme.cobalt.withOpacity(0.12),
                                                         borderRadius: BorderRadius.circular(6),
@@ -680,7 +680,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       borderRadius: BorderRadius.circular(6),
                                                       child: Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                        margin: const EdgeInsets.only(right: 6),
+                                                        margin: const EdgeInsetsDirectional.only(end: 6),
                                                         decoration: BoxDecoration(
                                                           color: AppTheme.emerald.withOpacity(0.12),
                                                           borderRadius: BorderRadius.circular(6),
@@ -1252,7 +1252,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
   Widget _cell({required Widget child}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Align(alignment: Alignment.centerLeft, child: child),
+        child: Align(alignment: AlignmentDirectional.centerStart, child: child),
       );
 
   Widget _buildCategoryBadge(BuildContext context, String cat) {
@@ -1398,7 +1398,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
                       decoration: BoxDecoration(
                         color: isDarkDialog ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                        borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(16), topEnd: Radius.circular(16)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1500,6 +1500,7 @@ suffixIcon: buildCopySuffix(nameCtrl),
                                           Expanded(
                                             child: CustomTextField(
                                               controller: swiftCtrl,
+                                              textDirection: TextDirection.ltr,
 suffixIcon: buildCopySuffix(swiftCtrl),
                                               label: l10n.bankSwiftCodeLabel,
                                               icon: Icons.code,
@@ -1932,7 +1933,7 @@ suffixIcon: buildCopySuffix(countryCtrl),
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                        borderRadius: const BorderRadiusDirectional.only(bottomStart: Radius.circular(16), bottomEnd: Radius.circular(16)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,

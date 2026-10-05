@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../helpers/table_copy_helper.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../utils/bidi_text.dart';
 
 /// Central clipboard helper utility and reusable widgets for copying data
 /// across all screens in Sorour Logistics ERP.
@@ -14,7 +15,7 @@ class CopyHelper {
     String text, {
     String? customMessage,
   }) async {
-    final trimmed = text.trim();
+    final trimmed = stripBidiIsolates(text).trim();
     if (trimmed.isEmpty) return;
 
     await Clipboard.setData(ClipboardData(text: trimmed));
@@ -63,6 +64,10 @@ class CopyableText extends StatelessWidget {
   final String? tooltip;
   final String? copyMessage;
 
+  /// Direction of [text]. Pass [TextDirection.ltr] for codes and numbers
+  /// (LTR island inside Arabic); null follows the ambient [Directionality].
+  final TextDirection? textDirection;
+
   const CopyableText(
     this.text, {
     super.key,
@@ -74,6 +79,7 @@ class CopyableText extends StatelessWidget {
     this.isSelectable = false,
     this.tooltip,
     this.copyMessage,
+    this.textDirection,
   });
 
   @override
@@ -83,12 +89,14 @@ class CopyableText extends StatelessWidget {
             text,
             style: style,
             textAlign: textAlign,
+            textDirection: textDirection,
             maxLines: maxLines,
           )
         : Text(
             text,
             style: style,
             textAlign: textAlign,
+            textDirection: textDirection,
             overflow: overflow ?? TextOverflow.ellipsis,
             maxLines: maxLines,
           );

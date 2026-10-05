@@ -74,10 +74,7 @@ class _EnterpriseTableHeaderToolbarState extends State<EnterpriseTableHeaderTool
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Column(

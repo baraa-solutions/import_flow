@@ -6,6 +6,8 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
+import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// TR-05: تسجيل وتوثيق إرجاع الحاويات الفارغة للخط الملاحي (EIR)
 /// يوقف عدادات الغرامات بالكامل وينقل الشحنة للمرحلة التاسعة (تكلفة الوصول والتسوية الختامية)
@@ -64,14 +66,8 @@ class _EmptyContainerReturnDialogState
   String _containerCondition = 'SOUND_CLEAN';
   bool _isSubmitting = false;
 
-  final List<String> _popularDepots = [
-    'Alexandria Port Carrier Depot (مستودع الإسكندرية الفارغ)',
-    'Dekheila Yard (ساحة حاويات الدخيلة)',
-    'Sokhna Logistics Depot (مستودع السخنة اللوجستي)',
-    'Port Said West Depot (مستودع غرب بورسعيد)',
-    'Damietta Port Empty Yard (ساحة دمياط الفارغ)',
-    'Ain Sokhna DP World Yard (ساحة موانئ دبي السخنة)',
-  ];
+  /// Depot codes (DomainEnumType.depot); labels follow the UI language.
+  final List<String> _popularDepots = DomainEnums.codesOf(DomainEnumType.depot);
 
   @override
   void initState() {
@@ -84,7 +80,7 @@ class _EmptyContainerReturnDialogState
     _eirNumberCtrl = TextEditingController(text: autoEir);
 
     _depotNameCtrl = TextEditingController(
-      text: widget.initialDepotName ?? _popularDepots.first,
+      text: DomainEnums.initialCode(DomainEnumType.depot, widget.initialDepotName, widget.initialDepotName ?? _popularDepots.first),
     );
   }
 
@@ -588,7 +584,7 @@ class _EmptyContainerReturnDialogState
           items: _popularDepots
               .map((d) => SearchableDropdownItem<String>(
                     value: d,
-                    label: d,
+                    label: DomainEnums.label(context.l10n, DomainEnumType.depot, d),
                   ))
               .toList(),
           value: _popularDepots.contains(_depotNameCtrl.text)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/localization/app_locales.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/customs_tariff/widgets/duty_calculator_dialog.dart';
@@ -251,10 +252,10 @@ void main() {
                 )),
           ],
           child: MaterialApp(
-            builder: (context, child) => Directionality(
-              textDirection: TextDirection.rtl,
-              child: child!,
-            ),
+            // Real app wiring: `ar` resolves to Arabic + RTL (no Directionality override).
+            locale: AppLocales.arabic,
+            supportedLocales: AppLocales.supportedLocales,
+            localizationsDelegates: AppLocales.localizationsDelegates,
             home: Scaffold(
               body: Builder(
                 builder: (context) => Consumer(
@@ -280,18 +281,18 @@ void main() {
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
 
-      // Dialog picks its language from Localizations.localeOf(), which resolves to en_US here
-      // (MaterialApp has no Arabic supportedLocales), so the English strings are rendered.
-      expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsOneWidget);
-      expect(find.text('Load Actual Nafeza Sample (2026-612-1-94731)'), findsOneWidget);
-      expect(find.text('Simulate File (#42)'), findsOneWidget);
-      expect(find.text('Close'), findsOneWidget);
+      // Dialog picks its language from Localizations.localeOf(), which now resolves to ar.
+      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsOneWidget);
+      expect(find.text('تحميل مثال نافذة الفعلي (2026-612-1-94731)'), findsOneWidget);
+      expect(find.text('محاكاة ملف الاستيراد (#42)'), findsOneWidget);
+      expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsNothing);
+      expect(find.text('إغلاق'), findsOneWidget);
 
       // Close dialog
-      await tester.tap(find.text('Close'));
+      await tester.tap(find.text('إغلاق'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsNothing);
+      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsNothing);
     });
   });
 }

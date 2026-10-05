@@ -38,6 +38,8 @@ class NotificationRepository:
             entity_type=schema.entity_type,
             entity_id=schema.entity_id,
             target_role=schema.target_role,
+            msg_code=getattr(schema, "msg_code", None),
+            msg_params=getattr(schema, "msg_params", None),
             is_read=False,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),

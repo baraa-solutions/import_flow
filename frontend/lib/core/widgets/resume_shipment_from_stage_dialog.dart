@@ -5,6 +5,7 @@ import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
+import '../localization/domain_enum_labels.dart';
 
 class ResumeShipmentFromStageDialog extends ConsumerStatefulWidget {
   final ImportFileModel importFile;
@@ -92,7 +93,13 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final file = widget.importFile;
     final pausedStage = file.pausedAtStage ?? widget.currentStageName;
-    final holdReason = file.holdReason ?? '-';
+    final holdReason = DomainEnums.label(
+      l,
+      DomainEnumType.holdReason,
+      file.holdReason,
+      code: file.holdReasonCode,
+      fallback: '-',
+    );
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -102,9 +109,9 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: AppTheme.emerald.withOpacity(0.1),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
+          borderRadius: const BorderRadiusDirectional.only(
+            topStart: Radius.circular(14),
+            topEnd: Radius.circular(14),
           ),
           border: Border(bottom: BorderSide(color: AppTheme.emerald.withOpacity(0.4))),
         ),

@@ -223,7 +223,7 @@ class _ImportFileComprehensiveReportScreenState
                         labelText: l.compReportSelectFileLabel,
                         items: files.map((f) {
                           final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                          final stageName = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
+                          final stageName = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
                           return SearchableDropdownItem<int>(
                             value: f.importFileId,
                             label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  $stageName  |  ${f.status}',
@@ -445,8 +445,8 @@ class _ImportFileComprehensiveReportScreenState
           colors: isClosed
               ? [Colors.grey.shade700, Colors.grey.shade500]
               : [AppTheme.charcoal, const Color(0xFF34495E)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
         ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
@@ -504,7 +504,7 @@ class _ImportFileComprehensiveReportScreenState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  DisplayNameResolver.resolveStepName(file.currentStage, isArabic: Localizations.localeOf(context).languageCode == 'ar'),
+                  DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: Localizations.localeOf(context).languageCode == 'ar'),
                   style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
@@ -1022,9 +1022,9 @@ class _ImportFileComprehensiveReportScreenState
           ),
           const SizedBox(height: 8),
           _infoRow(context, l.compReportStatusLabel, file.status),
-          _infoRow(context, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr)),
-          _infoRow(context, l.compReportCurrentModuleLabel, DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isAr)),
-          _infoRow(context, l.compReportNextActionLabel, DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr)),
+          _infoRow(context, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr)),
+          _infoRow(context, l.compReportCurrentModuleLabel, (file.codedStageLabel(l) ?? DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isAr))),
+          _infoRow(context, l.compReportNextActionLabel, file.displayNextAction(context.l10n)),
           const SizedBox(height: 10),
           Text(l.compReportTotalProgressLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 6),
@@ -1300,7 +1300,7 @@ class _ImportFileComprehensiveReportScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: iconColor.withOpacity(0.06),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+              borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(10), topEnd: Radius.circular(10)),
               border: Border(bottom: BorderSide(color: iconColor.withOpacity(0.15))),
             ),
             child: Row(

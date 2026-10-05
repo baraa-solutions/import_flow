@@ -208,7 +208,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
         color: AppTheme.charcoal,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+        borderRadius: BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
       ),
       child: Row(
         children: [
@@ -638,7 +638,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
+        borderRadius: const BorderRadiusDirectional.only(bottomStart: Radius.circular(12), bottomEnd: Radius.circular(12)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,

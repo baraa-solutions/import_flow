@@ -249,7 +249,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
 
               // ─── DB Status Header Cards ────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -333,7 +333,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               // ─── Tab Views ────────────────────────────────────────────────
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 16),
                   child: TabBarView(
                     controller: _tabController,
                     children: [

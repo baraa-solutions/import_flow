@@ -28,6 +28,8 @@ from .validators import validate_closure_checklist
 from modules.import_files.model import ImportFile
 from modules.smart_tasks.model import SmartTask
 from modules.notifications.model import SystemNotification
+from modules.common.system_messages import msg, render_en
+from modules.common.file_tracking import set_file_tracking
 
 def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportFileClosureRecord:
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
@@ -106,15 +108,13 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
 
     if schema.is_draft:
         imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
-        imp_file.current_stage = f"Closure In-Progress ({completed_count}/{total_items} items - {progress_percent:.0f}%)"
-        imp_file.next_action = "Complete remaining closure checklist tasks"
+        set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
     else:
         # Set ImportFile to 100% progress and status Closed
         imp_file.status = "Closed"
         imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive"
-        imp_file.current_stage = f"Archived & Closed (Certificate: {record.closure_code})"
         imp_file.progress_percent = 100.0
-        imp_file.next_action = "File Archived - Read-Only Historical State"
+        set_file_tracking(imp_file, stage_code="ARCHIVED_CLOSED", next_action=msg("NA_FILE_ARCHIVED_READ_ONLY"))
         imp_file.closed_at = datetime.now(timezone.utc)
 
         # Auto-complete pending closure SmartTasks
@@ -133,16 +133,24 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
                 ):
                     t.status = "Completed"
                     t.completed_at = datetime.now(timezone.utc)
-                    t.result_notes = f"تم إنجاز الإغلاق الرسمي والأرشفة الرقمية بموجب الشهادة {record.closure_code}"
+                    t.result_notes = f"Official closure and digital archiving completed under certificate {record.closure_code}"
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning("Auto-completing closure smart tasks failed: %s", e)
 
         # Dispatch System Notification
         try:
+            notif_msg = msg(
+                "CLO_FILE_CLOSED",
+                import_file_code=imp_file.import_file_code,
+                closure_code=record.closure_code,
+                archive_location=schema.archive_location,
+            )
             notif = SystemNotification(
-                title=f"تم الإغلاق الرسمي والأرشفة الرقمية: {imp_file.import_file_code}",
-                message=f"تم إغلاق الملف الاستيرادي {imp_file.import_file_code} رسمياً بنجاح بنسبة إنجاز 100%، وتم إصدار شهادة الإغلاق {record.closure_code} وحفظه في {schema.archive_location}.",
+                title=render_en(notif_msg.code, notif_msg.params, "title"),
+                message=render_en(notif_msg.code, notif_msg.params, "body"),
+                msg_code=notif_msg.code,
+                msg_params=notif_msg.params,
                 severity="INFO",
                 category="FILE_CLOSURE",
                 entity_type="ImportFile",
@@ -162,7 +170,13 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
                 import_file_id=schema.import_file_id,
                 completed_step_code="STEP_21",
                 target_step_codes=[],
-                notes=f"تم الإغلاق النهائي للملف الاستيرادي وأرشفته (الكود: {record.closure_code}) بواسطة {schema.auditor_name or 'Finance Manager'}.",
+                notes_msg=msg(
+                    "CLO_FILE_CLOSED",
+                    closure_code=record.closure_code,
+                    auditor_name=schema.auditor_name or "Finance Manager",
+                ),
+                next_action_msg=msg("NA_FILE_ARCHIVED_READ_ONLY"),
+                stage_code="ARCHIVED_CLOSED",
                 assigned_user=schema.auditor_name or "Finance Manager",
             )
         except Exception as e:
@@ -170,8 +184,7 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
             logging.getLogger(__name__).warning("Lifecycle advance STEP_21 failed: %s", e)
 
         # Enforce terminal next_action after lifecycle board call
-        imp_file.next_action = "File Archived - Read-Only Historical State"
-        imp_file.current_stage = f"Archived & Closed (Certificate: {record.closure_code})"
+        set_file_tracking(imp_file, stage_code="ARCHIVED_CLOSED", next_action=msg("NA_FILE_ARCHIVED_READ_ONLY"))
         imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive"
 
         # KB-GUIDE-012 Section 5A: Autonomous Reference Engine Continuous Learning Trigger
@@ -576,7 +589,7 @@ def get_comprehensive_shipment_dossier_service(
         current_stage=imp.current_stage,
         current_module=imp.current_module,
         progress_percent=float(imp.progress_percent or 0.0),
-        next_action=imp.next_action or "إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)",
+        next_action=imp.next_action or render_en("NA_CLO_EXPORT_DOSSIER", {}, "action"),
         owner=imp.owner,
         created_at=imp.created_at,
         updated_at=imp.updated_at,
@@ -677,9 +690,8 @@ def confirm_dossier_export_service(
     imp.dossier_exported_by = payload.exported_by
     current_progress = float(imp.progress_percent or 0.0)
     imp.progress_percent = max(current_progress, 99.5)
-    imp.current_stage = "Stage 10: Import File Closure & Archival"
     imp.current_module = "Phase 10 - Comprehensive Dossier Export & Digital Archiving"
-    imp.next_action = "الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)"
+    set_file_tracking(imp, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
 
     # 2. Resolve SmartTask TSK-0903
     tasks_903 = db.query(SmartTask).filter(
@@ -689,16 +701,24 @@ def confirm_dossier_export_service(
     for t in tasks_903:
         t.status = "Completed"
         t.is_auto_closed = True
-        t.notes = f"تم تصدير واعتماد الملف الشامل بصيغة {payload.export_format} بواسطة {payload.exported_by} بتاريخ {today_str}"
+        t.notes = f"Full dossier exported and approved as {payload.export_format} by {payload.exported_by} on {today_str}"
 
     # 3. Dispatch downstream SmartTask TSK-0904
     task_code_904 = f"TSK-0904-{imp.import_file_id}"
     existing_904 = db.query(SmartTask).filter(SmartTask.task_code == task_code_904).first()
     if not existing_904:
+        task_msg = msg(
+            "CLO_TASK_OFFICIAL_CLOSURE",
+            import_file_code=imp.import_file_code,
+            export_format=payload.export_format,
+        )
         new_task = SmartTask(
             task_code=task_code_904,
-            title="الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)",
-            description=f"تم تصدير واعتماد الملف الشامل للشحنة {imp.import_file_code} بنجاح بصيغة {payload.export_format}. المطلوب الآن استكمال قائمة التحقق النهائية وإصدار شهادة الإغلاق والأرشفة الرقمية.",
+            title=render_en(task_msg.code, task_msg.params, "title"),
+            description=render_en(task_msg.code, task_msg.params, "body"),
+            msg_code=task_msg.code,
+            msg_params=task_msg.params,
+            step_code="STEP_21",
             task_type="System Generated",
             import_file_id=imp.import_file_id,
             import_file_code=imp.import_file_code,
@@ -712,9 +732,17 @@ def confirm_dossier_export_service(
         db.add(new_task)
 
     # 4. Dispatch central SystemNotification
+    notif_msg = msg(
+        "CLO_DOSSIER_EXPORTED",
+        import_file_code=imp.import_file_code,
+        exported_by=payload.exported_by,
+        export_format=payload.export_format,
+    )
     notif = SystemNotification(
-        title=f"تم تصدير التقرير والملف الشامل للشحنة {imp.import_file_code}",
-        message=f"قام {payload.exported_by} بتصدير واعتماد الملف الشامل للشحنة {imp.import_file_code} بصيغة {payload.export_format}. أصبحت الشحنة جاهزة للإغلاق الرسمي والأرشفة الرقمية (CLO-04).",
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
         severity="INFO",
         category="FILE_CLOSURE",
         entity_type="ImportFile",
@@ -731,7 +759,8 @@ def confirm_dossier_export_service(
             import_file_id=imp.import_file_id,
             completed_step_code="STEP_20",
             target_step_codes=["STEP_21"],
-            notes=f"تم تصدير الملف الشامل ({payload.export_format}) بواسطة {payload.exported_by}.",
+            notes_msg=msg("CLO_DOSSIER_EXPORTED", export_format=payload.export_format, exported_by=payload.exported_by),
+            next_action_msg=msg("NA_CLO_OFFICIAL_CLOSURE"),
             assigned_user=payload.exported_by,
         )
     except Exception as e:
@@ -739,7 +768,7 @@ def confirm_dossier_export_service(
         logging.getLogger(__name__).warning("Lifecycle advance STEP_20->STEP_21 notice: %s", e)
 
     # Enforce next_action after lifecycle board call
-    imp.next_action = "الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)"
+    set_file_tracking(imp, next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
 
     db.commit()
     db.refresh(imp)
@@ -754,7 +783,7 @@ def confirm_dossier_export_service(
         current_stage=imp.current_stage,
         current_module=imp.current_module,
         next_task_code=task_code_904,
-        next_task_title="الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)",
+        next_task_title=render_en("CLO_TASK_OFFICIAL_CLOSURE", {}, "title"),
         message=f"تم تصدير واعتماد الملف الشامل للشحنة {imp.import_file_code} بنجاح وإطلاق مهمة الإغلاق النهائي والأرشفة (CLO-04).",
     )
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'directional_icon.dart';
 
 /// An enterprise-grade, responsive Master-Detail Multi-Pane Layout optimized for desktop displays (1080p, 2K, 4K).
 ///
@@ -173,7 +174,7 @@ class _EnterpriseMultiPaneLayoutState extends State<EnterpriseMultiPaneLayout> {
                         actions: [
                           if (widget.masterActions != null) ...widget.masterActions!,
                           IconButton(
-                            icon: const Icon(Icons.menu_open_rounded, size: 18),
+                            icon: const DirectionalIcon(Icons.menu_open_rounded, size: 18),
                             tooltip: l10n.multiPaneCollapseSidebar,
                             onPressed: _toggleMasterCollapse,
                           ),
@@ -269,8 +270,8 @@ class _EnterpriseMultiPaneLayoutState extends State<EnterpriseMultiPaneLayout> {
         width: 24,
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
-          border: Border(
-            right: BorderSide(color: borderColor, width: 1.0),
+          border: BorderDirectional(
+            end: BorderSide(color: borderColor, width: 1.0),
           ),
         ),
         child: InkWell(
@@ -278,10 +279,10 @@ class _EnterpriseMultiPaneLayoutState extends State<EnterpriseMultiPaneLayout> {
           child: Center(
             child: Tooltip(
               message: l10n.multiPaneExpandSidebar,
-              child: Icon(
-                Directionality.of(context) == TextDirection.rtl
-                    ? Icons.chevron_left_rounded
-                    : Icons.chevron_right_rounded,
+              // chevron_right has matchTextDirection: it already points
+              // left in RTL (toward the content) without a manual swap.
+              child: const Icon(
+                Icons.chevron_right_rounded,
                 size: 20,
                 color: AppTheme.cobalt,
               ),
@@ -312,9 +313,8 @@ class _EnterpriseMultiPaneLayoutState extends State<EnterpriseMultiPaneLayout> {
           width: 8,
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
-            border: Border(
-              left: BorderSide(color: borderColor, width: 0.5),
-              right: BorderSide(color: borderColor, width: 0.5),
+            border: Border.symmetric(
+              vertical: BorderSide(color: borderColor, width: 0.5),
             ),
           ),
           child: Center(

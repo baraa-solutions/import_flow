@@ -151,8 +151,8 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                   borderRadius: BorderRadius.circular(12),
                   gradient: LinearGradient(
                     colors: [AppTheme.charcoal, Colors.blueGrey.shade900],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin: AlignmentDirectional.topStart,
+                    end: AlignmentDirectional.bottomEnd,
                   ),
                 ),
                 child: Row(
@@ -410,9 +410,9 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(7),
-                  topRight: Radius.circular(7),
+                borderRadius: const BorderRadiusDirectional.only(
+                  topStart: Radius.circular(7),
+                  topEnd: Radius.circular(7),
                 ),
               ),
               child: Column(

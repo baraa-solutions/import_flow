@@ -151,7 +151,8 @@ class TestSmartEmailListener:
         # Verify SmartTask created
         task = db_session.query(SmartTask).filter_by(task_id=res.task_id).first()
         assert task is not None
-        assert "سداد مصاريف إذن التسليم" in task.title
+        assert task.title.startswith("Pay the delivery order charges")
+        assert task.msg_code == "EMAIL_TASK_DELIVERY_ORDER_PAYMENT"
         assert task.import_file_code == "IMP-2026-00088"
         assert task.priority == "High"
 
