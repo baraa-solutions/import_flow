@@ -157,6 +157,8 @@ def test_phase_10_file_closure_workflow(db_session):
         is_active=True,
     )
     db_session.add(settlement)
+    # Since FC-01 the server gate also requires the comprehensive dossier export (CLO-03).
+    db_session.query(ImportFile).filter(ImportFile.import_file_id == 1).first().dossier_exported_at = datetime.now()
     db_session.commit()
 
     closure_schema = FileClosureCreate(

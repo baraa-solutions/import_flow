@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field
 
 class InlandTransportBookingBase(BaseModel):
@@ -48,12 +48,12 @@ class InlandTransportBookingUpdate(BaseModel):
     tracking_notes: Optional[str] = None
 
 class InlandTransportGateOutSubmit(BaseModel):
-    actual_departure_at: datetime = Field(default_factory=datetime.utcnow)
+    actual_departure_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     gate_pass_no: Optional[str] = None
     notes: Optional[str] = None
 
 class InlandTransportArrivalSubmit(BaseModel):
-    actual_arrival_at: datetime = Field(default_factory=datetime.utcnow)
+    actual_arrival_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     seal_intact: bool = True
     seal_number: Optional[str] = None
     notes: Optional[str] = None

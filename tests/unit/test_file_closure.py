@@ -67,6 +67,8 @@ def _create_prerequisite_records(db, import_file_id: int):
         is_active=True,
     )
     db.add(settlement)
+    # FC-01: the server gate also requires the comprehensive dossier export (CLO-03).
+    db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first().dossier_exported_at = datetime.now()
     db.commit()
 
 
@@ -111,8 +113,12 @@ class TestFileClosureModule(unittest.TestCase):
         self.db.close()
 
     def test_close_import_file_checklist_validation_failure(self):
-        # Need prerequisite records so DB check passes, then checklist check raises 400
+        # FC-01: the server gate decides. All prerequisites except the GRN exist -> 400 whatever the client says.
         _create_prerequisite_records(self.db, self.import_file_id)
+        self.db.query(WarehouseReceivingRecord).filter(
+            WarehouseReceivingRecord.import_file_id == self.import_file_id
+        ).first().is_active = False
+        self.db.commit()
 
         schema = FileClosureCreate(
             import_file_id=self.import_file_id,
@@ -177,7 +183,16 @@ class TestFileClosureModule(unittest.TestCase):
         record = close_import_file_service(self.db, schema)
         c_id = record.closure_id
 
-        # Delete
+        # FC-09 / Q5: the closure of a Closed file cannot be deleted (reopen first)
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_closure_service(self.db, c_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "FC_CLOSED_RECORD_LOCKED")
+
+        # Once the file is reopened the record can be deleted and restored
+        imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp_file.status = "Active"
+        self.db.commit()
         success = soft_delete_closure_service(self.db, c_id)
         self.assertTrue(success)
 

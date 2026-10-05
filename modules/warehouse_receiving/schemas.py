@@ -22,7 +22,7 @@ class WarehouseReceivingCreate(BaseModel):
     seal_intact: bool = True
     grn_items: List[GrnItemSchema] = []
     discrepancy_notes: Optional[str] = None
-    inspector_name: str = "Kamal"
+    inspector_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
     notes: Optional[str] = None
 
 class DiscrepancyReportSubmit(BaseModel):
@@ -34,8 +34,11 @@ class DiscrepancyReportSubmit(BaseModel):
 
 class WarehouseInspectionSubmit(BaseModel):
     inspection_date: Optional[datetime] = None
-    inspection_committee: Optional[str] = "لجنة الفحص والاستلام المخزني"
-    inspection_verdict: Optional[str] = Field("ACCEPTED_FULL", description="ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED, DAMAGE_CLAIM_PENDING")
+    inspection_committee: Optional[str] = Field(None, description="Defaults to DEFAULT_INSPECTION_COMMITTEE")
+    inspection_verdict: Optional[str] = Field(
+        None,
+        description="ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED, DAMAGE_CLAIM_PENDING; null = derived from the quantities",
+    )
     root_cause: Optional[str] = Field(None, description="Port Handling, Transit Vibration, Packaging Failure, Water Ingress, Factory Shortage")
     grn_items: Optional[List[GrnItemSchema]] = None
     discrepancy_type: Optional[str] = "None"

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 from typing import List, Optional
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -15,11 +15,22 @@ from .repository import (
     create_transport_booking,
     get_transport_booking_by_id,
     get_transport_booking_by_file,
+    find_active_booking_by_waybill,
     list_transport_bookings,
-    update_transport_booking,
-    soft_delete_transport_booking,
+    apply_changes,
 )
 from .validators import (
+    ACTION_GATE_OUT,
+    ACTION_WAREHOUSE_ARRIVAL,
+    STATUS_ARRIVED,
+    STATUS_IN_TRANSIT,
+    coded_error,
+    normalize_waybill,
+    validate_actual_times,
+    validate_schedule,
+    validate_status_label,
+    validate_text_fields,
+    validate_transition,
     validate_transport_booking_input,
     validate_import_file_for_transport,
 )
@@ -28,17 +39,42 @@ from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
 
+
+def _insert_booking(db: Session, schema: InlandTransportBookingCreate, user: str) -> InlandTransportBooking:
+    """Insert with a fresh TR code; one retry when a concurrent insert took the same code (unique constraint).
+    The booking is the first write of the request, so the rollback before the retry loses nothing."""
+    try:
+        return create_transport_booking(db, schema, generate_transport_code(db), user)
+    except IntegrityError:
+        db.rollback()
+        return create_transport_booking(db, schema, generate_transport_code(db), user)
+
+
 def create_transport_booking_service(
     db: Session,
     schema: InlandTransportBookingCreate,
     user: str = "System",
 ) -> InlandTransportBooking:
     validate_transport_booking_input(schema)
-    imp_file = validate_import_file_for_transport(db, schema.import_file_id)
+    validate_import_file_for_transport(db, schema.import_file_id)
     schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
 
-    code = generate_transport_code(db)
-    booking = create_transport_booking(db, schema, code, user)
+    # IT-02: a retried request (double click, timeout) must not create a second booking for the same waybill.
+    duplicate = find_active_booking_by_waybill(db, schema.import_file_id, normalize_waybill(schema.waybill_number))
+    if duplicate is not None:
+        raise coded_error(
+            409,
+            "IT_BOOKING_EXISTS",
+            (
+                f"يوجد بالفعل حجز نقل نشط لنفس بوليصة النقل ({duplicate.waybill_number}) على هذا الملف "
+                f"(رقم الحجز: {duplicate.transport_code})."
+            ),
+            transport_code=duplicate.transport_code,
+            waybill_number=duplicate.waybill_number,
+        )
+
+    booking = _insert_booking(db, schema, user)
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
 
     # Synchronize ImportFile
     status_str = "IN_TRANSIT" if schema.actual_departure_at else "BOOKED"
@@ -112,37 +148,34 @@ def create_transport_booking_service(
             commit=False,  # the booking commit below writes the task too (no half-saved booking on failure)
         )
 
-    # Emit Central System Notification
-    try:
-        from modules.notifications.model import SystemNotification
-        notif_msg = msg(
-            "TR_BOOKING_CONFIRMED",
-            truck_plate_number=schema.truck_plate_number,
-            import_file_code=imp_file.import_file_code,
-            pickup_location=schema.pickup_port_location,
-            destination_warehouse=schema.destination_warehouse,
-            driver_name=schema.driver_name,
-            driver_phone=schema.driver_phone,
-        )
-        notification = SystemNotification(
-            notification_code=f"NOTIF-TR01-{imp_file.import_file_id}",
-            title=render_en(notif_msg.code, notif_msg.params, "title"),
-            message=render_en(notif_msg.code, notif_msg.params, "body"),
-            msg_code=notif_msg.code,
-            msg_params=notif_msg.params,
-            category="STAGE_PROGRESSION",
-            severity="INFO",
-            target_role="ALL",
-            import_file_id=imp_file.import_file_id,
-            created_by=user,
-        )
-        db.add(notification)
-    except Exception:
-        pass
+    # Central system notification (same transaction: one commit for booking, file sync, task and notification)
+    from modules.notifications.model import SystemNotification
+    notif_msg = msg(
+        "TR_BOOKING_CONFIRMED",
+        truck_plate_number=schema.truck_plate_number,
+        import_file_code=imp_file.import_file_code,
+        pickup_location=schema.pickup_port_location,
+        destination_warehouse=schema.destination_warehouse,
+        driver_name=schema.driver_name,
+        driver_phone=schema.driver_phone,
+    )
+    db.add(SystemNotification(
+        title=render_en(notif_msg.code, notif_msg.params, "title"),
+        message=render_en(notif_msg.code, notif_msg.params, "body"),
+        msg_code=notif_msg.code,
+        msg_params=notif_msg.params,
+        category="STAGE_PROGRESSION",
+        severity="INFO",
+        target_role="ALL",
+        entity_type="ImportFile",
+        entity_id=imp_file.import_file_id,
+        is_read=False,
+    ))
 
     db.commit()
     db.refresh(booking)
     return booking
+
 
 def record_port_gate_out_service(
     db: Session,
@@ -150,14 +183,17 @@ def record_port_gate_out_service(
     payload: InlandTransportGateOutSubmit,
     user: str = "System",
 ) -> InlandTransportBooking:
-    booking = get_transport_booking_by_id(db, transport_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="سجل النقل الداخلي غير موجود.")
+    booking = get_transport_booking_service(db, transport_id)
+    validate_transition(booking.status, ACTION_GATE_OUT)
 
-    booking.actual_departure_at = payload.actual_departure_at
-    booking.status = "In Transit"
+    notes = booking.tracking_notes
     if payload.notes:
-        booking.tracking_notes = (booking.tracking_notes or "") + f" | Gate-out: {payload.notes}"
+        notes = (notes or "") + f" | Gate-out: {payload.notes}"
+    apply_changes(booking, {
+        "actual_departure_at": payload.actual_departure_at,
+        "status": STATUS_IN_TRANSIT,
+        "tracking_notes": notes,
+    }, user)
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
@@ -174,20 +210,25 @@ def record_port_gate_out_service(
     db.refresh(booking)
     return booking
 
+
 def record_warehouse_arrival_service(
     db: Session,
     transport_id: int,
     payload: InlandTransportArrivalSubmit,
     user: str = "System",
 ) -> InlandTransportBooking:
-    booking = get_transport_booking_by_id(db, transport_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="سجل النقل الداخلي غير موجود.")
+    booking = get_transport_booking_service(db, transport_id)
+    validate_transition(booking.status, ACTION_WAREHOUSE_ARRIVAL)
+    validate_actual_times(booking.actual_departure_at, payload.actual_arrival_at)
 
-    booking.actual_arrival_at = payload.actual_arrival_at
-    booking.status = "Arrived at Warehouse"
+    notes = booking.tracking_notes
     if payload.notes:
-        booking.tracking_notes = (booking.tracking_notes or "") + f" | Warehouse arrival: {payload.notes}"
+        notes = (notes or "") + f" | Warehouse arrival: {payload.notes}"
+    apply_changes(booking, {
+        "actual_arrival_at": payload.actual_arrival_at,
+        "status": STATUS_ARRIVED,
+        "tracking_notes": notes,
+    }, user)
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
@@ -204,14 +245,17 @@ def record_warehouse_arrival_service(
     db.refresh(booking)
     return booking
 
+
 def get_transport_booking_service(db: Session, transport_id: int) -> InlandTransportBooking:
     booking = get_transport_booking_by_id(db, transport_id)
     if not booking:
         raise HTTPException(status_code=404, detail="سجل النقل الداخلي غير موجود.")
     return booking
 
+
 def get_transport_booking_by_file_service(db: Session, import_file_id: int) -> Optional[InlandTransportBooking]:
     return get_transport_booking_by_file(db, import_file_id)
+
 
 def list_transport_bookings_service(
     db: Session,
@@ -222,6 +266,7 @@ def list_transport_bookings_service(
 ) -> List[InlandTransportBooking]:
     return list_transport_bookings(db, include_inactive, import_file_id, status, search)
 
+
 def update_transport_booking_service(
     db: Session,
     transport_id: int,
@@ -229,9 +274,42 @@ def update_transport_booking_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
-    if schema.truck_type is not None:
-        schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
-    return update_transport_booking(db, booking, schema, user)
+    data = schema.model_dump(exclude_unset=True)
+    if data.get("truck_type") is not None:
+        data["truck_type"] = enum_codes.normalize(enum_codes.TRUCK_TYPE, data["truck_type"])
+    # NOT NULL columns: an explicit null would only fail at commit (500).
+    for field in ("waybill_number", "carrier_name", "truck_plate_number", "truck_type", "driver_name", "driver_phone",
+                  "pickup_port_location", "destination_warehouse", "planned_departure_at", "expected_arrival_at",
+                  "transport_fare_egp", "status"):
+        if field in data and data[field] is None:
+            del data[field]
+
+    # Re-run the create checks on the merged values (plan IT-05).
+    def merged(field: str):
+        return data[field] if field in data else getattr(booking, field)
+
+    validate_status_label(data.get("status"))
+    validate_text_fields(merged("truck_plate_number"), merged("driver_name"), merged("driver_phone"), merged("waybill_number"))
+    validate_schedule(merged("planned_departure_at"), merged("expected_arrival_at"))
+    validate_actual_times(merged("actual_departure_at"), merged("actual_arrival_at"))
+    if "transport_fare_egp" in data and data["transport_fare_egp"] < 0:
+        raise HTTPException(status_code=400, detail="أجرة النقل لا يمكن أن تكون قيمة سالبة.")
+    if "waybill_number" in data:
+        other = find_active_booking_by_waybill(db, booking.import_file_id, normalize_waybill(data["waybill_number"]))
+        if other is not None and other.transport_id != booking.transport_id:
+            raise coded_error(
+                409,
+                "IT_BOOKING_EXISTS",
+                f"يوجد بالفعل حجز نقل نشط لنفس بوليصة النقل على هذا الملف (رقم الحجز: {other.transport_code}).",
+                transport_code=other.transport_code,
+                waybill_number=other.waybill_number,
+            )
+
+    apply_changes(booking, data, user)
+    db.commit()
+    db.refresh(booking)
+    return booking
+
 
 def soft_delete_transport_booking_service(
     db: Session,
@@ -239,4 +317,5 @@ def soft_delete_transport_booking_service(
     user: str = "System",
 ) -> None:
     booking = get_transport_booking_service(db, transport_id)
-    soft_delete_transport_booking(db, booking, user)
+    apply_changes(booking, {"is_active": False}, user)
+    db.commit()
