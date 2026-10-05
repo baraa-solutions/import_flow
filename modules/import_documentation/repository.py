@@ -1,9 +1,24 @@
 """
 Database Repository for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
+
+Rules (Phase 3a, DOC-07 / DOC-08 / DOC-10 / DOC-22):
+- Lookups and updates by id see ACTIVE rows only and return ``None`` / ``False`` when the row is missing or
+  soft-deleted; the service turns that into a 404 (``validators.not_found``). Nothing here raises ``ValueError``.
+- ``update_*`` never touches ``is_active``: restoring is explicit (``restore_acid_session``,
+  ``reactivate_po_reconciliation_session``).
+- Business codes come from ``sequence_generator.next_yearly_code`` (max numeric suffix of the year + 1; non-digit
+  suffixes such as ``-v2`` are ignored). The unique constraint on each code column stays the final guard.
+- ``commit=False`` flushes only, so a service can save several rows in one transaction.
 """
 
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timedelta, timezone
+from typing import List, Optional
+
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
+from modules.common.sequence_generator import next_yearly_code
+from modules.common.validators import not_null_columns
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
@@ -35,41 +50,61 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewUpdate,
 )
 
+# ACID validity used when the request carries no expiry date (same default as the ACID tracker, DOC-15/DOC-21).
+ACID_DEFAULT_VALIDITY_DAYS = 90
+ACID_PLACEHOLDER_NUMBERS = frozenset({"PENDING", "REQUESTED", "DRAFT", ""})
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _save(db: Session, item, commit: bool):
+    """Commit + refresh, or flush only (``commit=False``) so the caller owns the transaction."""
+    if commit:
+        db.commit()
+        db.refresh(item)
+    else:
+        db.flush()
+    return item
+
+
+def _apply(item, data: dict) -> None:
+    for field, value in data.items():
+        setattr(item, field, value)
+
+
+def _active_by_id(db: Session, model, id_column, entity_id: int):
+    return db.query(model).filter(id_column == entity_id, model.is_active == True).first()
+
+
+def _soft_delete(db: Session, item) -> bool:
+    if item is None:
+        return False
+    item.is_active = False
+    item.updated_at = _now()
+    db.commit()
+    return True
 
 
 # --- ACID REPOSITORY (BP-014) ---
 def generate_acid_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"ACID-{current_year}-"
-
-    last_record = (
-        db.query(AcidRegistrationSession)
-        .filter(AcidRegistrationSession.acid_code.like(f"{prefix}%"))
-        .order_by(AcidRegistrationSession.acid_id.desc())
-        .first()
-    )
-
-    if not last_record:
-        return f"{prefix}001"
-
-    last_code = last_record.acid_code
-    try:
-        seq = int(last_code.split("-")[-1]) + 1
-    except (ValueError, IndexError):
-        seq = 1
-
-    return f"{prefix}{seq:03d}"
+    return next_yearly_code(db, AcidRegistrationSession.acid_code, "ACID", pad=3)
 
 
-def create_acid_session(db: Session, schema: AcidRegistrationCreate) -> AcidRegistrationSession:
+def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: bool = True) -> AcidRegistrationSession:
     code = generate_acid_code(db)
     req_date = schema.requested_date or date.today()
     gen_date = schema.generated_date
-    exp_date = schema.expiry_date or (date.today() if not gen_date else gen_date)
+    acid_number = (schema.acid_number or "PENDING").strip()
+    # expiry_date is NOT NULL: without an explicit expiry use issue (or request) date + the default validity,
+    # never "today" (which made every new session show EXPIRED at once).
+    exp_date = schema.expiry_date or ((gen_date or req_date) + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS))
+    is_placeholder = acid_number.upper() in ACID_PLACEHOLDER_NUMBERS
 
     db_item = AcidRegistrationSession(
         acid_code=code,
-        acid_number=(schema.acid_number or "PENDING").strip(),
+        acid_number=acid_number,
         import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         po_number=schema.po_number,
@@ -111,13 +146,11 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate) -> AcidRegi
         is_ports_matched=True,
         has_discrepancies=False,
         verification_notes=schema.verification_notes,
-        status="Requested" if (schema.acid_number == "PENDING" or not gen_date) else "Verified",
+        status="Requested" if (is_placeholder or not gen_date) else "Verified",
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
 def get_acid_session_by_id(db: Session, acid_id: int, include_inactive: bool = False) -> AcidRegistrationSession | None:
@@ -125,6 +158,10 @@ def get_acid_session_by_id(db: Session, acid_id: int, include_inactive: bool = F
     if not include_inactive:
         query = query.filter(AcidRegistrationSession.is_active == True)
     return query.first()
+
+
+def get_acid_session_active(db: Session, acid_id: int) -> AcidRegistrationSession | None:
+    return get_acid_session_by_id(db, acid_id)
 
 
 def get_acid_session_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> AcidRegistrationSession | None:
@@ -139,7 +176,7 @@ def restore_acid_session(db: Session, acid_id: int) -> AcidRegistrationSession |
     if not item:
         return None
     item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
+    item.updated_at = _now()
     db.commit()
     db.refresh(item)
     return item
@@ -175,53 +212,24 @@ def get_all_acid_sessions(
 
 
 def update_acid_session(
-    db: Session, db_item: AcidRegistrationSession, schema: AcidRegistrationUpdate
+    db: Session, db_item: AcidRegistrationSession, schema: AcidRegistrationUpdate, commit: bool = True
 ) -> AcidRegistrationSession:
-    data = schema.model_dump(exclude_unset=True)
-    for field, val in data.items():
-        setattr(db_item, field, val)
-
-    db_item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    """``db_item`` must be an active row loaded by the service (``get_acid_session_active``)."""
+    _apply(db_item, schema.model_dump(exclude_unset=True))
+    db_item.updated_at = _now()
+    return _save(db, db_item, commit)
 
 
 def soft_delete_acid_session(db: Session, acid_id: int) -> bool:
-    item = get_acid_session_by_id(db, acid_id)
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, get_acid_session_by_id(db, acid_id))
 
 
 # --- BANKING DOCUMENTS REPOSITORY (BP-015) ---
 def generate_bank_doc_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"FORM4-{current_year}-"
-
-    last_record = (
-        db.query(BankingDocumentSession)
-        .filter(BankingDocumentSession.bank_doc_code.like(f"{prefix}%"))
-        .order_by(BankingDocumentSession.bank_doc_id.desc())
-        .first()
-    )
-
-    if not last_record:
-        return f"{prefix}001"
-
-    last_code = last_record.bank_doc_code
-    try:
-        seq = int(last_code.split("-")[-1]) + 1
-    except (ValueError, IndexError):
-        seq = 1
-
-    return f"{prefix}{seq:03d}"
+    return next_yearly_code(db, BankingDocumentSession.bank_doc_code, "FORM4", pad=3)
 
 
-def create_banking_document(db: Session, schema: BankingDocumentCreate) -> BankingDocumentSession:
+def create_banking_document(db: Session, schema: BankingDocumentCreate, commit: bool = True) -> BankingDocumentSession:
     code = generate_bank_doc_code(db)
     req_date = schema.request_date or schema.issue_date or date.today()
     iss_date = schema.issue_date or req_date
@@ -253,25 +261,26 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate) -> Banki
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
 def get_banking_document_by_id(db: Session, bank_doc_id: int) -> BankingDocumentSession | None:
-    return db.query(BankingDocumentSession).filter(
-        BankingDocumentSession.bank_doc_id == bank_doc_id,
-        BankingDocumentSession.is_active == True,
-    ).first()
+    return _active_by_id(db, BankingDocumentSession, BankingDocumentSession.bank_doc_id, bank_doc_id)
+
+
+get_banking_document_active = get_banking_document_by_id
 
 
 def update_banking_document(
-    db: Session, db_item: BankingDocumentSession, schema: BankingDocumentUpdate
+    db: Session, db_item: BankingDocumentSession, schema: BankingDocumentUpdate, commit: bool = True
 ) -> BankingDocumentSession:
-    update_data = schema.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        if hasattr(db_item, field) and value is not None:
-            setattr(db_item, field, value)
+    """Sent fields are applied as-is; an explicit ``null`` clears a nullable column and is ignored for a
+    NOT NULL one (DOC-25)."""
+    required = not_null_columns(BankingDocumentSession)
+    for field, value in schema.model_dump(exclude_unset=True).items():
+        if not hasattr(db_item, field) or (value is None and field in required):
+            continue
+        setattr(db_item, field, value)
 
     # Recalculate execution days if dates changed
     if db_item.received_date and db_item.request_date:
@@ -279,17 +288,12 @@ def update_banking_document(
         if db_item.doc_reference_number and db_item.doc_reference_number != "PENDING":
             db_item.status = "Received"
 
-    db_item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    db_item.updated_at = _now()
+    return _save(db, db_item, commit)
 
 
 def delete_banking_document(db: Session, db_item: BankingDocumentSession) -> bool:
-    db_item.is_active = False
-    db_item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, db_item if db_item is not None and db_item.is_active else None)
 
 
 def get_all_banking_documents(db: Session, import_file_id: int | None = None) -> list[BankingDocumentSession]:
@@ -299,32 +303,12 @@ def get_all_banking_documents(db: Session, import_file_id: int | None = None) ->
     return query.order_by(BankingDocumentSession.bank_doc_id.desc()).all()
 
 
-
 # --- SHIPMENT DOCUMENT ITEMS REPOSITORY (BP-016 to BP-018) ---
 def generate_shipment_doc_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"DOC-{current_year}-"
-
-    last_record = (
-        db.query(ShipmentDocumentItem)
-        .filter(ShipmentDocumentItem.document_code.like(f"{prefix}%"))
-        .order_by(ShipmentDocumentItem.document_id.desc())
-        .first()
-    )
-
-    if not last_record:
-        return f"{prefix}001"
-
-    last_code = last_record.document_code
-    try:
-        seq = int(last_code.split("-")[-1]) + 1
-    except (ValueError, IndexError):
-        seq = 1
-
-    return f"{prefix}{seq:03d}"
+    return next_yearly_code(db, ShipmentDocumentItem.document_code, "DOC", pad=3)
 
 
-def create_shipment_document(db: Session, schema: ShipmentDocumentCreate) -> ShipmentDocumentItem:
+def create_shipment_document(db: Session, schema: ShipmentDocumentCreate, commit: bool = True) -> ShipmentDocumentItem:
     code = generate_shipment_doc_code(db)
     iss_date = schema.issue_date or date.today()
     rec_date = schema.received_date or date.today()
@@ -344,9 +328,11 @@ def create_shipment_document(db: Session, schema: ShipmentDocumentCreate) -> Shi
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
+
+
+def get_shipment_document_active(db: Session, doc_id: int) -> ShipmentDocumentItem | None:
+    return _active_by_id(db, ShipmentDocumentItem, ShipmentDocumentItem.document_id, doc_id)
 
 
 def get_all_shipment_documents(db: Session, import_file_id: int | None = None) -> list[ShipmentDocumentItem]:
@@ -357,35 +343,26 @@ def get_all_shipment_documents(db: Session, import_file_id: int | None = None) -
 
 
 def update_shipment_document(
-    db: Session, doc_id: int, schema: ShipmentDocumentUpdate
-) -> ShipmentDocumentItem:
-    item = (
-        db.query(ShipmentDocumentItem)
-        .filter(ShipmentDocumentItem.document_id == doc_id, ShipmentDocumentItem.is_active == True)
-        .first()
-    )
+    db: Session, doc_id: int, schema: ShipmentDocumentUpdate, commit: bool = True
+) -> ShipmentDocumentItem | None:
+    item = get_shipment_document_active(db, doc_id)
     if not item:
-        raise ValueError(f"Shipment Document ID {doc_id} not found.")
-
-    data = schema.model_dump(exclude_unset=True)
-    for field, val in data.items():
-        setattr(item, field, val)
-
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 # --- CUSTOMS DECLARATION 46 REPOSITORY (BP-019) ---
-def create_customs_declaration(
-    db: Session, schema: CustomsDeclarationCreate
-) -> CustomsDeclarationDraft:
-    current_year = datetime.now(timezone.utc).year
-    code = f"DEC46-{current_year}-001"
+def generate_customs_declaration_code(db: Session) -> str:
+    return next_yearly_code(db, CustomsDeclarationDraft.declaration_code, "DEC46", pad=3)
 
+
+def create_customs_declaration(
+    db: Session, schema: CustomsDeclarationCreate, commit: bool = True
+) -> CustomsDeclarationDraft:
     db_item = CustomsDeclarationDraft(
-        declaration_code=code,
+        declaration_code=generate_customs_declaration_code(db),
         import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         acid_number=schema.acid_number,
@@ -398,28 +375,16 @@ def create_customs_declaration(
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
+
+
+def get_customs_declaration_active(db: Session, declaration_id: int) -> CustomsDeclarationDraft | None:
+    return _active_by_id(db, CustomsDeclarationDraft, CustomsDeclarationDraft.declaration_id, declaration_id)
 
 
 # --- PHASE 6: DRAFT BILL OF LADING (B/L) REPOSITORY ---
 def generate_bl_review_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"BL-REV-{current_year}-"
-    last_record = (
-        db.query(DraftBLReviewSession)
-        .filter(DraftBLReviewSession.bl_review_code.like(f"{prefix}%"))
-        .order_by(DraftBLReviewSession.bl_review_id.desc())
-        .first()
-    )
-    if not last_record:
-        return f"{prefix}0001"
-    try:
-        num = int(last_record.bl_review_code.replace(prefix, "")) + 1
-        return f"{prefix}{num:04d}"
-    except ValueError:
-        return f"{prefix}0001"
+    return next_yearly_code(db, DraftBLReviewSession.bl_review_code, "BL-REV", pad=4)
 
 
 def get_draft_bl_reviews(
@@ -460,6 +425,10 @@ def get_draft_bl_review_by_id(db: Session, review_id: int, include_inactive: boo
     return query.first()
 
 
+def get_draft_bl_review_active(db: Session, review_id: int) -> DraftBLReviewSession | None:
+    return get_draft_bl_review_by_id(db, review_id)
+
+
 def get_draft_bl_review_by_file_id(
     db: Session,
     import_file_id: int,
@@ -474,61 +443,69 @@ def get_draft_bl_review_by_file_id(
     return query.order_by(DraftBLReviewSession.bl_review_id.desc()).first()
 
 
-def create_draft_bl_review(db: Session, schema: DraftBLReviewCreate) -> DraftBLReviewSession:
+def get_draft_bl_root(db: Session, review: DraftBLReviewSession) -> DraftBLReviewSession:
+    """First session of a version chain (follows ``parent_session_id``, active or not; cycle-safe)."""
+    current, seen = review, {review.bl_review_id}
+    while current.parent_session_id and current.parent_session_id not in seen:
+        parent = get_draft_bl_review_by_id(db, current.parent_session_id, include_inactive=True)
+        if parent is None:
+            break
+        seen.add(parent.bl_review_id)
+        current = parent
+    return current
+
+
+def get_draft_bl_versions(db: Session, root_code: str, include_inactive: bool = True) -> List[DraftBLReviewSession]:
+    """Every version of the chain whose root code is ``root_code`` (``root_code`` itself and ``root_code-vN``),
+    ordered by ``version_number`` then id."""
+    query = db.query(DraftBLReviewSession).filter(
+        or_(
+            DraftBLReviewSession.bl_review_code == root_code,
+            DraftBLReviewSession.bl_review_code.like(f"{root_code}-v%"),
+        )
+    )
+    if not include_inactive:
+        query = query.filter(DraftBLReviewSession.is_active == True)
+    return query.order_by(DraftBLReviewSession.version_number, DraftBLReviewSession.bl_review_id).all()
+
+
+def create_draft_bl_review(db: Session, schema: DraftBLReviewCreate, commit: bool = True) -> DraftBLReviewSession:
     code = generate_bl_review_code(db)
     data = schema.model_dump(exclude_unset=True)
+    data.pop("is_active", None)
     db_item = DraftBLReviewSession(
         bl_review_code=code,
         **data,
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
-def update_draft_bl_review(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
-    item = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.bl_review_id == review_id).first()
+def add_draft_bl_review(db: Session, item: DraftBLReviewSession, commit: bool = True) -> DraftBLReviewSession:
+    """Persist a session built by the service (new draft versions)."""
+    db.add(item)
+    return _save(db, item, commit)
+
+
+def update_draft_bl_review(
+    db: Session, review_id: int, schema: DraftBLReviewUpdate, commit: bool = True
+) -> DraftBLReviewSession | None:
+    item = get_draft_bl_review_active(db, review_id)
     if not item:
-        raise ValueError(f"Draft B/L Review ID {review_id} not found.")
-    data = schema.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def delete_draft_bl_review(db: Session, review_id: int) -> bool:
-    item = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.bl_review_id == review_id).first()
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, get_draft_bl_review_active(db, review_id))
 
 
 # --- PHASE 6: CERTIFICATE OF ORIGIN (COO / EUR.1) REPOSITORY ---
 def generate_coo_review_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"COO-{current_year}-"
-    last_record = (
-        db.query(CertificateOfOriginReviewSession)
-        .filter(CertificateOfOriginReviewSession.coo_review_code.like(f"{prefix}%"))
-        .order_by(CertificateOfOriginReviewSession.coo_review_id.desc())
-        .first()
-    )
-    if not last_record:
-        return f"{prefix}0001"
-    try:
-        num = int(last_record.coo_review_code.replace(prefix, "")) + 1
-        return f"{prefix}{num:04d}"
-    except ValueError:
-        return f"{prefix}0001"
+    return next_yearly_code(db, CertificateOfOriginReviewSession.coo_review_code, "COO", pad=4)
 
 
 def get_coo_reviews(
@@ -568,6 +545,10 @@ def get_coo_review_by_id(db: Session, review_id: int, include_inactive: bool = F
     return query.first()
 
 
+def get_coo_review_active(db: Session, review_id: int) -> CertificateOfOriginReviewSession | None:
+    return get_coo_review_by_id(db, review_id)
+
+
 def get_coo_review_by_file_id(
     db: Session,
     import_file_id: int,
@@ -582,61 +563,39 @@ def get_coo_review_by_file_id(
     return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).first()
 
 
-def create_coo_review(db: Session, schema: CertificateOfOriginReviewCreate) -> CertificateOfOriginReviewSession:
+def create_coo_review(
+    db: Session, schema: CertificateOfOriginReviewCreate, commit: bool = True
+) -> CertificateOfOriginReviewSession:
     code = generate_coo_review_code(db)
     data = schema.model_dump(exclude_unset=True)
+    data.pop("is_active", None)
     db_item = CertificateOfOriginReviewSession(
         coo_review_code=code,
         **data,
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
-def update_coo_review(db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate) -> CertificateOfOriginReviewSession:
-    item = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.coo_review_id == review_id).first()
+def update_coo_review(
+    db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, commit: bool = True
+) -> CertificateOfOriginReviewSession | None:
+    item = get_coo_review_active(db, review_id)
     if not item:
-        raise ValueError(f"COO Review ID {review_id} not found.")
-    data = schema.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def delete_coo_review(db: Session, review_id: int) -> bool:
-    item = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.coo_review_id == review_id).first()
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, get_coo_review_active(db, review_id))
 
 
 # --- PHASE 6: INSPECTION CERTIFICATE REPOSITORY ---
 def generate_inspection_review_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"INSP-{current_year}-"
-    last_record = (
-        db.query(InspectionCertificateReviewSession)
-        .filter(InspectionCertificateReviewSession.inspection_review_code.like(f"{prefix}%"))
-        .order_by(InspectionCertificateReviewSession.inspection_review_id.desc())
-        .first()
-    )
-    if not last_record:
-        return f"{prefix}0001"
-    try:
-        num = int(last_record.inspection_review_code.replace(prefix, "")) + 1
-        return f"{prefix}{num:04d}"
-    except ValueError:
-        return f"{prefix}0001"
+    return next_yearly_code(db, InspectionCertificateReviewSession.inspection_review_code, "INSP", pad=4)
 
 
 def get_inspection_reviews(
@@ -672,6 +631,10 @@ def get_inspection_review_by_id(db: Session, review_id: int, include_inactive: b
     return query.first()
 
 
+def get_inspection_review_active(db: Session, review_id: int) -> InspectionCertificateReviewSession | None:
+    return get_inspection_review_by_id(db, review_id)
+
+
 def get_inspection_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> InspectionCertificateReviewSession | None:
     query = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.import_file_id == import_file_id)
     if not include_inactive:
@@ -679,61 +642,39 @@ def get_inspection_review_by_file_id(db: Session, import_file_id: int, include_i
     return query.order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).first()
 
 
-def create_inspection_review(db: Session, schema: InspectionCertificateReviewCreate) -> InspectionCertificateReviewSession:
+def create_inspection_review(
+    db: Session, schema: InspectionCertificateReviewCreate, commit: bool = True
+) -> InspectionCertificateReviewSession:
     code = generate_inspection_review_code(db)
     data = schema.model_dump(exclude_unset=True)
+    data.pop("is_active", None)
     db_item = InspectionCertificateReviewSession(
         inspection_review_code=code,
         **data,
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
-def update_inspection_review(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
-    item = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.inspection_review_id == review_id).first()
+def update_inspection_review(
+    db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, commit: bool = True
+) -> InspectionCertificateReviewSession | None:
+    item = get_inspection_review_active(db, review_id)
     if not item:
-        raise ValueError(f"Inspection Review ID {review_id} not found.")
-    data = schema.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def delete_inspection_review(db: Session, review_id: int) -> bool:
-    item = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.inspection_review_id == review_id).first()
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, get_inspection_review_active(db, review_id))
 
 
 # --- PO & PACKING FINAL RECONCILIATION SESSION REPOSITORY (BP-016) ---
 def generate_po_reconciliation_session_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"REC-{current_year}-"
-    last_record = (
-        db.query(POPackingReconciliationSession)
-        .filter(POPackingReconciliationSession.session_code.like(f"{prefix}%"))
-        .order_by(POPackingReconciliationSession.session_id.desc())
-        .first()
-    )
-    if not last_record:
-        return f"{prefix}0001"
-    try:
-        num = int(last_record.session_code.replace(prefix, "")) + 1
-        return f"{prefix}{num:04d}"
-    except ValueError:
-        return f"{prefix}0001"
+    return next_yearly_code(db, POPackingReconciliationSession.session_code, "REC", pad=4)
 
 
 def get_po_reconciliation_sessions(
@@ -773,6 +714,10 @@ def get_po_reconciliation_session_by_id(
     return query.first()
 
 
+def get_po_reconciliation_session_active(db: Session, session_id: int) -> POPackingReconciliationSession | None:
+    return get_po_reconciliation_session_by_id(db, session_id)
+
+
 def get_po_reconciliation_session_by_file_id(
     db: Session, import_file_id: int, include_inactive: bool = False
 ) -> POPackingReconciliationSession | None:
@@ -784,83 +729,79 @@ def get_po_reconciliation_session_by_file_id(
     return query.order_by(POPackingReconciliationSession.session_id.desc()).first()
 
 
+def get_inactive_po_reconciliation_by_file(
+    db: Session, import_file_id: int
+) -> POPackingReconciliationSession | None:
+    """The soft-deleted session of a file (``import_file_id`` is unique on the table, so at most one row)."""
+    return (
+        db.query(POPackingReconciliationSession)
+        .filter(
+            POPackingReconciliationSession.import_file_id == import_file_id,
+            POPackingReconciliationSession.is_active == False,
+        )
+        .order_by(POPackingReconciliationSession.session_id.desc())
+        .first()
+    )
+
+
 def create_po_reconciliation_session(
-    db: Session, schema: POReconciliationSessionCreate
+    db: Session, schema: POReconciliationSessionCreate, commit: bool = True
 ) -> POPackingReconciliationSession:
     code = generate_po_reconciliation_session_code(db)
     data = schema.model_dump(exclude_unset=True)
+    data.pop("is_active", None)
     db_item = POPackingReconciliationSession(
         session_code=code,
         **data,
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
+
+
+def reactivate_po_reconciliation_session(
+    db: Session,
+    item: POPackingReconciliationSession,
+    schema: POReconciliationSessionCreate,
+    commit: bool = True,
+) -> POPackingReconciliationSession:
+    """DOC-09 / Q5: overwrite a soft-deleted session of the same file with the new data (every schema field,
+    defaults included, as a fresh create would store) and reactivate it. The session code is kept."""
+    data = schema.model_dump()
+    data.pop("is_active", None)
+    _apply(item, data)
+    item.is_active = True
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def update_po_reconciliation_session(
-    db: Session, session_id: int, schema: POReconciliationSessionUpdate
-) -> POPackingReconciliationSession:
-    item = db.query(POPackingReconciliationSession).filter(
-        POPackingReconciliationSession.session_id == session_id
-    ).first()
+    db: Session, session_id: int, schema: POReconciliationSessionUpdate, commit: bool = True
+) -> POPackingReconciliationSession | None:
+    item = get_po_reconciliation_session_active(db, session_id)
     if not item:
-        raise ValueError(f"Reconciliation Session ID {session_id} not found.")
-    data = schema.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def delete_po_reconciliation_session(db: Session, session_id: int) -> bool:
-    item = db.query(POPackingReconciliationSession).filter(
-        POPackingReconciliationSession.session_id == session_id
-    ).first()
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
+    return _soft_delete(db, get_po_reconciliation_session_active(db, session_id))
 
 
 # --- SMART INVOICE VS B/L MATCH SESSIONS REPOSITORY (STEP_08_MATCH) ---
 def generate_invoice_bl_match_session_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"MATCH-{current_year}-"
-
-    last_record = (
-        db.query(InvoiceBLMatchSession)
-        .filter(InvoiceBLMatchSession.session_code.like(f"{prefix}%"))
-        .order_by(InvoiceBLMatchSession.session_id.desc())
-        .first()
-    )
-
-    if not last_record:
-        return f"{prefix}0001"
-
-    last_code = last_record.session_code
-    try:
-        seq = int(last_code.split("-")[-1]) + 1
-    except (ValueError, IndexError):
-        seq = 1
-
-    return f"{prefix}{seq:04d}"
+    return next_yearly_code(db, InvoiceBLMatchSession.session_code, "MATCH", pad=4)
 
 
 def get_invoice_bl_match_session_by_id(
     db: Session, session_id: int
 ) -> InvoiceBLMatchSession | None:
-    return db.query(InvoiceBLMatchSession).filter(
-        InvoiceBLMatchSession.session_id == session_id,
-        InvoiceBLMatchSession.is_active == True,
-    ).first()
+    return _active_by_id(db, InvoiceBLMatchSession, InvoiceBLMatchSession.session_id, session_id)
+
+
+get_invoice_bl_match_session_active = get_invoice_bl_match_session_by_id
 
 
 def get_invoice_bl_match_session_by_file_id(
@@ -888,7 +829,6 @@ def list_invoice_bl_match_sessions(
         query = query.filter(InvoiceBLMatchSession.is_draft == is_draft)
     if search:
         s = f"%{search}%"
-        from sqlalchemy import or_
         query = query.filter(
             or_(
                 InvoiceBLMatchSession.session_code.ilike(s),
@@ -902,48 +842,30 @@ def list_invoice_bl_match_sessions(
 
 
 def create_invoice_bl_match_session(
-    db: Session, schema: InvoiceBLMatchSessionCreate
+    db: Session, schema: InvoiceBLMatchSessionCreate, commit: bool = True
 ) -> InvoiceBLMatchSession:
     code = generate_invoice_bl_match_session_code(db)
     data = schema.model_dump(exclude_unset=True)
+    data.pop("is_active", None)
     db_item = InvoiceBLMatchSession(
         session_code=code,
         **data,
         is_active=True,
     )
     db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return _save(db, db_item, commit)
 
 
 def update_invoice_bl_match_session(
-    db: Session, session_id: int, schema: InvoiceBLMatchSessionUpdate
-) -> InvoiceBLMatchSession:
-    item = db.query(InvoiceBLMatchSession).filter(
-        InvoiceBLMatchSession.session_id == session_id
-    ).first()
+    db: Session, session_id: int, schema: InvoiceBLMatchSessionUpdate, commit: bool = True
+) -> InvoiceBLMatchSession | None:
+    item = get_invoice_bl_match_session_active(db, session_id)
     if not item:
-        raise ValueError(f"Invoice B/L Match Session ID {session_id} not found.")
-    data = schema.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    item.is_active = True
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return item
+        return None
+    _apply(item, schema.model_dump(exclude_unset=True))
+    item.updated_at = _now()
+    return _save(db, item, commit)
 
 
 def delete_invoice_bl_match_session(db: Session, session_id: int) -> bool:
-    item = db.query(InvoiceBLMatchSession).filter(
-        InvoiceBLMatchSession.session_id == session_id
-    ).first()
-    if not item:
-        return False
-    item.is_active = False
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
-
-
+    return _soft_delete(db, get_invoice_bl_match_session_active(db, session_id))

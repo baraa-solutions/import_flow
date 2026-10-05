@@ -1,6 +1,23 @@
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Literal, Union
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from modules.common.legacy_rows import read_model
+
+_ACID_STATUS_WORDS = ("PENDING", "REQUESTED", "DRAFT", "")
+
+
+def normalize_acid_number(value: Optional[str], strict: bool) -> Optional[str]:
+    """Empty -> PENDING, status words upper-cased. ``strict`` (input) also requires exactly 19 digits; on read a
+    stored legacy number is returned as stored so an old row can never fail a list."""
+    if not value:
+        return "PENDING"
+    cleaned = value.strip()
+    if cleaned.upper() in _ACID_STATUS_WORDS:
+        return cleaned.upper()
+    if strict and (len(cleaned) != 19 or not cleaned.isdigit()):
+        raise ValueError(f"ACID Number must be exactly 19 numeric digits, got '{cleaned}' ({len(cleaned)} digits).")
+    return cleaned
 
 
 # --- ACID REGISTRATION SCHEMAS (BP-014) ---
@@ -51,19 +68,10 @@ class AcidRegistrationBase(BaseModel):
     discrepancy_override_reason: Optional[str] = None
     verification_notes: Optional[str] = None
 
-    from pydantic import field_validator
-
     @field_validator("acid_number")
     @classmethod
     def validate_acid_number_field(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return "PENDING"
-        cleaned = v.strip()
-        if cleaned.upper() in ["PENDING", "REQUESTED", "DRAFT", ""]:
-            return cleaned.upper()
-        if len(cleaned) != 19 or not cleaned.isdigit():
-            raise ValueError(f"ACID Number must be exactly 19 numeric digits, got '{cleaned}' ({len(cleaned)} digits).")
-        return cleaned
+        return normalize_acid_number(v, strict=True)
 
 
 class AcidRegistrationCreate(AcidRegistrationBase):
@@ -112,7 +120,14 @@ class AcidRegistrationUpdate(BaseModel):
     verification_notes: Optional[str] = None
 
 
+@read_model
 class AcidRegistrationResponse(AcidRegistrationBase):
+    @field_validator("acid_number")
+    @classmethod
+    def _acid_number_read(cls, v: Optional[str]) -> Optional[str]:
+        # Read side: same normalisation, but a legacy (non 19-digit) number is listed as stored.
+        return normalize_acid_number(v, strict=False)
+
     acid_id: int
     acid_code: str
     import_file_id: Optional[int] = None
@@ -198,6 +213,7 @@ class BankingDocumentReceive(BaseModel):
     notes: Optional[str] = None
 
 
+@read_model
 class BankingDocumentResponse(BankingDocumentBase):
     bank_doc_id: int
     bank_doc_code: str
@@ -240,6 +256,7 @@ class ShipmentDocumentUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+@read_model
 class ShipmentDocumentResponse(ShipmentDocumentBase):
     document_id: int
     document_code: str
@@ -273,6 +290,7 @@ class CustomsDeclarationCreate(CustomsDeclarationBase):
     pass
 
 
+@read_model
 class CustomsDeclarationResponse(CustomsDeclarationBase):
     declaration_id: int
     declaration_code: str
@@ -294,8 +312,8 @@ class AcidTrackerItem(BaseModel):
     acid_session_id: Optional[int] = None
     acid_code: Optional[str] = None
     acid_number: str
-    importer_name: str
-    supplier_name: str
+    importer_name: Optional[str] = None
+    supplier_name: Optional[str] = None
     po_number: Optional[str] = None
     pi_number: Optional[str] = None
     shipment_mode: Optional[str] = None
@@ -317,8 +335,11 @@ class AcidTrackerItem(BaseModel):
 
     # Tracker Status: 'Valid', 'Expiring Soon', 'Expired', 'Customs Released', 'Pending Issue'
     status: str
-    status_label_ar: str
+    status_label_ar: str  # deprecated (single-language rule): render message_code + message_params instead
     alert_required: bool  # True only if NOT customs released AND (days_remaining <= 14 or expired)
+    # C6 (additive): language-neutral status text, e.g. DOC_ACID_TRACKER_STATUS {status, days}
+    message_code: Optional[str] = None
+    message_params: Optional[Dict[str, Any]] = None
 
 
 class AcidTrackerSummary(BaseModel):
@@ -334,6 +355,8 @@ class AcidTrackerSummary(BaseModel):
 # --- PHASE 6: FINAL INVOICE & PACKING LIST PO RECONCILIATION SCHEMAS ---
 class POReconciliationItem(BaseModel):
     po_item_id: Optional[int] = None
+    # C4 (additive): the packing_list_items row to adjust. Packing rows are touched only when this is sent.
+    packing_item_id: Optional[int] = None
     item_code: str
     description: str
     hs_code: Optional[str] = None
@@ -359,15 +382,34 @@ class POReconciliationItem(BaseModel):
     notes: Optional[str] = None
 
 
+class POFinalAdjustmentItem(POReconciliationItem):
+    """Request line of the final PO adjustments: quantities, prices, packages, weights and CBM are never negative
+    (C4: 422). Responses keep using ``POReconciliationItem`` (OCR-extracted values are not constrained)."""
+    initial_quantity: float = Field(..., ge=0)
+    final_quantity: float = Field(..., ge=0)
+    initial_unit_price: float = Field(default=0.0, ge=0)
+    unit_price: float = Field(default=0.0, ge=0)
+    final_unit_price: float = Field(default=0.0, ge=0)
+    initial_packages_count: float = Field(default=0.0, ge=0)
+    final_packages_count: float = Field(default=0.0, ge=0)
+    initial_net_weight_kg: float = Field(default=0.0, ge=0)
+    final_net_weight_kg: float = Field(default=0.0, ge=0)
+    initial_gross_weight_kg: float = Field(default=0.0, ge=0)
+    final_gross_weight_kg: float = Field(default=0.0, ge=0)
+    initial_cbm: float = Field(default=0.0, ge=0)
+    final_cbm: float = Field(default=0.0, ge=0)
+
+
 class POFinalAdjustmentRequest(BaseModel):
     import_file_id: int
     po_id: Optional[int] = None
     final_invoice_number: str
     final_invoice_date: Optional[date] = None
     final_packing_list_number: Optional[str] = None
-    items: List[POReconciliationItem]
+    items: List[POFinalAdjustmentItem]
     is_approved_for_downstream: bool = True
-    approved_by: str = "Kamal"
+    # C3: accepted for old clients but ignored; the server records the logged-in user.
+    approved_by: Optional[str] = None
 
 
 # --- PHASE 6: DRAFT BILL OF LADING (DRAFT B/L) 5-STAGE SCHEMAS ---
@@ -446,9 +488,10 @@ ComparisonMatrixFieldItem = DraftBLDiscrepancyItem
 
 class DualApprovalRequest(BaseModel):
     bl_review_id: int
-    role: str  # 'importer' or 'customs_broker'
-    action: str  # 'Approved' or 'Rejected'
-    approved_by: str
+    role: Literal["importer", "customs_broker"]  # C2: anything else is 422
+    action: Literal["Approved", "Rejected"]
+    # C3: accepted for old clients but ignored; the approver is the logged-in user.
+    approved_by: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -550,6 +593,7 @@ class DraftBLReviewUpdate(BaseModel):
     approved_at: Optional[datetime] = None
 
 
+@read_model
 class DraftBLReviewResponse(DraftBLReviewBase):
     bl_review_id: int
     bl_review_code: str
@@ -654,6 +698,8 @@ class COODraftTemplateResponse(BaseModel):
     allowed_certificate_types: Optional[List[str]] = None
     recommendation_alert: Optional[str] = None
     is_manual_choice_required: Optional[bool] = False
+    # C5 (additive): template keys left empty because the system has no value for them (e.g. acid_number, hs_code)
+    missing_fields: List[str] = Field(default_factory=list)
 
 
 # --- PHASE 6: INSPECTION CERTIFICATE SCHEMAS ---
@@ -731,6 +777,8 @@ class InspectionDraftTemplateResponse(BaseModel):
     template_data: Dict[str, Any]
     preview_markdown: str
     applicable_standards: List[str] = []
+    # C5 (additive): template keys left empty because the system has no value for them
+    missing_fields: List[str] = Field(default_factory=list)
 
 
 class DocumentExtractRequest(BaseModel):
@@ -776,8 +824,11 @@ class LegalDocAlertItem(BaseModel):
     days_after_eta: Optional[int] = None
     is_expired: bool
     is_critical_breach: bool  # True if expires before ETA + 30 Days
-    alert_message: str
+    alert_message: str        # deprecated (Arabic only): render message_code + message_params instead
     status: str               # 'EXPIRED', 'CRITICAL_BREACH', 'EXPIRING_SOON', 'VALID'
+    # C6 (additive): DOC_LEGAL_* code + {doc_kind, doc_number, expiry_date, eta_date, days}
+    message_code: Optional[str] = None
+    message_params: Optional[Dict[str, Any]] = None
 
 
 class LegalDocsExpiryComplianceResponse(BaseModel):
@@ -791,7 +842,10 @@ class LegalDocsExpiryComplianceResponse(BaseModel):
     total_alerts_count: int
     alerts: List[LegalDocAlertItem]
     overall_compliance_status: str # 'COMPLIANT', 'CRITICAL_ACTION_REQUIRED', 'WARNING'
-    persistent_banner_text: Optional[str] = None
+    persistent_banner_text: Optional[str] = None  # deprecated (Arabic only)
+    # C6 (additive): DOC_LEGAL_BANNER + params for persistent_banner_text
+    banner_message_code: Optional[str] = None
+    banner_message_params: Optional[Dict[str, Any]] = None
 
 
 # --- PHASE 6: COMMERCIAL INVOICE VS. BILL OF LADING SMART RECONCILIATION SCHEMAS ---

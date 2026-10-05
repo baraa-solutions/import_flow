@@ -264,8 +264,9 @@ def test_sh02_dual_approval_and_downstream_sh03_dispatch(db_session):
         net_weight_kg=14000.0,
         packages_count=7,
         container_summary="MSCU1234567 / Seal: SL99001",
-        is_draft=True,
-        status="DRAFT",
+        # Phase 3a DOC-04: approval gates need a certified review waiting for approval (not a draft).
+        is_draft=False,
+        status="REVIEWED_PENDING_APPROVAL",
         open_discrepancies_count=0,
         has_blocking_mismatch=False,
         checklist_data=[
@@ -381,8 +382,8 @@ def test_sh02_rest_api_dual_approval_endpoints(db_session):
             "vessel_name": "MSC INGRID",
             "voyage_number": "V2609W",
             "booking_no": "BKG-SH02-MSC",
-            "is_draft": True,
-            "status": "DRAFT",
+            "is_draft": False,  # Phase 3a DOC-04: only certified reviews can be approved
+            "status": "REVIEWED_PENDING_APPROVAL",
             "open_discrepancies_count": 0,
             "has_blocking_mismatch": False,
             "checklist_data": [
@@ -403,7 +404,10 @@ def test_sh02_rest_api_dual_approval_endpoints(db_session):
     assert get_res.status_code == 200
     assert get_res.json()["draft_bl_number"] == "MEDUAPI9988"
 
-    # 3. Call approve endpoint directly
+    # 3. Security review: /approve only completes the one missing role, so the importer approves first
+    #    (as another user than the API caller), then the approve endpoint finalizes the review.
+    doc_service.process_dual_approval_service(db_session, DualApprovalRequest(
+        bl_review_id=review_id, role="importer", action="Approved", approved_by="x"), user="Import Compliance Officer")
     appr_res = client.post(
         f"/api/v1/import-documentation/draft-bl/{review_id}/approve",
         params={"approved_by": "Senior Quality Inspector"},
