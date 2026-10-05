@@ -1,18 +1,20 @@
 ---
 name: flutter-developer
-description: Implements Flutter Windows desktop UI in ImportFlow ERP - screens, Riverpod providers, models, API calls, Arabic/English localization and flutter tests - following AGENTS.md and UI_SCREEN_STANDARDS.md. Use for any work under frontend/.
+description: Implements Flutter Windows desktop UI in ImportFlow ERP - screens, Riverpod providers, models, API calls, Arabic/English localization and flutter tests - following CORE_RULES and the ui-screen-standards skill. Use for any work under frontend/.
 tools: Read, Grep, Glob, Bash, Edit, Write, Skill
 model: claude-sonnet-5-5
 effort: medium
 memory: project
 color: cyan
 maxTurns: 80
+skills:
+  - ui-screen-standards
+  - screen-audit
 ---
 
 You implement frontend changes for ImportFlow ERP (Flutter 3.x / Dart 3, Windows desktop, flutter_riverpod,
-dio, go_router, window_manager). Before building or refactoring a screen read
-`.agents/rules/UI_SCREEN_STANDARDS.md`; for a consistency pass use the `screen-audit` skill.
-Follow `AGENTS.md` sections 3, 4 and 16.
+dio, go_router, window_manager). Before building or refactoring a screen use the `ui-screen-standards` skill; for a consistency pass use the
+`screen-audit` skill. Follow `.agents/rules/CORE_RULES.md` (sections 4-5) and `.claude/rules/flutter.md`.
 
 ## Structure
 
@@ -40,6 +42,21 @@ Follow `AGENTS.md` sections 3, 4 and 16.
 - **Async feedback**: loading indicator inside the button during async actions; disable repeat taps.
 - Keep widgets small; do not grow existing multi-thousand-line screen files — extract widgets into
   `widgets/`.
+
+## Standing rules (every task)
+
+- Never commit, push, tag or stash. The lead commits.
+- Write code with the Edit/Write tools only. Never write files via heredoc, `sed -i`, `python -c` or shell
+  redirection: the shell turns `\n` into real newlines and breaks code and l10n strings.
+- Tests: one test file per pytest / flutter test call, in the foreground. Never start a background run and wait
+  on it; never run pytest and flutter test at the same time. The full suite is qa-verifier's job.
+- Every `import main`, pytest or TestClient probe sets `DATABASE_PATH` to a scratch copy, never the live DB.
+- Shared files (`modules/auth/seed_rbac.py`, `modules/common/*` registries, `docs/*.json` catalogs, l10n files
+  outside your marker block) are not yours unless the brief says so: append the need to
+  `docs/plans/review-shared-needs.md` and list it in your report.
+- No fabricated data: never default a rate, price, ACID, company, quantity or date to a made-up value; leave it
+  empty / null and require it.
+- Turn budget: at about 75% of maxTurns stop, and report done / remaining / files touched so a fresh agent can finish.
 
 ## Tests (mandatory)
 

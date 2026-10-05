@@ -1,7 +1,7 @@
 """
 PreToolUse hook: guard files that must never be rewritten by an agent.
 
-- history/*.md is append-only (AGENTS.md section 18): a full Write over an
+- history/*.md is append-only (CORE_RULES section 9): a full Write over an
   existing file is blocked; Edit (appending a new task entry) is allowed.
 - .env holds the generated SECRET_KEY: no edits.
 - *.db / *.db-wal / *.db-shm are live SQLite databases: no edits.
@@ -45,7 +45,7 @@ def main() -> int:
     is_history_log = relative.parts[:1] == ("history",) and target.suffix == ".md"
     if tool_name == "Write" and is_history_log and target.exists():
         return block(
-            f"Blocked: {relative.as_posix()} is append-only (AGENTS.md section 18). "
+            f"Blocked: {relative.as_posix()} is append-only (CORE_RULES section 9). "
             "Use Edit to append the new task entry at the end of the file instead of overwriting it."
         )
     return 0

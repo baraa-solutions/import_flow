@@ -30,7 +30,7 @@ Bring the current branch up to date with `origin/main` using plain `git` (no gh 
 
 4. **Resolve conflicts**
    - `history/*.md` (add/add or content): keep the `origin/main` version in full and append the
-     local entries after a `---` separator — history is append-only (AGENTS.md section 18).
+     local entries after a `---` separator — history is append-only (CORE_RULES section 9).
      `{ git show origin/main:<f>; printf '\n\n---\n\n'; git show <local-commit>:<f>; } > <f>`
    - `version.json`, `frontend/pubspec.yaml`, `installer/*.iss`: take `origin/main` unless the user
      is intentionally cutting a release from this branch.

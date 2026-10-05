@@ -39,7 +39,7 @@ Draft → Quotation → Purchase Order → Shipment
 ```
 Step 1: CIF = FOB + Freight + Insurance
 Step 2: Import Duty = CIF × Duty Rate% (من HS Code)
-Step 3: VAT Base = CIF + Import Duty + Freight + Other Fees
+Step 3: VAT Base = CIF + Import Duty   (freight/insurance are already inside CIF; development, service and basic fees are NOT in the VAT base - engine: modules/customs_tariff/service.py)
 Step 4: VAT = VAT Base × VAT Rate% (من HS Code)
 Step 5: Schedule Tax = CIF × Schedule Rate% (من HS Code، إن وجدت)
 Step 6: Customs Service Fees (من جدول الرسوم)
