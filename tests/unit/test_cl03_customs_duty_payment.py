@@ -169,8 +169,8 @@ def test_record_customs_duty_payment_service_success(db_session, sample_data):
     # 3. Assert CL-03 SmartTask Auto-Completed
     task_cl03 = db_session.query(SmartTask).filter(SmartTask.task_code == "TASK-CL03-001").first()
     assert task_cl03.status == "Completed"
-    assert "SADAD-2026-MTS-882200" in task_cl03.completion_notes
-    assert "RCP-BM-2026-991122" in task_cl03.completion_notes
+    assert "SADAD-2026-MTS-882200" in task_cl03.notes
+    assert "RCP-BM-2026-991122" in task_cl03.notes
 
     # 4. Assert Downstream CL-04 SmartTask Dispatched
     task_cl04 = (

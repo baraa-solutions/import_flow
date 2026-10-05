@@ -1,6 +1,9 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+from .validators import normalize_lab_test_result
 
 class CustomsClearanceCreate(BaseModel):
     import_file_id: int
@@ -62,7 +65,7 @@ class CustomsClearanceCreate(BaseModel):
     delivery_order_file_url: Optional[str] = None
     delivery_order_notes: Optional[str] = None
     port_gate_out_date: Optional[datetime] = None
-    owner: str = "Kamal"
+    owner: Optional[str] = None  # defaults to the acting user
     notes: Optional[str] = None
 
 # BP-027 / CS-01: Customs Broker Electronic Authorization Schema
@@ -126,7 +129,7 @@ class FinalDutyAssessmentSubmit(BaseModel):
     nafeza_claim_number: str = Field(..., min_length=3, description="رقم المطالبة الجمركية بنظام نافذة MTS")
     nafeza_claim_date: Optional[datetime] = Field(None, description="تاريخ صدور المطالبة الجمركية")
     cif_base_amount: float = Field(..., ge=0.0, description="القيمة الجمركية للأغراض الجمركية CIF بالجنيه المصري")
-    customs_exchange_rate: float = Field(1.0, gt=0.0, description="سعر الصرف الجمركي الرسمي المعمول به")
+    customs_exchange_rate: Optional[float] = Field(None, gt=0.0, description="سعر الصرف الجمركي الرسمي المعمول به (لا يُفترض 1.0 عند عدم الإرسال)")
     import_duty_amount: float = Field(..., ge=0.0, description="ضريبة الوارد الجمركية (Import Duty)")
     vat_amount: float = Field(..., ge=0.0, description="ضريبة القيمة المضافة (VAT)")
     schedule_tax_amount: float = Field(0.0, ge=0.0, description="ضريبة الجدول (Schedule Tax)")
@@ -152,9 +155,10 @@ class CustomsDutyPaymentSubmit(BaseModel):
     payment_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل عملية السداد")
 
 class DutyPaymentSubmit(BaseModel):
+    """Legacy /{id}/pay-duty body. The current screen sends bank_receipt_no + actual_duty_total (+ reason) only."""
     bank_receipt_no: str
-    paying_bank_name: str
-    payment_date: datetime
+    paying_bank_name: Optional[str] = None
+    payment_date: Optional[datetime] = None  # defaults to now
     actual_duty_total: Optional[float] = None
     estimated_duty_total: Optional[float] = None
     duty_variance_reason: Optional[str] = None
@@ -167,7 +171,7 @@ class DutyPaymentSubmit(BaseModel):
 
 class CompleteReleaseSubmit(BaseModel):
     release_permit_no: str
-    release_date: datetime
+    release_date: Optional[datetime] = None  # defaults to now
     release_officer_name: Optional[str] = None
     release_type: Optional[str] = "FINAL_GREEN"
     release_document_url: Optional[str] = None
@@ -197,17 +201,24 @@ class CustomsFinalReleaseSubmit(BaseModel):
 class UnderBondReleaseSubmit(BaseModel):
     bond_guarantee_ref: str = Field(..., min_length=3, description="رقم التعهد أو خطاب الضمان الجمركي")
     temporary_release_date: datetime
-    customs_warehouse_location: str = "مستودع المصنع تحت التحفظ الجمركي"
+    customs_warehouse_location: str = "Factory bonded warehouse"
     inspection_notes: Optional[str] = None
-    regulatory_authority: str = "هيئة الرقابة على الصادرات والواردات (GOEIC)"
+    regulatory_authority: str = "GOEIC"
 
 class LabTestResultSubmit(BaseModel):
-    lab_test_result: str = Field(..., description="Conforming / Non-Conforming")
+    lab_test_result: str = Field(
+        ..., description="LAB_TEST_RESULT code: CONFORMING / NON_CONFORMING (legacy labels are mapped)"
+    )
     lab_certificate_number: str = Field(..., min_length=2, description="رقم شهادة المطابقة المعملية")
     test_completion_date: datetime
     lift_quarantine_lock: bool = True
-    laboratory_name: Optional[str] = "مصلحة الكيمياء / معامل هيئة الرقابة"
+    laboratory_name: Optional[str] = "Chemistry Administration / GOEIC laboratories"
     remarks: Optional[str] = None
+
+    @field_validator("lab_test_result")
+    @classmethod
+    def _lab_result_code(cls, value: str) -> str:
+        return normalize_lab_test_result(value)
 
 
 # CL-05: Clearance Fees & Port Invoices Schemas (تسجيل فواتير المخلص ومصاريف العتالة ونولون الميناء)
@@ -221,7 +232,7 @@ class ClearanceExpenseInvoiceBase(BaseModel):
     expense_category: str = Field(..., description="تصنيف المصروف (أتعاب تخليص، نولون موانئ، عتالة وتفريغ، كشف، إلخ)")
     currency: str = Field("EGP", description="عملة الفاتورة")
     amount_fx: float = Field(0.0, ge=0.0, description="المبلغ بالعملة الأجنبية إن وجد")
-    exchange_rate: float = Field(1.0, gt=0.0, description="سعر الصرف إلى الجنيه المصري")
+    exchange_rate: Optional[float] = Field(None, gt=0.0, description="سعر الصرف إلى الجنيه المصري (مطلوب لفاتورة بعملة أجنبية بدون مبلغ بالجنيه)")
     amount_egp: float = Field(..., ge=0.0, description="المبلغ بالجنيه المصري")
     vat_included: bool = Field(False, description="هل الفاتورة شاملة ضريبة القيمة المضافة؟")
     vat_amount: float = Field(0.0, ge=0.0, description="قيمة ضريبة القيمة المضافة")
@@ -256,6 +267,7 @@ class ClearanceExpenseInvoiceUpdate(BaseModel):
     allocation_rule: Optional[str] = None
     notes: Optional[str] = None
 
+@read_model
 class ClearanceExpenseInvoiceResponse(ClearanceExpenseInvoiceBase):
     invoice_id: int
     invoice_code: str
@@ -284,6 +296,9 @@ class ClearanceInvoicesSummaryResponse(BaseModel):
 
 
 class CustomsClearanceUpdate(BaseModel):
+    """Generic PUT. Workflow, payment and derived fields (status, payment_*, duty_paid_amount, actual_duty_total,
+    assessment / D/O status, variance, CL-05 aggregates) are not part of it: sent values are ignored."""
+
     declaration_46_no: Optional[str] = None
     declaration_46_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
@@ -320,13 +335,9 @@ class CustomsClearanceUpdate(BaseModel):
     wht_amount: Optional[float] = None
     lab_service_fees: Optional[float] = None
     estimated_duty_total: Optional[float] = None
-    actual_duty_total: Optional[float] = None
-    duty_variance_amount: Optional[float] = None
-    duty_variance_percentage: Optional[float] = None
     duty_variance_reason: Optional[str] = None
     nafeza_claim_number: Optional[str] = None
     nafeza_claim_date: Optional[datetime] = None
-    assessment_status: Optional[str] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
     delivery_order_number: Optional[str] = None
@@ -339,28 +350,15 @@ class CustomsClearanceUpdate(BaseModel):
     delivery_order_currency: Optional[str] = None
     delivery_order_payment_ref: Optional[str] = None
     delivery_order_paid_at: Optional[datetime] = None
-    delivery_order_status: Optional[str] = None
     delivery_order_file_url: Optional[str] = None
     delivery_order_notes: Optional[str] = None
     port_gate_out_date: Optional[datetime] = None
-    payment_status: Optional[str] = None
-    bank_receipt_no: Optional[str] = None
-    paying_bank_name: Optional[str] = None
-    payment_date: Optional[datetime] = None
-    payment_notes: Optional[str] = None
-    sadad_number: Optional[str] = None
-    payment_method: Optional[str] = None
-    duty_paid_amount: Optional[float] = None
-    receipt_file_url: Optional[str] = None
-    total_clearance_expenses_egp: Optional[float] = None
-    total_port_expenses_egp: Optional[float] = None
-    total_handling_expenses_egp: Optional[float] = None
-    clearance_invoices_count: Optional[int] = None
-    status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
 
-class CustomsClearanceResponse(BaseModel):
+class CustomsClearanceResponse(LegacyRowTolerantModel):
+    # Columns added after 2026-08-09 (e.g. clearance_invoices_count, assessment_status) are NULL on rows that
+    # predate the startup ADD COLUMN; LegacyRowTolerantModel reads them as their defaults instead of a 500.
     customs_clearance_id: int
     clearance_code: str
     import_file_id: int
@@ -390,20 +388,21 @@ class CustomsClearanceResponse(BaseModel):
     regulatory_bodies: List[str]
     sample_test_status: str
     inspection_notes: Optional[str] = None
-    cif_base_amount: float = 0.0
-    customs_exchange_rate: float = 1.0
-    import_duty_amount: float
-    vat_amount: float
-    schedule_tax_amount: float
-    development_fee_amount: float = 0.0
-    customs_service_fees: float = 0.0
-    wht_amount: float
-    lab_service_fees: float
-    total_duty_payable: float
-    estimated_duty_total: float = 0.0
-    actual_duty_total: float = 0.0
-    duty_variance_amount: float = 0.0
-    duty_variance_percentage: float = 0.0
+    # Money / rate fields are nullable on read: a legacy NULL stays None (never a fabricated 0.0 or 1.0 rate).
+    cif_base_amount: Optional[float] = 0.0
+    customs_exchange_rate: Optional[float] = None
+    import_duty_amount: Optional[float] = None
+    vat_amount: Optional[float] = None
+    schedule_tax_amount: Optional[float] = None
+    development_fee_amount: Optional[float] = 0.0
+    customs_service_fees: Optional[float] = 0.0
+    wht_amount: Optional[float] = None
+    lab_service_fees: Optional[float] = None
+    total_duty_payable: Optional[float] = None
+    estimated_duty_total: Optional[float] = 0.0
+    actual_duty_total: Optional[float] = 0.0
+    duty_variance_amount: Optional[float] = 0.0
+    duty_variance_percentage: Optional[float] = 0.0
     duty_variance_reason: Optional[str] = None
     nafeza_claim_number: Optional[str] = None
     nafeza_claim_date: Optional[datetime] = None
@@ -416,7 +415,7 @@ class CustomsClearanceResponse(BaseModel):
     free_days_allowed: int = 14
     shipping_agent_id: Optional[int] = None
     shipping_agent_name: Optional[str] = None
-    delivery_order_fees: float = 0.0
+    delivery_order_fees: Optional[float] = 0.0
     delivery_order_currency: str = "EGP"
     delivery_order_payment_ref: Optional[str] = None
     delivery_order_paid_at: Optional[datetime] = None
@@ -431,7 +430,7 @@ class CustomsClearanceResponse(BaseModel):
     payment_notes: Optional[str] = None
     sadad_number: Optional[str] = None
     payment_method: Optional[str] = "SADAD_EFINANCE"
-    duty_paid_amount: float = 0.0
+    duty_paid_amount: Optional[float] = 0.0
     receipt_file_url: Optional[str] = None
     release_permit_no: Optional[str] = None
     release_date: Optional[datetime] = None
@@ -439,7 +438,7 @@ class CustomsClearanceResponse(BaseModel):
     release_type: Optional[str] = "FINAL_GREEN"
     release_document_url: Optional[str] = None
     gate_pass_number: Optional[str] = None
-    demurrage_storage_fees: float
+    demurrage_storage_fees: Optional[float] = None
     dispatch_authorized: bool
     dispatch_date: Optional[datetime] = None
     transport_instructions: Optional[str] = None
@@ -450,9 +449,9 @@ class CustomsClearanceResponse(BaseModel):
     lab_certificate_number: Optional[str] = None
     quarantine_lifted_date: Optional[datetime] = None
     quarantine_lifted_by: Optional[str] = None
-    total_clearance_expenses_egp: float = 0.0
-    total_port_expenses_egp: float = 0.0
-    total_handling_expenses_egp: float = 0.0
+    total_clearance_expenses_egp: Optional[float] = 0.0
+    total_port_expenses_egp: Optional[float] = 0.0
+    total_handling_expenses_egp: Optional[float] = 0.0
     clearance_invoices_count: int = 0
     status: str
     owner: str

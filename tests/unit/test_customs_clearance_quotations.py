@@ -77,7 +77,18 @@ def test_customs_broker_quotation_extractor_text_parsing():
     assert res["currency"] == "EGP"
 
 
+def _providers(db_session):
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    for pid in (1, 2):
+        db_session.add(ExternalServiceProvider(
+            provider_id=pid, partner_code=f"ESP-T{pid}", partner_name=f"Broker {pid}", partner_type="Customs Broker"
+        ))
+    db_session.commit()
+
+
 def test_create_clearance_rfq_and_add_quotation(db_session):
+    _providers(db_session)  # quotes need an active partner (CCQ-06)
     rfq_data = CustomsClearanceRFQCreate(
         title="طلب عروض أسعار تخليص ونقل شحنة خط إنتاج",
         port_name="Alexandria Port",

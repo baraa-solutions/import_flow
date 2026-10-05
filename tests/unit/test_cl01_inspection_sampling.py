@@ -161,7 +161,7 @@ def test_record_customs_inspection_sampling_service_success(db_session, sample_d
     # Assert CL-01 SmartTask Auto-Completed
     task_cl01 = db_session.query(SmartTask).filter(SmartTask.task_code == "TASK-CL01-001").first()
     assert task_cl01.status == "Completed"
-    assert "SMP-2026-ALX-8822" in task_cl01.completion_notes
+    assert "SMP-2026-ALX-8822" in task_cl01.notes
 
     # Assert Downstream CL-02 SmartTask Dispatched
     task_cl02 = (

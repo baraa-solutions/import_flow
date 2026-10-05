@@ -163,6 +163,7 @@ class TestUnderBondAndQuarantineLock:
                 test_completion_date=datetime.now(timezone.utc),
                 lift_quarantine_lock=True,
             ),
+            can_release=True,  # the router passes customs_clearance.release of the acting user
         )
         assert cleared_clr.quarantine_lock is False
         assert cleared_clr.dispatch_authorized is True

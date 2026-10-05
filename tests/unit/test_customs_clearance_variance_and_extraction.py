@@ -103,8 +103,11 @@ def test_customs_clearance_variance_calculation(db_session):
     assert paid_record.payment_status == "Paid & Verified"
     assert paid_record.status == "Duty Paid"
     assert paid_record.bank_receipt_no == "RCPT-CIB-2026-7788"
-    assert paid_record.actual_duty_total == 165000.0
-    assert paid_record.duty_variance_amount == 5000.0
-    assert paid_record.duty_variance_percentage == 3.12
+    # CL-05/07: the legacy actual_duty_total is the paid amount; it no longer overwrites the assessed total,
+    # and the client cannot move the estimate, so the variance stays the assessed one.
+    assert paid_record.duty_paid_amount == 165000.0
+    assert paid_record.actual_duty_total == 163000.0
+    assert paid_record.duty_variance_amount == 3000.0
+    assert paid_record.duty_variance_percentage == 1.88
     assert "الدولار الجمركي" in paid_record.duty_variance_reason
     assert paid_record.nafeza_assessment_json["nafeza_bill_no"] == "NAF-88992"

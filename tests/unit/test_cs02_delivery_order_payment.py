@@ -163,7 +163,7 @@ def test_record_delivery_order_payment_service_full_workflow(db_session, sample_
     # 2. Verify auto-completion of CS-02 task
     db_session.refresh(task_cs02)
     assert task_cs02.status == "Completed"
-    assert "DO-MAEU-2026-9011" in task_cs02.completion_notes
+    assert "DO-MAEU-2026-9011" in task_cs02.notes
 
     # 3. Verify downstream CS-03 task dispatched
     cs03_tasks = (

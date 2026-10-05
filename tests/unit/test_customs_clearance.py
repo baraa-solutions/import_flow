@@ -93,8 +93,9 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(record.total_duty_payable, 62300.0 + 95942.0 + 6230.0 + 6230.0 + 1200.0)
 
     def test_duty_payment_and_release_workflow(self):
-        schema = CustomsClearanceCreate(import_file_id=self.import_file_id)
+        schema = CustomsClearanceCreate(import_file_id=self.import_file_id, import_duty_amount=1000.0, vat_amount=140.0)
         record = create_customs_clearance_service(self.db, schema)
+        self.assertEqual(record.total_duty_payable, 1140.0)
 
         # Cannot issue release before payment
         with self.assertRaises(HTTPException):
@@ -110,9 +111,22 @@ class TestCustomsClearanceModule(unittest.TestCase):
             payment_date=datetime.now(timezone.utc),
             payment_notes="Paid via Customs e-payment portal",
         )
-        record = submit_duty_payment_service(self.db, record.customs_clearance_id, payment_payload)
+        # The legacy route needs the paid amount now (CL-07) and refuses a partial payment.
+        with self.assertRaises(HTTPException) as no_amount:
+            submit_duty_payment_service(self.db, record.customs_clearance_id, payment_payload)
+        self.assertEqual(no_amount.exception.status_code, 400)
+        with self.assertRaises(HTTPException) as partial:
+            submit_duty_payment_service(
+                self.db, record.customs_clearance_id, payment_payload.model_copy(update={"duty_paid_amount": 1000.0})
+            )
+        self.assertEqual(partial.exception.detail["code"], "CC_DUTY_UNDERPAID")
+
+        record = submit_duty_payment_service(
+            self.db, record.customs_clearance_id, payment_payload.model_copy(update={"duty_paid_amount": 1140.0})
+        )
         self.assertEqual(record.payment_status, "Paid & Verified")
         self.assertEqual(record.status, "Duty Paid")
+        self.assertEqual(record.actual_duty_total, 1140.0)
 
         # Now issue Final Customs Release Permit
         release_payload = CompleteReleaseSubmit(

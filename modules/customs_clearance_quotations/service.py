@@ -1,14 +1,16 @@
 """
-Customs Clearance Quotations & Price Lists Service
+Customs Clearance Quotations & Price Lists Service (one commit per request; repositories only flush).
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from modules.customs_clearance_quotations.model import (
     CustomsClearanceRFQ,
@@ -27,6 +29,12 @@ import modules.customs_clearance_quotations.repository as repo
 import modules.customs_clearance_quotations.validators as val
 from modules.common import enum_codes
 
+logger = logging.getLogger(__name__)
+
+RFQ_CODE_ATTEMPTS = 3
+COST_COMPONENTS = ("clearance_fee", "inland_transport_fee", "inspection_fee", "port_expenses", "miscellaneous_fee")
+BASE_CURRENCY = "EGP"
+
 
 def _normalize_quote_fields(data: dict) -> dict:
     """Tier-3 fields: service_category -> CLEARANCE_QUOTE_SERVICE_CATEGORY code, currency -> ISO code."""
@@ -39,50 +47,84 @@ def _normalize_quote_fields(data: dict) -> dict:
     return data
 
 
+def quote_total(source) -> float:
+    """CCQ-05: a quote total is always the sum of its five cost components (a client total is ignored)."""
+    get = source.get if isinstance(source, dict) else (lambda name: getattr(source, name, 0.0))
+    return sum(float(get(name) or 0.0) for name in COST_COMPONENTS)
+
+
 def generate_rfq_code(db: Session) -> str:
-    count = db.execute(select(func.count(CustomsClearanceRFQ.rfq_id))).scalar() or 0
-    return f"CRFQ-{count + 1:06d}"
+    return repo.next_rfq_code(db)
 
 
-def recalculate_rfq_metrics(db: Session, rfq_id: int) -> Optional[CustomsClearanceRFQ]:
-    rfq = repo.get_rfq_by_id(db, rfq_id)
+def _rfq_or_404(db: Session, rfq_id: int) -> CustomsClearanceRFQ:
+    rfq = repo.get_rfq_by_id(db, rfq_id, active_only=True)
     if not rfq:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"طلب عرض أسعار التخليص رقم {rfq_id} غير موجود.",
+        )
+    return rfq
 
-    active_quotes = [q for q in rfq.quotations if q.is_active]
+
+def _quote_or_404(db: Session, quotation_id: int) -> CustomsClearanceQuotationItem:
+    quote = repo.get_quotation_by_id(db, quotation_id, active_only=True)
+    if not quote or not repo.get_rfq_by_id(db, quote.rfq_id, active_only=True):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عرض السعر غير موجود")
+    return quote
+
+
+def recalculate_rfq_metrics(db: Session, rfq: CustomsClearanceRFQ) -> CustomsClearanceRFQ:
+    """Lowest cost / fastest days over the active quotes; Draft -> "Quotations Received" on the first quote.
+    Mixed currencies: the lowest cost is taken over the EGP quotes only (Q8). No commit."""
+    active_quotes = repo.get_active_quotations(db, rfq.rfq_id)
     if active_quotes:
-        rfq.lowest_clearance_cost = min(q.total_cost for q in active_quotes)
+        def ccy(q) -> str:
+            return (q.currency or BASE_CURRENCY).strip().upper()
+
+        currencies = {ccy(q) for q in active_quotes}
+        # lowest_clearance_cost is NOT NULL (no migration in this wave): mixed currencies without an EGP quote -> 0.0.
+        priced = active_quotes if len(currencies) == 1 else [q for q in active_quotes if ccy(q) == BASE_CURRENCY]
+        rfq.lowest_clearance_cost = min((q.total_cost for q in priced), default=0.0)
         rfq.fastest_turnaround_days = min(q.estimated_turnaround_days for q in active_quotes)
         if rfq.status == "Draft":
             rfq.status = "Quotations Received"
     else:
         rfq.lowest_clearance_cost = 0.0
         rfq.fastest_turnaround_days = 0
-
-    db.commit()
-    db.refresh(rfq)
     return rfq
+
+
+def _prepare_quote(db: Session, data: CustomsClearanceQuotationCreate) -> dict:
+    """CCQ-06: the same validation + normalization for standalone and nested quotes."""
+    val.validate_quotation_create(data)
+    val.validate_quotation_provider(db, data.provider_id)
+    q_data = _normalize_quote_fields(data.model_dump())
+    q_data["total_cost"] = quote_total(q_data)
+    return q_data
 
 
 def create_rfq_service(db: Session, data: CustomsClearanceRFQCreate) -> CustomsClearanceRFQ:
     val.validate_rfq_create(data)
-    rfq_code = generate_rfq_code(db)
-    rfq_data = data.model_dump()
+    val.validate_rfq_links(db, import_file_id=data.import_file_id, project_id=data.project_id, port_id=data.port_id)
+    quotes = [_prepare_quote(db, q) for q in (data.quotations or [])]
+    rfq_data = data.model_dump(exclude={"quotations"})
 
-    # Pre-calculate totals for initial quotations if provided
-    if "quotations" in rfq_data and rfq_data["quotations"]:
-        for q in rfq_data["quotations"]:
-            if not q.get("total_cost"):
-                q["total_cost"] = (
-                    (q.get("clearance_fee") or 0.0)
-                    + (q.get("inland_transport_fee") or 0.0)
-                    + (q.get("inspection_fee") or 0.0)
-                    + (q.get("port_expenses") or 0.0)
-                    + (q.get("miscellaneous_fee") or 0.0)
-                )
-
-    rfq = repo.create_rfq(db, rfq_data, rfq_code)
-    return recalculate_rfq_metrics(db, rfq.rfq_id) or rfq
+    for attempt in range(1, RFQ_CODE_ATTEMPTS + 1):
+        rfq_code = generate_rfq_code(db)
+        try:
+            rfq = repo.create_rfq(db, {**rfq_data, "quotations": [dict(q) for q in quotes]}, rfq_code)
+            recalculate_rfq_metrics(db, rfq)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            if not repo.rfq_code_exists(db, rfq_code) or attempt == RFQ_CODE_ATTEMPTS:
+                raise
+            logger.info("RFQ code %s taken concurrently; retrying (%s/%s)", rfq_code, attempt, RFQ_CODE_ATTEMPTS)
+            continue
+        db.refresh(rfq)
+        return rfq
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def get_rfqs_service(
@@ -116,107 +158,79 @@ def get_rfq_by_id_service(db: Session, rfq_id: int) -> CustomsClearanceRFQ:
 
 
 def update_rfq_service(db: Session, rfq_id: int, data: CustomsClearanceRFQUpdate) -> CustomsClearanceRFQ:
-    rfq = repo.get_rfq_by_id(db, rfq_id)
-    if not rfq:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="السجل غير موجود")
-
+    rfq = _rfq_or_404(db, rfq_id)
     update_dict = data.model_dump(exclude_unset=True)
-    updated = repo.update_rfq(db, rfq_id, update_dict)
-    return recalculate_rfq_metrics(db, rfq_id) or updated  # type: ignore
+    val.validate_rfq_status_change(rfq.status, update_dict.get("status"))
+    val.validate_rfq_links(
+        db,
+        import_file_id=update_dict.get("import_file_id"),
+        project_id=update_dict.get("project_id"),
+        port_id=update_dict.get("port_id"),
+    )
+    repo.update_rfq(db, rfq_id, update_dict)
+    recalculate_rfq_metrics(db, rfq)
+    db.commit()
+    db.refresh(rfq)
+    return rfq
 
 
 def delete_rfq_service(db: Session, rfq_id: int) -> bool:
     success = repo.delete_rfq(db, rfq_id, soft=True)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="السجل غير موجود")
+    db.commit()
     return True
 
 
 def add_quotation_service(
     db: Session, rfq_id: int, data: CustomsClearanceQuotationCreate
 ) -> CustomsClearanceQuotationItem:
-    rfq = repo.get_rfq_by_id(db, rfq_id)
-    if not rfq:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"طلب عرض أسعار التخليص {rfq_id} غير موجود.",
-        )
-
-    val.validate_quotation_create(data)
-    q_data = _normalize_quote_fields(data.model_dump())
-    if not q_data.get("total_cost"):
-        q_data["total_cost"] = (
-            (q_data.get("clearance_fee") or 0.0)
-            + (q_data.get("inland_transport_fee") or 0.0)
-            + (q_data.get("inspection_fee") or 0.0)
-            + (q_data.get("port_expenses") or 0.0)
-            + (q_data.get("miscellaneous_fee") or 0.0)
-        )
-
-    quotation = repo.add_quotation_to_rfq(db, rfq_id, q_data)
-    recalculate_rfq_metrics(db, rfq_id)
+    rfq = _rfq_or_404(db, rfq_id)
+    quotation = repo.add_quotation_to_rfq(db, rfq, _prepare_quote(db, data))
+    recalculate_rfq_metrics(db, rfq)
+    db.commit()
+    db.refresh(quotation)
     return quotation
 
 
 def update_quotation_service(
     db: Session, quotation_id: int, data: CustomsClearanceQuotationUpdate
 ) -> CustomsClearanceQuotationItem:
-    q = repo.get_quotation_by_id(db, quotation_id)
-    if not q:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عرض السعر غير موجود")
-
+    _quote_or_404(db, quotation_id)
     q_data = _normalize_quote_fields(data.model_dump(exclude_unset=True))
+    q_data.pop("total_cost", None)  # always server-computed
     updated = repo.update_quotation(db, quotation_id, q_data)
-
-    # Recalculate total cost if cost elements changed
-    if any(k in q_data for k in ["clearance_fee", "inland_transport_fee", "inspection_fee", "port_expenses", "miscellaneous_fee"]):
-        updated.total_cost = (
-            updated.clearance_fee
-            + updated.inland_transport_fee
-            + updated.inspection_fee
-            + updated.port_expenses
-            + updated.miscellaneous_fee
-        )
-        db.commit()
-        db.refresh(updated)
-
-    recalculate_rfq_metrics(db, updated.rfq_id)
+    updated.total_cost = quote_total(updated)
+    recalculate_rfq_metrics(db, repo.get_rfq_by_id(db, updated.rfq_id))
+    db.commit()
+    db.refresh(updated)
     return updated
 
 
 def delete_quotation_service(db: Session, quotation_id: int) -> bool:
-    q = repo.get_quotation_by_id(db, quotation_id)
-    if not q:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عرض السعر غير موجود")
-    rfq_id = q.rfq_id
-    success = repo.delete_quotation(db, quotation_id)
-    recalculate_rfq_metrics(db, rfq_id)
-    return success
+    """Soft delete (CCQ-02); the awarded quote cannot be deleted (409)."""
+    quote = _quote_or_404(db, quotation_id)
+    val.validate_quote_deletable(quote)
+    repo.soft_delete_quotation(db, quote)
+    recalculate_rfq_metrics(db, repo.get_rfq_by_id(db, quote.rfq_id))
+    db.commit()
+    return True
 
 
 def award_quotation_service(
     db: Session, rfq_id: int, quotation_id: int, notes: Optional[str] = None
 ) -> CustomsClearanceRFQ:
-    rfq = repo.get_rfq_by_id(db, rfq_id)
-    if not rfq:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="طلب عرض الأسعار غير موجود")
-
+    rfq = _rfq_or_404(db, rfq_id)
     target_quote = repo.get_quotation_by_id(db, quotation_id)
-    if not target_quote or target_quote.rfq_id != rfq_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="عرض السعر المحدد لا ينتمي لهذا الطلب.",
-        )
+    val.validate_award(rfq, target_quote)
 
-    # Mark this quote as awarded and un-award others
     for q in rfq.quotations:
         q.is_awarded = (q.quotation_id == quotation_id)
-
     rfq.awarded_provider_id = target_quote.provider_id
     rfq.awarded_provider_name = target_quote.provider_name
     rfq.awarded_quotation_id = target_quote.quotation_id
     rfq.awarded_at = datetime.now(timezone.utc)
-    rfq.status = "Awarded"
+    rfq.status = val.RFQ_STATUS_AWARDED
 
     db.commit()
     db.refresh(rfq)
@@ -256,15 +270,27 @@ def create_price_item_service(
     db: Session, data: ClearancePriceListItemCreate
 ) -> ClearanceServicePriceListItem:
     val.validate_price_item_create(data)
-    return repo.create_price_item(db, _normalize_quote_fields(data.model_dump()))
+    item = repo.create_price_item(db, _normalize_quote_fields(data.model_dump()))
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 def update_price_item_service(
     db: Session, item_id: int, data: ClearancePriceListItemUpdate
 ) -> ClearanceServicePriceListItem:
-    updated = repo.update_price_item(db, item_id, _normalize_quote_fields(data.model_dump(exclude_unset=True)))
-    if not updated:
+    item = repo.get_price_item_by_id(db, item_id)
+    if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="بند قائمة الأسعار غير موجود")
+    changes = data.model_dump(exclude_unset=True)
+    val.validate_price_item_update(
+        changes.get("port_name"),
+        changes.get("effective_from") or item.effective_from,
+        changes.get("effective_to") or item.effective_to,
+    )
+    updated = repo.update_price_item(db, item_id, _normalize_quote_fields(changes))
+    db.commit()
+    db.refresh(updated)
     return updated
 
 
@@ -272,4 +298,5 @@ def delete_price_item_service(db: Session, item_id: int) -> bool:
     success = repo.delete_price_item(db, item_id)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="بند قائمة الأسعار غير موجود")
+    db.commit()
     return True

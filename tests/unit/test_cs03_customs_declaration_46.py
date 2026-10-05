@@ -148,7 +148,7 @@ def test_register_customs_declaration_46_service_success(db_session, sample_data
         .first()
     )
     assert completed_task.status == "Completed"
-    assert "46-2026-ALX-98124" in completed_task.completion_notes
+    assert "46-2026-ALX-98124" in completed_task.notes
 
     # 4. Verify downstream CL-01 SmartTask dispatched
     downstream_task = (
