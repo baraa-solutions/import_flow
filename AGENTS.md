@@ -6,6 +6,7 @@
 
 | File | Loaded | Owns |
 |---|---|---|
+| [`.agents/rules/AI_WORKFLOW.md`](.agents/rules/AI_WORKFLOW.md) | read first | Task loop, run locally, tests, how to write the code, self-review |
 | [`.agents/rules/CORE_RULES.md`](.agents/rules/CORE_RULES.md) | every session | Stack, architecture, testing, security, forbidden practices |
 | [`.agents/rules/DOMAIN_RULES.md`](.agents/rules/DOMAIN_RULES.md) | on read | Customs / landed-cost engine, stages, soft delete |
 | `.claude/rules/backend.md`, `flutter.md`, `customs-domain.md` | by file path | Per-layer rules (auth, migrations, legacy rows, l10n, RTL) |
