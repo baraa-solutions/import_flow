@@ -51,22 +51,23 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
       decoration: BoxDecoration(
         color: bgColor,
         border: Border(
+          // Hairline accent: a soft cobalt edge instead of a heavy black line.
           bottom: BorderSide(
-            color: isDark ? AppTheme.darkBorder : Colors.black12,
+            color: isDark ? AppTheme.darkBorder : AppTheme.cobaltBorder,
             width: 1.0,
           ),
         ),
         boxShadow: elevation > 0
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: AppTheme.black.withValues(alpha: 0.14),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ]
             : null,
       ),
-      padding: EdgeInsets.symmetric(
+      padding: EdgeInsetsDirectional.symmetric(
         horizontal: density.headerPadding.left,
         vertical: hasSubtitle ? 2.5 : 3.5,
       ),
@@ -85,12 +86,22 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
                     const SizedBox(width: 8),
                   ],
                   if (icon != null) ...[
-                    Icon(
-                      icon,
-                      color: iconColor ?? AppTheme.cobalt,
-                      size: density.headerIconSize,
+                    // Icon chip: tinted rounded square behind the glyph.
+                    Container(
+                      padding: EdgeInsets.all(density.isUltraCompact ? 4 : 6),
+                      decoration: BoxDecoration(
+                        color: (iconColor ?? AppTheme.cobalt)
+                            .withValues(alpha: 0.18),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: iconColor ?? AppTheme.cobalt,
+                        size: density.headerIconSize,
+                      ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                   ],
                   Flexible(
                     child: Column(
@@ -100,11 +111,12 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
                         Text(
                           title,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.white,
                             fontSize: density.headerTitleFontSize,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.2,
-                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                            // No tracking: it breaks Arabic letter joining.
+                            letterSpacing: 0,
+                            height: hasSubtitle ? 1.1 : 1.15,
                           ),
                           softWrap: true,
                           maxLines: 2,
@@ -114,7 +126,7 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
                           Text(
                             subtitle!,
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AppTheme.cloudWhite.withValues(alpha: 0.72),
                               fontSize: density.headerSubtitleFontSize,
                               height: 1.15,
                             ),
@@ -129,7 +141,7 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
             if (actions != null && actions!.isNotEmpty) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               // PageHeader is used as Scaffold.appBar with a fixed preferredSize, so actions
               // cannot wrap to a second row. When they exceed the cap (title keeps at least
               // [_minTitleWidth]) they scroll horizontally with an always-visible scrollbar.

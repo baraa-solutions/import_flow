@@ -55,10 +55,11 @@ class CustomTextField extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppTheme.charcoal,
+                  letterSpacing: 0,
+                  color: AppTheme.textPrimaryOf(context),
                 ),
               ),
             ),
@@ -77,10 +78,10 @@ class CustomTextField extends StatelessWidget {
           textDirection: textDirection,
           validator: effectiveValidator,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          style: const TextStyle(fontSize: 14, color: AppTheme.charcoal),
+          style: TextStyle(fontSize: 14, color: AppTheme.textPrimaryOf(context)),
           decoration: InputDecoration(
             hintText: hint ?? context.l10n.enterFieldHint(label),
-            prefixIcon: icon != null ? Icon(icon, size: 20, color: AppTheme.charcoal.withOpacity(0.7)) : null,
+            prefixIcon: icon != null ? Icon(icon, size: 20, color: AppTheme.textSecondaryOf(context)) : null,
             suffixIcon: suffixIcon,
           ),
         ),
