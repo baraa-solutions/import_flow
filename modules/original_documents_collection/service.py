@@ -1,6 +1,12 @@
+import copy
 import io
-from datetime import datetime, timezone
+import logging
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
+from urllib.parse import quote_plus
+
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import openpyxl
@@ -8,10 +14,14 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 from modules.import_files.model import ImportFile
+from modules.common.clock import cairo_today
+from modules.common.errors import best_effort
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
-from modules.purchase_orders.model import PurchaseOrder
+from modules.common.validators import get_or_404
 from modules.import_documentation.service import get_central_archive_service
+import modules.docs_customs_approval.service as dca_service
+from . import validators
 from .model import OriginalDocumentsCollectionSession
 from .repository import OriginalDocumentsCollectionRepository
 from .schemas import (
@@ -27,27 +37,74 @@ from .schemas import (
     CourierFlatItemResponse,
 )
 
+logger = logging.getLogger(__name__)
+
+IMPORT_FILE_LABEL_AR = "ملف الاستيراد"
+SESSION_LABEL_AR = "جلسة تحصيل المستندات الأصلية"
+CODE_ATTEMPTS = 2
+
+# SH-04 tasks closed when the originals are fully received. CargoX creates them with this task type / code;
+# the title matches only cover legacy rows created before task types and message codes existed.
+SH04_TASK_TYPES = ("ORIGINAL_DOCS_RECEIPT", "ORIGINAL_DOCS", "SH-04")
+SH04_TASK_MSG_CODES = ("CGX_TASK_COLLECT_ORIGINALS",)
+SH04_LEGACY_TITLE_MARKERS = ("SH-04", "أصول المستندات")
+
+
+def _counters(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total = len(docs)
+    received = sum(1 for d in docs if d.get("is_received", False))
+    verified = sum(1 for d in docs if d.get("is_verified", False))
+    return {
+        "total_documents_count": total,
+        "received_documents_count": received,
+        "verified_documents_count": verified,
+        "pending_documents_count": total - received,
+        "completion_percentage": round((verified / total * 100.0), 1) if total > 0 else 0.0,
+    }
+
+
+def _auto_status(counters: Dict[str, Any], fallback: str) -> str:
+    """Status ladder: verified -> received -> partial -> ``fallback`` (DRAFT on save, unchanged on confirm)."""
+    total = counters["total_documents_count"]
+    if total > 0 and counters["verified_documents_count"] == total:
+        return "FULLY_VERIFIED"
+    if total > 0 and counters["received_documents_count"] == total:
+        return "FULLY_RECEIVED"
+    if counters["received_documents_count"] > 0:
+        return "PARTIALLY_RECEIVED"
+    return fallback
+
+
+def _days_since(dispatch: Optional[str], today) -> int:
+    """Whole days between a stored ``YYYY-MM-DD[...]`` dispatch date and ``today`` (0 when unknown/future)."""
+    if not dispatch:
+        return 0
+    try:
+        disp_date = datetime.strptime(str(dispatch).strip().split("T")[0], "%Y-%m-%d").date()
+    except ValueError:
+        return 0  # legacy rows saved before date validation (ODC-08)
+    return max((today - disp_date).days, 0)
+
+
+def _is_sh04_task(task) -> bool:
+    if task.task_type in SH04_TASK_TYPES or task.msg_code in SH04_TASK_MSG_CODES:
+        return True
+    title = task.title or ""
+    return any(marker in title for marker in SH04_LEGACY_TITLE_MARKERS)  # legacy rows only
+
 
 class OriginalDocumentsCollectionService:
     @staticmethod
     def auto_populate_from_central_archive(
         db: Session, import_file_id: int
     ) -> OriginalDocumentsAutoPopulateResponse:
-        import_file = db.query(ImportFile).filter_by(import_file_id=import_file_id).first()
-        if not import_file:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Import File ID {import_file_id} not found.",
-            )
+        import_file = get_or_404(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, active_only=True)
 
         existing_session = OriginalDocumentsCollectionRepository.get_by_import_file(db, import_file_id)
 
         # Retrieve central archive details if available
-        archive_data = None
-        try:
-            archive_data = get_central_archive_service(db, import_file_id)
-        except Exception:
-            archive_data = None
+        # Optional enrichment (COO / inspection flags): a failing archive lookup is logged, the checklist still builds.
+        archive_data = best_effort(db, get_central_archive_service, "central archive lookup", db, import_file_id)
 
         # Build baseline required documents list
         # Check inspection requirement from archive
@@ -171,86 +228,76 @@ class OriginalDocumentsCollectionService:
         payload: OriginalDocumentsCollectionCreate,
         username: str = "ADMIN",
     ) -> OriginalDocumentsCollectionResponse:
-        import_file = db.query(ImportFile).filter_by(import_file_id=payload.import_file_id).first()
-        if not import_file:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Import File ID {payload.import_file_id} not found.",
-            )
+        """Create or update the file's collection session, then run the SH-04 orchestration. One transaction:
+        any failure of the required steps rolls everything back (ODC-06)."""
+        import_file = get_or_404(db, ImportFile, payload.import_file_id, IMPORT_FILE_LABEL_AR, active_only=True)
 
-        # Calculate statistics
-        docs_list = [d.model_dump() if isinstance(d, OriginalDocumentItem) else d for d in payload.documents_list]
-        couriers_list = [c.model_dump() if isinstance(c, CourierEntry) else c for c in payload.couriers_list]
-
-        total_count = len(docs_list)
-        received_count = sum(1 for d in docs_list if d.get("is_received", False))
-        verified_count = sum(1 for d in docs_list if d.get("is_verified", False))
-        pending_count = total_count - received_count
-        completion_pct = round((verified_count / total_count * 100.0), 1) if total_count > 0 else 0.0
-
-        # Automatic status resolution if not explicitly set to a customized status
-        status_val = payload.status
-        if status_val in ["DRAFT", "PARTIALLY_RECEIVED", "FULLY_RECEIVED", "FULLY_VERIFIED"]:
-            if verified_count == total_count and total_count > 0:
-                status_val = "FULLY_VERIFIED"
-            elif received_count == total_count and total_count > 0:
-                status_val = "FULLY_RECEIVED"
-            elif received_count > 0:
-                status_val = "PARTIALLY_RECEIVED"
-            else:
-                status_val = "DRAFT"
-
-        existing_session = OriginalDocumentsCollectionRepository.get_by_import_file(db, payload.import_file_id)
-
-        if existing_session:
-            # Update existing
-            updates = {
-                "acid_number": payload.acid_number or existing_session.acid_number,
-                "importer_name": payload.importer_name or existing_session.importer_name,
-                "supplier_name": payload.supplier_name or existing_session.supplier_name,
-                "status": status_val,
-                "couriers_list": couriers_list,
-                "documents_list": docs_list,
-                "total_documents_count": total_count,
-                "received_documents_count": received_count,
-                "verified_documents_count": verified_count,
-                "pending_documents_count": pending_count,
-                "completion_percentage": completion_pct,
-                "discrepancy_override_reason": payload.discrepancy_override_reason,
-                "notes": payload.notes,
-                "updated_by": username,
-            }
-            saved = OriginalDocumentsCollectionRepository.update(db, existing_session, updates)
-        else:
-            # Create new
-            new_code = OriginalDocumentsCollectionRepository.get_next_collection_code(db)
-            new_session = OriginalDocumentsCollectionSession(
-                collection_code=new_code,
-                import_file_id=payload.import_file_id,
-                import_file_code=payload.import_file_code,
-                acid_number=payload.acid_number or import_file.acid_number,
-                importer_name=payload.importer_name or getattr(import_file, "company_name", ""),
-                supplier_name=payload.supplier_name or getattr(import_file, "supplier_name", ""),
-                status=status_val,
-                couriers_list=couriers_list,
-                documents_list=docs_list,
-                total_documents_count=total_count,
-                received_documents_count=received_count,
-                verified_documents_count=verified_count,
-                pending_documents_count=pending_count,
-                completion_percentage=completion_pct,
-                discrepancy_override_reason=payload.discrepancy_override_reason,
-                notes=payload.notes,
-                created_by=username,
-                updated_by=username,
-            )
-            saved = OriginalDocumentsCollectionRepository.create(db, new_session)
-
-        # Execute SH-04 Orchestration Workflow (ImportFile sync, SmartTasks, Notifications, Approvals, Lifecycle)
-        OriginalDocumentsCollectionService._handle_original_documents_orchestration_workflow(
-            db, saved, updated_by=username
+        docs_list = validators.normalize_documents(
+            [d.model_dump() if isinstance(d, OriginalDocumentItem) else dict(d) for d in payload.documents_list]
         )
+        couriers_list = validators.normalize_couriers(
+            [c.model_dump() if isinstance(c, CourierEntry) else dict(c) for c in payload.couriers_list]
+        )
+        counters = _counters(docs_list)
 
+        # The four automatic statuses are recomputed from the counters; IN_TRANSIT / DISCREPANCY_NOTED are kept.
+        status_val = validators.normalize_session_status(payload.status or "DRAFT")
+        if status_val in validators.AUTO_SESSION_STATUSES:
+            status_val = _auto_status(counters, "DRAFT")
+
+        for attempt in range(1, CODE_ATTEMPTS + 1):
+            existing_session = OriginalDocumentsCollectionRepository.get_by_import_file(db, payload.import_file_id)
+            previous_status = existing_session.status if existing_session else None
+            try:
+                if existing_session:
+                    updates = {
+                        "acid_number": payload.acid_number or existing_session.acid_number,
+                        "importer_name": payload.importer_name or existing_session.importer_name,
+                        "supplier_name": payload.supplier_name or existing_session.supplier_name,
+                        "status": status_val,
+                        "couriers_list": couriers_list,
+                        "documents_list": docs_list,
+                        "discrepancy_override_reason": payload.discrepancy_override_reason,
+                        "notes": payload.notes,
+                        "updated_by": username,
+                        **counters,
+                    }
+                    saved = OriginalDocumentsCollectionRepository.update(db, existing_session, updates)
+                else:
+                    saved = OriginalDocumentsCollectionRepository.create(
+                        db,
+                        OriginalDocumentsCollectionSession(
+                            collection_code=OriginalDocumentsCollectionRepository.get_next_collection_code(db),
+                            import_file_id=payload.import_file_id,
+                            import_file_code=import_file.import_file_code or payload.import_file_code,
+                            acid_number=payload.acid_number or import_file.acid_number,
+                            importer_name=payload.importer_name or getattr(import_file, "company_name", ""),
+                            supplier_name=payload.supplier_name or getattr(import_file, "supplier_name", ""),
+                            status=status_val,
+                            couriers_list=couriers_list,
+                            documents_list=docs_list,
+                            discrepancy_override_reason=payload.discrepancy_override_reason,
+                            notes=payload.notes,
+                            created_by=username,
+                            updated_by=username,
+                            **counters,
+                        ),
+                    )
+                break
+            except IntegrityError:
+                # The collection code (or the file's single session) was taken concurrently: nothing else has
+                # been written in this transaction yet, so roll back and re-resolve once.
+                db.rollback()
+                if attempt == CODE_ATTEMPTS:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="تعذر حفظ جلسة تحصيل المستندات بسبب تعارض متزامن، يرجى إعادة المحاولة.",
+                    )
+
+        OriginalDocumentsCollectionService._handle_original_documents_orchestration_workflow(
+            db, saved, updated_by=username, previous_status=previous_status
+        )
+        db.refresh(saved)
         return OriginalDocumentsCollectionResponse.model_validate(saved)
 
     save_or_update_session = save_or_upsert_collection_session
@@ -260,194 +307,175 @@ class OriginalDocumentsCollectionService:
         db: Session,
         session: OriginalDocumentsCollectionSession,
         updated_by: str = "ADMIN",
+        previous_status: Optional[str] = None,
     ) -> None:
         """
-        SH-04 Orchestration Workflow:
-        1. Synchronizes original documents status, couriers, and timestamps with ImportFile.
-        2. Auto-closes pending SH-04 SmartTasks.
-        3. Dispatches downstream CS-01 SmartTask (Customs Broker Electronic Authorization).
-        4. Emits operational SystemNotification.
-        5. Synchronizes CustomsDocumentApproval for ORIGINAL_DOCUMENTS.
-        6. Advances Lifecycle step STEP_11 -> STEP_12 when fully received or verified.
+        SH-04 orchestration, then the commit:
+        1. ImportFile sync (status, session code, AWBs) on every save.
+        On FULLY_RECEIVED / FULLY_VERIFIED only (ODC-05):
+        2. receipt date set once, progress floor 75, next action NA_CS01_ASSIGN_BROKER; SH-04 SmartTasks closed.
+        3. FULLY_VERIFIED only: commercial tier of the DCA ORIGINAL_DOCUMENTS approval (ODC-02, Q1).
+        4. Lifecycle STEP_11 -> STEP_12 on the transition into FULLY_* only (the lifecycle service commits by itself).
+        Steps 1-4 propagate failures (rollback). Optional, after the commit (``best_effort``):
+        5. CS-01 SmartTask (created once), 6. SystemNotification on the transition into FULLY_* only (ODC-07).
         """
-        import uuid
-        import logging
-        from datetime import timedelta
-        logger = logging.getLogger(__name__)
+        fully = session.status in validators.FULLY_STATUSES
+        imp_file = db.query(ImportFile).filter_by(import_file_id=session.import_file_id).first()
+        if imp_file:
+            imp_file.original_documents_status = session.status
+            imp_file.original_documents_session_code = session.collection_code
+            awbs = [c.get("courier_no") for c in (session.couriers_list or []) if c.get("courier_no")]
+            imp_file.original_documents_courier_no = ", ".join(awbs) if awbs else None
 
-        try:
-            # 1. Synchronize ImportFile
-            imp_file = db.query(ImportFile).filter_by(import_file_id=session.import_file_id).first()
-            if imp_file:
-                imp_file.original_documents_status = session.status
-                imp_file.original_documents_session_code = session.collection_code
-                awbs = [c.get("courier_no") for c in (session.couriers_list or []) if c.get("courier_no")]
-                imp_file.original_documents_courier_no = ", ".join(awbs) if awbs else None
-
-                if session.status in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
+            if fully:
+                if imp_file.original_documents_received_at is None:
                     imp_file.original_documents_received_at = datetime.now(timezone.utc)
-                    if (imp_file.progress_percent or 0) < 75.0:
-                        imp_file.progress_percent = 75.0
+                if (imp_file.progress_percent or 0) < 75.0:
+                    imp_file.progress_percent = 75.0
+                if previous_status not in validators.FULLY_STATUSES:
                     set_file_tracking(imp_file, next_action=msg("NA_CS01_ASSIGN_BROKER"))
 
-            # 2. Complete pending SH-04 SmartTasks
-            try:
-                from modules.smart_tasks.model import SmartTask
-                pending_tasks = (
-                    db.query(SmartTask)
-                    .filter(
-                        SmartTask.import_file_id == session.import_file_id,
-                        SmartTask.status != "Completed",
+        if fully:
+            from modules.smart_tasks.model import SmartTask
+
+            pending_tasks = (
+                db.query(SmartTask)
+                .filter(SmartTask.import_file_id == session.import_file_id, SmartTask.status != "Completed")
+                .all()
+            )
+            for t in pending_tasks:
+                if _is_sh04_task(t):
+                    # SmartTask has no completion_notes column: the closing note goes to ``notes``.
+                    closing_note = (
+                        f"Original documents received (collection {session.collection_code}, "
+                        f"status {session.status})."
                     )
-                    .all()
+                    t.status = "Completed"
+                    t.notes = f"{t.notes}\n{closing_note}" if t.notes else closing_note
+                    t.updated_by = updated_by
+
+            if session.status == "FULLY_VERIFIED":
+                dca_service.upsert_original_documents_approval(
+                    db,
+                    import_file_id=session.import_file_id,
+                    reference_no=session.collection_code,
+                    user=updated_by,
+                    commit=False,
                 )
-                for t in pending_tasks:
-                    if (
-                        t.task_type in ("ORIGINAL_DOCS_RECEIPT", "ORIGINAL_DOCS", "SH-04")
-                        or "SH-04" in (t.title or "")
-                        or "أصول المستندات" in (t.title or "")
-                    ):
-                        t.status = "Completed"
-                        t.completion_notes = f"Original documents received and verified (code: {session.collection_code}) with status {session.status}."
-            except Exception as ex_task:
-                logger.warning(f"Error auto-completing SH-04 SmartTasks: {ex_task}")
 
-            # If fully received or verified, trigger downstream tasks, notifications, and approvals
-            if session.status in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
-                file_label = imp_file.import_file_code if imp_file else session.import_file_code
+            # Only on the transition into FULLY_*: a later save of an already received session must not pull the
+            # file back to STEP_12 after it moved on.
+            if previous_status not in validators.FULLY_STATUSES:
+                from modules.lifecycle_board.service import advance_lifecycle_step_service
 
-                # 3. Dispatch downstream CS-01 SmartTask (Customs Broker Electronic Authorization)
-                try:
-                    from modules.smart_tasks.model import SmartTask
-                    existing_cs01 = (
-                        db.query(SmartTask)
-                        .filter(
-                            SmartTask.import_file_id == session.import_file_id,
-                            SmartTask.task_type.in_(["CUSTOMS_BROKER_ASSIGNMENT", "CS-01"]),
-                        )
-                        .first()
-                    )
-                    if not existing_cs01:
-                        due_dt = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%d")
-                        task_code = f"TASK-{uuid.uuid4().hex[:8].upper()}"
-                        task_msg = msg(
-                            "ODC_TASK_ASSIGN_BROKER",
-                            import_file_code=file_label,
-                            collection_code=session.collection_code,
-                        )
-                        downstream_task = SmartTask(
-                            task_code=task_code,
-                            import_file_id=session.import_file_id,
-                            import_file_code=file_label,
-                            title=render_en(task_msg.code, task_msg.params, "title").strip(),
-                            description=render_en(task_msg.code, task_msg.params, "body"),
-                            msg_code=task_msg.code,
-                            msg_params=task_msg.params,
-                            task_type="CUSTOMS_BROKER_ASSIGNMENT",
-                            priority="High",
-                            status="Pending",
-                            assigned_user="Customs Specialist",
-                            due_date=due_dt,
-                            created_by=updated_by,
-                        )
-                        db.add(downstream_task)
-                except Exception as ex_dispatch:
-                    logger.warning(f"Error dispatching downstream CS-01 smart task: {ex_dispatch}")
+                advance_lifecycle_step_service(
+                    db=db,
+                    import_file_id=session.import_file_id,
+                    completed_step_code="STEP_11",
+                    target_step_codes=["STEP_12"],
+                    notes_msg=msg("ODC_ORIGINALS_RECEIVED", collection_code=session.collection_code),
+                    next_action_msg=msg("NA_CS01_ASSIGN_BROKER"),
+                    assigned_user=updated_by,
+                )
 
-                # 4. Emit SystemNotification
-                try:
-                    from modules.notifications.model import SystemNotification
-                    notif_msg = msg(
-                        "ODC_ORIGINALS_RECEIVED",
-                        collection_code=session.collection_code,
-                        import_file_code=file_label,
-                        completion_pct=session.completion_percentage,
-                    )
-                    notif = SystemNotification(
-                        title=render_en(notif_msg.code, notif_msg.params, "title"),
-                        message=render_en(notif_msg.code, notif_msg.params, "body"),
-                        msg_code=notif_msg.code,
-                        msg_params=notif_msg.params,
-                        category="STAGE_PROGRESSION",
-                        severity="INFO",
-                        entity_type="ImportFile",
-                        entity_id=session.import_file_id,
-                        target_role="ALL",
-                        is_read=False,
-                    )
-                    db.add(notif)
-                except Exception as ex_notif:
-                    logger.warning(f"Error creating Original Docs SystemNotification: {ex_notif}")
+        db.commit()
 
-                # 5. Update CustomsDocumentApproval for ORIGINAL_DOCUMENTS
-                try:
-                    from modules.docs_customs_approval.model import CustomsDocumentApproval
-                    approval_rec = (
-                        db.query(CustomsDocumentApproval)
-                        .filter(
-                            CustomsDocumentApproval.import_file_id == session.import_file_id,
-                            CustomsDocumentApproval.document_type.in_(["ORIGINAL_DOCUMENTS", "ORIGINAL_BANK_DOCS", "Original Documents"]),
-                        )
-                        .first()
-                    )
-                    if not approval_rec:
-                        approval_rec = CustomsDocumentApproval(
-                            approval_code=f"DCA-{uuid.uuid4().hex[:8].upper()}",
-                            import_file_id=session.import_file_id,
-                            import_file_code=file_label,
-                            document_type="ORIGINAL_DOCUMENTS",
-                            document_reference_no=session.collection_code,
-                            commercial_status="Approved",
-                            commercial_reviewed_by=updated_by,
-                            commercial_reviewed_at=datetime.now(timezone.utc),
-                            customs_status="Approved",
-                            customs_reviewed_by=updated_by,
-                            customs_reviewed_at=datetime.now(timezone.utc),
-                            overall_status="Approved for Clearance",
-                            commercial_notes=f"Original bank documents received and verified under no. {session.collection_code}",
-                        )
-                        db.add(approval_rec)
-                    else:
-                        approval_rec.commercial_status = "Approved"
-                        approval_rec.customs_status = "Approved"
-                        approval_rec.overall_status = "Approved for Clearance"
-                        approval_rec.document_reference_no = session.collection_code
-                        approval_rec.commercial_notes = f"Original bank documents received and verified under no. {session.collection_code}"
-                except Exception as ex_appr:
-                    logger.warning(f"Error updating CustomsDocumentApproval for Original Docs: {ex_appr}")
+        if fully:
+            file_label = (imp_file.import_file_code if imp_file else None) or session.import_file_code
+            best_effort(
+                db, OriginalDocumentsCollectionService._dispatch_cs01_task, "SH-04 CS-01 task dispatch",
+                db, session, file_label, updated_by,
+            )
+            if previous_status not in validators.FULLY_STATUSES:
+                best_effort(
+                    db, OriginalDocumentsCollectionService._emit_received_notification,
+                    "SH-04 originals received notification", db, session, file_label,
+                )
 
-                # 6. Advance Lifecycle step STEP_11 -> STEP_12
-                try:
-                    from modules.lifecycle_board.service import advance_lifecycle_step_service
-                    advance_lifecycle_step_service(
-                        db=db,
-                        import_file_id=session.import_file_id,
-                        completed_step_code="STEP_11",
-                        target_step_codes=["STEP_12"],
-                        notes_msg=msg("ODC_ORIGINALS_RECEIVED", collection_code=session.collection_code),
-                        next_action_msg=msg("NA_CS01_ASSIGN_BROKER"),
-                        assigned_user=updated_by,
-                    )
-                except Exception as ex_lc:
-                    logger.warning(f"Lifecycle advance STEP_11→STEP_12 failed: {ex_lc}")
+    @staticmethod
+    def _dispatch_cs01_task(db: Session, session: OriginalDocumentsCollectionSession, file_label: str, user: str) -> None:
+        """Downstream CS-01 SmartTask (customs broker electronic authorization), created once per file."""
+        from modules.smart_tasks.model import SmartTask
 
-            db.commit()
-        except Exception as e:
-            logger.error(f"Error executing _handle_original_documents_orchestration_workflow: {e}")
+        existing_cs01 = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == session.import_file_id,
+                SmartTask.task_type.in_(["CUSTOMS_BROKER_ASSIGNMENT", "CS-01"]),
+            )
+            .first()
+        )
+        if existing_cs01:
+            return
+        task_msg = msg("ODC_TASK_ASSIGN_BROKER", import_file_code=file_label, collection_code=session.collection_code)
+        db.add(
+            SmartTask(
+                task_code=f"TASK-{uuid.uuid4().hex[:8].upper()}",
+                import_file_id=session.import_file_id,
+                import_file_code=file_label,
+                title=render_en(task_msg.code, task_msg.params, "title").strip(),
+                description=render_en(task_msg.code, task_msg.params, "body"),
+                msg_code=task_msg.code,
+                msg_params=task_msg.params,
+                task_type="CUSTOMS_BROKER_ASSIGNMENT",
+                priority="High",
+                status="Pending",
+                assigned_user="Customs Specialist",
+                due_date=(cairo_today() + timedelta(days=3)).isoformat(),
+                created_by=user,
+            )
+        )
+        db.commit()
 
+    @staticmethod
+    def _emit_received_notification(db: Session, session: OriginalDocumentsCollectionSession, file_label: str) -> None:
+        from modules.notifications.model import SystemNotification
+
+        notif_msg = msg(
+            "ODC_ORIGINALS_RECEIVED",
+            collection_code=session.collection_code,
+            import_file_code=file_label,
+            completion_pct=session.completion_percentage,
+        )
+        db.add(
+            SystemNotification(
+                title=render_en(notif_msg.code, notif_msg.params, "title"),
+                message=render_en(notif_msg.code, notif_msg.params, "body"),
+                msg_code=notif_msg.code,
+                msg_params=notif_msg.params,
+                category="STAGE_PROGRESSION",
+                severity="INFO",
+                entity_type="ImportFile",
+                entity_id=session.import_file_id,
+                target_role="ALL",
+                is_read=False,
+            )
+        )
+        db.commit()
 
     @staticmethod
     def get_session_by_id(db: Session, collection_id: int) -> OriginalDocumentsCollectionResponse:
         session = OriginalDocumentsCollectionRepository.get_by_id(db, collection_id)
         if not session:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection session not found.")
+            from modules.common.validators import not_found
+
+            raise not_found(SESSION_LABEL_AR, collection_id)
         return OriginalDocumentsCollectionResponse.model_validate(session)
 
     @staticmethod
-    def get_session_by_file(db: Session, import_file_id: int) -> Optional[OriginalDocumentsCollectionResponse]:
+    def get_session_by_file(db: Session, import_file_id: int) -> OriginalDocumentsCollectionResponse:
+        """The file's active session. No session yet -> 404 ``ODC_SESSION_NOT_FOUND`` (the Flutter client maps
+        exactly 404 to "no session"; any other failure surfaces, so a save never upserts blindly)."""
         session = OriginalDocumentsCollectionRepository.get_by_import_file(db, import_file_id)
         if not session:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "ODC_SESSION_NOT_FOUND",
+                    "message": f"لا توجد جلسة تحصيل مستندات أصلية لملف الاستيراد رقم {import_file_id}.",
+                    "import_file_id": import_file_id,
+                },
+            )
         return OriginalDocumentsCollectionResponse.model_validate(session)
 
     @staticmethod
@@ -470,19 +498,22 @@ class OriginalDocumentsCollectionService:
         return [OriginalDocumentsCollectionResponse.model_validate(s) for s in sessions]
 
     @staticmethod
-    def export_collection_to_excel_bytes(
-        db: Session, import_file_id_or_session_id: int
-    ) -> bytes:
-        # Resolve session
-        session = OriginalDocumentsCollectionRepository.get_by_id(db, import_file_id_or_session_id)
-        if not session:
-            session = OriginalDocumentsCollectionRepository.get_by_import_file(db, import_file_id_or_session_id)
+    def export_filename(db: Session, import_file_id: int) -> str:
+        """Task I naming: ``Original Documents Collection - <import file code>.xlsx`` (ODC-04)."""
+        import_file = get_or_404(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, active_only=True)
+        label = import_file.import_file_code or import_file.custom_file_number or f"FILE-{import_file_id}"
+        return f"Original Documents Collection - {label}.xlsx"
+
+    @staticmethod
+    def export_collection_to_excel_bytes(db: Session, import_file_id: int) -> bytes:
+        """Collection sheet of the import file's session (path param = import_file_id only, ODC-04); the
+        auto-populated checklist when the file has no session yet."""
+        get_or_404(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, active_only=True)
+        session = OriginalDocumentsCollectionRepository.get_by_import_file(db, import_file_id)
 
         if not session:
             # Generate from auto-populated
-            auto_data = OriginalDocumentsCollectionService.auto_populate_from_central_archive(
-                db, import_file_id_or_session_id
-            )
+            auto_data = OriginalDocumentsCollectionService.auto_populate_from_central_archive(db, import_file_id)
             couriers = [c.model_dump() for c in auto_data.default_couriers]
             docs = [d.model_dump() for d in auto_data.required_documents]
             file_code = auto_data.import_file_code
@@ -677,7 +708,7 @@ class OriginalDocumentsCollectionService:
             return f"https://www.naqelexpress.com/tracking?trackNumbers={clean_awb}"
         elif "SMSA" in c:
             return f"https://www.smsaexpress.com/track?trackNumber={clean_awb}"
-        return f"https://www.google.com/search?q={company}+{clean_awb}+tracking"
+        return f"https://www.google.com/search?q={quote_plus(f'{company or ''} {clean_awb} tracking')}"
 
     @staticmethod
     def confirm_courier_receipt(
@@ -691,100 +722,77 @@ class OriginalDocumentsCollectionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"جلسة تحصيل المستندات الأصلية للشحنة برقم {request.import_file_id} غير موجودة.",
             )
+        received_date = validators.normalize_date(request.received_date, "تاريخ الاستلام")
+        if not received_date:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="تاريخ الاستلام مطلوب بالصيغة YYYY-MM-DD.",
+            )
 
-        import copy
         couriers = copy.deepcopy(session.couriers_list or [])
-        found_courier = False
-        target_awb = request.courier_no.strip().upper()
+        target_awb = validators.awb_key(request.courier_no)
+        # Exact AWB match only (ODC-03): "12345" must not mark "9912345" delivered.
+        courier = next((c for c in couriers if target_awb and validators.awb_key(c.get("courier_no")) == target_awb), None)
+        if courier is None:
+            # Q2: an unknown AWB is not invented as a DHL row; the user adds the courier on the session first.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "ODC_COURIER_NOT_FOUND",
+                    "message": f"رقم الطرد ({request.courier_no.strip()}) غير مسجل في جلسة تحصيل المستندات لهذه الشحنة. "
+                    "أضف الطرد إلى الجلسة أولاً.",
+                    "courier_no": request.courier_no.strip(),
+                    "import_file_id": request.import_file_id,
+                },
+            )
 
-        for c in couriers:
-            current_awb = (c.get("courier_no") or "").strip().upper()
-            if current_awb == target_awb or (target_awb in current_awb and len(target_awb) > 4):
-                found_courier = True
-                c["is_received"] = True
-                c["received_date"] = request.received_date
-                if request.received_time:
-                    c["received_time"] = request.received_time
-                c["received_by"] = request.received_by
-                c["status"] = "DELIVERED"
-                if request.pod_reference:
-                    c["pod_reference"] = request.pod_reference
-                if request.notes:
-                    existing_notes = c.get("notes") or ""
-                    c["notes"] = f"{existing_notes} | {request.notes}".strip(" |")
-                c["tracking_url"] = OriginalDocumentsCollectionService.build_carrier_tracking_url(
-                    c.get("courier_company") or "DHL", c.get("courier_no") or ""
-                )
-                break
-
-        if not found_courier:
-            # If courier wasn't in the list, append it as delivered
-            couriers.append({
-                "courier_no": request.courier_no.strip(),
-                "courier_company": "DHL",
-                "dispatch_date": request.received_date,
-                "is_received": True,
-                "received_date": request.received_date,
-                "received_time": request.received_time,
-                "received_by": request.received_by,
-                "pod_reference": request.pod_reference,
-                "status": "DELIVERED",
-                "notes": request.notes or "Added upon delivery proof confirmation",
-                "tracking_url": OriginalDocumentsCollectionService.build_carrier_tracking_url(
-                    "DHL", request.courier_no.strip()
-                ),
-            })
+        courier["is_received"] = True
+        courier["received_date"] = received_date
+        if request.received_time:
+            courier["received_time"] = request.received_time
+        courier["received_by"] = request.received_by
+        courier["status"] = "DELIVERED"
+        if request.pod_reference:
+            courier["pod_reference"] = request.pod_reference
+        if request.notes:
+            existing_notes = courier.get("notes") or ""
+            courier["notes"] = f"{existing_notes} | {request.notes}".strip(" |")
+        courier["tracking_url"] = OriginalDocumentsCollectionService.build_carrier_tracking_url(
+            courier.get("courier_company") or "DHL", courier.get("courier_no") or ""
+        )
 
         docs = copy.deepcopy(session.documents_list or [])
-
         if request.mark_documents_received:
+            # Only the documents assigned to this courier; documents without a courier stay untouched (ODC-03).
             for d in docs:
-                doc_awb = (d.get("courier_no") or "").strip().upper()
-                if doc_awb == target_awb or (target_awb in doc_awb and len(target_awb) > 4) or not doc_awb:
+                if validators.awb_key(d.get("courier_no")) == target_awb:
                     d["is_received"] = True
                     if not d.get("received_date"):
-                        d["received_date"] = request.received_date
+                        d["received_date"] = received_date
                     if d.get("status") in ["Pending", "In Transit"]:
                         d["status"] = "Received"
 
-        total_count = len(docs)
-        received_count = sum(1 for d in docs if d.get("is_received", False))
-        verified_count = sum(1 for d in docs if d.get("is_verified", False))
-        pending_count = total_count - received_count
-        completion_pct = round((verified_count / total_count * 100.0), 1) if total_count > 0 else 0.0
-
-        status_val = session.status
-        if verified_count == total_count and total_count > 0:
-            status_val = "FULLY_VERIFIED"
-        elif received_count == total_count and total_count > 0:
-            status_val = "FULLY_RECEIVED"
-        elif received_count > 0:
-            status_val = "PARTIALLY_RECEIVED"
-
+        counters = _counters(docs)
+        previous_status = session.status
         updates = {
             "couriers_list": couriers,
             "documents_list": docs,
-            "status": status_val,
-            "total_documents_count": total_count,
-            "received_documents_count": received_count,
-            "verified_documents_count": verified_count,
-            "pending_documents_count": pending_count,
-            "completion_percentage": completion_pct,
+            "status": _auto_status(counters, session.status),
             "updated_by": username,
+            **counters,
         }
         saved = OriginalDocumentsCollectionRepository.update(db, session, updates)
 
-        # Execute SH-04 Orchestration Workflow
         OriginalDocumentsCollectionService._handle_original_documents_orchestration_workflow(
-            db, saved, updated_by=username
+            db, saved, updated_by=username, previous_status=previous_status
         )
-
+        db.refresh(saved)
         return OriginalDocumentsCollectionResponse.model_validate(saved)
 
     @staticmethod
     def get_courier_alerts(db: Session) -> CourierAlertsResponse:
-        sessions = OriginalDocumentsCollectionRepository.get_all(db, limit=500)
-        today = datetime.now(timezone.utc).date()
+        sessions = OriginalDocumentsCollectionRepository.get_active_with_couriers(db)
+        today = cairo_today()
 
         alerts: List[CourierAlertItem] = []
         total_active_couriers = 0
@@ -805,24 +813,14 @@ class OriginalDocumentsCollectionService:
                     continue
 
                 pending_count += 1
-                days = 0
-                if disp_str:
-                    try:
-                        clean_disp = disp_str.strip().split("T")[0]
-                        disp_date = datetime.strptime(clean_disp, "%Y-%m-%d").date()
-                        days = (today - disp_date).days
-                        if days < 0:
-                            days = 0
-                    except Exception:
-                        days = 0
+                days = _days_since(disp_str, today)
 
-                level = "INFO"
-                if days >= 5:
+                if days >= validators.COURIER_SLA_DAYS:
                     level = "CRITICAL"
                     delayed_count += 1
                     msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} وتجاوز المهلة المقررة (SLA)"
                     msg_en = f"Courier {c_company} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — SLA breached!"
-                elif days >= 3:
+                elif days >= validators.COURIER_WARN_DAYS:
                     level = "WARNING"
                     delayed_count += 1
                     msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} ويقترب من مهلة التسليم"
@@ -863,8 +861,8 @@ class OriginalDocumentsCollectionService:
 
     @staticmethod
     def get_all_couriers_flat(db: Session) -> List[CourierFlatItemResponse]:
-        sessions = OriginalDocumentsCollectionRepository.get_all(db, limit=500)
-        today = datetime.now(timezone.utc).date()
+        sessions = OriginalDocumentsCollectionRepository.get_active_with_couriers(db)
+        today = cairo_today()
         result: List[CourierFlatItemResponse] = []
 
         for s in sessions:
@@ -874,22 +872,11 @@ class OriginalDocumentsCollectionService:
                 c_comp = c.get("courier_company") or "DHL"
                 is_rcv = c.get("is_received", False)
                 disp_str = c.get("dispatch_date")
+                days = _days_since(disp_str, today)
 
-                days = 0
-                if disp_str:
-                    try:
-                        clean_disp = disp_str.strip().split("T")[0]
-                        disp_date = datetime.strptime(clean_disp, "%Y-%m-%d").date()
-                        days = (today - disp_date).days
-                        if days < 0:
-                            days = 0
-                    except Exception:
-                        days = 0
-
-                status_val = "IN_TRANSIT"
                 if is_rcv:
                     status_val = "DELIVERED"
-                elif days >= 4:
+                elif days >= validators.COURIER_SLA_DAYS:  # Q4: same SLA as the CRITICAL alert
                     status_val = "DELAYED"
                 elif days > 0:
                     status_val = "IN_TRANSIT"
@@ -897,7 +884,7 @@ class OriginalDocumentsCollectionService:
                     status_val = "DISPATCHED"
 
                 matched_docs_count = sum(
-                    1 for d in docs if (d.get("courier_no") or "").strip().upper() == c_no.upper() and c_no
+                    1 for d in docs if c_no and validators.awb_key(d.get("courier_no")) == c_no.upper()
                 )
 
                 tracking_url = c.get("tracking_url") or OriginalDocumentsCollectionService.build_carrier_tracking_url(

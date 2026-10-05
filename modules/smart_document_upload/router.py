@@ -7,18 +7,60 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from modules.auth.permissions import has_user_permission, require_permission
 from modules.auth.router import get_current_user
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.smart_document_upload.schemas import SmartUploadResponse, UploadSessionResponse
+from modules.smart_document_upload.schemas import (
+    ApplyBLRequest,
+    ApplyInvoiceRequest,
+    CrossCheckRequest,
+    SmartUploadResponse,
+    UploadSessionResponse,
+)
 from modules.smart_document_upload.validators import (
+    read_validated_upload,
+    stored_filename,
+    validate_files_count,
     validate_module_name,
-    validate_upload_file,
-    validate_file_size,
+    validate_raw_text,
     SUPPORTED_MODULES,
 )
+
+# Lead decision (03b review): smart upload is used from several screens, so extraction / cross-check accept ANY of
+# the write codes of those screens; the session history also accepts import_documentation.view. /apply/* keep the
+# target module's write code, session delete needs import_documentation.upload.
+UPLOAD = "import_documentation.upload"
+VIEW = "import_documentation.view"
+EXTRACT_CODES = (
+    UPLOAD,
+    "quotations.manage",
+    "customs_consultation.manage",
+    "shipping_scenarios.manage",
+    "purchase_orders.edit",
+)
+
+
+def require_any_permission(*codes: str):
+    """Dependency: the authenticated user (``get_current_user``: token / dev bypass + forced password change)
+    must hold at least one of ``codes``; 403 otherwise."""
+    def dependency(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        if not any(has_user_permission(db, current_user, code) for code in codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. One of the permissions {', '.join(codes)} is required.",
+            )
+        return current_user
+
+    return dependency
+
+
+EXTRACT = require_any_permission(*EXTRACT_CODES)
+SESSIONS_READ = require_any_permission(VIEW, *EXTRACT_CODES)
+
 import modules.smart_document_upload.service as service
 
 router = APIRouter(
@@ -39,15 +81,15 @@ async def upload_document_form(
     module_name: str = Form("clearance-quotation", description="Module name"),
     save_session: bool = Form(True, description="Save session record"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     validate_module_name(module_name)
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
+    file_type, content_bytes = await read_validated_upload(file)
     result = service.parse_uploaded_document(
         db=db,
         module_name=module_name,
-        filename=file.filename or "unknown",
+        filename=stored_filename(file.filename),
+        created_by=current_user.user_id,
         file_type=file_type,
         content_bytes=content_bytes,
         save_session=save_session,
@@ -66,15 +108,15 @@ async def upload_document_path(
     file: UploadFile = File(..., description="PDF, Word, or image file"),
     save_session: bool = Form(True, description="Save session record"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     validate_module_name(module)
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
+    file_type, content_bytes = await read_validated_upload(file)
     result = service.parse_uploaded_document(
         db=db,
         module_name=module,
-        filename=file.filename or "unknown",
+        filename=stored_filename(file.filename),
+        created_by=current_user.user_id,
         file_type=file_type,
         content_bytes=content_bytes,
         save_session=save_session,
@@ -93,6 +135,7 @@ async def parse_document_for_module(
     file: UploadFile = File(..., description="PDF, Word (.docx), or Excel (.xlsx) file"),
     save_session: bool = Form(True, description="Save this upload as a session record"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     """
     Universal smart document upload endpoint.
@@ -116,20 +159,15 @@ async def parse_document_for_module(
     # Validate module
     validate_module_name(module)
 
-    # Validate file type
-    file_type = validate_upload_file(file)
-
-    # Read file content
-    content_bytes = await file.read()
-
-    # Validate file size
-    validate_file_size(content_bytes, file.filename or "unknown")
+    # Validate type, bounded read (413 above 20 MB), size + magic bytes
+    file_type, content_bytes = await read_validated_upload(file)
 
     # Parse & extract
     result = service.parse_uploaded_document(
         db=db,
         module_name=module,
-        filename=file.filename or "unknown",
+        filename=stored_filename(file.filename),
+        created_by=current_user.user_id,
         file_type=file_type,
         content_bytes=content_bytes,
         save_session=save_session,
@@ -149,25 +187,26 @@ async def parse_multiple_documents_for_module(
     files: List[UploadFile] = File(..., description="List of PDF, Word (.docx), or Excel (.xlsx) files"),
     save_session: bool = Form(True, description="Save this multi-upload as a session record"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     """
     Multi-document smart upload endpoint.
     Accepts multiple files (e.g. Commercial Invoice + Packing List) and combines extracted text into a unified model.
     """
     validate_module_name(module)
+    validate_files_count(files)
     files_data = []
 
     for f in files:
-        file_type = validate_upload_file(f)
-        content_bytes = await f.read()
-        validate_file_size(content_bytes, f.filename or "unknown")
-        files_data.append((f.filename or "unknown", file_type, content_bytes))
+        file_type, content_bytes = await read_validated_upload(f)
+        files_data.append((stored_filename(f.filename), file_type, content_bytes))
 
     result = service.parse_multiple_uploaded_documents(
         db=db,
         module_name=module,
         files_data=files_data,
         save_session=save_session,
+        created_by=current_user.user_id,
     )
     return SmartUploadResponse(**result)
 
@@ -187,6 +226,7 @@ async def parse_text_for_module(
     raw_text: str = Form(..., description="Raw text block pasted by the user"),
     save_session: bool = Form(False, description="Save parse session"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     """
     Direct raw text parsing endpoint.
@@ -194,149 +234,19 @@ async def parse_text_for_module(
     and extracts structured entity fields (Company, Supplier, Partner, Bank).
     """
     validate_module_name(module)
+    validate_raw_text(raw_text)
     result = service.parse_raw_text_directly(
         db=db,
         module_name=module,
         raw_text=raw_text,
         save_session=save_session,
+        created_by=current_user.user_id,
     )
     return SmartUploadResponse(**result)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Convenience Module-Specific Endpoints
-# ─────────────────────────────────────────────────────────────────────────────
-
-@router.post(
-    "/parse/purchase-order",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Purchase Order fields from uploaded document",
-)
-async def parse_purchase_order(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload a Commercial Invoice or PO document to auto-fill Purchase Order form."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="purchase-order", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
-
-
-@router.post(
-    "/parse/cargo-shipping",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Bill of Lading fields from uploaded document",
-)
-async def parse_cargo_shipping(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload a Bill of Lading PDF to auto-fill Cargo Shipping record."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="cargo-shipping", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
-
-
-@router.post(
-    "/parse/customs-clearance",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Customs Declaration fields from uploaded document",
-)
-async def parse_customs_clearance(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload a Customs Declaration (بيان جمركي) PDF to auto-fill Customs Clearance record."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="customs-clearance", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
-
-
-@router.post(
-    "/parse/import-file",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Import File fields from Commercial Invoice",
-)
-async def parse_import_file(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload a Commercial Invoice to auto-fill Import File record."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="import-file", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
-
-
-@router.post(
-    "/parse/coo-certificate",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Certificate of Origin fields",
-)
-async def parse_coo_certificate(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload a Certificate of Origin to auto-fill COO Review fields."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="coo-certificate", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
-
-
-@router.post(
-    "/parse/inspection-certificate",
-    response_model=SmartUploadResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Extract Inspection Certificate fields",
-)
-async def parse_inspection_certificate(
-    file: UploadFile = File(...),
-    save_session: bool = Form(True),
-    db: Session = Depends(get_db),
-):
-    """Upload an Inspection Certificate to auto-fill Inspection Review fields."""
-    file_type = validate_upload_file(file)
-    content_bytes = await file.read()
-    validate_file_size(content_bytes, file.filename or "unknown")
-    result = service.parse_uploaded_document(
-        db=db, module_name="inspection-certificate", filename=file.filename or "unknown",
-        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
-    )
-    return SmartUploadResponse(**result)
+# The former /parse/purchase-order, /parse/cargo-shipping ... routes were unreachable (``/parse/{module}`` is
+# registered first and serves the same URLs) and have been removed (SDU-07).
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -351,32 +261,13 @@ async def parse_inspection_certificate(
 )
 def list_upload_sessions(
     module_name: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_user: User = Depends(SESSIONS_READ),
 ):
     """List smart upload sessions, optionally filtered by module name."""
-    sessions = service.get_upload_sessions_service(db, module_name=module_name, skip=skip, limit=limit)
-    result = []
-    for s in sessions:
-        d = {
-            "id": s.id,
-            "session_ref": s.session_ref,
-            "module_name": s.module_name,
-            "filename": s.filename,
-            "file_type": s.file_type,
-            "file_size_bytes": s.file_size_bytes,
-            "extraction_status": s.extraction_status,
-            "confidence_score": s.confidence_score or 0.0,
-            "extracted_fields": s.get_extracted_fields(),
-            "missing_fields": s.get_missing_fields(),
-            "extraction_notes": s.extraction_notes,
-            "linked_record_id": s.linked_record_id,
-            "linked_module": s.linked_module,
-            "created_at": s.created_at,
-        }
-        result.append(UploadSessionResponse(**d))
-    return result
+    return service.get_upload_sessions_service(db, module_name=module_name, skip=skip, limit=limit)
 
 
 @router.get(
@@ -385,26 +276,15 @@ def list_upload_sessions(
     status_code=status.HTTP_200_OK,
     summary="Get a specific upload session by ID",
 )
-def get_upload_session(session_id: int, db: Session = Depends(get_db)):
+def get_upload_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(SESSIONS_READ),
+):
     s = service.get_upload_session_by_id_service(db, session_id)
     if not s:
-        raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
-    return UploadSessionResponse(
-        id=s.id,
-        session_ref=s.session_ref,
-        module_name=s.module_name,
-        filename=s.filename,
-        file_type=s.file_type,
-        file_size_bytes=s.file_size_bytes,
-        extraction_status=s.extraction_status,
-        confidence_score=s.confidence_score or 0.0,
-        extracted_fields=s.get_extracted_fields(),
-        missing_fields=s.get_missing_fields(),
-        extraction_notes=s.extraction_notes,
-        linked_record_id=s.linked_record_id,
-        linked_module=s.linked_module,
-        created_at=s.created_at,
-    )
+        raise HTTPException(status_code=404, detail=f"جلسة الرفع رقم {session_id} غير موجودة.")
+    return s
 
 
 @router.delete(
@@ -412,10 +292,14 @@ def get_upload_session(session_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Soft-delete an upload session",
 )
-def delete_upload_session(session_id: int, db: Session = Depends(get_db)):
+def delete_upload_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(UPLOAD)),
+):
     deleted = service.soft_delete_upload_session_service(db, session_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
+        raise HTTPException(status_code=404, detail=f"جلسة الرفع رقم {session_id} غير موجودة.")
     return {"message": f"Upload session {session_id} deleted successfully."}
 
 
@@ -442,13 +326,16 @@ async def extract_commercial_invoice_endpoint(
     file: Optional[UploadFile] = File(None, description="Invoice file (PDF, Excel, Word)"),
     raw_text: Optional[str] = Form(None, description="Pasted invoice text"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     """Extracts structured commercial invoice data with line items from file or text."""
     filename = "invoice.txt"
     content_bytes = None
+    validate_raw_text(raw_text)
     if file:
-        filename = file.filename or "invoice.pdf"
-        content_bytes = await file.read()
+        filename = stored_filename(file.filename or "invoice.pdf")
+        # Same chain as /parse (SDU-02): extension whitelist, bounded read, 20 MB, magic bytes.
+        _, content_bytes = await read_validated_upload(file)
 
     return service.extract_commercial_invoice_service(
         filename=filename,
@@ -467,13 +354,16 @@ async def extract_bill_of_lading_endpoint(
     file: Optional[UploadFile] = File(None, description="Bill of Lading or AWB file"),
     raw_text: Optional[str] = Form(None, description="Pasted B/L text"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
 ):
     """Extracts structured Bill of Lading / Air Waybill data with container details."""
     filename = "bill_of_lading.txt"
     content_bytes = None
+    validate_raw_text(raw_text)
     if file:
-        filename = file.filename or "bill_of_lading.pdf"
-        content_bytes = await file.read()
+        filename = stored_filename(file.filename or "bill_of_lading.pdf")
+        # Same chain as /parse (SDU-02): extension whitelist, bounded read, 20 MB, magic bytes.
+        _, content_bytes = await read_validated_upload(file)
 
     return service.extract_bill_of_lading_service(
         filename=filename,
@@ -489,24 +379,19 @@ async def extract_bill_of_lading_endpoint(
     summary="Run 10-point cross-comparison audit between Invoice and B/L",
 )
 def cross_check_invoice_vs_bl_endpoint(
-    payload: dict,
+    payload: CrossCheckRequest,
+    current_user: User = Depends(EXTRACT),
 ):
     """
     Compares commercial invoice data against B/L data.
     Validates ACID, Importer Tax ID, weight variance, Incoterms, and ports.
     """
-    invoice_data = payload.get("invoice_data") or {}
-    bl_data = payload.get("bl_data") or {}
-    system_data = payload.get("system_data") or {}
-    packing_list_data = payload.get("packing_list_data") or {}
-    tolerance = float(payload.get("weight_tolerance_pct", 3.0))
-
     return service.cross_check_invoice_and_bl_service(
-        invoice_data=invoice_data,
-        bl_data=bl_data,
-        weight_tolerance_pct=tolerance,
-        system_data=system_data,
-        packing_list_data=packing_list_data,
+        invoice_data=payload.invoice_data or {},
+        bl_data=payload.bl_data or {},
+        weight_tolerance_pct=payload.weight_tolerance_pct,
+        system_data=payload.system_data or {},
+        packing_list_data=payload.packing_list_data or {},
     )
 
 
@@ -516,16 +401,11 @@ def cross_check_invoice_vs_bl_endpoint(
     summary="Apply extracted invoice data to an ImportFile",
 )
 def apply_extracted_invoice_endpoint(
-    payload: dict,
+    payload: ApplyInvoiceRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
-    import_file_id = payload.get("import_file_id")
-    invoice_data = payload.get("invoice_data") or {}
-    return service.apply_extracted_invoice_service(
-        db=db,
-        import_file_id=import_file_id,
-        invoice_data=invoice_data,
-    )
+    return service.apply_extracted_invoice_service(db=db, payload=payload, user=current_user.username)
 
 
 @router.post(
@@ -534,14 +414,8 @@ def apply_extracted_invoice_endpoint(
     summary="Apply extracted B/L data and containers to CargoShipping",
 )
 def apply_extracted_bl_endpoint(
-    payload: dict,
+    payload: ApplyBLRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_shipping.update")),
 ):
-    import_file_id = payload.get("import_file_id")
-    bl_data = payload.get("bl_data") or {}
-    return service.apply_extracted_bl_service(
-        db=db,
-        import_file_id=import_file_id,
-        bl_data=bl_data,
-    )
-
+    return service.apply_extracted_bl_service(db=db, payload=payload, user=current_user.username)

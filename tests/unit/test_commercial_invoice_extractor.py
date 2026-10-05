@@ -6,6 +6,8 @@ from modules.smart_document_upload.service import (
 )
 from database.database import get_db, SessionLocal
 from modules.import_files.model import ImportFile
+from modules.incoterms.model import Incoterm
+from modules.smart_document_upload.schemas import ApplyInvoiceRequest
 
 
 SAMPLE_INVOICE_TEXT = """
@@ -81,13 +83,19 @@ class TestCommercialInvoiceExtractor:
             db.commit()
             db.refresh(import_file)
 
+            # SDU-01: the Incoterm is validated against the incoterms master table.
+            if db.query(Incoterm).filter(Incoterm.incoterm_code == "FOB").first() is None:
+                db.add(Incoterm(incoterm_code="FOB", incoterm_name="Free On Board"))
+                db.commit()
+
             extractor = CommercialInvoiceExtractor()
             data = extractor.extract(SAMPLE_INVOICE_TEXT, {})
 
+            # SDU-01: typed request body (same keys as the extractor output).
             apply_res = apply_extracted_invoice_service(
                 db=db,
-                import_file_id=import_file.import_file_id,
-                invoice_data=data,
+                payload=ApplyInvoiceRequest(import_file_id=import_file.import_file_id, invoice_data=data),
+                user="tester",
             )
 
             assert apply_res["applied"] is True

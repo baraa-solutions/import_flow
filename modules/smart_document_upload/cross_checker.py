@@ -10,6 +10,25 @@ import difflib
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+# English templates of the cross-check issues (SDU-06). The codes are a shared need (XCHK_*, see
+# docs/plans/review-shared-needs.md); until they are registered the English letter is rendered from here.
+XCHK_TEMPLATES_EN: Dict[str, str] = {
+    "XCHK_ACID_MISMATCH": "ACID number mismatch between the commercial invoice and the bill of lading",
+    "XCHK_TAX_ID_MISMATCH": "Egyptian importer tax ID mismatch between the invoice and the bill of lading",
+    "XCHK_SHIPPER_MISMATCH": "Shipper / exporter name differs (similarity {similarity_pct}%)",
+    "XCHK_CONSIGNEE_MISMATCH": "Consignee / importer name differs (similarity {similarity_pct}%)",
+    "XCHK_WEIGHT_OVER": "Gross weight variance of {diff_kg} kg ({variance_pct}%) exceeds the allowed tolerance ({tolerance_pct}%)",
+    "XCHK_WEIGHT_MINOR": "Minor gross weight difference of {diff_kg} kg ({variance_pct}%) within the accepted tolerance",
+    "XCHK_PORTS_MISMATCH": "Port of loading or port of discharge does not fully match",
+    "XCHK_INCOTERM_PREPAID_CONFLICT": "Shipping terms conflict: invoice term {incoterm} but the bill of lading is Freight Prepaid",
+    "XCHK_INCOTERM_COLLECT_CONFLICT": "Shipping terms conflict: invoice term {incoterm} includes freight but the bill of lading is Freight Collect",
+    "XCHK_PACKAGES_MISMATCH": "Package count differs between the invoice ({invoice_packages}) and the bill of lading ({bl_packages})",
+}
+
+
+def render_issue_en(code: str, params: Dict[str, Any]) -> str:
+    return XCHK_TEMPLATES_EN[code].format(**params)
+
 
 def cross_check_invoice_vs_bl(
     invoice_data: Dict[str, Any],
@@ -25,6 +44,10 @@ def cross_check_invoice_vs_bl(
     matrix: List[Dict[str, Any]] = []
     critical_errors: List[str] = []
     warnings: List[str] = []
+    issues: List[Dict[str, Any]] = []  # language-neutral twin of critical_errors + warnings: {code, params, severity}
+
+    def issue(code: str, severity: str, **params: Any) -> None:
+        issues.append({"code": code, "params": params, "severity": severity})
 
     sys_d = system_data or {}
     pl_d = packing_list_data or {}
@@ -54,6 +77,7 @@ def cross_check_invoice_vs_bl(
             acid_match = False
         if not acid_match:
             critical_errors.append("عدم تطابق رقم القيد الجمركي المسبق (ACID) بين الفاتورة والبوليصة")
+            issue("XCHK_ACID_MISMATCH", "critical")
             acid_status = "CRITICAL"
             acid_severity = "BLOCKING"
             acid_details = "❌ عدم تطابق رقم ACID يؤدي لرفض الشحنة وإلزام إعادة التصدير من الجمارك المصرية."
@@ -99,6 +123,7 @@ def cross_check_invoice_vs_bl(
         tax_match = bool(inv_tax and bl_tax and inv_tax == bl_tax)
         if not tax_match and inv_tax and bl_tax:
             critical_errors.append("عدم تطابق البطاقة الضريبية للمستورد المصري")
+            issue("XCHK_TAX_ID_MISMATCH", "critical")
         tax_status = "PASS" if tax_match else ("WARNING" if not bl_tax else "CRITICAL")
         tax_severity = "WARNING" if not bl_tax else ("NONE" if tax_match else "BLOCKING")
         tax_details = "رقم التسجيل الضريبي للمستورد مطابق" if tax_match else "ينصح بتضمين البطاقة الضريبية للمستورد في خانة Consignee بالبوليصة لتسريع الربط بنافذة."
@@ -126,6 +151,7 @@ def cross_check_invoice_vs_bl(
     shp_match, shp_sim = _fuzzy_match(inv_shp, bl_shp)
     if not shp_match and inv_shp and bl_shp:
         warnings.append(f"اختلاف مسمى المصدر/الشاحن (نسبة التطابق {int(shp_sim * 100)}%)")
+        issue("XCHK_SHIPPER_MISMATCH", "warning", similarity_pct=int(shp_sim * 100))
 
     sources_shp = {}
     if sys_shp: sources_shp["System"] = sys_shp
@@ -157,6 +183,7 @@ def cross_check_invoice_vs_bl(
     cns_match, cns_sim = _fuzzy_match(inv_cns, bl_cns)
     if not cns_match and inv_cns and bl_cns:
         warnings.append(f"اختلاف مسمى المستورد / المرسل إليه (نسبة التطابق {int(cns_sim * 100)}%)")
+        issue("XCHK_CONSIGNEE_MISMATCH", "warning", similarity_pct=int(cns_sim * 100))
 
     sources_cns = {}
     if sys_cns: sources_cns["System"] = sys_cns
@@ -199,10 +226,12 @@ def cross_check_invoice_vs_bl(
             weight_status = "CRITICAL"
             disagreeing_gw = ["Invoice", "B/L"]
             critical_errors.append(f"انحراف في الوزن الإجمالي بمقدار {weight_diff_kg} كجم ({weight_var_pct}%) يتجاوز النسبة المسموحة ({weight_tolerance_pct}%)")
+            issue("XCHK_WEIGHT_OVER", "critical", diff_kg=weight_diff_kg, variance_pct=weight_var_pct, tolerance_pct=weight_tolerance_pct)
             weight_details = f"❌ تجاوز نسبة التفاوت المسموحة ({weight_tolerance_pct}%): فرق الوزن {weight_diff_kg} كجم قد يسبب محاضر فرق وزن وتعديل الإقرار الجمركي."
         elif weight_var_pct > 0:
             weight_status = "WARNING"
             warnings.append(f"فرق وزن طفيف {weight_diff_kg} كجم ({weight_var_pct}%) ضمن حدود التفاوت المقبولة")
+            issue("XCHK_WEIGHT_MINOR", "warning", diff_kg=weight_diff_kg, variance_pct=weight_var_pct)
             weight_details = f"⚠️ تفاوت طفيف مقداره {weight_diff_kg} كجم ({weight_var_pct}%) يقع ضمن النسبة المسموح بها."
         else:
             weight_details = "الوزن القائم متطابق تماماً بين الفاتورة وبوليصة الشحن."
@@ -244,6 +273,7 @@ def cross_check_invoice_vs_bl(
     ports_ok = pol_match and pod_match
     if not ports_ok and (inv_pol or inv_pod):
         warnings.append("عدم تطابق تام في مسمى ميناء الشحن أو التفريغ")
+        issue("XCHK_PORTS_MISMATCH", "warning")
 
     matrix.append({
         "check_code": "CHK_PORTS",
@@ -274,6 +304,7 @@ def cross_check_invoice_vs_bl(
         if "PREPAID" in freight_term:
             incoterm_conflict = True
             critical_errors.append(f"تعارض شروط الشحن: الفاتورة شرطها {incoterm} بينما البوليصة مدفوعة مسبقاً (Freight Prepaid)!")
+            issue("XCHK_INCOTERM_PREPAID_CONFLICT", "critical", incoterm=incoterm)
             incoterm_details = f"❌ تعارض حرج: شرط الفاتورة {incoterm} يلزم أن يكون النولون Freight Collect (سداد في ميناء الوصول) لتفادي احتساب نولون مزدوج."
         else:
             incoterm_details = f"شرط التعاقد {incoterm} متوافق مع سداد النولون في الوصول ({freight_term})."
@@ -281,6 +312,7 @@ def cross_check_invoice_vs_bl(
         if "COLLECT" in freight_term:
             incoterm_conflict = True
             critical_errors.append(f"تعارض شروط الشحن: الفاتورة شرطها {incoterm} شاملة النولون بينما البوليصة مستحقة التحصيل (Freight Collect)!")
+            issue("XCHK_INCOTERM_COLLECT_CONFLICT", "critical", incoterm=incoterm)
             incoterm_details = f"❌ تعارض حرج: شرط الفاتورة {incoterm} يتضمن النولون، ولا يجوز أن تكون البوليصة Freight Collect."
         else:
             incoterm_details = f"شرط التعاقد {incoterm} متوافق مع سداد النولون مسبقاً ({freight_term})."
@@ -309,6 +341,7 @@ def cross_check_invoice_vs_bl(
     if inv_pkgs and bl_pkgs and inv_pkgs != bl_pkgs:
         pkgs_match = False
         warnings.append(f"اختلاف عدد الطرود بين الفاتورة ({inv_pkgs}) والبوليصة ({bl_pkgs})")
+        issue("XCHK_PACKAGES_MISMATCH", "warning", invoice_packages=str(inv_pkgs), bl_packages=str(bl_pkgs))
 
     matrix.append({
         "check_code": "CHK_PACKAGES",
@@ -386,6 +419,7 @@ def cross_check_invoice_vs_bl(
         bl_data=bl_data,
         critical_errors=critical_errors,
         warnings=warnings,
+        issues=issues,
     )
 
     return {
@@ -396,6 +430,7 @@ def cross_check_invoice_vs_bl(
         "warnings_count": len(warnings),
         "critical_errors": critical_errors,
         "warnings": warnings,
+        "issues": issues,
         "audit_matrix": matrix,
         "containers_count": len(bl_data.get("containers") or []),
         "items_count": len(invoice_data.get("items") or []),
@@ -471,13 +506,16 @@ def _generate_correction_letters(
     bl_data: dict,
     critical_errors: List[str],
     warnings: List[str],
+    issues: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, str]:
-    """Generates official discrepancy correction amendment notices in EN and AR."""
+    """Generates official discrepancy correction amendment notices: the English letter lists the English render
+    of the coded issues, the Arabic letter the Arabic lines (SDU-06)."""
     bl_no = bl_data.get("bl_number") or "N/A"
     inv_no = invoice_data.get("invoice_number") or "N/A"
     carrier = bl_data.get("carrier_name") or "Shipping Line"
 
-    issues_en = "\n".join([f"- {err}" for err in critical_errors + warnings]) or "- Discrepancies noted in draft review."
+    ordered = sorted(issues or [], key=lambda i: 0 if i["severity"] == "critical" else 1)
+    issues_en = "\n".join(f"- {render_issue_en(i['code'], i['params'])}" for i in ordered) or "- Discrepancies noted in draft review."
     issues_ar = "\n".join([f"- {err}" for err in critical_errors + warnings]) or "- ملاحظات تدقيق البوليصة والفاتورة."
 
     letter_en = f"""URGENT: B/L DRAFT AMENDMENT REQUEST FOR CUSTOMS CLEARANCE

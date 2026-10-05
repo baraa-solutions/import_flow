@@ -7,6 +7,7 @@ from modules.smart_document_upload.service import (
 from database.database import SessionLocal
 from modules.cargo_shipping.model import CargoShippingRecord
 from modules.import_files.model import ImportFile
+from modules.smart_document_upload.schemas import ApplyBLRequest
 
 
 
@@ -114,10 +115,11 @@ class TestBillOfLadingExtractor:
             extractor = CargoShippingExtractor()
             data = extractor.extract(SAMPLE_OCEAN_BL_TEXT, {})
 
+            # SDU-01: typed request body (same keys as the extractor output).
             apply_res = apply_extracted_bl_service(
                 db=db,
-                import_file_id=imp.import_file_id,
-                bl_data=data,
+                payload=ApplyBLRequest(import_file_id=imp.import_file_id, bl_data=data),
+                user="tester",
             )
 
             assert apply_res["applied"] is True

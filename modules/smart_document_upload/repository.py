@@ -5,21 +5,17 @@ CRUD operations for upload_sessions table.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from modules.common.sequence_generator import next_yearly_code
 from modules.smart_document_upload.model import UploadSession
 
 
 def _generate_session_ref(db: Session) -> str:
-    """Generate a unique business reference like UPLOAD-2026-00001."""
-    year = datetime.now().year
-    count = db.query(UploadSession).filter(
-        UploadSession.session_ref.like(f"UPLOAD-{year}-%")
-    ).count()
-    return f"UPLOAD-{year}-{(count + 1):05d}"
+    """Next ``UPLOAD-<year>-NNNNN`` (highest suffix + 1, SDU-05). The unique constraint stays the guard."""
+    return next_yearly_code(db, UploadSession.session_ref, "UPLOAD", pad=5)
 
 
 def create_upload_session(
@@ -54,8 +50,7 @@ def create_upload_session(
     record.set_extracted_fields(extracted_fields)
     record.set_missing_fields(missing_fields)
     db.add(record)
-    db.commit()
-    db.refresh(record)
+    db.flush()
     return record
 
 
@@ -84,5 +79,5 @@ def soft_delete_upload_session(db: Session, session_id: int) -> bool:
     if not record:
         return False
     record.is_active = 0
-    db.commit()
+    db.flush()
     return True
