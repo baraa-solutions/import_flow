@@ -180,7 +180,7 @@ void main() {
       // Verify Summary Banner
       expect(find.text('رقم سداد الرسوم'), findsOneWidget);
       expect(find.text('SADAD-2026-998811'), findsWidgets);
-      expect(find.text('165801.50 ج.م'), findsOneWidget);
+      expect(find.text('165,801.50 ج.م'), findsOneWidget);
 
       // Verify Form Section Headers
       expect(find.text('بيانات إذن الإفراج الجمركي الأخضر (MTS Release Permit)'), findsOneWidget);

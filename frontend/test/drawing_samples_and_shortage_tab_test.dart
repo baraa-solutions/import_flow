@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/widgets/metric_card.dart';
 import 'package:frontend/features/customs_clearance/widgets/drawing_samples_and_shortage_tab.dart';
 
 void main() {
@@ -192,7 +193,12 @@ void main() {
       expect(find.text('Print PDF Dossier'), findsOneWidget);
       expect(find.text('Copy Complete Dossier'), findsOneWidget);
       expect(find.text('Total Drawn Samples'), findsOneWidget);
-      expect(find.text('Compliant & Passed'), findsOneWidget);
+      // The same label is also the PASSED status badge in the samples table,
+      // so scope the KPI assertion to the metric strip.
+      expect(
+        find.descendant(of: find.byType(MetricCardStrip), matching: find.text('Compliant & Passed')),
+        findsOneWidget,
+      );
       expect(find.text('Pending Laboratory Analysis'), findsOneWidget);
       expect(find.text('Documented Shortage Cases'), findsOneWidget);
     });

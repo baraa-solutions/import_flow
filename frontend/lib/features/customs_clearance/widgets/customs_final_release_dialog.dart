@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
-import '../../../core/localization/domain_enum_labels.dart';
-import '../../../core/localization/app_localizations.dart';
+import 'cc_dialog_shell.dart';
+import 'customs_ui.dart';
 
 /// Modal dialog for CL-04: Final Customs Release Order
-/// صدور إذن الإفراج الجمركي الأخضر وبدء إجراءات النقل للمخازن
+/// (green release permit and start of the transport to the warehouses).
 class CustomsFinalReleaseDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
   final CustomsClearanceModel? clearanceRecord;
@@ -150,19 +155,6 @@ class _CustomsFinalReleaseDialogState
       initialDate: _releaseDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      locale: const Locale('ar', 'EG'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.emerald,
-              onPrimary: Colors.white,
-              onSurface: AppTheme.charcoal,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => _releaseDate = picked);
@@ -175,19 +167,6 @@ class _CustomsFinalReleaseDialogState
       initialDate: _portGateOutDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      locale: const Locale('ar', 'EG'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.emerald,
-              onPrimary: Colors.white,
-              onSurface: AppTheme.charcoal,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => _portGateOutDate = picked);
@@ -198,6 +177,9 @@ class _CustomsFinalReleaseDialogState
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     setState(() => _isSubmitting = true);
 
@@ -228,38 +210,25 @@ class _CustomsFinalReleaseDialogState
             ? _notesController.text.trim()
             : null,
       };
+      final permit = _releasePermitNoController.text.trim();
 
       await ref
           .read(customsClearanceProvider.notifier)
           .issueFinalRelease(payload);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'تم صدور إذن الإفراج الجمركي الأخضر برقم (${_releasePermitNoController.text.trim()}) وتفويض النقل بنجاح! تم تنشيط مهام النقل للمخازن (TR-01 & TR-02).',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 4),
-          ),
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, l.ccRelSuccess(permit), severity: AppSeverity.success),
         );
-        Navigator.of(context).pop(true);
+        navigator.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء إصدار إذن الإفراج: $e'),
-            backgroundColor: AppTheme.crimson,
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccRelError(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -270,495 +239,226 @@ class _CustomsFinalReleaseDialogState
     }
   }
 
+  InputDecoration _dec(String label, {String? hint, IconData? icon, Widget? suffix}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: icon == null ? null : Icon(icon),
+        suffixIcon: suffix,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth > 920 ? 880.0 : screenWidth * 0.95;
+    final l = context.l10n;
     final rec = widget.clearanceRecord;
     final file = widget.file;
 
     final decl46 = rec?.declaration46No ?? file.form46No ?? '-';
     final sadadNo = rec?.sadadNumber ?? file.customsDutySadadNo ?? '-';
-    final paidAmount = (rec != null && rec.dutyPaidAmount > 0)
-        ? rec.dutyPaidAmount
+    final paidAmount = (rec != null && (rec.dutyPaidAmount ?? 0) > 0)
+        ? rec.dutyPaidAmount!
         : (file.customsDutyPaidAmount > 0)
             ? file.customsDutyPaidAmount
-            : ((rec != null && rec.actualDutyTotal > 0) ? rec.actualDutyTotal : 0.0);
+            : ((rec != null && (rec.actualDutyTotal ?? 0) > 0) ? rec.actualDutyTotal! : 0.0);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
+    return CcStageDialogShell(
+      title: l.ccRelTitle,
+      icon: Icons.verified_outlined,
+      accent: AppTheme.emerald,
+      chips: [
+        CcHeaderChip(Icons.folder_outlined, l.ccRelChipFile(file.primaryNameWithCode)),
+        CcHeaderChip(Icons.description_outlined, l.ccRelChipDecl(decl46)),
+      ],
+      confirmKey: const Key('customsFinalReleaseSubmitBtn'),
+      confirmLabel: l.ccRelConfirm,
+      loadingLabel: l.ccRelConfirming,
+      confirmIcon: Icons.verified,
+      isSubmitting: _isSubmitting,
+      onConfirm: _submitFinalRelease,
+      body: Form(
+        key: _formKey,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Status summary
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: AppTheme.emerald,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              padding: const EdgeInsetsDirectional.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                border: Border.all(color: AppTheme.emeraldBorder),
               ),
-              child: Row(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.verified_outlined,
-                      color: Colors.white,
-                      size: 26,
-                    ),
+                  _buildInfoChip(icon: Icons.receipt_long, label: l.ccRelSumDecl, value: decl46),
+                  _buildInfoChip(icon: Icons.payment, label: l.ccRelSumSadad, value: sadadNo),
+                  _buildInfoChip(
+                    icon: Icons.price_check,
+                    label: l.ccRelSumPaid,
+                    value: '${CcFormat.money(paidAmount)} ${l.ccCurrencyShort}',
+                    isHighlight: true,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'صدور إذن الإفراج الجمركي الأخضر وبدء النقل (CL-04)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'ملف: ${file.primaryNameWithCode} | شهادة 46: $decl46',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
+                  _buildInfoChip(
+                    icon: Icons.anchor,
+                    label: l.ccRelSumPort,
+                    value: file.portOfDischarge ?? '-',
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
 
-            // Scrollable Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            CcFormSection(
+              title: l.ccRelPermitSection,
+              icon: Icons.fact_check,
+              accent: AppTheme.emerald,
+              child: Column(
+                children: [
+                  CcFieldRow(
                     children: [
-                      // Status Summary Card
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.emerald.withOpacity(0.25),
-                          ),
-                        ),
-                        child: Wrap(
-                          spacing: 16,
-                          runSpacing: 12,
-                          alignment: WrapAlignment.spaceBetween,
-                          children: [
-                            _buildInfoChip(
-                              icon: Icons.receipt_long,
-                              label: 'رقم الإقرار (شهادة 46)',
-                              value: decl46,
-                            ),
-                            _buildInfoChip(
-                              icon: Icons.payment,
-                              label: 'رقم سداد الرسوم',
-                              value: sadadNo,
-                            ),
-                            _buildInfoChip(
-                              icon: Icons.price_check,
-                              label: 'الرسوم المسددة',
-                              value: '${paidAmount.toStringAsFixed(2)} ج.م',
-                              isHighlight: true,
-                            ),
-                            _buildInfoChip(
-                              icon: Icons.anchor,
-                              label: 'ميناء الوصول',
-                              value: file.portOfDischarge ?? 'ميناء الدخيلة',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Section Title: إذن الإفراج
-                      _buildSectionHeader(
-                        icon: Icons.fact_check,
-                        title: 'بيانات إذن الإفراج الجمركي الأخضر (MTS Release Permit)',
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Permit Number & Release Date
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('releasePermitNoField'),
-                              controller: _releasePermitNoController,
-                              decoration: InputDecoration(
-                                labelText: 'رقم إذن الإفراج الأخضر *',
-                                hintText: 'مثال: REL-2026-0004',
-                                prefixIcon: const Icon(Icons.confirmation_number_outlined),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
-                                  tooltip: 'توليد رقم إذن تلقائي',
-                                  onPressed: _generatePermitNumber,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'رقم إذن الإفراج إلزامي';
-                                }
-                                if (val.trim().length < 3) {
-                                  return 'الرقم قصير جداً';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: InkWell(
-                              onTap: _pickReleaseDate,
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'تاريخ صدور الإفراج *',
-                                  prefixIcon: const Icon(Icons.calendar_today),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  '${_releaseDate.year}-${_releaseDate.month.toString().padLeft(2, '0')}-${_releaseDate.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Officer Name & Release Type
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('releaseOfficerField'),
-                              controller: _releaseOfficerController,
-                              decoration: InputDecoration(
-                                labelText: 'اسم مأمور الجمرك / المفرج',
-                                hintText: 'اسم المفتش أو مأمور الإفراج',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: _releaseType,
-                              decoration: InputDecoration(
-                                labelText: 'نوع الإفراج الجمركي',
-                                prefixIcon: const Icon(Icons.category_outlined),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              items: _releaseTypes.map((type) {
-                                return DropdownMenuItem(
-                                  value: type,
-                                  child: Text(
-                                    DomainEnums.label(context.l10n, DomainEnumType.releaseType, type),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _releaseType = val);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Section Title: تصريح بوابة الميناء والنقل
-                      _buildSectionHeader(
-                        icon: Icons.local_shipping,
-                        title: 'تصريح خروج البوابة وإجراءات النقل الداخلي (Port Gate-Out & Transport)',
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Gate Pass Number & Gate Out Date
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('gatePassNoField'),
-                              controller: _gatePassNoController,
-                              decoration: InputDecoration(
-                                labelText: 'رقم تصريح الخروج من بوابة الميناء (Gate Pass)',
-                                hintText: 'مثال: GP-2026-0004',
-                                prefixIcon: const Icon(Icons.vpn_key_outlined),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
-                                  tooltip: 'توليد رقم تصريح تلقائي',
-                                  onPressed: _generateGatePassNumber,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: InkWell(
-                              onTap: _pickGateOutDate,
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'تاريخ الخروج من الميناء',
-                                  prefixIcon: const Icon(Icons.departure_board),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  _portGateOutDate != null
-                                      ? '${_portGateOutDate!.year}-${_portGateOutDate!.month.toString().padLeft(2, '0')}-${_portGateOutDate!.day.toString().padLeft(2, '0')}'
-                                      : 'غير محدد',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Demurrage Storage Fees & Document URL
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('demurrageFeesField'),
-                              controller: _demurrageFeesController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: InputDecoration(
-                                labelText: 'رسوم الأرضيات وغرامات التأخير إن وجدت (ج.م)',
-                                hintText: '0.00',
-                                prefixIcon: const Icon(Icons.attach_money),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              validator: (val) {
-                                if (val != null && val.trim().isNotEmpty) {
-                                  final numVal = double.tryParse(val.trim());
-                                  if (numVal == null || numVal < 0) {
-                                    return 'أدخل مبلغاً صحيحاً';
-                                  }
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('documentUrlField'),
-                              controller: _documentUrlController,
-                              decoration: InputDecoration(
-                                labelText: 'رابط ملف إذن الإفراج (PDF / صورة)',
-                                hintText: 'https://...',
-                                prefixIcon: const Icon(Icons.link),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Dispatch Authorization Switch
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _dispatchAuthorized
-                              ? AppTheme.emerald.withOpacity(0.08)
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _dispatchAuthorized
-                                ? AppTheme.emerald.withOpacity(0.4)
-                                : Colors.grey.shade300,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _dispatchAuthorized ? Icons.check_circle : Icons.pause_circle_outline,
-                              color: _dispatchAuthorized ? AppTheme.emerald : Colors.grey,
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'تصريح مغادرة ونقل الشحنة (Dispatch Authorization)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'تأكيد جاهزية الحاوية للشحن الداخلي وبدء توجيه أسطول النقل للمستودعات',
-                                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: _dispatchAuthorized,
-                              activeColor: AppTheme.emerald,
-                              onChanged: (val) => setState(() => _dispatchAuthorized = val),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Transport Instructions
                       TextFormField(
-                        key: const Key('transportInstructionsField'),
-                        controller: _transportInstructionsController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          labelText: 'تعليمات النقل والتوجيه لمخازن الشركة',
-                          hintText: 'تحديد موقع التعتيق، تعليمات السلامة الجمركية، وجهة التسليم...',
-                          prefixIcon: const Icon(Icons.navigation_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        key: const Key('releasePermitNoField'),
+                        controller: _releasePermitNoController,
+                        textDirection: TextDirection.ltr,
+                        decoration: _dec(
+                          l.ccRelPermitNoLabel,
+                          hint: l.ccRelPermitNoHint,
+                          icon: Icons.confirmation_number_outlined,
+                          suffix: IconButton(
+                            icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
+                            tooltip: l.ccRelPermitAuto,
+                            onPressed: _generatePermitNumber,
                           ),
                         ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return l.ccRelPermitRequired;
+                          if (val.trim().length < 3) return l.ccRelPermitTooShort;
+                          return null;
+                        },
                       ),
-                      const SizedBox(height: 16),
-
-                      // Notes
-                      TextFormField(
-                        key: const Key('notesField'),
-                        controller: _notesController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          labelText: 'ملاحظات وتوجيهات إضافية',
-                          hintText: 'أية توجيهات للمخلص الجمركي أو إدارة العمليات...',
-                          prefixIcon: const Icon(Icons.notes_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                      InkWell(
+                        onTap: _pickReleaseDate,
+                        child: InputDecorator(
+                          decoration: _dec(l.ccRelDateLabel, icon: Icons.calendar_today),
+                          child: LtrText(CcFormat.date(_releaseDate),
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  CcFieldRow(
+                    children: [
+                      TextFormField(
+                        key: const Key('releaseOfficerField'),
+                        controller: _releaseOfficerController,
+                        decoration: _dec(l.ccRelOfficerLabel, hint: l.ccRelOfficerHint, icon: Icons.person_outline),
+                      ),
+                      SearchableDropdownField<String>(
+                        value: _releaseType,
+                        isDense: false,
+                        isRequired: true,
+                        labelText: l.ccRelTypeLabel,
+                        decoration: _dec(l.ccRelTypeLabel, icon: Icons.category_outlined),
+                        items: _releaseTypes
+                            .map((type) => SearchableDropdownItem<String>(
+                                  value: type,
+                                  label: DomainEnums.label(l, DomainEnumType.releaseType, type),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _releaseType = val);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 20),
 
-            // Footer Actions
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            CcFormSection(
+              title: l.ccRelGateSection,
+              icon: Icons.local_shipping,
+              accent: AppTheme.emerald,
+              child: Column(
                 children: [
-                  TextButton.icon(
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: const Text('إلغاء'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
+                  CcFieldRow(
+                    children: [
+                      TextFormField(
+                        key: const Key('gatePassNoField'),
+                        controller: _gatePassNoController,
+                        textDirection: TextDirection.ltr,
+                        decoration: _dec(
+                          l.ccRelGatePassLabel,
+                          hint: l.ccRelGatePassHint,
+                          icon: Icons.vpn_key_outlined,
+                          suffix: IconButton(
+                            icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
+                            tooltip: l.ccRelGatePassAuto,
+                            onPressed: _generateGatePassNumber,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _pickGateOutDate,
+                        child: InputDecorator(
+                          decoration: _dec(l.ccRelGateOutDateLabel, icon: Icons.departure_board),
+                          child: _portGateOutDate != null
+                              ? LtrText(CcFormat.date(_portGateOutDate!),
+                                  style: const TextStyle(fontWeight: FontWeight.w600))
+                              : Text(l.ccRelNotSet, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  CcFieldRow(
+                    children: [
+                      TextFormField(
+                        key: const Key('demurrageFeesField'),
+                        controller: _demurrageFeesController,
+                        textDirection: TextDirection.ltr,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _dec(l.ccRelDemurrageLabel, hint: '0.00', icon: Icons.attach_money),
+                        validator: (val) {
+                          if (val != null && val.trim().isNotEmpty) {
+                            final numVal = double.tryParse(val.trim());
+                            if (numVal == null || numVal < 0) return l.ccRelAmountInvalid;
+                          }
+                          return null;
+                        },
+                      ),
+                      TextFormField(
+                        key: const Key('documentUrlField'),
+                        controller: _documentUrlController,
+                        textDirection: TextDirection.ltr,
+                        decoration: _dec(l.ccRelDocUrlLabel, hint: 'https://...', icon: Icons.link),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDispatchSwitch(l),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    key: const Key('transportInstructionsField'),
+                    controller: _transportInstructionsController,
+                    maxLines: 2,
+                    decoration: _dec(
+                      l.ccRelTransportLabel,
+                      hint: l.ccRelTransportHint,
+                      icon: Icons.navigation_outlined,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: ElevatedButton.icon(
-                      key: const Key('customsFinalReleaseSubmitBtn'),
-                      onPressed: _isSubmitting ? null : _submitFinalRelease,
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.verified, color: Colors.white),
-                      label: Text(
-                        _isSubmitting
-                            ? 'جاري إصدار الإفراج...'
-                            : 'إصدار إذن الإفراج النهائي وتفويض النقل',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    key: const Key('notesField'),
+                    controller: _notesController,
+                    maxLines: 2,
+                    decoration: _dec(l.ccRelNotesLabel, hint: l.ccRelNotesHint, icon: Icons.notes_outlined),
                   ),
                 ],
               ),
@@ -769,22 +469,45 @@ class _CustomsFinalReleaseDialogState
     );
   }
 
-  Widget _buildSectionHeader({required IconData icon, required String title}) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: AppTheme.emerald),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: AppTheme.charcoal,
+  Widget _buildDispatchSwitch(AppLocalizations l) {
+    final on = _dispatchAuthorized;
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: on ? AppTheme.severityBackgroundOf(context, AppSeverity.success) : AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: on ? AppTheme.emeraldBorder : AppTheme.borderOf(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            on ? Icons.check_circle : Icons.pause_circle_outline,
+            color: on ? AppTheme.emerald : AppTheme.textMutedOf(context),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.ccRelDispatchTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l.ccRelDispatchDesc,
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+          Switch(
+            value: _dispatchAuthorized,
+            activeThumbColor: AppTheme.emerald,
+            onChanged: (val) => setState(() => _dispatchAuthorized = val),
+          ),
+        ],
+      ),
     );
   }
 
@@ -794,34 +517,18 @@ class _CustomsFinalReleaseDialogState
     required String value,
     bool isHighlight = false,
   }) {
+    final color = isHighlight ? AppTheme.successForeground : AppTheme.textPrimaryOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: isHighlight ? AppTheme.emerald : Colors.black54,
-        ),
+        Icon(icon, size: 18, color: isHighlight ? AppTheme.emerald : AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: isHighlight ? AppTheme.emerald : AppTheme.charcoal,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+            LtrText(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
       ],

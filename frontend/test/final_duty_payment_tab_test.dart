@@ -98,15 +98,18 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('إجمالي الرسوم المطلوبة'), findsOneWidget);
-      expect(find.text('إجمالي الرسوم المسددة'), findsOneWidget);
+      // Design refresh: currency moved into the KPI titles; KPI values use
+      // CcFormat.money (thousands separators, no currency suffix).
+      expect(find.text('إجمالي الرسوم المطلوبة (جنيه)'), findsOneWidget);
+      expect(find.text('إجمالي الرسوم المسددة (جنيه)'), findsOneWidget);
       expect(find.text('مطالبات قيد السداد'), findsOneWidget);
-      expect(find.text('صافي الفروقات الجمركية'), findsOneWidget);
+      expect(find.text('صافي الفروقات الجمركية (جنيه)'), findsOneWidget);
 
-      // Total payable = 154200 + 210000 = 364200.00
-      expect(find.text('364200.00 جنيه مصري'), findsOneWidget);
-      // Total paid appears in KPI card and row 1
-      expect(find.text('154200.00 جنيه مصري'), findsNWidgets(2));
+      // Total payable = 154200 + 210000 = 364,200.00
+      expect(find.text('364,200.00'), findsOneWidget);
+      // Total paid appears in the KPI card and (with currency) in row 1
+      expect(find.text('154,200.00'), findsOneWidget);
+      expect(find.text('154,200.00 جنيه مصري'), findsOneWidget);
       // Pending count = 1
       expect(find.text('1'), findsOneWidget);
     });
@@ -210,10 +213,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Final Customs Duty Payment & Release Hub'), findsOneWidget);
-      expect(find.text('Total Duties Payable'), findsOneWidget);
-      expect(find.text('Total Duties Paid'), findsOneWidget);
+      expect(find.text('Total Duties Payable (EGP)'), findsOneWidget);
+      expect(find.text('Total Duties Paid (EGP)'), findsOneWidget);
       expect(find.text('Pending Settlements'), findsOneWidget);
-      expect(find.text('Net Duty Variance'), findsOneWidget);
+      expect(find.text('Net Duty Variance (EGP)'), findsOneWidget);
       expect(find.text('Export TSV'), findsOneWidget);
       expect(find.text('Export Excel'), findsOneWidget);
       expect(find.text('Print PDF'), findsOneWidget);

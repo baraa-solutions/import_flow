@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/ltr_text.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import 'cc_dialog_shell.dart';
+import 'customs_ui.dart';
 
 /// Modal dialog for CL-02: Final Duty & Tax Assessment
 /// احتساب الرسوم والضرائب الجمركية النهائية ومطابقة مطالبة نافذة MTS
@@ -80,9 +85,9 @@ class _FinalDutyAssessmentDialogState
       _labFees;
 
   double get _estimatedTotal {
-    if (widget.clearanceRecord != null &&
-        widget.clearanceRecord!.estimatedDutyTotal > 0) {
-      return widget.clearanceRecord!.estimatedDutyTotal;
+    final est = widget.clearanceRecord?.estimatedDutyTotal;
+    if (est != null && est > 0) {
+      return est;
     }
     return 0.0;
   }
@@ -104,48 +109,53 @@ class _FinalDutyAssessmentDialogState
       text: rec?.nafezaClaimNumber ?? '',
     );
     _cifBaseController = TextEditingController(
-      text: (rec != null && rec.cifBaseAmount > 0)
-          ? rec.cifBaseAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.cifBaseAmount ?? 0) > 0)
+          ? rec.cifBaseAmount!.toStringAsFixed(2)
           : '',
     );
     _exchangeRateController = TextEditingController(
-      text: (rec != null && rec.customsExchangeRate > 0)
-          ? rec.customsExchangeRate.toStringAsFixed(2)
-          : '48.50',
+      // No hard-coded rate (DOMAIN_RULES section 2): empty until the user enters the official customs rate.
+      // Null (unknown) and the legacy 1.0 placeholder are never pre-filled.
+      text: (rec != null &&
+              (rec.cifBaseAmount ?? 0) > 0 &&
+              (rec.customsExchangeRate ?? 0) > 0 &&
+              rec.customsExchangeRate != 1.0)
+          ? rec.customsExchangeRate!.toStringAsFixed(2)
+          : '',
     );
     _importDutyController = TextEditingController(
-      text: (rec != null && rec.importDutyAmount > 0)
-          ? rec.importDutyAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.importDutyAmount ?? 0) > 0)
+          ? rec.importDutyAmount!.toStringAsFixed(2)
           : '',
     );
     _vatController = TextEditingController(
-      text: (rec != null && rec.vatAmount > 0)
-          ? rec.vatAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.vatAmount ?? 0) > 0)
+          ? rec.vatAmount!.toStringAsFixed(2)
           : '',
     );
     _scheduleTaxController = TextEditingController(
-      text: (rec != null && rec.scheduleTaxAmount > 0)
-          ? rec.scheduleTaxAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.scheduleTaxAmount ?? 0) > 0)
+          ? rec.scheduleTaxAmount!.toStringAsFixed(2)
           : '0.00',
     );
     _devFeeController = TextEditingController(
-      text: (rec != null && rec.developmentFeeAmount > 0)
-          ? rec.developmentFeeAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.developmentFeeAmount ?? 0) > 0)
+          ? rec.developmentFeeAmount!.toStringAsFixed(2)
           : '0.00',
     );
     _serviceFeesController = TextEditingController(
-      text: (rec != null && rec.customsServiceFees > 0)
-          ? rec.customsServiceFees.toStringAsFixed(2)
+      text: (rec != null && (rec.customsServiceFees ?? 0) > 0)
+          ? rec.customsServiceFees!.toStringAsFixed(2)
           : '0.00',
     );
     _whtController = TextEditingController(
-      text: (rec != null && rec.whtAmount > 0)
-          ? rec.whtAmount.toStringAsFixed(2)
+      text: (rec != null && (rec.whtAmount ?? 0) > 0)
+          ? rec.whtAmount!.toStringAsFixed(2)
           : '0.00',
     );
     _labFeesController = TextEditingController(
-      text: (rec != null && rec.labServiceFees > 0)
-          ? rec.labServiceFees.toStringAsFixed(2)
+      text: (rec != null && (rec.labServiceFees ?? 0) > 0)
+          ? rec.labServiceFees!.toStringAsFixed(2)
           : '0.00',
     );
     _varianceReasonController = TextEditingController(
@@ -182,6 +192,9 @@ class _FinalDutyAssessmentDialogState
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     setState(() => _isSubmitting = true);
 
@@ -192,7 +205,7 @@ class _FinalDutyAssessmentDialogState
         'nafeza_claim_date': _claimDate.toIso8601String(),
         'cif_base_amount': _cifBase,
         'customs_exchange_rate':
-            double.tryParse(_exchangeRateController.text.trim()) ?? 1.0,
+            double.parse(_exchangeRateController.text.trim()),
         'import_duty_amount': _importDuty,
         'vat_amount': _vat,
         'schedule_tax_amount': _scheduleTax,
@@ -208,37 +221,26 @@ class _FinalDutyAssessmentDialogState
             ? _assessmentNotesController.text.trim()
             : null,
       };
+      final claim = _claimNumberController.text.trim();
+      final total = CcFormat.money(_calculatedTotal);
 
       await ref
           .read(customsClearanceProvider.notifier)
           .assessFinalDuties(payload);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'تم احتساب واعتماد الرسوم الجمركية بمطالبة #${_claimNumberController.text.trim()} بإجمالي (${_calculatedTotal.toStringAsFixed(2)} ج.م). تم الانتقال للمرحلة التالية: سداد الرسوم بسداد (CL-03).',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 4),
-          ),
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, l.ccAssessSuccess(claim, total), severity: AppSeverity.success),
         );
-        Navigator.of(context).pop(true);
+        navigator.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء اعتماد الرسوم الجمركية: $e'),
-            backgroundColor: AppTheme.crimson,
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccAssessError(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -249,455 +251,243 @@ class _FinalDutyAssessmentDialogState
     }
   }
 
+  InputDecoration _dec(String label, {String? hint, IconData? icon, String? suffixText}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: icon == null ? null : Icon(icon),
+        suffixText: suffixText,
+        border: const OutlineInputBorder(),
+      );
+
+  Widget _moneyField(
+    TextEditingController c,
+    String label,
+    IconData icon,
+    String cur, {
+    String? Function(String?)? validator,
+  }) =>
+      TextFormField(
+        controller: c,
+        textDirection: TextDirection.ltr,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: _dec(label, hint: '0.00', icon: icon, suffixText: cur),
+        onChanged: (_) => setState(() {}),
+        validator: validator,
+      );
+
+  String? Function(String?) _nonNegative(String requiredMsg, String invalidMsg) => (val) {
+        if (val == null || val.trim().isEmpty) return requiredMsg;
+        final parsed = double.tryParse(val.trim());
+        if (parsed == null || parsed < 0) return invalidMsg;
+        return null;
+      };
+
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final file = widget.file;
+    final cur = l.ccCurrencyShort;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      child: Container(
-        width: MediaQuery.of(context).size.width > 920
-            ? 900
-            : MediaQuery.of(context).size.width * 0.95,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.94,
+    return CcStageDialogShell(
+      title: l.ccAssessTitle,
+      icon: Icons.calculate_rounded,
+      accent: AppTheme.cobalt,
+      maxWidth: 900,
+      chips: [
+        CcHeaderChip(Icons.folder_outlined, l.ccAssessFileChip(file.importFileCode)),
+      ],
+      confirmLabel: l.ccAssessConfirm,
+      loadingLabel: l.ccDutyConfirming,
+      confirmIcon: Icons.check_circle_outline_rounded,
+      isSubmitting: _isSubmitting,
+      onConfirm: _submitAssessment,
+      footerLeading: Text(
+        l.ccAssessTotalDue(CcFormat.money(_calculatedTotal)),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.textPrimaryOf(context),
         ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      body: Form(
+        key: _formKey,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Dialog Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadiusDirectional.only(
-                  topStart: Radius.circular(16),
-                  topEnd: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.calculate_rounded,
-                      color: AppTheme.cobalt,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'احتساب الرسوم والضرائب الجمركية النهائية (CL-02)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Final Customs Duty & Tax Assessment — مطابقة المطالبة الجمركية بنظام نافذة MTS',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.75),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'ملف #${file.importFileCode}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+            Text(
+              l.ccAssessSubtitle,
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
             ),
-
-            // 2. Dialog Body
-            Expanded(
-              child: Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
+            const SizedBox(height: 14),
+            CcFormSection(
+              title: l.ccAssessClaimSection,
+              icon: Icons.receipt_long_rounded,
+              child: Column(
+                children: [
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Section 1: Nafeza Claim Info
-                      _buildSectionCard(
-                        title: 'بيانات المطالبة الجمركية بنظام نافذة MTS',
-                        icon: Icons.receipt_long_rounded,
-                        color: AppTheme.cobalt,
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _claimNumberController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'رقم المطالبة الجمركية بنظام نافذة *',
-                                      hintText: 'مثال: CLM-MTS-2026-998822',
-                                      prefixIcon: Icon(Icons.confirmation_number_outlined),
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'يرجى إدخال رقم المطالبة الجمركية';
-                                      }
-                                      if (val.trim().length < 3) {
-                                        return 'رقم المطالبة يجب ألا يقل عن 3 أحرف';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 1,
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _claimDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (picked != null) {
-                                        setState(() => _claimDate = picked);
-                                      }
-                                    },
-                                    child: InputDecorator(
-                                      decoration: const InputDecoration(
-                                        labelText: 'تاريخ المطالبة الجمركية *',
-                                        prefixIcon: Icon(Icons.calendar_today_outlined),
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      child: Text(
-                                        '${_claimDate.year}-${_claimDate.month.toString().padLeft(2, '0')}-${_claimDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _cifBaseController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'القيمة المقبولة جمركياً (CIF Base بالجنيه) *',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'القيمة الجمركية CIF مطلوبة';
-                                      }
-                                      final parsed = double.tryParse(val.trim());
-                                      if (parsed == null || parsed <= 0) {
-                                        return 'يرجى إدخال قيمة صحيحة أكبر من 0';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _exchangeRateController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'سعر الصرف الجمركي الرسمي *',
-                                      hintText: '48.50',
-                                      prefixIcon: Icon(Icons.currency_exchange_rounded),
-                                      suffixText: 'EGP/USD',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'سعر الصرف مطلوب';
-                                      }
-                                      final parsed = double.tryParse(val.trim());
-                                      if (parsed == null || parsed <= 0) {
-                                        return 'سعر الصرف يجب أن يكون أكبر من 0';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Section 2: Customs Duty & Tax Breakdown
-                      _buildSectionCard(
-                        title: 'تفصيل بنود الرسوم والضرائب الجمركية (HS Code Duty Breakdown)',
-                        icon: Icons.pie_chart_outline_rounded,
-                        color: AppTheme.flatCobalt,
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _importDutyController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'ضريبة الوارد الجمركية (Import Duty) *',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.payments_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'ضريبة الوارد مطلوبة';
-                                      }
-                                      final parsed = double.tryParse(val.trim());
-                                      if (parsed == null || parsed < 0) {
-                                        return 'قيمة غير صالحة';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _vatController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'ضريبة القيمة المضافة (VAT) *',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.price_change_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'ضريبة القيمة المضافة مطلوبة';
-                                      }
-                                      final parsed = double.tryParse(val.trim());
-                                      if (parsed == null || parsed < 0) {
-                                        return 'قيمة غير صالحة';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _scheduleTaxController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'ضريبة الجدول (Schedule Tax)',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.table_chart_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _devFeeController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'رسم التنمية (Development Fee)',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.trending_up_rounded),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _serviceFeesController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'رسوم الخدمات الجمركية وأ.ت.ص',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.miscellaneous_services_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _whtController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'أرباح تجارية وصناعية (WHT)',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.corporate_fare_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _labFeesController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'رسوم التحاليل والمعامل',
-                                      hintText: '0.00',
-                                      prefixIcon: Icon(Icons.biotech_outlined),
-                                      suffixText: 'ج.م',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Section 3: Variance & Comparison Summary Card
-                      _buildVarianceComparisonCard(),
-                      const SizedBox(height: 20),
-
-                      // Section 4: Notes
-                      _buildSectionCard(
-                        title: 'ملاحظات وتوجيهات التثمين والاحتساب النهائي',
-                        icon: Icons.note_alt_outlined,
-                        color: AppTheme.charcoal,
+                      Expanded(
+                        flex: 2,
                         child: TextFormField(
-                          controller: _assessmentNotesController,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            hintText: 'ملاحظات وتوجيهات مأمور التعريفة أو أي بنود استثنائية...',
-                            border: OutlineInputBorder(),
+                          controller: _claimNumberController,
+                          textDirection: TextDirection.ltr,
+                          decoration: _dec(
+                            l.ccAssessClaimNoLabel,
+                            hint: l.ccAssessClaimNoHint,
+                            icon: Icons.confirmation_number_outlined,
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return l.ccAssessClaimNoRequired;
+                            if (val.trim().length < 3) return l.ccAssessClaimNoTooShort;
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _claimDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              setState(() => _claimDate = picked);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: _dec(l.ccAssessClaimDateLabel, icon: Icons.calendar_today_outlined),
+                            child: Text(CcFormat.date(_claimDate),
+                                textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 13)),
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-
-            // 3. Dialog Footer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade300),
-                ),
-                borderRadius: const BorderRadiusDirectional.only(
-                  bottomStart: Radius.circular(16),
-                  bottomEnd: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'الإجمالي المستحق بالسداد: ${_calculatedTotal.toStringAsFixed(2)} ج.م',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _moneyField(
+                          _cifBaseController,
+                          l.ccAssessCifLabel,
+                          Icons.account_balance_wallet_outlined,
+                          cur,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return l.ccAssessCifRequired;
+                            final parsed = double.tryParse(val.trim());
+                            if (parsed == null || parsed <= 0) return l.ccAssessPositiveValue;
+                            return null;
+                          },
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                    child: const Text('إلغاء'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: _isSubmitting ? null : _submitAssessment,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 22, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _exchangeRateController,
+                          textDirection: TextDirection.ltr,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: _dec(
+                            l.ccAssessFxLabel,
+                            hint: l.ccCustomsFxRateHint,
+                            icon: Icons.currency_exchange_rounded,
+                            suffixText: 'EGP/USD',
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return l.ccAssessFxRequired;
+                            final parsed = double.tryParse(val.trim());
+                            if (parsed == null || parsed <= 0) return l.ccAssessFxPositive;
+                            return null;
+                          },
+                        ),
                       ),
-                    ),
-                    icon: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline_rounded, size: 20),
-                    label: Text(
-                      _isSubmitting
-                          ? 'جاري الاعتماد...'
-                          : 'اعتماد واحتساب الرسوم (CL-02)',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    ],
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            CcFormSection(
+              title: l.ccAssessBreakdownSection,
+              icon: Icons.pie_chart_outline_rounded,
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _moneyField(
+                          _importDutyController,
+                          l.ccAssessImportDuty,
+                          Icons.payments_outlined,
+                          cur,
+                          validator: _nonNegative(l.ccAssessImportDutyRequired, l.ccAssessInvalidValue),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _moneyField(
+                          _vatController,
+                          l.ccAssessVat,
+                          Icons.price_change_outlined,
+                          cur,
+                          validator: _nonNegative(l.ccAssessVatRequired, l.ccAssessInvalidValue),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _moneyField(
+                            _scheduleTaxController, l.ccAssessScheduleTax, Icons.table_chart_outlined, cur),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _moneyField(
+                            _devFeeController, l.ccAssessDevFee, Icons.trending_up_rounded, cur),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _moneyField(_serviceFeesController, l.ccAssessServiceFees,
+                            Icons.miscellaneous_services_outlined, cur),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _moneyField(
+                            _whtController, l.ccAssessWht, Icons.corporate_fare_outlined, cur),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _moneyField(
+                            _labFeesController, l.ccAssessLabFees, Icons.biotech_outlined, cur),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildVarianceComparisonCard(l, cur),
+            const SizedBox(height: 20),
+            CcFormSection(
+              title: l.ccAssessNotesSection,
+              icon: Icons.note_alt_outlined,
+              accent: AppTheme.charcoal,
+              child: TextFormField(
+                controller: _assessmentNotesController,
+                maxLines: 2,
+                decoration: InputDecoration(hintText: l.ccAssessNotesHint, border: const OutlineInputBorder()),
               ),
             ),
           ],
@@ -706,87 +496,41 @@ class _FinalDutyAssessmentDialogState
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required Widget child,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 20),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVarianceComparisonCard() {
+  Widget _buildVarianceComparisonCard(AppLocalizations l, String cur) {
     final est = _estimatedTotal;
     final act = _calculatedTotal;
     final diff = _varianceAmount;
     final pct = _variancePercentage;
 
-    Color badgeColor;
+    AppSeverity severity;
     String badgeText;
     IconData badgeIcon;
 
     if (est == 0) {
-      badgeColor = AppTheme.cobalt;
-      badgeText = 'تثمين أولي (بدون تقدير سابق)';
+      severity = AppSeverity.info;
+      badgeText = l.ccAssessBadgeInitial;
       badgeIcon = Icons.info_outline;
     } else if (diff <= 0) {
-      badgeColor = AppTheme.emerald;
-      badgeText = 'وفر بالرسوم (-${(-pct).toStringAsFixed(1)}%)';
+      severity = AppSeverity.success;
+      badgeText = l.ccAssessBadgeSaving((-pct).toStringAsFixed(1));
       badgeIcon = Icons.arrow_downward_rounded;
     } else if (pct <= 10) {
-      badgeColor = AppTheme.orange;
-      badgeText = 'انحراف طفيف (+${pct.toStringAsFixed(1)}%)';
+      severity = AppSeverity.warning;
+      badgeText = l.ccAssessBadgeMinor(pct.toStringAsFixed(1));
       badgeIcon = Icons.arrow_upward_rounded;
     } else {
-      badgeColor = AppTheme.crimson;
-      badgeText = 'انحراف ملحوظ (+${pct.toStringAsFixed(1)}%)';
+      severity = AppSeverity.danger;
+      badgeText = l.ccAssessBadgeMajor(pct.toStringAsFixed(1));
       badgeIcon = Icons.warning_amber_rounded;
     }
+    final badgeColor = AppTheme.severityForegroundOf(context, severity);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsetsDirectional.all(16),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: badgeColor.withOpacity(0.3)),
+        color: AppTheme.severityBackgroundOf(context, severity),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,65 +539,42 @@ class _FinalDutyAssessmentDialogState
             children: [
               Icon(badgeIcon, color: badgeColor, size: 22),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'مطابقة الرسوم الفعلية مع التقديرية (Variance Analysis)',
+                  l.ccAssessVarianceTitle,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.charcoal,
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  badgeText,
-                  style: TextStyle(
-                    color: badgeColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              CcStatusChip(label: badgeText, severity: severity),
             ],
           ),
           const SizedBox(height: 14),
-          Row(
+          CcFieldRow(
+            gap: 12,
             children: [
-              Expanded(
-                child: _buildMetricTile(
-                  'الرسوم التقديرية المبدئية',
-                  est > 0 ? '${est.toStringAsFixed(2)} ج.م' : 'غير محددة',
-                  Icons.receipt_outlined,
-                  Colors.grey.shade700,
-                ),
+              _buildMetricTile(
+                l.ccAssessEstimatedTile,
+                est > 0 ? '${CcFormat.money(est)} $cur' : l.ccAssessNotSet,
+                Icons.receipt_outlined,
+                AppTheme.textSecondaryOf(context),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricTile(
-                  'إجمالي المطالبة الفعلية',
-                  '${act.toStringAsFixed(2)} ج.م',
-                  Icons.account_balance_outlined,
-                  AppTheme.cobalt,
-                ),
+              _buildMetricTile(
+                l.ccAssessActualTile,
+                '${CcFormat.money(act)} $cur',
+                Icons.account_balance_outlined,
+                AppTheme.cobalt,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricTile(
-                  'قيمة الانحراف الجمركي',
-                  est > 0
-                      ? '${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(2)} ج.م'
-                      : '---',
-                  Icons.compare_arrows_rounded,
-                  badgeColor,
-                ),
+              _buildMetricTile(
+                l.ccAssessVarianceTile,
+                est > 0 ? '${CcFormat.signedMoney(diff)} $cur' : '---',
+                Icons.compare_arrows_rounded,
+                badgeColor,
               ),
             ],
           ),
@@ -861,14 +582,11 @@ class _FinalDutyAssessmentDialogState
             const SizedBox(height: 14),
             TextFormField(
               controller: _varianceReasonController,
-              decoration: const InputDecoration(
-                labelText: 'سبب انحراف الرسوم الفعلية عن التقديرية',
-                hintText: 'مثال: تعديل مأمور التعريفة لبند HS Code أو زيادة تقييم CIF',
-                prefixIcon: Icon(Icons.help_outline_rounded),
-                border: OutlineInputBorder(),
-                filled: true,
-                fillColor: Colors.white,
-              ),
+              decoration: _dec(
+                l.ccAssessVarianceReason,
+                hint: l.ccAssessVarianceReasonHint,
+                icon: Icons.help_outline_rounded,
+              ).copyWith(filled: true, fillColor: AppTheme.surfaceOf(context)),
             ),
           ],
         ],
@@ -878,11 +596,11 @@ class _FinalDutyAssessmentDialogState
 
   Widget _buildMetricTile(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsetsDirectional.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -894,23 +612,16 @@ class _FinalDutyAssessmentDialogState
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
+          LtrText(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),

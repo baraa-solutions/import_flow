@@ -1,6 +1,13 @@
 class CustomsClearanceModel {
   final int customsClearanceId;
   int get clearanceId => customsClearanceId;
+  /// Assessed duty: the actual total when positive, else the payable total.
+  /// Null when the backend reports both as unknown.
+  double? get effectiveDutyTotal {
+    final actual = actualDutyTotal;
+    if (actual != null && actual > 0) return actual;
+    return totalDutyPayable ?? actual;
+  }
   final String clearanceCode;
   final int importFileId;
   final String? declaration46No;
@@ -29,20 +36,20 @@ class CustomsClearanceModel {
   final List<String> regulatoryBodies;
   final String sampleTestStatus;
   final String? inspectionNotes;
-  final double cifBaseAmount;
-  final double customsExchangeRate;
-  final double importDutyAmount;
-  final double vatAmount;
-  final double scheduleTaxAmount;
-  final double developmentFeeAmount;
-  final double customsServiceFees;
-  final double whtAmount;
-  final double labServiceFees;
-  final double totalDutyPayable;
-  final double estimatedDutyTotal;
-  final double actualDutyTotal;
-  final double dutyVarianceAmount;
-  final double dutyVariancePercentage;
+  final double? cifBaseAmount;
+  final double? customsExchangeRate;
+  final double? importDutyAmount;
+  final double? vatAmount;
+  final double? scheduleTaxAmount;
+  final double? developmentFeeAmount;
+  final double? customsServiceFees;
+  final double? whtAmount;
+  final double? labServiceFees;
+  final double? totalDutyPayable;
+  final double? estimatedDutyTotal;
+  final double? actualDutyTotal;
+  final double? dutyVarianceAmount;
+  final double? dutyVariancePercentage;
   final String? dutyVarianceReason;
   final String? nafezaClaimNumber;
   final String? nafezaClaimDate;
@@ -55,7 +62,7 @@ class CustomsClearanceModel {
   final int freeDaysAllowed;
   final int? shippingAgentId;
   final String? shippingAgentName;
-  final double deliveryOrderFees;
+  final double? deliveryOrderFees;
   final String deliveryOrderCurrency;
   final String? deliveryOrderPaymentRef;
   final String? deliveryOrderPaidAt;
@@ -70,7 +77,7 @@ class CustomsClearanceModel {
   final String? paymentNotes;
   final String? sadadNumber;
   final String paymentMethod;
-  final double dutyPaidAmount;
+  final double? dutyPaidAmount;
   final String? receiptFileUrl;
   final String? releasePermitNo;
   final String? releaseDate;
@@ -78,14 +85,21 @@ class CustomsClearanceModel {
   final String releaseType;
   final String? releaseDocumentUrl;
   final String? gatePassNumber;
-  final double demurrageStorageFees;
+  final double? demurrageStorageFees;
   final bool dispatchAuthorized;
   final String? dispatchDate;
   final String? transportInstructions;
-  final double totalClearanceExpensesEgp;
-  final double totalPortExpensesEgp;
-  final double totalHandlingExpensesEgp;
+  final double? totalClearanceExpensesEgp;
+  final double? totalPortExpensesEgp;
+  final double? totalHandlingExpensesEgp;
   final int clearanceInvoicesCount;
+  final bool isUnderBondRelease;
+  final String? bondGuaranteeRef;
+  final bool quarantineLock;
+  final String labTestResult;
+  final String? labCertificateNumber;
+  final String? quarantineLiftedDate;
+  final String? quarantineLiftedBy;
   final String status;
   final String owner;
   final String? notes;
@@ -123,20 +137,20 @@ class CustomsClearanceModel {
     this.regulatoryBodies = const [],
     this.sampleTestStatus = 'Samples Under Testing',
     this.inspectionNotes,
-    this.cifBaseAmount = 0.0,
-    this.customsExchangeRate = 1.0,
-    this.importDutyAmount = 0.0,
-    this.vatAmount = 0.0,
-    this.scheduleTaxAmount = 0.0,
-    this.developmentFeeAmount = 0.0,
-    this.customsServiceFees = 0.0,
-    this.whtAmount = 0.0,
-    this.labServiceFees = 0.0,
-    this.totalDutyPayable = 0.0,
-    this.estimatedDutyTotal = 0.0,
-    this.actualDutyTotal = 0.0,
-    this.dutyVarianceAmount = 0.0,
-    this.dutyVariancePercentage = 0.0,
+    this.cifBaseAmount,
+    this.customsExchangeRate,
+    this.importDutyAmount,
+    this.vatAmount,
+    this.scheduleTaxAmount,
+    this.developmentFeeAmount,
+    this.customsServiceFees,
+    this.whtAmount,
+    this.labServiceFees,
+    this.totalDutyPayable,
+    this.estimatedDutyTotal,
+    this.actualDutyTotal,
+    this.dutyVarianceAmount,
+    this.dutyVariancePercentage,
     this.dutyVarianceReason,
     this.nafezaClaimNumber,
     this.nafezaClaimDate,
@@ -149,7 +163,7 @@ class CustomsClearanceModel {
     this.freeDaysAllowed = 14,
     this.shippingAgentId,
     this.shippingAgentName,
-    this.deliveryOrderFees = 0.0,
+    this.deliveryOrderFees,
     this.deliveryOrderCurrency = 'EGP',
     this.deliveryOrderPaymentRef,
     this.deliveryOrderPaidAt,
@@ -164,7 +178,7 @@ class CustomsClearanceModel {
     this.paymentNotes,
     this.sadadNumber,
     this.paymentMethod = 'SADAD_EFINANCE',
-    this.dutyPaidAmount = 0.0,
+    this.dutyPaidAmount,
     this.receiptFileUrl,
     this.releasePermitNo,
     this.releaseDate,
@@ -172,14 +186,21 @@ class CustomsClearanceModel {
     this.releaseType = 'FINAL_GREEN',
     this.releaseDocumentUrl,
     this.gatePassNumber,
-    this.demurrageStorageFees = 0.0,
+    this.demurrageStorageFees,
     this.dispatchAuthorized = false,
     this.dispatchDate,
     this.transportInstructions,
-    this.totalClearanceExpensesEgp = 0.0,
-    this.totalPortExpensesEgp = 0.0,
-    this.totalHandlingExpensesEgp = 0.0,
+    this.totalClearanceExpensesEgp,
+    this.totalPortExpensesEgp,
+    this.totalHandlingExpensesEgp,
     this.clearanceInvoicesCount = 0,
+    this.isUnderBondRelease = false,
+    this.bondGuaranteeRef,
+    this.quarantineLock = false,
+    this.labTestResult = 'NONE',
+    this.labCertificateNumber,
+    this.quarantineLiftedDate,
+    this.quarantineLiftedBy,
     this.status = 'Inspection In Progress',
     this.owner = 'Kamal',
     this.notes,
@@ -220,20 +241,21 @@ class CustomsClearanceModel {
       regulatoryBodies: rawReg.map((e) => e.toString()).toList(),
       sampleTestStatus: json['sample_test_status'] ?? 'Samples Under Testing',
       inspectionNotes: json['inspection_notes'],
-      cifBaseAmount: (json['cif_base_amount'] as num?)?.toDouble() ?? 0.0,
-      customsExchangeRate: (json['customs_exchange_rate'] as num?)?.toDouble() ?? 1.0,
-      importDutyAmount: (json['import_duty_amount'] as num?)?.toDouble() ?? 0.0,
-      vatAmount: (json['vat_amount'] as num?)?.toDouble() ?? 0.0,
-      scheduleTaxAmount: (json['schedule_tax_amount'] as num?)?.toDouble() ?? 0.0,
-      developmentFeeAmount: (json['development_fee_amount'] as num?)?.toDouble() ?? 0.0,
-      customsServiceFees: (json['customs_service_fees'] as num?)?.toDouble() ?? 0.0,
-      whtAmount: (json['wht_amount'] as num?)?.toDouble() ?? 0.0,
-      labServiceFees: (json['lab_service_fees'] as num?)?.toDouble() ?? 0.0,
-      totalDutyPayable: (json['total_duty_payable'] as num?)?.toDouble() ?? 0.0,
-      estimatedDutyTotal: (json['estimated_duty_total'] as num?)?.toDouble() ?? 0.0,
-      actualDutyTotal: (json['actual_duty_total'] as num?)?.toDouble() ?? ((json['total_duty_payable'] as num?)?.toDouble() ?? 0.0),
-      dutyVarianceAmount: (json['duty_variance_amount'] as num?)?.toDouble() ?? 0.0,
-      dutyVariancePercentage: (json['duty_variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      cifBaseAmount: (json['cif_base_amount'] as num?)?.toDouble(),
+      customsExchangeRate: (json['customs_exchange_rate'] as num?)?.toDouble(),
+      importDutyAmount: (json['import_duty_amount'] as num?)?.toDouble(),
+      vatAmount: (json['vat_amount'] as num?)?.toDouble(),
+      scheduleTaxAmount: (json['schedule_tax_amount'] as num?)?.toDouble(),
+      developmentFeeAmount: (json['development_fee_amount'] as num?)?.toDouble(),
+      customsServiceFees: (json['customs_service_fees'] as num?)?.toDouble(),
+      whtAmount: (json['wht_amount'] as num?)?.toDouble(),
+      labServiceFees: (json['lab_service_fees'] as num?)?.toDouble(),
+      totalDutyPayable: (json['total_duty_payable'] as num?)?.toDouble(),
+      estimatedDutyTotal: (json['estimated_duty_total'] as num?)?.toDouble(),
+      actualDutyTotal: (json['actual_duty_total'] as num?)?.toDouble() ??
+          (json['total_duty_payable'] as num?)?.toDouble(),
+      dutyVarianceAmount: (json['duty_variance_amount'] as num?)?.toDouble(),
+      dutyVariancePercentage: (json['duty_variance_percentage'] as num?)?.toDouble(),
       dutyVarianceReason: json['duty_variance_reason'],
       nafezaClaimNumber: json['nafeza_claim_number'],
       nafezaClaimDate: json['nafeza_claim_date'],
@@ -246,7 +268,7 @@ class CustomsClearanceModel {
       freeDaysAllowed: (json['free_days_allowed'] as num?)?.toInt() ?? 14,
       shippingAgentId: json['shipping_agent_id'],
       shippingAgentName: json['shipping_agent_name'],
-      deliveryOrderFees: (json['delivery_order_fees'] as num?)?.toDouble() ?? 0.0,
+      deliveryOrderFees: (json['delivery_order_fees'] as num?)?.toDouble(),
       deliveryOrderCurrency: json['delivery_order_currency'] ?? 'EGP',
       deliveryOrderPaymentRef: json['delivery_order_payment_ref'],
       deliveryOrderPaidAt: json['delivery_order_paid_at'],
@@ -261,7 +283,7 @@ class CustomsClearanceModel {
       paymentNotes: json['payment_notes'],
       sadadNumber: json['sadad_number'],
       paymentMethod: json['payment_method'] ?? 'Sadad / E-Finance',
-      dutyPaidAmount: (json['duty_paid_amount'] as num?)?.toDouble() ?? 0.0,
+      dutyPaidAmount: (json['duty_paid_amount'] as num?)?.toDouble(),
       receiptFileUrl: json['receipt_file_url'],
       releasePermitNo: json['release_permit_no'],
       releaseDate: json['release_date'],
@@ -269,14 +291,21 @@ class CustomsClearanceModel {
       releaseType: json['release_type'] ?? 'نهائي وبات (Final Green Release)',
       releaseDocumentUrl: json['release_document_url'],
       gatePassNumber: json['gate_pass_number'],
-      demurrageStorageFees: (json['demurrage_storage_fees'] as num?)?.toDouble() ?? 0.0,
+      demurrageStorageFees: (json['demurrage_storage_fees'] as num?)?.toDouble(),
       dispatchAuthorized: json['dispatch_authorized'] ?? false,
       dispatchDate: json['dispatch_date'],
       transportInstructions: json['transport_instructions'],
-      totalClearanceExpensesEgp: (json['total_clearance_expenses_egp'] as num?)?.toDouble() ?? 0.0,
-      totalPortExpensesEgp: (json['total_port_expenses_egp'] as num?)?.toDouble() ?? 0.0,
-      totalHandlingExpensesEgp: (json['total_handling_expenses_egp'] as num?)?.toDouble() ?? 0.0,
+      totalClearanceExpensesEgp: (json['total_clearance_expenses_egp'] as num?)?.toDouble(),
+      totalPortExpensesEgp: (json['total_port_expenses_egp'] as num?)?.toDouble(),
+      totalHandlingExpensesEgp: (json['total_handling_expenses_egp'] as num?)?.toDouble(),
       clearanceInvoicesCount: (json['clearance_invoices_count'] as num?)?.toInt() ?? 0,
+      isUnderBondRelease: json['is_under_bond_release'] == true,
+      bondGuaranteeRef: json['bond_guarantee_ref']?.toString(),
+      quarantineLock: json['quarantine_lock'] == true,
+      labTestResult: json['lab_test_result']?.toString() ?? 'NONE',
+      labCertificateNumber: json['lab_certificate_number']?.toString(),
+      quarantineLiftedDate: json['quarantine_lifted_date']?.toString(),
+      quarantineLiftedBy: json['quarantine_lifted_by']?.toString(),
       status: json['status'] ?? 'Inspection In Progress',
       owner: json['owner'] ?? 'Kamal',
       notes: json['notes'],
@@ -374,6 +403,13 @@ class CustomsClearanceModel {
       'total_port_expenses_egp': totalPortExpensesEgp,
       'total_handling_expenses_egp': totalHandlingExpensesEgp,
       'clearance_invoices_count': clearanceInvoicesCount,
+      'is_under_bond_release': isUnderBondRelease,
+      'bond_guarantee_ref': bondGuaranteeRef,
+      'quarantine_lock': quarantineLock,
+      'lab_test_result': labTestResult,
+      'lab_certificate_number': labCertificateNumber,
+      'quarantine_lifted_date': quarantineLiftedDate,
+      'quarantine_lifted_by': quarantineLiftedBy,
       'status': status,
       'owner': owner,
       'notes': notes,

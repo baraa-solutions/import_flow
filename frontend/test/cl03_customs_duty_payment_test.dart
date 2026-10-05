@@ -155,7 +155,7 @@ void main() {
 
       // Verify Financial Banner
       expect(find.text('إجمالي الرسوم المعتمدة بمطالبة نافذة MTS'), findsOneWidget);
-      expect(find.text('165801.50 ج.م'), findsOneWidget);
+      expect(find.text('165,801.50 ج.م'), findsOneWidget);
 
       // Verify Form Section
       expect(find.text('بيانات السداد الإلكتروني والبنكي'), findsOneWidget);

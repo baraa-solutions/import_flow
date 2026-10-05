@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/metric_card.dart';
 import '../models/customs_clearance_model.dart';
 import '../services/final_duty_payment_export_service.dart';
+import 'customs_ui.dart';
 
 /// Screen 62: Customs Clearance - Final Duty Payment & Release SubTab.
 class FinalDutyPaymentTab extends ConsumerStatefulWidget {
@@ -73,14 +77,23 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
 
   void _copyRowSummary(CustomsClearanceModel r, AppLocalizations l) {
     final isPaid = r.paymentStatus == 'Paid & Verified';
-    final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
-    final est = r.estimatedDutyTotal.toStringAsFixed(2);
-    final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} (${r.dutyVariancePercentage}%)';
+    final actual = CcFormat.fixed(r.effectiveDutyTotal);
+    final est = CcFormat.fixed(r.estimatedDutyTotal);
+    final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
     final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
     final rowSummary =
         "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t${r.channelType}\t$actual ${l.finalDutyCurrencyEgp}\t$est ${l.finalDutyCurrencyEgp}\t$variance\t$paymentStatusStr\t${r.bankReceiptNo ?? '-'}\t${r.releasePermitNo ?? '-'}\t${r.status}";
 
     CopyHelper.copy(context, rowSummary, customMessage: l.finalDutyCopyRowSummarySuccess);
+  }
+
+  Future<void> _runExport(Future<void> Function() action) async {
+    setState(() => _isExporting = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -91,132 +104,106 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
 
     final totalPayable = records.fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
     final netVariance = records.fold<double>(
       0.0,
-      (sum, r) => sum + r.dutyVarianceAmount,
+      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
     );
+
+    final metrics = [
+      MetricCardData(
+        title: '${l.finalDutyKpiTotalPayable} (${l.egpCurrency})',
+        value: CcFormat.money(totalPayable),
+        icon: Icons.account_balance_wallet_outlined,
+        color: AppTheme.cobalt,
+      ),
+      MetricCardData(
+        title: '${l.finalDutyKpiTotalPaid} (${l.egpCurrency})',
+        value: CcFormat.money(totalPaid),
+        icon: Icons.check_circle_outline,
+        color: AppTheme.emerald,
+      ),
+      MetricCardData(
+        title: l.finalDutyKpiPendingPayment,
+        value: pendingCount.toString(),
+        icon: Icons.pending_actions_outlined,
+        color: AppTheme.orange,
+      ),
+      MetricCardData(
+        title: '${l.finalDutyKpiNetVariance} (${l.egpCurrency})',
+        value: CcFormat.signedMoney(netVariance),
+        icon: Icons.compare_arrows_outlined,
+        color: netVariance.abs() > 500 ? AppTheme.crimson : AppTheme.charcoal,
+      ),
+    ];
 
     return SelectionArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsetsDirectional.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Responsive Header Card with 4-Action Linked Output Toolbar
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green.shade200),
-              ),
+            CcSectionCard(
+              title: l.finalDutyScreenTitle,
+              icon: Icons.receipt_long,
+              accent: AppTheme.emerald,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.receipt_long, color: AppTheme.emerald, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.finalDutyScreenTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              l.finalDutyScreenSubtitle,
-                              style: const TextStyle(fontSize: 12, color: Colors.black87),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Text(
+                    l.finalDutyScreenSubtitle,
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                   ),
-                  const Divider(height: 20),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade700,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.table_view, size: 15),
-                        label: Text(l.finalDutyExportTsvBtn, style: const TextStyle(fontSize: 12)),
+                      AppButton(
+                        label: l.finalDutyExportTsvBtn,
+                        icon: Icons.table_view,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
                         onPressed: _isExporting
                             ? null
-                            : () async {
-                                setState(() => _isExporting = true);
-                                try {
-                                  await FinalDutyPaymentExportService.saveFinalDutyTsvToFile(context, filtered);
-                                } finally {
-                                  if (mounted) setState(() => _isExporting = false);
-                                }
-                              },
+                            : () => _runExport(
+                                  () => FinalDutyPaymentExportService.saveFinalDutyTsvToFile(context, filtered),
+                                ),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade800,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.grid_on, size: 15),
-                        label: Text(l.finalDutyExportExcelBtn, style: const TextStyle(fontSize: 12)),
+                      AppButton(
+                        label: l.finalDutyExportExcelBtn,
+                        icon: Icons.grid_on,
+                        variant: AppButtonVariant.success,
+                        size: AppButtonSize.small,
                         onPressed: _isExporting
                             ? null
-                            : () async {
-                                setState(() => _isExporting = true);
-                                try {
-                                  await FinalDutyPaymentExportService.saveFinalDutyCsvToFile(context, filtered);
-                                } finally {
-                                  if (mounted) setState(() => _isExporting = false);
-                                }
-                              },
+                            : () => _runExport(
+                                  () => FinalDutyPaymentExportService.saveFinalDutyCsvToFile(context, filtered),
+                                ),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.picture_as_pdf, size: 15),
-                        label: Text(l.finalDutyPrintPdfBtn, style: const TextStyle(fontSize: 12)),
+                      AppButton(
+                        label: l.finalDutyPrintPdfBtn,
+                        icon: Icons.picture_as_pdf,
+                        variant: AppButtonVariant.danger,
+                        size: AppButtonSize.small,
                         onPressed: _isExporting
                             ? null
-                            : () async {
-                                setState(() => _isExporting = true);
-                                try {
-                                  await FinalDutyPaymentExportService.printOrSaveFinalDutyPdf(context, filtered);
-                                } finally {
-                                  if (mounted) setState(() => _isExporting = false);
-                                }
-                              },
+                            : () => _runExport(
+                                  () => FinalDutyPaymentExportService.printOrSaveFinalDutyPdf(context, filtered),
+                                ),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.copy_all, size: 15),
-                        label: Text(l.finalDutyCopyDossierBtn, style: const TextStyle(fontSize: 12)),
+                      AppButton(
+                        label: l.finalDutyCopyDossierBtn,
+                        icon: Icons.copy_all,
+                        variant: AppButtonVariant.ghost,
+                        size: AppButtonSize.small,
                         onPressed: () => FinalDutyPaymentExportService.copyDossierToClipboard(context, filtered),
                       ),
                     ],
@@ -224,402 +211,85 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                 ],
               ),
             ),
+            CcUi.metrics(metrics),
             const SizedBox(height: 16),
 
-            // 4 KPI Summary Cards
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 700;
-                final cardWidth = isWide ? (constraints.maxWidth - 24) / 4 : (constraints.maxWidth - 8) / 2;
-
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildKpiCard(
-                      width: cardWidth,
-                      title: l.finalDutyKpiTotalPayable,
-                      value: '${totalPayable.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
-                      icon: Icons.account_balance_wallet_outlined,
-                      color: AppTheme.cobalt,
-                    ),
-                    _buildKpiCard(
-                      width: cardWidth,
-                      title: l.finalDutyKpiTotalPaid,
-                      value: '${totalPaid.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
-                      icon: Icons.check_circle_outline,
-                      color: AppTheme.emerald,
-                    ),
-                    _buildKpiCard(
-                      width: cardWidth,
-                      title: l.finalDutyKpiPendingPayment,
-                      value: pendingCount.toString(),
-                      icon: Icons.pending_actions_outlined,
-                      color: AppTheme.orange,
-                    ),
-                    _buildKpiCard(
-                      width: cardWidth,
-                      title: l.finalDutyKpiNetVariance,
-                      value: '${netVariance >= 0 ? "+" : ""}${netVariance.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
-                      icon: Icons.compare_arrows_outlined,
-                      color: netVariance.abs() > 500 ? AppTheme.crimson : Colors.teal.shade800,
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-
             // Duty Ledger & Release Status Table Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l.customsClearanceDutyLedgerTableTitle,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '${filtered.length} / ${records.length}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20),
-
-                    // Search & Filter Toolbar
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: l.finalDutySearchHint,
-                              prefixIcon: const Icon(Icons.search, size: 18),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_searchController.text.isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear, size: 16),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() {});
-                                      },
-                                    ),
+            CcSectionCard(
+              title: l.customsClearanceDutyLedgerTableTitle,
+              icon: Icons.payments_outlined,
+              accent: AppTheme.emerald,
+              margin: EdgeInsets.zero,
+              trailing: LtrText(
+                '${filtered.length} / ${records.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondaryOf(context),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search & Filter Toolbar
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 320,
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: l.finalDutySearchHint,
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            isDense: true,
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_searchController.text.isNotEmpty)
                                   IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    tooltip: l.finalDutyCopyFieldTooltip,
-                                    onPressed: () => CopyHelper.copy(context, _searchController.text),
+                                    icon: const Icon(Icons.clear, size: 16),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {});
+                                    },
                                   ),
-                                ],
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            _buildFilterChip('ALL', l.finalDutyFilterAll),
-                            _buildFilterChip('PAID', l.finalDutyFilterPaid),
-                            _buildFilterChip('PENDING', l.finalDutyFilterPending),
-                            _buildFilterChip('RELEASED', l.finalDutyFilterReleased),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.inbox_outlined, size: 40, color: Colors.grey.shade400),
-                              const SizedBox(height: 8),
-                              Text(
-                                l.finalDutyEmptyRecords,
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                          columns: [
-                            DataColumn(label: Text(l.customsClearanceColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColClearanceCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColDecl46, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColCustomsOffice, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceChannelLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColActualDuty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColEstimatedDuty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColDutyVariance, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColPaymentStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.finalDutyColBankReceipt, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.finalDutyColReleasePermit, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          rows: filtered.map((r) {
-                            final isPaid = r.paymentStatus == 'Paid & Verified';
-                            final actualDutyStr = '${(r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}';
-                            final estDutyStr = '${r.estimatedDutyTotal.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}';
-                            final varianceStr = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} (${r.dutyVariancePercentage}%)';
-                            final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
-                            final bankReceiptStr = r.bankReceiptNo ?? '-';
-                            final releasePermitStr = r.releasePermitNo ?? '-';
-                            final rowSummary =
-                                "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t${r.channelType}\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t${r.status}";
-
-                            return DataRow(
-                              cells: [
-                                // Actions
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
-                                        tooltip: l.finalDutyCopyRowSummaryBtn,
-                                        onPressed: () => _copyRowSummary(r, l),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: isPaid ? Colors.indigo : AppTheme.emerald,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                        ),
-                                        icon: Icon(isPaid ? Icons.verified : Icons.payment, size: 13),
-                                        label: Text(
-                                          isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile,
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                        onPressed: widget.onPay != null ? () => widget.onPay!(r) : null,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.cobalt,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                        ),
-                                        icon: const Icon(Icons.assignment_turned_in, size: 13),
-                                        label: Text(l.customsClearanceBtnFinalRelease, style: const TextStyle(fontSize: 11)),
-                                        onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Clearance Code badge
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: r.clearanceCode,
-                                    rowSummary: rowSummary,
-                                    child: InkWell(
-                                      onTap: () => CopyHelper.copy(context, r.clearanceCode),
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.08),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              r.clearanceCode,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.copy, size: 11, color: AppTheme.cobalt),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Declaration 46
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: r.declaration46No ?? '-',
-                                    rowSummary: rowSummary,
-                                    child: r.declaration46No != null && r.declaration46No!.isNotEmpty
-                                        ? InkWell(
-                                            onTap: () => CopyHelper.copy(context, r.declaration46No!),
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(r.declaration46No!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                                const SizedBox(width: 4),
-                                                const Icon(Icons.copy, size: 11, color: Colors.grey),
-                                              ],
-                                            ),
-                                          )
-                                        : const Text('-'),
-                                  ),
-                                ),
-
-                                // Office
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: r.customsOfficeName,
-                                    rowSummary: rowSummary,
-                                    child: Text(r.customsOfficeName, style: const TextStyle(fontSize: 12)),
-                                  ),
-                                ),
-
-                                // Channel
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: r.channelType,
-                                    rowSummary: rowSummary,
-                                    child: Text(r.channelType, style: const TextStyle(fontSize: 12)),
-                                  ),
-                                ),
-
-                                // Actual Duty
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: actualDutyStr,
-                                    rowSummary: rowSummary,
-                                    child: Text(
-                                      actualDutyStr,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
-                                    ),
-                                  ),
-                                ),
-
-                                // Estimated Duty
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: estDutyStr,
-                                    rowSummary: rowSummary,
-                                    child: Text(estDutyStr, style: const TextStyle(fontSize: 12)),
-                                  ),
-                                ),
-
-                                // Duty Variance
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: varianceStr,
-                                    rowSummary: rowSummary,
-                                    child: Text(
-                                      varianceStr,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: r.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Payment Status Badge
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: paymentStatusStr,
-                                    rowSummary: rowSummary,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: (isPaid ? Colors.green : Colors.orange).shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: (isPaid ? Colors.green : Colors.orange).shade300),
-                                      ),
-                                      child: Text(
-                                        isPaid ? '✅ $paymentStatusStr' : '⚠️ $paymentStatusStr',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isPaid ? Colors.green.shade900 : Colors.orange.shade900,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Bank Receipt No
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: bankReceiptStr,
-                                    rowSummary: rowSummary,
-                                    child: r.bankReceiptNo != null && r.bankReceiptNo!.isNotEmpty
-                                        ? InkWell(
-                                            onTap: () => CopyHelper.copy(context, r.bankReceiptNo!),
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  r.bankReceiptNo!,
-                                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.indigo),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                const Icon(Icons.copy, size: 11, color: Colors.indigo),
-                                              ],
-                                            ),
-                                          )
-                                        : const Text('-', style: TextStyle(color: Colors.grey)),
-                                  ),
-                                ),
-
-                                // Release Permit No
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: releasePermitStr,
-                                    rowSummary: rowSummary,
-                                    child: r.releasePermitNo != null && r.releasePermitNo!.isNotEmpty
-                                        ? InkWell(
-                                            onTap: () => CopyHelper.copy(context, r.releasePermitNo!),
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  r.releasePermitNo!,
-                                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                const Icon(Icons.copy, size: 11, color: AppTheme.emerald),
-                                              ],
-                                            ),
-                                          )
-                                        : const Text('-', style: TextStyle(color: Colors.grey)),
-                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l.finalDutyCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, _searchController.text),
                                 ),
                               ],
-                            );
-                          }).toList(),
+                            ),
+                            contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
+                            border: const OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => setState(() {}),
                         ),
                       ),
-                  ],
-                ),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          _buildFilterChip('ALL', l.finalDutyFilterAll),
+                          _buildFilterChip('PAID', l.finalDutyFilterPaid),
+                          _buildFilterChip('PENDING', l.finalDutyFilterPending),
+                          _buildFilterChip('RELEASED', l.finalDutyFilterReleased),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (filtered.isEmpty)
+                    SizedBox(
+                      height: 160,
+                      child: CcStateView.empty(message: l.finalDutyEmptyRecords),
+                    )
+                  else
+                    _buildLedgerTable(filtered, l),
+                ],
               ),
             ),
           ],
@@ -628,49 +298,144 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
     );
   }
 
-  Widget _buildKpiCard({
-    required double width,
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return SizedBox(
-      width: width,
-      child: Card(
-        elevation: 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: color.withOpacity(0.3), width: 1),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                      overflow: TextOverflow.ellipsis,
+  Widget _buildLedgerTable(List<CustomsClearanceModel> filtered, AppLocalizations l) {
+    DataColumn col(String label, {bool numeric = false}) => DataColumn(
+          numeric: numeric,
+          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+        );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
+        columns: [
+          col(l.customsClearanceColActions),
+          col(l.customsClearanceColClearanceCode),
+          col(l.customsClearanceColDecl46),
+          col(l.customsClearanceColCustomsOffice),
+          col(l.customsClearanceChannelLabel),
+          col(l.customsClearanceColActualDuty, numeric: true),
+          col(l.customsClearanceColEstimatedDuty, numeric: true),
+          col(l.customsClearanceColDutyVariance, numeric: true),
+          col(l.customsClearanceColPaymentStatus),
+          col(l.finalDutyColBankReceipt),
+          col(l.finalDutyColReleasePermit),
+        ],
+        rows: filtered.map((r) => _buildRow(r, l)).toList(),
+      ),
+    );
+  }
+
+  /// Copyable code cell (LTR), or a muted dash when empty.
+  DataCell _codeCell(String? value, String rowSummary, {Color? color, double size = 12}) {
+    final has = value != null && value.isNotEmpty;
+    return DataCell(
+      CopyableTableCell(
+        value: has ? value : '-',
+        rowSummary: rowSummary,
+        child: has
+            ? InkWell(
+                onTap: () => CopyHelper.copy(context, value),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LtrText(
+                      value,
+                      style: TextStyle(fontSize: size, fontWeight: FontWeight.w600, color: color),
                     ),
-                  ),
-                  Icon(icon, size: 16, color: color),
-                ],
+                    const SizedBox(width: 4),
+                    Icon(Icons.copy, size: 11, color: color ?? AppTheme.textMutedOf(context)),
+                  ],
+                ),
+              )
+            : Text('-', style: TextStyle(color: AppTheme.textMutedOf(context))),
+      ),
+    );
+  }
+
+  DataRow _buildRow(CustomsClearanceModel r, AppLocalizations l) {
+    final isPaid = r.paymentStatus == 'Paid & Verified';
+    final actual = r.effectiveDutyTotal;
+    final actualDutyStr = '${CcFormat.money(actual)} ${l.finalDutyCurrencyEgp}';
+    final estDutyStr = '${CcFormat.money(r.estimatedDutyTotal)} ${l.finalDutyCurrencyEgp}';
+    final varianceStr = '${CcFormat.signedMoney(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
+    final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
+    final bankReceiptStr = r.bankReceiptNo ?? '-';
+    final releasePermitStr = r.releasePermitNo ?? '-';
+    final rowSummary =
+        "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t${r.channelType}\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t${r.status}";
+
+    DataCell textCell(String value, Widget child) =>
+        DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
+
+    return DataRow(
+      cells: [
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(Icons.copy_rounded, size: 16, color: AppTheme.textSecondaryOf(context)),
+                tooltip: l.finalDutyCopyRowSummaryBtn,
+                onPressed: () => _copyRowSummary(r, l),
               ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 4),
+              AppButton(
+                label: isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile,
+                icon: isPaid ? Icons.verified : Icons.payment,
+                variant: isPaid ? AppButtonVariant.primary : AppButtonVariant.success,
+                size: AppButtonSize.small,
+                onPressed: widget.onPay != null ? () => widget.onPay!(r) : null,
+              ),
+              const SizedBox(width: 6),
+              AppButton(
+                label: l.customsClearanceBtnFinalRelease,
+                icon: Icons.assignment_turned_in,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
+                onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
               ),
             ],
           ),
         ),
-      ),
+        _codeCell(r.clearanceCode, rowSummary, color: AppTheme.cobalt),
+        _codeCell(r.declaration46No, rowSummary),
+        textCell(r.customsOfficeName, Text(r.customsOfficeName, style: const TextStyle(fontSize: 12))),
+        textCell(r.channelType, Text(r.channelType, style: const TextStyle(fontSize: 12))),
+        textCell(
+          actualDutyStr,
+          LtrText(
+            actualDutyStr,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: AppTheme.successForeground, fontSize: 12),
+          ),
+        ),
+        textCell(estDutyStr, LtrText(estDutyStr, style: const TextStyle(fontSize: 12))),
+        textCell(
+          varianceStr,
+          LtrText(
+            varianceStr,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: (r.dutyVarianceAmount ?? 0).abs() > 500
+                  ? AppTheme.warningForeground
+                  : AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ),
+        textCell(
+          paymentStatusStr,
+          CcStatusChip(
+            label: paymentStatusStr,
+            severity: isPaid ? AppSeverity.success : AppSeverity.warning,
+            icon: isPaid ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+          ),
+        ),
+        _codeCell(r.bankReceiptNo, rowSummary, color: AppTheme.infoForeground, size: 11.5),
+        _codeCell(r.releasePermitNo, rowSummary, color: AppTheme.successForeground, size: 11.5),
+      ],
     );
   }
 
@@ -682,12 +447,13 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? Colors.white : AppTheme.charcoal,
+          color: isSelected ? AppTheme.white : AppTheme.textPrimaryOf(context),
         ),
       ),
       selected: isSelected,
       selectedColor: AppTheme.cobalt,
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppTheme.surfaceAltOf(context),
+      showCheckmark: false,
       onSelected: (selected) {
         if (selected) setState(() => _statusFilter = value);
       },

@@ -355,7 +355,14 @@ void main() {
 
       // Step 5: Verify new draft form opened with cloned values
       expect(find.text('استنساخ بيان تخليص ومعاينة جمركية'), findsOneWidget);
-      expect(find.text('Alexandria Sea Port'), findsOneWidget);
+      // The source record's port is also shown as a CcFact on the screen behind
+      // the form, so assert the cloned value on the form's input field itself.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is EditableText && w.controller.text == 'Alexandria Sea Port',
+        ),
+        findsOneWidget,
+      );
     });
 
     // -------------------------------------------------------------------------

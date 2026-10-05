@@ -91,8 +91,10 @@ void main() {
       expect(find.text('2'), findsOneWidget);
 
       // Total Estimated Loss = 35000 + 18500.50 = 53500.50
-      expect(find.text('إجمالي الخسائر المقدرة'), findsOneWidget);
-      expect(find.textContaining('53500.50'), findsOneWidget);
+      // Design refresh: the currency moved into the KPI title and the value
+      // is grouped with thousands separators (CcFormat.money).
+      expect(find.text('إجمالي الخسائر المقدرة (جنيه)'), findsOneWidget);
+      expect(find.textContaining('53,500.50'), findsOneWidget);
 
       // Claims Submitted & Approved
       expect(find.text('مطالبات قيد المتابعة'), findsOneWidget);
@@ -208,7 +210,7 @@ void main() {
       expect(find.text('Copy Protocols Dossier'), findsOneWidget);
       expect(find.text('New Joint Protocol'), findsOneWidget);
       expect(find.text('Total Protocols'), findsOneWidget);
-      expect(find.text('Total Estimated Loss'), findsOneWidget);
+      expect(find.text('Total Estimated Loss (EGP)'), findsOneWidget);
       expect(find.text('Claims Under Review'), findsOneWidget);
       expect(find.text('Claims Approved'), findsOneWidget);
     });

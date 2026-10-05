@@ -1,16 +1,23 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import 'cc_dialog_shell.dart';
+import 'customs_ui.dart';
 
 /// Modal dialog for CS-02: Delivery Order (D/O) Payment & Receipt
-/// سداد إذن التسليم الملاحي واستلام D/O
+/// (pay the shipping agency fees and receive the delivery order).
 class DeliveryOrderPaymentDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
 
@@ -112,14 +119,14 @@ class _DeliveryOrderPaymentDialogState
 
   Future<void> _submitPayment() async {
     if (!_formKey.currentState!.validate()) return;
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     final fees = double.tryParse(_feesController.text.trim());
     if (fees == null || fees < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى إدخال قيمة صحيحة لرسوم التوكيل الملاحي'),
-          backgroundColor: AppTheme.crimson,
-        ),
+      messenger.showSnackBar(
+        AppTheme.snackBar(context, l.ccDoFeesInvalidSnack, severity: AppSeverity.danger),
       );
       return;
     }
@@ -146,38 +153,24 @@ class _DeliveryOrderPaymentDialogState
             ? null
             : _notesController.text.trim(),
       };
+      final successBar =
+          AppTheme.snackBar(context, l.ccDoSuccess(_doNumberController.text), severity: AppSeverity.success);
 
       await ref
           .read(customsClearanceProvider.notifier)
           .recordDeliveryOrderPayment(payload);
 
       if (mounted) {
-        Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'تم تسجيل سداد مصاريف التوكيل واستلام إذن التسليم (${_doNumberController.text}) بنجاح!',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        navigator.pop(true);
+        messenger.showSnackBar(successBar);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل في حفظ إذن التسليم: $e'),
-            backgroundColor: AppTheme.crimson,
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccDoError(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -188,471 +181,321 @@ class _DeliveryOrderPaymentDialogState
     }
   }
 
+  InputDecoration _dec(String label, {String? hint, IconData? icon}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: icon == null ? null : Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+      );
+
+  Widget _datePicker({
+    required String label,
+    required IconData icon,
+    required DateTime value,
+    required VoidCallback onTap,
+  }) =>
+      InkWell(
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: _dec(label, icon: icon),
+          child: LtrText(CcFormat.date(value), style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l = context.l10n;
     final partnersAsync = ref.watch(allPartnersProvider);
+    final file = widget.file;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
+    return CcStageDialogShell(
+      title: l.ccDoTitle,
+      icon: Icons.directions_boat_filled_rounded,
+      accent: AppTheme.cobalt,
+      maxWidth: 820,
+      chips: [
+        CcHeaderChip(Icons.folder_outlined, l.ccDoChipShipment(file.importFileCode, file.companyName)),
+      ],
+      confirmKey: const Key('submitDeliveryOrderBtn'),
+      confirmLabel: l.ccDoConfirm,
+      loadingLabel: l.ccDoConfirming,
+      confirmIcon: Icons.check_circle_outline_rounded,
+      confirmVariant: AppButtonVariant.primary,
+      isSubmitting: _isSubmitting,
+      onConfirm: _submitPayment,
+      body: Form(
+        key: _formKey,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Status / informative banner
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0284C7), // Ocean / Shipping Blue
-                borderRadius: BorderRadiusDirectional.only(
-                  topStart: Radius.circular(16),
-                  topEnd: Radius.circular(16),
-                ),
+              padding: const EdgeInsetsDirectional.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.severityBackgroundOf(context, AppSeverity.info),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                border: Border.all(color: AppTheme.cobaltBorder),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.directions_boat_filled_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
+                  const Icon(Icons.info_outline_rounded, color: AppTheme.infoForeground, size: 24),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'سداد إذن التسليم الملاحي واستلام D/O (CS-02)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
+                        Text(
+                          l.ccDoStageTitle,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.infoForeground,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          'الشحنة: ${widget.file.importFileCode} — ${widget.file.companyName}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 13,
-                          ),
+                          l.ccDoStageDesc,
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                  ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
 
-            // Form Body
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
+            // Shipment metadata chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (file.customFileNumber != null && file.customFileNumber!.isNotEmpty)
+                  _buildInfoChip(Icons.folder_open_rounded, l.ccDoFileNoChip, file.customFileNumber!),
+                if (file.supplierName.isNotEmpty)
+                  _buildInfoChip(Icons.business_rounded, l.ccDoSupplierChip, file.supplierName),
+                if (file.portOfDischarge != null && file.portOfDischarge!.isNotEmpty)
+                  _buildInfoChip(Icons.anchor_rounded, l.ccDoPortChip, file.portOfDischarge!),
+                _buildInfoChip(
+                  Icons.timelapse_rounded,
+                  l.ccDoFreeDaysChip,
+                  l.ccDoDays(_freeDaysAllowed),
+                  color: _freeDaysAllowed <= 3 ? AppTheme.crimson : AppTheme.emerald,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            CcFormSection(
+              title: l.ccDoSection,
+              icon: Icons.directions_boat_filled_rounded,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Shipping line dropdown
+                  partnersAsync.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (err, _) => Text(
+                      l.ccDoPartnersError(ApiErrorText.of(l, err)),
+                      style: const TextStyle(color: AppTheme.crimson),
+                    ),
+                    data: (partners) {
+                      final shippingLines = partners.where((p) {
+                        final type = p.partnerType.toLowerCase();
+                        return type.contains('shipping') ||
+                            type.contains('line') ||
+                            type.contains('agent') ||
+                            type.contains('carrier') ||
+                            type.contains('ملاح');
+                      }).toList();
+
+                      final availablePartners = shippingLines.isNotEmpty ? shippingLines : partners;
+
+                      final items = availablePartners.map((p) {
+                        return SearchableDropdownItem<int>(
+                          value: p.providerId ?? 0,
+                          label: p.partnerName,
+                          subtitle: '${p.partnerType} • ${p.partnerCode}',
+                          icon: Icons.directions_boat_filled_rounded,
+                        );
+                      }).toList();
+
+                      return SearchableDropdownField<int>(
+                        key: const Key('shippingAgentDropdown'),
+                        value: _selectedShippingAgentId,
+                        items: items,
+                        labelText: l.ccDoAgentLabel,
+                        hintText: l.ccDoAgentHint,
+                        searchHintText: l.ccDoAgentSearchHint,
+                        isRequired: true,
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedShippingAgentId = val;
+                            final matched = availablePartners.firstWhere(
+                              (p) => p.providerId == val,
+                              orElse: () => availablePartners.first,
+                            );
+                            _selectedShippingAgentName = matched.partnerName;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // DO number with generator
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Status / Informative Banner
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withOpacity(isDark ? 0.15 : 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFF0284C7).withOpacity(0.35),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.info_outline_rounded,
-                              color: Color(0xFF0284C7),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'المرحلة السادسة: الإعداد الجمركي (46)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: Color(0xFF0284C7),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'تسجيل سداد مصاريف التوكيل واستلام إذن التسليم (D/O) يرفع تقدم الشحنة لـ 83% ويُتيح فتح وقيد الإقرار الجمركي 46 ك.م.',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                      Expanded(
+                        child: TextFormField(
+                          key: const Key('doNumberField'),
+                          controller: _doNumberController,
+                          textDirection: TextDirection.ltr,
+                          decoration: _dec(l.ccDoNumberLabel,
+                              hint: l.ccDoNumberHint, icon: Icons.confirmation_number_rounded),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return l.ccDoNumberRequired;
+                            if (val.trim().length < 3) return l.ccDoNumberTooShort;
+                            return null;
+                          },
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // Shipment Metadata Chips
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (widget.file.customFileNumber != null && widget.file.customFileNumber!.isNotEmpty)
-                            _buildInfoChip(Icons.folder_open_rounded, 'رقم الملف:', widget.file.customFileNumber!),
-                          if (widget.file.supplierName.isNotEmpty)
-                            _buildInfoChip(Icons.business_rounded, 'المورد:', widget.file.supplierName),
-                          if (widget.file.portOfDischarge != null && widget.file.portOfDischarge!.isNotEmpty)
-                            _buildInfoChip(Icons.anchor_rounded, 'ميناء الوصول:', widget.file.portOfDischarge!),
-                          _buildInfoChip(
-                            Icons.timelapse_rounded,
-                            'فترة السماح:',
-                            '$_freeDaysAllowed يوم',
-                            color: _freeDaysAllowed <= 3 ? AppTheme.crimson : AppTheme.emerald,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        'بيانات التوكيل الملاحي وإذن التسليم',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      const Divider(height: 20),
-
-                      // Shipping Line Dropdown
-                      partnersAsync.when(
-                        loading: () => const LinearProgressIndicator(),
-                        error: (err, _) => Text(
-                          'خطأ في تحميل الشركاء: $err',
-                          style: const TextStyle(color: AppTheme.crimson),
-                        ),
-                        data: (partners) {
-                          final shippingLines = partners.where((p) {
-                            final type = p.partnerType.toLowerCase();
-                            return type.contains('shipping') ||
-                                type.contains('line') ||
-                                type.contains('agent') ||
-                                type.contains('carrier') ||
-                                type.contains('ملاح');
-                          }).toList();
-
-                          final availablePartners = shippingLines.isNotEmpty ? shippingLines : partners;
-
-                          final items = availablePartners.map((p) {
-                            return SearchableDropdownItem<int>(
-                              value: p.providerId ?? 0,
-                              label: p.partnerName,
-                              subtitle: '${p.partnerType} • ${p.partnerCode}',
-                              icon: Icons.directions_boat_filled_rounded,
-                            );
-                          }).toList();
-
-                          return SearchableDropdownField<int>(
-                            key: const Key('shippingAgentDropdown'),
-                            value: _selectedShippingAgentId,
-                            items: items,
-                            labelText: 'التوكيل الملاحي / الخط الناقل *',
-                            hintText: 'ابحث واختر التوكيل أو الخط الملاحي...',
-                            searchHintText: 'ابحث باسم التوكيل أو الكود أو الخط...',
-                            isRequired: true,
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedShippingAgentId = val;
-                                final matched = availablePartners.firstWhere(
-                                  (p) => p.providerId == val,
-                                  orElse: () => availablePartners.first,
-                                );
-                                _selectedShippingAgentName = matched.partnerName;
-                              });
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // DO Number with Generator
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('doNumberField'),
-                              controller: _doNumberController,
-                              decoration: InputDecoration(
-                                labelText: 'رقم إذن التسليم الملاحي (D/O Number) *',
-                                hintText: 'مثال: DO-MAEU-2026-8819',
-                                prefixIcon: const Icon(Icons.confirmation_number_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'يرجى إدخال رقم إذن التسليم الملاحي';
-                                }
-                                if (val.trim().length < 3) {
-                                  return 'رقم إذن التسليم يجب ألا يقل عن 3 أحرف/أرقام';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Tooltip(
-                            message: 'توليد رقم إذن تسليم تلقائي',
-                            child: ElevatedButton.icon(
-                              onPressed: _generateDONumber,
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text('توليد'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0284C7),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // D/O Fee Amount & Currency
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              key: const Key('doFeesField'),
-                              controller: _feesController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                              ],
-                              decoration: InputDecoration(
-                                labelText: 'مصاريف التوكيل الملاحي (D/O Fees) *',
-                                hintText: '12500',
-                                prefixIcon: const Icon(Icons.payments_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'يرجى إدخال قيمة مصاريف التوكيل';
-                                }
-                                final numVal = double.tryParse(val.trim());
-                                if (numVal == null || numVal < 0) {
-                                  return 'يرجى إدخال مبلغ صحيح';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedCurrency,
-                              decoration: InputDecoration(
-                                labelText: 'العملة',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              items: _currencies
-                                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedCurrency = val);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Payment Receipt No.
-                      TextFormField(
-                        key: const Key('paymentRefField'),
-                        controller: _paymentRefController,
-                        decoration: InputDecoration(
-                          labelText: 'رقم إيصال أو مرجع سداد مصاريف التوكيل *',
-                          hintText: 'مثال: RCPT-TXN-2026-9912 أو رقم التحويل البنكي',
-                          prefixIcon: const Icon(Icons.receipt_long_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'يرجى إدخال رقم إيصال أو مرجع السداد';
-                          }
-                          if (val.trim().length < 2) {
-                            return 'مرجع السداد يجب ألا يقل عن حرفين/رقمين';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Dates: Issue Date & Expiry Date
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _doDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2035),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    _doDate = picked;
-                                    _updateFreeDays();
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'تاريخ استلام الإذن *',
-                                  prefixIcon: const Icon(Icons.calendar_today_rounded),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                child: Text(
-                                  '${_doDate.year}-${_doDate.month.toString().padLeft(2, '0')}-${_doDate.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _doExpiryDate,
-                                  firstDate: _doDate,
-                                  lastDate: DateTime(2035),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    _doExpiryDate = picked;
-                                    _updateFreeDays();
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'تاريخ انتهاء الصلاحية *',
-                                  prefixIcon: const Icon(Icons.event_busy_rounded),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                child: Text(
-                                  '${_doExpiryDate.year}-${_doExpiryDate.month.toString().padLeft(2, '0')}-${_doExpiryDate.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Document File URL
-                      TextFormField(
-                        key: const Key('fileUrlField'),
-                        controller: _fileUrlController,
-                        decoration: InputDecoration(
-                          labelText: 'رابط أو مسار صورة إذن التسليم المرفوع (اختياري)',
-                          hintText: 'https://storage.sorourlogistics.com/docs/do_scan.pdf',
-                          prefixIcon: const Icon(Icons.attach_file_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Notes
-                      TextFormField(
-                        key: const Key('notesField'),
-                        controller: _notesController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          labelText: 'ملاحظات وتوجيهات الكشف الجمركي (اختياري)',
-                          hintText: 'سداد غرامات التأخير إن وجدت، تنسيق النقل الداخلي مع المخلص...',
-                          prefixIcon: const Icon(Icons.notes_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(top: 4),
+                        child: AppButton(
+                          label: l.ccDoGenerate,
+                          icon: Icons.refresh_rounded,
+                          tooltip: l.ccDoGenerateTooltip,
+                          onPressed: _generateDONumber,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
+                  const SizedBox(height: 16),
 
-            // Dialog Actions Footer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                borderRadius: const BorderRadiusDirectional.only(
-                  bottomStart: Radius.circular(16),
-                  bottomEnd: Radius.circular(16),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                  // D/O fee amount & currency
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          key: const Key('doFeesField'),
+                          controller: _feesController,
+                          textDirection: TextDirection.ltr,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                          ],
+                          decoration: _dec(l.ccDoFeesLabel, hint: '12500', icon: Icons.payments_rounded),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return l.ccDoFeesRequired;
+                            final numVal = double.tryParse(val.trim());
+                            if (numVal == null || numVal < 0) return l.ccDoFeesInvalid;
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SearchableDropdownField<String>(
+                          value: _selectedCurrency,
+                          isDense: false,
+                          isRequired: true,
+                          labelText: l.ccDoCurrencyLabel,
+                          decoration: _dec(l.ccDoCurrencyLabel),
+                          items: _currencies
+                              .map((c) => SearchableDropdownItem<String>(value: c, label: c))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedCurrency = val);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text('إلغاء'),
+                  const SizedBox(height: 16),
+
+                  // Payment receipt no.
+                  TextFormField(
+                    key: const Key('paymentRefField'),
+                    controller: _paymentRefController,
+                    textDirection: TextDirection.ltr,
+                    decoration: _dec(l.ccDoPaymentRefLabel,
+                        hint: l.ccDoPaymentRefHint, icon: Icons.receipt_long_rounded),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return l.ccDoPaymentRefRequired;
+                      if (val.trim().length < 2) return l.ccDoPaymentRefTooShort;
+                      return null;
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    key: const Key('submitDeliveryOrderBtn'),
-                    onPressed: _isSubmitting ? null : _submitPayment,
-                    icon: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline_rounded, size: 20),
-                    label: Text(
-                      _isSubmitting ? 'جاري الحفظ والاعتماد...' : 'سداد واعتماد إذن التسليم (CS-02)',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(height: 16),
+
+                  // Dates: issue date & expiry date
+                  CcFieldRow(
+                    gap: 12,
+                    children: [
+                      _datePicker(
+                        label: l.ccDoDateLabel,
+                        icon: Icons.calendar_today_rounded,
+                        value: _doDate,
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _doDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2035),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _doDate = picked;
+                              _updateFreeDays();
+                            });
+                          }
+                        },
+                      ),
+                      _datePicker(
+                        label: l.ccDoExpiryLabel,
+                        icon: Icons.event_busy_rounded,
+                        value: _doExpiryDate,
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _doExpiryDate,
+                            firstDate: _doDate,
+                            lastDate: DateTime(2035),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _doExpiryDate = picked;
+                              _updateFreeDays();
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    key: const Key('fileUrlField'),
+                    controller: _fileUrlController,
+                    textDirection: TextDirection.ltr,
+                    decoration: _dec(
+                      l.ccDoFileUrlLabel,
+                      hint: 'https://storage.sorourlogistics.com/docs/do_scan.pdf',
+                      icon: Icons.attach_file_rounded,
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    key: const Key('notesField'),
+                    controller: _notesController,
+                    maxLines: 2,
+                    decoration: _dec(l.ccDoNotesLabel, hint: l.ccDoNotesHint, icon: Icons.notes_rounded),
                   ),
                 ],
               ),
@@ -664,28 +507,22 @@ class _DeliveryOrderPaymentDialogState
   }
 
   Widget _buildInfoChip(IconData icon, String label, String value, {Color? color}) {
-    final chipColor = color ?? const Color(0xFF0284C7);
+    final chipColor = color ?? AppTheme.cobalt;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: chipColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: chipColor.withOpacity(0.3)),
+        color: chipColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: chipColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: chipColor),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: chipColor, fontWeight: FontWeight.bold),
-          ),
+          Text(label, style: TextStyle(fontSize: 11, color: chipColor, fontWeight: FontWeight.bold)),
           const SizedBox(width: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
