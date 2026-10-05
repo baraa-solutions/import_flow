@@ -17,6 +17,7 @@ from modules.import_documentation.service import (
     create_inspection_review_service,
 )
 from modules.import_files.model import ImportFile
+from modules.suppliers.model import Supplier
 
 
 @pytest.fixture
@@ -26,12 +27,27 @@ def db_session():
     TestingSession = sessionmaker(bind=engine)
     session = TestingSession()
 
-    # Create dummy import file
+    # Phase 3a DOC-03 / review #13: certified COO and inspection saves are compared on the server against the
+    # master data, so the fixture carries a real supplier (origin) and an invoice number on the import file.
+    session.add(Supplier(
+        supplier_id=1,
+        supplier_code="SUP-TEST-001",
+        company_name="Global Tech",
+        supplier_type="Manufacturer",
+        registration_type="Factory",
+        foreign_exporter_id="EXP-CN-001",
+        foreign_exporter_country="China",
+        foreign_exporter_country_code="CN",
+        address="Shenzhen, China",
+        is_active=True,
+    ))
     imp_file = ImportFile(
         import_file_id=1,
         import_file_code="IMP-2026-001",
+        supplier_id=1,
         supplier_name="Global Tech",
         company_name="Al Ahly Import",
+        pi_number="PI-2026-001",
     )
     session.add(imp_file)
     session.commit()
@@ -83,6 +99,16 @@ def test_coo_review_discrepancy_with_valid_reason_saves_and_updates_duplicate(db
         status="Verified",
         override_reason=None,
         comparison_matrix=[{"field": "exporter_name", "match_status": "Match"}],
+        # Review #13: the server recomputes the comparison, so a "clean" save sends a draft that matches the
+        # master data (supplier, importer, origin, invoice) instead of a client-side matrix.
+        draft_input_data={
+            "exporter_name": "Global Tech",
+            "importer_name": "Al Ahly Import",
+            "country_of_origin": "China",
+            "destination_country": "Egypt",
+            "invoice_number": "PI-2026-001",
+            "certificate_type": "China Certificate of Origin (CCPIT)",
+        },
     )
     saved2 = create_coo_review_service(db_session, schema2)
     assert saved2.coo_review_id == saved1.coo_review_id
@@ -132,6 +158,15 @@ def test_inspection_review_discrepancy_requires_reason_and_updates_duplicate(db_
         has_discrepancies=False,
         status="Verified",
         comparison_matrix=[],
+        # Review #13: inspection saves are always compared on the server; a "clean" save sends a draft that
+        # matches the master data and the critical inspection fields.
+        draft_input_data={
+            "inspection_agency": "TUV",
+            "importer_name": "Al Ahly Import",
+            "exporter_name": "Global Tech",
+            "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
+            "invoice_number": "PI-2026-001",
+        },
     )
     saved_up = create_inspection_review_service(db_session, schema_update)
     assert saved_up.inspection_review_id == saved.inspection_review_id

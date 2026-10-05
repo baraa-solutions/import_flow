@@ -42,74 +42,58 @@ class InlandTransportNotifier extends StateNotifier<AsyncValue<List<InlandTransp
   }
 
   Future<InlandTransportModel?> fetchBookingByFile(int importFileId) async {
-    try {
-      final response = await _dio.get(
-        '${ApiConstants.baseUrl}/inland-transport/bookings/by-file/$importFileId',
-      );
-      if (response.data == null) return null;
-      return InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
-    } catch (e) {
-      return null;
-    }
+    // FE-06: null only for a 200 with an empty body; every error is rethrown so the
+    // caller shows it instead of the empty "create booking" form.
+    final response = await _dio.get(
+      '${ApiConstants.baseUrl}/inland-transport/bookings/by-file/$importFileId',
+    );
+    final data = response.data;
+    if (data is! Map) return null;
+    return InlandTransportModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<InlandTransportModel?> createBooking(Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/inland-transport/bookings',
-        data: payload,
-      );
-      final created = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchBookings();
-      return created;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/inland-transport/bookings',
+      data: payload,
+    );
+    final created = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    await fetchBookings();
+    return created;
   }
 
   Future<InlandTransportModel?> recordGateOut(int transportId, Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId/gate-out',
-        data: payload,
-      );
-      final updated = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchBookings();
-      return updated;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId/gate-out',
+      data: payload,
+    );
+    final updated = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    await fetchBookings();
+    return updated;
   }
 
   Future<InlandTransportModel?> recordWarehouseArrival(int transportId, Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId/warehouse-arrival',
-        data: payload,
-      );
-      final updated = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchBookings();
-      return updated;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId/warehouse-arrival',
+      data: payload,
+    );
+    final updated = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    await fetchBookings();
+    return updated;
   }
 
   Future<void> deleteBooking(int transportId) async {
-    try {
-      await _dio.delete(
-        '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId',
-      );
-      _ref?.invalidate(importFilesProvider);
-      await fetchBookings();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.delete(
+      '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId',
+    );
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    await fetchBookings();
   }
 }

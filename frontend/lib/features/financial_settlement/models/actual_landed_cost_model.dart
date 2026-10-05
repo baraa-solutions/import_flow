@@ -1,3 +1,75 @@
+/// First numeric value found under any of [keys] (backend name first, then the
+/// legacy client name), else [fallback].
+double _numOf(Map<String, dynamic> json, List<String> keys, double fallback) {
+  for (final k in keys) {
+    final v = json[k];
+    if (v is num) return v.toDouble();
+  }
+  return fallback;
+}
+
+String _strOf(Map<String, dynamic> json, List<String> keys, String fallback) {
+  for (final k in keys) {
+    final v = json[k];
+    if (v is String && v.isNotEmpty) return v;
+  }
+  return fallback;
+}
+
+/// Maps backend variance codes (SAVING / INCREASED / UNDER_BUDGET / OVER_BUDGET /
+/// ON_BUDGET) and legacy ones to FAVORABLE / UNFAVORABLE / MATCHED.
+String normalizeVarianceStatus(String? raw) {
+  switch (raw) {
+    case 'SAVING':
+    case 'UNDER_BUDGET':
+    case 'FAVORABLE':
+      return 'FAVORABLE';
+    case 'INCREASED':
+    case 'OVER_BUDGET':
+    case 'UNFAVORABLE':
+      return 'UNFAVORABLE';
+    default:
+      return 'MATCHED';
+  }
+}
+
+/// Language-neutral backend message (`code` + `params`), rendered by the UI via l10n.
+class SettlementMessageModel {
+  final String code;
+  final Map<String, dynamic> params;
+  final String severity;
+
+  const SettlementMessageModel({
+    required this.code,
+    this.params = const {},
+    this.severity = 'warning',
+  });
+
+  factory SettlementMessageModel.fromJson(Map<String, dynamic> json) {
+    return SettlementMessageModel(
+      code: json['code']?.toString() ?? '',
+      params: (json['params'] as Map?)?.cast<String, dynamic>() ?? const {},
+      severity: json['severity']?.toString() ?? 'warning',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'code': code, 'params': params, 'severity': severity};
+
+  static List<SettlementMessageModel> listFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((m) => SettlementMessageModel.fromJson(m.cast<String, dynamic>()))
+        .toList();
+  }
+}
+
+String _statusFromVariance(double v) {
+  if (v > 0) return 'UNFAVORABLE';
+  if (v < 0) return 'FAVORABLE';
+  return 'MATCHED';
+}
+
 class ActualLandedCostCategoryBreakdownModel {
   final String category;
   final String categoryAr;
@@ -25,11 +97,13 @@ class ActualLandedCostCategoryBreakdownModel {
     return ActualLandedCostCategoryBreakdownModel(
       category: json['category'] ?? '',
       categoryAr: json['category_ar'] ?? '',
-      estimatedAmountEgp: (json['estimated_amount_egp'] as num?)?.toDouble() ?? 0.0,
-      actualAmountEgp: (json['actual_amount_egp'] as num?)?.toDouble() ?? 0.0,
+      estimatedAmountEgp: _numOf(json, ['estimated_egp', 'estimated_amount_egp'], 0.0),
+      actualAmountEgp: _numOf(json, ['actual_egp', 'actual_amount_egp'], 0.0),
       varianceEgp: (json['variance_egp'] as num?)?.toDouble() ?? 0.0,
       variancePct: (json['variance_pct'] as num?)?.toDouble() ?? 0.0,
-      varianceStatus: json['variance_status'] ?? 'MATCHED',
+      varianceStatus: json['variance_status'] != null
+          ? normalizeVarianceStatus(json['variance_status']?.toString())
+          : _statusFromVariance((json['variance_egp'] as num?)?.toDouble() ?? 0.0),
       invoicesCount: (json['invoices_count'] as num?)?.toInt() ?? 0,
       sourceNote: json['source_note'] ?? '',
     );
@@ -113,11 +187,11 @@ class ActualLandedCostItemLineModel {
     return ActualLandedCostItemLineModel(
       poItemId: (json['po_item_id'] as num?)?.toInt() ?? 0,
       itemCode: json['item_code'] ?? '',
-      itemNameAr: json['item_name_ar'] ?? '',
+      itemNameAr: _strOf(json, ['item_name', 'item_name_ar'], ''),
       hsCode: json['hs_code'] ?? '',
-      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
+      quantity: _numOf(json, ['qty', 'quantity'], 0.0),
       unitOfMeasure: json['unit_of_measure'] ?? 'PCS',
-      fobUnitPriceFc: (json['fob_unit_price_fc'] as num?)?.toDouble() ?? 0.0,
+      fobUnitPriceFc: _numOf(json, ['fob_unit_price_fc', 'fob_unit_egp'], 0.0),
       fobTotalFc: (json['fob_total_fc'] as num?)?.toDouble() ?? 0.0,
       fobTotalEgp: (json['fob_total_egp'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'] ?? 'USD',
@@ -125,19 +199,20 @@ class ActualLandedCostItemLineModel {
       cbm: (json['cbm'] as num?)?.toDouble() ?? 0.0,
       allocatedFreightEgp: (json['allocated_freight_egp'] as num?)?.toDouble() ?? 0.0,
       allocatedInsuranceEgp: (json['allocated_insurance_egp'] as num?)?.toDouble() ?? 0.0,
-      allocatedCustomsDutiesEgp: (json['allocated_customs_duties_egp'] as num?)?.toDouble() ?? 0.0,
-      allocatedTaxesFeesEgp: (json['allocated_taxes_fees_egp'] as num?)?.toDouble() ?? 0.0,
-      allocatedClearanceBrokerageEgp: (json['allocated_clearance_brokerage_egp'] as num?)?.toDouble() ?? 0.0,
+      allocatedCustomsDutiesEgp: _numOf(json, ['allocated_customs_duty_egp', 'allocated_customs_duties_egp'], 0.0),
+      allocatedTaxesFeesEgp: _numOf(json, ['allocated_vat_egp', 'allocated_taxes_fees_egp'], 0.0),
+      allocatedClearanceBrokerageEgp: _numOf(json, ['allocated_clearance_egp', 'allocated_clearance_brokerage_egp'], 0.0),
       allocatedPortHandlingEgp: (json['allocated_port_handling_egp'] as num?)?.toDouble() ?? 0.0,
       allocatedInlandTransportEgp: (json['allocated_inland_transport_egp'] as num?)?.toDouble() ?? 0.0,
-      allocatedOtherExpensesEgp: (json['allocated_other_expenses_egp'] as num?)?.toDouble() ?? 0.0,
+      allocatedOtherExpensesEgp: _numOf(json, ['allocated_other_egp', 'allocated_other_expenses_egp'], 0.0),
       totalActualLandedCostEgp: (json['total_actual_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       actualUnitLandedCostEgp: (json['actual_unit_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedUnitLandedCostEgp: (json['estimated_unit_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       unitCostVarianceEgp: (json['unit_cost_variance_egp'] as num?)?.toDouble() ?? 0.0,
       unitCostVariancePct: (json['unit_cost_variance_pct'] as num?)?.toDouble() ?? 0.0,
-      markupFactor: (json['markup_factor'] as num?)?.toDouble() ?? 1.0,
-      varianceStatus: json['variance_status'] ?? 'MATCHED',
+      markupFactor: _numOf(json, ['actual_markup_factor', 'markup_factor'], 1.0),
+      varianceStatus: normalizeVarianceStatus(
+          (json['item_variance_status'] ?? json['variance_status'])?.toString()),
     );
   }
 
@@ -193,6 +268,8 @@ class ActualLandedCostCalculationResponseModel {
   final List<ActualLandedCostCategoryBreakdownModel> categoriesBreakdown;
   final List<ActualLandedCostItemLineModel> itemsBreakdown;
   final String summaryNotes;
+  final double reconciliationDifferenceEgp;
+  final List<SettlementMessageModel> messages;
 
   ActualLandedCostCalculationResponseModel({
     required this.importFileId,
@@ -213,6 +290,8 @@ class ActualLandedCostCalculationResponseModel {
     required this.categoriesBreakdown,
     required this.itemsBreakdown,
     required this.summaryNotes,
+    this.reconciliationDifferenceEgp = 0.0,
+    this.messages = const [],
   });
 
   factory ActualLandedCostCalculationResponseModel.fromJson(Map<String, dynamic> json) {
@@ -224,17 +303,19 @@ class ActualLandedCostCalculationResponseModel {
       importFileCode: json['import_file_code'] ?? '',
       financialSettlementStatus: json['financial_settlement_status'] ?? '',
       currency: json['currency'] ?? 'USD',
-      fxRate: (json['fx_rate'] as num?)?.toDouble() ?? 50.0,
+      fxRate: _numOf(json, ['exchange_rate', 'fx_rate'], 0.0),
       allocationPreference: json['allocation_preference'] ?? 'Value-Based',
-      totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble() ?? 0.0,
-      totalActualExpensesEgp: (json['total_actual_expenses_egp'] as num?)?.toDouble() ?? 0.0,
+      totalFobEgp: _numOf(json, ['actual_total_fob_egp', 'total_fob_egp'], 0.0),
+      totalActualExpensesEgp: _numOf(json, ['actual_total_expenses_egp', 'total_actual_expenses_egp'], 0.0),
       actualTotalLandedCostEgp: (json['actual_total_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       actualMarkupFactor: (json['actual_markup_factor'] as num?)?.toDouble() ?? 1.0,
       estimatedTotalLandedCostEgp: (json['estimated_total_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       landedVarianceEgp: (json['landed_variance_egp'] as num?)?.toDouble() ?? 0.0,
       landedVariancePct: (json['landed_variance_pct'] as num?)?.toDouble() ?? 0.0,
-      varianceStatus: json['variance_status'] ?? 'MATCHED',
-      varianceStatusAr: json['variance_status_ar'] ?? 'مطابق للتقديري',
+      varianceStatus: normalizeVarianceStatus(json['variance_status']?.toString()),
+      varianceStatusAr: json['variance_status_ar']?.toString() ?? '',
+      reconciliationDifferenceEgp: (json['reconciliation_difference_egp'] as num?)?.toDouble() ?? 0.0,
+      messages: SettlementMessageModel.listFrom(json['messages']),
       categoriesBreakdown: rawCategories
           .map((c) => ActualLandedCostCategoryBreakdownModel.fromJson(c as Map<String, dynamic>))
           .toList(),
@@ -265,6 +346,8 @@ class ActualLandedCostCalculationResponseModel {
       'categories_breakdown': categoriesBreakdown.map((c) => c.toJson()).toList(),
       'items_breakdown': itemsBreakdown.map((i) => i.toJson()).toList(),
       'summary_notes': summaryNotes,
+      'reconciliation_difference_egp': reconciliationDifferenceEgp,
+      'messages': messages.map((m) => m.toJson()).toList(),
     };
   }
 }

@@ -1,5 +1,9 @@
 import pytest
 from datetime import datetime, timezone
+
+# Register every table the GRN create / closure touch before the fixture runs create_all.
+import modules.demurrage_detention.model  # noqa: F401
+import modules.inland_transport.model  # noqa: F401
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -157,6 +161,8 @@ def test_phase_10_file_closure_workflow(db_session):
         is_active=True,
     )
     db_session.add(settlement)
+    # Since FC-01 the server gate also requires the comprehensive dossier export (CLO-03).
+    db_session.query(ImportFile).filter(ImportFile.import_file_id == 1).first().dossier_exported_at = datetime.now()
     db_session.commit()
 
     closure_schema = FileClosureCreate(

@@ -24,6 +24,7 @@ import modules.import_documentation.model as doc_models
 from modules.import_documentation.schemas import (
     POFinalAdjustmentRequest,
     POReconciliationItem,
+    POFinalAdjustmentItem,
     DraftBLComparisonRequest,
     DraftBLReviewCreate,
     DraftBLReviewUpdate,
@@ -179,7 +180,8 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
             final_invoice_number="INV-FINAL-2026-001",
             final_packing_list_number="PL-FINAL-2026-001",
             items=[
-                POReconciliationItem(
+                # Phase 3a C4: request lines are POFinalAdjustmentItem (non-negative quantities / weights).
+                POFinalAdjustmentItem(
                     item_code="SIEM-TRAIN-01",
                     description="Industrial Control Unit",
                     package_type="Carton",
@@ -300,6 +302,10 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         self.assertEqual(review2.blocking_reasons_coded[0]["params"]["field_enum_draft_bl_field"], "POL")
 
     def test_certificate_of_origin_comparison(self):
+        # Phase 3a DOC-03: the system invoice number is no longer the invented "INV-2026-FINAL" default; it comes
+        # from the import file, so the fixture file now carries that invoice number.
+        self.import_file.pi_number = "INV-2026-FINAL"
+        self.db.commit()
         coo_req = COOComparisonRequest(
             import_file_id=self.import_file.import_file_id,
             certificate_type="EUR.1",
@@ -398,7 +404,8 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         self.assertEqual(session.stage, "Stage 2: Revision Required")
         self.assertEqual(session.open_discrepancies_count, 1)
         self.assertEqual(len(session.revision_report_data), 1)
-        self.assertEqual(session.revision_report_data[0]["item"], "اسم السفينة")
+        # Phase 3a DOC-19: the stored revision report uses the English label (single-language storage).
+        self.assertEqual(session.revision_report_data[0]["item"], "Vessel Name")
 
         # 2. Test Dual Approval Blocking when Stage is not Stage 4
         dual_req = DualApprovalRequest(
@@ -408,7 +415,7 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
             approved_by="Kamal",
         )
         with self.assertRaises(HTTPException):
-            service.process_dual_approval_service(self.db, dual_req)
+            service.process_dual_approval_service(self.db, dual_req, user="Kamal")
 
         # 3. Fix the Checklist Item (All Correct -> Transitions to Stage 4: Dual Approval)
         fixed_items = [
@@ -439,7 +446,8 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         self.assertEqual(len(updated.revision_report_data), 0)
 
         # 4. Importer Approval
-        app1 = service.process_dual_approval_service(self.db, dual_req)
+        # Phase 3a DOC-12: the approver is the logged-in user (``user``), never the body's approved_by.
+        app1 = service.process_dual_approval_service(self.db, dual_req, user="Kamal")
         self.assertEqual(app1.importer_approval_status, "Approved")
         self.assertEqual(app1.broker_approval_status, "Pending")
         self.assertEqual(app1.stage, "Stage 4: Dual Approval")
@@ -451,7 +459,7 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
             action="Approved",
             approved_by="Ahmed Broker",
         )
-        app2 = service.process_dual_approval_service(self.db, broker_req)
+        app2 = service.process_dual_approval_service(self.db, broker_req, user="Ahmed Broker")
         self.assertEqual(app2.broker_approval_status, "Approved")
         self.assertEqual(app2.stage, "Stage 5: Final")
         self.assertEqual(app2.status, "FINAL")

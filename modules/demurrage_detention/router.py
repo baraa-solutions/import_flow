@@ -1,6 +1,8 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 from database.database import get_db
 
@@ -23,7 +25,7 @@ from .schemas import (
     EmptyContainerReturnResponse,
 )
 from .service import (
-    simulate_demurrage_and_detention,
+    simulate_with_defaults,
     create_demurrage_policy_service,
     get_demurrage_policies_service,
     get_demurrage_policy_by_id_service,
@@ -50,8 +52,8 @@ router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Dete
 # ----------------------------------------------------
 
 @router.post("/simulate", response_model=DemurrageSimulationResponse, summary="محاكي حساب غرامات وفترات سماح الحاويات والأرضيات")
-def simulate_demurrage_endpoint(req: DemurrageSimulationRequest):
-    return simulate_demurrage_and_detention(req)
+def simulate_demurrage_endpoint(req: DemurrageSimulationRequest, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
+    return simulate_with_defaults(db, req)
 
 
 # ----------------------------------------------------
@@ -59,8 +61,8 @@ def simulate_demurrage_endpoint(req: DemurrageSimulationRequest):
 # ----------------------------------------------------
 
 @router.post("/policies", response_model=DemurragePolicyResponse, status_code=status.HTTP_201_CREATED, summary="إنشاء سياسة تعريفة غرامات لخط ملاحي")
-def create_policy_endpoint(req: DemurragePolicyCreate, db: Session = Depends(get_db)):
-    return create_demurrage_policy_service(db, req)
+def create_policy_endpoint(req: DemurragePolicyCreate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return create_demurrage_policy_service(db, req, user=current_user.username)
 
 
 @router.get("/policies", response_model=List[DemurragePolicyResponse], summary="استعراض سياسات غرامات الخطوط الملاحية")
@@ -68,23 +70,24 @@ def get_policies_endpoint(
     carrier_name: Optional[str] = Query(None, description="تصفية باسم الخط الملاحي"),
     container_type: Optional[str] = Query(None, description="تصفية بنوع الحاوية"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
 ):
     return get_demurrage_policies_service(db, carrier_name=carrier_name, container_type=container_type)
 
 
 @router.get("/policies/{policy_id}", response_model=DemurragePolicyResponse, summary="جلب تفاصيل سياسة غرامات محددة")
-def get_policy_by_id_endpoint(policy_id: int, db: Session = Depends(get_db)):
+def get_policy_by_id_endpoint(policy_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
     return get_demurrage_policy_by_id_service(db, policy_id)
 
 
 @router.put("/policies/{policy_id}", response_model=DemurragePolicyResponse, summary="تعديل سياسة غرامات خط ملاحي")
-def update_policy_endpoint(policy_id: int, req: DemurragePolicyUpdate, db: Session = Depends(get_db)):
-    return update_demurrage_policy_service(db, policy_id, req)
+def update_policy_endpoint(policy_id: int, req: DemurragePolicyUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return update_demurrage_policy_service(db, policy_id, req, user=current_user.username)
 
 
 @router.delete("/policies/{policy_id}", response_model=DemurragePolicyResponse, summary="حذف سياسة غرامات (Soft Delete)")
-def delete_policy_endpoint(policy_id: int, db: Session = Depends(get_db)):
-    return delete_demurrage_policy_service(db, policy_id)
+def delete_policy_endpoint(policy_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return delete_demurrage_policy_service(db, policy_id, user=current_user.username)
 
 
 # ----------------------------------------------------
@@ -92,8 +95,8 @@ def delete_policy_endpoint(policy_id: int, db: Session = Depends(get_db)):
 # ----------------------------------------------------
 
 @router.post("/trackings", response_model=DemurrageTrackingResponse, status_code=status.HTTP_201_CREATED, summary="إنشاء جلسة تتبع حاويات وحساب غرامات")
-def create_tracking_endpoint(req: DemurrageTrackingCreate, db: Session = Depends(get_db)):
-    return create_demurrage_tracking_service(db, req)
+def create_tracking_endpoint(req: DemurrageTrackingCreate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return create_demurrage_tracking_service(db, req, user=current_user.username)
 
 
 @router.get("/trackings", response_model=List[DemurrageTrackingResponse], summary="استعراض جلسات تتبع الحاويات")
@@ -102,23 +105,24 @@ def get_trackings_endpoint(
     carrier_name: Optional[str] = Query(None, description="تصفية باسم الخط الملاحي"),
     status: Optional[str] = Query(None, description="تصفية بالحالة"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
 ):
     return get_demurrage_trackings_service(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status)
 
 
 @router.get("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="جلب تفاصيل جلسة تتبع حاويات")
-def get_tracking_by_id_endpoint(tracking_id: int, db: Session = Depends(get_db)):
+def get_tracking_by_id_endpoint(tracking_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
     return get_demurrage_tracking_by_id_service(db, tracking_id)
 
 
 @router.put("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="تحديث وإعادة حساب جلسة تتبع حاويات")
-def update_tracking_endpoint(tracking_id: int, req: DemurrageTrackingUpdate, db: Session = Depends(get_db)):
-    return recalculate_and_update_tracking_service(db, tracking_id, req)
+def update_tracking_endpoint(tracking_id: int, req: DemurrageTrackingUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return recalculate_and_update_tracking_service(db, tracking_id, req, user=current_user.username)
 
 
 @router.post("/trackings/push-to-settlement", summary="ترحيل الغرامات تلقائياً إلى فواتير التسوية المالية Landed Cost")
-def push_to_settlement_endpoint(req: PushToSettlementRequest, db: Session = Depends(get_db)):
-    return push_demurrage_to_financial_settlement_service(db, req)
+def push_to_settlement_endpoint(req: PushToSettlementRequest, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return push_demurrage_to_financial_settlement_service(db, req, user=current_user.username, actor=current_user)
 
 
 @router.get(
@@ -126,7 +130,7 @@ def push_to_settlement_endpoint(req: PushToSettlementRequest, db: Session = Depe
     response_model=DualClockResponse,
     summary="جلب رادار العداد المزدوج المتزامن (غرامات الخط الملاحي USD مقابل أرضيات ساحة الميناء EGP)",
 )
-def get_dual_clock_endpoint(tracking_id: int, db: Session = Depends(get_db)):
+def get_dual_clock_endpoint(tracking_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
     return get_dual_clock_status_service(db, tracking_id)
 
 
@@ -140,8 +144,9 @@ def update_single_container_endpoint(
     container_no: str,
     req: ContainerIndividualUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
-    return update_single_container_service(db, tracking_id, container_no, req)
+    return update_single_container_service(db, tracking_id, container_no, req, user=current_user.username)
 
 
 # ----------------------------------------------------
@@ -149,12 +154,12 @@ def update_single_container_endpoint(
 # ----------------------------------------------------
 
 @router.post("/free-days-agreement", response_model=FreeDaysAgreementResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل وتوثيق اتفاقية فترات السماح الممنوحة للحاويات (BK-02)")
-def register_free_days_agreement_endpoint(req: FreeDaysAgreementRegister, db: Session = Depends(get_db)):
-    return register_free_days_agreement_service(db, req)
+def register_free_days_agreement_endpoint(req: FreeDaysAgreementRegister, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return register_free_days_agreement_service(db, req, user=current_user.username)
 
 
 @router.get("/free-days-agreement/{import_file_id}", response_model=FreeDaysAgreementResponse, summary="جلب بيانات اتفاقية فترات السماح المعتمدة لملف استيراد")
-def get_free_days_agreement_endpoint(import_file_id: int, db: Session = Depends(get_db)):
+def get_free_days_agreement_endpoint(import_file_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
     return get_free_days_agreement_service(db, import_file_id)
 
 
@@ -167,7 +172,7 @@ def get_free_days_agreement_endpoint(import_file_id: int, db: Session = Depends(
     response_model=ContainerRadarOverviewResponse,
     summary="رادار مراقبة فترات السماح وتفادي غرامات الحاويات والأرضيات (TR-02)",
 )
-def get_radar_overview_endpoint(db: Session = Depends(get_db)):
+def get_radar_overview_endpoint(db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.view"))):
     return get_containers_radar_overview_service(db)
 
 
@@ -184,7 +189,8 @@ def get_radar_overview_endpoint(db: Session = Depends(get_db)):
 def record_empty_container_return_endpoint(
     req: EmptyContainerReturnSubmit,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
-    return record_empty_container_return_service(db, req)
+    return record_empty_container_return_service(db, req, user=current_user.username)
 
 

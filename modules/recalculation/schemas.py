@@ -3,7 +3,7 @@ Pydantic Schemas for Centralized Recalculation Engine (CRE-001)
 """
 import json
 from datetime import datetime
-from typing import List, Optional, Any
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
@@ -23,6 +23,10 @@ class RecalculationPreviewItem(BaseModel):
     threshold_percentage: float          # Configured threshold (e.g. 5.0%)
     source_entity_type: str
     dependency_id: int
+    # Additive (phase 09): "OK", or "RATE_MISSING" when the source value has no exchange rate (never applied).
+    status: str = "OK"
+    message_code: Optional[str] = None
+    params: Dict[str, Any] = {}
 
 
 class RecalculationPreviewResponse(BaseModel):
@@ -36,7 +40,9 @@ class RecalculationPreviewResponse(BaseModel):
     blocked_by_status: bool              # True if entity status is in blocked_statuses
     current_entity_status: str
     can_apply: bool                      # True if user has permission and no irreversible block
-    message_ar: str
+    message_ar: str                      # deprecated: render message_code + params
+    message_code: Optional[str] = None   # RECALC_NO_VARIANCE / RECALC_SOFT_VARIANCE / RECALC_HARD_BLOCK
+    params: Dict[str, Any] = {}
 
 
 # ─── Apply Request ───────────────────────────────────────────────────────────
@@ -61,7 +67,9 @@ class RecalculationApplyResult(BaseModel):
     new_entity_code: Optional[str] = None
     applied_changes: List[RecalculationPreviewItem] = []
     log_id: int
-    message_ar: str
+    message_ar: str                      # deprecated: render message_code + params
+    message_code: Optional[str] = None   # RECALC_NO_VARIANCE / RECALC_APPLIED
+    params: Dict[str, Any] = {}
 
 
 # ─── Dependency Map ──────────────────────────────────────────────────────────

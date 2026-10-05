@@ -18,7 +18,8 @@ from modules.import_files.model import ImportFile
 import modules.import_files.repository as repo
 import modules.import_files.validators as validators
 from modules.audit_logs.service import AuditLogService
-from modules.common import enum_codes
+from modules.common import cargo_math, enum_codes
+from modules.common.system_parameters import air_volumetric_kg_per_cbm
 from modules.common.system_messages import SysMsg, msg, render_en
 
 logger = logging.getLogger(__name__)
@@ -213,6 +214,10 @@ STEP_INITIAL_NEXT_ACTION_CODES = {
     "STEP_20": "NA_AUDIT_LANDED_COST_CLOSURE",
     "STEP_21": "NA_ARCHIVE_IMPORT_FILE",
 }
+
+
+# Courier express volumetric convention (L x W x H cm / 5000). Not the air factor; kept as is.
+COURIER_KG_PER_CBM = 200.0
 
 
 def _next_action_fields(message: SysMsg) -> Dict[str, Any]:
@@ -757,9 +762,11 @@ def generate_freight_rfq_service(
     is_air = ("air" in mode_str or "airport" in pol_lower or "airport" in pod_lower or "مطار" in pol_lower or "مطار" in pod_lower or "جوي" in mode_str or is_courier)
     is_multimodal = "multi" in mode_str or "متعدد" in mode_str
 
-    # Calculate Volumetric & Chargeable Weight for Air / Courier
-    divisor = 5000.0 if is_courier else 6000.0
-    volumetric_weight_air = total_cbm * (200.0 if is_courier else 166.67) if total_cbm > 0 else 0.0
+    # Calculate Volumetric & Chargeable Weight for Air / Courier.
+    # Air uses the single configurable factor (system_parameters, CTO decision Q1). Courier keeps its own
+    # express divisor (L x W x H cm / 5000 = 200 kg per CBM), which is a carrier convention, not the air factor.
+    kg_per_cbm = COURIER_KG_PER_CBM if is_courier else air_volumetric_kg_per_cbm(db)
+    volumetric_weight_air = cargo_math.volumetric_weight_kg(total_cbm, kg_per_cbm) if total_cbm > 0 else 0.0
     pl_vol_weight = 0.0
     for po in linked_pos:
         for pl_item in getattr(po, 'packing_list_items', []):
@@ -768,7 +775,7 @@ def generate_freight_rfq_service(
             w = float(pl_item.width_cm or 0)
             h = float(pl_item.height_cm or 0)
             if l > 0 and w > 0 and h > 0:
-                pl_vol_weight += ((l * w * h) / divisor) * qty
+                pl_vol_weight += cargo_math.volumetric_weight_kg(l * w * h / cargo_math.CM3_PER_M3, kg_per_cbm) * qty
     if pl_vol_weight > volumetric_weight_air:
         volumetric_weight_air = pl_vol_weight
 

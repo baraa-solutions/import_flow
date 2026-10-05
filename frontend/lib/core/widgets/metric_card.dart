@@ -53,10 +53,28 @@ class MetricCardData {
   }
 }
 
+/// Builds [builder] with the current [displayDensityProvider] value when a
+/// ProviderScope is present, otherwise with the provider's initial value
+/// ([DisplayDensityMode.comfortable]). Lets the metric widgets render in plain
+/// widget trees (feature widget tests, dialogs pumped without a scope).
+Widget _withDensity(
+  BuildContext context,
+  Widget Function(BuildContext context, DisplayDensityMode density) builder,
+) {
+  final hasScope = context
+          .getElementForInheritedWidgetOfExactType<UncontrolledProviderScope>() !=
+      null;
+  if (!hasScope) return builder(context, DisplayDensityMode.comfortable);
+  return Consumer(
+    builder: (context, ref, _) =>
+        builder(context, ref.watch(displayDensityProvider)),
+  );
+}
+
 /// Reusable Metric Item displaying [icon] label: value horizontally inline.
 /// Automatically scales padding, icon sizes, and font sizes with [displayDensityProvider].
 /// Preserves full numeric value without truncation, switching only label to short form.
-class MetricCard extends ConsumerWidget {
+class MetricCard extends StatelessWidget {
   final MetricCardData data;
   final bool forceShort;
 
@@ -66,18 +84,23 @@ class MetricCard extends ConsumerWidget {
     this.forceShort = false,
   });
 
-  /// Width kept free for the gap between the icon and the title.
-  static const double _valueReserve = 8.0;
+  /// Gap between the icon chip and the title.
+  static const double _iconGap = 8.0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final density = ref.watch(displayDensityProvider);
+  Widget build(BuildContext context) => _withDensity(context, _build);
+
+  Widget _build(BuildContext context, DisplayDensityMode density) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final displayTitle = data.effectiveTitle(density, forceShort: forceShort);
+    final chipPadding = density.isUltraCompact ? 2.0 : 3.5;
+    // Full horizontal footprint of the icon chip + the gap that follows it.
+    final leadingWidth = density.metricIconSize + chipPadding * 2 + _iconGap;
 
     final content = InkWell(
       onTap: data.onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      hoverColor: data.onTap != null ? data.color.withValues(alpha: 0.06) : Colors.transparent,
       child: Padding(
         padding: density.metricCardPadding,
         child: LayoutBuilder(
@@ -85,19 +108,28 @@ class MetricCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                data.icon,
-                color: data.color,
-                size: density.metricIconSize,
+              // Icon chip: tinted rounded square keyed to the metric colour.
+              Container(
+                padding: EdgeInsets.all(chipPadding),
+                decoration: BoxDecoration(
+                  color: data.color.withValues(alpha: isDark ? 0.22 : 0.12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Icon(
+                  data.icon,
+                  color: data.color,
+                  size: density.metricIconSize,
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: _iconGap),
               Flexible(
                 child: Text(
                   displayTitle,
                   style: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+                    color: AppTheme.textSecondaryOf(context),
                     fontSize: density.metricTitleFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -108,7 +140,7 @@ class MetricCard extends ConsumerWidget {
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: constraints.maxWidth.isFinite
-                      ? (constraints.maxWidth - density.metricIconSize - _valueReserve).clamp(0.0, double.infinity)
+                      ? (constraints.maxWidth - leadingWidth).clamp(0.0, double.infinity)
                       : double.infinity,
                 ),
                 child: FittedBox(
@@ -119,9 +151,9 @@ class MetricCard extends ConsumerWidget {
                       Text(
                         ': ',
                         style: TextStyle(
-                          color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+                          color: AppTheme.textSecondaryOf(context),
                           fontSize: density.metricTitleFontSize,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       CopyableText(
@@ -129,8 +161,8 @@ class MetricCard extends ConsumerWidget {
                         showIcon: false,
                         style: TextStyle(
                           fontSize: density.metricValueFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimaryOf(context),
                         ),
                       ),
                     ],
@@ -159,7 +191,7 @@ class MetricCard extends ConsumerWidget {
 /// - Switches to short labels (POs, PI/PO Amt, CBM, Gross Wt) under Compact/Ultra-Compact or when space is tight.
 /// - The numeric VALUE is never truncated.
 /// - If even the short label + value doesn't fit, wraps the strip to 2 rows (2 metrics per row) rather than cutting text.
-class MetricCardStrip extends ConsumerWidget {
+class MetricCardStrip extends StatelessWidget {
   final List<MetricCardData> metrics;
   final EdgeInsets? padding;
 
@@ -176,17 +208,23 @@ class MetricCardStrip extends ConsumerWidget {
     bool isDark, {
     bool forceShort = false,
   }) {
-    final borderColor = isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0);
+    final borderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
 
     return Container(
       height: density.metricCardHeight,
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(6),
+        color: isDark ? AppTheme.darkCardBackground : AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
           color: borderColor,
           width: 1.0,
         ),
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                    color: Color(0x081E293B), blurRadius: 6, offset: Offset(0, 2)),
+              ],
       ),
       child: Row(
         children: [
@@ -195,8 +233,8 @@ class MetricCardStrip extends ConsumerWidget {
               VerticalDivider(
                 width: 1,
                 thickness: 1,
-                indent: density == DisplayDensityMode.ultraCompact ? 3 : 5,
-                endIndent: density == DisplayDensityMode.ultraCompact ? 3 : 5,
+                indent: density == DisplayDensityMode.ultraCompact ? 5 : 8,
+                endIndent: density == DisplayDensityMode.ultraCompact ? 5 : 8,
                 color: borderColor,
               ),
             Expanded(
@@ -211,10 +249,12 @@ class MetricCardStrip extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (metrics.isEmpty) return const SizedBox.shrink();
+    return _withDensity(context, _build);
+  }
 
-    final density = ref.watch(displayDensityProvider);
+  Widget _build(BuildContext context, DisplayDensityMode density) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final effectivePadding = padding ??

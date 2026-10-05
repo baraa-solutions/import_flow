@@ -14,7 +14,7 @@ from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.projects.model import Project
 from modules.incoterms.model import Incoterm
-from modules.currencies.model import Currency
+from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_tariff.model import CustomsTariff
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_files.model import ImportFile
@@ -32,6 +32,11 @@ from modules.financial_approval.schemas import (
 import modules.financial_approval.service as service
 import modules.financial_approval.repository as repo
 from fastapi import HTTPException
+from modules.users.model import User
+
+
+def _admin():
+    return User(user_id=1, username="finance_director", email="cfo@example.com", role="ADMIN", is_active=True)
 
 
 @pytest.fixture
@@ -41,6 +46,13 @@ def db_session():
     Base.metadata.create_all(engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
+    # Phase 2 quality (FA-04): there is no 50.0 fallback rate any more, so the prefill needs a recorded USD rate.
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$")
+    db.add(usd)
+    db.commit()
+    db.add(ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=50.0,
+                        effective_date=date(2020, 1, 1), is_active=True))
+    db.commit()
     try:
         yield db
     finally:
@@ -78,6 +90,7 @@ class TestFinancialApprovalBackend:
                 supplier_name="Test Supplier",
                 requested_amount=-500.0,
                 due_date=date(2026, 9, 1),
+                exchange_rate=50.0,
             )
 
     def test_approve_and_pay_payment_request(self, db_session):
@@ -87,6 +100,7 @@ class TestFinancialApprovalBackend:
             payment_type="Final Settlement",
             requested_amount=10000.0,
             due_date=date(2026, 9, 15),
+            exchange_rate=50.0,
         )
         created = service.create_payment_request_service(db_session, payload)
 
@@ -108,6 +122,7 @@ class TestFinancialApprovalBackend:
             freight_cost_egp=200000.0,
             customs_duties_egp=800000.0,
             clearance_inland_egp=50000.0,
+            exchange_rate=50.0,
         )
         budget = service.create_import_budget_service(db_session, payload)
 
@@ -129,17 +144,18 @@ class TestFinancialApprovalBackend:
             supplier_name="Test Supplier",
             requested_amount=1000.0,
             due_date=date(2026, 9, 1),
+            exchange_rate=50.0,
         )
         created = service.create_payment_request_service(db_session, payload)
         payment_id = created.payment_id
 
         # Delete
-        success = repo.soft_delete_payment_request(db_session, payment_id)
+        success = service.soft_delete_payment_request_service(db_session, payment_id)
         assert success is True
         assert repo.get_payment_request_by_id(db_session, payment_id) is None
 
         # Restore
-        restore_success = repo.restore_payment_request(db_session, payment_id)
+        restore_success = service.restore_payment_request_service(db_session, payment_id)
         assert restore_success is True
         restored = repo.get_payment_request_by_id(db_session, payment_id)
         assert restored is not None
@@ -197,6 +213,7 @@ class TestFinancialApprovalBackend:
             supplier_name="Shanghai Super Machinery Ltd",
             requested_amount=5000.0,
             due_date=date(2026, 9, 1),
+            exchange_rate=50.0,
         )
         service.create_payment_request_service(db_session, payload1)
 
@@ -206,11 +223,13 @@ class TestFinancialApprovalBackend:
             supplier_name="Shanghai Super Machinery Ltd",
             requested_amount=7000.0,
             due_date=date(2026, 9, 1),
+            exchange_rate=50.0,
         )
         with pytest.raises(HTTPException) as exc_info:
             service.create_payment_request_service(db_session, payload2)
         assert exc_info.value.status_code == 400
-        assert "يوجد بالفعل طلب سداد مالي قيد الإجراء" in exc_info.value.detail
+        assert exc_info.value.detail["code"] == "FA_PAYMENT_DUPLICATE_TYPE"
+        assert "يوجد بالفعل طلب سداد مالي قيد الإجراء" in exc_info.value.detail["message"]
 
     def test_duplicate_budget_approval_prevention(self, db_session):
         from modules.import_companies.model import ImportCompany
@@ -246,6 +265,7 @@ class TestFinancialApprovalBackend:
             title="First Budget Approval",
             import_file_id=imp.import_file_id,
             invoice_amount_egp=100000.0,
+            exchange_rate=50.0,
         )
         service.create_import_budget_service(db_session, bgt1)
 
@@ -253,11 +273,13 @@ class TestFinancialApprovalBackend:
             title="Duplicate Budget Approval",
             import_file_id=imp.import_file_id,
             invoice_amount_egp=200000.0,
+            exchange_rate=50.0,
         )
         with pytest.raises(HTTPException) as exc_info:
             service.create_import_budget_service(db_session, bgt2)
         assert exc_info.value.status_code == 400
-        assert "يوجد بالفعل اعتماد ميزانية محفوظ" in exc_info.value.detail
+        assert exc_info.value.detail["code"] == "FA_BUDGET_DUPLICATE_FILE"
+        assert "يوجد بالفعل اعتماد ميزانية محفوظ" in exc_info.value.detail["message"]
 
     def test_budget_prefill_service_aggregation(self, db_session):
         from modules.import_companies.model import ImportCompany
@@ -312,11 +334,10 @@ class TestFinancialApprovalBackend:
         db_session.refresh(imp)
 
         inc = Incoterm(incoterm_code="FOB", incoterm_name="Free on Board")
-        curr = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$")
-        db_session.add_all([inc, curr])
+        db_session.add(inc)
         db_session.commit()
         db_session.refresh(inc)
-        db_session.refresh(curr)
+        curr = db_session.query(Currency).filter_by(currency_code="USD").one()
 
         prj = Project(
             project_code="PRJ-001",
@@ -362,7 +383,7 @@ class TestFinancialApprovalBackend:
         assert prefill.total_invoice_amount_egp == 2500000.0
         assert prefill.bank_name == "Industrial and Commercial Bank of China"
         assert prefill.swift_code == "ICBKCNBJ"
-        assert "متعدد" in prefill.payment_terms_summary
+        assert prefill.payment_terms_summary.startswith("Multiple (")  # C2: English, never Arabic text
         assert len(prefill.linked_pos) == 2
 
     def test_swift_reconciliation_matched_and_syncs_import_file(self, db_session):
@@ -417,8 +438,11 @@ class TestFinancialApprovalBackend:
             currency_code="USD",
             due_date=date(2026, 8, 20),
             request_date=date(2026, 8, 10),
+            exchange_rate=50.0,
         )
         created_pay = service.create_payment_request_service(db_session, pay)
+        # Phase 2 quality (FA-02): a SWIFT reconciles an Approved request only, so approve it first.
+        service.approve_payment_request_service(db_session, created_pay.payment_id)
 
         # Reconcile SWIFT received on 2026-08-14 (4 days later), exactly 15000.0 USD
         swift_payload = SwiftReconciliationRequest(
@@ -450,8 +474,10 @@ class TestFinancialApprovalBackend:
             currency_code="USD",
             due_date=date(2026, 8, 25),
             request_date=date(2026, 8, 10),
+            exchange_rate=50.0,
         )
         created_pay = service.create_payment_request_service(db_session, pay)
+        service.approve_payment_request_service(db_session, created_pay.payment_id)  # FA-02: Approved only
 
         # Deficit test (e.g. 9950 USD due to bank fee deduction)
         swift_deficit = SwiftReconciliationRequest(
@@ -487,6 +513,7 @@ class TestFinancialApprovalBackend:
             payment_type="Advance Payment",
             requested_amount=3000.0,
             due_date=date(2026, 9, 1),
+            exchange_rate=50.0,
         )
         created1 = service.create_payment_request_service(db_session, pay1)
         assert created1.payment_id is not None
@@ -499,45 +526,54 @@ class TestFinancialApprovalBackend:
             payment_type="Against B/L",
             requested_amount=7000.0,
             due_date=date(2026, 10, 1),
+            exchange_rate=50.0,
         )
         created2 = service.create_payment_request_service(db_session, pay2)
         assert created2.payment_id is not None
         assert created2.payment_id != created1.payment_id
 
     def test_payment_status_transition_validation(self, db_session):
+        """Phase 2 quality (FA-02): PUT only moves Draft <-> Pending Approval, to Rejected, Rejected -> Draft.
+        Approved and Paid are reached through /approve and /pay; an Approved or Paid request is locked (409)."""
         pay = PaymentRequestCreate(
             title="Status Transition Test",
             supplier_name="Transition Supplier",
             requested_amount=1000.0,
+            exchange_rate=50.0,
             due_date=date(2026, 9, 1),
         )
         created = service.create_payment_request_service(db_session, pay)
         assert created.status == "Draft"
 
         # Valid: Draft -> Pending Approval
-        up1 = PaymentRequestUpdate(status="Pending Approval")
-        service.update_payment_request_service(db_session, created.payment_id, up1)
+        service.update_payment_request_service(db_session, created.payment_id, PaymentRequestUpdate(status="Pending Approval"))
         db_session.refresh(created)
         assert created.status == "Pending Approval"
 
-        # Valid: Pending Approval -> Approved
-        up2 = PaymentRequestUpdate(status="Approved")
-        service.update_payment_request_service(db_session, created.payment_id, up2)
+        # Invalid through PUT: Pending Approval -> Approved
+        with pytest.raises(HTTPException) as exc_info:
+            service.update_payment_request_service(db_session, created.payment_id, PaymentRequestUpdate(status="Approved"))
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail["code"] == "FA_PAYMENT_STATUS_INVALID"
+
+        service.approve_payment_request_service(db_session, created.payment_id)
         db_session.refresh(created)
         assert created.status == "Approved"
 
-        # Valid: Approved -> Paid
-        up3 = PaymentRequestUpdate(status="Paid")
-        service.update_payment_request_service(db_session, created.payment_id, up3)
+        # Approved is locked for PUT (except a move to Rejected)
+        with pytest.raises(HTTPException) as exc_info:
+            service.update_payment_request_service(db_session, created.payment_id, PaymentRequestUpdate(status="Paid"))
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail["code"] == "FA_PAYMENT_LOCKED"
+
+        service.execute_payment_service(db_session, created.payment_id, swift_reference_no="SWIFT-TRANSITION")
         db_session.refresh(created)
         assert created.status == "Paid"
 
-        # Invalid: Paid -> Draft (Terminal state cannot move backwards)
-        up_invalid = PaymentRequestUpdate(status="Draft")
+        # Paid is terminal
         with pytest.raises(HTTPException) as exc_info:
-            service.update_payment_request_service(db_session, created.payment_id, up_invalid)
-        assert exc_info.value.status_code == 400
-        assert "Cannot transition payment request status" in exc_info.value.detail
+            service.update_payment_request_service(db_session, created.payment_id, PaymentRequestUpdate(status="Draft"))
+        assert exc_info.value.status_code == 409
 
     def test_smart_reconcile_swift_service_matched_status(self, db_session):
         from modules.financial_approval.schemas import SmartSwiftReconcileRequest
@@ -549,8 +585,10 @@ class TestFinancialApprovalBackend:
             currency_code="USD",
             due_date=date(2026, 9, 10),
             request_date=date(2026, 9, 1),
+            exchange_rate=50.0,
         )
         created = service.create_payment_request_service(db_session, pay)
+        service.approve_payment_request_service(db_session, created.payment_id)  # FA-02: Approved only
 
         smart_req = SmartSwiftReconcileRequest(
             payment_id=created.payment_id,
@@ -579,6 +617,7 @@ class TestFinancialApprovalBackend:
             freight_cost_egp=100000.0,
             customs_duties_egp=200000.0,
             clearance_inland_egp=50000.0,
+            exchange_rate=50.0,
         )
         budget = service.create_import_budget_service(db_session, payload)
         assert budget.total_budget_egp == 1350000.0
@@ -596,7 +635,9 @@ class TestFinancialApprovalBackend:
         # Soft Delete
         del_success = service.soft_delete_import_budget_service(db_session, budget.budget_id)
         assert del_success is True
-        assert service.get_import_budget_by_id_service(db_session, budget.budget_id) is None
+        with pytest.raises(HTTPException) as gone:  # the get service raises the 404 itself now
+            service.get_import_budget_by_id_service(db_session, budget.budget_id)
+        assert gone.value.status_code == 404
 
         # Restore
         res_success = service.restore_import_budget_service(db_session, budget.budget_id)
@@ -623,7 +664,8 @@ class TestFinancialApprovalBackend:
             notes="Original critical payment",
         )
         orig = service.create_payment_request_service(db_session, payload)
-        # Execute it
+        # Approve and execute it (FA-02: /pay is allowed from Approved only)
+        service.approve_payment_request_service(db_session, orig.payment_id)
         service.execute_payment_service(db_session, orig.payment_id, swift_reference_no="SWIFT-998877")
         assert orig.status == "Paid"
         assert orig.swift_reference_no == "SWIFT-998877"
@@ -806,16 +848,18 @@ class TestFinancialApprovalBackend:
 
         # 3. Hard Block test: Syncing without justification when variance > 5% raises 400
         try:
-            sync_budget_with_upstream_service(db_session, budget.budget_id)
+            sync_budget_with_upstream_service(db_session, budget.budget_id, current_user=_admin())
             assert False, "Should have raised HTTPException 400 for Hard Block without justification"
         except HTTPException as exc:
             assert exc.status_code == 400
-            assert "Hard Block" in exc.detail
+            assert exc.detail["code"] == "FA_BUDGET_HARD_BLOCK"
+            assert "Hard Block" in exc.detail["message"]
 
         # 4. Sync with justification: Creates Revision 2, archives original as Superseded
         result = sync_budget_with_upstream_service(
             db_session,
             budget.budget_id,
+            current_user=_admin(),
             override_justification="Authorized broker fees addition by CFO",
         )
 
@@ -978,6 +1022,7 @@ class TestFinancialApprovalBackend:
         override_budget_variance_service(
             db_session,
             pending_budget.budget_id,
+            current_user=_admin(),
             justification_note="Variance accepted after vendor confirmation",
         )
         db_session.refresh(pending_budget)

@@ -278,7 +278,9 @@ def test_official_close_success(db_session, client):
     db_session.refresh(imp)
     assert imp.status == "Closed"
     assert imp.progress_percent == 100.0
-    assert imp.closed_at is not None
+    # FC-05: the phase before closure is kept for a reopen; the closure timestamp lives on the record
+    assert imp.closed_at_phase == "Phase 10 - Comprehensive Dossier Export & Digital Archiving"
+    assert res["closed_at"]
     assert "Closed" in imp.current_stage or "Archived" in imp.current_stage
 
     # Verify SmartTask auto-closed
@@ -300,8 +302,10 @@ def test_official_close_success(db_session, client):
 
 
 def test_official_close_blocks_unmet_checklist(db_session, client):
-    """Verify official close blocks when checklist items are false and not skipped."""
+    """FC-01: the server gate blocks (dossier not exported) even when the client checklist says everything is done."""
     imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-FAIL-CHECKLIST")
+    imp.dossier_exported_at = None
+    db_session.commit()
 
     payload = {
         "import_file_id": imp.import_file_id,
@@ -309,7 +313,7 @@ def test_official_close_blocks_unmet_checklist(db_session, client):
         "archive_location": "Vault",
         "closure_checklist": {
             "docs_verified": True,
-            "customs_cleared": False,  # Missing!
+            "customs_cleared": True,  # client flags never gate
             "warehouse_received": True,
             "landed_cost_settled": True,
             "dossier_exported": True,
@@ -321,7 +325,9 @@ def test_official_close_blocks_unmet_checklist(db_session, client):
 
     response = client.post("/api/v1/file-closure/official-close", json=payload)
     assert response.status_code == 400
-    assert "قائمة التحقق" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert detail["code"] == "FC_CLOSURE_BLOCKED"
+    assert detail["blocking"] == ["dossier_exported"]
 
 
 def test_closure_precheck_not_found(client):

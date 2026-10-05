@@ -172,6 +172,12 @@ class _MockCargoInsuranceNotifier extends StateNotifier<AsyncValue<List<CargoIns
   }
 
   @override
+  bool get hasMore => false;
+
+  @override
+  int get total => 0;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

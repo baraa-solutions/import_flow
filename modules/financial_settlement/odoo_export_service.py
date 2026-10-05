@@ -16,6 +16,12 @@ from .schemas import (
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
+from .validators import JOURNAL_BALANCE_TOLERANCE_EGP, ensure_journal_balanced
+
+
+def _is_seller_paid(exp: Dict[str, Any]) -> bool:
+    """Same filter as the landed-cost engine: seller-paid rows are not part of the importer's landed cost."""
+    return bool(exp.get("is_seller_paid", False)) or (exp.get("payer") or "").lower() == "seller"
 
 
 CLEARANCE_PREFIX = "Clearance / "
@@ -75,7 +81,8 @@ def generate_odoo_journal_entry_service(
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
 
     imp_file = db.query(ImportFile).filter(
-        ImportFile.import_file_id == settlement.import_file_id
+        ImportFile.import_file_id == settlement.import_file_id,
+        ImportFile.is_active == True,
     ).first()
 
     file_code = imp_file.import_file_code if imp_file else f"IMP-FILE-{settlement.import_file_id}"
@@ -122,18 +129,24 @@ def generate_odoo_journal_entry_service(
         )
 
     # 3. CREDIT: Breakdown of Actual Expense Invoices
-    # Categorizes freight, customs, clearance, transport, demurrage, and adjustments
+    # Categorizes freight, customs, clearance, transport, demurrage, and adjustments. Seller-paid rows are left
+    # out exactly like the engine leaves them out of the debited landed cost (FS-14).
     expense_invoices = settlement.expense_invoices or []
     for exp in expense_invoices:
-        category = exp.get("category", "Other").strip()
-        provider = exp.get("provider_name", "مقدم الخدمة").strip()
-        inv_no = exp.get("invoice_no", "N/A").strip()
-        amount_egp = round(exp.get("amount_egp", 0.0), 2)
-        if amount_egp <= 0:
-            amount_egp = round(exp.get("amount_fx", 0.0) * exp.get("exchange_rate", 1.0), 2)
-
-        if amount_egp <= 0:
+        if _is_seller_paid(exp):
             continue
+        category = (exp.get("category") or "Other").strip()
+        provider = (exp.get("provider_name") or "مقدم الخدمة").strip()
+        inv_no = (exp.get("invoice_no") or "N/A").strip()
+        amount_egp = round(exp.get("amount_egp") or 0.0, 2)
+        if amount_egp == 0:
+            amount_egp = round((exp.get("amount_fx") or 0.0) * (exp.get("exchange_rate") or 1.0), 2)
+
+        if amount_egp == 0:
+            continue
+        # A negative row (downward recalculation adjustment) reduces the payable: posted as a debit.
+        debit_egp = -amount_egp if amount_egp < 0 else 0.0
+        credit_egp = amount_egp if amount_egp > 0 else 0.0
 
         cost_cat = classify_odoo_cost_category(category)
         if cost_cat == "Freight":
@@ -165,16 +178,21 @@ def generate_odoo_journal_entry_service(
             acct_name = f"مصروفات استيراد متنوعة - {provider}"
             desc_label = f"مصروفات استيرادية {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, category)} فاتورة {inv_no} - {provider}"
 
+        # amount_currency is the foreign amount: the currency column names that currency (Odoo semantics).
+        inv_currency = (exp.get("currency") or "EGP").upper()
+        # Odoo: amount_currency carries the sign of the line balance (credit = negative, debit = positive).
+        fx_abs = abs(round(exp.get("amount_fx") or 0.0, 2))
+        amount_currency = (fx_abs if debit_egp > 0 else -fx_abs) if inv_currency != "EGP" and fx_abs else None
         lines.append(
             OdooJournalLineItem(
                 account_code=acct_code,
                 account_name=acct_name,
                 partner_name=provider,
                 label=desc_label,
-                debit=0.0,
-                credit=amount_egp,
-                currency="EGP",
-                amount_currency=round(exp.get("amount_fx", 0.0), 2) if exp.get("currency") != "EGP" else None,
+                debit=debit_egp,
+                credit=credit_egp,
+                currency=inv_currency if amount_currency else "EGP",
+                amount_currency=amount_currency,
                 analytic_account=project_name,
                 cost_category=cost_cat,
             )
@@ -184,7 +202,7 @@ def generate_odoo_journal_entry_service(
     total_debit = round(sum(l.debit for l in lines), 2)
     total_credit = round(sum(l.credit for l in lines), 2)
     diff = round(abs(total_debit - total_credit), 2)
-    is_balanced = (diff <= 0.05)
+    is_balanced = (diff <= JOURNAL_BALANCE_TOLERANCE_EGP)
 
     return OdooJournalEntryResponse(
         settlement_id=settlement.settlement_id,
@@ -209,6 +227,7 @@ def export_odoo_csv_service(db: Session, settlement_id: int) -> str:
     Exports a clean CSV file strictly formatted for Odoo 15/16/17/18 `account.move` and `account.move.line` import.
     """
     entry = generate_odoo_journal_entry_service(db, settlement_id)
+    ensure_journal_balanced(entry)
     output = io.StringIO()
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 
@@ -258,6 +277,7 @@ def export_odoo_excel_service(db: Session, settlement_id: int) -> bytes:
     - Sheet 3: Item Landed Cost Breakdown (تكلفة وصول الأصناف)
     """
     entry = generate_odoo_journal_entry_service(db, settlement_id)
+    ensure_journal_balanced(entry)
     wb = openpyxl.Workbook()
 
     # Define Colors & Styles
@@ -461,3 +481,21 @@ def export_odoo_excel_service(db: Session, settlement_id: int) -> bytes:
     wb.save(buf)
     buf.seek(0)
     return buf.getvalue()
+
+
+def odoo_export_filename(db: Session, settlement_id: int, kind: str) -> str:
+    """Download file name built from the import file business code, never the DB id (FS-15)."""
+    import re
+
+    settlement = db.query(LandedCostSettlementRecord).filter(
+        LandedCostSettlementRecord.settlement_id == settlement_id,
+        LandedCostSettlementRecord.is_active == True,
+    ).first()
+    if not settlement:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == settlement.import_file_id).first()
+    code = (imp_file.import_file_code if imp_file and imp_file.import_file_code else settlement.settlement_code)
+    safe_code = re.sub(r"[^A-Za-z0-9_.-]+", "_", code)
+    if kind == "csv":
+        return f"odoo_landed_cost_settlement_{safe_code}.csv"
+    return f"accounting_landed_cost_voucher_{safe_code}.xlsx"

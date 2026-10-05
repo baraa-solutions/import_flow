@@ -6,34 +6,42 @@ import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
+import '../models/po_system_message.dart';
 import '../models/purchase_order_model.dart';
 
 class POUpdateResult {
   final bool isSuccess;
   final bool isConflict;
+  /// Server-sent text of a concurrent-edit conflict (409 with a detail object).
   final String? errorMessage;
   final Map<String, dynamic>? conflictDetails;
+  /// The raw failure (DioException or other); render with `ApiErrorText.of`.
+  final Object? error;
 
   POUpdateResult.success()
       : isSuccess = true,
         isConflict = false,
         errorMessage = null,
-        conflictDetails = null;
+        conflictDetails = null,
+        error = null;
 
   POUpdateResult.conflict(this.conflictDetails, [this.errorMessage])
       : isSuccess = false,
-        isConflict = true;
+        isConflict = true,
+        error = null;
 
-  POUpdateResult.error(this.errorMessage)
+  POUpdateResult.error(this.error)
       : isSuccess = false,
         isConflict = false,
+        errorMessage = null,
         conflictDetails = null;
 }
 
 class PurchaseOrdersState {
   final List<PurchaseOrderModel> purchaseOrders;
   final bool isLoading;
-  final String? errorMessage;
+  /// Last failure (raw): shown through `ApiErrorText.of(l10n, error)` so it is localized and a 403 reads as "no permission".
+  final Object? error;
   final String searchQuery;
   final String? statusFilter;
   final int? projectFilter;
@@ -42,7 +50,7 @@ class PurchaseOrdersState {
   PurchaseOrdersState({
     this.purchaseOrders = const [],
     this.isLoading = false,
-    this.errorMessage,
+    this.error,
     this.searchQuery = '',
     this.statusFilter,
     this.projectFilter,
@@ -52,7 +60,7 @@ class PurchaseOrdersState {
   PurchaseOrdersState copyWith({
     List<PurchaseOrderModel>? purchaseOrders,
     bool? isLoading,
-    String? errorMessage,
+    Object? error,
     String? searchQuery,
     String? statusFilter,
     int? projectFilter,
@@ -61,7 +69,7 @@ class PurchaseOrdersState {
     return PurchaseOrdersState(
       purchaseOrders: purchaseOrders ?? this.purchaseOrders,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      error: error,
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter ?? this.statusFilter,
       projectFilter: projectFilter ?? this.projectFilter,
@@ -83,7 +91,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     _cancelToken?.cancel('New purchase orders fetch initiated');
     _cancelToken = CancelToken();
 
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true);
     try {
       final response = await _dio.get(
         ApiConstants.purchaseOrders,
@@ -102,15 +110,9 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
       if (CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to load purchase orders: ${e.toString()}',
-      );
+      state = state.copyWith(isLoading: false, error: e);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to load purchase orders: ${e.toString()}',
-      );
+      state = state.copyWith(isLoading: false, error: e);
     }
   }
 
@@ -134,86 +136,95 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     fetchPurchaseOrders();
   }
 
-  Future<String?> createPurchaseOrder(PurchaseOrderModel po) async {
+  /// Reloads the PO list and every provider whose data embeds PO balances
+  /// (projects, import files, shipping scenarios). Call after any successful
+  /// PO write, including bulk operations done outside this notifier (Excel import).
+  Future<void> refreshAfterMutation() async {
+    await fetchPurchaseOrders();
+    _ref.read(projectsProvider.notifier).fetchProjects();
+    _ref.read(importFilesProvider.notifier).fetchImportFiles();
+    _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+  }
+
+  /// Returns null on success, otherwise the failure (render with `ApiErrorText.of`).
+  /// A failed save is reported to the caller only: `state.error` is the LIST-load error and
+  /// would replace the PO table behind the dialog with an error page (e.g. on a 403).
+  Future<Object?> createPurchaseOrder(PurchaseOrderModel po) async {
     try {
       await _dio.post(ApiConstants.purchaseOrders, data: po.toJson());
-      await fetchPurchaseOrders();
-      _ref.read(projectsProvider.notifier).fetchProjects();
-      _ref.read(importFilesProvider.notifier).fetchImportFiles();
-      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      await refreshAfterMutation();
       return null;
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      final detail = data is Map ? data['detail'] : null;
-      String msg = 'Failed to create purchase order.';
-      if (detail != null) {
-        if (detail is List) {
-          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
-        } else {
-          msg = detail.toString();
-        }
-      } else if (e.message != null) {
-        msg = e.message!;
-      }
-      state = state.copyWith(errorMessage: msg);
-      return msg;
     } catch (e) {
-      final msg = 'Failed to create purchase order: ${e.toString()}';
-      state = state.copyWith(errorMessage: msg);
-      return msg;
+      return e;
     }
   }
 
   Future<POUpdateResult> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
     try {
       await _dio.put('${ApiConstants.purchaseOrders}/$poId', data: data);
-      await fetchPurchaseOrders();
-      _ref.read(projectsProvider.notifier).fetchProjects();
-      _ref.read(importFilesProvider.notifier).fetchImportFiles();
-      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      await refreshAfterMutation();
       return POUpdateResult.success();
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) {
         final responseData = e.response?.data;
         final detail = responseData is Map ? responseData['detail'] : null;
-        if (detail is Map) {
+        // Coded 409s (PO_ITEMS_ALLOCATED, PO_NUMBER_TAKEN) are plain errors; only the
+        // optimistic-concurrency detail carries `current_version`.
+        if (detail is Map && detail.containsKey('current_version')) {
           final conflictMap = Map<String, dynamic>.from(detail);
-          final msg = conflictMap['message'] as String? ?? 'تعارض في التعديل المتزامن (409 Conflict)';
-          state = state.copyWith(errorMessage: msg);
+          final msg = conflictMap['message'] as String?;
           return POUpdateResult.conflict(conflictMap, msg);
         }
       }
-      final responseData = e.response?.data;
-      final detail = responseData is Map ? responseData['detail'] : null;
-      String msg = 'Failed to update purchase order.';
-      if (detail != null) {
-        if (detail is List) {
-          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
-        } else {
-          msg = detail.toString();
-        }
-      } else if (e.message != null) {
-        msg = e.message!;
-      }
-      state = state.copyWith(errorMessage: msg);
-      return POUpdateResult.error(msg);
+      // Reported to the caller only (see createPurchaseOrder).
+      return POUpdateResult.error(e);
     } catch (e) {
-      final msg = 'Failed to update purchase order: ${e.toString()}';
-      state = state.copyWith(errorMessage: msg);
-      return POUpdateResult.error(msg);
+      return POUpdateResult.error(e);
     }
+  }
+
+  /// Records a partial shipment against a PO. Over-allocation is allowed: the returned
+  /// result carries an OVER_SHIPPED warning for the UI to show. Throws on failure
+  /// (render with `ApiErrorText.of`).
+  Future<POAllocationResult> allocateShipment(int poId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post('${ApiConstants.purchaseOrders}/$poId/allocations', data: payload);
+      await refreshAfterMutation();
+      return POAllocationResult.fromJson(Map<String, dynamic>.from(response.data as Map));
+    } catch (e) {
+      state = state.copyWith(error: e);
+      rethrow;
+    }
+  }
+
+  /// Ids of PO lines that have recorded shipments (best effort: empty when the balance
+  /// cannot be read; the backend still refuses to remove such lines with a 409).
+  Future<Set<int>> fetchAllocatedItemIds(int poId) async {
+    try {
+      final response = await _dio.get('${ApiConstants.purchaseOrders}/$poId/balance');
+      final lines = (response.data is Map ? response.data['line_items_balance'] : null) as List? ?? const [];
+      return {
+        for (final l in lines)
+          if (l is Map && (l['shipped_qty'] as num? ?? 0) > 0 && l['item_id'] is num) (l['item_id'] as num).toInt(),
+      };
+    } catch (_) {
+      return <int>{};
+    }
+  }
+
+  /// Packing-list validation report of a PO (coded `messages` twin of errors + warnings).
+  Future<POPackingListReport> fetchPackingListReport(int poId) async {
+    final response = await _dio.get('${ApiConstants.purchaseOrders}/$poId/packing-list-report');
+    return POPackingListReport.fromJson(Map<String, dynamic>.from(response.data as Map));
   }
 
   Future<bool> deletePurchaseOrder(int poId) async {
     try {
       await _dio.delete('${ApiConstants.purchaseOrders}/$poId');
-      await fetchPurchaseOrders();
-      _ref.read(projectsProvider.notifier).fetchProjects();
-      _ref.read(importFilesProvider.notifier).fetchImportFiles();
-      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      await refreshAfterMutation();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to delete purchase order: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -221,13 +232,10 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
   Future<bool> restorePurchaseOrder(int poId) async {
     try {
       await _dio.post('${ApiConstants.purchaseOrders}/$poId/restore');
-      await fetchPurchaseOrders();
-      _ref.read(projectsProvider.notifier).fetchProjects();
-      _ref.read(importFilesProvider.notifier).fetchImportFiles();
-      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      await refreshAfterMutation();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to restore purchase order: ${e.toString()}');
+      state = state.copyWith(error: e);
       return false;
     }
   }
@@ -239,30 +247,11 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
         data: payload,
       );
       final cloned = PurchaseOrderModel.fromJson(response.data);
-      await fetchPurchaseOrders();
-      _ref.read(projectsProvider.notifier).fetchProjects();
-      _ref.read(importFilesProvider.notifier).fetchImportFiles();
-      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      await refreshAfterMutation();
       return cloned;
-    } on DioException catch (e) {
-      final cloneData = e.response?.data;
-      final detail = cloneData is Map ? cloneData['detail'] : null;
-      String msg = 'Failed to clone purchase order.';
-      if (detail != null) {
-        if (detail is List) {
-          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
-        } else {
-          msg = detail.toString();
-        }
-      } else if (e.message != null) {
-        msg = e.message!;
-      }
-      state = state.copyWith(errorMessage: msg);
-      throw Exception(msg);
     } catch (e) {
-      final msg = 'Failed to clone purchase order: ${e.toString()}';
-      state = state.copyWith(errorMessage: msg);
-      throw Exception(msg);
+      state = state.copyWith(error: e);
+      rethrow; // the caller renders it with ApiErrorText
     }
   }
 

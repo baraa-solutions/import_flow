@@ -24,6 +24,13 @@ def db():
     Base.metadata.create_all(bind=test_engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     session = TestingSession()
+    # Scenario provider ids must reference active providers (SS-03).
+    from modules.external_service_providers.model import ExternalServiceProvider
+    session.add_all([
+        ExternalServiceProvider(provider_id=1, partner_code="FF-001", partner_name="Forwarder One", partner_type="Freight Forwarder"),
+        ExternalServiceProvider(provider_id=2, partner_code="FF-002", partner_name="Forwarder Two", partner_type="Freight Forwarder"),
+    ])
+    session.commit()
     try:
         yield session
     finally:

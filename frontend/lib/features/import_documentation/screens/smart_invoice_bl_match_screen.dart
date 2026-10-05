@@ -8,6 +8,8 @@ import '../../../core/widgets/dedicated_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../widgets/formal_letter_generator_dialog.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../widgets/idoc_ui.dart';
 
 /// Stage 3 of Draft Documents: Smart Invoice vs B/L Match Screen (Full-Width View)
 class SmartInvoiceBLMatchScreen extends ConsumerStatefulWidget {
@@ -64,30 +66,19 @@ class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchS
       titleAr: 'المطابقة الذكية بين الفاتورة التجارية وبوليصة الشحن',
       titleEn: 'Smart Invoice vs B/L Match',
       headerIcon: Icons.auto_awesome,
-      headerColor: Colors.deepPurple,
+      headerColor: AppTheme.wcagCobalt,
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white60),
-            padding: EdgeInsets.symmetric(
-              horizontal: density.isUltraCompact ? 8 : (density.isCompact ? 10 : 12),
-              vertical: density.isUltraCompact ? 4 : (density.isCompact ? 6 : 8),
-            ),
-            textStyle: TextStyle(
-              fontSize: density.buttonFontSize,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+        IdocUi.fit(AppButton(
+          label: l.formalLetterDialogTitle,
+          icon: Icons.description,
+          variant: AppButtonVariant.secondary,
           onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-          icon: Icon(Icons.description, size: density.buttonIconSize, color: AppTheme.cobalt),
-          label: Text(l.formalLetterDialogTitle),
-        ),
+        )),
         const SizedBox(width: 8),
         IconButton(
-          icon: Icon(Icons.refresh, color: Colors.white70, size: density.headerIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white, size: density.headerIconSize),
           tooltip: l.refresh,
           onPressed: _refreshData,
         ),

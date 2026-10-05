@@ -1,10 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../providers/customs_clearance_provider.dart';
+
+/// Lab verdict codes accepted by `POST /customs-clearance/{id}/lab-test-result`.
+const String kLabConforming = 'CONFORMING';
+const String kLabNonConforming = 'NON_CONFORMING';
+
+/// Payload of `POST /customs-clearance/{id}/under-bond-release`.
+Map<String, dynamic> buildUnderBondPayload({
+  required String bondRef,
+  required DateTime releaseDate,
+  required String warehouseLocation,
+}) =>
+    {
+      'bond_guarantee_ref': bondRef.trim(),
+      'temporary_release_date': releaseDate.toIso8601String(),
+      'customs_warehouse_location': warehouseLocation.trim(),
+    };
+
+/// Payload of `POST /customs-clearance/{id}/lab-test-result`.
+Map<String, dynamic> buildLabResultPayload({
+  required String verdict,
+  required String certificateNumber,
+  required DateTime completionDate,
+  String? remarks,
+}) =>
+    {
+      'lab_test_result': verdict,
+      'lab_certificate_number': certificateNumber.trim(),
+      'test_completion_date': completionDate.toIso8601String(),
+      'lift_quarantine_lock': true,
+      'remarks': (remarks ?? '').trim().isNotEmpty ? remarks!.trim() : null,
+    };
 
 void showUnderBondReleaseDialog(BuildContext context, WidgetRef ref, {
   required int clearanceId,
@@ -47,10 +81,12 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
   // Release Controllers
   final _bondRefController = TextEditingController(text: 'BOND-EG-2026-');
   final _quarantineLocController = TextEditingController();
+  DateTime _releaseDate = DateTime.now();
 
   // Lab Controllers
   final _labCertController = TextEditingController(text: 'LAB-GOEIC-2026-');
-  String _labVerdict = 'PASSED';
+  String _labVerdict = kLabConforming;
+  DateTime _testDate = DateTime.now();
   final _remarksController = TextEditingController();
 
   bool _isSubmitting = false;
@@ -82,41 +118,38 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
     super.dispose();
   }
 
+  void _snack(String text, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: color, content: Text(text)),
+    );
+  }
+
   Future<void> _submitUnderBondRelease() async {
     final l = context.l10n;
+    if (_isSubmitting) return;
     if (_bondRefController.text.trim().isEmpty || _quarantineLocController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.underBondRequiredFieldsError)),
-      );
+      _snack(l.underBondRequiredFieldsError, AppTheme.crimson);
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      final dio = ref.read(dioProvider);
-      final payload = {
-        'bond_guarantee_ref': _bondRefController.text.trim(),
-        'quarantine_location': _quarantineLocController.text.trim(),
-      };
-
-      await dio.post('/customs-clearance/${widget.clearanceId}/under-bond-release', data: payload);
-
+      await ref.read(customsClearanceProvider.notifier).releaseUnderBond(
+            widget.clearanceId,
+            buildUnderBondPayload(
+              bondRef: _bondRefController.text,
+              releaseDate: _releaseDate,
+              warehouseLocation: _quarantineLocController.text,
+            ),
+          );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.orange,
-            content: Text(l.underBondReleaseSuccess),
-          ),
-        );
+        _snack(l.underBondReleaseSuccess, AppTheme.orange);
         widget.onDone?.call();
         Navigator.of(context).pop();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppTheme.crimson, content: Text(l.underBondActionError(e.toString()))),
-        );
-      }
+      _snack(l.underBondActionError(ApiErrorText.of(l, e)), AppTheme.crimson);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -124,47 +157,86 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
 
   Future<void> _submitLabResult() async {
     final l = context.l10n;
+    if (_isSubmitting) return;
     if (_labCertController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.underBondLabCertRequiredError)),
-      );
+      _snack(l.underBondLabCertRequiredError, AppTheme.crimson);
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      final dio = ref.read(dioProvider);
-      final payload = {
-        'lab_certificate_number': _labCertController.text.trim(),
-        'is_lab_passed': _labVerdict == 'PASSED',
-        'remarks': _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
-      };
-
-      await dio.post('/customs-clearance/${widget.clearanceId}/lab-inspection-result', data: payload);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: _labVerdict == 'PASSED' ? AppTheme.emerald : AppTheme.crimson,
-            content: Text(
-              _labVerdict == 'PASSED'
-                  ? l.underBondLabApprovedSuccess
-                  : l.underBondLabRejectedAlert,
+      await ref.read(customsClearanceProvider.notifier).recordLabTestResult(
+            widget.clearanceId,
+            buildLabResultPayload(
+              verdict: _labVerdict,
+              certificateNumber: _labCertController.text,
+              completionDate: _testDate,
+              remarks: _remarksController.text,
             ),
-          ),
+          );
+      if (mounted) {
+        final passed = _labVerdict == kLabConforming;
+        _snack(
+          passed ? l.underBondLabApprovedSuccess : l.underBondLabRejectedAlert,
+          passed ? AppTheme.emerald : AppTheme.crimson,
         );
         widget.onDone?.call();
         Navigator.of(context).pop();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppTheme.crimson, content: Text(l.underBondLabResultError(e.toString()))),
-        );
-      }
+      _snack(l.underBondLabResultError(ApiErrorText.of(l, e)), AppTheme.crimson);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Widget _dateField(String label, DateTime value, ValueChanged<DateTime> onPicked, {Key? key}) {
+    final text = '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+    return InkWell(
+      key: key,
+      onTap: _isSubmitting
+          ? null
+          : () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: value,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setState(() => onPicked(picked));
+            },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+        ),
+        child: Text(text),
+      ),
+    );
+  }
+
+  Widget _banner(IconData icon, Color color, String text) {
+    return Container(
+      padding: const EdgeInsetsDirectional.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textPrimaryOf(context), height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -172,7 +244,8 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
     final l = context.l10n;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppTheme.surfaceOf(context),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
       child: SelectionArea(
         child: Container(
           width: 680,
@@ -188,7 +261,7 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.orange.withOpacity(0.12),
+                        color: AppTheme.orangeLight,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.lock_clock_outlined, color: AppTheme.orange, size: 28),
@@ -200,11 +273,11 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                         children: [
                           Text(
                             l.underBondReleaseDialogTitle,
-                            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context)),
                           ),
                           Text(
                             l.underBondReleaseDeclSubtitle(widget.declarationNo),
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                           ),
                         ],
                       ),
@@ -235,28 +308,10 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
 
                 // Mode 1: Under-Bond Release Form
                 if (!_modeRecordLab) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.orange.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: AppTheme.orange, size: 22),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            l.underBondInfoBanner,
-                            style: const TextStyle(fontSize: 12.5, color: AppTheme.charcoal, height: 1.35),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _banner(Icons.info_outline, AppTheme.orange, l.underBondInfoBanner),
                   const SizedBox(height: 16),
                   TextFormField(
+                    key: const Key('underBondRefField'),
                     controller: _bondRefController,
                     decoration: InputDecoration(
                       labelText: l.underBondGuaranteeRefLabel,
@@ -269,7 +324,11 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                     ),
                   ),
                   const SizedBox(height: 14),
+                  _dateField(l.ccBondReleaseDateLabel, _releaseDate, (d) => _releaseDate = d,
+                      key: const Key('underBondReleaseDateField')),
+                  const SizedBox(height: 14),
                   TextFormField(
+                    key: const Key('underBondLocationField'),
                     controller: _quarantineLocController,
                     decoration: InputDecoration(
                       labelText: l.underBondQuarantineLocLabel,
@@ -277,43 +336,22 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton.icon(
+                  AppButton(
+                    key: const Key('underBondConfirmBtn'),
+                    label: l.underBondConfirmReleaseBtn,
+                    icon: Icons.check_circle_outline,
+                    variant: AppButtonVariant.warning,
+                    isLoading: _isSubmitting,
                     onPressed: _isSubmitting ? null : _submitUnderBondRelease,
-                    icon: _isSubmitting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.check_circle_outline, color: Colors.white),
-                    label: Text(l.underBondConfirmReleaseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
                   ),
                 ],
 
                 // Mode 2: Lab Results & Lifting Form
                 if (_modeRecordLab) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.science_outlined, color: AppTheme.cobalt, size: 22),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            l.underBondLabInfoBanner,
-                            style: const TextStyle(fontSize: 12.5, color: AppTheme.charcoal, height: 1.35),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _banner(Icons.science_outlined, AppTheme.cobalt, l.underBondLabInfoBanner),
                   const SizedBox(height: 16),
                   TextFormField(
+                    key: const Key('underBondLabCertField'),
                     controller: _labCertController,
                     decoration: InputDecoration(
                       labelText: l.underBondLabCertLabel,
@@ -326,18 +364,25 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                     ),
                   ),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownField<String>(
+                    key: const Key('underBondLabVerdictDropdown'),
                     value: _labVerdict,
+                    isDense: false,
+                    isRequired: true,
+                    labelText: l.underBondLabVerdictLabel,
                     decoration: InputDecoration(
                       labelText: l.underBondLabVerdictLabel,
                       border: const OutlineInputBorder(),
                     ),
                     items: [
-                      DropdownMenuItem(value: 'PASSED', child: Text(l.underBondLabVerdictPassed)),
-                      DropdownMenuItem(value: 'REJECTED', child: Text(l.underBondLabVerdictRejected)),
+                      SearchableDropdownItem(value: kLabConforming, label: l.underBondLabVerdictPassed),
+                      SearchableDropdownItem(value: kLabNonConforming, label: l.underBondLabVerdictRejected),
                     ],
-                    onChanged: (v) => setState(() => _labVerdict = v ?? 'PASSED'),
+                    onChanged: (v) => setState(() => _labVerdict = v ?? kLabConforming),
                   ),
+                  const SizedBox(height: 14),
+                  _dateField(l.ccTestCompletionDateLabel, _testDate, (d) => _testDate = d,
+                      key: const Key('underBondTestDateField')),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _remarksController,
@@ -347,19 +392,13 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton.icon(
+                  AppButton(
+                    key: const Key('underBondLabSubmitBtn'),
+                    label: _labVerdict == kLabConforming ? l.underBondApproveReleaseBtn : l.underBondRejectReleaseBtn,
+                    icon: Icons.verified,
+                    variant: _labVerdict == kLabConforming ? AppButtonVariant.success : AppButtonVariant.danger,
+                    isLoading: _isSubmitting,
                     onPressed: _isSubmitting ? null : _submitLabResult,
-                    icon: _isSubmitting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.verified, color: Colors.white),
-                    label: Text(
-                      _labVerdict == 'PASSED' ? l.underBondApproveReleaseBtn : l.underBondRejectReleaseBtn,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _labVerdict == 'PASSED' ? AppTheme.emerald : AppTheme.crimson,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
                   ),
                 ],
               ],

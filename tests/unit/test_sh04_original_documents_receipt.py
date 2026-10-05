@@ -276,19 +276,31 @@ class TestSH04OriginalDocumentsReceipt:
         assert "Original bank documents" in notif.title
         assert notif.msg_code == "ODC_ORIGINALS_RECEIVED"
 
-        # 5. Verify CustomsDocumentApproval Created
-        approval = (
-            db_session.query(CustomsDocumentApproval)
-            .filter(
-                CustomsDocumentApproval.import_file_id == sample_import_file.import_file_id,
-                CustomsDocumentApproval.document_type == "ORIGINAL_DOCUMENTS",
+        # 5. CustomsDocumentApproval: changed on purpose (03b ODC-02, CTO Q1 default). Receipt alone (FULLY_RECEIVED,
+        # not verified) approves nothing; FULLY_VERIFIED approves only the commercial tier, the customs tier stays
+        # Pending for the broker, so the row is never "Approved for Clearance" from SH-04.
+        def original_docs_approval():
+            return (
+                db_session.query(CustomsDocumentApproval)
+                .filter(
+                    CustomsDocumentApproval.import_file_id == sample_import_file.import_file_id,
+                    CustomsDocumentApproval.document_type == "ORIGINAL_DOCUMENTS",
+                )
+                .first()
             )
-            .first()
-        )
+
+        assert original_docs_approval() is None
+
+        for doc in create_payload.documents_list:
+            doc.is_verified = True
+            doc.status = "Verified"
+        OriginalDocumentsCollectionService.save_or_update_session(db_session, create_payload, username="Kamal")
+        approval = original_docs_approval()
         assert approval is not None
-        assert approval.overall_status == "Approved for Clearance"
         assert approval.commercial_status == "Approved"
-        assert approval.customs_status == "Approved"
+        assert approval.commercial_reviewed_by == "Kamal"
+        assert approval.customs_status == "Pending"
+        assert approval.overall_status == "Under Review"
 
     def test_courier_receipt_proof_endpoint(self, client, db_session, sample_import_file):
         # Create initial session

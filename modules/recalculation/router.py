@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User
 import modules.recalculation.service as svc
-import modules.recalculation.repository as repo
 from modules.recalculation.schemas import (
     RecalculationPreviewResponse,
     RecalculationApplyRequest,
@@ -41,8 +40,8 @@ def preview_recalculation(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Returns live variance comparison for the target entity.
-    Does NOT modify any data. Safe to call repeatedly.
+    Returns live variance comparison for the target entity (view permission of the target type).
+    Writes only the preview audit log row. Safe to call repeatedly.
     """
     return svc.preview(
         db=db,
@@ -50,6 +49,7 @@ def preview_recalculation(
         target_entity_id=target_entity_id,
         source_page=source_page,
         performed_by=current_user.username,
+        current_user=current_user,
     )
 
 
@@ -82,8 +82,8 @@ def get_entity_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Returns recalculation audit log entries for a given entity."""
-    return repo.get_logs_for_entity(db, target_entity_type, target_entity_id, limit)
+    """Returns recalculation audit log entries for a given entity (view permission of the target type)."""
+    return svc.list_logs(db, current_user, target_entity_type, target_entity_id, limit)
 
 
 @router.get(
@@ -96,25 +96,5 @@ def get_dependencies(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Returns all active dependency relationships. Optionally filtered by target_entity_type."""
-    deps = repo.get_all_dependencies(db, include_inactive=False)
-    if target_entity_type:
-        deps = [d for d in deps if d.target_entity_type == target_entity_type]
-    return [
-        DependencyMapResponse(
-            id=d.id,
-            target_entity_type=d.target_entity_type,
-            target_field=d.target_field,
-            source_entity_type=d.source_entity_type,
-            source_field=d.source_field,
-            join_key=d.join_key,
-            aggregation_function=d.aggregation_function,
-            blocked_statuses=d.blocked_statuses_list,
-            required_permission=d.required_permission,
-            label_ar=d.label_ar,
-            label_en=d.label_en,
-            is_active=d.is_active,
-        )
-        for d in deps
-    ]
-
+    """Returns all active dependency relationships. Optionally filtered by target_entity_type (view permission)."""
+    return svc.list_dependencies(db, current_user, target_entity_type)

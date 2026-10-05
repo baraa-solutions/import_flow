@@ -1,3 +1,5 @@
+import 'actual_landed_cost_model.dart' show SettlementMessageModel;
+
 class AggregatedInvoiceItemModel {
   final String? invoiceId;
   final String invoiceNo;
@@ -158,13 +160,14 @@ class InvoicesAggregationResponseModel {
   final List<InvoicesPartySummaryModel> partiesSummary;
   final List<AggregatedInvoiceItemModel> invoices;
   final List<String> unsettledWarnings;
+  final List<SettlementMessageModel> messages;
 
   InvoicesAggregationResponseModel({
     required this.importFileId,
     required this.importFileCode,
     required this.supplierName,
     this.currency = 'USD',
-    this.exchangeRate = 48.5,
+    this.exchangeRate = 0.0,
     this.totalInvoicesCount = 0,
     this.totalAmountEgp = 0.0,
     this.totalPaidEgp = 0.0,
@@ -175,6 +178,7 @@ class InvoicesAggregationResponseModel {
     this.partiesSummary = const [],
     this.invoices = const [],
     this.unsettledWarnings = const [],
+    this.messages = const [],
   });
 
   factory InvoicesAggregationResponseModel.fromJson(Map<String, dynamic> json) {
@@ -183,7 +187,7 @@ class InvoicesAggregationResponseModel {
       importFileCode: json['import_file_code'] ?? '',
       supplierName: json['supplier_name'] ?? '',
       currency: json['currency'] ?? 'USD',
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 48.5,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
       totalInvoicesCount: json['total_invoices_count'] as int? ?? 0,
       totalAmountEgp: (json['total_amount_egp'] as num?)?.toDouble() ?? 0.0,
       totalPaidEgp: (json['total_paid_egp'] as num?)?.toDouble() ?? 0.0,
@@ -203,6 +207,7 @@ class InvoicesAggregationResponseModel {
               ?.map((w) => w.toString())
               .toList() ??
           [],
+      messages: SettlementMessageModel.listFrom(json['messages']),
     );
   }
 
@@ -223,19 +228,21 @@ class InvoicesAggregationResponseModel {
       'parties_summary': partiesSummary.map((p) => p.toJson()).toList(),
       'invoices': invoices.map((i) => i.toJson()).toList(),
       'unsettled_warnings': unsettledWarnings,
+      'messages': messages.map((m) => m.toJson()).toList(),
     };
   }
 }
 
 class ConfirmInvoicesSettlementRequestModel {
   final int importFileId;
-  final String settledBy;
+  /// Ignored by the server (it uses the signed-in user); sent only if set.
+  final String? settledBy;
   final String? settlementNotes;
   final List<AggregatedInvoiceItemModel>? invoicesOverrides;
 
   ConfirmInvoicesSettlementRequestModel({
     required this.importFileId,
-    this.settledBy = 'Cost Accounting Specialist',
+    this.settledBy,
     this.settlementNotes,
     this.invoicesOverrides,
   });
@@ -243,7 +250,7 @@ class ConfirmInvoicesSettlementRequestModel {
   Map<String, dynamic> toJson() {
     return {
       'import_file_id': importFileId,
-      'settled_by': settledBy,
+      if (settledBy != null) 'settled_by': settledBy,
       if (settlementNotes != null) 'settlement_notes': settlementNotes,
       if (invoicesOverrides != null)
         'invoices_overrides': invoicesOverrides!.map((i) => i.toJson()).toList(),

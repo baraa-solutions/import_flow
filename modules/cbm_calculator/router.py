@@ -1,6 +1,8 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -15,25 +17,33 @@ from modules.cbm_calculator.schemas import (
 )
 from modules.cbm_calculator.service import CBMService
 
+VIEW = "purchase_orders.view"
+MANAGE = "cbm.manage"
+
 router = APIRouter(prefix="/api/v1/cbm-calculator", tags=["Cargo Measurement Engine & CBM Calculator"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/quick-calculate", response_model=CBMQuickCalcResponse, status_code=status.HTTP_200_OK)
-def quick_calculate_cbm(payload: CBMQuickCalcRequest):
+def quick_calculate_cbm(
+    payload: CBMQuickCalcRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
+):
     """
     Perform instant standalone calculation without persisting to database.
     """
-    return CBMService.quick_calculate(payload)
+    return CBMService.quick_calculate_service(db, payload)
 
 
 @router.post("", response_model=CBMCalculationResponse, status_code=status.HTTP_201_CREATED)
 def create_cbm_calculation(
-    payload: CBMCalculationCreate, db: Session = Depends(get_db)
+    payload: CBMCalculationCreate, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Create and save a new CBM calculation session (Standalone or linked to PO/Project).
     """
-    return CBMService.create_calculation_service(db, payload)
+    return CBMService.create_calculation_service(db, payload, user=current_user.username)
 
 
 @router.get("", response_model=List[CBMCalculationResponse])
@@ -44,6 +54,7 @@ def list_cbm_calculations(
     po_id: Optional[int] = Query(None, description="Filter by Purchase Order ID"),
     search: Optional[str] = Query(None, description="Search term for code, title, or notes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(VIEW)),
 ):
     """
     Retrieve stored CBM calculation history logs with optional search & filters.
@@ -59,7 +70,7 @@ def list_cbm_calculations(
 
 
 @router.get("/{calc_id}", response_model=CBMCalculationResponse)
-def get_cbm_calculation(calc_id: int, db: Session = Depends(get_db)):
+def get_cbm_calculation(calc_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(VIEW))):
     """
     Get detailed information and items for a specific calculation session.
     """
@@ -68,48 +79,52 @@ def get_cbm_calculation(calc_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{calc_id}", response_model=CBMCalculationResponse)
 def update_cbm_calculation(
-    calc_id: int, payload: CBMCalculationUpdate, db: Session = Depends(get_db)
+    calc_id: int, payload: CBMCalculationUpdate, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Update items, dimensions, or title/notes of a saved calculation session.
     """
-    return CBMService.update_calculation_service(db, calc_id, payload)
+    return CBMService.update_calculation_service(db, calc_id, payload, user=current_user.username)
 
 
 @router.post("/{calc_id}/link", response_model=CBMCalculationResponse)
 def link_calculation_to_po(
-    calc_id: int, payload: LinkToPORequest, db: Session = Depends(get_db)
+    calc_id: int, payload: LinkToPORequest, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Link or assign a saved calculation record to a Purchase Order or Project.
     """
     return CBMService.link_to_po_service(
-        db, calc_id, po_id=payload.po_id, project_id=payload.project_id
+        db, calc_id, po_id=payload.po_id, project_id=payload.project_id, user=current_user.username,
+        import_file_id=payload.import_file_id,
     )
 
 
 @router.delete("/{calc_id}", status_code=status.HTTP_200_OK)
-def soft_delete_cbm_calculation(calc_id: int, db: Session = Depends(get_db)):
+def soft_delete_cbm_calculation(calc_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MANAGE))):
     """
     Soft delete a CBM calculation record.
     """
-    return CBMService.soft_delete_service(db, calc_id)
+    return CBMService.soft_delete_service(db, calc_id, user=current_user.username)
 
 
 @router.post("/{calc_id}/restore", response_model=CBMCalculationResponse)
-def restore_cbm_calculation(calc_id: int, db: Session = Depends(get_db)):
+def restore_cbm_calculation(calc_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MANAGE))):
     """
     Restore a soft-deleted CBM calculation record.
     """
-    return CBMService.restore_service(db, calc_id)
+    return CBMService.restore_service(db, calc_id, user=current_user.username)
 
 
 @router.post("/{calc_id}/clone", response_model=CBMCalculationResponse, status_code=status.HTTP_201_CREATED)
 def clone_cbm_calculation(
-    calc_id: int, payload: CloneCBMCalculationRequest, db: Session = Depends(get_db)
+    calc_id: int, payload: CloneCBMCalculationRequest, db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
 ):
     """
     Clone a CBM calculation session into a new draft with independent code, resetting linkages.
     """
-    return CBMService.clone_cbm_calculation(db, calc_id, payload)
+    return CBMService.clone_cbm_calculation(db, calc_id, payload, user=current_user.username)
 

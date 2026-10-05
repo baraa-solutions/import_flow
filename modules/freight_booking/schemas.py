@@ -2,6 +2,8 @@ from datetime import datetime, date
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+
 
 class ContainerAllocationItem(BaseModel):
     container_type: str = Field(..., description="e.g. 20GP, 40HC, 45HC")
@@ -59,7 +61,7 @@ class ShipmentBookingBase(BaseModel):
     cost_variance_usd: float = 0.0
     savings_notes: Optional[str] = None
     status: str = "Draft"
-    owner: str = "Kamal"
+    owner: Optional[str] = Field(None, description="Defaults to the logged-in user when not sent")
     notes: Optional[str] = None
 
 
@@ -125,16 +127,19 @@ class ShipmentDepartureConfirm(BaseModel):
     notes: Optional[str] = Field(None, description="ملاحظات الإبحار والرحلة")
 
 
-class ShipmentBookingResponse(ShipmentBookingBase):
+@read_model
+class ShipmentBookingResponse(LegacyRowTolerantModel, ShipmentBookingBase):
+    # free_demurrage_days is a nullable column an update may clear (PUT {"free_demurrage_days": null}).
     booking_id: int
     booking_code: str
     booking_request_date: Optional[datetime] = None
     booking_confirmation_date: Optional[datetime] = None
     transit_time_days: int = 0
-    total_freight_cost_usd: float = 0.0
-    original_freight_cost_usd: float = 0.0
-    cost_savings_usd: float = 0.0
-    cost_variance_usd: float = 0.0
+    # Amounts: a legacy NULL stays None (never a fabricated 0.0).
+    total_freight_cost_usd: Optional[float] = 0.0
+    original_freight_cost_usd: Optional[float] = 0.0
+    cost_savings_usd: Optional[float] = 0.0
+    cost_variance_usd: Optional[float] = 0.0
     savings_notes: Optional[str] = None
     is_active: bool = True
     created_at: datetime

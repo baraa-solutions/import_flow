@@ -225,7 +225,10 @@ def test_import_file_prefill_endpoint():
     assert pdata["white_list_verified"] is True
     assert pdata["coo_required"] is True
     assert pdata["coo_status"] == "Obtained"
-    assert len(pdata["hs_code_items"]) > 0
+    # No HS code anywhere (no tariff on PO lines, none on the invoice or checklist): nothing is invented.
+    assert pdata["hs_code_items"] == []
+    assert pdata["hs_code"] is None
+    assert [m["code"] for m in pdata["messages"]] == ["PREFILL_NO_HS"]
 
 
 def test_prevent_duplicate_assessment_for_same_import_file():
@@ -249,8 +252,12 @@ def test_prevent_duplicate_assessment_for_same_import_file():
         "overall_status": "Draft",
         "risk_level": "Medium",
     }
-    with pytest.raises(Exception):
-        client.post("/api/v1/import-requirements", json=payload2)
+    res2 = client.post("/api/v1/import-requirements", json=payload2)
+    assert res2.status_code == 409
+    detail = res2.json()["detail"]
+    assert detail["code"] == "IR_ASSESSMENT_EXISTS"
+    assert detail["assessment_code"] == res1.json()["assessment_code"]
+    assert "IMP-2026-0099" in detail["message"]
 
 
 def test_restore_soft_deleted_assessment():
@@ -342,3 +349,221 @@ def test_optional_acid_and_smart_tasks_generation():
     db.close()
 
 
+# ── Phase-1 fixes: IR-01..04 ────────────────────────────────────────────────────
+
+def _make_file(db, code="IMP-2026-PF01", **extra):
+    from modules.import_files.model import ImportFile
+
+    file_obj = ImportFile(import_file_code=code, company_name="Importer", supplier_name="Supplier", status="Draft", **extra)
+    db.add(file_obj)
+    db.commit()
+    db.refresh(file_obj)
+    return file_obj
+
+
+def test_get_update_restore_delete_unknown_id_is_404():
+    assert client.get("/api/v1/import-requirements/9999").status_code == 404
+    assert client.put("/api/v1/import-requirements/9999", json={"coo_status": "Pending"}).status_code == 404
+    assert client.post("/api/v1/import-requirements/9999/restore").status_code == 404
+    assert client.delete("/api/v1/import-requirements/9999").status_code == 404
+
+
+def test_prefill_unknown_file_is_404():
+    res = client.get("/api/v1/import-requirements/prefill/9999")
+    assert res.status_code == 404
+
+
+def test_update_explicit_null_clears_optional_field():
+    created = client.post("/api/v1/import-requirements", json={
+        "shipment_value_usd": 10.0, "coo_notes": "to clear", "overall_status": "Draft", "risk_level": "Low",
+    }).json()
+    res = client.put(f"/api/v1/import-requirements/{created['assessment_id']}", json={"coo_notes": None})
+    assert res.status_code == 200
+    assert res.json()["coo_notes"] is None
+    # Fields that were not sent are untouched.
+    assert res.json()["shipment_value_usd"] == 10.0
+
+
+def test_update_null_on_required_column_is_422():
+    created = client.post("/api/v1/import-requirements", json={
+        "shipment_value_usd": 10.0, "overall_status": "Draft", "risk_level": "Low",
+    }).json()
+    res = client.put(f"/api/v1/import-requirements/{created['assessment_id']}", json={"coo_status": None})
+    assert res.status_code == 422
+
+
+def test_update_moving_to_a_file_that_has_an_assessment_is_409():
+    a = client.post("/api/v1/import-requirements", json={"import_file_id": 501, "shipment_value_usd": 1.0}).json()
+    b = client.post("/api/v1/import-requirements", json={"import_file_id": 502, "shipment_value_usd": 1.0}).json()
+    res = client.put(f"/api/v1/import-requirements/{b['assessment_id']}", json={"import_file_id": 501})
+    assert res.status_code == 409
+    assert res.json()["detail"]["assessment_code"] == a["assessment_code"]
+
+
+def test_assessment_codes_continue_from_highest_suffix():
+    first = client.post("/api/v1/import-requirements", json={"shipment_value_usd": 1.0}).json()
+    second = client.post("/api/v1/import-requirements", json={"shipment_value_usd": 1.0}).json()
+    client.delete(f"/api/v1/import-requirements/{second['assessment_id']}")
+    third = client.post("/api/v1/import-requirements", json={"shipment_value_usd": 1.0}).json()
+    n1, n2, n3 = (int(x["assessment_code"].rsplit("-", 1)[1]) for x in (first, second, third))
+    assert (n2, n3) == (n1 + 1, n1 + 2)
+
+
+def test_audit_user_is_recorded_on_create_and_update():
+    created = client.post("/api/v1/import-requirements", json={"shipment_value_usd": 1.0}).json()
+    assert created["created_by"] == created["updated_by"] != "System"
+    updated = client.put(f"/api/v1/import-requirements/{created['assessment_id']}", json={"coo_status": "Pending"})
+    assert updated.json()["updated_by"] == created["created_by"]
+
+
+def test_task_sync_failure_is_logged_not_raised(monkeypatch, caplog):
+    import modules.import_requirements.service as ir_service
+
+    def boom(db, assessment_id):
+        raise RuntimeError("sync down")
+
+    monkeypatch.setattr(ir_service, "sync_regulatory_tasks_and_alerts", boom)
+    with caplog.at_level("ERROR"):
+        res = client.post("/api/v1/import-requirements", json={"shipment_value_usd": 1.0})
+    assert res.status_code == 201
+    assert any("Regulatory requirement sync" in r.getMessage() and "failed" in r.getMessage() for r in caplog.records)
+
+
+def test_prefill_without_any_data_never_fabricates():
+    db = TestingSessionLocal()
+    file_id = _make_file(db).import_file_id
+    db.close()
+
+    pdata = client.get(f"/api/v1/import-requirements/prefill/{file_id}").json()
+    assert pdata["hs_code_items"] == []
+    assert pdata["hs_code"] is None
+    assert pdata["commodity_description"] is None
+    assert pdata["country_of_origin"] is None
+    assert pdata["coo_type"] is None
+    assert pdata["permit_issuing_authority"] is None
+    assert pdata["inspection_body"] is None
+    assert pdata["messages"] == [{"code": "PREFILL_NO_HS", "params": {"import_file_code": "IMP-2026-PF01"}, "severity": "warning"}]
+
+
+def test_prefill_uses_po_line_tariff_and_goeic_code_for_decree_43():
+    from datetime import date
+    from modules.currencies.model import Currency
+    from modules.customs_tariff.model import CustomsTariff
+    from modules.purchase_orders.model import POLineItem, PurchaseOrder
+
+    db = TestingSessionLocal()
+    file_obj = _make_file(db, code="IMP-2026-PF02")
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    t_goeic = CustomsTariff(
+        hs_code="8516.60", hs_description="Ovens", customs_duty_rate=20, vat_rate=14, requires_coo=True,
+        regulatory_authority="الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)", effective_from=date(2020, 1, 1),
+    )
+    # "43" inside free text no longer marks Decree 43: only the GOEIC body code does.
+    t_other = CustomsTariff(
+        hs_code="3926.90", hs_description="Plastics", customs_duty_rate=10, vat_rate=14,
+        regulatory_authority="Ministerial decree 43 annex", effective_from=date(2020, 1, 1),
+    )
+    db.add_all([usd, t_goeic, t_other])
+    db.commit()
+    po = PurchaseOrder(po_number="PO-2026-PF2", import_file_id=file_obj.import_file_id, project_id=1, company_id=1,
+                       supplier_id=1, incoterm_id=1, currency_id=usd.currency_id)
+    db.add(po)
+    db.commit()
+    db.add_all([
+        POLineItem(po_id=po.po_id, item_code="OV-1", description_ar="Oven", tariff_id=t_goeic.tariff_id,
+                   quantity=2, unit_price=50, total_price=100),
+        POLineItem(po_id=po.po_id, item_code="PL-1", description_ar="Plastic", tariff_id=t_other.tariff_id,
+                   quantity=1, unit_price=30, total_price=30),
+        POLineItem(po_id=po.po_id, item_code="NO-HS", description_ar="Untariffed", quantity=1, unit_price=5, total_price=5),
+    ])
+    db.commit()
+    file_id = file_obj.import_file_id
+    db.close()
+
+    pdata = client.get(f"/api/v1/import-requirements/prefill/{file_id}").json()
+    items = {i["hs_code"]: i for i in pdata["hs_code_items"]}
+    assert set(items) == {"8516.60", "3926.90"}
+    assert items["8516.60"]["decree_43_applicable"] is True
+    assert items["8516.60"]["regulatory_authority"] == "GOEIC"
+    assert items["8516.60"]["coo_required"] is True
+    assert items["8516.60"]["coo_type"] is None  # no EUR.1 default
+    assert items["8516.60"]["item_code"] == "OV-1"
+    assert items["3926.90"]["decree_43_applicable"] is False
+    assert pdata["shipment_value"] == 135.0  # untariffed line still counts in the value
+    assert pdata["currency"] == "USD"
+    assert pdata["messages"] == [{"code": "PREFILL_LINE_NO_HS", "params": {"po_number": "PO-2026-PF2", "item_code": "NO-HS"}, "severity": "warning"}]
+
+
+def test_prefill_uses_consultation_hs_when_nothing_else():
+    from modules.customs_consultation.model import CustomsChecklistItem, CustomsConsultationSession
+
+    db = TestingSessionLocal()
+    file_obj = _make_file(db, code="IMP-2026-PF03")
+    consult = CustomsConsultationSession(consultation_code="CS-PF3", title="t", broker_id=1, broker_name="b",
+                                         import_file_id=file_obj.import_file_id)
+    db.add(consult)
+    db.commit()
+    db.add(CustomsChecklistItem(consultation_id=consult.consultation_id, document_type="Inspection certificate",
+                                hs_code="7308.90", regulatory_agency="GOEIC", status="Pending", is_required=True))
+    db.commit()
+    file_id = file_obj.import_file_id
+    db.close()
+
+    pdata = client.get(f"/api/v1/import-requirements/prefill/{file_id}").json()
+    assert [i["hs_code"] for i in pdata["hs_code_items"]] == ["7308.90"]
+    assert pdata["hs_code_items"][0]["item_code"] is None
+    assert pdata["inspection_body"] == "GOEIC"
+    assert pdata["decree_43_applicable"] is True
+    assert pdata["messages"] == []
+
+
+def test_restore_or_reactivating_update_respects_one_assessment_per_file():
+    a = client.post("/api/v1/import-requirements", json={"import_file_id": 601, "shipment_value_usd": 1.0}).json()
+    client.delete(f"/api/v1/import-requirements/{a['assessment_id']}")
+    client.post("/api/v1/import-requirements", json={"import_file_id": 601, "shipment_value_usd": 2.0})
+    restore = client.post(f"/api/v1/import-requirements/{a['assessment_id']}/restore")
+    assert restore.status_code == 409
+    assert restore.json()["detail"]["code"] == "IR_ASSESSMENT_EXISTS"
+    update = client.put(f"/api/v1/import-requirements/{a['assessment_id']}", json={"coo_status": "Pending"})
+    assert update.status_code == 409
+
+
+def test_decree_43_flag_only_on_the_hs_line_of_the_goeic_finding():
+    from datetime import date
+    from modules.currencies.model import Currency
+    from modules.customs_consultation.model import CustomsChecklistItem, CustomsConsultationSession
+    from modules.customs_tariff.model import CustomsTariff
+    from modules.purchase_orders.model import POLineItem, PurchaseOrder
+
+    db = TestingSessionLocal()
+    file_obj = _make_file(db, code="IMP-2026-D43")
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    t1 = CustomsTariff(hs_code="8418.10", hs_description="Fridges", customs_duty_rate=20, vat_rate=14,
+                       effective_from=date(2020, 1, 1))
+    t2 = CustomsTariff(hs_code="9403.20", hs_description="Furniture", customs_duty_rate=20, vat_rate=14,
+                       effective_from=date(2020, 1, 1))
+    db.add_all([usd, t1, t2])
+    db.commit()
+    po = PurchaseOrder(po_number="PO-2026-D43", import_file_id=file_obj.import_file_id, project_id=1, company_id=1,
+                       supplier_id=1, incoterm_id=1, currency_id=usd.currency_id)
+    db.add(po)
+    db.commit()
+    db.add_all([
+        POLineItem(po_id=po.po_id, item_code="F-1", description_ar="Fridge", tariff_id=t1.tariff_id, quantity=1, unit_price=10, total_price=10),
+        POLineItem(po_id=po.po_id, item_code="T-1", description_ar="Table", tariff_id=t2.tariff_id, quantity=1, unit_price=10, total_price=10),
+    ])
+    consult = CustomsConsultationSession(consultation_code="CS-D43", title="t", broker_id=1, broker_name="b",
+                                         import_file_id=file_obj.import_file_id)
+    db.add(consult)
+    db.commit()
+    db.add(CustomsChecklistItem(consultation_id=consult.consultation_id, document_type="Factory registration",
+                                hs_code="84181000", regulatory_agency="GOEIC", status="Pending", is_required=True))
+    db.commit()
+    file_id = file_obj.import_file_id
+    db.close()
+
+    pdata = client.get(f"/api/v1/import-requirements/prefill/{file_id}").json()
+    items = {i["hs_code"]: i for i in pdata["hs_code_items"]}
+    assert pdata["decree_43_applicable"] is True              # file-level finding
+    assert items["8418.10"]["decree_43_applicable"] is True   # the line the GOEIC finding names
+    assert items["9403.20"]["decree_43_applicable"] is False  # other lines are not flagged

@@ -3,13 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../models/estimated_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import 'settlement_ui.dart';
 
-import 'package:frontend/core/widgets/ltr_text.dart';
 /// Shows the Estimated Landed Cost Simulation Dialog (PL-08).
 Future<void> showEstimatedLandedCostDialog(
   BuildContext context,
@@ -147,7 +153,7 @@ class _EstimatedLandedCostDialogState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ApiErrorText.of(context.l10n, e);
           _isLoading = false;
         });
       }
@@ -182,14 +188,9 @@ class _EstimatedLandedCostDialogState
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          isAr
-              ? 'تم نسخ بيانات التكلفة التقديرية (TSV) للحافظة بنجاح'
-              : 'Estimated landed cost TSV copied to clipboard successfully',
-        ),
+        content: Text(context.l10n.settlementEstCopySuccess),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 3),
       ),
@@ -201,8 +202,7 @@ class _EstimatedLandedCostDialogState
     final buffer = StringBuffer();
     // UTF-8 BOM for Arabic support in Excel
     buffer.write('\uFEFF');
-    buffer.writeln(
-        "م,كود الصنف,اسم الصنف,البند الجمركي,الكمية,سعر الوحدة أجنبي,سعر الوحدة ج.م,إجمالي FOB ج.م,ضريبة الوارد ج.م,الضرائب والقيمة المضافة ج.م,النولون ج.م,الموانئ والتخليص ج.م,النقل الداخلي ج.م,إجمالي تكلفة الوصول ج.م,تكلفة الوحدة ج.م,تكلفة الوحدة أجنبي,معامل الزيادة,نسبة الزيادة %");
+    buffer.writeln(context.l10n.settlementEstCsvHeader);
     for (final itm in _data!.itemsBreakdown) {
       buffer.writeln(
           '${itm.lineNo},"${itm.itemCode}","${itm.itemName}","${itm.hsCode}",${itm.qty},${itm.unitPriceFc},${itm.fobUnitEgp},${itm.fobTotalEgp},${itm.allocatedCustomsDutyEgp},${itm.allocatedVatEgp},${itm.allocatedFreightEgp},${itm.allocatedClearanceAndPortEgp},${itm.allocatedInlandTransportEgp},${itm.totalLandedCostEgp},${itm.unitLandedCostEgp},${itm.unitLandedCostFc},${itm.markupFactor},${itm.markupPercent}%');
@@ -232,71 +232,34 @@ class _EstimatedLandedCostDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final screenSize = MediaQuery.of(context).size;
     final dialogWidth = (screenSize.width - 32).clamp(360.0, 1150.0);
     final dialogHeight = (screenSize.height - 48).clamp(500.0, 850.0);
-    final isDark = AppTheme.isDark(context);
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     return UnsavedChangesGuard(
       isDirty: _isDirty,
       child: Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: SizedBox(
           width: dialogWidth,
           height: dialogHeight,
           child: Column(
             children: [
-              _buildHeader(isDark, isAr),
+              _buildHeader(l10n),
               Expanded(
                 child: _isLoading
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const CircularProgressIndicator(),
-                            const SizedBox(height: 16),
-                            Text(
-                              isAr
-                                  ? 'جاري حساب وتوزيع تكلفة الوصول التقديرية بالربط مع محرك الجمارك...'
-                                  : 'Calculating and allocating estimated landed cost with customs engine...',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? SettlementStateView.loading(message: l10n.settlementEstLoading)
                     : _errorMessage != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.error_outline,
-                                      color: Colors.red, size: 48),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    isAr
-                                        ? 'خطأ في عملية المحاكاة:\n$_errorMessage'
-                                        : 'Simulation error:\n$_errorMessage',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton.icon(
-                                    onPressed: _loadSimulation,
-                                    icon: const Icon(Icons.refresh),
-                                    label: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        ? SettlementStateView.error(
+                            message: l10n.settlementEstError(_errorMessage!),
+                            actionLabel: l10n.settlementRetry,
+                            onAction: _loadSimulation,
                           )
-                        : _buildContent(isDark, isAr),
+                        : _buildContent(l10n),
               ),
-              _buildBottomBar(isDark, isAr),
+              _buildBottomBar(l10n),
             ],
           ),
         ),
@@ -304,63 +267,25 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildHeader(bool isDark, bool isAr) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : const Color(0xFF1E293B),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.teal.shade700,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.calculate, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAr
-                      ? 'محاكاة تكلفة الوصول التقديرية للوحدة قبل الشحن (Estimated Landed Cost)'
-                      : 'Pre-Shipment Estimated Landed Cost Simulation',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _data != null
-                      ? (isAr
-                          ? 'الملف: ${_data!.importFileCode} | العملة: ${_data!.currency} | الصرف: ${_data!.exchangeRate} ج.م | شرط الشحن: ${_data!.incoterm}'
-                          : 'File: ${_data!.importFileCode} | Currency: ${_data!.currency} | FX: ${_data!.exchangeRate} EGP | Incoterm: ${_data!.incoterm}')
-                      : (isAr
-                          ? 'جاري تحميل المعطيات اللوجستية والجمركية...'
-                          : 'Loading logistics & customs parameters...'),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
-            onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-            tooltip: isAr ? 'إغلاق' : 'Close',
-          ),
-        ],
-      ),
+  Widget _buildHeader(AppLocalizations l10n) {
+    final data = _data;
+    return SettlementDialogHeader(
+      icon: Icons.calculate,
+      title: l10n.settlementEstTitle,
+      subtitle: data != null
+          ? l10n.settlementEstSubtitle(
+              data.importFileCode,
+              data.currency,
+              '${data.exchangeRate}',
+              data.incoterm,
+            )
+          : l10n.settlementEstSubtitleLoading,
+      onClose: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
+      closeTooltip: l10n.settlementClose,
     );
   }
 
-  Widget _buildContent(bool isDark, bool isAr) {
+  Widget _buildContent(AppLocalizations l10n) {
     if (_data == null) return const SizedBox.shrink();
 
     return SingleChildScrollView(
@@ -369,35 +294,58 @@ class _EstimatedLandedCostDialogState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Executive Summary Banner
-          _buildExecutiveSummaryBanner(isDark),
+          _buildExecutiveSummaryBanner(),
           const SizedBox(height: 12),
 
-          // 2. KPI Cards Strip
-          _buildKpiCards(isDark, isAr),
+          if (_data!.messages.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(SettlementTokens.radius),
+                border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final m in _data!.messages)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.orange),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(settlementMessageText(l10n, m), style: const TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // 2. KPI strip (shared metric widgets)
+          _buildKpiStrip(l10n),
           const SizedBox(height: 12),
 
           // 3. Overrides & Recalculate Panel (Collapsible)
-          _buildOverridesPanel(isDark, isAr),
+          _buildOverridesPanel(l10n),
           const SizedBox(height: 16),
 
           // 4. Tabs Section
           TabBar(
             controller: _tabController,
-            labelColor: isDark ? Colors.tealAccent : Colors.teal.shade800,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: isDark ? Colors.tealAccent : Colors.teal.shade700,
+            labelColor: AppTheme.cobalt,
+            unselectedLabelColor: AppTheme.textSecondary,
+            indicatorColor: AppTheme.cobalt,
             tabs: [
               Tab(
                 icon: const Icon(Icons.table_chart_outlined),
-                text: isAr
-                    ? 'تحليل بنود البضاعة وتكلفة الوحدة (Items Landed Cost)'
-                    : 'Items Breakdown & Unit Landed Cost',
+                text: l10n.settlementEstTabItems,
               ),
               Tab(
                 icon: const Icon(Icons.receipt_long_outlined),
-                text: isAr
-                    ? 'قائمة المصاريف والنفقات التقديرية (Expenses Breakdown)'
-                    : 'Estimated Expenses Breakdown',
+                text: l10n.settlementEstTabExpenses,
               ),
             ],
           ),
@@ -407,8 +355,8 @@ class _EstimatedLandedCostDialogState
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildItemsTable(isDark, isAr),
-                _buildExpensesTable(isDark, isAr),
+                _buildItemsTable(l10n),
+                _buildExpensesTable(l10n),
               ],
             ),
           ),
@@ -417,35 +365,27 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildExecutiveSummaryBanner(bool isDark) {
+  Widget _buildExecutiveSummaryBanner() {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.teal.shade900.withOpacity(0.25)
-            : const Color(0xFFF0FDFA),
-        border: Border.all(
-          color: isDark ? Colors.teal.shade700 : Colors.teal.shade300,
-        ),
-        borderRadius: BorderRadius.circular(8),
+        color: AppTheme.cobalt.withOpacity(0.08),
+        border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.lightbulb_outline,
-            color: isDark ? Colors.tealAccent : Colors.teal.shade700,
-            size: 24,
-          ),
+          const Icon(Icons.lightbulb_outline, color: AppTheme.cobalt, size: 24),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _data!.executiveSummaryAr,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12.5,
                 height: 1.45,
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.tealAccent.shade100 : Colors.teal.shade900,
+                color: AppTheme.charcoal,
               ),
             ),
           ),
@@ -454,264 +394,109 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildKpiCards(bool isDark, bool isAr) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final bool isCompact = constraints.maxWidth < 850;
+  Widget _buildKpiStrip(AppLocalizations l10n) {
+    final d = _data!;
+    final egp = l10n.financialSettlementCurrencyEgp;
+    String whole(double v) => formatSettlementWhole(v);
 
-      final cards = [
-        _buildKpiItem(
-          label: isAr ? 'إجمالي البضاعة FOB' : 'Total Goods FOB',
-          valueEgp: '${_data!.totalFobEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
-          valueFc: '${_data!.totalFobFc.toStringAsFixed(0)} ${_data!.currency}',
+    return SettlementMetricStrips(
+      metrics: [
+        MetricCardData(
+          title: l10n.settlementEstKpiFob,
+          value: '${whole(d.totalFobEgp)} $egp',
+          tooltip: '${whole(d.totalFobFc)} ${d.currency}',
           icon: Icons.inventory_2,
-          color: const Color(0xFF2563EB),
-          isDark: isDark,
+          color: AppTheme.cobalt,
         ),
-        _buildKpiItem(
-          label: isAr ? 'النولون والتأمين' : 'Freight & Insurance',
-          valueEgp:
-              '${(_data!.totalFreightEgp + _data!.totalInsuranceEgp).toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
-          valueFc: isAr
-              ? 'نولون: ${_data!.totalFreightEgp.toStringAsFixed(0)}'
-              : 'Freight: ${_data!.totalFreightEgp.toStringAsFixed(0)}',
+        MetricCardData(
+          title: l10n.settlementEstKpiFreightIns,
+          value: '${whole(d.totalFreightEgp + d.totalInsuranceEgp)} $egp',
           icon: Icons.sailing,
-          color: const Color(0xFF0D9488),
-          isDark: isDark,
+          color: AppTheme.wcagEmerald,
+          tooltip: l10n.settlementEstKpiFreightSub(whole(d.totalFreightEgp)),
         ),
-        _buildKpiItem(
-          label: isAr ? 'الجمارك والضرائب' : 'Customs & Taxes',
-          valueEgp: '${_data!.totalCustomsAndTaxesEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
-          valueFc: isAr ? 'بند التعريفة MD-008' : 'Tariff Schedule MD-008',
+        MetricCardData(
+          title: l10n.settlementEstKpiCustoms,
+          value: '${whole(d.totalCustomsAndTaxesEgp)} $egp',
           icon: Icons.account_balance,
-          color: const Color(0xFFD97706),
-          isDark: isDark,
+          color: AppTheme.orange,
+          tooltip: d.totalCustomsDutyEgp > 0 || d.totalVatAndFeesEgp > 0
+              ? '${l10n.settlementEstKpiDuty}: ${whole(d.totalCustomsDutyEgp)} | ${l10n.settlementEstKpiVatFees}: ${whole(d.totalVatAndFeesEgp)}'
+              : l10n.settlementEstKpiCustomsSub,
         ),
-        _buildKpiItem(
-          label: isAr ? 'الموانئ والتخليص والنقل' : 'Port, Clearance & Inland',
-          valueEgp:
-              '${(_data!.totalClearanceAndPortEgp + _data!.totalInlandTransportEgp).toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
-          valueFc: isAr ? 'لوجستيات وموانئ' : 'Logistics & Ports',
+        MetricCardData(
+          title: l10n.settlementEstKpiPort,
+          value: '${whole(d.totalClearanceAndPortEgp + d.totalInlandTransportEgp)} $egp',
           icon: Icons.local_shipping,
-          color: const Color(0xFF7C3AED),
-          isDark: isDark,
+          color: AppTheme.charcoal,
+          tooltip: l10n.settlementEstKpiPortSub,
         ),
-        _buildKpiItem(
-          label: isAr ? 'تكلفة الوصول الشاملة' : 'Total Landed Cost',
-          valueEgp: '${_data!.totalLandedCostEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
-          valueFc:
-              '${_data!.totalLandedCostFc.toStringAsFixed(0)} ${_data!.currency}',
+        MetricCardData(
+          title: l10n.settlementEstKpiLanded,
+          value: '${whole(d.totalLandedCostEgp)} $egp',
+          tooltip: '${whole(d.totalLandedCostFc)} ${d.currency}',
           icon: Icons.monetization_on,
-          color: const Color(0xFF059669),
-          isDark: isDark,
-          highlight: true,
+          color: AppTheme.emerald,
         ),
-        _buildKpiItem(
-          label: isAr ? 'معامل الزيادة الإجمالي' : 'Overall Markup Factor',
-          valueEgp: '×${_data!.averageMarkupFactor.toStringAsFixed(3)}',
-          valueFc: '+${_data!.averageMarkupPercent.toStringAsFixed(1)}%',
+        MetricCardData(
+          title: l10n.settlementEstKpiMarkup,
+          value: '×${d.averageMarkupFactor.toStringAsFixed(3)}',
+          tooltip: '+${d.averageMarkupPercent.toStringAsFixed(1)}%',
           icon: Icons.trending_up,
-          color: const Color(0xFFE11D48),
-          isDark: isDark,
-          highlight: true,
+          color: AppTheme.crimson,
         ),
-      ];
-
-      if (isCompact) {
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: cards
-              .map((c) => SizedBox(
-                    width: (constraints.maxWidth - 16) / 2,
-                    child: c,
-                  ))
-              .toList(),
-        );
-      }
-
-      return Row(
-        children: cards
-            .map((c) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: c,
-                  ),
-                ))
-            .toList(),
-      );
-    });
-  }
-
-  Widget _buildKpiItem({
-    required String label,
-    required String valueEgp,
-    required String valueFc,
-    required IconData icon,
-    required Color color,
-    required bool isDark,
-    bool highlight = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: highlight
-            ? (isDark ? color.withOpacity(0.2) : color.withOpacity(0.08))
-            : (isDark ? AppTheme.darkElevatedSurface : Colors.white),
-        border: Border.all(
-          color: highlight ? color : color.withOpacity(isDark ? 0.4 : 0.25),
-          width: highlight ? 1.5 : 1.0,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.black87,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            valueEgp,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.bold,
-              color: highlight
-                  ? color
-                  : (isDark ? Colors.white : AppTheme.charcoal),
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            valueFc,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white60 : Colors.grey.shade600,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildOverridesPanel(bool isDark, bool isAr) {
+  Widget _buildOverridesPanel(AppLocalizations l10n) {
     return ExpansionTile(
       initiallyExpanded: false,
       tilePadding: const EdgeInsets.symmetric(horizontal: 12),
       childrenPadding: const EdgeInsets.all(12),
-      backgroundColor:
-          isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF8FAFC),
-      collapsedBackgroundColor:
-          isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF8FAFC),
+      backgroundColor: SettlementTokens.panelFill,
+      collapsedBackgroundColor: SettlementTokens.panelFill,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+        side: BorderSide(color: SettlementTokens.border),
       ),
       collapsedShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+        side: BorderSide(color: SettlementTokens.border),
       ),
       leading: const Icon(Icons.tune, color: AppTheme.cobalt, size: 20),
       title: Text(
-        isAr
-            ? 'تعديل معايير ومصاريف المحاكاة (Parameters & Cost Overrides)'
-            : 'Simulation Parameters & Cost Overrides',
+        l10n.settlementEstOverridesTitle,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
       ),
       subtitle: Text(
-        isAr
-            ? 'يمكنك تعديل أسعار الصرف، نولون الشحن، التأمين، التخليص، وتفضيل التوزيع وإعادة الحساب فورياً'
-            : 'Modify exchange rates, freight, insurance, clearance, and allocation rule to recalculate instantly',
-        style: const TextStyle(fontSize: 11, color: Colors.grey),
+        l10n.settlementEstOverridesSubtitle,
+        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
       ),
       children: [
         Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _buildOverrideField(
-              isAr ? 'سعر الصرف ج.م' : 'FX Rate (EGP)',
-              _fxRateController,
-              isAr ? 'مثال: 50.5' : 'e.g. 50.5',
-            ),
-            _buildOverrideField(
-              isAr ? 'نولون الشحن (EGP)' : 'Freight (EGP)',
-              _freightController,
-              isAr ? 'تعديل النولون' : 'Edit Freight',
-            ),
-            _buildOverrideField(
-              isAr ? 'التأمين البحري (EGP)' : 'Marine Insurance (EGP)',
-              _insuranceController,
-              isAr ? 'تعديل التأمين' : 'Edit Insurance',
-            ),
-            _buildOverrideField(
-              isAr ? 'أتعاب التخليص (EGP)' : 'Clearance Fees (EGP)',
-              _clearanceController,
-              '4500',
-            ),
-            _buildOverrideField(
-              isAr ? 'مصاريف الموانئ (EGP)' : 'Port Handling (EGP)',
-              _portController,
-              '5000',
-            ),
-            _buildOverrideField(
-              isAr ? 'النقل الداخلي (EGP)' : 'Inland Transport (EGP)',
-              _transportController,
-              '7500',
-            ),
-            _buildOverrideField(
-              isAr ? 'مصاريف بنكية (EGP)' : 'Bank Fees (EGP)',
-              _bankFeesController,
-              '2500',
-            ),
-            _buildOverrideField(
-              isAr ? 'مصاريف أخرى (EGP)' : 'Other Fees (EGP)',
-              _otherFeesController,
-              '2000',
-            ),
+            _buildOverrideField(l10n.settlementEstFxLabel, _fxRateController, l10n.settlementEstFxHint),
+            _buildOverrideField(l10n.settlementEstFreightLabel, _freightController, l10n.settlementEstFreightHint),
+            _buildOverrideField(l10n.settlementEstInsuranceLabel, _insuranceController, l10n.settlementEstInsuranceHint),
+            _buildOverrideField(l10n.settlementEstClearanceLabel, _clearanceController, '4500'),
+            _buildOverrideField(l10n.settlementEstPortLabel, _portController, '5000'),
+            _buildOverrideField(l10n.settlementEstTransportLabel, _transportController, '7500'),
+            _buildOverrideField(l10n.settlementEstBankLabel, _bankFeesController, '2500'),
+            _buildOverrideField(l10n.settlementEstOtherLabel, _otherFeesController, '2000'),
             SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<String>(
+              width: 220,
+              child: SearchableDropdownField<String>(
+                key: const Key('estimatedLandedCostAllocationDropdown'),
                 value: _selectedAllocation,
-                decoration: InputDecoration(
-                  labelText: isAr ? 'أساس توزيع المصاريف' : 'Cost Allocation Basis',
-                  border: const OutlineInputBorder(),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  isDense: true,
-                ),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
+                labelText: l10n.financialSettlementAllocationRuleLabel,
+                searchHintText: l10n.financialSettlementAllocationRuleSearchHint,
                 items: [
-                  DropdownMenuItem(
-                      value: 'Value-Based',
-                      child: Text(isAr ? 'حسب القيمة (Value)' : 'Value-Based')),
-                  DropdownMenuItem(
-                      value: 'Weight-Based',
-                      child: Text(isAr ? 'حسب الوزن (Weight)' : 'Weight-Based')),
-                  DropdownMenuItem(
-                      value: 'Volume-Based',
-                      child: Text(isAr ? 'حسب الحجم (Volume)' : 'Volume-Based')),
+                  SearchableDropdownItem(value: 'Value-Based', label: l10n.financialSettlementRuleValueBased),
+                  SearchableDropdownItem(value: 'Weight-Based', label: l10n.financialSettlementRuleWeightBased),
+                  SearchableDropdownItem(value: 'Volume-Based', label: l10n.financialSettlementRuleVolumeBased),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -725,10 +510,16 @@ class _EstimatedLandedCostDialogState
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            TextButton.icon(
+            SettlementFit(child: AppButton(
+              label: l10n.settlementEstResetDefaults,
+              icon: Icons.refresh,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () {
                 _fxRateController.clear();
                 _freightController.clear();
@@ -741,24 +532,14 @@ class _EstimatedLandedCostDialogState
                 _selectedAllocation = 'Value-Based';
                 _loadSimulation();
               },
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(isAr ? 'استعادة القيم الافتراضية' : 'Reset Defaults'),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
+            )),
+            SettlementFit(child: AppButton(
+              label: l10n.settlementEstRecalculate,
+              icon: Icons.play_arrow,
+              variant: AppButtonVariant.primary,
+              size: AppButtonSize.small,
               onPressed: _loadSimulation,
-              icon: const Icon(Icons.play_arrow, size: 18),
-              label: Text(
-                isAr ? 'إعادة الحساب والتوزيع' : 'Recalculate & Allocate',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
+            )),
           ],
         ),
       ],
@@ -785,180 +566,160 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildItemsTable(bool isDark, bool isAr) {
+  Widget _buildTableFrame(Widget table) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: SettlementTokens.border),
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(SettlementTokens.radius),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: table,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemsTable(AppLocalizations l10n) {
     if (_data!.itemsBreakdown.isEmpty) {
-      return Center(
-        child: Text(isAr ? 'لا توجد بنود متاحة للمحاكاة' : 'No items available for simulation'),
+      return SettlementStateView.empty(
+        message: l10n.settlementEstNoItems,
+        icon: Icons.inventory_2_outlined,
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+    return _buildTableFrame(
+      DataTable(
+        headingRowColor: WidgetStateProperty.all(SettlementTokens.tableHeadFill),
+        columnSpacing: 16,
+        horizontalMargin: 12,
+        dataRowMinHeight: 40,
+        dataRowMaxHeight: 44,
+        columns: [
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColNo), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColItemCode)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColItemName)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColHs)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColQty), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColFobUnit), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColFobTotal), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColDuty), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColVat), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColFreight), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColTotalLanded), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColUnitLanded), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColUnitLandedFc), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColMarkup), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColMarkupPct), numeric: true),
+        ],
+        rows: _data!.itemsBreakdown.map((itm) {
+          return DataRow(cells: [
+            DataCell(SettlementMoneyText('${itm.lineNo}')),
+            DataCell(LtrText(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.w600))),
+            DataCell(Text(itm.itemName)),
+            DataCell(LtrText(itm.hsCode, style: const TextStyle(fontFamily: 'monospace'))),
+            DataCell(SettlementMoneyText('${itm.qty}')),
+            DataCell(SettlementMoneyText('${itm.unitPriceFc.toStringAsFixed(2)} ${_data!.currency}')),
+            DataCell(SettlementMoneyText(formatSettlementMoney(itm.fobTotalEgp))),
+            DataCell(SettlementMoneyText(formatSettlementMoney(itm.allocatedCustomsDutyEgp))),
+            DataCell(SettlementMoneyText(formatSettlementMoney(itm.allocatedVatEgp))),
+            DataCell(SettlementMoneyText(formatSettlementMoney(
+                itm.allocatedFreightEgp + itm.allocatedClearanceAndPortEgp + itm.allocatedInlandTransportEgp))),
+            DataCell(SettlementMoneyText(
+              formatSettlementMoney(itm.totalLandedCostEgp),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+            )),
+            DataCell(SettlementMoneyText(
+              formatSettlementMoney(itm.unitLandedCostEgp),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+            )),
+            DataCell(SettlementMoneyText(
+              '${itm.unitLandedCostFc.toStringAsFixed(2)} ${_data!.currency}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            )),
+            DataCell(SettlementMoneyText(
+              '×${itm.markupFactor.toStringAsFixed(3)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange),
+            )),
+            DataCell(SettlementMoneyText(
+              '+${itm.markupPercent.toStringAsFixed(1)}%',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange),
+            )),
+          ]);
+        }).toList(),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(
-                isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF1F5F9),
-              ),
-              columnSpacing: 16,
-              horizontalMargin: 12,
-              dataRowMinHeight: 40,
-              dataRowMaxHeight: 44,
-              columns: [
-                DataColumn(label: Text(isAr ? 'م' : '#', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'كود الصنف' : 'Item Code', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'اسم الصنف والوصف' : 'Item Name & Description', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'البند الجمركي' : 'HS Code', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'الكمية' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'سعر FOB للوحدة' : 'FOB Unit Price', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'إجمالي FOB ج.م' : 'Total FOB (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'ضريبة الوارد ج.م' : 'Customs Duty (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'الضرائب والقيمة المضافة' : 'VAT & Taxes (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'نولون ولوجستيات' : 'Freight & Logistics', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'إجمالي التكلفة ج.م' : 'Total Landed (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'تكلفة الوحدة ج.م' : 'Unit Landed (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'تكلفة الوحدة أجنبي' : 'Unit Landed (FC)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'معامل الزيادة' : 'Markup Factor', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'نسبة الزيادة' : 'Markup %', style: const TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: _data!.itemsBreakdown.map((itm) {
-                return DataRow(cells: [
-                  DataCell(Text('${itm.lineNo}')),
-                  DataCell(Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(itm.itemName)),
-                  DataCell(LtrText(itm.hsCode, style: const TextStyle(fontFamily: 'monospace'))),
-                  DataCell(Text('${itm.qty}')),
-                  DataCell(Text('${itm.unitPriceFc.toStringAsFixed(2)} ${_data!.currency}')),
-                  DataCell(Text(itm.fobTotalEgp.toStringAsFixed(2))),
-                  DataCell(Text(itm.allocatedCustomsDutyEgp.toStringAsFixed(2))),
-                  DataCell(Text(itm.allocatedVatEgp.toStringAsFixed(2))),
-                  DataCell(Text(
-                      (itm.allocatedFreightEgp + itm.allocatedClearanceAndPortEgp + itm.allocatedInlandTransportEgp)
-                          .toStringAsFixed(2))),
-                  DataCell(Text(
-                    itm.totalLandedCostEgp.toStringAsFixed(2),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                  )),
-                  DataCell(Text(
-                    itm.unitLandedCostEgp.toStringAsFixed(2),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                  )),
-                  DataCell(Text(
-                    '${itm.unitLandedCostFc.toStringAsFixed(2)} ${_data!.currency}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  )),
-                  DataCell(Text(
-                    '×${itm.markupFactor.toStringAsFixed(3)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                  )),
-                  DataCell(Text(
-                    '+${itm.markupPercent.toStringAsFixed(1)}%',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                  )),
-                ]);
-              }).toList(),
-            ),
-          ),
-        ),
     );
   }
 
-  Widget _buildExpensesTable(bool isDark, bool isAr) {
+  Widget _buildExpensesTable(AppLocalizations l10n) {
     if (_data!.expensesBreakdown.isEmpty) {
-      return Center(
-        child: Text(isAr ? 'لا توجد مصاريف مفصلة' : 'No detailed expenses'),
+      return SettlementStateView.empty(
+        message: l10n.settlementEstNoExpenses,
+        icon: Icons.receipt_long_outlined,
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+    return _buildTableFrame(
+      DataTable(
+        headingRowColor: WidgetStateProperty.all(SettlementTokens.tableHeadFill),
+        columns: [
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColExpCategory)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColDescription)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColAmountEgp), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColAmountFc), numeric: true),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColSource)),
+          DataColumn(label: settlementHeadCell(l10n.settlementEstColAllocRule)),
+        ],
+        rows: _data!.expensesBreakdown.map((exp) {
+          return DataRow(cells: [
+            DataCell(Text(exp.category, style: const TextStyle(fontWeight: FontWeight.w600))),
+            DataCell(Text(exp.description)),
+            DataCell(SettlementMoneyText(
+              formatSettlementMoney(exp.amountEgp),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+            )),
+            DataCell(SettlementMoneyText('${exp.amountFc.toStringAsFixed(2)} ${exp.currency}')),
+            DataCell(Text(exp.source)),
+            DataCell(Text(exp.allocationRule)),
+          ]);
+        }).toList(),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(
-                isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF1F5F9),
-              ),
-              columns: [
-                DataColumn(label: Text(isAr ? 'فئة المصروف' : 'Expense Category', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'البيان والوصف' : 'Description', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'القيمة بالجنيه (EGP)' : 'Amount (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'القيمة بالعملة الأجنبية' : 'Amount (FC)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'مصدر الاحتساب' : 'Source', style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(isAr ? 'طريقة التوزيع على البنود' : 'Allocation Rule', style: const TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: _data!.expensesBreakdown.map((exp) {
-                return DataRow(cells: [
-                  DataCell(Text(exp.category, style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(exp.description)),
-                  DataCell(Text(
-                    exp.amountEgp.toStringAsFixed(2),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                  )),
-                  DataCell(Text(
-                    '${exp.amountFc.toStringAsFixed(2)} ${exp.currency}',
-                  )),
-                  DataCell(Text(exp.source)),
-                  DataCell(Text(exp.allocationRule)),
-                ]);
-              }).toList(),
-            ),
-          ),
-        ),
     );
   }
 
-  Widget _buildBottomBar(bool isDark, bool isAr) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 10,
-        runSpacing: 8,
+  Widget _buildBottomBar(AppLocalizations l10n) {
+    return SettlementDialogFooter(
+      leading: Wrap(
+        spacing: 8,
+        runSpacing: 6,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                onPressed: _data == null ? null : _exportCsv,
-                icon: const Icon(Icons.file_download, size: 18),
-                label: Text(isAr ? 'تصدير تقرير Excel/CSV' : 'Export Excel/CSV'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _data == null ? null : _copyTsvToClipboard,
-                icon: const Icon(Icons.copy, size: 18),
-                label: Text(isAr ? 'نسخ جدول النتائج (TSV)' : 'Copy TSV Table'),
-              ),
-            ],
-          ),
-          TextButton(
-            onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-            child: Text(isAr ? 'إغلاق' : 'Close', style: const TextStyle(fontSize: 14)),
-          ),
+          SettlementFit(child: AppButton(
+            label: l10n.settlementEstExportBtn,
+            icon: Icons.file_download,
+            variant: AppButtonVariant.success,
+            onPressed: _data == null ? null : _exportCsv,
+          )),
+          SettlementFit(child: AppButton(
+            label: l10n.settlementEstCopyTsvBtn,
+            icon: Icons.copy,
+            variant: AppButtonVariant.secondary,
+            onPressed: _data == null ? null : _copyTsvToClipboard,
+          )),
         ],
       ),
+      actions: [
+        SettlementFit(child: AppButton(
+          label: l10n.settlementClose,
+          icon: Icons.close,
+          variant: AppButtonVariant.secondary,
+          onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
+        )),
+      ],
     );
   }
 }

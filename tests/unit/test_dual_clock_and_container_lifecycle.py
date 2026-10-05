@@ -177,6 +177,10 @@ class TestDualClockAndContainerLifecycle:
                 port_name="Damietta Port",
                 discharge_date=discharge,
                 containers=[ContainerItemInput(container_no="HLXU9999", container_type="40ft High Cube")],
+                # DD-09: no fabricated default rate since the review wave; without an explicit rate the
+                # service needs a registered USD commercial rate (409 otherwise), so pass one here.
+                currency="USD",
+                exchange_rate=50.0,
             ),
         )
 

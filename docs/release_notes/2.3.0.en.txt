@@ -1,0 +1,12 @@
+A full quality review of every import-cycle stage, from planning to file closure, with a clearer new design for most screens.
+Purchase orders: a new order opens empty, number fields accept decimals without closing after each digit, weights keep full precision, and editing an order no longer deletes lines linked to shipments.
+Smart invoice extraction reads the right currency from the invoice total, the HS code as printed and weights with decimals.
+Permissions on every screen: approving, paying, releasing and closing need the right permission, and the approver is recorded from the signed-in account.
+No fixed exchange rates or percentages inside the app: rates come from the customs tariff, currency tables and settings, and unknown data stays empty instead of made-up defaults.
+Financial approval: a request cannot be paid before it is approved, and SWIFT matching checks the currency and reference.
+Documents: the draft B/L review needs approval by two different people, and Form 46 computes VAT on the correct base with schedule tax and import fee.
+Customs clearance: one duty-total formula, totals locked after assessment, and no release before full payment or while under quarantine.
+Demurrage: agreed free days apply on every recalculation, and pushed charges update the settlement automatically.
+Warehouse and closure: goods receipts reject unbalanced quantities, and the final close checks its conditions on the server.
+Financial settlement: approval keeps the stored invoices, lab fees are not counted twice, and the journal entry always balances.
+Lists no longer fail because of old records, and administrator access can be restored on older installs.

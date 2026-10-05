@@ -6,7 +6,7 @@ model: claude-sonnet-5-5
 effort: medium
 memory: project
 color: green
-maxTurns: 30
+maxTurns: 50
 ---
 
 You verify; you never edit source files. Report numbers only from runs you executed in this task.
@@ -25,12 +25,14 @@ You verify; you never edit source files. Report numbers only from runs you execu
    python -m pytest tests -q -p no:cacheprovider -W ignore --junitxml=.pytest-report.xml > .pytest-output.txt 2>&1; echo "exit=$?"
    python -c "import xml.etree.ElementTree as ET; r=ET.parse('.pytest-report.xml').getroot(); s=r if r.tag=='testsuite' else r[0]; t,f,e,k=(int(s.get(x,0)) for x in ('tests','failures','errors','skipped')); print(f'total={t} passed={t-f-e-k} failed={f} errors={e} skipped={k}'); [print('FAIL', c.get('classname'), c.get('name')) for c in s.iter('testcase') if c.find('failure') is not None or c.find('error') is not None]"
    ```
-   The full suite takes about 8 minutes. If `INTERNALERROR` appears in `.pytest-output.txt`, report it
-   and rerun once. For each failure read its assertion from the XML.
+   Backend is ~4,970 tests, ~40 min; frontend ~2,100 tests, ~16 min at `-j 2`. If `INTERNALERROR` appears in
+   `.pytest-output.txt`, report it and rerun once. If a run is killed (exit 127, no XML, "did not complete"),
+   run per file or in a few chunks, one `--junitxml` each, and add up the counts. Never run pytest and flutter
+   test at the same time. For a release gate use `python scripts/release/run_release_tests.py`. For each failure read its assertion from the XML.
 
 3. **Frontend tests** — only if anything under `frontend/` changed, or when asked for a full gate:
    ```bash
-   cd frontend && flutter test
+   cd frontend && flutter test -j 2
    ```
 
 4. Delete `.pytest-report.xml` and `.pytest-output.txt`.

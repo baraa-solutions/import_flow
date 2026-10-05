@@ -201,3 +201,249 @@ def test_customs_recalculation_api_endpoint(db_session):
     assert "comparison_lines" in data
 
     app.dependency_overrides.clear()
+
+
+# ── CC-01: tariff engine, no fallback rates ─────────────────────────────────────
+
+def _recalc(db, **kw):
+    imp_file = db.query(ImportFile).first()
+    return CustomsConsultationService.recalculate_from_reconciliation_service(db, import_file_id=imp_file.import_file_id, **kw)
+
+
+def _set_final_items(db, items):
+    rec = db.query(POPackingReconciliationSession).first()
+    rec.reconciled_invoice_items = items
+    db.commit()
+
+
+def test_taxes_come_from_the_tariff_engine(db_session):
+    res = _recalc(db_session, exchange_rate=50.0, freight_egp=0.0, insurance_egp=0.0)
+    line = res.comparison_lines[0]
+    assert line.status == "OK"
+    # Final CIF 660,000: duty 10% = 66,000; VAT 14% on (CIF + duty) = 101,640; service fee 1% = 6,600.
+    assert line.final_duty_egp == 66000.0
+    assert line.final_vat_egp == 101640.0
+    assert line.final_total_taxes_egp == 174240.0
+    assert res.final_cif_egp == 660000.0
+    assert res.tariff_missing_lines_count == 0
+
+
+def test_missing_tariff_line_is_flagged_and_excluded_from_totals(db_session):
+    _set_final_items(db_session, [
+        {"item_name": "Granite", "hs_code": "6802.99", "quantity": 120.0, "unit_price": 110.0, "total_price": 13200.0},
+        {"item_name": "Unknown", "hs_code": "9999.99", "quantity": 10.0, "unit_price": 10.0, "total_price": 100.0},
+    ])
+    res = _recalc(db_session, exchange_rate=50.0)
+    by_name = {line.item_name: line for line in res.comparison_lines}
+    missing = by_name["Unknown"]
+    assert missing.status == "TARIFF_MISSING"
+    assert (missing.final_duty_egp, missing.final_vat_egp, missing.vat_rate_pct, missing.duty_rate_pct) == (0.0, 0.0, 0.0, 0.0)
+    assert res.tariff_missing_lines_count == 1
+    assert res.final_fob_egp == 660000.0  # the unknown line's 5,000 EGP is not in the totals
+    assert res.final_total_taxes_egp == by_name["Granite"].final_total_taxes_egp
+
+
+def test_line_without_hs_is_tariff_missing_not_defaulted(db_session):
+    _set_final_items(db_session, [{"item_name": "No HS", "quantity": 1.0, "unit_price": 10.0, "total_price": 10.0}])
+    db_session.query(POLineItem).delete()
+    db_session.commit()
+    res = _recalc(db_session, exchange_rate=50.0)
+    assert res.comparison_lines[0].status == "TARIFF_MISSING"
+    assert res.comparison_lines[0].hs_code == ""
+    assert res.final_total_taxes_egp == 0.0
+
+
+def test_lines_match_by_po_item_id_not_position(db_session):
+    po = db_session.query(PurchaseOrder).first()
+    tariff = db_session.query(CustomsTariff).first()
+    first = db_session.query(POLineItem).first()
+    second = POLineItem(po_id=po.po_id, item_code="B-2", description_ar="Second", tariff_id=tariff.tariff_id,
+                        quantity=5.0, unit_price=20.0, total_price=100.0)
+    db_session.add(second)
+    db_session.commit()
+    _set_final_items(db_session, [
+        {"po_item_id": second.item_id, "description": "Second final", "hs_code": "6802.99",
+         "final_quantity": 6.0, "final_unit_price": 20.0, "total_amount": 120.0},
+        {"po_item_id": first.item_id, "description": "First final", "hs_code": "6802.99",
+         "final_quantity": 100.0, "final_unit_price": 100.0, "total_amount": 10000.0},
+    ])
+    res = _recalc(db_session, exchange_rate=1.0)
+    lines = {line.item_name: line for line in res.comparison_lines}
+    assert lines["Second final"].preliminary_qty == 5.0
+    assert lines["Second final"].qty_variance == 1.0
+    assert lines["First final"].preliminary_qty == 100.0
+    assert lines["First final"].qty_variance == 0.0
+
+
+def test_fx_comes_from_customs_rate_table(db_session):
+    from modules.currencies.model import Currency as CurrencyModel, ExchangeRate
+    import modules.currencies.service as currency_service
+
+    usd = db_session.query(CurrencyModel).filter(CurrencyModel.currency_code == "USD").one()
+    db_session.add(ExchangeRate(currency_id=usd.currency_id, commercial_rate=49.0, customs_rate=48.25,
+                                effective_date=date(2020, 1, 1)))
+    db_session.commit()
+    currency_service._RATE_CACHE.clear()
+    res = _recalc(db_session, estimate_date=date(2026, 1, 15))
+    assert res.exchange_rate == 48.25
+    assert res.preliminary_fob_egp == 482500.0
+
+
+def test_missing_customs_rate_is_409_not_a_fallback(db_session):
+    import modules.currencies.service as currency_service
+    from fastapi import HTTPException
+
+    currency_service._RATE_CACHE.clear()
+    with pytest.raises(HTTPException) as exc:
+        _recalc(db_session, estimate_date=date(2026, 1, 16))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "CUSTOMS_FX_RATE_MISSING"
+    assert exc.value.detail["currency"] == "USD"
+
+
+def test_missing_tariff_line_keeps_its_freight_share(db_session):
+    # Granite (OK) 13,200 USD + Unknown (no tariff) 100 USD: the OK line gets only 13,200 / 13,300 of the
+    # freight and insurance, not the whole amount.
+    _set_final_items(db_session, [
+        {"item_name": "Granite", "hs_code": "6802.99", "quantity": 120.0, "unit_price": 110.0, "total_price": 13200.0},
+        {"item_name": "Unknown", "hs_code": "9999.99", "quantity": 10.0, "unit_price": 10.0, "total_price": 100.0},
+    ])
+    res = _recalc(db_session, exchange_rate=50.0, freight_egp=6000.0, insurance_egp=1330.0)
+    granite = next(line for line in res.comparison_lines if line.item_name == "Granite")
+    expected_cif = 660000.0 + (6000.0 + 1330.0) * 13200.0 / 13300.0  # 667274.89
+    assert granite.final_cif_egp == pytest.approx(expected_cif, abs=0.01)
+    assert res.final_cif_egp == pytest.approx(expected_cif, abs=0.01)
+
+
+# ── customs-rules review: currency per side, complete preliminary side, rate source ─────────────
+
+def _rate(db, code, customs_rate):
+    from modules.currencies.model import Currency as CurrencyModel, ExchangeRate
+
+    cur = db.query(CurrencyModel).filter(CurrencyModel.currency_code == code).first()
+    if cur is None:
+        cur = CurrencyModel(currency_code=code, currency_name=code, currency_symbol=code, is_active=True)
+        db.add(cur)
+        db.commit()
+    db.add(ExchangeRate(currency_id=cur.currency_id, commercial_rate=customs_rate, customs_rate=customs_rate,
+                        effective_date=date(2020, 1, 1)))
+    db.commit()
+
+
+def _clear_rate_cache():
+    import modules.currencies.service as currency_service
+
+    currency_service._RATE_CACHE.clear()
+
+
+def test_each_side_uses_its_own_currency_and_customs_rate(db_session):
+    _rate(db_session, "USD", 50.0)
+    _rate(db_session, "EUR", 55.0)
+    _clear_rate_cache()
+    rec = db_session.query(POPackingReconciliationSession).first()
+    rec.currency = "EUR"
+    db_session.commit()
+    res = _recalc(db_session, estimate_date=date(2026, 2, 1))
+    assert (res.preliminary_currency, res.final_currency) == ("USD", "EUR")
+    assert (res.preliminary_exchange_rate, res.exchange_rate) == (50.0, 55.0)
+    assert res.exchange_rate_source == "table"
+    assert res.preliminary_fob_egp == 500000.0   # 10,000 USD x 50
+    assert res.final_fob_egp == 726000.0         # 13,200 EUR x 55
+
+
+def test_manual_rate_is_reported_as_manual(db_session):
+    res = _recalc(db_session, exchange_rate=50.0)
+    assert res.exchange_rate_source == "manual"
+    assert res.preliminary_exchange_rate == res.exchange_rate == 50.0
+
+
+def test_unregistered_currency_without_rate_is_coded_409(db_session):
+    from fastapi import HTTPException
+
+    _clear_rate_cache()
+    rec = db_session.query(POPackingReconciliationSession).first()
+    rec.currency = "ZZZ"
+    db_session.commit()
+    _rate(db_session, "USD", 50.0)
+    _clear_rate_cache()
+    with pytest.raises(HTTPException) as exc:
+        _recalc(db_session, estimate_date=date(2026, 2, 2))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "CUSTOMS_FX_RATE_MISSING"
+    assert exc.value.detail["currency"] == "ZZZ"
+
+
+def test_split_new_and_dropped_items_keep_both_totals_complete(db_session):
+    po = db_session.query(PurchaseOrder).first()
+    tariff = db_session.query(CustomsTariff).first()
+    first = db_session.query(POLineItem).first()  # 100 x 100 = 10,000
+    dropped = POLineItem(po_id=po.po_id, item_code="DROP", description_ar="Dropped", tariff_id=tariff.tariff_id,
+                         quantity=10.0, unit_price=10.0, total_price=100.0)
+    db_session.add(dropped)
+    db_session.commit()
+    _set_final_items(db_session, [
+        # split: the first PO line arrives as two invoice rows
+        {"po_item_id": first.item_id, "description": "Split A", "hs_code": "6802.99",
+         "final_quantity": 60.0, "final_unit_price": 100.0, "total_amount": 6000.0},
+        {"po_item_id": first.item_id, "description": "Split B", "hs_code": "6802.99",
+         "final_quantity": 40.0, "final_unit_price": 100.0, "total_amount": 4000.0},
+        # new item that was never ordered
+        {"description": "New", "item_code": "NEW-1", "hs_code": "6802.99",
+         "final_quantity": 5.0, "final_unit_price": 20.0, "total_amount": 100.0},
+    ])
+    res = _recalc(db_session, exchange_rate=1.0)
+    lines = {line.item_name: line for line in res.comparison_lines}
+    assert lines["Split A"].preliminary_qty == 100.0       # matched once
+    assert lines["Split B"].preliminary_qty == 0.0         # no reuse of an already matched PO line
+    assert lines["New"].preliminary_qty == 0.0
+    assert lines["Dropped"].final_qty == 0.0               # PO line with no invoice row: preliminary only
+    assert lines["Dropped"].preliminary_qty == 10.0
+    assert res.preliminary_fob_egp == 10100.0              # every PO line counted once
+    assert res.final_fob_egp == 10100.0                    # every invoice row counted
+
+
+def test_preliminary_side_with_mixed_po_currencies_is_coded_409(db_session):
+    from fastapi import HTTPException
+    from modules.currencies.model import Currency as CurrencyModel
+
+    eur = CurrencyModel(currency_code="EUR", currency_name="Euro", currency_symbol="E", is_active=True)
+    db_session.add(eur)
+    db_session.commit()
+    first = db_session.query(PurchaseOrder).first()
+    second = PurchaseOrder(po_number="PO-2026-EUR", import_file_id=first.import_file_id, project_id=first.project_id,
+                           company_id=first.company_id, supplier_id=first.supplier_id, incoterm_id=first.incoterm_id,
+                           currency_id=eur.currency_id, total_amount_fob=100.0)
+    db_session.add(second)
+    db_session.commit()
+    db_session.add(POLineItem(po_id=second.po_id, description_ar="EUR line", quantity=1.0, unit_price=100.0, total_price=100.0))
+    db_session.commit()
+    with pytest.raises(HTTPException) as exc:
+        _recalc(db_session, exchange_rate=50.0)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "CUSTOMS_MIXED_CURRENCY"
+
+
+def test_manual_rate_applies_only_to_its_side_when_currencies_differ(db_session):
+    _rate(db_session, "USD", 48.0)
+    _clear_rate_cache()
+    rec = db_session.query(POPackingReconciliationSession).first()
+    rec.currency = "EUR"
+    db_session.commit()
+    res = _recalc(db_session, exchange_rate=50.0, estimate_date=date(2026, 2, 3))
+    assert (res.exchange_rate, res.exchange_rate_source) == (50.0, "manual")              # EUR final side
+    assert (res.preliminary_exchange_rate, res.preliminary_exchange_rate_source) == (48.0, "table")  # USD PO side
+    assert res.preliminary_fob_egp == 480000.0
+
+    both = CustomsConsultationService.recalculate_from_reconciliation_service(
+        db_session, import_file_id=rec.import_file_id, exchange_rate=50.0, preliminary_exchange_rate=47.0,
+    )
+    assert (both.preliminary_exchange_rate, both.preliminary_exchange_rate_source) == (47.0, "manual")
+
+
+def test_empty_file_returns_zero_totals_without_rate_lookup(db_session):
+    db_session.query(POLineItem).delete()
+    db_session.query(POPackingReconciliationSession).delete()
+    db_session.commit()
+    res = _recalc(db_session)  # no rate configured: must not 409
+    assert res.comparison_lines == []
+    assert (res.preliminary_fob_egp, res.final_total_taxes_egp) == (0.0, 0.0)

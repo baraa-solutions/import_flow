@@ -1,4 +1,7 @@
+from datetime import datetime
+
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -141,7 +144,7 @@ def test_cargo_insurance_certificate_workflow(db_session):
 
     cert = service.create_certificate(create_dto, current_user="ahmed_ops")
     assert cert.certificate_id is not None
-    assert cert.certificate_code.startswith("INS-2026-")
+    assert cert.certificate_code == f"INS-{datetime.now().year}-00001"
     assert cert.status == "DRAFT"
     assert cert.cif_value == 90000.0
     assert cert.insured_value == 99000.0
@@ -171,7 +174,12 @@ def test_cargo_insurance_certificate_workflow(db_session):
     assert total == 1
     assert items[0].certificate_id == cert.certificate_id
 
-    # 6. Soft Delete
+    # 6. Soft Delete: an ISSUED certificate cannot be deleted (409, security review); a draft can
+    with pytest.raises(HTTPException) as exc:
+        service.delete_certificate(cert.certificate_id)
+    assert exc.value.status_code == 409
+    cert.status = "DRAFT"
+    db_session.commit()
     service.delete_certificate(cert.certificate_id)
     items_after, total_after = service.list_certificates()
     assert total_after == 0

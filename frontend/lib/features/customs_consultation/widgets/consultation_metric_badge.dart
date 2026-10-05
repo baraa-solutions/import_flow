@@ -19,7 +19,7 @@ class ConsultationMetricBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveColor = (isDark && (color == AppTheme.charcoal || color == const Color(0xFF2C3E50)))
+    final effectiveColor = (isDark && (color == AppTheme.charcoal || color == AppTheme.charcoal))
         ? AppTheme.darkTextPrimary
         : color;
 

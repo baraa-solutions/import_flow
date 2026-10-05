@@ -45,6 +45,11 @@ import '../providers/purchase_orders_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
+import 'package:frontend/core/widgets/buttons/app_button.dart';
+import '../models/po_system_message.dart';
+import '../widgets/po_table_cells.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 class PurchaseOrdersScreen extends ConsumerStatefulWidget {
   const PurchaseOrdersScreen({super.key});
 
@@ -138,7 +143,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       if (!isNarrow) const SizedBox(width: 8),
                       if (!isNarrow) const BackToDashboardButton(),
                       IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        icon: const Icon(Icons.refresh, color: AppTheme.white),
                         onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
                       ),
                       const SizedBox(width: 10),
@@ -163,8 +168,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       ),
                       if (state.isLoading)
                         const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-                      else if (state.errorMessage != null)
-                        _buildErrorView(l, state.errorMessage!)
+                      else if (state.error != null)
+                        _buildErrorView(l, ApiErrorText.of(l, state.error, fallback: l.operationFailed))
                       else if (state.purchaseOrders.isEmpty)
                         _buildEmptyView(l)
                       else
@@ -191,8 +196,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   Expanded(
                     child: state.isLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : state.errorMessage != null
-                            ? _buildErrorView(l, state.errorMessage!)
+                        : state.error != null
+                            ? _buildErrorView(l, ApiErrorText.of(l, state.error, fallback: l.operationFailed))
                             : state.purchaseOrders.isEmpty
                                 ? _buildEmptyView(l)
                                 : _buildPOTable(context, state.purchaseOrders),
@@ -242,7 +247,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           shortTitle: 'Gross Wt',
           value: '${_formatWeight(totalGrossSum)} kg',
           icon: Icons.scale,
-          color: Colors.purple,
+          color: AppTheme.cobalt,
         ),
       ],
     );
@@ -270,7 +275,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${context.l10n.errorPrefix}: $e'),
+          content: Text('${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}'),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -296,11 +301,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         data: formData,
       );
       if (!mounted) return;
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+      ref.read(purchaseOrdersProvider.notifier).refreshAfterMutation();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res.data?['message'] ?? (isArabic ? 'تم الاستيراد بنجاح' : 'Imported successfully')),
+          content: Text(res.data?['message'] ?? (context.l10n.poImportedSuccessfully)),
           backgroundColor: AppTheme.emerald,
         ),
       );
@@ -308,7 +312,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${context.l10n.errorPrefix}: $e'),
+          content: Text('${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}'),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -317,8 +321,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
   void _copyPOTableTsv(List<PurchaseOrderModel> orders) {
     final l = context.l10n;
-    final isArabic = Directionality.of(context) == TextDirection.rtl ||
-        ref.read(localeProvider).languageCode == 'ar';
     final List<String> headers = [
       l.poReferenceCol,
       l.foreignSupplier,
@@ -342,7 +344,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       context,
       headers,
       rows,
-      customMessage: isArabic ? 'تم نسخ بيانات أوامر الشراء بنجاح' : 'PO table copied to clipboard',
+      customMessage: context.l10n.poPOTableCopiedToClipboard,
     );
   }
 
@@ -354,39 +356,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     List<ProjectModel> projectsList,
   ) {
     final density = ref.watch(displayDensityProvider);
-    final isArabic = Directionality.of(context) == TextDirection.rtl ||
-        ref.watch(localeProvider).languageCode == 'ar';
 
     return ActionToolbar(
       primaryActions: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.wcagCobalt,
-            foregroundColor: Colors.white,
-            minimumSize: Size(0, density.buttonHeight),
-            padding: density.buttonPadding,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          icon: Icon(Icons.add_shopping_cart, size: density.buttonIconSize),
-          label: Text(
-            l.newPurchaseOrder,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
-          ),
+        AppButton(
+          label: l.newPurchaseOrder,
+          icon: Icons.add_shopping_cart,
+          variant: AppButtonVariant.primary,
+          size: AppButtonSize.small,
           onPressed: () => _showPODialog(context, null),
         ),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
-            side: BorderSide(color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
-            minimumSize: Size(0, density.buttonHeight),
-            padding: density.buttonPadding,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          icon: Icon(Icons.control_point_duplicate_rounded, size: density.buttonIconSize),
-          label: Text(
-            l.searchAndClonePoBtn,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
-          ),
+        AppButton(
+          label: l.searchAndClonePoBtn,
+          icon: Icons.control_point_duplicate_rounded,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
           onPressed: _openSearchAndCloneDialog,
         ),
       ],
@@ -417,7 +401,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             children: [
               const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
               const SizedBox(width: 8),
-              Text(isArabic ? 'نسخ الجدول (TSV)' : 'Copy Table (TSV)', style: const TextStyle(fontSize: 12.5)),
+              Text(context.l10n.poCopyTableTSV, style: const TextStyle(fontSize: 12.5)),
             ],
           ),
         ),
@@ -426,9 +410,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           value: 'download_template',
           child: Row(
             children: [
-              const Icon(Icons.file_download_outlined, color: Colors.blueGrey, size: 16),
+              const Icon(Icons.file_download_outlined, color: AppTheme.charcoal, size: 16),
               const SizedBox(width: 8),
-              Text(isArabic ? 'تنزيل نموذج إكسل' : 'Download Template', style: const TextStyle(fontSize: 12.5)),
+              Text(context.l10n.poDownloadTemplate, style: const TextStyle(fontSize: 12.5)),
             ],
           ),
         ),
@@ -436,9 +420,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           value: 'import_excel',
           child: Row(
             children: [
-              const Icon(Icons.upload_file, color: Colors.blueGrey, size: 16),
+              const Icon(Icons.upload_file, color: AppTheme.charcoal, size: 16),
               const SizedBox(width: 8),
-              Text(isArabic ? 'استيراد من إكسل' : 'Import Excel', style: const TextStyle(fontSize: 12.5)),
+              Text(context.l10n.poImportExcel, style: const TextStyle(fontSize: 12.5)),
             ],
           ),
         ),
@@ -446,16 +430,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       onMoreActionSelected: (val) {
         switch (val) {
           case 'export_excel':
-            _downloadPOFile('export-excel', 'Purchase_Orders.xlsx', isArabic ? 'تصدير أوامر الشراء إكسيل' : 'Export Purchase Orders Excel');
+            _downloadPOFile('export-excel', 'Purchase_Orders.xlsx', context.l10n.poExportPurchaseOrdersExcel);
             break;
           case 'export_pdf':
-            _downloadPOFile('export-pdf', 'Purchase_Orders.pdf', isArabic ? 'تصدير أوامر الشراء PDF' : 'Export Purchase Orders PDF');
+            _downloadPOFile('export-pdf', 'Purchase_Orders.pdf', context.l10n.poExportPurchaseOrdersPDF);
             break;
           case 'copy_tsv':
             _copyPOTableTsv(state.purchaseOrders);
             break;
           case 'download_template':
-            _downloadPOFile('template', 'Purchase_Orders_Template.xlsx', isArabic ? 'تنزيل نموذج أوامر الشراء' : 'Download Purchase Orders Template');
+            _downloadPOFile('template', 'Purchase_Orders_Template.xlsx', context.l10n.poDownloadPurchaseOrdersTemplate);
             break;
           case 'import_excel':
             _handleImportExcel();
@@ -478,14 +462,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               filled: true,
-              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
+              fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
               ),
             ),
             items: [
@@ -510,22 +494,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               filled: true,
-              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
+              fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
               ),
             ),
             items: [
               SearchableDropdownItem<String?>(value: null, label: l.allStatuses),
-              SearchableDropdownItem<String?>(value: 'Draft', label: l.statusDraft),
-              SearchableDropdownItem<String?>(value: 'Approved', label: l.statusPoApproved),
-              SearchableDropdownItem<String?>(value: 'In Transit', label: l.statusInTransit),
-              SearchableDropdownItem<String?>(value: 'Closed', label: l.statusClosed),
+              // The ?status= filter sends the PO_STATUS code.
+              for (final code in DomainEnums.codesOf(DomainEnumType.poStatus))
+                SearchableDropdownItem<String?>(value: code, label: DomainEnums.label(l, DomainEnumType.poStatus, code)),
             ],
             onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
           ),
@@ -554,9 +537,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             const SizedBox(height: 12),
             Text(errorMessage, style: const TextStyle(color: AppTheme.crimson)),
             const SizedBox(height: 12),
-            ElevatedButton(
+            AppButton(
+              label: l.retry,
+              variant: AppButtonVariant.primary,
               onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-              child: Text(l.retry),
             ),
           ],
         ),
@@ -571,29 +555,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
+            const Icon(Icons.inventory_2_outlined, size: 56, color: AppTheme.textMuted),
             const SizedBox(height: 12),
-            Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+            Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: AppTheme.textMuted)),
           ],
         ),
       ),
     );
   }
 
-  String _getStatusLabel(String status, AppLocalizations l) {
-    switch (status.trim().toLowerCase()) {
-      case 'draft':
-        return l.statusDraft;
-      case 'approved':
-        return l.statusPoApproved;
-      case 'in transit':
-        return l.statusInTransit;
-      case 'closed':
-        return l.statusClosed;
-      default:
-        return status;
-    }
-  }
+  /// PO_STATUS code (or a legacy label) -> label in the user's language.
+  String _getStatusLabel(String status, AppLocalizations l) =>
+      DomainEnums.label(l, DomainEnumType.poStatus, status, fallback: '-');
 
   Widget _buildPOTable(BuildContext context, List<PurchaseOrderModel> orders) {
     final l = context.l10n;
@@ -613,7 +586,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         isDark ? AppTheme.wcagCobalt.withOpacity(0.8) : AppTheme.charcoal.withOpacity(0.6),
       ),
       trackColor: WidgetStateProperty.all(
-        isDark ? AppTheme.darkBorder.withOpacity(0.4) : Colors.grey.shade300,
+        isDark ? AppTheme.darkBorder.withOpacity(0.4) : AppTheme.cloudWhite,
       ),
       trackBorderColor: WidgetStateProperty.all(Colors.transparent),
       thickness: WidgetStateProperty.all(10.0),
@@ -698,7 +671,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         color: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+                            color: AppTheme.black.withOpacity(isDark ? 0.35 : 0.08),
                             offset: const Offset(0, 2),
                             blurRadius: 4,
                           ),
@@ -711,7 +684,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         dataRowMinHeight: 0,
                         dataRowMaxHeight: 0,
                         headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal),
-                        headingTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: density.tableHeaderFontSize),
+                        headingTextStyle: TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: density.tableHeaderFontSize),
                         columns: headerColumns,
                         rows: const [],
                       ),
@@ -736,16 +709,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               dataRowMaxHeight: density.rowHeight + 4,
                               dataTextStyle: TextStyle(
                                 fontSize: density.tableCellPrimaryFontSize,
-                                color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                               ),
                               columns: dummyBodyColumns,
                               rows: orders.map((po) {
-                final statusColor = po.status == 'Approved'
+                final statusColor = po.status == 'APPROVED'
                     ? AppTheme.wcagEmerald
-                    : po.status == 'In Transit'
+                    : (po.status == 'PARTIALLY_SHIPPED' || po.status == 'FULLY_SHIPPED')
                         ? AppTheme.wcagCobalt
-                        : po.status == 'Closed'
-                            ? (isDark ? const Color(0xFF64748B) : Colors.grey.shade600)
+                        : (po.status == 'CLOSED' || po.status == 'CANCELLED')
+                            ? (isDark ? AppTheme.darkTextMuted : AppTheme.textSecondary)
                             : AppTheme.wcagOrange;
 
                 final invoiceDateStr = po.orderDate != null
@@ -819,11 +792,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         ? l.confirmDeactivatePo(po.displayName)
                                         : l.confirmRestorePo(po.displayName)),
                                     actions: [
-                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-                                      ElevatedButton(
+                                      AppButton(
+                                        label: l.cancel,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                      ),
+                                      AppButton(
+                                        label: isActive ? l.deactivateBtn : l.restore,
+                                        variant: AppButtonVariant.primary,
                                         onPressed: () => Navigator.pop(ctx, true),
-                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.cobalt),
-                                        child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
                                       ),
                                     ],
                                   ),
@@ -878,7 +856,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                     padding: const EdgeInsets.only(top: 2),
                                     child: LtrText(
                                       po.poNumber,
-                                      style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
+                                      style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -927,7 +905,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   padding: const EdgeInsetsDirectional.only(top: 2, end: 4, start: 4),
                                   child: LtrText(
                                     fileCode,
-                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -982,13 +960,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   margin: const EdgeInsets.only(top: 2),
                                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
+                                    color: AppTheme.cobaltLight,
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.blue.shade200),
+                                    border: Border.all(color: AppTheme.cobaltBorder),
                                   ),
                                   child: Text(
                                     po.countryOfOrigin!,
-                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
+                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: AppTheme.wcagCobalt, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -1005,7 +983,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           rowSummary: rowSummary,
                           child: Text(
                             amountStr,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.tableCellPrimaryFontSize, color: isDark ? AppTheme.wcagEmerald : Colors.green.shade800),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.tableCellPrimaryFontSize, color: AppTheme.wcagEmerald),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1123,10 +1101,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     for (int i = 0; i < po.packingListItems.length; i++) {
       final item = po.packingListItems[i];
       if (item.grossWeightUnitKg < item.netWeightUnitKg) {
-        validationErrors.add('Item #${i + 1} (${item.itemCode}): Gross weight (${item.grossWeightUnitKg} kg) < Net weight (${item.netWeightUnitKg} kg)');
+        validationErrors.add(POSystemMessage(code: 'PO_PL_GROSS_BELOW_NET', params: {
+          'line_num': i + 1,
+          'item_code': item.itemCode,
+          'gross_qty': item.grossWeightUnitKg,
+          'net_qty': item.netWeightUnitKg,
+        }).text(context.l10n));
       }
       if (item.lengthCm <= 0 || item.widthCm <= 0 || item.heightCm <= 0) {
-        validationWarnings.add('Item #${i + 1} (${item.itemCode}): Missing package dimensions; CBM calculated from unit specs.');
+        validationWarnings.add(POSystemMessage(
+          code: 'PO_PL_DIMENSIONS_MISSING',
+          params: {'line_num': i + 1, 'item_code': item.itemCode},
+        ).text(context.l10n));
       }
     }
 
@@ -1157,10 +1143,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               child: Column(
                 children: [
                   Container(
-                    color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                     child: TabBar(
                       labelColor: AppTheme.cobalt,
-                      unselectedLabelColor: Colors.grey,
+                      unselectedLabelColor: AppTheme.textMuted,
                       indicatorColor: AppTheme.cobalt,
                       tabs: [
                         Tab(icon: const Icon(Icons.receipt_long, size: 18), text: l.poLineItemsTab),
@@ -1169,6 +1155,23 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       ],
                     ),
                   ),
+                  if (po.createdBy != null || po.updatedBy != null)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 12, end: 12, top: 6, bottom: 2),
+                      child: Row(
+                        children: [
+                          if (po.createdBy != null) ...[
+                            Text('${l.poAuditCreatedBy}: ', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            LtrText(po.createdBy!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 16),
+                          ],
+                          if (po.updatedBy != null) ...[
+                            Text('${l.poAuditUpdatedBy}: ', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            LtrText(po.updatedBy!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ],
+                      ),
+                    ),
                   Expanded(
                     child: TabBarView(
                       children: [
@@ -1228,14 +1231,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       _buildDetailItem(l.incotermsRules, po.incotermCode ?? '-', isDark: isDark),
                                       _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (${l.exchangeRateLabel}: ${po.exchangeRate})', isDark: isDark),
                                       _buildDetailItem(
-                                        isArabic ? 'تاريخ الفاتورة (Invoice Date)' : 'Invoice Date',
+                                        context.l10n.poInvoiceDate,
                                         po.orderDate != null
                                             ? "${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}"
                                             : '-',
                                         isDark: isDark,
                                       ),
                                       _buildDetailItem(
-                                        isArabic ? 'وحدة الكمية (Qty Unit)' : 'Qty Unit',
+                                        context.l10n.poQtyUnit,
                                         po.items.isNotEmpty ? po.items.first.unitOfMeasure : 'PCS',
                                         isDark: isDark,
                                       ),
@@ -1257,7 +1260,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         isDark: isDark,
                                       ),
                                       _buildDetailItem(
-                                        isArabic ? 'إجمالي الطرود (Total Qty PKG)' : 'Total Qty PKG',
+                                        context.l10n.poTotalQtyPKG,
                                         PoPackingMatcher.formatPackagingSummary(
                                           packingListItems: po.packingListItems,
                                           totalPalletCount: totalPalletCount,
@@ -1273,7 +1276,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 const SizedBox(height: 6),
                                 SelectionArea(
                                   child: Table(
-                                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                     columnWidths: const {
                                       0: FlexColumnWidth(1.0),
                                       1: FlexColumnWidth(1.5),
@@ -1292,17 +1295,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       TableRow(
                                         decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                         children: [
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.descriptionAndHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyUom, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'عدد الطرود' : 'Qty PKG', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نوع التغليف' : 'Package Type', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.unitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.lineTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصافي (كجم)' : 'Net Wt', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'القائم (كجم)' : 'Gross Wt', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.volumeCbmPackingList, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          PoHeaderCell(l.itemCode),
+                                          PoHeaderCell(l.mainDescription),
+                                          PoHeaderCell(l.descriptionAndHsCode),
+                                          PoHeaderCell(l.qtyUom),
+                                          PoHeaderCell(context.l10n.poQtyPKG),
+                                          PoHeaderCell(context.l10n.poPackageType),
+                                          PoHeaderCell(l.unitPrice),
+                                          PoHeaderCell(l.lineTotal),
+                                          PoHeaderCell(context.l10n.poNetWt),
+                                          PoHeaderCell(context.l10n.poGrossWt),
+                                          PoHeaderCell(l.volumeCbmPackingList),
                                           const Padding(
                                             padding: EdgeInsets.all(6),
                                             child: Center(
@@ -1322,7 +1325,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                           final isMismatched = itemHs != null && itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                                           return TableRow(
-                                            decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.3)) : null,
+                                            decoration: isMismatched ? BoxDecoration(color: AppTheme.crimsonLight.withOpacity(0.3)) : null,
                                             children: [
                                               Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
                                               Padding(
@@ -1341,7 +1344,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                     if (item.countryOfOrigin != null && item.countryOfOrigin!.isNotEmpty)
                                                       Padding(
                                                         padding: const EdgeInsets.only(top: 2),
-                                                        child: Text(l.itemOriginLabel(item.countryOfOrigin!), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                                        child: Text(l.itemOriginLabel(item.countryOfOrigin!), style: const TextStyle(fontSize: 11, color: AppTheme.textStrong)),
                                                       ),
                                                     if (itemHs != null && itemHs.isNotEmpty)
                                                       Padding(
@@ -1350,18 +1353,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                             ? Container(
                                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                                 decoration: BoxDecoration(
-                                                                  color: Colors.red.shade50,
+                                                                  color: AppTheme.crimsonLight,
                                                                   borderRadius: BorderRadius.circular(4),
-                                                                  border: Border.all(color: Colors.red.shade400, width: 1.2),
+                                                                  border: Border.all(color: AppTheme.crimson, width: 1.2),
                                                                 ),
                                                                 child: Wrap(
                                                                   crossAxisAlignment: WrapCrossAlignment.center,
                                                                   spacing: 4,
                                                                   children: [
-                                                                    const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                                    const Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.crimson),
                                                                     Text(
                                                                       l.hsMismatchWarning('${item.dutyRate ?? 0}%', '${item.vatRate ?? 0}%'),
-                                                                      style: TextStyle(color: Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold),
+                                                                      style: const TextStyle(color: AppTheme.crimson, fontSize: 11, fontWeight: FontWeight.bold),
                                                                     ),
                                                                   ],
                                                                 ),
@@ -1381,7 +1384,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                   '$itemPkg',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
-                                                    color: isPalletized ? Colors.grey : (isDark ? AppTheme.darkTextPrimary : null),
+                                                    color: isPalletized ? AppTheme.textMuted : (isDark ? AppTheme.darkTextPrimary : null),
                                                   ),
                                                 ),
                                               ),
@@ -1401,7 +1404,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
                                                   '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                                 ),
                                               ),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(itemNet)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -1410,7 +1413,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
                                                   '${itemCbm.toStringAsFixed(3)} m³',
-                                                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(color: AppTheme.orange, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
                                               Padding(
@@ -1418,7 +1421,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 child: Center(
                                                   child: IconButton(
                                                     icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
-                                                    tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                                                    tooltip: context.l10n.poCopyRowForExcelTSV,
                                                     visualDensity: VisualDensity.compact,
                                                     onPressed: () => TableCopyHelper.copyRow(
                                                       dialogCtx,
@@ -1466,13 +1469,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
                                 const SizedBox(height: 20),
                                 Text(
-                                  isArabic ? '📊 ملخص بنود أمر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)' : '📊 PO Line Items Summary By HS Code',
+                                  context.l10n.poPOLineItemsSummaryByHS,
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                 ),
                                 const SizedBox(height: 6),
                                 SelectionArea(
                                   child: Table(
-                                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                     columnWidths: const {
                                       0: FlexColumnWidth(1.6),
                                       1: FlexColumnWidth(1.0),
@@ -1488,14 +1491,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       TableRow(
                                         decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                         children: [
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الكمية' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'عدد الطرود' : 'Qty PKG', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الحجم CBM' : 'Volume CBM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'إجمالي القيمة' : 'Total Amount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نسب الرسوم' : 'Duty / VAT', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                          PoHeaderCell(l.hsCode, fontSize: 11),
+                                          PoHeaderCell(context.l10n.financialSettlementColQty, fontSize: 11),
+                                          PoHeaderCell(context.l10n.poQtyPKG, fontSize: 11),
+                                          PoHeaderCell(context.l10n.poNetWtKg, fontSize: 11),
+                                          PoHeaderCell(context.l10n.poGrossWtKg, fontSize: 11),
+                                          PoHeaderCell(context.l10n.freightBookingCbmVolumeLabel, fontSize: 11),
+                                          PoHeaderCell(context.l10n.smartExtractorFieldTotalAmount, fontSize: 11),
+                                          PoHeaderCell(context.l10n.poDutyVAT, fontSize: 11),
                                           const Padding(padding: EdgeInsets.all(4), child: Center(child: Icon(Icons.copy_rounded, size: 14, color: AppTheme.cobalt))),
                                         ],
                                       ),
@@ -1509,25 +1512,25 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         final int pkg = summary['qty_pkg'] as int;
 
                                         return TableRow(
-                                          decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
+                                          decoration: isMismatched ? poMismatchRowDecoration(isDark) : null,
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(6),
                                               child: Text(summaryHs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                             ),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('$pkg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPalletized ? Colors.grey : (isDark ? AppTheme.darkTextPrimary : null)))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('$pkg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPalletized ? AppTheme.textMuted : (isDark ? AppTheme.darkTextPrimary : null)))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(net)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(gross)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${cbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${po.currencyCode ?? "USD"} ${price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${summary['duty_rate']}% / ${summary['vat_rate']}%', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${cbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${po.currencyCode ?? "USD"} ${price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${summary['duty_rate']}% / ${summary['vat_rate']}%', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong))),
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                                               child: Center(
                                                 child: IconButton(
                                                   icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
-                                                  tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                                                  tooltip: context.l10n.poCopyRowForExcelTSV,
                                                   visualDensity: VisualDensity.compact,
                                                   onPressed: () => TableCopyHelper.copyRow(
                                                     dialogCtx,
@@ -1545,9 +1548,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  isArabic
-                                      ? '🛡️ بطاقات الامتثال والاتفاقيات الجمركية للبند الجمركي (Regulatory Conditions & Trade Agreements)'
-                                      : '🛡️ Regulatory Conditions & Trade Agreements by HS Code',
+                                  context.l10n.poRegulatoryConditionsTradeAgreementsByHS,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -1600,22 +1601,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   padding: const EdgeInsets.all(10),
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF382C10) : Colors.amber.shade50,
+                                    color: AppTheme.orangeLight,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade400),
+                                    border: Border.all(color: isDark ? AppTheme.wcagOrange : AppTheme.orange),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          const Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 18),
+                                          const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 18),
                                           const SizedBox(width: 6),
                                           Text(
-                                            isArabic
-                                                ? 'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية'
-                                                : 'Invoice & Packing Reconciliation: Discrepancies found in quantities or HS codes',
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown),
+                                            context.l10n.poInvoicePackingReconciliationDiscrepanciesFound,
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.orange : AppTheme.wcagOrange),
                                           ),
                                         ],
                                       ),
@@ -1623,13 +1622,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       ...(isArabic ? reconciliation.discrepancySummaryList : (reconciliation.discrepancySummaryListEn.isNotEmpty ? reconciliation.discrepancySummaryListEn : reconciliation.discrepancySummaryList)).map(
                                         (d) => Padding(
                                           padding: const EdgeInsetsDirectional.only(top: 2, start: 24),
-                                          child: Text('• $d', style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade100 : Colors.brown)),
+                                          child: Text('• $d', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.orangeLight : AppTheme.wcagOrange)),
                                         ),
                                       ),
                                       if (po.notes != null && po.notes!.contains('[مبررات اختلاف الفاتورة والباكينج]')) ...[
                                         const Divider(height: 14),
                                         Text(
-                                          '${isArabic ? "المبرر المعتمد:" : "Approved Justification:"} ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
+                                          '${context.l10n.poApprovedJustification} ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
                                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                         ),
                                       ],
@@ -1642,19 +1641,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   padding: const EdgeInsets.all(10),
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF14301D) : Colors.green.shade50,
+                                    color: AppTheme.emeraldLight,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300),
+                                    border: Border.all(color: isDark ? AppTheme.wcagEmerald : AppTheme.emeraldBorder),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.verified_outlined, color: Colors.green, size: 18),
+                                      const Icon(Icons.verified_outlined, color: AppTheme.emerald, size: 18),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        isArabic
-                                            ? 'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.'
-                                            : 'Perfect Match: All proforma invoice line items match packing list in HS codes and quantities.',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : Colors.green, fontSize: 12),
+                                      Expanded(
+                                        child: Text(
+                                          context.l10n.poPerfectMatchAllProformaInvoiceLine,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1667,21 +1666,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: isDark ? const Color(0xFF381414) : Colors.red.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300)),
+                                decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? AppTheme.crimson : AppTheme.crimsonBorder)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                        const Icon(Icons.error_outline, color: AppTheme.crimson, size: 18),
                                         const SizedBox(width: 6),
                                         Text(
-                                          isArabic ? 'أخطاء مطابقة قائمة التعبئة' : 'Packing List Validation Errors',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red),
+                                          context.l10n.poPackingListValidationErrors,
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : AppTheme.crimson),
                                         ),
                                       ],
                                     ),
-                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsetsDirectional.only(top: 4, start: 24), child: Text('• $e', style: TextStyle(fontSize: 12, color: isDark ? Colors.red.shade200 : Colors.red)))),
+                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsetsDirectional.only(top: 4, start: 24), child: Text('• $e', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.crimsonBorder : AppTheme.crimson)))),
                                   ],
                                 ),
                               )
@@ -1690,16 +1689,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: isDark ? const Color(0xFF14301D) : Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300)),
+                                decoration: BoxDecoration(color: AppTheme.emeraldLight, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? AppTheme.wcagEmerald : AppTheme.emeraldBorder)),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                                    const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 18),
                                     const SizedBox(width: 6),
                                     Text(
-                                      isArabic
-                                          ? 'تم التحقق من قائمة التعبئة بنجاح — كافة الأوزان والكميات مطابقة'
-                                          : 'Packing List Validation Passed — All weights and quantities verified.',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : Colors.green),
+                                      context.l10n.poPackingListValidationPassedAllWeights,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                     ),
                                   ],
                                 ),
@@ -1710,10 +1707,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(8),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: isDark ? const Color(0xFF382C10) : Colors.amber.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade300)),
+                                decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? AppTheme.wcagOrange : AppTheme.orange)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: validationWarnings.map((w) => Text('⚠️ $w', style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade200 : Colors.brown))).toList(),
+                                  children: validationWarnings.map((w) => Text('⚠️ $w', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.orange : AppTheme.wcagOrange))).toList(),
                                 ),
                               ),
 
@@ -1723,33 +1720,25 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.08),
+                                  color: AppTheme.orange.withOpacity(0.08),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                  border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.view_in_ar_rounded, color: Colors.orange, size: 20),
+                                    const Icon(Icons.view_in_ar_rounded, color: AppTheme.orange, size: 20),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        isArabic
-                                            ? 'محاكاة ورص الحاويات 3D متاحة لـ ${po.packingListItems.length} صنف (${po.packingListItems.fold<int>(0, (s, p) => s + (p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1))} طرد)'
-                                            : '3D Container Load Simulation available for ${po.packingListItems.length} items (${po.packingListItems.fold<int>(0, (s, p) => s + (p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1))} pkgs)',
+                                        context.l10n.po3DContainerLoadSimulationAvailableFor(po.packingListItems.length, po.packingListItems.fold<int>(0, (s, p) => s + (p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1))),
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                     ),
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange.shade700,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      ),
-                                      icon: const Icon(Icons.view_in_ar_rounded, size: 15),
-                                      label: Text(
-                                        l.containerLoadPlan3dTitle,
-                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                                      ),
+                                    AppButton(
+                                      label: l.containerLoadPlan3dTitle,
+                                      icon: Icons.view_in_ar_rounded,
+                                      variant: AppButtonVariant.warning,
+                                      size: AppButtonSize.small,
                                       onPressed: () => _showVisualLoadPlannerDialog(context, po),
                                     ),
                                   ],
@@ -1762,9 +1751,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 padding: const EdgeInsets.all(12),
                                 margin: const EdgeInsets.only(bottom: 14),
                                 decoration: BoxDecoration(
-                                  color: isDark ? AppTheme.darkCardBackground : const Color(0xFFF8FAFC),
+                                  color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1), width: 1.2),
+                                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite, width: 1.2),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1794,34 +1783,28 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: Colors.orange.withOpacity(0.12),
+                                            color: AppTheme.orange.withOpacity(0.12),
                                             borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                                            border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
                                           ),
                                           child: Text(
                                             '📐 ${l.palletCbmWithUnit(po.palletPlanItems.fold<double>(0.0, (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount)).toStringAsFixed(3))}',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.orange.shade700,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          ),
-                                          icon: const Icon(Icons.view_in_ar_rounded, size: 15),
-                                          label: Text(
-                                            l.simulateAndLoad3d(po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)),
-                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                                          ),
+                                        AppButton(
+                                          label: l.simulateAndLoad3d(po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)),
+                                          icon: Icons.view_in_ar_rounded,
+                                          variant: AppButtonVariant.warning,
+                                          size: AppButtonSize.small,
                                           onPressed: () => _showVisualLoadPlannerDialog(context, po),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 10),
                                     Table(
-                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                       children: [
                                         TableRow(
                                           decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
@@ -1845,12 +1828,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${pal.lengthCm.toStringAsFixed(0)} × ${pal.widthCm.toStringAsFixed(0)} × ${pal.heightCm.toStringAsFixed(0)} cm', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${pal.grossWeightPerPalletKg.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${palTotalWt.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange))),
                                               Padding(
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
                                                   pal.isStackable ? l.stackableOption : l.nonStackableOption,
-                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pal.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade700),
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pal.isStackable ? (isDark ? AppTheme.emerald : AppTheme.wcagEmerald) : AppTheme.wcagOrange),
                                                 ),
                                               ),
                                             ],
@@ -1869,12 +1852,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             if (po.packingListItems.isEmpty)
                               Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: Text(l.noPackingEntriesYetDesc, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                child: Text(l.noPackingEntriesYetDesc, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                               )
                             else
                               SelectionArea(
                                 child: Table(
-                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                   columnWidths: const {
                                     0: FlexColumnWidth(1.6),
                                     1: FlexColumnWidth(1.1),
@@ -1914,7 +1897,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       (p) {
                                         final isMismatched = reconciliation.items.any((r) => r.hsCode == p.hsCode && !r.isMatched);
                                         return TableRow(
-                                          decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
+                                          decoration: isMismatched ? poMismatchRowDecoration(isDark) : null,
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(6),
@@ -1922,18 +1905,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                   ? Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: isDark ? const Color(0xFF3B151E) : Colors.red.shade50,
+                                                        color: AppTheme.crimsonLight,
                                                         borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: Colors.red.shade400, width: 1.1),
+                                                        border: Border.all(color: AppTheme.crimson, width: 1.1),
                                                       ),
                                                       child: Wrap(
                                                         crossAxisAlignment: WrapCrossAlignment.center,
                                                         spacing: 2,
                                                         children: [
-                                                          const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.red),
+                                                          const Icon(Icons.warning_amber_rounded, size: 11, color: AppTheme.crimson),
                                                           Text(
                                                             p.hsCode.isNotEmpty ? p.hsCode : 'None',
-                                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
+                                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : AppTheme.crimson),
                                                           ),
                                                         ],
                                                       ),
@@ -1948,13 +1931,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                             Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(_formatWeight((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(_formatWeight((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold))),
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                                               child: Center(
                                                 child: IconButton(
                                                   icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
-                                                  tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                                                  tooltip: context.l10n.poCopyRowForExcelTSV,
                                                   visualDensity: VisualDensity.compact,
                                                   onPressed: () => TableCopyHelper.copyRow(
                                                     dialogCtx,
@@ -1999,7 +1982,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             const SizedBox(height: 6),
                             SelectionArea(
                               child: Table(
-                                border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                 children: [
                                   TableRow(
                                     decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
@@ -2017,7 +2000,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       final summaryHs = '${summary['hs_code']}';
                                       final isMismatched = reconciliation.items.any((r) => r.hsCode == summaryHs && !r.isMatched);
                                       return TableRow(
-                                        decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
+                                        decoration: isMismatched ? poMismatchRowDecoration(isDark) : null,
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.all(6),
@@ -2025,11 +2008,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 ? Row(
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                      const Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.crimson),
                                                       const SizedBox(width: 3),
                                                       Text(
                                                         summaryHs,
-                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
+                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : AppTheme.crimson),
                                                       ),
                                                     ],
                                                   )
@@ -2039,7 +2022,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold))),
                                         ],
                                       );
                                     },
@@ -2069,75 +2052,50 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             ),
           ),
           actions: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade800,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-              label: Text(
-                l.containerLoadPlan3dTitle,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            AppButton(
+              label: l.containerLoadPlan3dTitle,
+              icon: Icons.view_in_ar_rounded,
+              variant: AppButtonVariant.warning,
               onPressed: () => _showVisualLoadPlannerDialog(context, po),
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.emerald,
-                side: const BorderSide(color: AppTheme.emerald),
-              ),
-              icon: const Icon(Icons.table_chart, size: 16),
-              label: Text(
-                isArabic ? 'تصدير إكسيل' : 'Export Excel',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            AppButton(
+              label: context.l10n.originalDocsExportExcelBtn,
+              icon: Icons.table_chart,
+              variant: AppButtonVariant.success,
               onPressed: () {
                 _exportPoToExcel(dialogCtx, po, isArabic);
               },
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.crimson,
-                side: const BorderSide(color: AppTheme.crimson),
-              ),
-              icon: const Icon(Icons.picture_as_pdf, size: 16),
-              label: Text(
-                isArabic ? 'تصدير PDF' : 'Export PDF',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            AppButton(
+              label: context.l10n.exportPdf,
+              icon: Icons.picture_as_pdf,
+              variant: AppButtonVariant.danger,
               onPressed: () {
                 _exportPoToPdf(dialogCtx, po, isArabic);
               },
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.cobalt,
-                side: const BorderSide(color: AppTheme.cobalt),
-              ),
-              icon: const Icon(Icons.copy_all, size: 16),
-              label: Text(
-                l.copyAllData,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            AppButton(
+              label: l.copyAllData,
+              icon: Icons.copy_all,
+              variant: AppButtonVariant.secondary,
               onPressed: () {
                 _copyPoDetailsToClipboard(dialogCtx, po, isArabic);
               },
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.edit, size: 16),
-              label: Text(l.editPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold)),
+            AppButton(
+              label: l.editPurchaseOrder,
+              icon: Icons.edit,
+              variant: AppButtonVariant.primary,
               onPressed: () {
                 Navigator.pop(dialogCtx);
                 _showPODialog(context, po);
               },
             ),
-            TextButton(
+            AppButton(
+              label: l.close,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(dialogCtx),
-              child: Text(l.close),
             ),
           ],
         ),
@@ -2149,44 +2107,44 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
   void _copyPoDetailsToClipboard(BuildContext context, PurchaseOrderModel po, bool isArabic) {
     final buffer = StringBuffer();
-    buffer.writeln(isArabic ? '=== بيانات أمر الشراء / الفاتورة المبدئية ===' : '=== Purchase Order / Proforma Invoice Details ===');
-    buffer.writeln('${isArabic ? "اسم / مرجع أمر الشراء" : "PO Reference / Name"}: ${po.displayName}');
+    buffer.writeln(context.l10n.poPurchaseOrderProformaInvoiceDetails);
+    buffer.writeln('${context.l10n.poPOReferenceName}: ${po.displayName}');
     if (po.displayName != po.poNumber) {
-      buffer.writeln('${isArabic ? "الرقم الداخلي للنظام" : "Internal PO Code"}: ${po.poNumber}');
+      buffer.writeln('${context.l10n.poInternalPOCode}: ${po.poNumber}');
     }
     if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "رقم الفاتورة المبدئية" : "Proforma Invoice"}: ${po.proformaInvoiceNumber}');
+      buffer.writeln('${context.l10n.poProformaInvoice}: ${po.proformaInvoiceNumber}');
     }
     if (po.projectName != null && po.projectName!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "المشروع ومركز التكلفة" : "Project & Cost Center"}: ${po.projectName}');
+      buffer.writeln('${context.l10n.poProjectCostCenter}: ${po.projectName}');
     }
     if (po.companyName != null && po.companyName!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "الشركة المستوردة" : "Importing Company"}: ${po.companyName}');
+      buffer.writeln('${context.l10n.operationalTsvHeaderImporter}: ${po.companyName}');
     }
     if (po.supplierName != null && po.supplierName!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "المورد الأجنبي" : "Foreign Supplier"}: ${po.supplierName}');
+      buffer.writeln('${context.l10n.operationalTsvHeaderSupplier}: ${po.supplierName}');
     }
     if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "بلد المنشأ" : "Country of Origin"}: ${po.countryOfOrigin}');
+      buffer.writeln('${context.l10n.countryOfOriginCol}: ${po.countryOfOrigin}');
     }
     if (po.incotermCode != null && po.incotermCode!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "الشرط التجاري" : "Incoterms"}: ${po.incotermCode}');
+      buffer.writeln('${context.l10n.poIncoterms}: ${po.incotermCode}');
     }
-    buffer.writeln('${isArabic ? "العملة" : "Currency"}: ${po.currencyCode ?? "USD"} (${isArabic ? "سعر الصرف" : "FX Rate"}: ${po.exchangeRate})');
+    buffer.writeln('${context.l10n.currency}: ${po.currencyCode ?? "USD"} (${context.l10n.poFXRate}: ${po.exchangeRate})');
     if (po.paymentTerms != null && po.paymentTerms!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "شروط الدفع" : "Payment Terms"}: ${po.paymentTerms}');
+      buffer.writeln('${context.l10n.poPaymentTerms}: ${po.paymentTerms}');
     }
-    buffer.writeln('${isArabic ? "إجمالي القيمة" : "Total Amount"}: ${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}');
-    buffer.writeln('${isArabic ? "إجمالي الحجم CBM" : "Total CBM"}: ${po.totalCbm.toStringAsFixed(3)} m³');
-    buffer.writeln('${isArabic ? "الوزن القائم / الصافي" : "Gross / Net Weight"}: ${po.totalGrossWeightKg.toStringAsFixed(1)} kg / ${po.totalNetWeightKg.toStringAsFixed(1)} kg');
-    buffer.writeln('${isArabic ? "عدد الطرود" : "Total Packages"}: ${po.totalPackagesCount} ${po.packingListItems.isNotEmpty ? po.packingListItems.first.packageType : "Carton"}');
-    buffer.writeln('${isArabic ? "الحالة" : "Status"}: ${po.status}');
+    buffer.writeln('${context.l10n.smartExtractorFieldTotalAmount}: ${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}');
+    buffer.writeln('${context.l10n.poTotalCBM}: ${po.totalCbm.toStringAsFixed(3)} m³');
+    buffer.writeln('${context.l10n.poGrossNetWeight}: ${po.totalGrossWeightKg.toStringAsFixed(1)} kg / ${po.totalNetWeightKg.toStringAsFixed(1)} kg');
+    buffer.writeln('${context.l10n.smartExtractorFieldPackagesCount}: ${po.totalPackagesCount} ${po.packingListItems.isNotEmpty ? po.packingListItems.first.packageType : "Carton"}');
+    buffer.writeln('${context.l10n.drillDownLabelStatus}: ${po.statusLabel(context.l10n)}');
     if (po.notes != null && po.notes!.isNotEmpty) {
-      buffer.writeln('${isArabic ? "ملاحظات" : "Notes"}: ${po.notes}');
+      buffer.writeln('${context.l10n.customsClearanceColNotes}: ${po.notes}');
     }
     buffer.writeln();
 
-    buffer.writeln(isArabic ? '--- بنود أمر الشراء والأكواد الجمركية ---' : '--- PO Line Items & HS Codes ---');
+    buffer.writeln(context.l10n.poPOLineItemsHSCodes);
     buffer.writeln('Item Code\tMain Description\tDescription & HS Code\tQty / UOM\tUnit Price\tLine Total\tVolume CBM');
     for (final item in po.items) {
       buffer.writeln(
@@ -2196,7 +2154,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
     if (po.packingListItems.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln(isArabic ? '--- بيان التعبئة (Packing List) ---' : '--- Packing List Items ---');
+      buffer.writeln(context.l10n.poPackingListItems);
       buffer.writeln('HS Code\tItem Code\tDescription\tPackages\tPackage Type\tDimensions (cm)\tNet Weight (kg)\tGross Weight (kg)\tCBM');
       for (final pl in po.packingListItems) {
         final dims = pl.lengthCm > 0 ? '${pl.lengthCm}x${pl.widthCm}x${pl.heightCm}' : '-';
@@ -2212,7 +2170,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isArabic ? 'تم نسخ كافة بيانات أمر الشراء للحافظة بنجاح ✅' : 'PO details copied to clipboard ✅'),
+        content: Text(context.l10n.poPODetailsCopiedToClipboard),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 2),
       ),
@@ -2223,18 +2181,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final bool isPalletized = (po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0)) || po.palletCount > 0;
 
     final headers = [
-      isArabic ? 'كود الصنف' : 'Item Code',
-      isArabic ? 'الوصف' : 'Description',
-      isArabic ? 'بند التعريفة' : 'HS Code',
-      isArabic ? 'الكمية' : 'Qty',
-      isArabic ? 'الوحدة' : 'Unit',
-      isArabic ? 'عدد الطرود' : 'Qty PKG',
-      isArabic ? 'نوع التغليف' : 'Package Type',
-      isArabic ? 'سعر الوحدة' : 'Unit Price',
-      isArabic ? 'الإجمالي' : 'Total',
-      isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-      isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'الحجم CBM' : 'CBM',
+      context.l10n.gitColItemCode,
+      context.l10n.poRecColDescription,
+      context.l10n.requirementsTsvHeaderHsCode,
+      context.l10n.financialSettlementColQty,
+      context.l10n.unitCol,
+      context.l10n.poQtyPKG,
+      context.l10n.poPackageType,
+      context.l10n.smartExtractorColUnitPrice,
+      context.l10n.freightDataTotalLabel,
+      context.l10n.poNetWtKg,
+      context.l10n.poGrossWtKg,
+      context.l10n.poCBM,
     ];
 
     final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
@@ -2267,14 +2225,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final Map<String, Map<String, dynamic>> poHsSummaryMap = PoPackingMatcher.buildPoHsSummaryMap(resolvedPoItems);
 
     final poHsHeaders = [
-      isArabic ? 'بند التعريفة' : 'HS Code',
-      isArabic ? 'الكمية' : 'Qty',
-      isArabic ? 'عدد الطرود' : 'Qty PKG',
-      isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-      isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'الحجم CBM' : 'Volume CBM',
-      isArabic ? 'إجمالي القيمة' : 'Total Amount',
-      isArabic ? 'نسب الرسوم' : 'Duty / VAT',
+      context.l10n.requirementsTsvHeaderHsCode,
+      context.l10n.financialSettlementColQty,
+      context.l10n.poQtyPKG,
+      context.l10n.poNetWtKg,
+      context.l10n.poGrossWtKg,
+      context.l10n.freightBookingCbmVolumeLabel,
+      context.l10n.smartExtractorFieldTotalAmount,
+      context.l10n.poDutyVAT,
     ];
 
     final poHsRows = poHsSummaryMap.values.map((s) {
@@ -2292,9 +2250,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
     final List<TableExportSection> additionalSections = [
       TableExportSection(
-        title: isArabic
-            ? '📊 ملخص بنود أمر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)'
-            : '📊 PO Line Items Summary By HS Code',
+        title: context.l10n.poPOLineItemsSummaryByHS,
         headers: poHsHeaders,
         rows: poHsRows,
       ),
@@ -2326,12 +2282,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       }
 
       final plHsHeaders = [
-        isArabic ? 'بند التعريفة' : 'HS Code',
-        isArabic ? 'الكمية (قطع)' : 'Qty Pcs',
-        isArabic ? 'عدد الطرود' : 'Qty PKG',
-        isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-        isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-        isArabic ? 'الحجم CBM' : 'Volume CBM',
+        context.l10n.requirementsTsvHeaderHsCode,
+        context.l10n.poQtyPcs,
+        context.l10n.poQtyPKG,
+        context.l10n.poNetWtKg,
+        context.l10n.poGrossWtKg,
+        context.l10n.freightBookingCbmVolumeLabel,
       ];
 
       final plHsRows = hsSummaryMap.values.map((s) {
@@ -2347,9 +2303,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
       additionalSections.add(
         TableExportSection(
-          title: isArabic
-              ? '📊 ملخص بيان التعبئة حسب البند الجمركي (Packing List Summary By HS Code)'
-              : '📊 Packing List Summary By HS Code',
+          title: context.l10n.poPackingListSummaryByHSCode,
           headers: plHsHeaders,
           rows: plHsRows,
         ),
@@ -2360,11 +2314,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final packageTypeSummaryMap = PoPackingMatcher.buildPackingTypeSummaryMap(po.packingListItems);
     if (packageTypeSummaryMap.isNotEmpty) {
       final pkgHeaders = [
-        isArabic ? 'نوع التغليف' : 'Package Type',
-        isArabic ? 'إجمالي الطرود' : 'Total Packages',
-        isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-        isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-        isArabic ? 'الحجم CBM' : 'Volume CBM',
+        context.l10n.poPackageType,
+        context.l10n.poRecReportPackages,
+        context.l10n.poNetWtKg,
+        context.l10n.poGrossWtKg,
+        context.l10n.freightBookingCbmVolumeLabel,
       ];
 
       final pkgRows = packageTypeSummaryMap.values.map((s) {
@@ -2381,9 +2335,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
       additionalSections.add(
         TableExportSection(
-          title: isArabic
-              ? '📊 ملخص قائمة التعبئة حسب نوع التغليف (Packing List Summary By Package Type)'
-              : '📊 Packing List Summary By Package Type',
+          title: context.l10n.poPackingListSummaryByPackageType,
           headers: pkgHeaders,
           rows: pkgRows,
         ),
@@ -2394,7 +2346,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'أمر شراء' : 'Purchase Order',
+      stageName: context.l10n.poPurchaseOrder,
       importFileNameOrCode: po.displayName,
       additionalSections: additionalSections,
     );
@@ -2412,18 +2364,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     );
 
     final headers = [
-      isArabic ? 'كود الصنف' : 'Item Code',
-      isArabic ? 'الوصف' : 'Description',
-      isArabic ? 'بند التعريفة' : 'HS Code',
-      isArabic ? 'الكمية' : 'Qty',
-      isArabic ? 'الوحدة' : 'Unit',
-      isArabic ? 'عدد الطرود' : 'Qty PKG',
-      isArabic ? 'نوع التغليف' : 'Package Type',
-      isArabic ? 'سعر الوحدة' : 'Unit Price',
-      isArabic ? 'الإجمالي' : 'Total',
-      isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-      isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'الحجم CBM' : 'CBM',
+      context.l10n.gitColItemCode,
+      context.l10n.poRecColDescription,
+      context.l10n.requirementsTsvHeaderHsCode,
+      context.l10n.financialSettlementColQty,
+      context.l10n.unitCol,
+      context.l10n.poQtyPKG,
+      context.l10n.poPackageType,
+      context.l10n.smartExtractorColUnitPrice,
+      context.l10n.freightDataTotalLabel,
+      context.l10n.poNetWtKg,
+      context.l10n.poGrossWtKg,
+      context.l10n.poCBM,
     ];
 
     final rows = resolvedPoItems.map((resolved) {
@@ -2490,36 +2442,36 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     );
 
     final metadata = <String, String>{
-      isArabic ? 'اسم / مرجع أمر الشراء' : 'PO Reference / Name': po.displayName,
+      context.l10n.poPOReferenceName: po.displayName,
       if (po.displayName != po.poNumber)
-        isArabic ? 'الرقم الداخلي' : 'Internal PO Code': po.poNumber,
+        context.l10n.poInternalPOCode2: po.poNumber,
       if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty)
-        isArabic ? 'الفاتورة المبدئية' : 'Proforma Invoice': po.proformaInvoiceNumber!,
+        context.l10n.customsApprovalDocProformaInvoice: po.proformaInvoiceNumber!,
       if (po.companyName != null && po.companyName!.isNotEmpty)
-        isArabic ? 'الشركة المستوردة' : 'Importing Company': po.companyName!,
+        context.l10n.operationalTsvHeaderImporter: po.companyName!,
       if (po.supplierName != null && po.supplierName!.isNotEmpty)
-        isArabic ? 'المورد الأجنبي' : 'Supplier': po.supplierName!,
+        context.l10n.draftBlPartySupplier: po.supplierName!,
       if (po.incotermCode != null && po.incotermCode!.isNotEmpty)
-        isArabic ? 'الشرط التجاري' : 'Incoterms': po.incotermCode!,
-      isArabic ? 'إجمالي القيمة' : 'Total Amount': '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
-      isArabic ? 'إجمالي CBM' : 'Total CBM': '${effectivePackingListCbm.toStringAsFixed(3)} m³${totalPalletCount > 0 ? " ($totalPalletCount Pallets)" : ""}',
-      isArabic ? 'الوزن القائم الإجمالي' : 'Total Gross Weight': '${_formatWeight(effectivePackingListGrossWeight)} kg',
-      isArabic ? 'الوزن الصافي الإجمالي' : 'Total Net Weight': '${_formatWeight(effectivePackingListNetWeight)} kg',
-      isArabic ? 'إجمالي الطرود' : 'Total Qty PKG': totalPkgSummary,
+        context.l10n.poIncoterms: po.incotermCode!,
+      context.l10n.smartExtractorFieldTotalAmount: '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
+      context.l10n.poTotalCBM2: '${effectivePackingListCbm.toStringAsFixed(3)} m³${totalPalletCount > 0 ? " ($totalPalletCount Pallets)" : ""}',
+      context.l10n.smartExtractorFieldTotalGrossWeight: '${_formatWeight(effectivePackingListGrossWeight)} kg',
+      context.l10n.poTotalNetWeight: '${_formatWeight(effectivePackingListNetWeight)} kg',
+      context.l10n.poTotalQtyPKG2: totalPkgSummary,
     };
 
     // Section 1: PO Line Items Summary By HS Code
     final Map<String, Map<String, dynamic>> poHsSummaryMap = PoPackingMatcher.buildPoHsSummaryMap(resolvedPoItems);
 
     final poHsHeaders = [
-      isArabic ? 'بند التعريفة' : 'HS Code',
-      isArabic ? 'الكمية' : 'Qty',
-      isArabic ? 'عدد الطرود' : 'Qty PKG',
-      isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-      isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-      isArabic ? 'الحجم CBM' : 'Volume CBM',
-      isArabic ? 'إجمالي القيمة' : 'Total Amount',
-      isArabic ? 'نسب الرسوم' : 'Duty / VAT',
+      context.l10n.requirementsTsvHeaderHsCode,
+      context.l10n.financialSettlementColQty,
+      context.l10n.poQtyPKG,
+      context.l10n.poNetWtKg,
+      context.l10n.poGrossWtKg,
+      context.l10n.freightBookingCbmVolumeLabel,
+      context.l10n.smartExtractorFieldTotalAmount,
+      context.l10n.poDutyVAT,
     ];
 
     final poHsRows = poHsSummaryMap.values.map((s) {
@@ -2537,9 +2489,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
     final List<TableExportSection> additionalSections = [
       TableExportSection(
-        title: isArabic
-            ? '📊 ملخص بنود أمر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)'
-            : '📊 PO Line Items Summary By HS Code',
+        title: context.l10n.poPOLineItemsSummaryByHS,
         headers: poHsHeaders,
         rows: poHsRows,
       ),
@@ -2571,12 +2521,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       }
 
       final plHsHeaders = [
-        isArabic ? 'بند التعريفة' : 'HS Code',
-        isArabic ? 'الكمية (قطع)' : 'Qty Pcs',
-        isArabic ? 'عدد الطرود' : 'Qty PKG',
-        isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-        isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-        isArabic ? 'الحجم CBM' : 'Volume CBM',
+        context.l10n.requirementsTsvHeaderHsCode,
+        context.l10n.poQtyPcs,
+        context.l10n.poQtyPKG,
+        context.l10n.poNetWtKg,
+        context.l10n.poGrossWtKg,
+        context.l10n.freightBookingCbmVolumeLabel,
       ];
 
       final plHsRows = hsSummaryMap.values.map((s) {
@@ -2592,9 +2542,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
       additionalSections.add(
         TableExportSection(
-          title: isArabic
-              ? '📊 ملخص بيان التعبئة حسب البند الجمركي (Packing List Summary By HS Code)'
-              : '📊 Packing List Summary By HS Code',
+          title: context.l10n.poPackingListSummaryByHSCode,
           headers: plHsHeaders,
           rows: plHsRows,
         ),
@@ -2605,11 +2553,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final packageTypeSummaryMap = PoPackingMatcher.buildPackingTypeSummaryMap(po.packingListItems);
     if (packageTypeSummaryMap.isNotEmpty) {
       final pkgHeaders = [
-        isArabic ? 'نوع التغليف' : 'Package Type',
-        isArabic ? 'إجمالي الطرود' : 'Total Packages',
-        isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
-        isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
-        isArabic ? 'الحجم CBM' : 'Volume CBM',
+        context.l10n.poPackageType,
+        context.l10n.poRecReportPackages,
+        context.l10n.poNetWtKg,
+        context.l10n.poGrossWtKg,
+        context.l10n.freightBookingCbmVolumeLabel,
       ];
 
       final pkgRows = packageTypeSummaryMap.values.map((s) {
@@ -2626,9 +2574,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
       additionalSections.add(
         TableExportSection(
-          title: isArabic
-              ? '📊 ملخص قائمة التعبئة حسب نوع التغليف (Packing List Summary By Package Type)'
-              : '📊 Packing List Summary By Package Type',
+          title: context.l10n.poPackingListSummaryByPackageType,
           headers: pkgHeaders,
           rows: pkgRows,
         ),
@@ -2639,11 +2585,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'أمر شراء' : 'Purchase Order',
+      stageName: context.l10n.poPurchaseOrder,
       importFileNameOrCode: po.displayName,
       additionalSections: additionalSections,
       headerContext: TableExportHeaderContext(
-        title: isArabic ? 'بيان بنود أمر الشراء' : 'Purchase Order Items Specification',
+        title: context.l10n.poPurchaseOrderItemsSpecification,
         subtitle: 'Sorour Logistics ERP — ${po.displayName}',
         metadata: metadata,
       ),
@@ -2662,9 +2608,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isArabic
-              ? '📊 ملخص قائمة التعبئة حسب نوع التغليف (Packing List Summary By Package Type)'
-              : '📊 Packing List Summary By Package Type',
+          context.l10n.poPackingListSummaryByPackageType,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 13,
@@ -2674,7 +2618,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         const SizedBox(height: 6),
         SelectionArea(
           child: Table(
-            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             columnWidths: const {
               0: FlexColumnWidth(2.2),
               1: FlexColumnWidth(1.2),
@@ -2690,35 +2634,35 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      isArabic ? 'نوع التغليف' : 'Package Type',
+                      context.l10n.poPackageType,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      isArabic ? 'إجمالي الطرود' : 'Total Packages',
+                      context.l10n.poRecReportPackages,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)',
+                      context.l10n.poNetWtKg,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)',
+                      context.l10n.poGrossWtKg,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      isArabic ? 'الحجم CBM' : 'Volume CBM',
+                      context.l10n.freightBookingCbmVolumeLabel,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
@@ -2784,7 +2728,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       padding: const EdgeInsets.all(6),
                       child: Text(
                         '${cbm.toStringAsFixed(3)} m³',
-                        style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold),
                       ),
                     ),
                     Padding(
@@ -2792,7 +2736,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       child: Center(
                         child: IconButton(
                           icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
-                          tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                          tooltip: context.l10n.poCopyRowForExcelTSV,
                           visualDensity: VisualDensity.compact,
                           onPressed: () => TableCopyHelper.copyRow(
                             context,
@@ -2816,7 +2760,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         CopyableText(
           value,
@@ -2926,14 +2870,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.12),
+                  color: AppTheme.orange.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.view_in_ar_rounded, size: 48, color: Colors.orange),
+                child: const Icon(Icons.view_in_ar_rounded, size: 48, color: AppTheme.orange),
               ),
               const SizedBox(height: 16),
               Text(
-                isArabic ? 'لا توجد بيانات تعبئة أو بالتات متاحة للمحاكاة' : 'No packing list or pallet data available for simulation',
+                context.l10n.poNoPackingListOrPalletData,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -2942,27 +2886,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               ),
               const SizedBox(height: 8),
               Text(
-                isArabic
-                    ? 'يرجى استكمال بنود بيان التعبئة أو البالتات في أمر الشراء لتشغيل مخطط ومحاكاة رص الحاويات 3D'
-                    : 'Please add packing list or pallet items in the purchase order to run 3D container packing simulation.',
+                context.l10n.poPleaseAddPackingListOrPallet,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-                icon: const Icon(Icons.edit, size: 16),
-                label: Text(
-                  isArabic ? 'تعديل أمر الشراء وإضافة بيان التعبئة' : 'Edit PO & Add Packing List',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+              AppButton(
+                label: context.l10n.poEditPOAddPackingList,
+                icon: Icons.edit,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
                 onPressed: () {
                   Navigator.pop(context);
                   _showPODialog(context, po);
@@ -3004,7 +2940,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           }
         }
         final fleetSummary = containerCounts.isEmpty
-            ? (isArabic ? 'لا توجد حاويات مناسبة' : 'No suitable containers')
+            ? (context.l10n.poNoSuitableContainers)
             : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
         return SingleChildScrollView(
@@ -3016,18 +2952,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.image_outlined, size: 16),
-                    label: Text(
-                      isArabic ? 'تنزيل صور المحاكاة (PNG)' : 'Download Simulation Views (PNG)',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
+                  AppButton(
+                    label: context.l10n.poDownloadSimulationViewsPNG,
+                    icon: Icons.image_outlined,
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.small,
                     onPressed: () async {
                       await ContainerLoadPlanExportService.exportSimulationImage(
                         context: context,
@@ -3038,18 +2967,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                     },
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.crimson,
-                      foregroundColor: Colors.white,
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                    label: Text(
-                      isArabic ? 'تنزيل مخطط التحميل (PDF)' : 'Download Loading Plan (PDF)',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
+                  AppButton(
+                    label: context.l10n.poDownloadLoadingPlanPDF,
+                    icon: Icons.picture_as_pdf_outlined,
+                    variant: AppButtonVariant.danger,
+                    size: AppButtonSize.small,
                     onPressed: () async {
                       await ContainerLoadPlanExportService.exportLoadingPlanPdf(
                         context: context,
@@ -3075,9 +2997,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
+                  color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                 ),
                 child: Wrap(
                   spacing: 16,
@@ -3099,7 +3021,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
                           selectedColor: AppTheme.emerald,
                           labelStyle: TextStyle(
-                            color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3117,7 +3039,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
                           selectedColor: AppTheme.cobalt,
                           labelStyle: TextStyle(
-                            color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3133,9 +3055,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         ChoiceChip(
                           label: Text('🚫 ${l.simulationModeFloorOnly}'),
                           selected: activeStackingMode == false,
-                          selectedColor: Colors.orange.shade800,
+                          selectedColor: AppTheme.wcagOrange,
                           labelStyle: TextStyle(
-                            color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3152,7 +3074,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           selected: activeStackingMode == null,
                           selectedColor: AppTheme.charcoal,
                           labelStyle: TextStyle(
-                            color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3176,11 +3098,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         ChoiceChip(
-                          label: Text(isArabic ? '🖼️ كلاهما (Both Views)' : '🖼️ Both Views'),
+                          label: Text(context.l10n.poBothViews),
                           selected: viewProjection == 'both',
                           selectedColor: AppTheme.cobalt,
                           labelStyle: TextStyle(
-                            color: viewProjection == 'both' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: viewProjection == 'both' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3193,7 +3115,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           selected: viewProjection == 'side',
                           selectedColor: AppTheme.cobalt,
                           labelStyle: TextStyle(
-                            color: viewProjection == 'side' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: viewProjection == 'side' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3206,7 +3128,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           selected: viewProjection == 'top',
                           selectedColor: AppTheme.cobalt,
                           labelStyle: TextStyle(
-                            color: viewProjection == 'top' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            color: viewProjection == 'top' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -3285,9 +3207,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         padding: const EdgeInsets.all(16),
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF381414) : Colors.red.shade50,
+                          color: AppTheme.crimsonLight,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300),
+                          border: Border.all(color: isDark ? AppTheme.crimson : AppTheme.crimsonBorder),
                         ),
                         child: Row(
                           children: [
@@ -3310,10 +3232,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       elevation: 2,
-                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -3350,7 +3272,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 height: 190,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade900,
+                                  color: AppTheme.charcoal,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: CustomPaint(
@@ -3363,7 +3285,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 height: 150,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade900,
+                                  color: AppTheme.charcoal,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: CustomPaint(
@@ -3375,7 +3297,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 height: 320,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade900,
+                                  color: AppTheme.charcoal,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: CustomPaint(
@@ -3396,22 +3318,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   children: [
                                     Text(
                                       showDetailedCoordinates
-                                          ? (isArabic ? '📐 تفاصيل الرص الإحداثي (${res.placedItems.length} طرد)' : '📐 Detailed Placement Coordinates (${res.placedItems.length} pkgs)')
-                                          : (isArabic ? '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)' : '📊 Grouped Items (${res.groupedItems.length} items | Total ${res.placedItems.length} pkgs)'),
+                                          ? (context.l10n.poDetailedPlacementCoordinatesPkgs(res.placedItems.length))
+                                          : (context.l10n.poGroupedItemsItemsTotalPkgs(res.groupedItems.length, res.placedItems.length)),
                                       style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     ),
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        foregroundColor: AppTheme.cobalt,
-                                        side: const BorderSide(color: AppTheme.cobalt),
-                                      ),
-                                      icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
-                                      label: Text(
-                                        showDetailedCoordinates ? (isArabic ? 'عرض مجمع حسب الأصناف' : 'Group by Items') : (isArabic ? 'عرض تفصيلي بالإحداثيات' : 'Detailed Coordinates'),
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
+                                    AppButton(
+                                      label: showDetailedCoordinates ? (context.l10n.poGroupByItems) : (context.l10n.poDetailedCoordinates),
+                                      icon: showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered,
+                                      variant: AppButtonVariant.secondary,
+                                      size: AppButtonSize.small,
                                       onPressed: () => setTabState(() => showDetailedCoordinates = !showDetailedCoordinates),
                                     ),
                                   ],
@@ -3419,7 +3334,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 children: [
                                   if (!showDetailedCoordinates)
                                     Table(
-                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                       columnWidths: const {
                                         0: FlexColumnWidth(0.6),
                                         1: FlexColumnWidth(2.5),
@@ -3432,16 +3347,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       },
                                       children: [
                                         TableRow(
-                                          decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                          decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                           children: [
                                             const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصنف / البند' : 'Item / Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نوع الطرد' : 'Pkg Type', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الأبعاد (سم)' : 'Dims (cm)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'العدد' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'إجمالي الوزن' : 'Gross Wt', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الحجم' : 'CBM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الرص' : 'Stack', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            PoHeaderCell(context.l10n.poItemCode, fontSize: 11),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poPkgType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poDimsCm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poGrossWt2, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poCBM2, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poStack, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                           ],
                                         ),
                                         ...res.groupedItems.asMap().entries.map((entry) {
@@ -3465,8 +3380,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 ),
                                               ),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${g.totalWeight.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (context.l10n.poYes) : (context.l10n.poFloor), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                             ],
                                           );
                                         }),
@@ -3474,7 +3389,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                     )
                                   else
                                     Table(
-                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                       columnWidths: const {
                                         0: FlexColumnWidth(0.8),
                                         1: FlexColumnWidth(2.2),
@@ -3485,10 +3400,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       },
                                       children: [
                                         TableRow(
-                                          decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                          decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                           children: [
                                             const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            PoHeaderCell(l.thPackageCode, fontSize: 11),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(l.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(l.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(l.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
@@ -3505,7 +3420,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
                                               Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), textAlign: TextAlign.center)),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (context.l10n.poYes) : (context.l10n.poFloor), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                             ],
                                           );
                                         }),
@@ -3610,14 +3525,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ),
                               Text(
                                 l.containerLoadPlanMetrics(totalPlanVolume.toStringAsFixed(3), _formatWeight(totalPlanWeight), fleetSummary),
-                                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.image_outlined, color: AppTheme.cobalt),
-                          tooltip: isArabic ? 'تنزيل صور المحاكاة (PNG)' : 'Download Simulation Image (PNG)',
+                          tooltip: context.l10n.poDownloadSimulationImagePNG,
                           onPressed: () async {
                             await ContainerLoadPlanExportService.exportSimulationImage(
                               context: dialogCtx,
@@ -3629,7 +3544,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         ),
                         IconButton(
                           icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
-                          tooltip: isArabic ? 'تنزيل مخطط التحميل (PDF)' : 'Download Loading Plan (PDF)',
+                          tooltip: context.l10n.poDownloadLoadingPlanPDF,
                           onPressed: () async {
                             await ContainerLoadPlanExportService.exportLoadingPlanPdf(
                               context: dialogCtx,
@@ -3659,9 +3574,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Wrap(
                         spacing: 16,
@@ -3683,7 +3598,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3701,7 +3616,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3717,9 +3632,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ChoiceChip(
                                 label: Text('🚫 ${l.simulationModeFloorOnly}'),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3736,7 +3651,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.charcoal,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3760,11 +3675,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               ),
                               ChoiceChip(
-                                label: Text(isArabic ? '🖼️ كلاهما (Both Views)' : '🖼️ Both Views'),
+                                label: Text(context.l10n.poBothViews),
                                 selected: viewProjection == 'both',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'both' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: viewProjection == 'both' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3777,7 +3692,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 selected: viewProjection == 'side',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'side' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: viewProjection == 'side' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3790,7 +3705,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 selected: viewProjection == 'top',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: viewProjection == 'top' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: viewProjection == 'top' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3869,9 +3784,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF381414) : Colors.red.shade50,
+                                color: AppTheme.crimsonLight,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300),
+                                border: Border.all(color: isDark ? AppTheme.crimson : AppTheme.crimsonBorder),
                               ),
                               child: Row(
                                 children: [
@@ -3894,10 +3809,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
                             elevation: 2,
-                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -3934,7 +3849,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       height: 190,
                                       width: double.infinity,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade900,
+                                        color: AppTheme.charcoal,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: CustomPaint(
@@ -3947,7 +3862,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       height: 150,
                                       width: double.infinity,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade900,
+                                        color: AppTheme.charcoal,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: CustomPaint(
@@ -3959,7 +3874,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       height: 320,
                                       width: double.infinity,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade900,
+                                        color: AppTheme.charcoal,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: CustomPaint(
@@ -3980,22 +3895,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         children: [
                                           Text(
                                             showDetailedCoordinates
-                                                ? (isArabic ? '📐 تفاصيل الرص الإحداثي (${res.placedItems.length} طرد)' : '📐 Detailed Placement Coordinates (${res.placedItems.length} pkgs)')
-                                                : (isArabic ? '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)' : '📊 Grouped Items (${res.groupedItems.length} items | Total ${res.placedItems.length} pkgs)'),
+                                                ? (context.l10n.poDetailedPlacementCoordinatesPkgs(res.placedItems.length))
+                                                : (context.l10n.poGroupedItemsItemsTotalPkgs(res.groupedItems.length, res.placedItems.length)),
                                             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                           ),
-                                          OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              visualDensity: VisualDensity.compact,
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              foregroundColor: AppTheme.cobalt,
-                                              side: const BorderSide(color: AppTheme.cobalt),
-                                            ),
-                                            icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
-                                            label: Text(
-                                              showDetailedCoordinates ? (isArabic ? 'عرض مجمع حسب الأصناف' : 'Group by Items') : (isArabic ? 'عرض تفصيلي بالإحداثيات' : 'Detailed Coordinates'),
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
+                                          AppButton(
+                                            label: showDetailedCoordinates ? (context.l10n.poGroupByItems) : (context.l10n.poDetailedCoordinates),
+                                            icon: showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered,
+                                            variant: AppButtonVariant.secondary,
+                                            size: AppButtonSize.small,
                                             onPressed: () => setDialogState(() => showDetailedCoordinates = !showDetailedCoordinates),
                                           ),
                                         ],
@@ -4003,7 +3911,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       children: [
                                         if (!showDetailedCoordinates)
                                           Table(
-                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                             columnWidths: const {
                                               0: FlexColumnWidth(0.6),
                                               1: FlexColumnWidth(2.5),
@@ -4016,16 +3924,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                             },
                                             children: [
                                               TableRow(
-                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                                 children: [
                                                   const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصنف / البند' : 'Item / Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نوع الطرد' : 'Pkg Type', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الأبعاد (سم)' : 'Dims (cm)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'العدد' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'إجمالي الوزن' : 'Gross Wt', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الحجم' : 'CBM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الرص' : 'Stack', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  PoHeaderCell(context.l10n.poItemCode, fontSize: 11),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poPkgType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poDimsCm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poGrossWt2, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poCBM2, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.poStack, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                                 ],
                                               ),
                                               ...res.groupedItems.asMap().entries.map((entry) {
@@ -4049,8 +3957,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                       ),
                                                     ),
                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(g.totalWeight)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
-                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                                                    Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (context.l10n.poYes) : (context.l10n.poFloor), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                   ],
                                                 );
                                               }),
@@ -4058,7 +3966,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                           )
                                         else
                                           Table(
-                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                             columnWidths: const {
                                               0: FlexColumnWidth(0.8),
                                               1: FlexColumnWidth(2.2),
@@ -4069,10 +3977,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                             },
                                             children: [
                                               TableRow(
-                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                                 children: [
                                                   const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                  PoHeaderCell(l.thPackageCode, fontSize: 11),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(l.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(l.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(l.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
@@ -4089,7 +3997,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
                                                     Padding(padding: const EdgeInsets.all(6), child: Text(_formatWeight(item.item.weight), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
                                                     Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), textAlign: TextAlign.center)),
-                                                    Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (context.l10n.poYes) : (context.l10n.poFloor), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                   ],
                                                 );
                                               }),
@@ -4148,24 +4056,23 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
   void _showCloneDialog(PurchaseOrderModel po) {
     final l = context.l10n;
-    final isAr = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     CloneEntityReviewDialog.show(
       context,
-      entityType: isAr ? 'أمر شراء' : 'Purchase Order',
+      entityType: context.l10n.poPurchaseOrder,
       sourceCode: po.poNumber,
       suggestedNewCode: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
       sourceTitle: po.displayName,
       copiedFieldsSummary: {
-        isAr ? 'الشركة المستوردة' : 'Importer': po.companyName ?? '-',
-        isAr ? 'المورد الأجنبي' : 'Supplier': po.supplierName ?? '-',
-        isAr ? 'المشروع' : 'Project': po.projectName ?? '-',
-        isAr ? 'العملة والشرط' : 'Currency / Incoterm': '${po.currencyCode ?? "USD"} (${po.incotermCode ?? "-"})',
+        context.l10n.auditEntityImportCompany: po.companyName ?? '-',
+        context.l10n.draftBlPartySupplier: po.supplierName ?? '-',
+        context.l10n.poProject: po.projectName ?? '-',
+        context.l10n.poCurrencyIncoterm: '${po.currencyCode ?? "USD"} (${po.incotermCode ?? "-"})',
       },
       mandatorilyResetFields: [
         l.cloneFieldStatusDraftBadge,
         l.cloneFieldShipmentUnlinked,
         l.cloneFieldAllocationsReset,
-        isAr ? 'تصفير تواريخ الشحن والاستلام' : 'Reset delivery and order dates',
+        context.l10n.poResetDeliveryAndOrderDates,
       ],
       allowCopyLineItems: true,
       allowCopyAttachments: true,
@@ -4204,7 +4111,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(l.clonePoError(e.toString())),
+                content: Text(l.clonePoError(ApiErrorText.of(l, e))),
                 backgroundColor: AppTheme.crimson,
                 duration: const Duration(seconds: 4),
               ),
@@ -4232,12 +4139,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final po = orders[index];
-        final statusColor = po.status == 'Approved'
+        final statusColor = po.status == 'APPROVED'
             ? AppTheme.wcagEmerald
-            : po.status == 'In Transit'
+            : (po.status == 'PARTIALLY_SHIPPED' || po.status == 'FULLY_SHIPPED')
                 ? AppTheme.wcagCobalt
-                : po.status == 'Closed'
-                    ? (isDark ? const Color(0xFF64748B) : Colors.grey.shade600)
+                : (po.status == 'CLOSED' || po.status == 'CANCELLED')
+                    ? (isDark ? AppTheme.darkTextMuted : AppTheme.textSecondary)
                     : AppTheme.wcagOrange;
 
         final invoiceDateStr = po.orderDate != null
@@ -4250,10 +4157,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
             ),
           ),
           child: Column(
@@ -4284,7 +4191,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               po.poNumber,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -4312,12 +4219,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               // Details grid
               Text(
                 '${l.importingCompany}: ${po.companyName ?? "COMP-#${po.companyId}"}',
-                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
               ),
               const SizedBox(height: 2),
               Text(
                 '${l.foreignSupplier}: ${po.supplierName ?? "SUP-#${po.supplierId}"}${po.countryOfOrigin != null ? " (${po.countryOfOrigin})" : ""}',
-                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
               ),
               const SizedBox(height: 2),
               Row(
@@ -4326,10 +4233,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   Expanded(
                     child: Text(
                       '${l.totalFobMetric}: $amountStr',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.wcagEmerald : Colors.green.shade800,
+                        color: AppTheme.wcagEmerald,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -4337,7 +4244,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   const SizedBox(width: 8),
                   Text(
                     cbmWeightStr,
-                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -4350,7 +4257,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   Expanded(
                     child: Text(
                       '${l.invoiceDateCol}: $invoiceDateStr',
-                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -4396,11 +4303,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             ? l.confirmDeactivatePo(po.displayName)
                             : l.confirmRestorePo(po.displayName)),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-                          ElevatedButton(
+                          AppButton(
+                            label: l.cancel,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
+                            onPressed: () => Navigator.pop(ctx, false),
+                          ),
+                          AppButton(
+                            label: isActive ? l.deactivateBtn : l.restore,
+                            variant: AppButtonVariant.primary,
                             onPressed: () => Navigator.pop(ctx, true),
-                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.cobalt),
-                            child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
                           ),
                         ],
                       ),
@@ -4491,13 +4403,12 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       child: Container(
         width: math.min(720.0, screenWidth - 32),
         height: math.min(600.0, screenHeight - 64),
@@ -4530,7 +4441,7 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                         l.searchAndClonePoSubtitle,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -4569,11 +4480,11 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off_rounded, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                          Icon(Icons.search_off_rounded, size: 48, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
                           const SizedBox(height: 8),
                           Text(
                             l.noMatchingPosFound,
-                            style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                            style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -4588,9 +4499,9 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                            color: isDark ? AppTheme.darkSurface : AppTheme.charcoalSurface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                            border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                           ),
                           child: Row(
                             children: [
@@ -4614,7 +4525,7 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                                             po.poNumber,
                                             style: TextStyle(
                                               fontSize: 11,
-                                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                                             ),
                                           ),
                                         ],
@@ -4625,24 +4536,18 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                                       '${po.companyName ?? "-"} │ ${po.supplierName ?? "-"} │ $amountStr',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.wcagCobalt,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                ),
-                                icon: const Icon(Icons.control_point_duplicate_rounded, size: 16, color: Colors.white),
-                                label: Text(
-                                  isAr ? 'استنساخ' : 'Clone',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
+                              AppButton(
+                                label: context.l10n.cloneBtn,
+                                icon: Icons.control_point_duplicate_rounded,
+                                variant: AppButtonVariant.primary,
+                                size: AppButtonSize.small,
                                 onPressed: () => widget.onSelectPO(po),
                               ),
                             ],

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/core/localization/domain_enum_labels.dart';
 import 'package:frontend/core/localization/system_messages/system_message_renderer.dart';
 import 'package:frontend/core/services/display_name_resolver.dart';
 import 'package:frontend/features/experience_guide/models/guide_entry_model.dart';
@@ -40,6 +41,22 @@ void main() {
       expect(r('LC_TASK_NEXT_STEP', params, 'body', en), contains('in 3. Booking & Doc Prep.'));
       expect(r('LC_TASK_NEXT_STEP', params, 'body', ar), contains('ضمن المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي.'));
       expect(r('LC_TASK_NEXT_STEP', params, 'title', ar), '[IMP-2026-0001] — تأكيد الحجز الملاحي');
+    });
+
+    test('JSON list params are joined per language (review wave)', () {
+      final p = {'missing_statuses': ['INV-1', 'BL-2'], 'open_tickets_count': 2};
+      expect(r('DCA_SESSION_NOT_READY', p, 'note', en),
+          'The session cannot be certified: document statuses not set (INV-1, BL-2); open rectification tickets: 2.');
+      expect(r('DCA_SESSION_NOT_READY', p, 'note', ar), contains('(INV-1، BL-2)'));
+      expect(r('FC_CLOSURE_BLOCKED', {'blocking': <String>[]}, 'note', en), 'The file cannot be closed:  not met.');
+      expect(r('FC_CLOSURE_BLOCKED', {'blocking': 'GRN'}, 'note', en), 'The file cannot be closed: GRN not met.');
+    });
+
+    test('review wave enum labels resolve in both languages', () {
+      expect(DomainEnums.label(en, DomainEnumType.ticketStatus, 'SENT_TO_SUPPLIER'), 'Sent to Supplier');
+      expect(DomainEnums.label(ar, DomainEnumType.ticketStatus, 'SENT_TO_SUPPLIER'), 'أُرسلت إلى المورد');
+      expect(DomainEnums.label(ar, DomainEnumType.dutyComponent, 'vat_amount'), 'ضريبة القيمة المضافة');
+      expect(DomainEnums.englishLabel(DomainEnumType.fileClosureStatus, 'REOPENED'), 'Reopened');
     });
 
     test('dates are formatted per language', () {

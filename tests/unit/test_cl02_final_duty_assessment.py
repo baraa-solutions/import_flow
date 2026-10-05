@@ -183,7 +183,7 @@ def test_assess_final_customs_duties_service_success(db_session, sample_data):
     # Assert CL-02 SmartTask Auto-Completed
     task_cl02 = db_session.query(SmartTask).filter(SmartTask.task_code == "TASK-CL02-001").first()
     assert task_cl02.status == "Completed"
-    assert "CLM-MTS-2026-987654" in task_cl02.completion_notes
+    assert "CLM-MTS-2026-987654" in task_cl02.notes
 
     # Assert Downstream CL-03 SmartTask Dispatched
     task_cl03 = (

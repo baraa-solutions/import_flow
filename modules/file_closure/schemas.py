@@ -3,18 +3,20 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 class ClosureChecklistSchema(BaseModel):
-    docs_verified: bool = True
-    customs_cleared: bool = True
-    warehouse_received: bool = True
-    landed_cost_settled: bool = True
-    tasks_closed: bool = True
+    """Client checklist: stored on drafts for the record only. It never gates the final close (the server
+    evaluates the gate itself) and a missing key is unknown, never "done"."""
+    docs_verified: Optional[bool] = None
+    customs_cleared: Optional[bool] = None
+    warehouse_received: Optional[bool] = None
+    landed_cost_settled: Optional[bool] = None
+    tasks_closed: Optional[bool] = None
     dossier_exported: Optional[bool] = None
     empty_containers_returned: Optional[bool] = None
 
 class FileClosureCreate(BaseModel):
     import_file_id: int
     closure_checklist: ClosureChecklistSchema = Field(default_factory=ClosureChecklistSchema)
-    auditor_name: str = "Internal Auditor"
+    auditor_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
     archive_location: str = "Digital Archive Vault - 2026"
     archival_notes: Optional[str] = None
     is_draft: bool = False
@@ -93,12 +95,12 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     gross_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
     total_cbm: float = 0.0
-    target_free_days: int = 21
+    target_free_days: int = 0
 
     # Purchase Orders & FOB values
     purchase_orders: List[Dict[str, Any]] = Field(default_factory=list)
     total_fob_fc: float = 0.0
-    total_fob_egp: float = 0.0
+    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured")
     fob_currency: str = "USD"
     items_count: int = 0
     items_detail: List[Dict[str, Any]] = Field(default_factory=list)
@@ -160,7 +162,7 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
 
 class DossierExportConfirmRequest(BaseModel):
     import_file_id: int
-    exported_by: str = Field("Finance & Logistics Controller", description="Name of controller or auditor generating the dossier")
+    exported_by: Optional[str] = Field(None, description="Defaults to the signed-in user")
     export_format: str = Field("PDF & Excel Full Bundle", description="Exported format e.g. PDF, Excel, Full Bundle")
     notes: Optional[str] = None
 

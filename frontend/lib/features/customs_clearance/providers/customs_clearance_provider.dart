@@ -18,6 +18,12 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
   final Ref? _ref;
   CancelToken? _cancelToken;
 
+  // Last filter arguments, so a refresh after a mutation keeps the screen filters (FE-10).
+  bool _includeInactive = false;
+  int? _importFileId;
+  String? _status;
+  String? _search;
+
   CustomsClearanceNotifier(this._dio, {Ref? ref})
       : _ref = ref,
         super(const AsyncValue.loading()) {
@@ -30,12 +36,29 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
     super.dispose();
   }
 
+  /// Reloads with the filters of the previous fetch (used after every mutation).
+  Future<void> refresh() => fetchRecords(
+        includeInactive: _includeInactive,
+        importFileId: _importFileId,
+        status: _status,
+        search: _search,
+      );
+
+  void _invalidateRelated() {
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+  }
+
   Future<void> fetchRecords({
     bool includeInactive = false,
     int? importFileId,
     String? status,
     String? search,
   }) async {
+    _includeInactive = includeInactive;
+    _importFileId = importFileId;
+    _status = status;
+    _search = search;
     if (state.valueOrNull == null) {
       state = const AsyncValue.loading();
     }
@@ -72,9 +95,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -88,9 +110,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -104,9 +125,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -120,9 +140,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -136,9 +155,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -152,9 +170,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -168,9 +185,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final record = CustomsClearanceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return record;
     } catch (e) {
       rethrow;
@@ -195,9 +211,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final created = ClearanceExpenseInvoiceModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return created;
     } catch (e) {
       rethrow;
@@ -209,8 +224,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
       await _dio.delete(
         '${ApiConstants.baseUrl}/customs-clearance/invoices/$invoiceId',
       );
-      _ref?.invalidate(importFilesProvider);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
     } catch (e) {
       rethrow;
     }
@@ -223,7 +238,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final created = CustomsClearanceModel.fromJson(response.data);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return created;
     } catch (e) {
       rethrow;
@@ -237,7 +253,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final updated = CustomsClearanceModel.fromJson(response.data);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return updated;
     } catch (e) {
       rethrow;
@@ -251,7 +268,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         data: payload,
       );
       final updated = CustomsClearanceModel.fromJson(response.data);
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
       return updated;
     } catch (e) {
       rethrow;
@@ -261,7 +279,8 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
   Future<void> softDeleteRecord(int recordId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/customs-clearance/$recordId');
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
     } catch (e) {
       rethrow;
     }
@@ -270,9 +289,35 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
   Future<void> restoreRecord(int recordId) async {
     try {
       await _dio.patch('${ApiConstants.baseUrl}/customs-clearance/$recordId/restore');
-      await fetchRecords();
+      _invalidateRelated();
+      await refresh();
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// LOG-BOND-003: release the goods under bond (quarantine lock on).
+  /// Payload: `{bond_guarantee_ref, temporary_release_date, customs_warehouse_location}`.
+  Future<CustomsClearanceModel?> releaseUnderBond(int recordId, Map<String, dynamic> payload) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/$recordId/under-bond-release',
+      data: payload,
+    );
+    final updated = CustomsClearanceModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return updated;
+  }
+
+  /// LOG-BOND-003: record the lab verdict. `lab_test_result` is `CONFORMING` / `NON_CONFORMING`.
+  Future<CustomsClearanceModel?> recordLabTestResult(int recordId, Map<String, dynamic> payload) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/$recordId/lab-test-result',
+      data: payload,
+    );
+    final updated = CustomsClearanceModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return updated;
   }
 }

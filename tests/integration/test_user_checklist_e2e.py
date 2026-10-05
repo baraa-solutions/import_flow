@@ -361,7 +361,8 @@ def test_complete_user_testing_checklist_flow(e2e_context):
         CBMItemCreate(package_type="Crate", quantity=2, length=400.0, width=200.0, height=220.0, unit="cm", gross_weight_per_unit_kg=4600.0),
         CBMItemCreate(package_type="Box", quantity=5, length=180.0, width=120.0, height=140.0, unit="cm", gross_weight_per_unit_kg=700.0),
     ]
-    _, cbm_totals = CBMService.compute_items_and_totals(cbm_items)
+    from modules.common.system_parameters import air_volumetric_kg_per_cbm
+    _, cbm_totals = CBMService.compute_items_and_totals(cbm_items, air_volumetric_kg_per_cbm(db))
     assert cbm_totals["total_cbm"] > 50.0
     assert "40" in cbm_totals["recommended_container_type"]
     checklist_results["PL-05"] = f"Passed ✅: CBM Calculated ({cbm_totals['total_cbm']:.2f} m3) -> Recommended {cbm_totals['recommended_container_type']}."
@@ -646,6 +647,7 @@ def test_complete_user_testing_checklist_flow(e2e_context):
         bill_of_lading_no="MSK99214001",
         discharge_date=date.today() - timedelta(days=3),
         empty_return_date=date.today(),
+        exchange_rate=48.50,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
         status="Closed",
         notes="EIR receipt EIR-MSK-2026-9911 confirmed, 0 demurrage",
     )
@@ -681,8 +683,13 @@ def test_complete_user_testing_checklist_flow(e2e_context):
     checklist_results["CLO-02"] = f"Passed ✅: Actual Landed Cost engine calculated ({actual_landed:,.2f} EGP, Variance: {variance_pct:+.2f}%)."
 
     # CLO-03: إصدار وتصدير التقرير الشامل للملف
-    report_exported = True
-    assert report_exported is True
+    # The closure gate now requires a real CLO-03 dossier export (Phase 10 review, FC-01): confirm it through the service.
+    from modules.file_closure.schemas import DossierExportConfirmRequest
+    from modules.file_closure.service import confirm_dossier_export_service
+    export_res = confirm_dossier_export_service(
+        db, DossierExportConfirmRequest(import_file_id=imp_file.import_file_id), user="Internal Auditor"
+    )
+    assert export_res.success is True
     checklist_results["CLO-03"] = "Passed ✅: Comprehensive audit and financial report compiled."
 
     # CLO-04: الإغلاق الرسمي والأرشفة الرقمية للملف

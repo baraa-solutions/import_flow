@@ -17,7 +17,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "c8d3e4f5a6b7"
-HEAD = "d9e4f5a6b7c8"
+HEAD = "f6a7b8c9d0e1"  # current head; d9e4f5a6b7c8 is the revision under test
 
 
 def _db(db_file: Path, *, drop_new: bool) -> None:
@@ -63,6 +63,7 @@ def _upgrade(db_file: Path) -> str:
 
 
 def test_head_is_d9e4():
+    # d9e4f5a6b7c8 is no longer the head: e5f6a7b8c9d0 (system_parameters) and f6a7b8c9d0e1 build on it.
     assert migration_runner.get_head_revision() == HEAD
 
 

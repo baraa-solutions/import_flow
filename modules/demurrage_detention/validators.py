@@ -9,23 +9,25 @@ def validate_tier_rates(tiers: List[TierRateItem], tier_name: str = "Tiers") -> 
     if not tiers:
         return
 
+    def fail(detail: str) -> HTTPException:
+        return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"{tier_name}: {detail}")
+
     sorted_tiers = sorted(tiers, key=lambda t: t.from_day)
     if sorted_tiers[0].from_day != 1:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{tier_name} must start from day 1 (First tier from_day must be 1).",
-        )
+        raise fail("يجب أن تبدأ الشريحة الأولى من اليوم 1.")
 
     for i, t in enumerate(sorted_tiers):
         if t.rate_per_day < 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"{tier_name} daily rate cannot be negative.",
-            )
+            raise fail("قيمة الغرامة اليومية لا يمكن أن تكون سالبة.")
         if t.to_day is not None and t.to_day < t.from_day:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"{tier_name} to_day ({t.to_day}) must be greater than or equal to from_day ({t.from_day}).",
+            raise fail(f"نهاية الشريحة ({t.to_day}) يجب أن تكون أكبر من أو تساوي بدايتها ({t.from_day}).")
+        is_last = i == len(sorted_tiers) - 1
+        if t.to_day is None and not is_last:
+            raise fail("الشريحة المفتوحة (بدون نهاية) يجب أن تكون الأخيرة فقط.")
+        if not is_last and sorted_tiers[i + 1].from_day != t.to_day + 1:
+            raise fail(
+                f"الشرائح يجب أن تكون متصلة بدون فجوات أو تداخل: الشريحة التالية يجب أن تبدأ من اليوم {t.to_day + 1} "
+                f"وليس {sorted_tiers[i + 1].from_day}."
             )
 
 
@@ -58,5 +60,5 @@ def validate_positive_amount(val: float, field_name: str) -> None:
     if val <= 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Field {field_name} must be greater than zero.",
+            detail=f"الحقل {field_name} يجب أن يكون أكبر من صفر.",
         )

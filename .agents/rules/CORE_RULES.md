@@ -130,19 +130,11 @@ TextField(...)  // لاختيار Reference data: لا
 ❌ ممنوع طباعة أو تسجيل (Log) أو تخزين التوكنز أو أرقام ACID كـ Plaintext
 ```
 
-### 🔴 Mandatory Save File Location Dialog (Task I — حفظ وتنزيل الملفات الموحد)
+### 🔴 File save / export (Task I)
 ```text
-✅ فتح نافذة حوارية تفاعلية إلزامية (Native "Save As" Dialog) لتحديد مكان الحفظ واسم الملف:
-   - ديسكتوب (Desktop): FilePicker.saveFile مع lockParentWindow: true
-   - متصفح ويب (Web - Chromium): File System Access API (window.showSaveFilePicker)
-✅ معالجة الإلغاء الآمن (AbortError): التقاط DOMException بهدوء دون حفظ ملف ودون خطأ
-✅ متصفحات غير داعمة (Firefox/Safari/Mobile): تراجع لـ <a download> مع SnackBar توضيحي
-✅ كافة عمليات التصدير والتحميل (PDF, Excel, PNG, CSV) تمر حصرياً عبر FileSaveHelper.exportAndSaveFile
-✅ تمرير مصفوفة bytes لضمان التوافق التام عبر سطح المكتب (Windows Desktop) ومتصفح الويب (Web)
-✅ الالتزام بنظام التسمية القياسي: [Stage Name] - [Import File Name/Code].[ext]
-✅ إظهار إشعار عائم SnackBar مع زر "فتح المجلد" لفتح مسار الملف في Windows Explorer فور الحفظ
-❌ حظر الحفظ الصامت التلقائي (Silent Download) في مسار ثابت أو مجلد افتراضي دون سؤال المستخدم
-❌ حظر الأسماء العامة أو العشوائية (مثل export.pdf أو download.xlsx)
+✅ كل تصدير (PDF / Excel / PNG / CSV) يمر عبر FileSaveHelper.exportAndSaveFile مع نافذة Save As، والاسم:
+   [Stage Name] - [Import File Code].[ext]   — التفاصيل الكاملة في skill: ui-screen-standards
+❌ ممنوع الحفظ الصامت أو الأسماء العامة (export.pdf)
 ```
 
 ---
@@ -159,6 +151,9 @@ TextField(...)  // لاختيار Reference data: لا
 ❌ Hard-Code أي نسبة ضريبية أو رسم جمركي
 ❌ حذف نهائي لأي بيانات مهمة (استخدم Soft Delete)
 ❌ تعديل DB Schema بدون Alembic migration
+❌ عمود جديد على جدول موجود بدون server_default أو backfill للسجلات القديمة (وإلا السجلات القديمة تبقى NULL)
+❌ Response schema يرفض سجل قديم (حقل non-nullable أو قاعدة إدخال على القراءة) → سجل واحد يوقّع القائمة كلها بـ 500
+❌ قيم مخترعة: سعر صرف أو نسبة أو بيانات افتراضية (ACID / شركات / كميات) بدل ما الحقل يفضل فاضي ويتطلب
 ❌ تكرار Business Logic في أكثر من مكان
 ❌ تخزين Master Data كنص حر بدلاً من FK
 ❌ عرض Database ID للمستخدم بدلاً من Business Code

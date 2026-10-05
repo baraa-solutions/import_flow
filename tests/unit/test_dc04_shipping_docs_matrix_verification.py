@@ -219,9 +219,15 @@ def test_dc04_matrix_100_percent_completeness(db_session, setup_shipping_docs_da
 
     assert res.completeness_percent == 100.0
     assert len(res.missing_documents) == 0
-    assert res.overall_compliance == "Fully Compliant"
-    assert res.passed_checks == res.total_checks
-    assert res.failed_checks == 0
+    # Changed on purpose (03b DCA-01): the data checks no longer return fake "Match" rows. This fixture has no
+    # HS code / invoice / packing-list data, so those rows are "Not Checked" and the file cannot be
+    # "Fully Compliant" (see test_phase03b_regressions.py for a fully sourced file reaching "Fully Compliant").
+    # The POD check now compares the real values (ACID "Alexandria Port" vs the file's default POD), so a
+    # data-row warning is possible; every DC-04 document row still passes.
+    doc_rows = {spec["parameter"] for spec in service.MANDATORY_DOCS_SPEC}
+    assert all(c.status == "Match" for c in res.checks if c.parameter in doc_rows)
+    assert res.not_checked_checks > 0
+    assert res.overall_compliance == "Discrepancies Found"
 
 
 def test_dc04_matrix_check_api_endpoint(test_client):

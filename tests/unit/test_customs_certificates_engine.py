@@ -120,7 +120,9 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertEqual(res.certificate_type, "EUR.1 Movement Certificate")
         self.assertIn("REVISED RULES", res.template_data["box_7_remarks"])
         self.assertIn("7595528271020210010", res.template_data["box_10_invoices_and_acid"])
-        self.assertIn("141 PACKAGES", res.template_data["box_8_description_packages"])
+        # Phase 3a DOC-03: this file has no PO lines / packing list, so the template no longer shows the invented
+        # "141 PACKAGES" sample: the package count stays empty (0) instead of fabricated data.
+        self.assertNotIn("141 PACKAGES", res.template_data["box_8_description_packages"])
         self.assertTrue(res.template_data["is_revised_rules_compliant"])
         self.assertIn("0%", res.exemption_notes)
 
@@ -141,7 +143,9 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertTrue(res.template_data["is_draft"])
         self.assertIn("48 HOURS", res.template_data["confirmation_deadline"])
         self.assertIn("7595528271020210010", res.template_data["acid_number"])
-        self.assertTrue(len(res.applicable_standards) >= 3)
+        # Phase 3a DOC-03: without PO lines there are no inspected items (the former sample item list was invented
+        # data), so only the generic default standards remain.
+        self.assertTrue(len(res.applicable_standards) >= 1)
 
     def test_extract_china_ccpit_coo_text(self):
         sample_text = """

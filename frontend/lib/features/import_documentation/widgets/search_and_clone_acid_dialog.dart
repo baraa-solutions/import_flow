@@ -73,10 +73,10 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 750, maxHeight: 620),
@@ -91,7 +91,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.copy_all, color: AppTheme.cobalt, size: 22),
@@ -106,7 +106,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -114,7 +114,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                           l.acidClonedResetNotice,
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -147,15 +147,15 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                 ),
               ),
@@ -166,7 +166,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                 '${_filtered.length} / ${widget.sessions.length}',
                 style: TextStyle(
                   fontSize: 11,
-                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                  color: AppTheme.textSecondaryOf(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -179,12 +179,12 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off, size: 40, color: Colors.grey.shade400),
+                            Icon(Icons.search_off, size: 40, color: AppTheme.textMutedOf(context)),
                             const SizedBox(height: 8),
                             Text(
                               l.noAcidsFound,
                               style: TextStyle(
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: AppTheme.textSecondaryOf(context),
                                 fontSize: 13,
                               ),
                             ),
@@ -207,10 +207,10 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                                color: AppTheme.surfaceAltOf(context),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                                  color: AppTheme.borderOf(context),
                                 ),
                               ),
                               child: Row(
@@ -218,7 +218,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.12),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -240,7 +240,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                            color: AppTheme.textPrimaryOf(context),
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -250,7 +250,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                                           '${session.importFileCode ?? 'بدون ملف'} | ${session.proformaInvoiceNo} | ${session.polName} → ${session.podName}',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                            color: AppTheme.textSecondaryOf(context),
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -262,7 +262,7 @@ class _SearchAndCloneAcidDialogState extends State<SearchAndCloneAcidDialog> {
                                   Icon(
                                     Icons.arrow_forward_ios,
                                     size: 14,
-                                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400,
+                                    color: AppTheme.textMutedOf(context),
                                   ),
                                 ],
                               ),

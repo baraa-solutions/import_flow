@@ -12,28 +12,43 @@ class ExpenseInvoiceModel {
     required this.invoiceNo,
     this.category = 'Freight',
     required this.providerName,
-    this.currency = 'USD',
+    this.currency = '',
     this.amountFx = 0.0,
-    this.exchangeRate = 50.0,
+    this.exchangeRate = 0.0,
     this.amountEgp = 0.0,
     this.allocationRule = 'Value-Based',
   });
 
   factory ExpenseInvoiceModel.fromJson(Map<String, dynamic> json) {
     final fx = (json['amount_fx'] as num?)?.toDouble() ?? 0.0;
-    final rate = (json['exchange_rate'] as num?)?.toDouble() ?? 1.0;
-    final egp = (json['amount_egp'] as num?)?.toDouble() ?? (fx * rate);
+    final rate = (json['exchange_rate'] as num?)?.toDouble() ?? 0.0;
+    // The EGP amount is always computed by the backend; never derived here.
+    final egp = (json['amount_egp'] as num?)?.toDouble() ?? 0.0;
 
     return ExpenseInvoiceModel(
       invoiceNo: json['invoice_no'] ?? '',
       category: json['category'] ?? 'Freight',
       providerName: json['provider_name'] ?? '',
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency'] ?? '',
       amountFx: fx,
       exchangeRate: rate,
       amountEgp: egp,
       allocationRule: json['allocation_rule'] ?? 'Value-Based',
     );
+  }
+
+  /// Create payload: only what the user entered. `amount_egp` is computed by
+  /// the backend, `exchange_rate` is sent only when the user typed one.
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'invoice_no': invoiceNo,
+      'category': category,
+      'provider_name': providerName,
+      'currency': currency,
+      'amount_fx': amountFx,
+      if (exchangeRate > 0) 'exchange_rate': exchangeRate,
+      'allocation_rule': allocationRule,
+    };
   }
 
   Map<String, dynamic> toJson() {
@@ -53,7 +68,7 @@ class ExpenseInvoiceModel {
 class ItemLandedCostModel {
   final String itemCode;
   final String itemName;
-  final int qty;
+  final double qty;
   final double grossWeightKg;
   final double cbm;
   final double fobUnitEgp;
@@ -70,7 +85,7 @@ class ItemLandedCostModel {
   ItemLandedCostModel({
     required this.itemCode,
     required this.itemName,
-    this.qty = 1,
+    this.qty = 1.0,
     this.grossWeightKg = 0.0,
     this.cbm = 0.0,
     this.fobUnitEgp = 0.0,
@@ -85,11 +100,14 @@ class ItemLandedCostModel {
     this.markupFactor = 1.0,
   });
 
+  /// Quantity without a trailing `.0` (2.5 stays 2.5, 100.0 shows 100).
+  String get qtyLabel => qty == qty.truncateToDouble() ? qty.toInt().toString() : qty.toString();
+
   factory ItemLandedCostModel.fromJson(Map<String, dynamic> json) {
     return ItemLandedCostModel(
       itemCode: json['item_code'] ?? '',
       itemName: json['item_name'] ?? '',
-      qty: (json['qty'] as num?)?.toInt() ?? 1,
+      qty: (json['qty'] as num?)?.toDouble() ?? 1.0,
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       cbm: (json['cbm'] as num?)?.toDouble() ?? 0.0,
       fobUnitEgp: (json['fob_unit_egp'] as num?)?.toDouble() ?? 0.0,
@@ -103,6 +121,19 @@ class ItemLandedCostModel {
       unitLandedCostEgp: (json['unit_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       markupFactor: (json['markup_factor'] as num?)?.toDouble() ?? 1.0,
     );
+  }
+
+  /// Create payload: only the user-entered identity, quantity, weight, CBM and
+  /// unit price. Totals and allocations are computed by the backend.
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'item_code': itemCode,
+      'item_name': itemName,
+      'qty': qty,
+      'gross_weight_kg': grossWeightKg,
+      'cbm': cbm,
+      'fob_unit_egp': fobUnitEgp,
+    };
   }
 
   Map<String, dynamic> toJson() {
@@ -154,7 +185,7 @@ class LandedCostSettlementModel {
     this.averageMarkupFactor = 1.0,
     this.itemLandedCosts = const [],
     this.status = 'Draft',
-    this.accountantName = 'Kamal',
+    this.accountantName = '',
     this.notes,
     this.isActive = true,
     required this.createdAt,
@@ -176,7 +207,7 @@ class LandedCostSettlementModel {
       averageMarkupFactor: (json['average_markup_factor'] as num?)?.toDouble() ?? 1.0,
       itemLandedCosts: rawItems.map((i) => ItemLandedCostModel.fromJson(i)).toList(),
       status: json['status'] ?? 'Draft',
-      accountantName: json['accountant_name'] ?? 'Kamal',
+      accountantName: json['accountant_name'] ?? '',
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',

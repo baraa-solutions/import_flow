@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui_b.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -28,12 +31,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
   String _inspType = 'COC (Certificate of Conformity)';
   String _inspAgency = 'SGS';
-  final TextEditingController _certNumberCtrl = TextEditingController(text: 'DRAFT-COC-SGS-9901');
+  final TextEditingController _certNumberCtrl = TextEditingController();
   final TextEditingController _importerCtrl = TextEditingController();
   final TextEditingController _exporterCtrl = TextEditingController();
-  final TextEditingController _authorityCtrl = TextEditingController(text: 'General Organization for Export and Import Control (GOEIC)');
+  final TextEditingController _authorityCtrl = TextEditingController();
   final TextEditingController _invoiceNoCtrl = TextEditingController();
-  final TextEditingController _acidCtrl = TextEditingController(text: '7595528271015010011');
+  final TextEditingController _acidCtrl = TextEditingController();
   final TextEditingController _originCountryCtrl = TextEditingController(text: 'Italy');
   final TextEditingController _specCtrl = TextEditingController(text: 'Egyptian Standard ES / EN 13501-1:2018');
   final TextEditingController _rawTextCtrl = TextEditingController();
@@ -110,7 +113,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     if (file != null) {
       _importerCtrl.text = file.companyName;
       _exporterCtrl.text = file.supplierName;
-      _invoiceNoCtrl.text = file.piNumber ?? 'IT-DN26-003201, IT-DN26-003196, IT-DN26-003401, IT-DN26-003400';
+      _invoiceNoCtrl.text = file.piNumber ?? '';
       if (file.acidNumber != null && file.acidNumber!.isNotEmpty) {
         _acidCtrl.text = file.acidNumber!;
       }
@@ -135,7 +138,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           _activeDraftTemplate = template;
           _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
               ? file.acidNumber
-              : (template['acid_number'] ?? '7595528271015010011');
+              : (template['acid_number'] ?? '').toString();
           _activeStandards = standards;
 
           if (template['coc_number'] != null) _certNumberCtrl.text = template['coc_number'].toString();
@@ -173,7 +176,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     final l10n = context.l10n;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectFileFirstPrompt), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.pleaseSelectFileFirstPrompt), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -207,7 +210,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.inspectionComparisonError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.inspectionComparisonError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -215,9 +218,35 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     }
   }
 
+  /// ACID used for exports: the file's ACID, else what the user typed. Never invented.
+  String get _effectiveAcid {
+    final active = (_activeAcidNumber ?? '').trim();
+    return active.isNotEmpty ? active : _acidCtrl.text.trim();
+  }
+
+  void _showAcidMissing() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.idocBExportBlockedAcid), backgroundColor: AppTheme.crimson),
+    );
+  }
+
+  /// Shows the "ACID missing" SnackBar and returns true when no ACID is available.
+  bool _blockIfAcidMissing() {
+    if (_effectiveAcid.isNotEmpty) return false;
+    _showAcidMissing();
+    return true;
+  }
+
   Future<void> _saveReview() async {
     final l10n = context.l10n;
     if (_comparisonResult == null || _selectedImportFileId == null) return;
+    if (_blockIfAcidMissing()) return;
+    if (_certNumberCtrl.text.trim().isEmpty || _authorityCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.idocBInspectionFieldsRequired), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
 
     final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
     final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
@@ -227,7 +256,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('⚠️ ${l10n.overrideReasonMandatoryWarning}'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.orange,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -240,8 +269,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         'import_file_id': _selectedImportFileId,
         'inspection_type': _inspType,
         'inspection_agency': _inspAgency,
-        'certificate_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
-        'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'General Organization for Export and Import Control (GOEIC)',
+        'certificate_number': _certNumberCtrl.text.trim(),
+        'regulatory_authority': _authorityCtrl.text.trim(),
         'standard_specification': _specCtrl.text.trim(),
         'raw_input_text': _rawTextCtrl.text,
         'raw_text': _rawTextCtrl.text,
@@ -257,14 +286,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       await ref.read(inspectionReviewsProvider.notifier).saveInspectionReview(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✔ ${l10n.saveInspectionReviewSuccess}'), backgroundColor: Colors.green),
+          SnackBar(content: Text('✔ ${l10n.saveInspectionReviewSuccess}'), backgroundColor: AppTheme.emerald),
         );
         setState(() => _activeStep = 3);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.saveInspectionReviewError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.saveInspectionReviewError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -276,7 +305,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     final l10n = context.l10n;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.generateDraftSelectFileFirstPrompt), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.generateDraftSelectFileFirstPrompt), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -295,7 +324,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       final standards = (res['applicable_standards'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
       final files = ref.read(importFilesProvider).valueOrNull ?? [];
       final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
-      final acidNo = file?.acidNumber ?? '7595528271015010011';
+      final acidNo = file?.acidNumber ?? '';
 
       setState(() {
         _activeDraftTemplate = template;
@@ -319,7 +348,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey),
+                icon: const Icon(Icons.close, color: AppTheme.textMuted),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -338,15 +367,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(l10n.cancelAndClose, style: const TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-              icon: const Icon(Icons.check, color: Colors.white),
-              label: Text(l10n.applyInspectionDraftDataBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              onPressed: () {
+            IdocBUi.fit(AppButton(label: l10n.cancelAndClose, onPressed: () => Navigator.pop(ctx), variant: AppButtonVariant.secondary)),
+            IdocBUi.fit(AppButton(label: l10n.applyInspectionDraftDataBtn, onPressed: () {
                 Navigator.pop(ctx);
                 setState(() {
                   if (template['coc_number'] != null) _certNumberCtrl.text = template['coc_number'].toString();
@@ -357,17 +379,16 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   _activeStep = 1;
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('✔ ${l10n.inspectionDraftDataAppliedSuccess}'), backgroundColor: Colors.green),
+                  SnackBar(content: Text('✔ ${l10n.inspectionDraftDataAppliedSuccess}'), backgroundColor: AppTheme.emerald),
                 );
-              },
-            ),
+              }, variant: AppButtonVariant.success, icon: Icons.check)),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.generateDraftError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.generateDraftError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -380,7 +401,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pasteRawTextFirstPrompt), backgroundColor: Colors.orange),
+        SnackBar(content: Text(l10n.pasteRawTextFirstPrompt), backgroundColor: AppTheme.orange),
       );
       return;
     }
@@ -449,7 +470,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.inspectionOcrWarningsAlert(warnings.join(', '))),
-              backgroundColor: Colors.orange.shade800,
+              backgroundColor: AppTheme.warningForeground,
               duration: const Duration(seconds: 4),
             ),
           );
@@ -457,20 +478,20 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('⚠️ ${l10n.inspectionDraft48hWarningAlert}'),
-              backgroundColor: Colors.orange,
+              backgroundColor: AppTheme.orange,
               duration: const Duration(seconds: 5),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✔ ${l10n.inspectionExtractionSuccess}'), backgroundColor: Colors.green),
+            SnackBar(content: Text('✔ ${l10n.inspectionExtractionSuccess}'), backgroundColor: AppTheme.emerald),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.inspectionComparisonError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.inspectionComparisonError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -541,9 +562,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppTheme.infoBackground,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                      border: Border.all(color: AppTheme.cobaltBorder, width: 1.2),
                     ),
                     child: Row(
                       children: [
@@ -555,12 +576,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                           ),
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                          icon: const Icon(Icons.history, color: Colors.white, size: 14),
-                          label: Text(l10n.inspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () => setState(() => _activeStep = 3),
-                        ),
+                        IdocBUi.fit(AppButton(label: l10n.inspectionRegistryBtn, onPressed: () => setState(() => _activeStep = 3), size: AppButtonSize.small, icon: Icons.history)),
                       ],
                     ),
                   ),
@@ -639,19 +655,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                      icon: const Icon(Icons.bolt, color: Colors.white),
-                      label: Text(l10n.openInspectionPreviewBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: _generateOfficialDraft,
-                    ),
+                    IdocBUi.fit(AppButton(label: l10n.openInspectionPreviewBtn, onPressed: _generateOfficialDraft, variant: AppButtonVariant.success, icon: Icons.bolt)),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      label: Text(l10n.nextInspectionInputBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () => setState(() => _activeStep = 1),
-                    ),
+                    IdocBUi.fit(AppButton(label: l10n.nextInspectionInputBtn, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_forward)),
                   ],
                 ),
               ],
@@ -664,7 +670,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             templateData: _activeDraftTemplate!,
             agency: _inspAgency,
             certType: _inspType,
-            acidNumber: _activeAcidNumber ?? '7595528271015010011',
+            acidNumber: _activeAcidNumber ?? '',
             standards: _activeStandards,
             onRefresh: () {
               if (_selectedImportFileId != null) {
@@ -691,14 +697,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(l10n.inspDraftInputHeader, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                  icon: _isLoading
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.compare_arrows, color: Colors.white),
-                  label: Text(l10n.runInspectionComparisonBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
-                ),
+                IdocBUi.fit(AppButton(label: l10n.runInspectionComparisonBtn, onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison, variant: AppButtonVariant.success, icon: Icons.compare_arrows, isLoading: _isLoading)),
               ],
             ),
             const Divider(height: 24),
@@ -769,18 +768,18 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppTheme.dangerBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade300),
+                  border: Border.all(color: AppTheme.crimsonBorder),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         '⚠️ ${l10n.pleaseSelectInspectionFileWarning}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12.5),
                       ),
                     ),
                   ],
@@ -793,6 +792,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _certNumberCtrl,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.idocBFieldRequired : null,
                     decoration: InputDecoration(labelText: l10n.certNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
@@ -800,6 +801,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _authorityCtrl,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.idocBFieldRequired : null,
                     decoration: InputDecoration(labelText: l10n.regulatoryAuthorityFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
@@ -845,6 +848,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   child: TextFormField(
                     controller: _acidCtrl,
                     textDirection: TextDirection.ltr,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.idocBAcidRequired : null,
                     decoration: InputDecoration(labelText: l10n.acidNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
@@ -914,7 +919,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     Flexible(
                       child: Text(
                         _pickedFileName!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textStrong),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -926,11 +931,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(l10n.rawTextInspectionHeader, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                TextButton.icon(
-                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                  label: Text(l10n.smartExtractFromTextBtn, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
-                ),
+                IdocBUi.fit(AppButton(label: l10n.smartExtractFromTextBtn, onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText, variant: AppButtonVariant.secondary, icon: Icons.auto_awesome)),
               ],
             ),
             const SizedBox(height: 6),
@@ -957,16 +958,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           padding: const EdgeInsets.all(30),
           child: Column(
             children: [
-              const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+              const Icon(Icons.folder_off, size: 48, color: AppTheme.orange),
               const SizedBox(height: 12),
               Text('⚠️ ${l10n.mustSelectFileForMatrixWarning}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: Text(l10n.returnToSelectFileBtn, style: const TextStyle(color: Colors.white)),
-                onPressed: () => setState(() => _activeStep = 1),
-              ),
+              IdocBUi.fit(AppButton(label: l10n.returnToSelectFileBtn, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_back)),
             ],
           ),
         ),
@@ -984,12 +980,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               const SizedBox(height: 12),
               Text(l10n.pleaseRunComparisonPrompt, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: Text(l10n.returnToRunComparisonBtn, style: const TextStyle(color: Colors.white)),
-                onPressed: () => setState(() => _activeStep = 1),
-              ),
+              IdocBUi.fit(AppButton(label: l10n.returnToRunComparisonBtn, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_back)),
             ],
           ),
         ),
@@ -1016,7 +1007,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               children: [
                 Row(
                   children: [
-                    Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? Colors.red : (hasDisc ? Colors.orange : Colors.green), size: 24),
+                    Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? AppTheme.crimson : (hasDisc ? AppTheme.orange : AppTheme.emerald), size: 24),
                     const SizedBox(width: 10),
                     Text(
                       hasCritical ? l10n.hasCriticalMismatchStatus : (hasDisc ? l10n.hasMinorDiscrepanciesStatus : l10n.inspectionConforms100Status),
@@ -1028,22 +1019,15 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        side: const BorderSide(color: AppTheme.cobalt),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.table_chart_outlined, size: 16),
-                      label: Text(l10n.exportTsvBtn, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                    IdocBUi.fit(AppButton(label: l10n.exportTsvBtn, onPressed: () {
+                        if (_blockIfAcidMissing()) return;
                         final currentTemplate = _activeDraftTemplate ?? {
-                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'coc_number': _certNumberCtrl.text.trim(),
                           'importer_name_and_address': _importerCtrl.text.trim(),
                           'exporter_name_and_address': _exporterCtrl.text.trim(),
-                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : _effectiveAcid,
                           'country_of_origin': _originCountryCtrl.text.trim(),
-                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'regulatory_authority': _authorityCtrl.text.trim(),
                           'invoice_number': _invoiceNoCtrl.text.trim(),
                           'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                         };
@@ -1052,28 +1036,20 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           templateData: currentTemplate,
                           agency: _inspAgency,
                           certType: _inspType,
-                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          acidNumber: _effectiveAcid,
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                           comparisonMatrix: exportMatrix,
                         );
-                      },
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.emerald,
-                        side: const BorderSide(color: AppTheme.emerald),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.file_download_outlined, size: 16),
-                      label: Text(l10n.exportExcelBtn, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                      }, variant: AppButtonVariant.secondary, icon: Icons.table_chart_outlined)),
+                    IdocBUi.fit(AppButton(label: l10n.exportExcelBtn, onPressed: () {
+                        if (_blockIfAcidMissing()) return;
                         final currentTemplate = _activeDraftTemplate ?? {
-                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'coc_number': _certNumberCtrl.text.trim(),
                           'importer_name_and_address': _importerCtrl.text.trim(),
                           'exporter_name_and_address': _exporterCtrl.text.trim(),
-                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : _effectiveAcid,
                           'country_of_origin': _originCountryCtrl.text.trim(),
-                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'regulatory_authority': _authorityCtrl.text.trim(),
                           'invoice_number': _invoiceNoCtrl.text.trim(),
                           'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                         };
@@ -1082,28 +1058,20 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           templateData: currentTemplate,
                           agency: _inspAgency,
                           certType: _inspType,
-                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          acidNumber: _effectiveAcid,
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                           comparisonMatrix: exportMatrix,
                         );
-                      },
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.crimson,
-                        side: const BorderSide(color: AppTheme.crimson),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.picture_as_pdf, size: 16),
-                      label: Text(l10n.exportPdfBtn, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                      }, variant: AppButtonVariant.secondary, icon: Icons.file_download_outlined)),
+                    IdocBUi.fit(AppButton(label: l10n.exportPdfBtn, onPressed: () {
+                        if (_blockIfAcidMissing()) return;
                         final currentTemplate = _activeDraftTemplate ?? {
-                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'coc_number': _certNumberCtrl.text.trim(),
                           'importer_name_and_address': _importerCtrl.text.trim(),
                           'exporter_name_and_address': _exporterCtrl.text.trim(),
-                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : _effectiveAcid,
                           'country_of_origin': _originCountryCtrl.text.trim(),
-                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'regulatory_authority': _authorityCtrl.text.trim(),
                           'invoice_number': _invoiceNoCtrl.text.trim(),
                           'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                         };
@@ -1112,28 +1080,20 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           templateData: currentTemplate,
                           agency: _inspAgency,
                           certType: _inspType,
-                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          acidNumber: _effectiveAcid,
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                           comparisonMatrix: exportMatrix,
                         );
-                      },
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.charcoal,
-                        side: const BorderSide(color: AppTheme.charcoal),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.copy_all_outlined, size: 16),
-                      label: Text(l10n.copyDossierBtn, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                      }, variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
+                    IdocBUi.fit(AppButton(label: l10n.copyDossierBtn, onPressed: () {
+                        if (_blockIfAcidMissing()) return;
                         final currentTemplate = _activeDraftTemplate ?? {
-                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'coc_number': _certNumberCtrl.text.trim(),
                           'importer_name_and_address': _importerCtrl.text.trim(),
                           'exporter_name_and_address': _exporterCtrl.text.trim(),
-                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : _effectiveAcid,
                           'country_of_origin': _originCountryCtrl.text.trim(),
-                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'regulatory_authority': _authorityCtrl.text.trim(),
                           'invoice_number': _invoiceNoCtrl.text.trim(),
                           'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                         };
@@ -1142,22 +1102,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           templateData: currentTemplate,
                           agency: _inspAgency,
                           certType: _inspType,
-                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          acidNumber: _effectiveAcid,
                           standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
                           comparisonMatrix: exportMatrix,
                           overrideReason: _overrideReasonCtrl.text.trim().isNotEmpty ? _overrideReasonCtrl.text.trim() : null,
                         );
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.save, color: Colors.white, size: 16),
-                      label: Text(l10n.saveToInspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                      onPressed: _saveReview,
-                    ),
+                      }, variant: AppButtonVariant.secondary, icon: Icons.copy_all_outlined)),
+                    IdocBUi.fit(AppButton(label: l10n.saveToInspectionRegistryBtn, onPressed: _saveReview, icon: Icons.save)),
                   ],
                 ),
               ],
@@ -1210,15 +1161,15 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         child: Chip(
                           label: Text(
                             matchStatus == 'EXTRACTION_FAILED'
-                                ? 'لم يتم الاستخراج'
-                                : (matchStatus == 'MATCH' ? 'متطابق' : matchStatus),
-                            style: const TextStyle(fontSize: 11, color: Colors.white),
+                                ? l10n.idocBNotExtracted
+                                : (matchStatus == 'MATCH' ? l10n.idocBMatched : matchStatus),
+                            style: const TextStyle(fontSize: 11, color: AppTheme.white),
                           ),
                           backgroundColor: matchStatus == 'EXTRACTION_FAILED'
-                              ? Colors.blueGrey
+                              ? AppTheme.charcoal
                               : (m['severity'] == 'BLOCKING'
-                                  ? Colors.red
-                                  : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green)),
+                                  ? AppTheme.crimson
+                                  : (m['severity'] == 'WARNING' ? AppTheme.orange : AppTheme.emerald)),
                         ),
                       ),
                     ),
@@ -1238,21 +1189,21 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: AppTheme.warningBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                  border: Border.all(color: AppTheme.orange, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.gavel, color: Colors.amber.shade900, size: 20),
+                        Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             l10n.inspOverrideReasonBoxTitle,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
                           ),
                         ),
                       ],
@@ -1260,7 +1211,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     const SizedBox(height: 8),
                     Text(
                       l10n.inspOverrideReasonBoxDesc,
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
+                      style: TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -1271,33 +1222,16 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         hintText: l10n.inspOverrideReasonFieldHint,
                         border: const OutlineInputBorder(),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppTheme.white,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _overrideReasonCtrl.text.trim().isNotEmpty ? AppTheme.emerald : Colors.grey,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                          ),
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
-                          label: Text(l10n.approveAndSaveWithReasonBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: _saveReview,
-                        ),
+                        IdocBUi.fit(AppButton(label: l10n.approveAndSaveWithReasonBtn, onPressed: _saveReview, variant: AppButtonVariant.success, icon: Icons.check_circle)),
                         const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.crimson,
-                            side: const BorderSide(color: AppTheme.crimson),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          icon: const Icon(Icons.edit_note, size: 16),
-                          label: Text(l10n.returnToEditAndContactSupplierBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () => setState(() => _activeStep = 1),
-                        ),
+                        IdocBUi.fit(AppButton(label: l10n.returnToEditAndContactSupplierBtn, onPressed: () => setState(() => _activeStep = 1), variant: AppButtonVariant.secondary, icon: Icons.edit_note)),
                       ],
                     ),
                   ],
@@ -1339,12 +1273,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         ),
                       ],
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.add, color: Colors.white, size: 16),
-                      label: Text(l10n.startNewInspReviewBtn, style: const TextStyle(color: Colors.white)),
-                      onPressed: () => setState(() => _activeStep = 1),
-                    ),
+                    IdocBUi.fit(AppButton(label: l10n.startNewInspReviewBtn, onPressed: () => setState(() => _activeStep = 1), icon: Icons.add)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1352,14 +1281,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: AppTheme.surfaceAlt, borderRadius: BorderRadius.circular(8)),
                     child: Center(child: Text(l10n.noInspReviewsYet)),
                   )
                 else
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withValues(alpha: 0.06)),
                       columns: [
                         DataColumn(label: Text(l10n.colInspActions)),
                         DataColumn(label: Text(l10n.colInspSessionCode)),
@@ -1427,6 +1356,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                                   icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
                                   tooltip: l10n.downloadInspPdfTooltip,
                                   onPressed: () async {
+                                    final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+                                    final rowAcid = (rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '').trim();
+                                    if (rowAcid.isEmpty) {
+                                      _showAcidMissing();
+                                      return;
+                                    }
                                     final tData = {
                                       'certificate_number': r.certificateNumber,
                                       'inspection_agency': r.inspectionAgency,
@@ -1437,14 +1372,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                                       templateData: tData,
                                       agency: r.inspectionAgency,
                                       certType: r.inspectionType,
-                                      acidNumber: '7595528271015010011',
+                                      acidNumber: rowAcid,
                                       standards: _activeStandards,
                                     );
                                   },
                                 ),
                                 // 4. Delete (حذف)
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
                                   tooltip: l10n.deleteInspSessionTooltip,
                                   onPressed: () => _confirmDeleteInspectionReview(r),
                                 ),
@@ -1484,8 +1419,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                               value: r.status,
                               rowSummary: rowSummary,
                               child: Chip(
-                                label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                                backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                                label: Text(r.status, style: const TextStyle(color: AppTheme.white, fontSize: 11)),
+                                backgroundColor: r.status == 'Verified' ? AppTheme.emerald : AppTheme.orange,
                               ),
                             ),
                           ),
@@ -1571,7 +1506,7 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
                   if (overrideReason.isNotEmpty)
                     ListTile(
                       title: Text(l10n.tileInspOverrideReason),
-                      subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      subtitle: Text(overrideReason, style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
                       trailing: IconButton(
                         icon: const Icon(Icons.copy, size: 16),
                         tooltip: l10n.copyValue,
@@ -1593,7 +1528,7 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
                           child: Row(
                             children: [
                               Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
-                                  color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
+                                  color: item['match_status'] == 'MATCH' ? AppTheme.emerald : AppTheme.orange, size: 16),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -1602,7 +1537,7 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(Icons.copy, size: 14, color: Colors.grey),
+                              const Icon(Icons.copy, size: 14, color: AppTheme.textMuted),
                             ],
                           ),
                         ),
@@ -1615,10 +1550,7 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.cancel),
-          ),
+          IdocBUi.fit(AppButton(label: l10n.cancel, onPressed: () => Navigator.of(ctx).pop(), variant: AppButtonVariant.secondary)),
         ],
       ),
     );
@@ -1631,38 +1563,31 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.warning, color: Colors.red),
+            const Icon(Icons.warning, color: AppTheme.crimson),
             const SizedBox(width: 8),
             Text(l10n.confirmDeleteInspSessionTitle),
           ],
         ),
         content: Text(l10n.confirmDeleteInspSessionContent(r.inspectionReviewCode, r.certificateNumber)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
+          IdocBUi.fit(AppButton(label: l10n.cancel, onPressed: () => Navigator.of(ctx).pop(), variant: AppButtonVariant.secondary)),
+          IdocBUi.fit(AppButton(label: l10n.delete, onPressed: () async {
               Navigator.of(ctx).pop();
               try {
                 await ref.read(inspectionReviewsProvider.notifier).deleteInspectionReview(r.inspectionReviewId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✔ ${l10n.inspSessionDeletedSuccess}'), backgroundColor: Colors.green),
+                    SnackBar(content: Text('✔ ${l10n.inspSessionDeletedSuccess}'), backgroundColor: AppTheme.emerald),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.deleteInspSessionError(e.toString())), backgroundColor: Colors.red),
+                    SnackBar(content: Text(l10n.deleteInspSessionError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
                   );
                 }
               }
-            },
-            child: Text(l10n.delete, style: const TextStyle(color: Colors.white)),
-          ),
+            }, variant: AppButtonVariant.danger)),
         ],
       ),
     );

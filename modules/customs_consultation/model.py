@@ -175,6 +175,8 @@ class CustomsConsultationSession(Base):
         Integer, ForeignKey("customs_consultation_sessions.consultation_id"), nullable=True
     )
     cloned_from_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Audit & Soft Delete
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)

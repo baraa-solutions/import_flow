@@ -100,10 +100,10 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
@@ -118,7 +118,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.wcagCobalt.withOpacity(0.12),
+                      color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 22),
@@ -133,7 +133,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -141,7 +141,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                           l.cooClonedResetNotice,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -160,16 +160,16 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                 key: const Key('searchCooDialogQueryInput'),
                 controller: _queryController,
                 autofocus: true,
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                 decoration: InputDecoration(
                   hintText: l.searchCooHint,
                   hintStyle: TextStyle(
                     fontSize: 13,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                    color: AppTheme.textMutedOf(context),
                   ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
@@ -181,14 +181,14 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
@@ -206,14 +206,14 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                             Icon(
                               Icons.verified_outlined,
                               size: 48,
-                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400,
+                              color: AppTheme.textMutedOf(context),
                             ),
                             const SizedBox(height: 10),
                             Text(
                               l.noCooReviewsFound,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: AppTheme.textSecondaryOf(context),
                               ),
                             ),
                           ],
@@ -239,7 +239,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                           final isVerified = r.status == 'Verified' || r.status == 'Approved';
 
                           return Material(
-                            color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                            color: AppTheme.surfaceAltOf(context),
                             borderRadius: BorderRadius.circular(8),
                             child: InkWell(
                               key: Key('selectCooItem_${r.cooReviewId}'),
@@ -253,7 +253,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                                    color: AppTheme.borderOf(context),
                                   ),
                                 ),
                                 child: Row(
@@ -261,7 +261,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.wcagCobalt.withOpacity(0.1),
+                                        color: AppTheme.wcagCobalt.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Icon(
@@ -297,7 +297,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                                      color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
@@ -305,21 +305,21 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                       style: TextStyle(
                                                         fontSize: 11.0,
                                                         fontWeight: FontWeight.w600,
-                                                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                        color: AppTheme.textSecondaryOf(context),
                                                       ),
                                                     ),
                                                   ),
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.grey.withOpacity(0.1),
+                                                      color: AppTheme.textMutedOf(context).withValues(alpha: 0.1),
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
                                                       r.cooReviewCode,
                                                       style: TextStyle(
                                                         fontSize: 11.0,
-                                                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                        color: AppTheme.textSecondaryOf(context),
                                                       ),
                                                     ),
                                                   ),
@@ -329,13 +329,13 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
                                                   color: isVerified
-                                                      ? (isDark ? const Color(0xFF064E3B) : Colors.green.shade50)
-                                                      : (isDark ? const Color(0xFF78350F) : Colors.amber.shade50),
+                                                      ? (AppTheme.severityBackgroundOf(context, AppSeverity.success))
+                                                      : (AppTheme.severityBackgroundOf(context, AppSeverity.warning)),
                                                   borderRadius: BorderRadius.circular(6),
                                                   border: Border.all(
                                                     color: isVerified
-                                                        ? (isDark ? const Color(0xFF059669) : Colors.green.shade300)
-                                                        : (isDark ? const Color(0xFFD97706) : Colors.amber.shade300),
+                                                        ? (AppTheme.emeraldBorder)
+                                                        : (AppTheme.orange),
                                                   ),
                                                 ),
                                                 child: Text(
@@ -344,8 +344,8 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                     fontSize: 11.0,
                                                     fontWeight: FontWeight.bold,
                                                     color: isVerified
-                                                        ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)
-                                                        : (isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900),
+                                                        ? (AppTheme.severityForegroundOf(context, AppSeverity.success))
+                                                        : (AppTheme.severityForegroundOf(context, AppSeverity.warning)),
                                                   ),
                                                 ),
                                               ),
@@ -393,13 +393,13 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+        Icon(icon, size: 13, color: AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 11.5,
-            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            color: AppTheme.textSecondaryOf(context),
           ),
         ),
       ],

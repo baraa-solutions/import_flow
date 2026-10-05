@@ -4,44 +4,33 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import desc, or_
 
+from modules.common.sequence_generator import next_yearly_code
 from .model import OriginalDocumentsCollectionSession
 
 
 class OriginalDocumentsCollectionRepository:
+    """Queries only. Writes flush; the service owns the transaction and commits once (ODC-06)."""
+
     @staticmethod
     def get_next_collection_code(db: Session) -> str:
-        current_year = datetime.now(timezone.utc).year
-        prefix = f"DOC-COL-{current_year}-"
-
-        latest_session = (
-            db.query(OriginalDocumentsCollectionSession)
-            .filter(OriginalDocumentsCollectionSession.collection_code.like(f"{prefix}%"))
-            .order_by(desc(OriginalDocumentsCollectionSession.collection_id))
-            .first()
-        )
-
-        if not latest_session:
-            return f"{prefix}0001"
-
-        try:
-            seq_part = latest_session.collection_code.replace(prefix, "")
-            seq_num = int(seq_part) + 1
-            return f"{prefix}{seq_num:04d}"
-        except Exception:
-            return f"{prefix}0001"
+        """``DOC-COL-<year>-NNNN``: highest numeric suffix of the year + 1 (ODC-12). The unique constraint stays
+        the guard: the service retries on IntegrityError."""
+        return next_yearly_code(db, OriginalDocumentsCollectionSession.collection_code, "DOC-COL", pad=4)
 
     @staticmethod
     def create(db: Session, session: OriginalDocumentsCollectionSession) -> OriginalDocumentsCollectionSession:
         db.add(session)
-        db.commit()
-        db.refresh(session)
+        db.flush()
         return session
 
     @staticmethod
     def get_by_id(db: Session, collection_id: int) -> Optional[OriginalDocumentsCollectionSession]:
         return (
             db.query(OriginalDocumentsCollectionSession)
-            .filter(OriginalDocumentsCollectionSession.collection_id == collection_id)
+            .filter(
+                OriginalDocumentsCollectionSession.collection_id == collection_id,
+                OriginalDocumentsCollectionSession.is_active == True,
+            )
             .first()
         )
 
@@ -92,6 +81,17 @@ class OriginalDocumentsCollectionRepository:
         )
 
     @staticmethod
+    def get_active_with_couriers(db: Session) -> List[OriginalDocumentsCollectionSession]:
+        """Every active session that has at least one courier (courier alerts / registry: no row cap, ODC-11)."""
+        sessions = (
+            db.query(OriginalDocumentsCollectionSession)
+            .filter(OriginalDocumentsCollectionSession.is_active == True)
+            .order_by(desc(OriginalDocumentsCollectionSession.updated_at))
+            .all()
+        )
+        return [s for s in sessions if s.couriers_list]
+
+    @staticmethod
     def update(
         db: Session,
         session: OriginalDocumentsCollectionSession,
@@ -104,10 +104,8 @@ class OriginalDocumentsCollectionRepository:
                     flag_modified(session, key)
 
         session.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(session)
+        db.flush()
         return session
-
 
     @staticmethod
     def soft_delete(db: Session, collection_id: int) -> bool:
@@ -116,5 +114,5 @@ class OriginalDocumentsCollectionRepository:
             return False
         session.is_active = False
         session.updated_at = datetime.now(timezone.utc)
-        db.commit()
+        db.flush()
         return True

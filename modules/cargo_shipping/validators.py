@@ -3,7 +3,48 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
-def parse_iso_datetime(val: Any) -> Optional[datetime]:
+# Record status ladder (legacy labels). Users may set the first group by hand; the others come from the
+# dual approval and CargoX workflow endpoints and are never downgraded by a PUT.
+STATUS_CARGO_READY = "Cargo Ready"
+STATUS_LOADED = "Loaded & Sealed"
+STATUS_DUAL_APPROVED = "Dual Approved"
+STATUS_DOCS_DISPATCHED = "Docs Dispatched"
+STATUS_CARGOX_DONE = "CargoX Transfer Completed"
+STATUS_COMPLETED = "Completed"
+STATUS_LADDER = (STATUS_CARGO_READY, STATUS_LOADED, STATUS_DUAL_APPROVED, STATUS_DOCS_DISPATCHED, STATUS_CARGOX_DONE, STATUS_COMPLETED)
+MANUAL_STATUSES = frozenset({STATUS_CARGO_READY, STATUS_LOADED, STATUS_DOCS_DISPATCHED})
+
+# CargoX envelope stages: each target stage requires the previous one.
+ENVELOPE_PREVIOUS_STAGE = {
+    "Ready for Upload": "Checklist Passed",
+    "Uploaded": "Ready for Upload",
+    "Completed": "Uploaded",
+}
+# Keys of cargox_exchange_data owned by the server (checklist run / stage advance), never taken from a client.
+SERVER_MANAGED_CARGOX_KEYS = ("verification_checklist", "envelope_status", "blockchain_tx_hash", "envelope_id")
+MANUAL_CHECK_REQUIRED = "MANUAL_CHECK_REQUIRED"
+MANUALLY_CONFIRMED = "MANUALLY_CONFIRMED"
+
+RECORD_LABEL_AR = "سجل شحن وتجهيز البضاعة"
+
+
+def _status_rank(value: Optional[str]) -> int:
+    return STATUS_LADDER.index(value) if value in STATUS_LADDER else -1
+
+
+def resolve_manual_status(requested: Optional[str], current: Optional[str]) -> Optional[str]:
+    """The status a create / PUT may store, or ``None`` to keep the current one (silently, the field is
+    optional): only manual statuses, and never a downgrade below a workflow status."""
+    if not requested or requested not in MANUAL_STATUSES:
+        return None
+    if current in MANUAL_STATUSES or current is None or _status_rank(requested) > _status_rank(current):
+        return requested
+    return None
+
+
+def parse_iso_datetime(val: Any, field_name: Optional[str] = None) -> Optional[datetime]:
+    """Parses YYYY-MM-DD / ISO strings. With ``field_name`` (request input) a non-empty value that cannot be
+    parsed is a 422; without it (stored data) it is read as ``None``."""
     if not val:
         return None
     if isinstance(val, datetime):
@@ -20,8 +61,12 @@ def parse_iso_datetime(val: Any) -> Optional[datetime]:
             # Handle ISO format
             dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
             return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-        except Exception:
+        except ValueError:
+            if field_name:
+                raise HTTPException(status_code=422, detail=f"صيغة التاريخ غير صحيحة: {field_name}")
             return None
+    if field_name:
+        raise HTTPException(status_code=422, detail=f"صيغة التاريخ غير صحيحة: {field_name}")
     return None
 
 def validate_crd_against_cutoff(crd_date: datetime, cargo_cutoff_date: datetime) -> bool:
@@ -68,6 +113,7 @@ def validate_container_tracking_timestamps(
     loading_start_at: Optional[str] = None,
     loading_end_at: Optional[str] = None,
     port_gate_in_at: Optional[str] = None,
+    field_names: tuple = ("container_assignment_date", "arrival_at_supplier_at", "loading_start_at", "loading_end_at", "port_gate_in_at"),
 ):
     """
     Section 5: Strict Sequential Timestamp Validation for Container Loading Follow-up
@@ -77,11 +123,11 @@ def validate_container_tracking_timestamps(
     4. port_gate_in_at >= loading_end_at
     5. No subsequent date can be prior to container_assignment_date
     """
-    dt_assign = parse_iso_datetime(container_assignment_date)
-    dt_arrival = parse_iso_datetime(arrival_at_supplier_at)
-    dt_start = parse_iso_datetime(loading_start_at)
-    dt_end = parse_iso_datetime(loading_end_at)
-    dt_gate_in = parse_iso_datetime(port_gate_in_at)
+    dt_assign = parse_iso_datetime(container_assignment_date, field_names[0])
+    dt_arrival = parse_iso_datetime(arrival_at_supplier_at, field_names[1])
+    dt_start = parse_iso_datetime(loading_start_at, field_names[2])
+    dt_end = parse_iso_datetime(loading_end_at, field_names[3])
+    dt_gate_in = parse_iso_datetime(port_gate_in_at, field_names[4])
 
     if dt_assign:
         if dt_arrival and dt_arrival < dt_assign:
@@ -208,7 +254,7 @@ def validate_container_reuse_conflict(
         c_no = (c_dict.get("container_no") or "").strip().upper()
         s_no = (c_dict.get("seal_no") or "").strip().upper()
         c_date_raw = c_dict.get("container_assignment_date")
-        c_date = parse_iso_datetime(c_date_raw)
+        c_date = parse_iso_datetime(c_date_raw, "container_assignment_date")
 
         if not c_no or not c_date:
             continue
@@ -228,3 +274,52 @@ def validate_container_reuse_conflict(
                             status_code=400,
                             detail=f"لا يمكن استخدام نفس رقم الحاوية ({c_no}) ونفس رقم السيل ({s_no}) في محيط زمني 15 يوماً (الفرق: {diff_days} يوم) من تاريخ التخصيص السابق ({str(ex_date.date())}) المسجل بالشحنة ({rec.cargo_shipping_code}). يرجى التحقق من رقم الحاوية أو إدخال رقم سيل مختلف في حال تدوير واستخدام نفس الحاوية."
                         )
+
+
+def validate_level1_allowed(dual_approval_status: Optional[str], status_value: Optional[str]) -> None:
+    """Level 1 cannot be resubmitted once the documents are dual approved (or the record went further)."""
+    if dual_approval_status == STATUS_DUAL_APPROVED or _status_rank(status_value) >= _status_rank(STATUS_DUAL_APPROVED):
+        raise HTTPException(
+            status_code=409,
+            detail="لا يمكن إعادة تقديم اعتماد المستوى الأول بعد إتمام الاعتماد المزدوج للمستندات.",
+        )
+
+
+def validate_level2_allowed(dual_approval_status: Optional[str], status_value: Optional[str]) -> None:
+    if dual_approval_status == STATUS_DUAL_APPROVED or _status_rank(status_value) >= _status_rank(STATUS_DUAL_APPROVED):
+        raise HTTPException(
+            status_code=409,
+            detail="تم إتمام الاعتماد المزدوج لهذه المستندات بالفعل.",
+        )
+
+
+def validate_envelope_stage_order(current_stage: Optional[str], target_stage: str) -> None:
+    required = ENVELOPE_PREVIOUS_STAGE[target_stage]
+    if current_stage != required:
+        raise HTTPException(
+            status_code=409,
+            detail=f"لا يمكن نقل مظروف CargoX إلى مرحلة {target_stage} قبل مرحلة {required} (المرحلة الحالية: {current_stage or 'غير محددة'}).",
+        )
+
+
+# Envelope stages after the checklist: re-running it would rewrite a verified (or uploaded) envelope.
+ENVELOPE_STAGES_AFTER_CHECKLIST = frozenset({"Ready for Upload", "Uploaded", "Completed"})
+# Workflow statuses that make a record part of the approved / transferred trail: never soft-deleted.
+UNDELETABLE_STATUSES = frozenset({STATUS_DUAL_APPROVED, STATUS_CARGOX_DONE, STATUS_COMPLETED})
+
+
+def validate_checklist_rerun_allowed(envelope_status: Optional[str], record_code: str) -> None:
+    if envelope_status in ENVELOPE_STAGES_AFTER_CHECKLIST:
+        raise HTTPException(
+            status_code=409,
+            detail=f"لا يمكن إعادة فحص قائمة CargoX للسجل {record_code} بعد وصول المظروف لمرحلة {envelope_status}.",
+        )
+
+
+def validate_deletable(record_status: Optional[str], record_code: str) -> None:
+    if record_status in UNDELETABLE_STATUSES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"لا يمكن حذف سجل الشحن {record_code} وهو في حالة {record_status}.",
+        )
+

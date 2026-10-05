@@ -43,6 +43,20 @@ metadata:
 - `backend_runner.run()` builds its startup Event itself (no `started=` param, no module global); tests capture it via a
   `start_watchdog` stub. Defaults come from `db_safety.is_frozen_build()/app_base_dir()` (resolved exe dir).
 - Heredocs in the Bash tool turn `\\x00` in embedded Python into real NUL bytes: put test/edit scripts in scratchpad files.
+- `D:/importflow_rehearsal/build/pyi` = PyInstaller 6.22.3 + hooks 2026.7 (pip --target). `flutter build` in a fresh
+  worktree rewrites `frontend/windows/flutter/generated_plugin*` line endings, so `git worktree remove` needs `--force`.
+- Migration kit (R2m sandbox): `kit/migration/` + `sandbox/run_migration.ps1` / `migration.wsb` / `migration_instructions.txt`.
+  1.0.58 `unins000.dat`: flags bit0 admin + bit7 admin-install-mode, registry record root 0x80000002 without the
+  64-bit bit (= HKLM WOW6432Node), all paths absolute under Program Files (x86), DB NOT logged -> only the DB is left
+  behind. Dev box HKLM key (Inno 6.7.1) is the template for faking it. The [Run] "Launch" box is ticked by default:
+  tell the clicker to untick it, or the backend stamps the migrated DB before the sha check.
+- PS 5.1: `& native.exe 2>&1` with `$ErrorActionPreference='Stop'` throws on any stderr line; set 'Continue' locally.
+- Unattended Sandbox e2e (`sandbox/run_e2e.ps1`, assembled by `build/assemble_e2e.py`): EnableLUA=0 in Sandbox, no notepad.
+  Inno 6.7 wizard buttons = `TNewButton` panes in UIA (match by ClassName, real mouse click). Flutter Windows exposes
+  semantics only via MSAA on the FLUTTERVIEW child HWND (managed UIA sees one pane); SendKeys `^a` types 'a' in Flutter.
+  Stop with `wsb stop --id` (killing WindowsSandbox* leaves the VM running headless). Never screenshot on the host.
+- Staging update host for rehearsals: `public_html/importflow/rehearsal/` (key rehearsal1), SSH key `~/.ssh/importflow_ci`,
+  known hosts `D:/importflow_rehearsal/hostinger_known_hosts.txt`. Download status bytes = new + previous installer.
 
 ## R2m migration from an old install folder (v2.1.1, 2026-09-26, after review round 2)
 - PrepareToInstall: {app} has DB -> pre_install backup (other DB folders only logged); none + exactly 1 other folder ->

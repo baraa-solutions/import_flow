@@ -14,14 +14,13 @@ Widget buildBrokerCostRow({
   required List<CurrencyModel> currenciesList,
 }) {
   final l = context.l10n;
-  final isAr = Localizations.localeOf(context).languageCode == 'ar';
   return Container(
     margin: const EdgeInsets.symmetric(vertical: 4),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: item.isApplicable ? AppTheme.emerald.withOpacity(0.04) : Colors.grey.shade50,
+      color: item.isApplicable ? AppTheme.emerald.withOpacity(0.04) : AppTheme.charcoalSurface,
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: item.isApplicable ? AppTheme.emerald.withOpacity(0.3) : Colors.grey.shade300),
+      border: Border.all(color: item.isApplicable ? AppTheme.emerald.withOpacity(0.3) : AppTheme.cloudWhite),
     ),
     child: Row(
       children: [
@@ -35,7 +34,7 @@ Widget buildBrokerCostRow({
                 onTap: () => CopyHelper.copy(
                   context,
                   item.expenseName,
-                  customMessage: isAr ? 'تم نسخ اسم البند' : 'Expense item name copied',
+                  customMessage: context.l10n.ccExpenseItemNameCopied,
                 ),
                 borderRadius: BorderRadius.circular(4),
                 child: Row(
@@ -49,13 +48,13 @@ Widget buildBrokerCostRow({
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.copy_outlined, size: 12, color: Colors.blueGrey),
+                    const Icon(Icons.copy_outlined, size: 12, color: AppTheme.charcoal),
                   ],
                 ),
               ),
               Text(
                 '${item.category.split('(').first.trim()} | ${item.unitType}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -138,7 +137,7 @@ Widget buildBrokerCostRow({
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: item.isApplicable ? AppTheme.emerald : Colors.red.shade900,
+                color: item.isApplicable ? AppTheme.emerald : AppTheme.crimson,
               ),
             ),
           ],
@@ -150,7 +149,7 @@ Widget buildBrokerCostRow({
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
-              color: item.isApplicable ? AppTheme.emerald.withOpacity(0.12) : Colors.grey.shade200,
+              color: item.isApplicable ? AppTheme.emerald.withOpacity(0.12) : AppTheme.cloudWhite,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -160,7 +159,7 @@ Widget buildBrokerCostRow({
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 11,
-                color: item.isApplicable ? AppTheme.emerald : Colors.grey.shade600,
+                color: item.isApplicable ? AppTheme.emerald : AppTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),

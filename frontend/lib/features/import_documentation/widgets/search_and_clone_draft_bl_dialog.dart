@@ -77,10 +77,10 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
@@ -95,7 +95,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.wcagCobalt.withOpacity(0.12),
+                      color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 22),
@@ -110,7 +110,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -118,7 +118,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                           l.draftBlClonedResetNotice,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
                       ],
@@ -137,16 +137,16 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                 key: const Key('searchDraftBlDialogQueryInput'),
                 controller: _queryController,
                 autofocus: true,
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                 decoration: InputDecoration(
                   hintText: l.searchDraftBlHint,
                   hintStyle: TextStyle(
                     fontSize: 13,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                    color: AppTheme.textMutedOf(context),
                   ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
@@ -158,14 +158,14 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
@@ -180,13 +180,13 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                            Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMutedOf(context)),
                             const SizedBox(height: 10),
                             Text(
                               l.noDraftBlFound,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: AppTheme.textSecondaryOf(context),
                               ),
                             ),
                           ],
@@ -206,7 +206,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                           final isApproved = r.status == 'Approved' || r.status == 'Final Approved';
 
                           return Material(
-                            color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                            color: AppTheme.surfaceAltOf(context),
                             borderRadius: BorderRadius.circular(8),
                             child: InkWell(
                               key: Key('selectDraftBlItem_${r.blReviewId}'),
@@ -220,7 +220,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                                    color: AppTheme.borderOf(context),
                                   ),
                                 ),
                                 child: Row(
@@ -228,7 +228,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.wcagCobalt.withOpacity(0.1),
+                                        color: AppTheme.wcagCobalt.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Icon(Icons.assignment_outlined, color: AppTheme.wcagCobalt, size: 20),
@@ -252,7 +252,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                                  color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
@@ -260,7 +260,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                                   style: TextStyle(
                                                     fontSize: 11.0,
                                                     fontWeight: FontWeight.w600,
-                                                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                    color: AppTheme.textSecondaryOf(context),
                                                   ),
                                                 ),
                                               ),
@@ -269,13 +269,13 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
                                                   color: isApproved
-                                                      ? (isDark ? const Color(0xFF064E3B) : Colors.green.shade50)
-                                                      : (isDark ? const Color(0xFF78350F) : Colors.amber.shade50),
+                                                      ? (AppTheme.severityBackgroundOf(context, AppSeverity.success))
+                                                      : (AppTheme.severityBackgroundOf(context, AppSeverity.warning)),
                                                   borderRadius: BorderRadius.circular(6),
                                                   border: Border.all(
                                                     color: isApproved
-                                                        ? (isDark ? const Color(0xFF059669) : Colors.green.shade300)
-                                                        : (isDark ? const Color(0xFFD97706) : Colors.amber.shade300),
+                                                        ? (AppTheme.emeraldBorder)
+                                                        : (AppTheme.orange),
                                                   ),
                                                 ),
                                                 child: Text(
@@ -284,8 +284,8 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                                     fontSize: 11.0,
                                                     fontWeight: FontWeight.bold,
                                                     color: isApproved
-                                                        ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)
-                                                        : (isDark ? const Color(0xFFFDE68A) : Colors.amber.shade900),
+                                                        ? (AppTheme.severityForegroundOf(context, AppSeverity.success))
+                                                        : (AppTheme.severityForegroundOf(context, AppSeverity.warning)),
                                                   ),
                                                 ),
                                               ),
@@ -326,13 +326,13 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+        Icon(icon, size: 13, color: AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 11.5,
-            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            color: AppTheme.textSecondaryOf(context),
           ),
         ),
       ],

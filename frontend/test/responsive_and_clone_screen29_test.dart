@@ -7,6 +7,7 @@ import 'package:frontend/core/widgets/clone_entity_review_dialog.dart';
 import 'package:frontend/features/financial_settlement/models/financial_settlement_model.dart';
 import 'package:frontend/features/financial_settlement/providers/financial_settlement_provider.dart';
 import 'package:frontend/features/financial_settlement/screens/financial_settlement_screen.dart';
+import 'package:frontend/features/financial_settlement/widgets/settlement_form_dialog.dart';
 import 'package:frontend/features/financial_settlement/widgets/search_and_clone_financial_settlement_dialog.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
@@ -354,18 +355,8 @@ void main() {
       await tester.tap(find.byKey(const Key('selectSettlementToCloneBtn_SETTLE-2026-0001')));
       await tester.pumpAndSettle();
 
-      // Confirm CloneEntityReviewDialog appears
-      expect(find.byType(CloneEntityReviewDialog), findsOneWidget);
-
-      // Verify reset invariants are highlighted
-      expect(find.textContaining('معرف التسوية'), findsWidgets);
-      expect(find.textContaining('SETTLE-DRAFT-'), findsWidgets);
-
-      // Confirm cloning into draft
-      final confirmBtn = find.byKey(const Key('confirmCloneBtn'));
-      expect(confirmBtn, findsOneWidget);
-      await tester.tap(confirmBtn);
-      await tester.pumpAndSettle();
+      // The clone opens the settlement form pre-filled as a draft (target file must differ).
+      expect(find.byType(SettlementFormDialog), findsOneWidget);
 
       // Form dialog opens populated with cloned draft data
       expect(find.text('INV-MSK-01-DRAFT'), findsWidgets);
@@ -409,8 +400,7 @@ void main() {
       await tester.tap(rowCloneBtn);
       await tester.pumpAndSettle();
 
-      expect(find.byType(CloneEntityReviewDialog), findsOneWidget);
-      expect(find.textContaining('SETTLE-2026-0001'), findsWidgets);
+      expect(find.byType(SettlementFormDialog), findsOneWidget);
     });
   });
 }

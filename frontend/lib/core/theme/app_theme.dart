@@ -86,6 +86,153 @@ class AppTheme {
   static const Color wcagCrimson = Color(0xFFC0392B); // Flat Crimson (Contrast 5.12:1 with white)
   static const Color wcagOrange = Color(0xFFB45309);  // Deep Amber/Orange (Contrast 4.65:1 with white)
 
+  // ── Neutral Tokens (light-theme greys, surfaces on filled colours) ───────────
+  /// Pure white: card surfaces and text/icons on filled (cobalt/emerald/...) backgrounds.
+  static const Color white = Color(0xFFFFFFFF);
+  /// Pure black: shadows and scrims only (use `.withOpacity`/alpha).
+  static const Color black = Color(0xFF000000);
+  /// Secondary text on light surfaces (grey 600, contrast 4.6:1 on white).
+  static const Color textSecondary = Color(0xFF757575);
+  /// Stronger secondary text on light surfaces (grey 700).
+  static const Color textStrong = Color(0xFF616161);
+  /// Hints, disabled icons and placeholders on light surfaces (grey 500).
+  static const Color textMuted = Color(0xFF9E9E9E);
+
+
+  // ── Semantic Surface / Border / Text Tokens (additive) ────────────────────
+  // Light-theme values; use the `...Of(context)` helpers to get the adaptive
+  // (light/dark) value. Feature code should prefer these over raw greys.
+
+  /// Primary surface (cards, dialogs, inputs on light theme).
+  static const Color surface = Color(0xFFFFFFFF);
+  /// Alternate surface: zebra rows, table headers, subtle panels.
+  static const Color surfaceAlt = Color(0xFFF7F9FB);
+  /// Hairline border for cards, inputs and dividers.
+  static const Color border = Color(0xFFE2E8F0);
+  /// Stronger border: hovered inputs, outlined buttons, emphasised separators.
+  static const Color borderStrong = Color(0xFFCBD5E1);
+  /// Primary text on light surfaces (charcoal).
+  static const Color textPrimary = charcoal;
+  /// Subdued text for captions on light surfaces (slate 500, contrast 4.8:1).
+  static const Color textCaption = Color(0xFF64748B);
+
+  // Severity backgrounds (opaque tints) + foregrounds (WCAG AA on the tint).
+  static const Color successBackground = Color(0xFFE8F6EE);
+  static const Color warningBackground = Color(0xFFFDF1E4);
+  static const Color dangerBackground = Color(0xFFFBEAE8);
+  static const Color infoBackground = Color(0xFFE8F3FB);
+  static const Color successForeground = wcagEmerald;
+  static const Color warningForeground = wcagOrange;
+  static const Color dangerForeground = wcagCrimson;
+  static const Color infoForeground = wcagCobalt;
+
+  // Dark counterparts of the severity tints.
+  static const Color _successBackgroundDark = Color(0xFF16352A);
+  static const Color _warningBackgroundDark = Color(0xFF3A2A18);
+  static const Color _dangerBackgroundDark = Color(0xFF3B1F20);
+  static const Color _infoBackgroundDark = Color(0xFF17304A);
+
+  // ── Radii & Shadows (additive) ────────────────────────────────────────────
+  /// Chips, badges, small inner elements.
+  static const double radiusSm = 6.0;
+  /// Controls: buttons, inputs, menus.
+  static const double radiusMd = 8.0;
+  /// Containers: cards, panels, dialogs, tables.
+  static const double radiusLg = 12.0;
+  static const double radiusXl = 16.0;
+
+  /// Soft two-layer elevation for cards and panels (light).
+  static const List<BoxShadow> shadowSoft = [
+    BoxShadow(color: Color(0x0F1E293B), blurRadius: 12, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x0A1E293B), blurRadius: 2, offset: Offset(0, 1)),
+  ];
+  /// Slightly stronger shadow for popovers / floating surfaces.
+  static const List<BoxShadow> shadowFloating = [
+    BoxShadow(color: Color(0x1F1E293B), blurRadius: 24, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x0F1E293B), blurRadius: 4, offset: Offset(0, 2)),
+  ];
+
+  /// Adaptive helpers (light/dark).
+  static Color surfaceOf(BuildContext context) =>
+      isDark(context) ? darkCardBackground : surface;
+  static Color surfaceAltOf(BuildContext context) =>
+      isDark(context) ? darkInputBackground : surfaceAlt;
+  static Color borderOf(BuildContext context) =>
+      isDark(context) ? darkBorder : border;
+  static Color textPrimaryOf(BuildContext context) =>
+      isDark(context) ? darkTextPrimary : textPrimary;
+  static Color textSecondaryOf(BuildContext context) =>
+      isDark(context) ? darkTextSecondary : textCaption;
+  static Color textMutedOf(BuildContext context) =>
+      isDark(context) ? darkTextMuted : textMuted;
+
+  /// Foreground colour of a [AppSeverity].
+  static Color severityColor(AppSeverity severity, {bool dark = false}) {
+    switch (severity) {
+      case AppSeverity.success:
+        return dark ? emerald : successForeground;
+      case AppSeverity.warning:
+        return dark ? orange : warningForeground;
+      case AppSeverity.danger:
+        return dark ? const Color(0xFFE5655A) : dangerForeground;
+      case AppSeverity.info:
+        return dark ? cobalt : infoForeground;
+    }
+  }
+
+  /// Background tint of a [AppSeverity].
+  static Color severityBackground(AppSeverity severity, {bool dark = false}) {
+    switch (severity) {
+      case AppSeverity.success:
+        return dark ? _successBackgroundDark : successBackground;
+      case AppSeverity.warning:
+        return dark ? _warningBackgroundDark : warningBackground;
+      case AppSeverity.danger:
+        return dark ? _dangerBackgroundDark : dangerBackground;
+      case AppSeverity.info:
+        return dark ? _infoBackgroundDark : infoBackground;
+    }
+  }
+
+  static Color severityForegroundOf(BuildContext context, AppSeverity s) =>
+      severityColor(s, dark: isDark(context));
+  static Color severityBackgroundOf(BuildContext context, AppSeverity s) =>
+      severityBackground(s, dark: isDark(context));
+
+  /// Standard floating, rounded, severity-coloured SnackBar.
+  static SnackBar snackBar(
+    BuildContext context,
+    String message, {
+    AppSeverity severity = AppSeverity.info,
+    SnackBarAction? action,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    final icon = switch (severity) {
+      AppSeverity.success => Icons.check_circle_outline,
+      AppSeverity.warning => Icons.warning_amber_rounded,
+      AppSeverity.danger => Icons.error_outline,
+      AppSeverity.info => Icons.info_outline,
+    };
+    final bg = switch (severity) {
+      AppSeverity.success => wcagEmerald,
+      AppSeverity.warning => wcagOrange,
+      AppSeverity.danger => wcagCrimson,
+      AppSeverity.info => charcoal,
+    };
+    return SnackBar(
+      backgroundColor: bg,
+      duration: duration,
+      action: action,
+      content: Row(
+        children: [
+          Icon(icon, color: white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: const TextStyle(color: white))),
+        ],
+      ),
+    );
+  }
+
   // ── Context-Aware Theme & Decoration Helpers ──────────────────────────────
 
   /// Detect whether the current context is rendering in Dark Mode.
@@ -93,112 +240,71 @@ class AppTheme {
       Theme.of(context).brightness == Brightness.dark;
 
   /// Standard card/panel decoration — adaptive to light/dark brightness.
-  static BoxDecoration cardDecorationOf(BuildContext context) {
-    final dark = isDark(context);
-    return BoxDecoration(
-      color: dark ? darkCardBackground : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: dark ? darkBorder : const Color(0xFFE0E0E0)),
-      boxShadow: [
-        BoxShadow(
-          color: dark ? const Color(0x33000000) : const Color(0x0A000000),
-          blurRadius: 5,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
-  }
+  static BoxDecoration cardDecorationOf(BuildContext context) =>
+      isDark(context) ? darkCardDecoration : cardDecoration;
 
   /// Lighter decoration for toolbar containers — adaptive.
-  static BoxDecoration toolbarDecorationOf(BuildContext context) {
-    final dark = isDark(context);
-    return BoxDecoration(
-      color: dark ? darkSurface : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: dark ? darkBorder : const Color(0xFFE0E0E0)),
-      boxShadow: [
-        BoxShadow(
-          color: dark ? const Color(0x29000000) : const Color(0x08000000),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
-  }
+  static BoxDecoration toolbarDecorationOf(BuildContext context) =>
+      isDark(context) ? darkToolbarDecoration : toolbarDecoration;
 
   /// Decoration for action pill containers — adaptive.
-  static BoxDecoration pillDecorationOf(BuildContext context) {
-    final dark = isDark(context);
-    return BoxDecoration(
-      color: dark ? darkSurface : Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: dark ? darkBorder : const Color(0xFFEEEEEE)),
-      boxShadow: [
-        BoxShadow(
-          color: dark ? const Color(0x20000000) : const Color(0x05000000),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-  }
+  static BoxDecoration pillDecorationOf(BuildContext context) =>
+      isDark(context) ? darkPillDecoration : pillDecoration;
 
   // ── Shared BoxDecorations (Legacy & Static) ───────────────────────────────
 
   /// Standard card/panel decoration — used in toolbars and form sections (Light).
   static BoxDecoration get cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 5, offset: Offset(0, 2)),
-        ],
+        color: surface,
+        borderRadius: BorderRadius.circular(radiusLg),
+        border: Border.all(color: border),
+        boxShadow: shadowSoft,
       );
 
   /// Dark card/panel decoration.
   static BoxDecoration get darkCardDecoration => BoxDecoration(
         color: darkCardBackground,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(radiusLg),
         border: Border.all(color: darkBorder),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 5, offset: Offset(0, 2)),
+          BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 2)),
         ],
       );
 
   /// Lighter decoration for toolbar containers (Light).
   static BoxDecoration get toolbarDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        color: surface,
+        borderRadius: BorderRadius.circular(radiusLg),
+        border: Border.all(color: border),
         boxShadow: const [
-          BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2)),
+          BoxShadow(color: Color(0x0A1E293B), blurRadius: 6, offset: Offset(0, 2)),
         ],
       );
 
   /// Dark toolbar decoration.
   static BoxDecoration get darkToolbarDecoration => BoxDecoration(
         color: darkSurface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(radiusLg),
         border: Border.all(color: darkBorder),
         boxShadow: const [
-          BoxShadow(color: Color(0x29000000), blurRadius: 4, offset: Offset(0, 2)),
+          BoxShadow(color: Color(0x29000000), blurRadius: 6, offset: Offset(0, 2)),
         ],
       );
 
   /// Decoration for action pill containers (Light).
   static BoxDecoration get pillDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        color: surface,
+        borderRadius: BorderRadius.circular(radiusMd),
+        border: Border.all(color: border),
         boxShadow: const [
-          BoxShadow(color: Color(0x05000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(color: Color(0x081E293B), blurRadius: 3, offset: Offset(0, 1)),
         ],
       );
 
   /// Dark pill decoration.
   static BoxDecoration get darkPillDecoration => BoxDecoration(
         color: darkSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(radiusMd),
         border: Border.all(color: darkBorder),
         boxShadow: const [
           BoxShadow(color: Color(0x20000000), blurRadius: 3, offset: Offset(0, 1)),
@@ -209,307 +315,349 @@ class AppTheme {
   /// example 'monospace'): Arabic then still renders with a Windows font.
   static const List<String> fontFamilyFallback = ['Segoe UI', 'Tahoma'];
 
-  static ThemeData get lightTheme {
+  /// Type scale. Letter spacing is 0 everywhere: positive tracking (the M3
+  /// default for body/label styles) breaks Arabic letter joining. Line heights
+  /// leave room for Arabic diacritics/ascenders.
+  static TextTheme _textTheme(Color primary, Color secondary) {
+    TextStyle s(double size, FontWeight w, double h, {Color? c}) => TextStyle(
+          fontSize: size,
+          fontWeight: w,
+          height: h,
+          letterSpacing: 0,
+          color: c ?? primary,
+        );
+    return TextTheme(
+      displayLarge: s(40, FontWeight.w700, 1.2),
+      displayMedium: s(34, FontWeight.w700, 1.2),
+      displaySmall: s(28, FontWeight.w700, 1.25),
+      headlineLarge: s(26, FontWeight.w700, 1.3),
+      headlineMedium: s(22, FontWeight.w700, 1.3),
+      headlineSmall: s(19, FontWeight.w700, 1.35),
+      titleLarge: s(17, FontWeight.w700, 1.4),
+      titleMedium: s(15, FontWeight.w600, 1.45),
+      titleSmall: s(13.5, FontWeight.w600, 1.45),
+      bodyLarge: s(14.5, FontWeight.w400, 1.5),
+      bodyMedium: s(13.5, FontWeight.w400, 1.5),
+      bodySmall: s(12, FontWeight.w400, 1.5, c: secondary),
+      labelLarge: s(13, FontWeight.w600, 1.45),
+      labelMedium: s(12, FontWeight.w600, 1.45),
+      labelSmall: s(11, FontWeight.w500, 1.45, c: secondary),
+    );
+  }
+
+  static ThemeData get lightTheme => _buildTheme(Brightness.light);
+
+  /// Dark Theme (الوضع الليلي المكتبي عالي التباين)
+  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+
+    final Color scaffold = dark ? darkScaffoldBackground : cloudWhite;
+    final Color surfaceColor = dark ? darkSurface : surface;
+    final Color cardColor = dark ? darkCardBackground : surface;
+    final Color borderColor = dark ? darkBorder : border;
+    final Color borderStrongColor = dark ? darkBorderLight : borderStrong;
+    final Color onSurface = dark ? darkTextPrimary : charcoal;
+    final Color secondaryText = dark ? darkTextSecondary : textCaption;
+    final Color mutedText = dark ? darkTextMuted : textMuted;
+    final Color inputFill = dark ? darkInputBackground : surfaceAlt;
+    final Color headingRow = dark ? darkInputBackground : const Color(0xFFF1F5F9);
+
+    final colorScheme = (dark
+            ? const ColorScheme.dark(
+                primary: cobalt,
+                secondary: emerald,
+                error: crimson,
+                surface: darkSurface,
+                onSurface: darkTextPrimary,
+                surfaceContainerHighest: darkElevatedSurface,
+                outline: darkBorder,
+              )
+            : const ColorScheme.light(
+                primary: cobalt,
+                secondary: emerald,
+                error: crimson,
+                surface: surface,
+                onSurface: charcoal,
+                surfaceContainerHighest: Color(0xFFF1F4F8),
+                outline: border,
+              ))
+        .copyWith(outlineVariant: borderColor);
+
+    OutlineInputBorder inputBorder(Color c, [double w = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMd),
+          borderSide: BorderSide(color: c, width: w),
+        );
+
+    final buttonShape =
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMd));
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: brightness,
       primaryColor: cobalt,
-      scaffoldBackgroundColor: cloudWhite,
-      cardColor: Colors.white,
+      scaffoldBackgroundColor: scaffold,
+      cardColor: cardColor,
       fontFamily: 'Segoe UI',
       fontFamilyFallback: fontFamilyFallback,
+      colorScheme: colorScheme,
+      textTheme: _textTheme(onSurface, secondaryText),
+      visualDensity: VisualDensity.standard,
+      splashFactory: InkRipple.splashFactory,
 
       // App Bar Theme
-      appBarTheme: const AppBarTheme(
-        backgroundColor: charcoal,
+      appBarTheme: AppBarTheme(
+        backgroundColor: dark ? const Color(0xFF141A22) : charcoal,
         foregroundColor: cloudWhite,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: cloudWhite,
+          letterSpacing: 0,
+        ),
       ),
 
       // Global Scrollbar Theme across all pages
       scrollbarTheme: ScrollbarThemeData(
         thumbVisibility: WidgetStateProperty.all(true),
         trackVisibility: WidgetStateProperty.all(true),
-        thickness: WidgetStateProperty.all(8.0),
-        radius: const Radius.circular(6),
+        thickness: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.hovered) ? 9.0 : 7.0),
+        radius: const Radius.circular(8),
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.dragged)) {
-            return cobalt;
-          }
+          if (states.contains(WidgetState.dragged)) return cobalt;
           if (states.contains(WidgetState.hovered)) {
             return cobalt.withValues(alpha: 0.85);
           }
-          return Colors.grey.shade400;
+          return dark ? const Color(0xFF475569) : borderStrong;
         }),
-        trackColor: WidgetStateProperty.all(Colors.grey.shade200),
+        trackColor: WidgetStateProperty.all(
+            dark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9)),
         trackBorderColor: WidgetStateProperty.all(Colors.transparent),
         crossAxisMargin: 2,
         mainAxisMargin: 2,
       ),
 
-      // Color Scheme
-      colorScheme: const ColorScheme.light(
-        primary: cobalt,
-        secondary: emerald,
-        error: crimson,
-        surface: Colors.white,
-        onSurface: charcoal,
-        surfaceContainerHighest: Color(0xFFF1F4F8),
-        outline: Color(0xFFE0E0E0),
-      ),
-
       // Card Theme
       cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 2,
-        shadowColor: const Color(0x0A000000),
+        color: cardColor,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shadowColor: const Color(0x1A1E293B),
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(radiusLg),
+          side: BorderSide(color: borderColor),
         ),
       ),
 
       // Dialog Theme
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titleTextStyle: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: charcoal,
+        backgroundColor: dark ? darkElevatedSurface : surface,
+        elevation: 12,
+        shadowColor: const Color(0x331E293B),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusXl),
+          side: dark ? BorderSide(color: borderColor) : BorderSide.none,
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+          letterSpacing: 0,
+          color: onSurface,
+        ),
+        contentTextStyle: TextStyle(
+          fontSize: 13.5,
+          height: 1.5,
+          letterSpacing: 0,
+          color: onSurface,
         ),
       ),
 
       // Input Decoration Theme (Forms & Inputs)
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: TextStyle(color: Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w500),
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: cobalt, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: crimson, width: 1.5),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: crimson, width: 2),
-        ),
+        fillColor: inputFill,
+        isDense: true,
+        contentPadding:
+            const EdgeInsetsDirectional.fromSTEB(14, 12, 14, 12),
+        labelStyle: TextStyle(
+            color: secondaryText, fontSize: 13.5, fontWeight: FontWeight.w500),
+        floatingLabelStyle: const TextStyle(
+            color: cobalt, fontSize: 13.5, fontWeight: FontWeight.w600),
+        hintStyle: TextStyle(color: mutedText, fontSize: 13),
+        helperStyle: TextStyle(color: secondaryText, fontSize: 11.5),
+        errorStyle: const TextStyle(
+            color: crimson, fontSize: 11.5, fontWeight: FontWeight.w500),
+        prefixIconColor: secondaryText,
+        suffixIconColor: secondaryText,
+        border: inputBorder(borderColor),
+        enabledBorder: inputBorder(borderColor),
+        disabledBorder: inputBorder(borderColor.withValues(alpha: 0.6)),
+        focusedBorder: inputBorder(cobalt, 1.8),
+        errorBorder: inputBorder(crimson, 1.4),
+        focusedErrorBorder: inputBorder(crimson, 1.8),
       ),
 
-      // Elevated Button Theme
+      // Buttons
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: cobalt,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          foregroundColor: white,
+          elevation: 1,
+          shadowColor: const Color(0x401E293B),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: buttonShape,
+          textStyle: const TextStyle(
+              fontWeight: FontWeight.w700, fontSize: 13.5, letterSpacing: 0),
         ),
       ),
-
-      // Outlined Button Theme
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: cobalt,
+          foregroundColor: white,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: buttonShape,
+          textStyle: const TextStyle(
+              fontWeight: FontWeight.w700, fontSize: 13.5, letterSpacing: 0),
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: charcoal,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          side: BorderSide(color: Colors.grey.shade300),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          foregroundColor: onSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          side: BorderSide(color: borderStrongColor),
+          shape: buttonShape,
+          textStyle: const TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 13.5, letterSpacing: 0),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: dark ? darkHyperlink : wcagCobalt,
+          shape: buttonShape,
+          textStyle: const TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 13.5, letterSpacing: 0),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(shape: buttonShape),
       ),
 
       // Divider Theme
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFFE0E0E0),
-        thickness: 1,
-        space: 1,
-      ),
+      dividerTheme: DividerThemeData(color: borderColor, thickness: 1, space: 1),
 
       // DataTable Theme
       dataTableTheme: DataTableThemeData(
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F4F8)),
-        headingTextStyle: const TextStyle(
-          color: charcoal,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
+        headingRowColor: WidgetStateProperty.all(headingRow),
+        headingRowHeight: 44,
+        headingTextStyle: TextStyle(
+          color: onSurface,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+          letterSpacing: 0,
         ),
-        dataTextStyle: const TextStyle(
-          color: charcoal,
-          fontSize: 13,
-        ),
-        dividerThickness: 1,
-        horizontalMargin: 16,
-        columnSpacing: 20,
-      ),
-    );
-  }
-
-  /// Dark Theme (الوضع الليلي المكتبي عالي التباين)
-  static ThemeData get darkTheme {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      primaryColor: cobalt,
-      scaffoldBackgroundColor: darkScaffoldBackground,
-      cardColor: darkCardBackground,
-      fontFamily: 'Segoe UI',
-      fontFamilyFallback: fontFamilyFallback,
-
-      // App Bar Theme
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF141A22),
-        foregroundColor: cloudWhite,
-        elevation: 0,
-      ),
-
-      // Global Scrollbar Theme across all pages in Dark Mode
-      scrollbarTheme: ScrollbarThemeData(
-        thumbVisibility: WidgetStateProperty.all(true),
-        trackVisibility: WidgetStateProperty.all(true),
-        thickness: WidgetStateProperty.all(8.0),
-        radius: const Radius.circular(6),
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.dragged)) {
-            return cobalt;
-          }
+        dataTextStyle: TextStyle(color: onSurface, fontSize: 13, letterSpacing: 0),
+        dataRowColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return cobaltLight;
           if (states.contains(WidgetState.hovered)) {
-            return cobalt.withValues(alpha: 0.85);
+            return dark ? const Color(0x33FFFFFF) : const Color(0xFFF1F5F9);
           }
-          return const Color(0xFF475569);
+          return null;
         }),
-        trackColor: WidgetStateProperty.all(const Color(0xFF1E2631)),
-        trackBorderColor: WidgetStateProperty.all(Colors.transparent),
-        crossAxisMargin: 2,
-        mainAxisMargin: 2,
-      ),
-
-      // Color Scheme
-      colorScheme: const ColorScheme.dark(
-        primary: cobalt,
-        secondary: emerald,
-        error: crimson,
-        surface: darkSurface,
-        onSurface: darkTextPrimary,
-        surfaceContainerHighest: darkElevatedSurface,
-        outline: darkBorder,
-      ),
-
-      // Card Theme
-      cardTheme: CardThemeData(
-        color: darkCardBackground,
-        elevation: 2,
-        shadowColor: const Color(0x33000000),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: darkBorder),
-        ),
-      ),
-
-      // Dialog Theme
-      dialogTheme: DialogThemeData(
-        backgroundColor: darkElevatedSurface,
-        elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: darkBorder),
-        ),
-        titleTextStyle: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: darkTextPrimary,
-        ),
-      ),
-
-      // Input Decoration Theme (Forms & Inputs in Dark Mode)
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: darkInputBackground,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: const TextStyle(color: darkTextSecondary, fontSize: 14, fontWeight: FontWeight.w500),
-        hintStyle: const TextStyle(color: darkTextMuted, fontSize: 13),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: darkBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: darkBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: cobalt, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: crimson, width: 1.5),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: crimson, width: 2),
-        ),
-      ),
-
-      // Elevated Button Theme
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: cobalt,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-      ),
-
-      // Outlined Button Theme
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: cloudWhite,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          side: const BorderSide(color: darkBorderLight),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-      ),
-
-      // Divider Theme
-      dividerTheme: const DividerThemeData(
-        color: darkBorder,
-        thickness: 1,
-        space: 1,
-      ),
-
-      // DataTable Theme
-      dataTableTheme: DataTableThemeData(
-        headingRowColor: WidgetStateProperty.all(const Color(0xFF1E2631)),
-        headingTextStyle: const TextStyle(
-          color: darkTextPrimary,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-        dataTextStyle: const TextStyle(
-          color: darkTextPrimary,
-          fontSize: 13,
-        ),
         dividerThickness: 1,
         horizontalMargin: 16,
         columnSpacing: 20,
+      ),
+
+      // Chips / badges
+      chipTheme: ChipThemeData(
+        backgroundColor: dark ? darkInputBackground : const Color(0xFFF1F5F9),
+        selectedColor: cobaltMedium,
+        disabledColor: borderColor,
+        side: BorderSide(color: borderColor),
+        labelStyle: TextStyle(
+            color: onSurface, fontSize: 12, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(
+            color: cobalt, fontSize: 12, fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusSm)),
+      ),
+
+      // Tabs
+      tabBarTheme: TabBarThemeData(
+        labelColor: dark ? darkHyperlink : wcagCobalt,
+        unselectedLabelColor: secondaryText,
+        labelStyle: const TextStyle(
+            fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: 0),
+        unselectedLabelStyle: const TextStyle(
+            fontSize: 13.5, fontWeight: FontWeight.w500, letterSpacing: 0),
+        indicatorColor: cobalt,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: borderColor,
+        overlayColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.hovered) ? cobaltLight : null),
+      ),
+
+      // Tooltip
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 400),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: dark ? const Color(0xFF0F172A) : charcoal,
+          borderRadius: BorderRadius.circular(radiusMd),
+          boxShadow: shadowFloating,
+        ),
+        textStyle: const TextStyle(
+            color: white, fontSize: 12, height: 1.4, letterSpacing: 0),
+      ),
+
+      // SnackBar: floating, rounded
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: dark ? darkElevatedSurface : charcoal,
+        contentTextStyle: const TextStyle(
+            color: white, fontSize: 13.5, height: 1.4, letterSpacing: 0),
+        actionTextColor: dark ? darkHyperlink : const Color(0xFF8FD0FF),
+        elevation: 6,
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusMd)),
+      ),
+
+      // Menus / popups
+      popupMenuTheme: PopupMenuThemeData(
+        color: surfaceColor,
+        elevation: 8,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: const Color(0x331E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMd),
+          side: BorderSide(color: borderColor),
+        ),
+        textStyle: TextStyle(color: onSurface, fontSize: 13.5, letterSpacing: 0),
+      ),
+
+      // Selection controls
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        side: BorderSide(color: borderStrongColor, width: 1.5),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: cobalt),
+      listTileTheme: ListTileThemeData(
+        iconColor: secondaryText,
+        textColor: onSurface,
       ),
     );
   }
 }
+
+/// Semantic severity used by badges, banners and snackbars.
+enum AppSeverity { success, warning, danger, info }

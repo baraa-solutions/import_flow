@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/demurrage_detention/models/demurrage_model.dart';
 import 'package:frontend/features/demurrage_detention/providers/demurrage_provider.dart';
 import 'package:frontend/features/demurrage_detention/widgets/free_days_agreement_dialog.dart';
@@ -69,12 +70,15 @@ void main() {
 
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: FreeDaysAgreementDialog(
-                initialCarrierName: 'MSC',
-                initialDemurrageDays: 21,
-                initialDetentionDays: 14,
+          child: AppLocalizationsProvider(
+            locale: Locale('en'),
+            child: MaterialApp(
+              home: Scaffold(
+                body: FreeDaysAgreementDialog(
+                  initialCarrierName: 'MSC',
+                  initialDemurrageDays: 21,
+                  initialDetentionDays: 14,
+                ),
               ),
             ),
           ),
@@ -83,16 +87,16 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify header titles (default test locale is en; dialog localizes via Localizations.localeOf)
+      // Verify header titles (English via AppLocalizationsProvider)
       expect(find.text('Free Days Agreement (BK-02)'), findsOneWidget);
-      expect(find.text('Free Days Agreement & Demurrage Radar Feed'), findsOneWidget);
+      expect(find.textContaining('Document the free days agreed with the carrier'), findsOneWidget);
 
       // Verify inputs present
       expect(find.text('21'), findsOneWidget);
       expect(find.text('14'), findsOneWidget);
 
       // Verify live savings and benefit card
-      expect(find.textContaining('Financial Savings & Radar Analysis:'), findsOneWidget);
+      expect(find.textContaining('Financial Savings & Radar Analysis'), findsOneWidget);
       expect(find.textContaining('Confirm Free Days (BK-02)'), findsOneWidget);
     });
   });

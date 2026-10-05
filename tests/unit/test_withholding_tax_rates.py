@@ -37,12 +37,24 @@ TRANSPORT_TOTAL = 7500.0
 
 @pytest.fixture()
 def db():
+    from modules.currencies.model import Currency, ExchangeRate
+    from modules.currencies.service import clear_currency_cache
+
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
+    # The goods row of the file is in USD: phase 09 needs a configured rate (no hard-coded 48.5).
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    session.add(usd)
+    session.flush()
+    session.add(ExchangeRate(currency_id=usd.currency_id, customs_rate=Decimal("48.5"),
+                             commercial_rate=Decimal("48.5"), effective_date=date(2020, 1, 1), is_active=True))
+    session.commit()
+    clear_currency_cache()
     try:
         yield session
     finally:
         session.close()
+        clear_currency_cache()
         Base.metadata.drop_all(bind=engine)
 
 

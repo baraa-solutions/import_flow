@@ -258,7 +258,7 @@ def test_fn01_supplier_advance_payment_request_creation(db_session, seed_data):
     assert result.requested_amount == 25500.0
     assert result.requested_amount_egp == 25500.0 * 48.50
     assert result.status == "Pending Approval"
-    assert result.payment_type == "Advance Payment"
+    assert result.payment_type == "ADVANCE_PAYMENT"  # Phase 2 quality (C2): PAYMENT_TYPE codes
     assert result.bank_name == "Bank of China - Shanghai Pudong Branch"
     assert result.swift_code == "BKCHCN2S"
     assert result.iban_account_no == "CN66BKCH662288990011"
@@ -342,6 +342,7 @@ def test_fn01_duplicate_advance_payment_prevention(db_session, seed_data):
         supplier_name=supplier.company_name,
         payment_type="Advance Payment",
         requested_amount=25500.0,
+        exchange_rate=48.50,
         due_date=date.today() + timedelta(days=7),
     )
     create_payment_request_service(db_session, payload1)
@@ -353,6 +354,7 @@ def test_fn01_duplicate_advance_payment_prevention(db_session, seed_data):
         supplier_name=supplier.company_name,
         payment_type="Advance Payment",
         requested_amount=10000.0,
+        exchange_rate=48.50,
         due_date=date.today() + timedelta(days=7),
     )
 

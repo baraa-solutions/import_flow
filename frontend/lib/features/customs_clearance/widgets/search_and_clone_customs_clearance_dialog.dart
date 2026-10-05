@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/ltr_text.dart';
 import '../models/customs_clearance_model.dart';
+import 'customs_ui.dart';
 
 /// Search and Clone Previous Customs Clearance Record Dialog (Screen 27 / SubTab 0)
 ///
@@ -76,23 +80,38 @@ class _SearchAndCloneCustomsClearanceDialogState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = l.isArabic;
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = (screenWidth - 32).clamp(360.0, 920.0);
 
+    final channelLabels = <String, String>{
+      'All': l.ccCloneAll,
+      'Red': l.ccCloneRed,
+      'Green': l.ccCloneGreen,
+      'Yellow': l.ccCloneYellow,
+    };
+    final statusLabels = <String, String>{
+      'All': l.customsClearanceFilterAll,
+      'Inspection In Progress': l.customsClearanceFilterInspection,
+      'Duty Requested': l.customsClearanceFilterDutyRequested,
+      'Duty Paid': l.customsClearanceFilterDutyPaid,
+      'Final Release Granted': l.customsClearanceFilterFinalRelease,
+    };
+    final labelStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.bold,
+      color: AppTheme.textSecondaryOf(context),
+    );
+
     return Dialog(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: dialogWidth, maxHeight: 680),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsetsDirectional.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -100,18 +119,12 @@ class _SearchAndCloneCustomsClearanceDialogState
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsetsDirectional.all(10),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF0F172A)
-                          : AppTheme.cobalt.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.cobaltLight,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     ),
-                    child: const Icon(
-                      Icons.gavel_rounded,
-                      color: AppTheme.cobalt,
-                      size: 24,
-                    ),
+                    child: const Icon(Icons.gavel_rounded, color: AppTheme.cobalt, size: 24),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -123,16 +136,13 @@ class _SearchAndCloneCustomsClearanceDialogState
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           l.cloneCustomsClearanceDialogSubtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                          ),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ],
                     ),
@@ -151,9 +161,7 @@ class _SearchAndCloneCustomsClearanceDialogState
                 controller: _searchController,
                 onChanged: (_) => _applyFilter(),
                 decoration: InputDecoration(
-                  hintText: isAr
-                      ? 'ابحث برقم البيان، 46 ك.م، إذن التسليم، أو الجمرك...'
-                      : 'Search by clearance code, Decl. 46, D/O no., or customs office...',
+                  hintText: l.ccCloneSearchHint,
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -165,14 +173,12 @@ class _SearchAndCloneCustomsClearanceDialogState
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-                    ),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
@@ -182,65 +188,31 @@ class _SearchAndCloneCustomsClearanceDialogState
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    Text(
-                      isAr ? 'المسار: ' : 'Channel: ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-                      ),
-                    ),
-                    ...['All', 'Red', 'Green', 'Yellow'].map((c) {
-                      final isSelected = _selectedChannel == c;
-                      String label = c == 'All' ? (isAr ? 'الكل' : 'All') : c;
-                      if (c == 'Red') label = isAr ? 'أحمر' : 'Red';
-                      if (c == 'Green') label = isAr ? 'أخضر' : 'Green';
-                      if (c == 'Yellow') label = isAr ? 'أصفر' : 'Yellow';
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: ChoiceChip(
-                          label: Text(label),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedChannel = c;
+                    Text(l.ccCloneChannelLabel, style: labelStyle),
+                    ...channelLabels.entries.map((c) => Padding(
+                          padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            label: Text(c.value),
+                            selected: _selectedChannel == c.key,
+                            onSelected: (_) {
+                              setState(() => _selectedChannel = c.key);
                               _applyFilter();
-                            });
-                          },
-                        ),
-                      );
-                    }),
+                            },
+                          ),
+                        )),
                     const SizedBox(width: 12),
-                    Text(
-                      isAr ? 'الحالة: ' : 'Status: ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-                      ),
-                    ),
-                    ...['All', 'Inspection In Progress', 'Duty Requested', 'Duty Paid', 'Final Release Granted'].map((s) {
-                      final isSelected = _selectedStatus == s;
-                      String label = s;
-                      if (s == 'All') label = l.customsClearanceFilterAll;
-                      if (s == 'Inspection In Progress') label = l.customsClearanceFilterInspection;
-                      if (s == 'Duty Requested') label = l.customsClearanceFilterDutyRequested;
-                      if (s == 'Duty Paid') label = l.customsClearanceFilterDutyPaid;
-                      if (s == 'Final Release Granted') label = l.customsClearanceFilterFinalRelease;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: ChoiceChip(
-                          label: Text(label),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedStatus = s;
+                    Text(l.ccCloneStatusLabel, style: labelStyle),
+                    ...statusLabels.entries.map((s) => Padding(
+                          padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            label: Text(s.value),
+                            selected: _selectedStatus == s.key,
+                            onSelected: (_) {
+                              setState(() => _selectedStatus = s.key);
                               _applyFilter();
-                            });
-                          },
-                        ),
-                      );
-                    }),
+                            },
+                          ),
+                        )),
                   ],
                 ),
               ),
@@ -249,158 +221,95 @@ class _SearchAndCloneCustomsClearanceDialogState
               // 4. Records List
               Expanded(
                 child: _filtered.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.search_off_rounded,
-                              size: 48,
-                              color: isDark ? const Color(0xFF64748B) : Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              l.customsClearanceEmptyRecords,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? CcStateView.empty(message: l.customsClearanceEmptyRecords, icon: Icons.search_off_rounded)
                     : ListView.separated(
                         itemCount: _filtered.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final rec = _filtered[index];
-                          final isGreen = rec.channelType.toLowerCase().contains('green');
-                          final isRed = rec.channelType.toLowerCase().contains('red');
-                          final dutyTotal = (rec.actualDutyTotal > 0 ? rec.actualDutyTotal : rec.totalDutyPayable).toStringAsFixed(2);
-
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  // Leading Icon
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: isGreen
-                                          ? AppTheme.emerald.withOpacity(0.12)
-                                          : (isRed ? AppTheme.crimson.withOpacity(0.12) : AppTheme.orange.withOpacity(0.12)),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(
-                                      isGreen
-                                          ? Icons.check_circle_outline
-                                          : (isRed ? Icons.flag_rounded : Icons.pending_actions_outlined),
-                                      color: isGreen
-                                          ? AppTheme.emerald
-                                          : (isRed ? AppTheme.crimson : AppTheme.orange),
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              rec.clearanceCode,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                rec.channelType,
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isGreen
-                                                      ? AppTheme.emerald
-                                                      : (isRed ? AppTheme.crimson : AppTheme.orange),
-                                                ),
-                                              ),
-                                            ),
-                                            if (rec.declaration46No != null && rec.declaration46No!.isNotEmpty) ...[
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '46: ${rec.declaration46No}',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppTheme.cobalt,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${rec.customsOfficeName} | ${isAr ? "الرسوم" : "Duties"}: $dutyTotal EGP | ${rec.status}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // Select & Clone Button
-                                  ElevatedButton.icon(
-                                    key: Key('selectRecordToCloneBtn_${rec.clearanceCode}'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.cobalt,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      widget.onSelectRecord(rec);
-                                    },
-                                    icon: const Icon(Icons.copy_rounded, size: 14),
-                                    label: Text(
-                                      isAr ? 'استنساخ' : 'Clone',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        itemBuilder: (context, index) => _buildRecordTile(l, _filtered[index]),
                       ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecordTile(AppLocalizations l, CustomsClearanceModel rec) {
+    final channel = CcUi.channelStyle(l, rec.channelType);
+    final channelColor = AppTheme.severityForegroundOf(context, channel.severity);
+    final duty = rec.effectiveDutyTotal;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceAltOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.borderOf(context)),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.all(12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsetsDirectional.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.severityBackgroundOf(context, channel.severity),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+              child: Icon(channel.icon, color: channelColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      LtrText(
+                        rec.clearanceCode,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryOf(context),
+                        ),
+                      ),
+                      CcStatusChip(label: channel.label, severity: channel.severity),
+                      if (rec.declaration46No != null && rec.declaration46No!.isNotEmpty)
+                        LtrText(
+                          '46: ${rec.declaration46No}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.cobalt,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${rec.customsOfficeName} | ${l.ccCloneDuties}: ${CcFormat.money(duty)} ${l.ccCurrencyShort} | ${rec.status}',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            AppButton(
+              key: Key('selectRecordToCloneBtn_${rec.clearanceCode}'),
+              label: l.ccCloneBtn,
+              icon: Icons.copy_rounded,
+              size: AppButtonSize.small,
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSelectRecord(rec);
+              },
+            ),
+          ],
         ),
       ),
     );

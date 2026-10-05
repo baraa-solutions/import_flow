@@ -36,6 +36,8 @@ Test traps:
   can't wrap: actions scroll in a capped strip with a visible scrollbar. Toolbars with free height
   (bank_form4 registry) use `Wrap`. DataTable heading labels get UNBOUNDED width: no `Expanded` there.
   MetricCard values scale via `FittedBox(scaleDown)` in a capped box, never truncated.
+- Tests render with the Ahem font (~14 px per glyph): an `AppButton` label of ~28 chars overflows a 400-px card
+  (AppButton's Row does not wrap). Keep button labels short or cards wide.
 - Titles in Type A / Dedicated headers truncate with ellipsis on purpose (83f71fc); tests assert that.
 - VS 2026 (toolset v145, CMake 4.3) is installed at D:\vsc (2026-09-25): `flutter build windows --release` works
   locally (~6 min); dumpbin: D:\vsc\VC\Tools\MSVC\<ver>\bin\Hostx64\x64\dumpbin.exe. The MSVC CRT ships app-local

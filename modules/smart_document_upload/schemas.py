@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -86,6 +86,25 @@ class UploadSessionResponse(BaseModel):
     created_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_model(cls, s: Any) -> "UploadSessionResponse":
+        return cls(
+            id=s.id,
+            session_ref=s.session_ref,
+            module_name=s.module_name,
+            filename=s.filename,
+            file_type=s.file_type,
+            file_size_bytes=s.file_size_bytes,
+            extraction_status=s.extraction_status,
+            confidence_score=s.confidence_score or 0.0,
+            extracted_fields=s.get_extracted_fields(),
+            missing_fields=s.get_missing_fields(),
+            extraction_notes=s.extraction_notes,
+            linked_record_id=s.linked_record_id,
+            linked_module=s.linked_module,
+            created_at=s.created_at,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,3 +248,75 @@ class FinancialDocumentExtracted(BaseModel):
     swift_code: Optional[str] = None
     iban: Optional[str] = None
     due_date: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Typed request bodies: cross-check and apply (SDU-01 / SDU-04). Same keys as the former raw dicts; extra keys
+# coming from the extraction output are ignored.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CrossCheckRequest(BaseModel):
+    invoice_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
+    system_data: Optional[Dict[str, Any]] = None
+    packing_list_data: Optional[Dict[str, Any]] = None
+    weight_tolerance_pct: float = Field(3.0, ge=0, le=20)
+
+
+class InvoiceApplyData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    invoice_number: Optional[str] = Field(None, max_length=100)
+    invoice_date: Optional[str] = Field(None, max_length=30)
+    acid_number: Optional[str] = None
+    incoterms: Optional[str] = None
+    loading_port: Optional[str] = Field(None, max_length=100)
+    discharge_port: Optional[str] = Field(None, max_length=100)
+    invoice_value: Optional[float] = Field(None, gt=0)
+    currency: Optional[str] = None
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+
+    @field_validator("invoice_value", mode="before")
+    @classmethod
+    def _no_total_is_none(cls, value: Any) -> Any:
+        """The invoice extractor returns 0.0 when it finds no total: 0 / "" / None mean "not extracted"
+        (the file keeps its value), only a real amount must be > 0."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            text = value.strip().replace(",", "")
+            if not text:
+                return None
+            try:
+                return None if float(text) == 0 else value
+            except ValueError:
+                return value  # non-numeric -> 422 from the float field
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value == 0:
+            return None
+        return value
+
+
+class ApplyInvoiceRequest(BaseModel):
+    import_file_id: Optional[int] = None
+    invoice_data: InvoiceApplyData = Field(default_factory=InvoiceApplyData)
+
+
+class ContainerApplyItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    container_no: Optional[str] = Field(None, max_length=30)
+    seal_no: Optional[str] = Field(None, max_length=50)
+    container_type: Optional[str] = Field(None, max_length=20)
+    gross_weight_kg: Optional[float] = Field(None, ge=0)
+    cbm: Optional[float] = Field(None, ge=0)
+
+
+class BLApplyData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    containers: List[ContainerApplyItem] = Field(default_factory=list)
+
+
+class ApplyBLRequest(BaseModel):
+    import_file_id: Optional[int] = None
+    bl_data: BLApplyData = Field(default_factory=BLApplyData)

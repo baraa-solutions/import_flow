@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import 'original_documents_collection_tab.dart';
@@ -43,7 +44,7 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.25),
+              color: AppTheme.black.withValues(alpha: 0.25),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -59,7 +60,7 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                 decoration: const BoxDecoration(
                   color: AppTheme.charcoal,
                   border: Border(
-                    bottom: BorderSide(color: Colors.white10),
+                    bottom: BorderSide(color: AppTheme.white),
                   ),
                 ),
                 child: Row(
@@ -67,12 +68,12 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD97706).withOpacity(0.2), // Amber
+                        color: AppTheme.orange.withValues(alpha: 0.2), // Amber
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.markunread_mailbox_rounded,
-                        color: Color(0xFFF59E0B),
+                        color: AppTheme.orange,
                         size: 20,
                       ),
                     ),
@@ -86,10 +87,10 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                             spacing: 10,
                             runSpacing: 4,
                             children: [
-                              const Text(
-                                'استلام وتوثيق أصول المستندات البنكية (SH-04)',
+                              Text(
+                                context.l10n.idocAReceiptAndDocumentationOfOriginalBank,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -97,14 +98,14 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.25),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.5)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   file.primaryNameWithCode,
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: AppTheme.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -114,19 +115,19 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.2),
+                                    color: AppTheme.orange.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                    border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.qr_code_2, size: 13, color: Colors.amberAccent),
+                                      const Icon(Icons.qr_code_2, size: 13, color: AppTheme.orange),
                                       const SizedBox(width: 4),
                                       Text(
                                         'ACID: ${file.acidNumber}',
                                         style: const TextStyle(
-                                          color: Colors.amberAccent,
+                                          color: AppTheme.orange,
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           fontFamily: 'monospace',
@@ -138,10 +139,10 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'المرحلة الخامسة: الإبحار و CargoX — تتبع الكورير، مطابقة أصول الفواتير والبوالص ونموذج 4، وتوثيق الاستلام للتخليص الجمركي',
+                          Text(
+                            context.l10n.idocAStage5SailingAndCargoXCourier,
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AppTheme.white,
                               fontSize: 12,
                             ),
                           ),
@@ -149,8 +150,8 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      tooltip: 'إغلاق',
+                      icon: const Icon(Icons.close, color: AppTheme.white),
+                      tooltip: context.l10n.close,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],

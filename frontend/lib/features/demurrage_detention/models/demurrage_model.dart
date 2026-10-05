@@ -1,3 +1,5 @@
+import '../../../core/localization/app_localizations.dart';
+
 class TierRateModel {
   final int fromDay;
   final int? toDay;
@@ -96,7 +98,7 @@ class DemurrageTrackingModel {
   final double totalDetentionFx;
   final double totalStorageEgp;
   final String currency;
-  final double exchangeRate;
+  final double? exchangeRate;
   final double totalCostEgp;
   final String status;
   final bool isPushedToSettlement;
@@ -121,7 +123,7 @@ class DemurrageTrackingModel {
     required this.totalDetentionFx,
     required this.totalStorageEgp,
     required this.currency,
-    required this.exchangeRate,
+    this.exchangeRate,
     required this.totalCostEgp,
     required this.status,
     required this.isPushedToSettlement,
@@ -148,7 +150,7 @@ class DemurrageTrackingModel {
       totalDetentionFx: (json['total_detention_fx'] ?? 0.0).toDouble(),
       totalStorageEgp: (json['total_storage_egp'] ?? 0.0).toDouble(),
       currency: json['currency'] ?? 'USD',
-      exchangeRate: (json['exchange_rate'] ?? 50.0).toDouble(),
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble(),
       totalCostEgp: (json['total_cost_egp'] ?? 0.0).toDouble(),
       status: json['status'] ?? 'Free Time Active',
       isPushedToSettlement: json['is_pushed_to_settlement'] ?? false,
@@ -536,5 +538,161 @@ class EmptyContainerReturnResponseModel {
       messageAr: json['message_ar'] ?? '',
       returnedAt: json['returned_at']?.toString() ?? '',
     );
+  }
+}
+
+/// Carrier demurrage clock of `GET /demurrage-detention/trackings/{id}/dual-clock`
+/// (backend `CarrierDemurrageClock`).
+class CarrierClockModel {
+  static const statusSafe = 'SAFE';
+  static const statusWarningLast3Days = 'WARNING_LAST_3_DAYS';
+  static const statusOverdue = 'OVERDUE_DEMURRAGE';
+
+  final String carrierName;
+  final int freeDaysAllowed;
+  final int daysConsumed;
+  final int daysRemaining;
+  final String? expiryDate;
+  final double accruedDemurrageFx;
+  final String currency;
+  final String status;
+
+  const CarrierClockModel({
+    this.carrierName = '',
+    this.freeDaysAllowed = 0,
+    this.daysConsumed = 0,
+    this.daysRemaining = 0,
+    this.expiryDate,
+    this.accruedDemurrageFx = 0.0,
+    this.currency = 'USD',
+    this.status = statusSafe,
+  });
+
+  bool get isOverdue => status == statusOverdue;
+  bool get isWarning => status == statusWarningLast3Days;
+
+  /// Days past the free period (0 while inside it).
+  int get overdueDays => daysConsumed > freeDaysAllowed ? daysConsumed - freeDaysAllowed : 0;
+
+  factory CarrierClockModel.fromJson(Map<String, dynamic> json) {
+    return CarrierClockModel(
+      carrierName: (json['carrier_name'] ?? '').toString(),
+      freeDaysAllowed: (json['free_days_allowed'] as num?)?.toInt() ?? 0,
+      daysConsumed: (json['days_consumed'] as num?)?.toInt() ?? 0,
+      daysRemaining: (json['days_remaining'] as num?)?.toInt() ?? 0,
+      expiryDate: json['expiry_date']?.toString(),
+      accruedDemurrageFx: (json['accrued_demurrage_fx'] as num?)?.toDouble() ?? 0.0,
+      currency: (json['currency'] ?? 'USD').toString(),
+      status: (json['status'] ?? statusSafe).toString(),
+    );
+  }
+}
+
+/// Port storage clock (backend `PortStorageClock`).
+class PortStorageClockModel {
+  static const statusSafe = 'SAFE';
+  static const statusCritical72h = 'CRITICAL_72H_ALERT';
+  static const statusOverdue = 'OVERDUE_STORAGE';
+
+  final String portName;
+  final int storageFreeDays;
+  final int daysConsumed;
+  final int daysRemaining;
+  final int hoursUntilPenalties;
+  final double dailyRateEgp;
+  final double accruedStorageEgp;
+  final bool isCritical72hWarning;
+  final String status;
+
+  const PortStorageClockModel({
+    this.portName = '',
+    this.storageFreeDays = 0,
+    this.daysConsumed = 0,
+    this.daysRemaining = 0,
+    this.hoursUntilPenalties = 0,
+    this.dailyRateEgp = 0.0,
+    this.accruedStorageEgp = 0.0,
+    this.isCritical72hWarning = false,
+    this.status = statusSafe,
+  });
+
+  bool get isOverdue => status == statusOverdue;
+
+  int get overdueDays => daysConsumed > storageFreeDays ? daysConsumed - storageFreeDays : 0;
+
+  factory PortStorageClockModel.fromJson(Map<String, dynamic> json) {
+    return PortStorageClockModel(
+      portName: (json['port_name'] ?? '').toString(),
+      storageFreeDays: (json['storage_free_days'] as num?)?.toInt() ?? 0,
+      daysConsumed: (json['days_consumed'] as num?)?.toInt() ?? 0,
+      daysRemaining: (json['days_remaining'] as num?)?.toInt() ?? 0,
+      hoursUntilPenalties: (json['hours_until_penalties'] as num?)?.toInt() ?? 0,
+      dailyRateEgp: (json['daily_rate_egp'] as num?)?.toDouble() ?? 0.0,
+      accruedStorageEgp: (json['accrued_storage_egp'] as num?)?.toDouble() ?? 0.0,
+      isCritical72hWarning: json['is_critical_72h_warning'] == true,
+      status: (json['status'] ?? statusSafe).toString(),
+    );
+  }
+}
+
+/// Typed `DualClockResponse`. `summary_ar` is intentionally not read: the
+/// dialog renders text from the status codes and numbers through l10n.
+class DualClockModel {
+  static const alertNormal = 'NORMAL';
+  static const alertUrgentStorage72h = 'URGENT_STORAGE_72H';
+  static const alertActionRequired = 'ACTION_REQUIRED';
+
+  final int trackingId;
+  final String trackingCode;
+  final String billOfLadingNo;
+  final String? dischargeDate;
+  final CarrierClockModel carrierClock;
+  final PortStorageClockModel portStorageClock;
+  final String overallAlertLevel;
+
+  const DualClockModel({
+    required this.trackingId,
+    this.trackingCode = '',
+    this.billOfLadingNo = '',
+    this.dischargeDate,
+    this.carrierClock = const CarrierClockModel(),
+    this.portStorageClock = const PortStorageClockModel(),
+    this.overallAlertLevel = alertNormal,
+  });
+
+  factory DualClockModel.fromJson(Map<String, dynamic> json) {
+    return DualClockModel(
+      trackingId: (json['tracking_id'] as num?)?.toInt() ?? 0,
+      trackingCode: (json['tracking_code'] ?? '').toString(),
+      billOfLadingNo: (json['bill_of_lading_no'] ?? '').toString(),
+      dischargeDate: json['discharge_date']?.toString(),
+      carrierClock: json['carrier_clock'] is Map
+          ? CarrierClockModel.fromJson(Map<String, dynamic>.from(json['carrier_clock'] as Map))
+          : const CarrierClockModel(),
+      portStorageClock: json['port_storage_clock'] is Map
+          ? PortStorageClockModel.fromJson(Map<String, dynamic>.from(json['port_storage_clock'] as Map))
+          : const PortStorageClockModel(),
+      overallAlertLevel: (json['overall_alert_level'] ?? alertNormal).toString(),
+    );
+  }
+}
+
+/// Countdown sentence rendered from `status_badge` and the day counters
+/// (the backend `countdown_summary_ar` text is deprecated and not displayed).
+extension DemurrageSimulationCountdown on DemurrageSimulationResultModel {
+  String countdownText(AppLocalizations l10n) {
+    final daysLeft = demurrageFreeDays - demurrageDaysConsumed;
+    switch (statusBadge) {
+      case 'SAFE':
+        return l10n.demCountdownSafe(daysLeft, demurrageExpiryDate);
+      case 'WARNING':
+        return l10n.demCountdownWarning(daysLeft, demurrageExpiryDate);
+      case 'DEMURRAGE_INCURRED':
+        return l10n.demCountdownDemurrage(demurrageDaysOverdue);
+      case 'DETENTION_INCURRED':
+        return l10n.demCountdownDetention(detentionDaysOverdue);
+      default:
+        return l10n.demCountdownExpired(demurrageDaysOverdue, detentionDaysOverdue);
+    }
   }
 }

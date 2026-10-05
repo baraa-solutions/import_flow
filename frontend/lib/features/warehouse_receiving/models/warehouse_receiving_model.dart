@@ -70,9 +70,9 @@ class WarehouseReceivingModel {
   final String? rootCause;
   final bool supplierClaimFiled;
   final String? supplierClaimRef;
-  final double claimAmountEstimated;
+  final double? claimAmountEstimated;
   final String claimCurrency;
-  final double discrepancyRatePercent;
+  final double? discrepancyRatePercent;
   final String status;
   final String inspectorName;
   final String? notes;
@@ -108,9 +108,9 @@ class WarehouseReceivingModel {
     this.rootCause,
     this.supplierClaimFiled = false,
     this.supplierClaimRef,
-    this.claimAmountEstimated = 0.0,
+    this.claimAmountEstimated,
     this.claimCurrency = 'EGP',
-    this.discrepancyRatePercent = 0.0,
+    this.discrepancyRatePercent,
     this.status = 'Goods Received',
     this.inspectorName = 'Kamal',
     this.notes,
@@ -149,9 +149,9 @@ class WarehouseReceivingModel {
       rootCause: json['root_cause'],
       supplierClaimFiled: json['supplier_claim_filed'] ?? false,
       supplierClaimRef: json['supplier_claim_ref'],
-      claimAmountEstimated: (json['claim_amount_estimated'] as num?)?.toDouble() ?? 0.0,
+      claimAmountEstimated: (json['claim_amount_estimated'] as num?)?.toDouble(),
       claimCurrency: json['claim_currency'] ?? 'EGP',
-      discrepancyRatePercent: (json['discrepancy_rate_percent'] as num?)?.toDouble() ?? 0.0,
+      discrepancyRatePercent: (json['discrepancy_rate_percent'] as num?)?.toDouble(),
       status: json['status'] ?? 'Goods Received',
       inspectorName: json['inspector_name'] ?? 'Kamal',
       notes: json['notes'],

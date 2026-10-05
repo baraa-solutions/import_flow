@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/clearance_expense_invoice_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
-import '../../../core/localization/domain_enum_labels.dart';
-import '../../../core/localization/app_localizations.dart';
+import 'cc_dialog_shell.dart';
+import 'customs_ui.dart';
 
 /// CL-05 Modal Dialog: Clearance Fees & Port Invoices
-/// تسجيل فواتير المخلص ومصاريف العتالة ونولون الميناء
+/// (broker invoices, handling and port freight expenses).
 class ClearanceExpensesDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
   final CustomsClearanceModel? clearanceRecord;
@@ -67,13 +73,6 @@ class _ClearanceExpensesDialogState
 
   final List<String> _expenseCategories = DomainEnums.codesOf(DomainEnumType.clearanceExpenseCategory);
 
-  final List<Map<String, String>> _allocationRules = [
-    {'value': 'Equal', 'label': 'بالتساوي (Equal)'},
-    {'value': 'Value-Based', 'label': 'حسب القيمة (CIF Value)'},
-    {'value': 'Weight-Based', 'label': 'حسب الوزن (Gross Weight)'},
-    {'value': 'Volume-Based', 'label': 'حسب الحجم (CBM)'},
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -116,6 +115,14 @@ class _ClearanceExpensesDialogState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        final l = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccLoadInvoicesError(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
+          ),
+        );
       }
     }
   }
@@ -138,28 +145,10 @@ class _ClearanceExpensesDialogState
     });
   }
 
-  void _recalculateVat() {
-    if (_vatIncluded) {
-      final amt = double.tryParse(_amountEgpController.text.trim()) ?? 0.0;
-      final vat = amt * 0.14;
-      _vatAmountController.text = vat.toStringAsFixed(2);
-    } else {
-      _vatAmountController.text = '0.00';
-    }
-  }
-
-  void _recalculateWht() {
-    if (_whtDeducted) {
-      final amt = double.tryParse(_amountEgpController.text.trim()) ?? 0.0;
-      final wht = amt * 0.03;
-      _whtAmountController.text = wht.toStringAsFixed(2);
-    } else {
-      _whtAmountController.text = '0.00';
-    }
-  }
-
   Future<void> _submitInvoice() async {
     if (!_formKey.currentState!.validate()) return;
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
 
     final amountEgp = double.tryParse(_amountEgpController.text.trim()) ?? 0.0;
     final vatAmount = _vatIncluded
@@ -175,8 +164,7 @@ class _ClearanceExpensesDialogState
       if (widget.clearanceRecord?.customsClearanceId != null)
         'customs_clearance_id': widget.clearanceRecord!.customsClearanceId,
       'invoice_number': _invoiceNumberController.text.trim(),
-      'invoice_date':
-          '${_invoiceDate.year}-${_invoiceDate.month.toString().padLeft(2, '0')}-${_invoiceDate.day.toString().padLeft(2, '0')}',
+      'invoice_date': CcFormat.date(_invoiceDate),
       'provider_name': _providerNameController.text.trim(),
       'expense_category': _expenseCategory,
       'currency': _currency,
@@ -193,6 +181,7 @@ class _ClearanceExpensesDialogState
           ? _notesController.text.trim()
           : null,
     };
+    final categoryLabel = DomainEnums.label(l, DomainEnumType.clearanceExpenseCategory, _expenseCategory);
 
     setState(() => _isSubmitting = true);
     try {
@@ -201,23 +190,19 @@ class _ClearanceExpensesDialogState
           .createClearanceInvoice(payload);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل فاتورة ${DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, _expenseCategory)} بنجاح وترحيلها لتكلفة البضاعة (Landed Cost)',
-            ),
-            backgroundColor: AppTheme.emerald,
-          ),
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, l.ccExpSaved(categoryLabel), severity: AppSeverity.success),
         );
         _resetForm();
         await _loadInvoices();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل تسجيل الفاتورة: $e'),
-            backgroundColor: AppTheme.crimson,
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccExpSaveFail(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -227,31 +212,31 @@ class _ClearanceExpensesDialogState
   }
 
   Future<void> _deleteInvoice(ClearanceExpenseInvoiceModel invoice) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
-            SizedBox(width: 8),
-            Text('تأكيد حذف الفاتورة'),
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l.ccExpDeleteTitle)),
           ],
         ),
-        content: Text(
-          'هل أنت متأكد من حذف فاتورة "${invoice.invoiceNumber}" الخاصة بـ "${invoice.providerName}"؟\nسيتم تحديث إجمالي تكاليف التخليص تلقائياً.',
-        ),
+        content: Text(l.ccExpDeleteContent(invoice.invoiceNumber, invoice.providerName)),
         actions: [
-          TextButton(
+          AppButton(
+            label: l.cancel,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('إلغاء'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.crimson,
-              foregroundColor: Colors.white,
-            ),
+          AppButton(
+            label: l.ccExpDeleteConfirm,
+            variant: AppButtonVariant.danger,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('تأكيد الحذف'),
           ),
         ],
       ),
@@ -265,20 +250,18 @@ class _ClearanceExpensesDialogState
           .deleteClearanceInvoice(invoice.invoiceId, widget.file.importFileId);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم حذف الفاتورة بنجاح وتحديث إجماليات التخليص'),
-            backgroundColor: AppTheme.emerald,
-          ),
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, l.ccExpDeleted, severity: AppSeverity.success),
         );
         await _loadInvoices();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تعذر حذف الفاتورة: $e'),
-            backgroundColor: AppTheme.crimson,
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l.ccExpDeleteFail(ApiErrorText.of(l, e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -290,165 +273,127 @@ class _ClearanceExpensesDialogState
       case 'BROKER_FEES':
         return AppTheme.cobalt;
       case 'PORT_DUES_WHARFAGE':
-        return AppTheme.flatOrange;
+        return AppTheme.orange;
       case 'STEVEDORING_HANDLING':
-        return Colors.purple.shade600;
+        return AppTheme.wcagCobalt;
       case 'LABORATORY_TESTING':
-        return Colors.teal.shade700;
+        return AppTheme.emerald;
       case 'STORAGE_DEMURRAGE':
         return AppTheme.crimson;
     }
     return AppTheme.charcoal;
   }
 
+  InputDecoration _dec(String label, {String? hint, IconData? icon}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: icon == null ? null : Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth > 960 ? 920.0 : screenWidth * 0.95;
+    final l = context.l10n;
+    final file = widget.file;
+    final declaration = (file.form46No != null && file.form46No!.isNotEmpty) ? file.form46No! : l.ccExpDeclPending;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
+    return CcStageDialogShell(
+      title: l.ccExpTitle,
+      icon: Icons.receipt_long,
+      accent: AppTheme.cobalt,
+      maxWidth: 920,
+      chips: [
+        CcHeaderChip(
+          Icons.folder_outlined,
+          l.ccExpChipFile(
+            file.importFileCode,
+            file.supplierName.isNotEmpty ? file.supplierName : l.ccExpSupplierFallback,
+            declaration,
+          ),
         ),
-        child: Column(
-          children: [
-            _buildDialogHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildSummaryKpiCards(),
-                          const SizedBox(height: 16),
-                          _buildActionBar(),
-                          if (_showAddForm) ...[
-                            const SizedBox(height: 16),
-                            _buildAddInvoiceForm(),
-                          ],
-                          const SizedBox(height: 20),
-                          _buildInvoicesSection(),
-                        ],
-                      ),
-                    ),
-            ),
-            _buildDialogFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDialogHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: AppTheme.charcoal,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Row(
+      ],
+      showCancel: false,
+      confirmLabel: l.close,
+      confirmIcon: Icons.close,
+      confirmVariant: AppButtonVariant.secondary,
+      isSubmitting: false,
+      onConfirm: () => Navigator.of(context).pop(true),
+      onCancel: () => Navigator.of(context).pop(true),
+      footerLeading: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withAlpha(50),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.receipt_long,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
+          const Icon(Icons.sync_alt, size: 16, color: AppTheme.emerald),
+          const SizedBox(width: 6),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'تسجيل فواتير المخلص ومصاريف التخليص والميناء (CL-05)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'ملف الشحنة: ${widget.file.importFileCode} — ${widget.file.supplierName.isNotEmpty ? widget.file.supplierName : 'المورد'} (${(widget.file.form46No != null && widget.file.form46No!.isNotEmpty) ? widget.file.form46No : 'بانتظار البيان'})',
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(200),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            child: Text(
+              l.ccExpFooterNote,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryOf(context),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            tooltip: 'إغلاق',
-            onPressed: () => Navigator.of(context).pop(true),
           ),
         ],
       ),
+      body: _isLoading
+          ? const SizedBox(height: 240, child: CcStateView.loading())
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSummaryKpiCards(l),
+                const SizedBox(height: 16),
+                _buildActionBar(l),
+                if (_showAddForm) ...[
+                  const SizedBox(height: 16),
+                  _buildAddInvoiceForm(l),
+                ],
+                const SizedBox(height: 20),
+                _buildInvoicesSection(l),
+              ],
+            ),
     );
   }
 
-  Widget _buildSummaryKpiCards() {
+  Widget _buildSummaryKpiCards(AppLocalizations l) {
     final summary = _summary;
+    final cur = l.ccCurrencyShort;
     final totalNet = summary?.netPayableEgp ?? 0.0;
     final brokerFees = summary?.totalClearanceFeesEgp ?? 0.0;
     final portDues = summary?.totalPortDuesEgp ?? 0.0;
     final handling = summary?.totalHandlingStevedoringEgp ?? 0.0;
     final count = summary?.invoicesCount ?? 0;
 
-    return Row(
+    return CcFieldRow(
+      gap: 12,
       children: [
-        Expanded(
-          child: _buildMetricCard(
-            title: 'إجمالي صافي الفواتير',
-            value: '${totalNet.toStringAsFixed(2)} ج.م',
-            subtitle: '$count فاتورة مسجلة',
-            icon: Icons.account_balance_wallet,
-            color: AppTheme.emerald,
-            highlight: true,
-          ),
+        _buildMetricCard(
+          title: l.ccExpKpiNet,
+          value: '${CcFormat.money(totalNet)} $cur',
+          subtitle: l.ccExpInvoicesCount(count),
+          icon: Icons.account_balance_wallet,
+          color: AppTheme.emerald,
+          highlight: true,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            title: 'أتعاب التخليص الجمركي',
-            value: '${brokerFees.toStringAsFixed(2)} ج.م',
-            subtitle: 'Clearance Fees',
-            icon: Icons.person_search,
-            color: AppTheme.cobalt,
-          ),
+        _buildMetricCard(
+          title: l.ccExpKpiBroker,
+          value: '${CcFormat.money(brokerFees)} $cur',
+          subtitle: l.ccExpKpiBrokerSub,
+          icon: Icons.person_search,
+          color: AppTheme.cobalt,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            title: 'نولون ورسوم الميناء',
-            value: '${portDues.toStringAsFixed(2)} ج.م',
-            subtitle: 'Port Dues & Wharfage',
-            icon: Icons.anchor,
-            color: AppTheme.flatOrange,
-          ),
+        _buildMetricCard(
+          title: l.ccExpKpiPort,
+          value: '${CcFormat.money(portDues)} $cur',
+          subtitle: l.ccExpKpiPortSub,
+          icon: Icons.anchor,
+          color: AppTheme.orange,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            title: 'العتالة والشحن والتفريغ',
-            value: '${handling.toStringAsFixed(2)} ج.م',
-            subtitle: 'Handling & Stevedoring',
-            icon: Icons.forklift,
-            color: Colors.purple.shade600,
-          ),
+        _buildMetricCard(
+          title: l.ccExpKpiHandling,
+          value: '${CcFormat.money(handling)} $cur',
+          subtitle: l.ccExpKpiHandlingSub,
+          icon: Icons.forklift,
+          color: AppTheme.wcagCobalt,
         ),
       ],
     );
@@ -463,12 +408,12 @@ class _ClearanceExpensesDialogState
     bool highlight = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsetsDirectional.all(14),
       decoration: BoxDecoration(
-        color: highlight ? color.withAlpha(20) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
+        color: highlight ? color.withValues(alpha: 0.1) : AppTheme.surfaceAltOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
-          color: highlight ? color : Colors.grey.shade300,
+          color: highlight ? color : AppTheme.borderOf(context),
           width: highlight ? 1.5 : 1.0,
         ),
       ),
@@ -485,7 +430,7 @@ class _ClearanceExpensesDialogState
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -493,19 +438,20 @@ class _ClearanceExpensesDialogState
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          LtrText(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: highlight ? color : AppTheme.charcoal,
+              color: highlight ? color : AppTheme.textPrimaryOf(context),
             ),
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -513,114 +459,68 @@ class _ClearanceExpensesDialogState
     );
   }
 
-  Widget _buildActionBar() {
+  Widget _buildActionBar(AppLocalizations l) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        const Icon(Icons.receipt, size: 20),
+        const SizedBox(width: 8),
         Expanded(
-          child: Row(
-            children: [
-              const Icon(Icons.receipt, size: 20, color: AppTheme.charcoal),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'قائمة فواتير ومصروفات التخليص (${_summary?.invoicesCount ?? 0})',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.charcoal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          child: Text(
+            l.ccExpListTitle(_summary?.invoicesCount ?? 0),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 12),
-        ElevatedButton.icon(
+        AppButton(
           key: const Key('addClearanceInvoiceBtn'),
-          onPressed: () {
-            setState(() => _showAddForm = !_showAddForm);
-          },
-          icon: Icon(_showAddForm ? Icons.close : Icons.add, size: 18),
-          label: Text(_showAddForm ? 'إلغاء الإضافة' : 'إضافة فاتورة جديدة'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _showAddForm ? Colors.grey.shade600 : AppTheme.cobalt,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          label: _showAddForm ? l.ccExpCancelAdd : l.ccExpAddBtn,
+          icon: _showAddForm ? Icons.close : Icons.add,
+          variant: _showAddForm ? AppButtonVariant.secondary : AppButtonVariant.primary,
+          onPressed: () => setState(() => _showAddForm = !_showAddForm),
         ),
       ],
     );
   }
 
-  Widget _buildAddInvoiceForm() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50.withAlpha(80),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.cobalt.withAlpha(80), width: 1.5),
-      ),
-      child: Form(
-        key: _formKey,
+  Widget _buildAddInvoiceForm(AppLocalizations l) {
+    final allocationRules = <String, String>{
+      'Equal': l.ccExpAllocEqual,
+      'Value-Based': l.ccExpAllocValue,
+      'Weight-Based': l.ccExpAllocWeight,
+      'Volume-Based': l.ccExpAllocVolume,
+    };
+
+    return Form(
+      key: _formKey,
+      child: CcFormSection(
+        title: l.ccExpFormTitle,
+        icon: Icons.note_add,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.note_add, color: AppTheme.cobalt, size: 20),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text(
-                    'تسجيل فاتورة مصروفات جديدة',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.cobalt,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    'سيتم الترحيل آلياً لمحرك التكلفة Landed Cost',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            Text(
+              l.ccExpFormNote,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: AppTheme.textSecondaryOf(context),
+                fontStyle: FontStyle.italic,
+              ),
             ),
-            const Divider(height: 20),
+            const SizedBox(height: 12),
 
-            // Row 1: Provider Name & Invoice Number
+            // Row 1: provider name, invoice number, date
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 2,
                   child: TextFormField(
                     key: const Key('invoiceProviderNameField'),
                     controller: _providerNameController,
-                    decoration: InputDecoration(
-                      labelText: 'اسم المخلص / مقدم الخدمة *',
-                      hintText: 'مثال: شركة الصفا للتخليص الجمركي',
-                      prefixIcon: const Icon(Icons.business_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    decoration: _dec(l.ccExpProviderLabel, hint: l.ccExpProviderHint, icon: Icons.business_outlined),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'يرجى إدخال اسم مقدم الخدمة أو المخلص';
-                      }
+                      if (val == null || val.trim().isEmpty) return l.ccExpProviderRequired;
                       return null;
                     },
                   ),
@@ -632,25 +532,15 @@ class _ClearanceExpensesDialogState
                     key: const Key('invoiceNumberField'),
                     controller: _invoiceNumberController,
                     textDirection: TextDirection.ltr,
-                    decoration: InputDecoration(
-                      labelText: 'رقم الفاتورة *',
-                      hintText: 'مثال: INV-2026-9901',
-                      prefixIcon: const Icon(Icons.tag),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    decoration: _dec(l.ccExpNumberLabel, hint: l.ccExpNumberHint, icon: Icons.tag),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'يرجى إدخال رقم الفاتورة';
-                      }
+                      if (val == null || val.trim().isEmpty) return l.ccExpNumberRequired;
                       return null;
                     },
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  flex: 1,
                   child: InkWell(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -659,22 +549,12 @@ class _ClearanceExpensesDialogState
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2035),
                       );
-                      if (picked != null) {
-                        setState(() => _invoiceDate = picked);
-                      }
+                      if (picked != null) setState(() => _invoiceDate = picked);
                     },
                     child: InputDecorator(
-                      decoration: InputDecoration(
-                        labelText: 'تاريخ الفاتورة',
-                        prefixIcon: const Icon(Icons.calendar_today, size: 18),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        '${_invoiceDate.year}-${_invoiceDate.month.toString().padLeft(2, '0')}-${_invoiceDate.day.toString().padLeft(2, '0')}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                      decoration: _dec(l.ccExpDateLabel, icon: Icons.calendar_today),
+                      child: LtrText(CcFormat.date(_invoiceDate),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ),
@@ -682,32 +562,26 @@ class _ClearanceExpensesDialogState
             ),
             const SizedBox(height: 14),
 
-            // Row 2: Category & Allocation Rule
+            // Row 2: category & allocation rule
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 3,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownField<String>(
                     key: const Key('invoiceCategoryDropdown'),
                     value: _expenseCategory,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'بند المصروف / نوع التكلفة *',
-                      prefixIcon: const Icon(Icons.category_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    items: _expenseCategories.map((cat) {
-                      return DropdownMenuItem(
-                        value: cat,
-                        child: Text(
-                          DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, cat),
-                          style: const TextStyle(fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
+                    isDense: false,
+                    isRequired: true,
+                    labelText: l.ccExpCategoryLabel,
+                    decoration: _dec(l.ccExpCategoryLabel, icon: Icons.category_outlined),
+                    items: _expenseCategories
+                        .map((cat) => SearchableDropdownItem<String>(
+                              value: cat,
+                              label: DomainEnums.label(l, DomainEnumType.clearanceExpenseCategory, cat),
+                            ))
+                        .toList(),
+                    validator: (v) => (v == null || v.isEmpty) ? l.requiredField : null,
                     onChanged: (val) {
                       if (val != null) setState(() => _expenseCategory = val);
                     },
@@ -716,27 +590,17 @@ class _ClearanceExpensesDialogState
                 const SizedBox(width: 14),
                 Expanded(
                   flex: 2,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownField<String>(
                     key: const Key('invoiceAllocationRuleDropdown'),
                     value: _allocationRule,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'قاعدة توزيع التكلفة *',
-                      prefixIcon: const Icon(Icons.pie_chart_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    items: _allocationRules.map((rule) {
-                      return DropdownMenuItem(
-                        value: rule['value'],
-                        child: Text(
-                          rule['label']!,
-                          style: const TextStyle(fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
+                    isDense: false,
+                    isRequired: true,
+                    labelText: l.ccExpAllocationLabel,
+                    decoration: _dec(l.ccExpAllocationLabel, icon: Icons.pie_chart_outline),
+                    items: allocationRules.entries
+                        .map((rule) => SearchableDropdownItem<String>(value: rule.key, label: rule.value))
+                        .toList(),
+                    validator: (v) => (v == null || v.isEmpty) ? l.requiredField : null,
                     onChanged: (val) {
                       if (val != null) setState(() => _allocationRule = val);
                     },
@@ -746,7 +610,7 @@ class _ClearanceExpensesDialogState
             ),
             const SizedBox(height: 14),
 
-            // Row 3: Amount EGP, VAT, WHT
+            // Row 3: amount, VAT, WHT
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -755,103 +619,67 @@ class _ClearanceExpensesDialogState
                   child: TextFormField(
                     key: const Key('invoiceAmountField'),
                     controller: _amountEgpController,
+                    textDirection: TextDirection.ltr,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'مبلغ الفاتورة الأساسي (ج.م) *',
-                      hintText: '0.00',
-                      prefixIcon: const Icon(Icons.attach_money),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onChanged: (_) {
-                      _recalculateVat();
-                      _recalculateWht();
-                    },
+                    decoration: _dec(l.ccExpAmountLabel, hint: '0.00', icon: Icons.attach_money),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'يرجى إدخال مبلغ الفاتورة';
-                      }
+                      if (val == null || val.trim().isEmpty) return l.ccExpAmountRequired;
                       final numVal = double.tryParse(val.trim());
-                      if (numVal == null || numVal <= 0) {
-                        return 'أدخل مبلغاً أكبر من صفر';
-                      }
+                      if (numVal == null || numVal <= 0) return l.ccExpAmountPositive;
                       return null;
                     },
                   ),
                 ),
                 const SizedBox(width: 14),
-                // VAT switch & amount
                 Expanded(
                   flex: 2,
                   child: Column(
                     children: [
-                      Material(type: MaterialType.transparency, child: CheckboxListTile(
-                        title: const Text(
-                          'ضريبة القيمة المضافة (14% VAT)',
-                          overflow: TextOverflow.ellipsis,
+                      Material(
+                        type: MaterialType.transparency,
+                        child: CheckboxListTile(
+                          title: Text(l.ccVatCheckboxLabel, overflow: TextOverflow.ellipsis),
+                          value: _vatIncluded,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: (val) => setState(() => _vatIncluded = val ?? false),
                         ),
-                        value: _vatIncluded,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        onChanged: (val) {
-                          setState(() {
-                            _vatIncluded = val ?? false;
-                            _recalculateVat();
-                          });
-                        },
-                      )),
+                      ),
                       if (_vatIncluded)
                         TextFormField(
                           key: const Key('invoiceVatAmountField'),
                           controller: _vatAmountController,
+                          textDirection: TextDirection.ltr,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'قيمة ضريبة القيمة المضافة',
-                            prefixIcon: const Icon(Icons.percent, size: 16),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                          decoration: _dec(l.ccVatAmountLabel, icon: Icons.percent),
                         ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 14),
-                // WHT switch & amount
                 Expanded(
                   flex: 2,
                   child: Column(
                     children: [
-                      Material(type: MaterialType.transparency, child: CheckboxListTile(
-                        title: const Text(
-                          'خصم ضريبة الأرباح (WHT)',
-                          overflow: TextOverflow.ellipsis,
+                      Material(
+                        type: MaterialType.transparency,
+                        child: CheckboxListTile(
+                          title: Text(l.ccExpWhtCheckbox, overflow: TextOverflow.ellipsis),
+                          value: _whtDeducted,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: (val) => setState(() => _whtDeducted = val ?? false),
                         ),
-                        value: _whtDeducted,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        onChanged: (val) {
-                          setState(() {
-                            _whtDeducted = val ?? false;
-                            _recalculateWht();
-                          });
-                        },
-                      )),
+                      ),
                       if (_whtDeducted)
                         TextFormField(
                           key: const Key('invoiceWhtAmountField'),
                           controller: _whtAmountController,
+                          textDirection: TextDirection.ltr,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'مبلغ ضريبة الخصم المقتطعة',
-                            prefixIcon: const Icon(Icons.remove_circle_outline, size: 16),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                          decoration: _dec(l.ccWhtAmountLabel, icon: Icons.remove_circle_outline),
                         ),
                     ],
                   ),
@@ -860,53 +688,30 @@ class _ClearanceExpensesDialogState
             ),
             const SizedBox(height: 14),
 
-            // Notes
             TextFormField(
               key: const Key('invoiceNotesField'),
               controller: _notesController,
-              decoration: InputDecoration(
-                labelText: 'ملاحظات وتفاصيل إضافية عن الفاتورة',
-                hintText: 'أي تفاصيل عن أتعاب الشحن والتفريغ أو رقم إيصال الميناء...',
-                prefixIcon: const Icon(Icons.notes),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              decoration: _dec(l.ccExpNotesLabel, hint: l.ccExpNotesHint, icon: Icons.notes),
               maxLines: 2,
             ),
             const SizedBox(height: 16),
 
-            // Submit / Cancel Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton(
-                  onPressed: _resetForm,
-                  child: const Text('إلغاء'),
+                AppButton(
+                  label: l.cancel,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: _isSubmitting ? null : _resetForm,
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
+                AppButton(
                   key: const Key('saveClearanceInvoiceBtn'),
+                  label: _isSubmitting ? l.ccExpSaving : l.ccExpSave,
+                  icon: Icons.check,
+                  variant: AppButtonVariant.success,
+                  isLoading: _isSubmitting,
                   onPressed: _isSubmitting ? null : _submitInvoice,
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.check, size: 18),
-                  label: Text(_isSubmitting ? 'جاري الحفظ...' : 'حفظ الفاتورة'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -916,38 +721,30 @@ class _ClearanceExpensesDialogState
     );
   }
 
-  Widget _buildInvoicesSection() {
+  Widget _buildInvoicesSection(AppLocalizations l) {
     final invoices = _summary?.invoices ?? [];
 
     if (invoices.isEmpty) {
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        padding: const EdgeInsetsDirectional.symmetric(vertical: 36, horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          color: AppTheme.surfaceAltOf(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          border: Border.all(color: AppTheme.borderOf(context)),
         ),
         child: Column(
           children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 56,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.receipt_long_outlined, size: 56, color: AppTheme.textMutedOf(context)),
             const SizedBox(height: 12),
-            const Text(
-              'لا توجد فواتير تخليص مسجلة حتى الآن',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.charcoal,
-              ),
+            Text(
+              l.ccExpEmptyTitle,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text(
-              'اضغط على زر "إضافة فاتورة جديدة" لتسجيل فواتير المخلص الجمركي ونولون الميناء ومصاريف التعتيق والتحاليل.',
+              l.ccExpEmptyHint,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
             ),
           ],
         ),
@@ -955,204 +752,123 @@ class _ClearanceExpensesDialogState
     }
 
     return Column(
-      children: invoices.map((inv) => _buildInvoiceCard(inv)).toList(),
+      children: invoices.map((inv) => _buildInvoiceCard(l, inv)).toList(),
     );
   }
 
-  Widget _buildInvoiceCard(ClearanceExpenseInvoiceModel invoice) {
+  Widget _buildInvoiceCard(AppLocalizations l, ClearanceExpenseInvoiceModel invoice) {
     final catColor = _getCategoryColor(invoice.expenseCategory);
+    final cur = l.ccCurrencyShort;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(8),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+      margin: const EdgeInsetsDirectional.only(bottom: 12),
+      padding: const EdgeInsetsDirectional.all(14),
+      decoration: AppTheme.cardDecorationOf(context),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: catColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  border: Border.all(color: catColor.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: catColor, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DomainEnums.label(l, DomainEnumType.clearanceExpenseCategory, invoice.expenseCategory),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: catColor),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  l.ccExpInvoiceNo(invoice.invoiceNumber),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+              const SizedBox(width: 8),
+              LtrText(
+                '(${invoice.invoiceCode})',
+                style: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  CcMoneyText(
+                    invoice.netPayableEgp,
+                    currency: cur,
+                    fontSize: 15,
+                    color: AppTheme.successForeground,
+                  ),
+                  if (invoice.vatIncluded || invoice.whtDeducted)
+                    LtrText(
+                      l.ccExpBreakdown(
+                        CcFormat.money(invoice.amountEgp),
+                        CcFormat.money(invoice.vatAmount),
+                        CcFormat.money(invoice.whtAmount),
+                      ),
+                      style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryOf(context)),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                key: Key('deleteInvoiceBtn_${invoice.invoiceId}'),
+                icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
+                tooltip: l.ccExpDeleteTooltip,
+                onPressed: () => _deleteInvoice(invoice),
+              ),
+            ],
+          ),
+          Divider(height: 18, color: AppTheme.borderOf(context)),
+          Wrap(
+            spacing: 24,
+            runSpacing: 6,
+            children: [
+              _buildCardInfo(Icons.business, l.ccExpInfoProvider, invoice.providerName),
+              _buildCardInfo(Icons.calendar_today, l.ccExpInfoDate, invoice.invoiceDate, ltr: true),
+              _buildCardInfo(
+                Icons.pie_chart,
+                l.ccExpInfoAllocation,
+                invoice.allocationRule == 'Equal' ? l.ccExpAllocEqualShort : invoice.allocationRule,
+              ),
+              if (invoice.notes != null && invoice.notes!.isNotEmpty)
+                _buildCardInfo(Icons.notes, l.ccExpInfoNotes, invoice.notes!),
+            ],
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                // Category Chip
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: catColor.withAlpha(25),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: catColor.withAlpha(80)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: catColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        DomainEnums.label(context.l10n, DomainEnumType.clearanceExpenseCategory, invoice.expenseCategory),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: catColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'فاتورة #${invoice.invoiceNumber}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppTheme.charcoal,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '(${invoice.invoiceCode})',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                ),
-                const Spacer(),
-                // Net Payable
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${invoice.netPayableEgp.toStringAsFixed(2)} ج.م',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.emerald,
-                      ),
-                    ),
-                    if (invoice.vatIncluded || invoice.whtDeducted)
-                      Text(
-                        'أساسي: ${invoice.amountEgp.toStringAsFixed(2)} | ض.م: +${invoice.vatAmount.toStringAsFixed(2)} | خ.أ: -${invoice.whtAmount.toStringAsFixed(2)}',
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                // Delete button
-                IconButton(
-                  key: Key('deleteInvoiceBtn_${invoice.invoiceId}'),
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
-                  tooltip: 'حذف الفاتورة',
-                  onPressed: () => _deleteInvoice(invoice),
-                ),
-              ],
-            ),
-            const Divider(height: 18),
-            Row(
-              children: [
-                _buildCardInfo(Icons.business, 'المورد / المخلص', invoice.providerName),
-                const SizedBox(width: 24),
-                _buildCardInfo(Icons.calendar_today, 'التاريخ', invoice.invoiceDate),
-                const SizedBox(width: 24),
-                _buildCardInfo(
-                  Icons.pie_chart,
-                  'التوزيع',
-                  invoice.allocationRule == 'Equal'
-                      ? 'بالتساوي'
-                      : invoice.allocationRule,
-                ),
-                if (invoice.notes != null && invoice.notes!.isNotEmpty) ...[
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _buildCardInfo(Icons.notes, 'ملاحظات', invoice.notes!),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildCardInfo(IconData icon, String label, String value) {
+  Widget _buildCardInfo(IconData icon, String label, String value, {bool ltr = false}) {
+    const valueStyle = TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
+        Icon(icon, size: 14, color: AppTheme.textMutedOf(context)),
         const SizedBox(width: 4),
-        Text(
-          '$label: ',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.charcoal,
-          ),
-          overflow: TextOverflow.ellipsis,
+        Text('$label: ', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+        Flexible(
+          child: ltr
+              ? LtrText(value, style: valueStyle, overflow: TextOverflow.ellipsis)
+              : Text(value, style: valueStyle, overflow: TextOverflow.ellipsis),
         ),
       ],
-    );
-  }
-
-  Widget _buildDialogFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                const Icon(Icons.sync_alt, size: 16, color: AppTheme.emerald),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'المصاريف تُرحَّل تلقائياً إلى كشف حساب تكلفة الشحنة (Landed Cost Engine)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.charcoal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('إغلاق'),
-          ),
-        ],
-      ),
     );
   }
 }

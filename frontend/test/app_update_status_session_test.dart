@@ -46,7 +46,11 @@ void main() {
     final sub = c.listen(updateStatusProvider, (_, __) {});
     addTearDown(sub.close);
     final notifier = c.read(updateStatusProvider.notifier);
-    await _waitFor(() => fake.statusCalls >= 3);
+    // isPolling is "a poll Timer is scheduled": it is briefly false while a
+    // /status request is in flight (statusCalls already counted, next Timer not
+    // yet armed). Under CPU load the check could land in that window, so wait
+    // for the armed timer instead of sampling right after the 3rd call.
+    await _waitFor(() => fake.statusCalls >= 3 && notifier.isPolling);
     expect(notifier.isPolling, isTrue);
 
     c.read(_userId.notifier).state = null;
@@ -109,7 +113,8 @@ void main() {
       await _waitFor(() => fake.statusCalls >= 2);
       fake.statusError = _dio(code);
       final calls = fake.statusCalls;
-      await _waitFor(() => fake.statusCalls >= calls + 3);
+      // Same in-flight window as above: wait for the retry Timer to be armed.
+      await _waitFor(() => fake.statusCalls >= calls + 3 && notifier.isPolling);
       expect(c.read(updateStatusProvider).valueOrNull?.state, UpdateState.downloading);
       expect(notifier.isPolling, isTrue);
     });

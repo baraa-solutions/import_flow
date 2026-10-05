@@ -436,19 +436,20 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     return SelectionArea(
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          color: isDark ? AppTheme.darkCardBackground : AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           border: Border.all(
-            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            color: isDark ? AppTheme.darkBorder : AppTheme.border,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isDark ? const Color(0x33000000) : Colors.black.withOpacity(0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: isDark
+              ? const [
+                  BoxShadow(
+                      color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 2)),
+                ]
+              : AppTheme.shadowSoft,
         ),
+        // Clip children (header band, pagination) to the rounded corners.
+        clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -522,18 +523,30 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isFiltered ? Icons.search_off_rounded : widget.emptyIcon,
-            size: 48,
-            color: Colors.grey.shade400,
+          // Icon in a soft circular badge (empty-state illustration).
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceAltOf(context),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.borderOf(context)),
+            ),
+            child: Icon(
+              isFiltered ? Icons.search_off_rounded : widget.emptyIcon,
+              size: 36,
+              color: AppTheme.textMutedOf(context),
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             isFiltered ? 'لا توجد نتائج مطابقة لبحثك "$_searchQuery"' : widget.emptyMessage,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+              color: AppTheme.textSecondaryOf(context),
             ),
           ),
           if (isFiltered) ...[
@@ -570,8 +583,15 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
           dataRowMaxHeight: widget.rowHeight + 8,
           horizontalMargin: 16,
           columnSpacing: 20,
+          dividerThickness: 1,
+          border: TableBorder(
+            horizontalInside: BorderSide(
+              color: isDark ? AppTheme.darkBorder : const Color(0xFFEEF2F6),
+            ),
+            top: BorderSide(color: AppTheme.borderOf(context)),
+          ),
           headingRowColor: WidgetStateProperty.all(
-            isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.06),
+            isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
           ),
           showCheckboxColumn: false, // handled via our custom checkbox column
           columns: [
@@ -610,8 +630,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                           col.title,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
                             color: isSorted
                                 ? AppTheme.cobalt
                                 : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -626,7 +647,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                               ? (_isAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
                               : Icons.unfold_more_rounded,
                           size: 14,
-                          color: isSorted ? AppTheme.cobalt : Colors.grey.shade400,
+                          color: isSorted ? AppTheme.cobalt : AppTheme.textMutedOf(context),
                         ),
                       ],
                     ],
@@ -708,15 +729,15 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
             return DataRow(
               selected: isSelected,
               color: WidgetStateProperty.resolveWith((states) {
-                if (isSelected) return AppTheme.cobalt.withOpacity(0.08);
+                if (isSelected) return AppTheme.cobalt.withValues(alpha: 0.10);
                 if (states.contains(WidgetState.hovered)) {
                   return isDark
-                      ? AppTheme.darkElevatedSurface.withOpacity(0.4)
-                      : Colors.blueGrey.shade50.withOpacity(0.5);
+                      ? AppTheme.darkElevatedSurface.withValues(alpha: 0.5)
+                      : AppTheme.infoBackground.withValues(alpha: 0.7);
                 }
                 return isEven
-                    ? (isDark ? AppTheme.darkSurface : Colors.grey.shade50)
-                    : (isDark ? AppTheme.darkCardBackground : Colors.white);
+                    ? (isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt)
+                    : (isDark ? AppTheme.darkCardBackground : AppTheme.surface);
               }),
               onSelectChanged: widget.onRowTap != null
                   ? (_) => widget.onRowTap!(item)

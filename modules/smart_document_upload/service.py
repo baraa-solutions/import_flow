@@ -8,9 +8,18 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from fastapi import HTTPException, status as http_status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from modules.common.enum_codes import normalize_currency
+from modules.common.errors import best_effort
+from modules.common.regex_patterns import ACID_PATTERN
+from modules.common.validators import get_or_404
+from modules.smart_document_upload.schemas import ApplyBLRequest, ApplyInvoiceRequest, UploadSessionResponse
 
 from modules.smart_document_upload.extractors.purchase_order import PurchaseOrderExtractor
 from modules.smart_document_upload.extractors.import_file import ImportFileExtractor
@@ -30,6 +39,7 @@ from modules.smart_document_upload.extractors.other_extractors import (
 from modules.smart_document_upload.extractors.master_data_entity import MasterDataEntityExtractor
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 import modules.smart_document_upload.repository as repo
+import modules.smart_document_upload.validators as validators
 
 # Entity verification imports
 from modules.suppliers.model import Supplier
@@ -111,8 +121,8 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
                         parts.append(txt.strip())
                 if parts:
                     return "\n\n".join(parts)
-            except Exception:
-                pass
+            except Exception as exc:  # PyMuPDF failed on this PDF: fall through to pypdf
+                logger.warning("PyMuPDF text extraction failed (%s); trying pypdf", type(exc).__name__)
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
             return "\n".join(p.extract_text() or "" for p in reader.pages)
@@ -139,8 +149,10 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
             return "\n".join(parts)
         else:
             return content_bytes.decode("utf-8", errors="ignore")
-    except Exception as e:
-        return f"[Extraction error: {e}]"
+    except Exception:
+        # Logged with the traceback; the client only sees an empty text (no library / path details echoed).
+        logger.exception("Fallback text extraction failed")
+        return ""
 
 
 # ─── Entity Verification ──────────────────────────────────────────────────────
@@ -225,6 +237,27 @@ def verify_extracted_entities(db: Session, extracted_fields: Dict[str, Any]) -> 
     return result
 
 
+# ─── Session persistence ─────────────────────────────────────────────────────
+
+SESSION_REF_ATTEMPTS = 2
+
+
+def _save_upload_session(db: Session, **fields: Any):
+    """Insert the upload session and commit. ``UPLOAD-<year>-NNNNN`` comes from the highest suffix; a reference
+    taken concurrently (IntegrityError) is retried once with a fresh one (SDU-05). Callers wrap this in
+    ``best_effort``: a failed save is rolled back and logged, the extraction result is still returned."""
+    for attempt in range(1, SESSION_REF_ATTEMPTS + 1):
+        try:
+            record = repo.create_upload_session(db=db, **fields)
+            db.commit()
+            db.refresh(record)
+            return record
+        except IntegrityError:
+            db.rollback()
+            if attempt == SESSION_REF_ATTEMPTS:
+                raise
+
+
 # ─── Main Service Function ────────────────────────────────────────────────────
 
 def parse_uploaded_document(
@@ -289,24 +322,22 @@ def parse_uploaded_document(
     session_id = None
     session_ref = None
     if save_session:
-        try:
-            session = repo.create_upload_session(
-                db=db,
-                module_name=module_name,
-                filename=filename,
-                file_type=file_type,
-                file_size_bytes=file_size,
-                extraction_status=status,
-                confidence_score=confidence,
-                extracted_fields=extracted_fields,
-                missing_fields=missing,
-                extraction_notes=notes,
-                created_by=created_by,
-            )
+        session = best_effort(
+            db, _save_upload_session, "smart upload session save", db,
+            module_name=module_name,
+            filename=filename,
+            file_type=file_type,
+            file_size_bytes=file_size,
+            extraction_status=status,
+            confidence_score=confidence,
+            extracted_fields=extracted_fields,
+            missing_fields=missing,
+            extraction_notes=notes,
+            created_by=created_by,
+        )
+        if session is not None:
             session_id = session.id
             session_ref = session.session_ref
-        except Exception as e:
-            logger.warning(f"Could not save upload session: {e}")
 
     return {
         "session_id": session_id,
@@ -383,24 +414,22 @@ def parse_multiple_uploaded_documents(
     session_id = None
     session_ref = None
     if save_session:
-        try:
-            session = repo.create_upload_session(
-                db=db,
-                module_name=module_name,
-                filename=unified_filename,
-                file_type=primary_file_type,
-                file_size_bytes=total_size,
-                extraction_status=status,
-                confidence_score=confidence,
-                extracted_fields=extracted_fields,
-                missing_fields=missing,
-                extraction_notes=notes,
-                created_by=created_by,
-            )
+        session = best_effort(
+            db, _save_upload_session, "smart upload session save", db,
+            module_name=module_name,
+            filename=unified_filename,
+            file_type=primary_file_type,
+            file_size_bytes=total_size,
+            extraction_status=status,
+            confidence_score=confidence,
+            extracted_fields=extracted_fields,
+            missing_fields=missing,
+            extraction_notes=notes,
+            created_by=created_by,
+        )
+        if session is not None:
             session_id = session.id
             session_ref = session.session_ref
-        except Exception as e:
-            logger.warning(f"Could not save multi-upload session: {e}")
 
     return {
         "session_id": session_id,
@@ -424,7 +453,7 @@ def parse_raw_text_directly(
     module_name: str,
     raw_text: str,
     save_session: bool = False,
-    created_by: str = "system",
+    created_by: Optional[int] = None,
 ) -> dict:
     """
     Parses raw text directly without file upload (e.g. pasted contact info / address block)
@@ -459,24 +488,22 @@ def parse_raw_text_directly(
     session_id = None
     session_ref = None
     if save_session:
-        try:
-            session = repo.create_upload_session(
-                db=db,
-                module_name=module_name,
-                filename="pasted_raw_text",
-                file_type="text",
-                file_size_bytes=len(raw_text.encode("utf-8")),
-                extraction_status=status,
-                confidence_score=confidence,
-                extracted_fields=extracted_fields,
-                missing_fields=missing,
-                extraction_notes=notes,
-                created_by=created_by,
-            )
+        session = best_effort(
+            db, _save_upload_session, "smart upload session save", db,
+            module_name=module_name,
+            filename="pasted_raw_text",
+            file_type="text",
+            file_size_bytes=len(raw_text.encode("utf-8")),
+            extraction_status=status,
+            confidence_score=confidence,
+            extracted_fields=extracted_fields,
+            missing_fields=missing,
+            extraction_notes=notes,
+            created_by=created_by,
+        )
+        if session is not None:
             session_id = session.id
             session_ref = session.session_ref
-        except Exception as e:
-            logger.warning(f"Could not save text parse session: {e}")
 
     return {
         "session_id": session_id,
@@ -495,11 +522,18 @@ def parse_raw_text_directly(
     }
 
 
-def get_upload_sessions_service(db: Session, module_name: str = None, skip: int = 0, limit: int = 50):
-    return repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)
+def get_upload_sessions_service(
+    db: Session, module_name: Optional[str] = None, skip: int = 0, limit: int = 50
+) -> List[UploadSessionResponse]:
+    return [
+        UploadSessionResponse.from_model(s)
+        for s in repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)
+    ]
 
-def get_upload_session_by_id_service(db: Session, session_id: int):
-    return repo.get_upload_session_by_id(db, session_id)
+
+def get_upload_session_by_id_service(db: Session, session_id: int) -> Optional[UploadSessionResponse]:
+    s = repo.get_upload_session_by_id(db, session_id)
+    return UploadSessionResponse.from_model(s) if s else None
 
 
 # ─── AI Commercial Invoice & Bill of Lading Specialized Services ─────────────
@@ -567,99 +601,199 @@ def cross_check_invoice_and_bl_service(
     )
 
 
-def apply_extracted_invoice_service(
-    db: Session,
-    import_file_id: Optional[int],
-    invoice_data: Dict[str, Any],
-    user: str = "Admin",
-) -> Dict[str, Any]:
-    """Updates an existing ImportFile or pre-fills invoice info."""
+def _acid_or_400(raw: Optional[str]) -> Optional[str]:
+    if raw is None or not str(raw).strip():
+        return None
+    acid = str(raw).strip()
+    if not ACID_PATTERN.fullmatch(acid):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "SDU_ACID_INVALID",
+                "message": f"رقم الـ ACID المستخرج ({acid}) غير صالح: يجب أن يكون 19 رقماً.",
+                "acid_number": acid,
+            },
+        )
+    return acid
+
+
+def _incoterm_or_400(db: Session, raw: Optional[str]) -> Optional[str]:
+    if raw is None or not str(raw).strip():
+        return None
+    from modules.incoterms.model import Incoterm
+
+    code = str(raw).strip().upper()
+    found = db.query(Incoterm).filter(Incoterm.incoterm_code == code, Incoterm.is_active == True).first()
+    if found is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"شرط التسليم '{raw}' غير مسجل في جدول شروط التسليم (Incoterms) أو غير نشط.",
+        )
+    return found.incoterm_code
+
+
+def _currency_or_400(raw: Optional[str]) -> Optional[str]:
+    if raw is None or not str(raw).strip():
+        return None
+    code = normalize_currency(str(raw))
+    if not isinstance(code, str) or not re.fullmatch(r"[A-Z]{3}", code):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"العملة '{raw}' غير صالحة: المطلوب رمز ISO من 3 أحرف (مثل USD).",
+        )
+    return code
+
+
+def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, user: str = "SYSTEM") -> Dict[str, Any]:
+    """
+    Apply validated invoice data to an active ImportFile (SDU-01): ACID must be 19 digits and never replaces a
+    different ACID already on the file (409 ``SDU_ACID_CONFLICT``); the Incoterm must exist in the master table;
+    the currency is an ISO code; the value is a positive number (schema). Without an import file the data is
+    only returned for a new file (``SDU_EXTRACTED_ONLY``).
+    """
     from modules.import_files.model import ImportFile
-    file_record = None
-    if import_file_id:
-        file_record = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
 
-    if file_record:
-        if invoice_data.get("acid_number"):
-            file_record.acid_number = invoice_data["acid_number"]
-        if invoice_data.get("incoterms"):
-            file_record.incoterm_code = invoice_data["incoterms"]
-        if invoice_data.get("loading_port"):
-            file_record.port_of_loading = invoice_data["loading_port"]
-        if invoice_data.get("discharge_port"):
-            file_record.port_of_discharge = invoice_data["discharge_port"]
-        if invoice_data.get("invoice_value"):
-            file_record.estimated_cost = invoice_data["invoice_value"]
-        if invoice_data.get("currency"):
-            file_record.estimated_cost_currency = invoice_data["currency"]
-
-        existing_invoices = list(file_record.invoices_data or [])
-        inv_no = invoice_data.get("invoice_number") or f"INV-{len(existing_invoices)+1}"
-        existing_invoices.append({
-            "invoice_no": inv_no,
-            "date": invoice_data.get("invoice_date"),
-            "amount": invoice_data.get("invoice_value", 0.0),
-            "currency": invoice_data.get("currency", "USD"),
-            "items_count": len(invoice_data.get("items", [])),
-        })
-        file_record.invoices_data = existing_invoices
-        file_record.invoices_count = len(existing_invoices)
-        db.commit()
-        db.refresh(file_record)
+    data = payload.invoice_data
+    if not payload.import_file_id:
         return {
-            "applied": True,
-            "import_file_id": file_record.import_file_id,
-            "import_file_code": file_record.import_file_code,
-            "message_ar": f"تم ربط بيانات الفاتورة بنجاح مع الملف {file_record.import_file_code}",
+            "applied": False,
+            "import_file_id": None,
+            "msg_code": "SDU_EXTRACTED_ONLY",
+            "params": {},
+            "message_ar": "تم استخراج البيانات وجاهزة للاستخدام بملف جديد",
         }
+    file_record = get_or_404(db, ImportFile, payload.import_file_id, "ملف الاستيراد", active_only=True)
+    validators.ensure_import_file_open(file_record)
+
+    acid = _acid_or_400(data.acid_number)
+    incoterm = _incoterm_or_400(db, data.incoterms)
+    currency = _currency_or_400(data.currency)
+    current_acid = (file_record.acid_number or "").strip()
+    if acid and current_acid and current_acid != acid:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SDU_ACID_CONFLICT",
+                "message": f"رقم الـ ACID المستخرج ({acid}) يختلف عن الرقم المسجل على الملف ({current_acid}).",
+                "acid_number": acid,
+                "current_acid_number": current_acid,
+                "import_file_code": file_record.import_file_code,
+            },
+        )
+
+    if acid:
+        file_record.acid_number = acid
+    if incoterm:
+        file_record.incoterm_code = incoterm
+    if data.loading_port and data.loading_port.strip():
+        file_record.port_of_loading = data.loading_port.strip()
+    if data.discharge_port and data.discharge_port.strip():
+        file_record.port_of_discharge = data.discharge_port.strip()
+    if data.invoice_value is not None:
+        file_record.estimated_cost = data.invoice_value
+    if currency:
+        file_record.estimated_cost_currency = currency
+
+    existing_invoices = list(file_record.invoices_data or [])
+    inv_no = (data.invoice_number or "").strip() or f"INV-{len(existing_invoices) + 1}"
+    existing_invoices.append({
+        "invoice_no": inv_no,
+        "date": data.invoice_date,
+        "amount": data.invoice_value or 0.0,
+        "currency": currency or file_record.estimated_cost_currency,  # no invented default currency
+        "items_count": len(data.items),
+    })
+    file_record.invoices_data = existing_invoices
+    file_record.invoices_count = len(existing_invoices)
+    file_record.updated_by = user
+    db.commit()
+    db.refresh(file_record)
     return {
-        "applied": False,
-        "import_file_id": None,
-        "message_ar": "تم استخراج البيانات وجاهزة للاستخدام بملف جديد",
+        "applied": True,
+        "import_file_id": file_record.import_file_id,
+        "import_file_code": file_record.import_file_code,
+        "msg_code": "SDU_INVOICE_APPLIED",
+        "params": {"import_file_code": file_record.import_file_code, "invoice_no": inv_no},
+        "message_ar": f"تم ربط بيانات الفاتورة بنجاح مع الملف {file_record.import_file_code}",  # kept one release
     }
 
 
-def apply_extracted_bl_service(
-    db: Session,
-    import_file_id: Optional[int],
-    bl_data: Dict[str, Any],
-    user: str = "Admin",
-) -> Dict[str, Any]:
-    """Updates cargo shipping record and container tracking with extracted B/L data."""
+def apply_extracted_bl_service(db: Session, payload: ApplyBLRequest, user: str = "SYSTEM") -> Dict[str, Any]:
+    """
+    Merge extracted B/L containers into the file's CargoShippingRecord by ``container_no`` (SDU-01): existing
+    rows keep their status fields (VGM, tracking) and only take extracted values that are present; new rows get
+    null type / statuses when not extracted (no invented "40HC" / "Verified" / "Gate-In").
+    """
     from modules.cargo_shipping.model import CargoShippingRecord
+    from modules.import_files.model import ImportFile
+
     shipping_record = None
-    if import_file_id:
-        shipping_record = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id == import_file_id).first()
-
-
-    if shipping_record:
-        containers_to_apply = []
-        for c in bl_data.get("containers", []):
-            containers_to_apply.append({
-                "container_no": c.get("container_no"),
-                "seal_no": c.get("seal_no"),
-                "container_type": c.get("container_type", "40HC"),
-                "gross_weight_kg": c.get("gross_weight_kg"),
-                "cbm": c.get("cbm"),
-                "vgm_status": "Verified",
-                "tracking_status": "Gate-In",
-            })
-        if containers_to_apply:
-            shipping_record.containers_loading_data = containers_to_apply
-        db.commit()
-        db.refresh(shipping_record)
+    if payload.import_file_id:
+        file_record = get_or_404(db, ImportFile, payload.import_file_id, "ملف الاستيراد", active_only=True)
+        validators.ensure_import_file_open(file_record)
+        shipping_record = (
+            db.query(CargoShippingRecord)
+            .filter(CargoShippingRecord.import_file_id == payload.import_file_id, CargoShippingRecord.is_active == True)
+            .first()
+        )
+        if not shipping_record:
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "SDU_NO_SHIPPING_RECORD",
+                    "message": f"لا يوجد سجل شحن نشط لملف الاستيراد {file_record.import_file_code}؛ "
+                    "يجب إنشاء سجل الشحن أولاً قبل تطبيق بيانات البوليصة.",
+                    "import_file_id": payload.import_file_id,
+                    "import_file_code": file_record.import_file_code,
+                },
+            )
+    if not shipping_record:
         return {
-            "applied": True,
-            "cargo_shipping_id": shipping_record.cargo_shipping_id,
-            "cargo_shipping_code": shipping_record.cargo_shipping_code,
-            "containers_applied": len(containers_to_apply),
-            "message_ar": f"تم تطبيق بيانات البوليصة والحاويات على الشحنة {shipping_record.cargo_shipping_code}",
+            "applied": False,
+            "msg_code": "SDU_EXTRACTED_ONLY",
+            "params": {},
+            "message_ar": "تم استخراج بيانات البوليصة بنجاح",
         }
+
+    merged = [dict(c) for c in (shipping_record.containers_loading_data or []) if isinstance(c, dict)]
+    index = {str(c.get("container_no") or "").strip().upper(): c for c in merged if c.get("container_no")}
+    applied = 0
+    for item in payload.bl_data.containers:
+        key = (item.container_no or "").strip().upper()
+        if not key:
+            continue  # nothing to merge on
+        extracted = {
+            "seal_no": item.seal_no,
+            "container_type": item.container_type,
+            "gross_weight_kg": item.gross_weight_kg,
+            "cbm": item.cbm,
+        }
+        row = index.get(key)
+        if row is None:
+            row = {"container_no": key, "vgm_status": None, "tracking_status": None, **extracted}
+            merged.append(row)
+            index[key] = row
+        else:
+            row.update({k: v for k, v in extracted.items() if v is not None})
+        applied += 1
+    if applied:
+        shipping_record.containers_loading_data = merged
+        shipping_record.updated_by = user
+    db.commit()
+    db.refresh(shipping_record)
     return {
-        "applied": False,
-        "message_ar": "تم استخراج بيانات البوليصة بنجاح",
+        "applied": True,
+        "cargo_shipping_id": shipping_record.cargo_shipping_id,
+        "cargo_shipping_code": shipping_record.cargo_shipping_code,
+        "containers_applied": applied,
+        "msg_code": "SDU_BL_APPLIED",
+        "params": {"cargo_shipping_code": shipping_record.cargo_shipping_code, "containers_applied": applied},
+        "message_ar": f"تم تطبيق بيانات البوليصة والحاويات على الشحنة {shipping_record.cargo_shipping_code}",
     }
 
 
-def soft_delete_upload_session_service(db: Session, session_id: int):
-    return repo.soft_delete_upload_session(db, session_id)
+def soft_delete_upload_session_service(db: Session, session_id: int) -> bool:
+    deleted = repo.soft_delete_upload_session(db, session_id)
+    if deleted:
+        db.commit()
+    return deleted

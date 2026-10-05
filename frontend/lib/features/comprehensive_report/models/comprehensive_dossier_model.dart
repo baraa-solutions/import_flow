@@ -76,7 +76,8 @@ class ComprehensiveShipmentDossierModel {
 
   final List<Map<String, dynamic>> purchaseOrders;
   final double totalFobFc;
-  final double totalFobEgp;
+  /// Null when the backend has no customs rate for the FOB currency (no fabricated conversion).
+  final double? totalFobEgp;
   final String fobCurrency;
   final int itemsCount;
   final List<Map<String, dynamic>> itemsDetail;
@@ -162,7 +163,7 @@ class ComprehensiveShipmentDossierModel {
     this.targetFreeDays = 21,
     this.purchaseOrders = const [],
     this.totalFobFc = 0.0,
-    this.totalFobEgp = 0.0,
+    this.totalFobEgp,
     this.fobCurrency = 'USD',
     this.itemsCount = 0,
     this.itemsDetail = const [],
@@ -250,7 +251,7 @@ class ComprehensiveShipmentDossierModel {
       targetFreeDays: json['target_free_days'] as int? ?? 21,
       purchaseOrders: rawPos.map((p) => p as Map<String, dynamic>).toList(),
       totalFobFc: (json['total_fob_fc'] as num?)?.toDouble() ?? 0.0,
-      totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble() ?? 0.0,
+      totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble(),
       fobCurrency: json['fob_currency'] ?? 'USD',
       itemsCount: json['items_count'] as int? ?? 0,
       itemsDetail: rawItems.map((i) => i as Map<String, dynamic>).toList(),

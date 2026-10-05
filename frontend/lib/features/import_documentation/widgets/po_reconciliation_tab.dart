@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import '../../../core/localization/api_error_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/helpers/file_picker_helper.dart';
@@ -22,8 +24,6 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../models/po_reconciliation_session_model.dart';
 import '../providers/import_documentation_provider.dart';
-import '../../warehouse_receiving/models/goods_in_transit_model.dart';
-import '../../warehouse_receiving/providers/goods_in_transit_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
@@ -31,6 +31,9 @@ import 'search_and_clone_po_reconciliation_dialog.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/metric_card.dart';
+import 'idoc_ui.dart';
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -248,7 +251,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.poRecSampleLoadedSuccess),
-        backgroundColor: Colors.blueGrey,
+        backgroundColor: AppTheme.textSecondaryOf(context),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -310,7 +313,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecFilePickFailed(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecFilePickFailed(e.toString())), backgroundColor: AppTheme.crimson),
         );
       }
     }
@@ -352,9 +355,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: AppTheme.crimsonBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,9 +366,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.cancel, color: Colors.red, size: 16),
+                        const Icon(Icons.cancel, color: AppTheme.crimson, size: 16),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(issue, style: const TextStyle(fontSize: 12.5, color: Colors.red))),
+                        Expanded(child: Text(issue, style: const TextStyle(fontSize: 12.5, color: AppTheme.crimson))),
                       ],
                     ),
                   )).toList(),
@@ -377,9 +380,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: AppTheme.emeraldBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,9 +391,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        const Icon(Icons.check_circle, color: AppTheme.emerald, size: 16),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(rec, style: const TextStyle(fontSize: 12.5, color: Colors.black87))),
+                        Expanded(child: Text(rec, style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary))),
                       ],
                     ),
                   )).toList(),
@@ -400,10 +403,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ),
         ),
         actions: [
-          TextButton(
+          IdocUi.fit(AppButton(
+            label: l.poRecInputValidationGotIt,
+            variant: AppButtonVariant.ghost,
             onPressed: () => Navigator.pop(ctx),
-            child: Text(l.poRecInputValidationGotIt, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-          ),
+          )),
         ],
       ),
     );
@@ -501,7 +505,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l.poRecServerSuccessNotice),
-              backgroundColor: Colors.green,
+              backgroundColor: AppTheme.emerald,
               duration: const Duration(seconds: 3),
             ),
           );
@@ -518,7 +522,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l.poRecFallbackSuccessNotice),
-            backgroundColor: const Color(0xFF27AE60),
+            backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -898,7 +902,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.poRecApplyExtractedSuccess),
-        backgroundColor: Colors.green,
+        backgroundColor: AppTheme.emerald,
       ),
     );
   }
@@ -938,7 +942,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             : 0.0;
 
         final recItem = POReconciliationItemModel(
-          poItemId: itm.itemId ?? 0,
+          poItemId: itm.itemId,
           itemCode: itmCode,
           description: itmDesc,
           hsCode: itm.hsCode,
@@ -970,7 +974,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   : (matchingPoItem?.descriptionEn ?? itmCode));
           final double poPkgQty = plItm.qtyPkg > 0 ? plItm.qtyPkg : 1.0;
           final plRecItem = POReconciliationItemModel(
-            poItemId: matchingPoItem?.itemId ?? plItm.packingItemId ?? 0,
+            // po_item_id and packing_item_id are different id spaces (C4): never reuse one for the other.
+            poItemId: matchingPoItem?.itemId,
+            packingItemId: plItm.packingItemId,
             itemCode: itmCode,
             description: itmDesc,
             hsCode: plItm.hsCode.isNotEmpty ? plItm.hsCode : matchingPoItem?.hsCode,
@@ -1013,7 +1019,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.poRecSaveSessionSelectFileWarning), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.poRecSaveSessionSelectFileWarning), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -1031,39 +1037,37 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     if (existingSession != null) {
       final isDraft = existingSession.overallStatus.toUpperCase() == 'DRAFT';
-      final statusLabel = isDraft ? 'مسودة (Draft)' : 'محفوظة/معتمدة (${existingSession.overallStatus})';
-      final updater = existingSession.certifiedBy?.isNotEmpty == true ? existingSession.certifiedBy! : 'مراجع المستندات';
+      final statusLabel = isDraft ? context.l10n.idocADraft3 : context.l10n.idocASavedApprovedStatus(existingSession.overallStatus);
+      final updater = existingSession.certifiedBy?.isNotEmpty == true ? existingSession.certifiedBy! : context.l10n.idocADocumentsReviewer;
       final updatedTime = _formatSessionDate(existingSession.updatedAt ?? existingSession.createdAt);
 
       final confirmUpdate = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
               SizedBox(width: 10),
-              Text('تنبيه: جلسة مسجلة مسبقاً', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.idocANoticeASessionIsAlreadyRegistered, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: Text(
-            'هذا الملف الاستيرادي لديه بالفعل جلسة مسجلة ($statusLabel)، آخر تحديث بواسطة $updater في $updatedTime.\n\nهل ترغب في تحديث الجلسة الحالية (${existingSession.sessionCode}) بالبيانات الجديدة؟',
+            context.l10n.idocAExistingSessionUpdateBody(statusLabel, updater, updatedTime, existingSession.sessionCode),
             style: const TextStyle(fontSize: 13, height: 1.5),
           ),
           actions: [
-            TextButton(
+            IdocUi.fit(AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.ghost,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel, style: const TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.update, size: 18),
-              label: Text(l.poRecUpdateExistingSessionButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+            )),
+            IdocUi.fit(AppButton(
+              label: l.poRecUpdateExistingSessionButton,
+              icon: Icons.update,
+              variant: AppButtonVariant.primary,
               onPressed: () => Navigator.pop(ctx, true),
-            ),
+            )),
           ],
         ),
       );
@@ -1099,7 +1103,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       final dynamicShipper = _extractedReconciliationData?['extracted_invoice_data']?['shipper']?.toString().trim() ??
           _extractedReconciliationData?['extracted_packing_data']?['shipper']?.toString().trim() ??
           currentFile?.supplierName ??
-          'Foreign Exporter';
+          '';
 
       final sessionModel = POReconciliationSessionModel(
         importFileId: _selectedImportFileId!,
@@ -1107,9 +1111,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         finalPackingListNumber: _finalPLNumberCtrl.text.trim(),
         acidNumber: _extractedReconciliationData?['extracted_packing_data']?['acid_number'] ??
             _extractedReconciliationData?['extracted_invoice_data']?['acid_number'] ??
-            currentFile?.acidNumber ??
-            '—',
-        shipperName: dynamicShipper.isNotEmpty ? dynamicShipper : 'Foreign Exporter',
+            currentFile?.acidNumber,
+        shipperName: dynamicShipper.isNotEmpty ? dynamicShipper : null,
         totalInvoiceAmount: totalAmount,
         currency: _extractedReconciliationData?['extracted_invoice_data']?['currency'] ??
             linkedPO?.currencyCode ??
@@ -1128,8 +1131,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         reconciledPackingItems: _packingItems.map((i) => i.toJson()).toList(),
         extractedInvoiceData: _extractedReconciliationData?['extracted_invoice_data'] as Map<String, dynamic>?,
         extractedPackingData: _extractedReconciliationData?['extracted_packing_data'] as Map<String, dynamic>?,
-        notes: 'Final PO & Packing Reconciliation Session',
-        certifiedBy: 'Import Manager',
       );
 
       final created = await ref.read(poReconciliationSessionsProvider.notifier).createSession(sessionModel);
@@ -1145,7 +1146,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecSaveSessionError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecSaveSessionError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -1196,7 +1197,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecSaveSessionError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecSaveSessionError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -1209,7 +1210,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.poRecSelectFileRequired), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.poRecSelectFileRequired), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -1239,19 +1240,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             style: const TextStyle(fontSize: 12.5, height: 1.6),
           ),
           actions: [
-            TextButton(
+            IdocUi.fit(AppButton(
+              label: l.poRecCancelAndReview,
+              variant: AppButtonVariant.ghost,
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.poRecCancelAndReview),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.verified, size: 16),
-              label: Text(l.poRecConfirmCertifyButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+            )),
+            IdocUi.fit(AppButton(
+              label: l.poRecConfirmCertifyButton,
+              icon: Icons.verified,
+              variant: AppButtonVariant.success,
               onPressed: () => Navigator.pop(ctx, true),
-            ),
+            )),
           ],
         ),
       );
@@ -1273,31 +1272,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       ref.invalidate(importFilesProvider);
       ref.invalidate(purchaseOrdersProvider);
+      invalidateImportDocDependentsW(ref);
 
-      // Auto-update Goods In Transit (GIT) Ledger
-      final gitItems = _invoiceItems.map((itm) {
-        return GitLineItemModel(
-          importFileId: _selectedImportFileId!,
-          importFileCode: 'IMP-$_selectedImportFileId',
-          poId: 101,
-          poNumber: 'PO-REC-$_selectedImportFileId',
-          itemCode: itm.itemCode,
-          itemName: itm.description,
-          invoicedQty: itm.finalQuantity > 0 ? itm.finalQuantity : itm.initialQuantity,
-          packagesCount: 50,
-          packageType: 'CT - Carton',
-          containersCount: 1,
-          containerType: '40ft High Cube',
-          certifiedDate: DateTime.now().toIso8601String().substring(0, 10),
-          isDeliveredToWarehouse: false,
-        );
-      }).toList();
-
-      ref.read(goodsInTransitProvider.notifier).addReconciledShipment(
-        importFileId: _selectedImportFileId!,
-        importFileCode: 'IMP-$_selectedImportFileId',
-        items: gitItems,
-      );
+      // The Goods-in-Transit ledger is not seeded from here: the previous seed used
+      // invented PO id / package counts / container type.
 
       // Also auto-save/update session in background
       await _saveReconciliationSession();
@@ -1313,7 +1291,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecCertificationError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecCertificationError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -1322,7 +1300,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   String _formatSessionDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return 'غير محدد';
+    if (dateStr == null || dateStr.isEmpty) return context.l10n.idocANotSpecified;
     try {
       final dt = DateTime.parse(dateStr).toLocal();
       final y = dt.year.toString().padLeft(4, '0');
@@ -1358,7 +1336,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500)),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -1379,8 +1357,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     if (existing != null) {
       final isDraft = existing.overallStatus.toUpperCase() == 'DRAFT';
-      final statusLabel = isDraft ? 'مسودة (Draft)' : 'محفوظة/معتمدة (${existing.overallStatus})';
-      final updater = existing.certifiedBy?.isNotEmpty == true ? existing.certifiedBy! : 'مراجع المستندات';
+      final statusLabel = isDraft ? context.l10n.idocADraft3 : context.l10n.idocASavedApprovedStatus(existing.overallStatus);
+      final updater = existing.certifiedBy?.isNotEmpty == true ? existing.certifiedBy! : context.l10n.idocADocumentsReviewer;
       final updatedTime = _formatSessionDate(existing.updatedAt ?? existing.createdAt);
 
       final shouldOpen = await showDialog<bool>(
@@ -1393,15 +1371,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
+                  color: AppTheme.severityBackgroundOf(context, AppSeverity.warning),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                child: const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'تنبيه: جلسة مطابقة مسجلة مسبقاً',
+                  context.l10n.idocANoticeAReconciliationSessionIsAlready,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                 ),
               ),
@@ -1411,61 +1389,57 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 520.0),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50.withOpacity(0.5),
+              color: AppTheme.severityBackgroundOf(context, AppSeverity.warning).withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.orange.shade200),
+              border: Border.all(color: AppTheme.orange),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'هذا الملف الاستيرادي لديه بالفعل جلسة مسجلة ($statusLabel)، آخر تحديث بواسطة $updater في $updatedTime.',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900, height: 1.5),
+                  context.l10n.idocAExistingSessionBody(statusLabel, updater, updatedTime),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.severityForegroundOf(context, AppSeverity.warning), height: 1.5),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.surfaceOf(context),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: AppTheme.borderOf(context)),
                   ),
                   child: Column(
                     children: [
-                      _buildDuplicateDetailRow('كود الجلسة', existing.sessionCode),
+                      _buildDuplicateDetailRow(context.l10n.idocASessionCode, existing.sessionCode),
                       if (existing.finalInvoiceNumber != null && existing.finalInvoiceNumber!.isNotEmpty)
-                        _buildDuplicateDetailRow('رقم الفاتورة النهائية', existing.finalInvoiceNumber!),
-                      _buildDuplicateDetailRow('حالة الجلسة', statusLabel),
-                      _buildDuplicateDetailRow('المستخدم المسؤول', updater),
-                      _buildDuplicateDetailRow('تاريخ ووقت الحفظ', updatedTime),
+                        _buildDuplicateDetailRow(context.l10n.idocAFinalInvoiceNumber, existing.finalInvoiceNumber!),
+                      _buildDuplicateDetailRow(context.l10n.idocASessionStatus, statusLabel),
+                      _buildDuplicateDetailRow(context.l10n.idocAResponsibleUser, updater),
+                      _buildDuplicateDetailRow(context.l10n.idocASaveDateAndTime, updatedTime),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'يمكنك فتح ومتابعة الجلسة القائمة وتعديل بنودها مباشرة دون إنشاء جلسة جديدة، أو إلغاء التحديد لاختيار ملف آخر.',
+                Text(
+                  context.l10n.idocAYouCanOpenAndContinueThe,
                   style: TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(
+            IdocUi.fit(AppButton(
+              label: context.l10n.idocAClearSelection,
+              variant: AppButtonVariant.ghost,
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء التحديد', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.folder_open_rounded, size: 18),
-              label: const Text('فتح ومتابعة الجلسة الحالية', style: TextStyle(fontWeight: FontWeight.bold)),
+            )),
+            IdocUi.fit(AppButton(
+              label: context.l10n.idocAOpenAndContinueTheCurrentSession,
+              icon: Icons.folder_open_rounded,
+              variant: AppButtonVariant.primary,
               onPressed: () => Navigator.pop(ctx, true),
-            ),
+            )),
           ],
         ),
       );
@@ -1495,7 +1469,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final sessionsList = ref.watch(poReconciliationSessionsProvider).valueOrNull ?? [];
     final session = sessionsList.where((s) => s.sessionId == _activeSessionId).firstOrNull;
 
-    final updater = session?.certifiedBy?.isNotEmpty == true ? session!.certifiedBy! : 'مراجع المستندات';
+    final updater = session?.certifiedBy?.isNotEmpty == true ? session!.certifiedBy! : context.l10n.idocADocumentsReviewer;
     final updatedTime = _formatSessionDate(session?.updatedAt ?? session?.createdAt);
     final isDraft = session?.overallStatus.toUpperCase() == 'DRAFT';
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1504,13 +1478,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.blueGrey.shade50,
+        color: AppTheme.surfaceAltOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.blueGrey.shade200),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Row(
         children: [
-          Icon(Icons.history_toggle_off_rounded, color: isDark ? AppTheme.cobaltLight : Colors.blueGrey.shade700, size: 22),
+          Icon(Icons.history_toggle_off_rounded, color: isDark ? AppTheme.cobaltLight : AppTheme.textSecondaryOf(context), size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Wrap(
@@ -1521,40 +1495,35 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isDraft ? Colors.amber.shade100 : Colors.green.shade100,
+                    color: isDraft ? AppTheme.severityBackgroundOf(context, AppSeverity.warning) : AppTheme.severityBackgroundOf(context, AppSeverity.success),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isDraft ? Colors.amber.shade700 : Colors.green.shade700),
+                    border: Border.all(color: isDraft ? AppTheme.severityForegroundOf(context, AppSeverity.warning) : AppTheme.severityForegroundOf(context, AppSeverity.success)),
                   ),
                   child: Text(
-                    isDraft ? 'مسودة (Draft)' : 'جلسة نشطة (${_activeSessionCode ?? ''})',
+                    isDraft ? context.l10n.idocADraft3 : 'جلسة نشطة (${_activeSessionCode ?? ''})',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: isDraft ? Colors.amber.shade900 : Colors.green.shade900,
+                      color: isDraft ? AppTheme.severityForegroundOf(context, AppSeverity.warning) : AppTheme.severityForegroundOf(context, AppSeverity.success),
                     ),
                   ),
                 ),
                 Text(
-                  'آخر تعديل بواسطة: $updater في $updatedTime',
+                  context.l10n.idocALastModifiedByOn(updater, updatedTime),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.darkTextPrimary : Colors.blueGrey.shade900,
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                 ),
               ],
             ),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? Colors.white : AppTheme.charcoal,
-              side: BorderSide(color: isDark ? Colors.grey.shade600 : Colors.blueGrey.shade300),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              visualDensity: VisualDensity.compact,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.manage_history_rounded, size: 16),
-            label: const Text('سجل التدقيق الكامل', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          IdocUi.fit(AppButton(
+            label: context.l10n.idocAFullAuditLog,
+            icon: Icons.manage_history_rounded,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () {
               RowHistoryDialog.show(
                 context,
@@ -1563,7 +1532,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 entityTitle: 'جلسة المطابقة ${_activeSessionCode ?? ''}',
               );
             },
-          ),
+          )),
         ],
       ),
     );
@@ -1661,18 +1630,18 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         sourceTitle: '${sourceSession.finalInvoiceNumber ?? "INV"} / ${sourceSession.finalPackingListNumber ?? "PL"}',
         suggestedNewCode: suggestedCode,
         copiedFieldsSummary: {
-          'رقم الفاتورة': sourceSession.finalInvoiceNumber ?? '—',
-          'رقم قائمة التعبئة': sourceSession.finalPackingListNumber ?? '—',
-          'إجمالي القيمة': '${sourceSession.totalInvoiceAmount.toStringAsFixed(2)} ${sourceSession.currency}',
-          'إجمالي الطرود': '${sourceSession.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}',
-          'إجمالي الوزن': '${_formatWeight(sourceSession.totalGrossWeightKg)} ${l.poRecKgUnit}',
-          'الحجم الكلي': '${sourceSession.totalCbm.toStringAsFixed(2)} ${l.poRecCbmUnit}',
+          context.l10n.idocAInvoiceNumber: sourceSession.finalInvoiceNumber ?? '—',
+          context.l10n.idocAPackingListNumber: sourceSession.finalPackingListNumber ?? '—',
+          context.l10n.idocATotalValue: '${sourceSession.totalInvoiceAmount.toStringAsFixed(2)} ${sourceSession.currency}',
+          context.l10n.idocATotalPackages: '${sourceSession.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}',
+          context.l10n.idocATotalWeight: '${_formatWeight(sourceSession.totalGrossWeightKg)} ${l.poRecKgUnit}',
+          context.l10n.idocATotalVolume: '${sourceSession.totalCbm.toStringAsFixed(2)} ${l.poRecCbmUnit}',
         },
         mandatorilyResetFields: [
           l.poReconClonedResetNotice,
           'معرّف الجلسة: تعيين إلى مسودة جديدة غير محفوظة (null)',
           'حالة التوثيق والاعتماد: إعادة تعيين إلى غير معتمد (Draft/Pending)',
-          'تفريغ توقيع ومعتمد الجلسة وتاريخ الاعتماد لبدء جلسة مستقلة',
+          context.l10n.idocACloneNoteSignature,
         ],
         allowCopyLineItems: true,
         allowCopyAttachments: false,
@@ -1759,7 +1728,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('تم استنساخ البند ${item.itemCode} بنجاح'),
+        content: Text(context.l10n.idocAItemClonedSuccessfully(item.itemCode)),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 2),
       ),
@@ -1781,7 +1750,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('تم استنساخ طرد ${item.itemCode} بنجاح'),
+        content: Text(context.l10n.idocAPackageClonedSuccessfully(item.itemCode)),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 2),
       ),
@@ -1826,14 +1795,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final isAr = l.isArabic;
     final headers = [
       '#',
-      isAr ? 'كود الجلسة' : 'Session Code',
-      isAr ? 'ملف الشحنة / المستورد' : 'Import File / Importer',
-      isAr ? 'رقم الفاتورة / قائمة التعبئة' : 'Invoice / Packing List',
-      isAr ? 'القيمة الإجمالية' : 'Total Value',
-      isAr ? 'الطرود والوزن' : 'Packages & Weight',
-      isAr ? 'الحجم (CBM)' : 'Volume (CBM)',
-      isAr ? 'الحالة' : 'Status',
-      isAr ? 'تاريخ الحفظ' : 'Saved Date',
+      context.l10n.idocASessionCodeAlt,
+      context.l10n.idocAImportFileImporter,
+      context.l10n.idocAInvoicePackingList,
+      context.l10n.idocATotalValue,
+      context.l10n.idocAPackagesWeight,
+      context.l10n.idocAVolumeCBM,
+      context.l10n.status,
+      context.l10n.idocASavedDate,
     ];
     final rows = sessions.asMap().entries.map((entry) {
       final idx = entry.key + 1;
@@ -1855,7 +1824,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل جلسات مطابقة الفاتورة وقائمة التعبئة' : 'PO Reconciliation Sessions',
+      stageName: context.l10n.idocAPOReconciliationSessions,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'PO_Reconciliations',
     );
   }
@@ -1865,12 +1834,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final isAr = l.isArabic;
     final headers = [
       '#',
-      isAr ? 'كود الجلسة' : 'Code',
-      isAr ? 'الشحنة' : 'File',
-      isAr ? 'الفاتورة' : 'Invoice',
-      isAr ? 'القيمة' : 'Value',
-      isAr ? 'الطرود' : 'Packages',
-      isAr ? 'الحالة' : 'Status',
+      context.l10n.idocACodeAlt,
+      context.l10n.idocAFileAlt,
+      context.l10n.idocAInvoice,
+      context.l10n.idocAValue,
+      context.l10n.idocAPackages,
+      context.l10n.status,
     ];
     final rows = sessions.asMap().entries.map((entry) {
       final idx = entry.key + 1;
@@ -1889,7 +1858,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'جلسات مطابقة الفاتورة وقائمة التعبئة' : 'PO Reconciliation Sessions',
+      stageName: context.l10n.idocAPOReconciliationSessionsAlt,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'PO_Reconciliations',
     );
   }
@@ -1932,16 +1901,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     final isAr = l.isArabic;
     final headers = [
-      isAr ? 'كود الصنف' : 'Item Code',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'كمية أمر الشراء' : 'PO Qty',
-      isAr ? 'الكمية النهائية' : 'Final Qty',
-      isAr ? 'فارق الكمية' : 'Qty Variance',
-      isAr ? 'سعر أمر الشراء' : 'PO Unit Price',
-      isAr ? 'السعر النهائي' : 'Final Unit Price',
-      isAr ? 'فارق السعر' : 'Price Variance',
-      isAr ? 'الإجمالي النهائي' : 'Final Total',
-      isAr ? 'بند التعريفة' : 'HS Code',
+      context.l10n.idocAItemCode,
+      context.l10n.idocADescription,
+      context.l10n.idocAPOQty,
+      context.l10n.idocAFinalQty,
+      context.l10n.idocAQtyVariance,
+      context.l10n.idocAPOUnitPrice,
+      context.l10n.idocAFinalUnitPrice,
+      context.l10n.idocAPriceVariance,
+      context.l10n.idocAFinalTotal,
+      context.l10n.idocAHSCode,
     ];
     final rows = _invoiceItems.map((itm) {
       final qtyVariance = itm.finalQuantity - itm.initialQuantity;
@@ -1966,7 +1935,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       final totalPoAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.initialQuantity * i.initialUnitPrice));
       final totalFinAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.finalQuantity * (i.finalUnitPrice > 0 ? i.finalUnitPrice : i.unitPrice)));
       rows.add([
-        isAr ? 'الإجمالي الكلي' : 'Total',
+        context.l10n.idocATotal,
         '${_invoiceItems.length} items',
         '$totalPoQty',
         '$totalFinQty',
@@ -1982,7 +1951,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'بنود الفاتورة التجارية المعتمدة' : 'Invoice Items Reconciliation',
+      stageName: context.l10n.idocAInvoiceItemsReconciliation,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Invoice_Items',
     );
   }
@@ -1991,12 +1960,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     final isAr = l.isArabic;
     final headers = [
-      isAr ? 'الكود' : 'Code',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'كمية PO' : 'PO Qty',
-      isAr ? 'الكمية' : 'Final Qty',
-      isAr ? 'السعر' : 'Unit Price',
-      isAr ? 'الإجمالي' : 'Total',
+      context.l10n.idocACode,
+      context.l10n.idocADescription,
+      context.l10n.idocAPOQtyAlt,
+      context.l10n.idocAFinalQtyAlt,
+      context.l10n.idocAUnitPrice,
+      context.l10n.idocATotalAlt,
     ];
     final rows = _invoiceItems.map((itm) {
       final totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
@@ -2014,7 +1983,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       final totalFinQty = _invoiceItems.fold(0.0, (s, i) => s + i.finalQuantity);
       final totalFinAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.finalQuantity * (i.finalUnitPrice > 0 ? i.finalUnitPrice : i.unitPrice)));
       rows.add([
-        isAr ? 'الإجمالي' : 'Total',
+        context.l10n.idocATotalAlt,
         '${_invoiceItems.length} items',
         '$totalPoQty',
         '$totalFinQty',
@@ -2026,7 +1995,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'بنود الفاتورة التجارية' : 'Invoice Items',
+      stageName: context.l10n.idocAInvoiceItems,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Invoice_Items',
     );
   }
@@ -2067,15 +2036,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     final isAr = l.isArabic;
     final headers = [
-      isAr ? 'كود الصنف' : 'Item Code',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'نوع الطرد' : 'Package Type',
-      isAr ? 'عبوات أمر الشراء' : 'PO Packages',
-      isAr ? 'عبوات الباكينج ليست' : 'Final Packages',
-      isAr ? 'فارق العبوات' : 'Packages Variance',
-      isAr ? 'الوزن القائم (كجم)' : 'Gross Weight (kg)',
-      isAr ? 'الوزن الصافي (كجم)' : 'Net Weight (kg)',
-      isAr ? 'الحجم (م³)' : 'CBM',
+      context.l10n.idocAItemCode,
+      context.l10n.idocADescription,
+      context.l10n.idocAPackageType,
+      context.l10n.idocAPOPackages,
+      context.l10n.idocAFinalPackages,
+      context.l10n.idocAPackagesVariance,
+      context.l10n.idocAGrossWeightKg,
+      context.l10n.idocANetWeightKg,
+      context.l10n.idocACBM,
     ];
     final rows = _packingItems.map((itm) {
       final double initP = itm.initialPackagesCount;
@@ -2101,7 +2070,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       final totalCbm = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
       final overallVar = totalPoPkgs > 0 ? ((totalPkgs - totalPoPkgs) / totalPoPkgs) * 100.0 : 0.0;
       rows.add([
-        isAr ? 'الإجمالي الكلي' : 'Total',
+        context.l10n.idocATotal,
         '${_packingItems.length} items',
         '—',
         '${totalPoPkgs.toInt() == totalPoPkgs ? totalPoPkgs.toInt() : totalPoPkgs}',
@@ -2116,7 +2085,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'بنود قائمة التعبئة والأوزان' : 'Packing List Reconciliation',
+      stageName: context.l10n.idocAPackingListReconciliation,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Packing_Items',
     );
   }
@@ -2125,14 +2094,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     final isAr = l.isArabic;
     final headers = [
-      isAr ? 'الكود' : 'Code',
-      isAr ? 'الوصف' : 'Description',
-      isAr ? 'عبوات PO' : 'PO Pkgs',
-      isAr ? 'العبوات النهائية' : 'Final Pkgs',
-      isAr ? 'الفارق' : 'Variance',
-      isAr ? 'الوزن القائم' : 'Gross Wt',
-      isAr ? 'الصافي' : 'Net Wt',
-      isAr ? 'الحجم' : 'CBM',
+      context.l10n.idocACode,
+      context.l10n.idocADescription,
+      context.l10n.idocAPOPkgs,
+      context.l10n.idocAFinalPkgs,
+      context.l10n.idocAVariance,
+      context.l10n.idocAGrossWt,
+      context.l10n.idocANetWt,
+      context.l10n.idocACBMAlt,
     ];
     final rows = _packingItems.map((itm) {
       final double initP = itm.initialPackagesCount;
@@ -2157,7 +2126,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       final totalCbm = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
       final overallVar = totalPoPkgs > 0 ? ((totalPkgs - totalPoPkgs) / totalPoPkgs) * 100.0 : 0.0;
       rows.add([
-        isAr ? 'الإجمالي' : 'Total',
+        context.l10n.idocATotalAlt,
         '${_packingItems.length} items',
         '${totalPoPkgs.toInt() == totalPoPkgs ? totalPoPkgs.toInt() : totalPoPkgs}',
         '${totalPkgs.toInt() == totalPkgs ? totalPkgs.toInt() : totalPkgs}',
@@ -2171,7 +2140,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'بنود قائمة التعبئة' : 'Packing List Items',
+      stageName: context.l10n.idocAPackingListItems,
       importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Packing_Items',
     );
   }
@@ -2260,10 +2229,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // Top Header Card
           Card(
             elevation: 2,
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            color: AppTheme.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+              side: BorderSide(color: AppTheme.borderOf(context)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -2285,7 +2254,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2302,7 +2271,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.12),
+                                color: AppTheme.cobalt.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(color: AppTheme.cobalt),
                               ),
@@ -2315,17 +2284,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                 ),
                               ),
                             ),
-                          OutlinedButton.icon(
+                          IdocUi.fit(AppButton(
                             key: const Key('editorSearchAndCloneBtn'),
+                            label: l.searchAndClonePoReconBtn,
+                            icon: Icons.copy_all,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
                             onPressed: openSearchAndCloneDialog,
-                            icon: const Icon(Icons.copy_all, size: 18),
-                            label: Text(l.searchAndClonePoReconBtn),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.cobalt,
-                              side: const BorderSide(color: AppTheme.cobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                          ),
+                          )),
                         ],
                       );
 
@@ -2353,7 +2319,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   Text(
                     l.poRecHeaderDescription,
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                      color: AppTheme.textSecondaryOf(context),
                       fontSize: 12.5,
                     ),
                   ),
@@ -2468,10 +2434,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // SECTION 1: INVOICE & PRICE RECONCILIATION TABLE
           Card(
             elevation: 2,
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            color: AppTheme.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+              side: BorderSide(color: AppTheme.borderOf(context)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -2490,7 +2456,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ),
@@ -2502,81 +2468,53 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          OutlinedButton.icon(
+                          IdocUi.fit(AppButton(
                             key: const Key('copyInvoiceItemsBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.cobalt,
-                              side: const BorderSide(color: AppTheme.cobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.copy, size: 16),
-                            label: Text(l.copyPoReconBtn),
+                            label: l.copyPoReconBtn,
+                            icon: Icons.copy,
+                            variant: AppButtonVariant.secondary,
                             onPressed: _invoiceItems.isEmpty ? null : _copyInvoiceItemsTable,
-                          ),
-                          OutlinedButton.icon(
+                          )),
+                          IdocUi.fit(AppButton(
                             key: const Key('exportInvoiceItemsExcelBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.emerald,
-                              side: const BorderSide(color: AppTheme.emerald),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.table_view_outlined, size: 16),
-                            label: Text(l.exportPoReconExcelBtn),
+                            label: l.exportPoReconExcelBtn,
+                            icon: Icons.table_view_outlined,
+                            variant: AppButtonVariant.secondary,
                             onPressed: _invoiceItems.isEmpty ? null : _exportInvoiceItemsToExcel,
-                          ),
-                          OutlinedButton.icon(
+                          )),
+                          IdocUi.fit(AppButton(
                             key: const Key('exportInvoiceItemsPdfBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.crimson,
-                              side: const BorderSide(color: AppTheme.crimson),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                            label: Text(l.exportPoReconPdfBtn),
+                            label: l.exportPoReconPdfBtn,
+                            icon: Icons.picture_as_pdf_outlined,
+                            variant: AppButtonVariant.danger,
                             onPressed: _invoiceItems.isEmpty ? null : _exportInvoiceItemsToPdf,
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.restart_alt, size: 16),
-                            label: Text(l.poRecResetToOriginalValuesButton, style: const TextStyle(fontSize: 12.5)),
+                          )),
+                          IdocUi.fit(AppButton(
+                            label: l.poRecResetToOriginalValuesButton,
+                            icon: Icons.restart_alt,
+                            variant: AppButtonVariant.secondary,
                             onPressed: () {
                               if (_selectedImportFileId != null) {
                                 _loadPOItems(_selectedImportFileId!);
                               }
                             },
-                          ),
+                          )),
                           // SAVE SESSION BUTTON
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A085),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            ),
-                            icon: _isSavingSession
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.save_rounded, size: 18),
-                            label: Text(
-                              _activeSessionId != null ? l.poRecUpdateSessionButton : l.poRecSaveSessionButton,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                          IdocUi.fit(AppButton(
+                            label: _activeSessionId != null ? l.poRecUpdateSessionButton : l.poRecSaveSessionButton,
+                            icon: Icons.save_rounded,
+                            variant: AppButtonVariant.success,
+                            isLoading: _isSavingSession,
                             onPressed: _isSavingSession ? null : _saveReconciliationSession,
-                          ),
+                          )),
                           // CERTIFY BUTTON
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                            ),
-                            icon: _isSubmitting
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.verified, color: Colors.white),
-                            label: Text(l.poRecCertifyFinalDataButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          IdocUi.fit(AppButton(
+                            label: l.poRecCertifyFinalDataButton,
+                            icon: Icons.verified,
+                            variant: AppButtonVariant.primary,
+                            isLoading: _isSubmitting,
                             onPressed: _isSubmitting ? null : _submitCertification,
-                          ),
+                          )),
                         ],
                       );
 
@@ -2595,7 +2533,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(30),
-                        child: Text(l.poRecSelectFileToViewPoItems, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                        child: Text(l.poRecSelectFileToViewPoItems, style: TextStyle(color: AppTheme.textMutedOf(context))),
                       ),
                     )
                   else
@@ -2740,7 +2678,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               final overallQtyVarPct = totalPoQty > 0 ? ((totalFinQty - totalPoQty) / totalPoQty) * 100.0 : 0.0;
                               final overallPriceVarPct = totalPoAmt > 0 ? ((totalAmount - totalPoAmt) / totalPoAmt) * 100.0 : 0.0;
                               return DataRow(
-                                color: WidgetStateProperty.all(isDark ? Colors.blueGrey.withOpacity(0.2) : const Color(0xFFEBF5FB)),
+                                color: WidgetStateProperty.all(isDark ? AppTheme.textSecondaryOf(context).withValues(alpha: 0.2) : AppTheme.infoBackground),
                                 cells: [
                                   const DataCell(SizedBox()),
                                   DataCell(Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
@@ -2769,10 +2707,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // SECTION 2: PACKING LIST & WEIGHTS RECONCILIATION TABLE
           Card(
             elevation: 2,
-            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            color: AppTheme.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+              side: BorderSide(color: AppTheme.borderOf(context)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -2791,7 +2729,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ),
@@ -2803,39 +2741,27 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          OutlinedButton.icon(
+                          IdocUi.fit(AppButton(
                             key: const Key('copyPackingItemsBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.orange,
-                              side: const BorderSide(color: AppTheme.orange),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.copy, size: 16),
-                            label: Text(l.copyPoReconBtn),
+                            label: l.copyPoReconBtn,
+                            icon: Icons.copy,
+                            variant: AppButtonVariant.secondary,
                             onPressed: _packingItems.isEmpty ? null : _copyPackingItemsTable,
-                          ),
-                          OutlinedButton.icon(
+                          )),
+                          IdocUi.fit(AppButton(
                             key: const Key('exportPackingItemsExcelBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.emerald,
-                              side: const BorderSide(color: AppTheme.emerald),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.table_view_outlined, size: 16),
-                            label: Text(l.exportPoReconExcelBtn),
+                            label: l.exportPoReconExcelBtn,
+                            icon: Icons.table_view_outlined,
+                            variant: AppButtonVariant.secondary,
                             onPressed: _packingItems.isEmpty ? null : _exportPackingItemsToExcel,
-                          ),
-                          OutlinedButton.icon(
+                          )),
+                          IdocUi.fit(AppButton(
                             key: const Key('exportPackingItemsPdfBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.crimson,
-                              side: const BorderSide(color: AppTheme.crimson),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                            label: Text(l.exportPoReconPdfBtn),
+                            label: l.exportPoReconPdfBtn,
+                            icon: Icons.picture_as_pdf_outlined,
+                            variant: AppButtonVariant.danger,
                             onPressed: _packingItems.isEmpty ? null : _exportPackingItemsToPdf,
-                          ),
+                          )),
                         ],
                       );
 
@@ -2855,7 +2781,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(30),
-                        child: Text(l.poRecSelectFileToViewPackingItems, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                        child: Text(l.poRecSelectFileToViewPackingItems, style: TextStyle(color: AppTheme.textMutedOf(context))),
                       ),
                     )
                   else
@@ -2930,7 +2856,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   rowSummary: rowSummary,
                                   child: Text(
                                     '${initPkgs.toInt() == initPkgs ? initPkgs.toInt() : initPkgs}',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryOf(context)),
                                   ),
                                 ),
                               ),
@@ -3032,12 +2958,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               final totalCbmVal = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
                               final overallPkgVar = totalPoPkgs > 0 ? ((totalPkgs - totalPoPkgs) / totalPoPkgs) * 100.0 : 0.0;
                               return DataRow(
-                                color: WidgetStateProperty.all(isDark ? Colors.blueGrey.withOpacity(0.2) : const Color(0xFFEBF5FB)),
+                                color: WidgetStateProperty.all(isDark ? AppTheme.textSecondaryOf(context).withValues(alpha: 0.2) : AppTheme.infoBackground),
                                 cells: [
                                   const DataCell(SizedBox()),
                                   DataCell(Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
-                                  DataCell(Text('${_packingItems.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                  DataCell(Text('${totalPoPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontSize: 13))),
+                                  DataCell(Text(context.l10n.idocAItemsCount(_packingItems.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DataCell(Text('${totalPoPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context), fontSize: 13))),
                                   DataCell(Text('${totalPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
                                   DataCell(_buildVarianceBadge(overallPkgVar)),
                                   DataCell(Text('${_formatWeight(totalGross)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13))),
@@ -3102,7 +3028,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            side: BorderSide(color: AppTheme.borderOf(context)),
           ),
           color: isDark ? AppTheme.darkCardBackground : AppTheme.cloudWhite,
           child: Padding(
@@ -3115,7 +3041,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     color: AppTheme.charcoal,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.folder_shared_rounded, color: Colors.white, size: 22),
+                  child: const Icon(Icons.folder_shared_rounded, color: AppTheme.white, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -3127,13 +3053,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          color: AppTheme.textPrimaryOf(context),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         l.poRecHistorySectionSubtitle,
-                        style: TextStyle(fontSize: 12.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                        style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryOf(context)),
                       ),
                     ],
                   ),
@@ -3147,7 +3073,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                   child: Text(
                     l.poRecHistoryTotalSessionsBadge(allSessions.length),
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: AppTheme.white, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -3157,69 +3083,62 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         const SizedBox(height: 16),
 
         // 2. STATS BAR (Identical to Shipping Scenarios _histStatCard)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppTheme.charcoal.withOpacity(0.92),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _histStatCard(
-                  icon: Icons.all_inbox_rounded,
-                  label: l.poRecHistoryKpiTotalSessions,
-                  value: l.poRecHistoryTotalSessionsBadge(allSessions.length),
-                  color: AppTheme.cobalt,
-                ),
-                const SizedBox(width: 14),
-                _histStatCard(
-                  icon: Icons.check_circle_rounded,
-                  label: l.poRecHistoryKpiFullMatch,
-                  value: l.poRecHistoryTotalSessionsBadge(matchedSessions),
-                  color: AppTheme.emerald,
-                ),
-                const SizedBox(width: 14),
-                _histStatCard(
-                  icon: Icons.warning_amber_rounded,
-                  label: l.poRecHistoryKpiWithVariances,
-                  value: l.poRecHistoryTotalSessionsBadge(varianceSessions),
-                  color: AppTheme.orange,
-                ),
-                const SizedBox(width: 14),
-                _histStatCard(
-                  icon: Icons.monetization_on_rounded,
-                  label: l.poRecHistoryKpiTotalCertifiedValue,
-                  value: '${totalVal.toStringAsFixed(0)} EUR/USD',
-                  color: const Color(0xFF16A085),
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: Text(l.poRecHistoryNewSessionButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    setState(() {
-                      _activeSessionId = null;
-                      _activeSessionCode = null;
-                    });
-                    if (_mainScrollController.hasClients) {
-                      _mainScrollController.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  },
-                ),
-              ],
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            IdocUi.metrics([
+              MetricCardData(
+                title: l.poRecHistoryKpiTotalSessions,
+                shortTitle: l.poRecHistoryKpiTotalSessions,
+                value: '${allSessions.length}',
+                icon: Icons.all_inbox_rounded,
+                color: AppTheme.cobalt,
+              ),
+              MetricCardData(
+                title: l.poRecHistoryKpiFullMatch,
+                shortTitle: l.poRecHistoryKpiFullMatch,
+                value: '$matchedSessions',
+                icon: Icons.check_circle_rounded,
+                color: AppTheme.emerald,
+              ),
+              MetricCardData(
+                title: l.poRecHistoryKpiWithVariances,
+                shortTitle: l.poRecHistoryKpiWithVariances,
+                value: '$varianceSessions',
+                icon: Icons.warning_amber_rounded,
+                color: AppTheme.orange,
+              ),
+              MetricCardData(
+                title: l.poRecHistoryKpiTotalCertifiedValue,
+                shortTitle: l.poRecHistoryKpiTotalCertifiedValue,
+                value: totalVal.toStringAsFixed(0),
+                icon: Icons.monetization_on_rounded,
+                color: AppTheme.wcagEmerald,
+              ),
+            ]),
+            const SizedBox(height: 10),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: IdocUi.fit(AppButton(
+                label: l.poRecHistoryNewSessionButton,
+                icon: Icons.add_rounded,
+                variant: AppButtonVariant.primary,
+                onPressed: () {
+                  setState(() {
+                    _activeSessionId = null;
+                    _activeSessionCode = null;
+                  });
+                  if (_mainScrollController.hasClients) {
+                    _mainScrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+              )),
             ),
-          ),
+          ],
         ),
         const SizedBox(height: 16),
 
@@ -3275,7 +3194,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   onPressed: filtered.isEmpty ? null : () => _exportSessionsToPdf(filtered),
                 ),
                 IconButton(
-                  icon: Icon(Icons.refresh_rounded, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  icon: Icon(Icons.refresh_rounded, color: AppTheme.textPrimaryOf(context)),
                   tooltip: l.poRecHistoryRefreshTooltip,
                   onPressed: () {
                     ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
@@ -3287,9 +3206,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                border: Border.all(color: AppTheme.borderOf(context)),
               ),
               child: isCompact
                   ? Column(
@@ -3320,18 +3239,19 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey.shade400),
+                      Icon(Icons.folder_open_rounded, size: 64, color: AppTheme.textMutedOf(context)),
                       const SizedBox(height: 16),
                       Text(
                         allSessions.isEmpty
                             ? l.poRecHistoryEmptyTitle
                             : l.poRecHistoryNoMatchFilter,
-                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryOf(context)),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
-                        label: Text(l.poRecHistoryCreateFirstSessionButton),
+                      IdocUi.fit(AppButton(
+                        label: l.poRecHistoryCreateFirstSessionButton,
+                        icon: Icons.add,
+                        variant: AppButtonVariant.primary,
                         onPressed: () {
                           if (_mainScrollController.hasClients) {
                             _mainScrollController.animateTo(
@@ -3341,17 +3261,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             );
                           }
                         },
-                      ),
+                      )),
                     ],
                   ),
                 ),
               )
             : Card(
                 elevation: 2,
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                color: AppTheme.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                  side: BorderSide(color: AppTheme.borderOf(context)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -3363,7 +3283,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
                       columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 14 : 18),
                       horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
-                      headingRowColor: WidgetStateProperty.all(isDark ? Colors.white.withOpacity(0.06) : AppTheme.charcoal.withOpacity(0.04)),
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.white.withValues(alpha: 0.06) : AppTheme.charcoal.withValues(alpha: 0.04)),
                       columns: [
                         DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColIndex, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -3440,7 +3360,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                       ),
                                       // Delete Session
                                       IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.crimson),
                                         tooltip: l.poRecHistoryDeleteTooltip,
                                         onPressed: () => _confirmDeleteSession(context, sess),
                                       ),
@@ -3458,9 +3378,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                                       ),
                                       child: Text(
                                         sess.sessionCode,
@@ -3473,7 +3393,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                     ),
                                     const SizedBox(width: 4),
                                     IconButton(
-                                      icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                                      icon: const Icon(Icons.copy_rounded, size: 14, color: AppTheme.textMuted),
                                       tooltip: l.poRecHistoryCopyCodeTooltip,
                                       onPressed: () {
                                         CopyHelper.copy(context, sess.sessionCode, customMessage: l.poRecHistoryCodeCopiedNotice);
@@ -3504,9 +3424,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.cobalt.withOpacity(0.08),
+                                              color: AppTheme.cobalt.withValues(alpha: 0.08),
                                               borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                             ),
                                             child: Text(
                                               rawFileCode,
@@ -3522,7 +3442,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                         Flexible(
                                           child: Text(
                                             sess.importerName ?? '—',
-                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -3545,7 +3465,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                     ),
                                     Text(
                                       '${l.poRecPackingPrefix} ${sess.finalPackingListNumber ?? "—"}',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                                     ),
                                   ],
                                 )),
@@ -3566,7 +3486,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
-                                    Text('${l.poRecGrossPrefix} ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                    Text('${l.poRecGrossPrefix} ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                                   ],
                                 )),
                             ),
@@ -3610,7 +3530,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     return ChoiceChip(
       label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
       selected: isSelected,
-      selectedColor: AppTheme.cobalt.withOpacity(0.2),
+      selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
       onSelected: (selected) {
         if (selected) setState(() => _statusFilter = value);
       },
@@ -3626,26 +3546,26 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     switch (status) {
       case 'FULLY_MATCHED':
-        bg = Colors.green.shade50;
-        fg = Colors.green.shade800;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
         label = l.poRecMatchStatusMatched;
         icon = Icons.check_circle;
         break;
       case 'ACCEPTED_WITH_WARNINGS':
-        bg = Colors.amber.shade50;
-        fg = Colors.amber.shade900;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.warning);
         label = l.poRecMatchStatusWarning;
         icon = Icons.warning_amber;
         break;
       case 'CRITICAL_DISCREPANCY':
-        bg = Colors.red.shade50;
-        fg = Colors.red.shade800;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.danger);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.danger);
         label = l.poRecMatchStatusCritical;
         icon = Icons.error_outline;
         break;
       default:
-        bg = Colors.grey.shade100;
-        fg = Colors.grey.shade800;
+        bg = AppTheme.surfaceAltOf(context);
+        fg = AppTheme.textPrimaryOf(context);
         label = status;
         icon = Icons.info_outline;
     }
@@ -3655,7 +3575,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: fg.withOpacity(0.4)),
+        border: Border.all(color: fg.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3663,41 +3583,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           Icon(icon, size: 13, color: fg),
           const SizedBox(width: 4),
           Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11)),
-        ],
-      ),
-    );
-  }
-
-  Widget _histStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CopyableText(
-                value,
-                isSelectable: false,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-            ],
-          ),
         ],
       ),
     );
@@ -3748,9 +3633,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: AppTheme.emeraldBorder),
                   ),
                   child: Row(
                     children: [
@@ -3770,19 +3655,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ),
         ),
         actions: [
-          TextButton(
+          IdocUi.fit(AppButton(
+            label: l.close,
+            variant: AppButtonVariant.ghost,
             onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(l.close),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.print_rounded, size: 16),
-            label: Text(l.poRecHistoryCopyReportButton),
+          )),
+          IdocUi.fit(AppButton(
+            label: l.poRecHistoryCopyReportButton,
+            icon: Icons.print_rounded,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showPrintReportDialog(context, sess);
             },
-          ),
+          )),
         ],
       ),
     );
@@ -3804,10 +3690,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+        backgroundColor: AppTheme.surfaceOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+          side: BorderSide(color: Colors.transparent),
         ),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3821,7 +3707,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                 ),
               ],
@@ -3840,9 +3726,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                      color: AppTheme.surfaceAltOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                     ),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -3901,10 +3787,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Text(l.poRecHistoryDetailsCertifiedItemsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 8),
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: AppTheme.borderOf(context)),
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
@@ -3929,10 +3815,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           );
                         }),
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.cobalt))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.reconciledInvoiceItems!.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.idocAItemsCount(sess.reconciledInvoiceItems!.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(6), child: Text(
                               sess.reconciledInvoiceItems!.fold(0.0, (s, i) => s + (((i as Map<String, dynamic>)['final_quantity'] as num?)?.toDouble() ?? 0.0)).toStringAsFixed(0),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
@@ -3951,10 +3837,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Text(l.poRecHistoryDetailsCertifiedPackingTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 8),
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: AppTheme.borderOf(context)),
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColPackageType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
@@ -3982,10 +3868,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           );
                         }),
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.emerald.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.emerald))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.reconciledPackingItems!.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.idocAItemsCount(sess.reconciledPackingItems!.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(sess.totalNetWeightKg)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
@@ -4001,16 +3887,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.edit_note_rounded, size: 16),
-            label: Text(l.poRecHistoryLoadInEditorButton),
+          IdocUi.fit(AppButton(
+            label: l.close,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(dialogCtx),
+          )),
+          IdocUi.fit(AppButton(
+            label: l.poRecHistoryLoadInEditorButton,
+            icon: Icons.edit_note_rounded,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               Navigator.pop(dialogCtx);
               _loadSessionIntoEditor(sess);
             },
-          ),
+          )),
         ],
       ),
     );
@@ -4081,9 +3971,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: AppTheme.surfaceAltOf(context),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppTheme.borderOf(context)),
               ),
               child: SingleChildScrollView(
                 child: SelectableText(
@@ -4095,19 +3985,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ),
         ),
         actions: [
-          TextButton(
+          IdocUi.fit(AppButton(
+            label: l.close,
+            variant: AppButtonVariant.ghost,
             onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(l.close),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.copy_rounded, size: 16),
-            label: Text(l.poRecHistoryCopyReportButton),
+          )),
+          IdocUi.fit(AppButton(
+            label: l.poRecHistoryCopyReportButton,
+            icon: Icons.copy_rounded,
+            variant: AppButtonVariant.primary,
             onPressed: () {
               CopyHelper.copy(context, reportText, customMessage: l.poRecHistoryPrintCopiedSuccess);
               Navigator.pop(dialogCtx);
             },
-          ),
+          )),
         ],
       ),
     );
@@ -4122,7 +4013,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
-            const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 28),
+            const Icon(Icons.delete_forever_rounded, color: AppTheme.crimson, size: 28),
             const SizedBox(width: 10),
             Text(l.poRecHistoryDeleteConfirmTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -4132,12 +4023,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           style: const TextStyle(fontSize: 13.5),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+          IdocUi.fit(AppButton(
+            label: l.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(ctx, false),
+          )),
+          IdocUi.fit(AppButton(
+            label: l.poRecHistoryDeletePermanent,
+            variant: AppButtonVariant.danger,
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.poRecHistoryDeletePermanent),
-          ),
+          )),
         ],
       ),
     );
@@ -4147,7 +4042,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       messenger.showSnackBar(
         SnackBar(
           content: Text(l.poRecHistoryDeletedSuccess(sess.sessionCode)),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.crimson,
         ),
       );
     }
@@ -4157,16 +4052,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   // --- SMART EXTRACTION WIDGETS ---
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color, [bool isDark = false]) {
-    final cardBg = isDark ? AppTheme.darkCardBackground : Colors.white;
-    final labelColor = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600;
+    final cardBg = AppTheme.white;
+    final labelColor = AppTheme.textSecondaryOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(color: color.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(color: color.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -4175,7 +4070,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.10),
+              color: color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -4203,15 +4098,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   Widget _buildVarianceBadge(double variance) {
     bool isZero = variance == 0.0;
     bool isPositive = variance > 0;
-    Color color = isZero ? Colors.grey : (isPositive ? Colors.green : Colors.red);
+    Color color = isZero ? AppTheme.textMutedOf(context) : (isPositive ? AppTheme.emerald : AppTheme.crimson);
     String text = isZero ? '0.0%' : '${isPositive ? '+' : ''}${variance.toStringAsFixed(1)}%';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         text,
@@ -4224,10 +4119,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     return Card(
       elevation: 3,
-      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      color: AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.cobalt.withOpacity(0.35), width: 1.5),
+        side: BorderSide(color: AppTheme.cobalt.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -4242,7 +4137,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
+                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 24),
@@ -4257,14 +4152,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             l.poRecExtractorSubtitle,
-                            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -4278,20 +4173,18 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF16A085),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      icon: const Icon(Icons.dataset_linked, size: 16),
-                      label: Text(l.poRecLoadSampleDemoButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    if (kDebugMode)
+                    IdocUi.fit(AppButton(
+                      label: l.poRecLoadSampleDemoButton,
+                      icon: Icons.dataset_linked,
+                      variant: AppButtonVariant.success,
+                      size: AppButtonSize.small,
                       onPressed: _loadSampleData,
-                    ),
+                    )),
                     IconButton(
                       icon: Icon(
                         _showSmartExtractionTool ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        color: AppTheme.textPrimaryOf(context),
                       ),
                       tooltip: _showSmartExtractionTool ? l.poRecHideTool : l.poRecShowTool,
                       onPressed: () {
@@ -4330,9 +4223,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   final invoiceSide = Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                      color: AppTheme.surfaceAltOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4351,7 +4244,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
-                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                        color: AppTheme.textPrimaryOf(context),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -4360,22 +4253,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               ),
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              icon: const Icon(Icons.upload_file, size: 15),
-                              label: Text(_selectedInvoiceFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
+                            IdocUi.fit(AppButton(
+                              label: _selectedInvoiceFileName != null ? l.poRecChangeFile : l.poRecUploadFile,
+                              icon: Icons.upload_file,
+                              variant: AppButtonVariant.secondary,
+                              size: AppButtonSize.small,
                               onPressed: () => _pickFile(true),
-                            ),
+                            )),
                           ],
                         ),
                         if (_selectedInvoiceFileName != null) ...[
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: AppTheme.severityBackgroundOf(context, AppSeverity.info), borderRadius: BorderRadius.circular(4)),
                             child: Row(
                               children: [
                                 const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
@@ -4389,12 +4280,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         TextFormField(
                           controller: _invoiceTextCtrl,
                           maxLines: 8,
-                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: isDark ? AppTheme.darkTextPrimary : null),
+                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textPrimaryOf(context)),
                           decoration: InputDecoration(
                             hintText: l.poRecPasteInvoiceHint,
                             filled: true,
-                            fillColor: isDark ? AppTheme.darkCardBackground : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                            fillColor: AppTheme.surfaceOf(context),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: AppTheme.borderOf(context))),
                             contentPadding: const EdgeInsets.all(10),
                           ),
                         ),
@@ -4405,9 +4296,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   final packingSide = Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                      color: AppTheme.surfaceAltOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4426,7 +4317,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
-                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                        color: AppTheme.textPrimaryOf(context),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -4435,15 +4326,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               ),
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              icon: const Icon(Icons.upload_file, size: 15),
-                              label: Text(_selectedPackingFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
+                            IdocUi.fit(AppButton(
+                              label: _selectedPackingFileName != null ? l.poRecChangeFile : l.poRecUploadFile,
+                              icon: Icons.upload_file,
+                              variant: AppButtonVariant.secondary,
+                              size: AppButtonSize.small,
                               onPressed: () => _pickFile(false),
-                            ),
+                            )),
                           ],
                         ),
 
@@ -4451,7 +4340,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: AppTheme.severityBackgroundOf(context, AppSeverity.warning), borderRadius: BorderRadius.circular(4)),
                             child: Row(
                               children: [
                                 const Icon(Icons.attach_file, size: 14, color: AppTheme.orange),
@@ -4465,12 +4354,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         TextFormField(
                           controller: _packingTextCtrl,
                           maxLines: 8,
-                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: isDark ? AppTheme.darkTextPrimary : null),
+                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textPrimaryOf(context)),
                           decoration: InputDecoration(
                             hintText: l.poRecPastePackingHint,
                             filled: true,
-                            fillColor: isDark ? AppTheme.darkCardBackground : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                            fillColor: AppTheme.surfaceOf(context),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: AppTheme.borderOf(context))),
                             contentPadding: const EdgeInsets.all(10),
                           ),
                         ),
@@ -4499,23 +4388,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               ),
               const SizedBox(height: 16),
               Center(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 2,
-                  ),
-                  icon: _isExtracting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.compare_arrows, size: 20),
-                  label: Text(
-                    _isExtracting ? l.poRecExtractingProgress : l.poRecExecuteSmartExtractionButton,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
+                child: IdocUi.fit(AppButton(
+                  label: _isExtracting ? l.poRecExtractingProgress : l.poRecExecuteSmartExtractionButton,
+                  icon: Icons.compare_arrows,
+                  variant: AppButtonVariant.primary,
+                  isLoading: _isExtracting,
                   onPressed: _isExtracting ? null : _runSmartExtractionAndComparison,
-                ),
+                )),
               ),
 
               if (_extractedReconciliationData != null) ...[
@@ -4544,15 +4423,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     String statusTitle;
 
     if (overallStatus == 'FULLY_MATCHED') {
-      statusColor = const Color(0xFF27AE60);
+      statusColor = AppTheme.emerald;
       statusIcon = Icons.check_circle;
       statusTitle = l.poRecStatusFullyMatchedTitle;
     } else if (overallStatus == 'ACCEPTED_WITH_WARNINGS') {
-      statusColor = const Color(0xFFE67E22);
+      statusColor = AppTheme.orange;
       statusIcon = Icons.warning_amber;
       statusTitle = l.poRecStatusWarningsTitle(warnCount);
     } else {
-      statusColor = const Color(0xFFC0392B);
+      statusColor = AppTheme.crimson;
       statusIcon = Icons.cancel;
       statusTitle = l.poRecStatusCriticalTitle(critCount);
     }
@@ -4560,9 +4439,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.04),
+        color: statusColor.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: statusColor.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: statusColor.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4581,17 +4460,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                 ],
               );
-              final applyButton = ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF27AE60),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.playlist_add_check, size: 18),
-                label: Text(l.poRecApplyExtractedToTablesButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              final applyButton = IdocUi.fit(AppButton(
+                label: l.poRecApplyExtractedToTablesButton,
+                icon: Icons.playlist_add_check,
+                variant: AppButtonVariant.success,
                 onPressed: _applyExtractedDataToTables,
-              );
+              ));
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4604,7 +4478,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             },
           ),
           const Divider(height: 20),
-          Text(l.poRecHeaderComplianceChecksTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+          Text(l.poRecHeaderComplianceChecksTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryOf(context))),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -4616,10 +4490,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
               columns: [
                 DataColumn(label: Text(l.poRecColCheckItem)),
-                const DataColumn(label: Text('System Value\n(Invoice)')),
-                const DataColumn(label: Text('System Value\n(Packing List)')),
-                const DataColumn(label: Text('Uploaded Value\n(Invoice)')),
-                const DataColumn(label: Text('Uploaded Value\n(Packing List)')),
+                DataColumn(label: Text(context.l10n.idocAColSystemValueInvoice)),
+                DataColumn(label: Text(context.l10n.idocAColSystemValuePacking)),
+                DataColumn(label: Text(context.l10n.idocAColUploadedValueInvoice)),
+                DataColumn(label: Text(context.l10n.idocAColUploadedValuePacking)),
                 DataColumn(label: Text(l.poRecColMatchStatus)),
                 DataColumn(label: Text(l.poRecColDetails)),
               ],
@@ -4645,18 +4519,18 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
                 return DataRow(cells: [
                   DataCell(CopyableTableCell(value: localizedFieldName, rowSummary: rowSummary, child: Text(localizedFieldName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)))),
-                  DataCell(CopyableTableCell(value: sysInvVal, rowSummary: rowSummary, child: Text(sysInvVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
-                  DataCell(CopyableTableCell(value: sysPlVal,  rowSummary: rowSummary, child: Text(sysPlVal,  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: sysInvVal, rowSummary: rowSummary, child: Text(sysInvVal, style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: sysPlVal,  rowSummary: rowSummary, child: Text(sysPlVal,  style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)))),
                   DataCell(CopyableTableCell(value: uplInvVal, rowSummary: rowSummary, child: Text(uplInvVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
                   DataCell(CopyableTableCell(value: uplPlVal,  rowSummary: rowSummary, child: Text(uplPlVal,  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
                   DataCell(CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildMatchStatusBadge(status))),
-                  DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800)))),
+                  DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.severityForegroundOf(context, AppSeverity.danger))))),
                 ]);
               }).toList(),
             ),
           ),
           const SizedBox(height: 16),
-          Text(l.poRecExtractedDocMetadataTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+          Text(l.poRecExtractedDocMetadataTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryOf(context))),
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -4694,19 +4568,19 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     switch (status) {
       case 'MATCH':
-        bg = Colors.green.shade100;
-        fg = Colors.green.shade900;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
         label = l.poRecMatchStatusMatched;
         break;
       case 'WARNING':
-        bg = Colors.amber.shade100;
-        fg = Colors.amber.shade900;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.warning);
         label = l.poRecMatchStatusWarning;
         break;
       case 'CRITICAL':
       default:
-        bg = Colors.red.shade100;
-        fg = Colors.red.shade900;
+        bg = AppTheme.severityBackgroundOf(context, AppSeverity.danger);
+        fg = AppTheme.severityForegroundOf(context, AppSeverity.danger);
         label = l.poRecMatchStatusCritical;
         break;
     }
@@ -4716,7 +4590,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: fg.withOpacity(0.4)),
+        border: Border.all(color: fg.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
@@ -4726,9 +4600,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildExtractedPill(String label, String value, IconData icon, [bool isDark = false]) {
-    final pillBg = isDark ? AppTheme.darkCardBackground : Colors.white;
-    final pillBorder = isDark ? AppTheme.darkBorder : Colors.grey.shade300;
-    final labelColor = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600;
+    final pillBg = AppTheme.white;
+    final pillBorder = AppTheme.borderOf(context);
+    final labelColor = AppTheme.textSecondaryOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -4752,7 +4626,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                 ),
               ],

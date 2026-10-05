@@ -45,7 +45,8 @@
 - **الغرض**: احتساب إجمالي CBM للشحنة والوزن الحجمي (Volumetric Weight) والوزن الخاضع للشحن (Chargeable Weight) وفقًا لنوع الشحن (بحري / جوي / بري).
 - **المعادلات التلقائية**:
   $$\text{CBM} = \frac{\text{Length (cm)} \times \text{Width (cm)} \times \text{Height (cm)}}{1,000,000} \times \text{Quantity}$$
-  $$\text{Air Volumetric Weight (kg)} = \frac{\text{Volume (CBM)} \times 1,000}{6} \quad (\text{or } \text{CBM} \times 166.67)$$
+  $$\text{Air Volumetric Weight (kg)} = \text{Volume (CBM)} \times \text{AIR\_VOLUMETRIC\_KG\_PER\_CBM}$$
+  - `AIR_VOLUMETRIC_KG_PER_CBM` is configurable in `system_parameters` (default 167 kg/CBM); one factor for purchase orders, the CBM calculator and the freight RFQ. Courier keeps its own L x W x H (cm) / 5000 rule.
 
 ### BP-005: Plan Cargo Loading (تخطيط تحميل الحاويات ومحاكاة الرص ثلاثية الأبعاد)
 - **الغرض**: إعداد خطة التحميل للشحنات الفردية والمجمعة (FCL / LCL)، واختيار أعداد وأنواع الحاويات المناسبة (20ft, 40ft, 40HQ) باستخدام قواعد التحقق واستراتيجيات التحميل (MD-015).

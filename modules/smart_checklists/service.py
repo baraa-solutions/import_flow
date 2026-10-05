@@ -219,13 +219,13 @@ def auto_sync_checklist(db: Session, file_id: int) -> ChecklistAutoSyncResponse:
             mark_passed("CHK_PRT_03", f"customs_clearance_records.channel_type ({clr.channel_type})")
         if clr.declaration_46_no or file_obj.acid_number:
             mark_passed("CHK_PRT_04", f"declaration_46 ({clr.declaration_46_no or 'ACID Validated'})")
-        if clr.actual_duty_total > 0:
+        if (clr.actual_duty_total or 0) > 0:  # legacy rows may hold NULL
             mark_passed("CHK_CLR_01", f"customs_clearance_records (Actual Duty: {clr.actual_duty_total} EGP)")
         if clr.sample_test_status in ("Approved", "Conforming") or clr.is_under_bond_release:
             mark_passed("CHK_CLR_02", f"customs_clearance_records.sample_test_status ({clr.sample_test_status})")
         if clr.bank_receipt_no or clr.payment_status == "Paid & Verified":
             mark_passed("CHK_CLR_03", f"customs_clearance_records.bank_receipt_no ({clr.bank_receipt_no})")
-        if clr.import_duty_amount > 0:
+        if (clr.import_duty_amount or 0) > 0:
             mark_passed("CHK_CLR_04", "customs_clearance_records (Itemized Duty Breakdown)")
         if clr.release_permit_no:
             mark_passed("CHK_PST_01", f"customs_clearance_records.release_permit_no ({clr.release_permit_no})")
@@ -237,7 +237,7 @@ def auto_sync_checklist(db: Session, file_id: int) -> ChecklistAutoSyncResponse:
             LandedCostSettlementRecord.is_active == True,
         )
     )
-    if settle and settle.total_landed_cost_egp > 0:
+    if settle and (settle.total_landed_cost_egp or 0) > 0:
         mark_passed("CHK_PST_02", f"financial_settlement_records (Total Landed Cost: {settle.total_landed_cost_egp} EGP)")
 
     db.commit()

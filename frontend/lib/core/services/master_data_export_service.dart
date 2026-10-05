@@ -3789,7 +3789,7 @@ _Generated via Sorour Logistics ERP_
         t.totalDetentionFx.toStringAsFixed(2),
         t.totalStorageEgp.toStringAsFixed(2),
         t.currency,
-        t.exchangeRate.toStringAsFixed(2),
+        t.exchangeRate?.toStringAsFixed(2) ?? '-',
         t.totalCostEgp.toStringAsFixed(2),
         t.status,
         t.isPushedToSettlement ? (isAr ? 'نعم' : 'Yes') : (isAr ? 'لا' : 'No'),
@@ -4042,7 +4042,7 @@ _Generated via Sorour Logistics ERP_
                       pw.Row(
                         children: [
                           pw.Expanded(child: pw.Text('${isAr ? "عدد الحاويات" : "Containers Count"}: ${tracking.containers.length}', style: const pw.TextStyle(fontSize: 10))),
-                          pw.Expanded(child: pw.Text('${isAr ? "سعر الصرف المعتمد" : "Exchange Rate"}: ${tracking.exchangeRate.toStringAsFixed(2)} ${isAr ? "ج.م/\$" : "EGP/\$"}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(child: pw.Text('${isAr ? "سعر الصرف المعتمد" : "Exchange Rate"}: ${tracking.exchangeRate?.toStringAsFixed(2) ?? '-'} ${isAr ? "ج.م/\$" : "EGP/\$"}', style: const pw.TextStyle(fontSize: 10))),
                         ],
                       ),
                     ],

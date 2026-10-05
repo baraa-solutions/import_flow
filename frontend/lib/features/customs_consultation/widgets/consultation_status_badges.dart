@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ConsultationStatusBadge extends StatelessWidget {
   final String status;
@@ -9,23 +10,23 @@ class ConsultationStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    Color bg = Colors.grey;
+    Color bg = AppTheme.textMuted;
     String displayStatus = status;
 
     if (status == 'Clearance Ready') {
-      bg = Colors.green;
+      bg = AppTheme.emerald;
       displayStatus = l.statusClearanceReady;
     } else if (status == 'Blocked') {
-      bg = Colors.red;
+      bg = AppTheme.crimson;
       displayStatus = l.statusBlocked;
     } else if (status == 'Action Required') {
-      bg = Colors.orange;
+      bg = AppTheme.orange;
       displayStatus = l.statusActionRequired;
     } else if (status == 'In Progress') {
-      bg = Colors.blue;
+      bg = AppTheme.cobalt;
       displayStatus = l.statusInProgress;
     } else if (status == 'Pending Review') {
-      bg = Colors.amber.shade800;
+      bg = AppTheme.wcagOrange;
       displayStatus = l.statusPendingReview;
     }
 
@@ -45,23 +46,23 @@ class ConsultationDocStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    Color bg = Colors.grey;
+    Color bg = AppTheme.textMuted;
     String displayStatus = status;
 
     if (status == 'Approved') {
-      bg = Colors.green;
+      bg = AppTheme.emerald;
       displayStatus = l.statusApproved;
     } else if (status == 'Rejected') {
-      bg = Colors.red;
+      bg = AppTheme.crimson;
       displayStatus = l.statusRejected;
     } else if (status == 'Verified') {
-      bg = Colors.blue;
+      bg = AppTheme.cobalt;
       displayStatus = l.statusVerified;
     } else if (status == 'Received') {
-      bg = Colors.orange;
+      bg = AppTheme.orange;
       displayStatus = l.statusReceived;
     } else if (status == 'Pending') {
-      bg = Colors.grey;
+      bg = AppTheme.textMuted;
       displayStatus = l.statusPending;
     }
 

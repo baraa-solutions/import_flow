@@ -156,7 +156,7 @@ def test_authorize_customs_broker_service_full_workflow(db_session, sample_data)
     # 2. Verify CS-01 SmartTask completed
     db_session.refresh(task_cs01)
     assert task_cs01.status == "Completed"
-    assert "DEL-2026-ALEX-01" in (task_cs01.completion_notes or "")
+    assert "DEL-2026-ALEX-01" in (task_cs01.notes or "")
 
     # 3. Verify downstream CS-02 SmartTask dispatched
     downstream_cs02 = (

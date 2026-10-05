@@ -256,9 +256,9 @@ class OriginalDocumentsCollectionSessionModel {
       notes: json['notes']?.toString(),
       isActive: json['is_active'] != false,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : DateTime.now(),
-      createdBy: json['created_by']?.toString() ?? 'ADMIN',
+      createdBy: json['created_by']?.toString() ?? '',
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'].toString()) : DateTime.now(),
-      updatedBy: json['updated_by']?.toString() ?? 'ADMIN',
+      updatedBy: json['updated_by']?.toString() ?? '',
     );
   }
 

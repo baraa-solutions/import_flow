@@ -472,3 +472,20 @@ class _YourStageScreenState extends ConsumerState<YourStageScreen> {
 | 11 | Table Sticky Header | ثابتة بخلفية مصمتة أثناء السكرول | `stickyHeader` + خلفية مصمتة |
 | 12 | Sticky Actions Col | ثابت أثناء السكرول الأفقي | تثبيت عمود الإجراءات |
 | 13 | Responsive Bounds | لا overflow عند 1366×768 | `Flexible/Expanded/Wrap` بدل أبعاد ثابتة |
+
+## File save and export (moved from CORE_RULES, 2026-10-05)
+
+### 🔴 Mandatory Save File Location Dialog (Task I — حفظ وتنزيل الملفات الموحد)
+```text
+✅ فتح نافذة حوارية تفاعلية إلزامية (Native "Save As" Dialog) لتحديد مكان الحفظ واسم الملف:
+   - ديسكتوب (Desktop): FilePicker.saveFile مع lockParentWindow: true
+   - متصفح ويب (Web - Chromium): File System Access API (window.showSaveFilePicker)
+✅ معالجة الإلغاء الآمن (AbortError): التقاط DOMException بهدوء دون حفظ ملف ودون خطأ
+✅ متصفحات غير داعمة (Firefox/Safari/Mobile): تراجع لـ <a download> مع SnackBar توضيحي
+✅ كافة عمليات التصدير والتحميل (PDF, Excel, PNG, CSV) تمر حصرياً عبر FileSaveHelper.exportAndSaveFile
+✅ تمرير مصفوفة bytes لضمان التوافق التام عبر سطح المكتب (Windows Desktop) ومتصفح الويب (Web)
+✅ الالتزام بنظام التسمية القياسي: [Stage Name] - [Import File Name/Code].[ext]
+✅ إظهار إشعار عائم SnackBar مع زر "فتح المجلد" لفتح مسار الملف في Windows Explorer فور الحفظ
+❌ حظر الحفظ الصامت التلقائي (Silent Download) في مسار ثابت أو مجلد افتراضي دون سؤال المستخدم
+❌ حظر الأسماء العامة أو العشوائية (مثل export.pdf أو download.xlsx)
+```

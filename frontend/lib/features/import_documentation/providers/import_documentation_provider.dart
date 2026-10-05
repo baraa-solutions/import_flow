@@ -6,6 +6,25 @@ import '../models/po_reconciliation_session_model.dart';
 import '../models/invoice_bl_match_session_model.dart';
 import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
+
+/// Invalidates every provider whose data depends on the import-documentation
+/// mutations (FED-13): the import file (stage/progress), smart tasks, the
+/// central archive and the legal-compliance banner.
+void invalidateImportDocDependents(Ref? ref) {
+  if (ref == null) return;
+  _invalidateDependents(ref.invalidate);
+}
+
+/// Same as [invalidateImportDocDependents] for widgets (`WidgetRef`).
+void invalidateImportDocDependentsW(WidgetRef ref) => _invalidateDependents(ref.invalidate);
+
+void _invalidateDependents(void Function(ProviderOrFamily) invalidate) {
+  invalidate(importFilesProvider);
+  invalidate(smartTasksProvider);
+  invalidate(centralArchiveProvider);
+  invalidate(legalComplianceFamilyProvider);
+}
 
 
 
@@ -18,6 +37,9 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
   final Dio _dio;
   final Ref? _ref;
   CancelToken? _cancelToken;
+  bool _lastIncludeInactive = false;
+  String? _lastSearch;
+  String? _lastStatus;
 
   AcidSessionsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchAcidSessions();
@@ -36,6 +58,9 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
   }) async {
     _cancelToken?.cancel('Cancelled by new request');
     _cancelToken = CancelToken();
+    _lastIncludeInactive = includeInactive;
+    _lastSearch = search;
+    _lastStatus = status;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -59,6 +84,16 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
     }
   }
 
+  Future<void> _afterMutation() async {
+    await fetchAcidSessions(
+      includeInactive: _lastIncludeInactive,
+      search: _lastSearch,
+      status: _lastStatus,
+    );
+    _ref?.invalidate(acidTrackerProvider);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<AcidRegistrationModel?> createAcidSession(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
@@ -66,11 +101,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
         data: payload,
       );
       final created = AcidRegistrationModel.fromJson(response.data);
-      await fetchAcidSessions();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-        _ref.invalidate(acidTrackerProvider);
-      }
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -84,11 +115,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
         data: payload,
       );
       final updated = AcidRegistrationModel.fromJson(response.data);
-      await fetchAcidSessions();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-        _ref.invalidate(acidTrackerProvider);
-      }
+      await _afterMutation();
       return updated;
     } catch (e) {
       rethrow;
@@ -144,11 +171,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
   Future<void> softDeleteAcidSession(int acidId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId');
-      await fetchAcidSessions();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-        _ref.invalidate(acidTrackerProvider);
-      }
+      await _afterMutation();
     } catch (e) {
       rethrow;
     }
@@ -157,11 +180,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
   Future<void> restoreAcidSession(int acidId) async {
     try {
       await _dio.patch('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId/restore');
-      await fetchAcidSessions();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-        _ref.invalidate(acidTrackerProvider);
-      }
+      await _afterMutation();
     } catch (e) {
       rethrow;
     }
@@ -216,9 +235,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final created = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      invalidateImportDocDependents(_ref);
       return created;
     } catch (e) {
       rethrow;
@@ -233,9 +250,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final received = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      invalidateImportDocDependents(_ref);
       return received;
     } catch (e) {
       rethrow;
@@ -250,9 +265,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final updated = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      invalidateImportDocDependents(_ref);
       return updated;
     } catch (e) {
       rethrow;
@@ -263,9 +276,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId');
       await fetchBankingDocuments();
-      if (_ref != null) {
-        _ref.invalidate(importFilesProvider);
-      }
+      invalidateImportDocDependents(_ref);
       return true;
     } catch (e) {
       rethrow;
@@ -275,13 +286,14 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
 
 final shipmentDocumentsProvider =
     StateNotifierProvider<ShipmentDocumentsNotifier, AsyncValue<List<ShipmentDocumentModel>>>((ref) {
-  return ShipmentDocumentsNotifier(ref.read(dioProvider));
+  return ShipmentDocumentsNotifier(ref.read(dioProvider), ref);
 });
 
 class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDocumentModel>>> {
   final Dio _dio;
+  final Ref? _ref;
 
-  ShipmentDocumentsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  ShipmentDocumentsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchShipmentDocuments();
   }
 
@@ -305,6 +317,7 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
       );
       final created = ShipmentDocumentModel.fromJson(response.data);
       await fetchShipmentDocuments();
+      invalidateImportDocDependents(_ref);
       return created;
     } catch (e) {
       rethrow;
@@ -322,6 +335,7 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
       );
       final updated = ShipmentDocumentModel.fromJson(response.data);
       await fetchShipmentDocuments();
+      invalidateImportDocDependents(_ref);
       return updated;
     } catch (e) {
       rethrow;
@@ -383,14 +397,18 @@ final legalComplianceFamilyProvider =
 // 2. Draft B/L Review Provider
 final draftBLReviewsProvider =
     StateNotifierProvider<DraftBLNotifier, AsyncValue<List<DraftBLReviewModel>>>((ref) {
-  return DraftBLNotifier(ref.read(dioProvider));
+  return DraftBLNotifier(ref.read(dioProvider), ref);
 });
 
 class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  String? _lastSearch;
+  bool? _lastIsDraft;
 
-  DraftBLNotifier(this._dio) : super(const AsyncValue.loading()) {
+  DraftBLNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -400,9 +418,19 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
     super.dispose();
   }
 
+  /// Re-fetches with the last query (so a list filtered by import file is not
+  /// replaced by the global list) and refreshes dependent providers (FED-13).
+  Future<void> _afterMutation() async {
+    await fetchReviews(importFileId: _lastImportFileId, search: _lastSearch, isDraft: _lastIsDraft);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<void> fetchReviews({int? importFileId, String? search, bool? isDraft}) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastSearch = search;
+    _lastIsDraft = isDraft;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -469,14 +497,14 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
         data: payload,
       );
       final created = DraftBLReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<DraftBLReviewModel> updateDraftBLChecklist(int reviewId, List<DraftBLChecklistItemModel> items, {String reviewerName = 'Kamal'}) async {
+  Future<DraftBLReviewModel> updateDraftBLChecklist(int reviewId, List<DraftBLChecklistItemModel> items, {required String reviewerName}) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId/checklist',
@@ -484,7 +512,7 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
         data: items.map((i) => i.toJson()).toList(),
       );
       final updated = DraftBLReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return updated;
     } catch (e) {
       rethrow;
@@ -504,7 +532,7 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
         },
       );
       final updated = DraftBLReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return updated;
     } catch (e) {
       rethrow;
@@ -523,21 +551,21 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
         },
       );
       final created = DraftBLReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<DraftBLReviewModel> approveDraftBL(int reviewId, {String approvedBy = 'Kamal'}) async {
+  Future<DraftBLReviewModel> approveDraftBL(int reviewId, {required String approvedBy}) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId/approve',
         queryParameters: {'approved_by': approvedBy},
       );
       final approved = DraftBLReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return approved;
     } catch (e) {
       rethrow;
@@ -547,7 +575,7 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
   Future<bool> deleteDraftBLReview(int reviewId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId');
-      await fetchReviews();
+      await _afterMutation();
       return true;
     } catch (e) {
       rethrow;
@@ -558,14 +586,17 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
 // 3. Certificate of Origin (COO / EUR.1) Provider
 final cooReviewsProvider =
     StateNotifierProvider<COONotifier, AsyncValue<List<CertificateOfOriginReviewModel>>>((ref) {
-  return COONotifier(ref.read(dioProvider));
+  return COONotifier(ref.read(dioProvider), ref);
 });
 
 class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginReviewModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  bool? _lastIsDraft;
 
-  COONotifier(this._dio) : super(const AsyncValue.loading()) {
+  COONotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -575,9 +606,16 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     super.dispose();
   }
 
+  Future<void> _afterMutation() async {
+    await fetchReviews(importFileId: _lastImportFileId, isDraft: _lastIsDraft);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<void> fetchReviews({int? importFileId, bool? isDraft}) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastIsDraft = isDraft;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -655,7 +693,7 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
         data: payload,
       );
       final created = CertificateOfOriginReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -665,7 +703,7 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
   Future<bool> deleteCOOReview(int reviewId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/coo/$reviewId');
-      await fetchReviews();
+      await _afterMutation();
       return true;
     } catch (e) {
       rethrow;
@@ -676,14 +714,16 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
 // 4. Inspection Certificate Provider
 final inspectionReviewsProvider =
     StateNotifierProvider<InspectionNotifier, AsyncValue<List<InspectionCertificateReviewModel>>>((ref) {
-  return InspectionNotifier(ref.read(dioProvider));
+  return InspectionNotifier(ref.read(dioProvider), ref);
 });
 
 class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertificateReviewModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
 
-  InspectionNotifier(this._dio) : super(const AsyncValue.loading()) {
+  InspectionNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -693,9 +733,15 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
     super.dispose();
   }
 
+  Future<void> _afterMutation() async {
+    await fetchReviews(importFileId: _lastImportFileId);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<void> fetchReviews({int? importFileId}) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -721,7 +767,7 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
     await fetchReviews(importFileId: importFileId);
   }
 
-  Future<Map<String, dynamic>> fetchInspectionDraftTemplate(int importFileId, {String agency = 'COTECNA', String certType = 'COC (Certificate of Conformity)'}) async {
+  Future<Map<String, dynamic>> fetchInspectionDraftTemplate(int importFileId, {required String agency, required String certType}) async {
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/inspection/draft-template/$importFileId',
@@ -773,7 +819,7 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
         data: payload,
       );
       final created = InspectionCertificateReviewModel.fromJson(response.data);
-      await fetchReviews();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -783,7 +829,7 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
   Future<bool> deleteInspectionReview(int reviewId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/inspection/$reviewId');
-      await fetchReviews();
+      await _afterMutation();
       return true;
     } catch (e) {
       rethrow;
@@ -818,15 +864,19 @@ class POReconciliationService {
 // 6. PO Reconciliation Saved Sessions Provider (Phase 6 / BP-016)
 final poReconciliationSessionsProvider =
     StateNotifierProvider<POReconciliationSessionsNotifier, AsyncValue<List<POReconciliationSessionModel>>>((ref) {
-  return POReconciliationSessionsNotifier(ref.read(dioProvider));
+  return POReconciliationSessionsNotifier(ref.read(dioProvider), ref);
 });
 
 class POReconciliationSessionsNotifier
     extends StateNotifier<AsyncValue<List<POReconciliationSessionModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  String? _lastOverallStatus;
+  String? _lastSearch;
 
-  POReconciliationSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  POReconciliationSessionsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSessions();
   }
 
@@ -843,6 +893,9 @@ class POReconciliationSessionsNotifier
   }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastOverallStatus = overallStatus;
+    _lastSearch = search;
     try {
       state = const AsyncValue.loading();
       final queryParams = <String, dynamic>{};
@@ -871,6 +924,15 @@ class POReconciliationSessionsNotifier
     }
   }
 
+  Future<void> _afterMutation() async {
+    await fetchSessions(
+      importFileId: _lastImportFileId,
+      overallStatus: _lastOverallStatus,
+      search: _lastSearch,
+    );
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<POReconciliationSessionModel> createSession(POReconciliationSessionModel session) async {
     try {
       final response = await _dio.post(
@@ -878,7 +940,7 @@ class POReconciliationSessionsNotifier
         data: session.toJson(),
       );
       final created = POReconciliationSessionModel.fromJson(response.data as Map<String, dynamic>);
-      await fetchSessions();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -893,7 +955,7 @@ class POReconciliationSessionsNotifier
         data: updateData,
       );
       final updated = POReconciliationSessionModel.fromJson(response.data as Map<String, dynamic>);
-      await fetchSessions();
+      await _afterMutation();
       return updated;
     } catch (e) {
       rethrow;
@@ -905,7 +967,7 @@ class POReconciliationSessionsNotifier
       await _dio.delete(
         '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions/$sessionId',
       );
-      await fetchSessions();
+      await _afterMutation();
       return true;
     } catch (e) {
       rethrow;
@@ -936,15 +998,19 @@ final centralArchiveProvider =
 // 8. Invoice vs B/L Match Sessions Provider (Screen 22 Sessions Registry)
 final invoiceBLMatchSessionsProvider =
     StateNotifierProvider<InvoiceBLMatchSessionsNotifier, AsyncValue<List<InvoiceBLMatchSessionModel>>>((ref) {
-  return InvoiceBLMatchSessionsNotifier(ref.read(dioProvider));
+  return InvoiceBLMatchSessionsNotifier(ref.read(dioProvider), ref);
 });
 
 class InvoiceBLMatchSessionsNotifier
     extends StateNotifier<AsyncValue<List<InvoiceBLMatchSessionModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
+  int? _lastImportFileId;
+  bool? _lastIsDraft;
+  String? _lastSearch;
 
-  InvoiceBLMatchSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  InvoiceBLMatchSessionsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSessions();
   }
 
@@ -961,6 +1027,9 @@ class InvoiceBLMatchSessionsNotifier
   }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastImportFileId = importFileId;
+    _lastIsDraft = isDraft;
+    _lastSearch = search;
     try {
       state = const AsyncValue.loading();
       final queryParams = <String, dynamic>{};
@@ -987,6 +1056,11 @@ class InvoiceBLMatchSessionsNotifier
     }
   }
 
+  Future<void> _afterMutation() async {
+    await fetchSessions(importFileId: _lastImportFileId, isDraft: _lastIsDraft, search: _lastSearch);
+    invalidateImportDocDependents(_ref);
+  }
+
   Future<InvoiceBLMatchSessionModel> createSession(Map<String, dynamic> sessionData) async {
     try {
       final response = await _dio.post(
@@ -994,7 +1068,7 @@ class InvoiceBLMatchSessionsNotifier
         data: sessionData,
       );
       final created = InvoiceBLMatchSessionModel.fromJson(response.data as Map<String, dynamic>);
-      await fetchSessions();
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -1006,7 +1080,7 @@ class InvoiceBLMatchSessionsNotifier
       await _dio.delete(
         '${ApiConstants.baseUrl}/import-documentation/invoice-bl/sessions/$sessionId',
       );
-      await fetchSessions();
+      await _afterMutation();
       return true;
     } catch (e) {
       rethrow;

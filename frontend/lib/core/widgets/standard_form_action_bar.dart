@@ -59,10 +59,10 @@ class StandardFormActionBar extends StatelessWidget {
     final l = context.l10n;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 16, vertical: 10),
       decoration: AppTheme.cardDecorationOf(context),
       child: Wrap(
-        spacing: 10,
+        spacing: 12,
         runSpacing: 10,
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,

@@ -10,7 +10,10 @@ class LinkedPOItemModel {
   final double totalAmount;
   final String status;
 
-  String get displayName => (poReference != null && poReference!.trim().isNotEmpty) ? poReference!.trim() : poNumber;
+  String get displayName =>
+      (poReference != null && poReference!.trim().isNotEmpty)
+          ? poReference!.trim()
+          : poNumber;
 
   LinkedPOItemModel({
     required this.poId,
@@ -108,7 +111,7 @@ class BudgetPrefillModel {
     this.brokerId,
     this.brokerName,
     required this.estimatedGrandTotalEgp,
-    this.exchangeRate = 50.0,
+    this.exchangeRate = 0.0,
   });
 
   factory BudgetPrefillModel.fromJson(Map<String, dynamic> json) {
@@ -131,18 +134,25 @@ class BudgetPrefillModel {
       iban: json['iban'],
       paymentTermsSummary: json['payment_terms_summary'] ?? '',
       linkedPos: list,
-      totalInvoiceAmount: (json['total_invoice_amount'] as num?)?.toDouble() ?? 0.0,
+      totalInvoiceAmount:
+          (json['total_invoice_amount'] as num?)?.toDouble() ?? 0.0,
       invoiceCurrency: json['invoice_currency'] ?? 'USD',
-      totalInvoiceAmountEgp: (json['total_invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
-      estimatedFreightCost: (json['estimated_freight_cost'] as num?)?.toDouble() ?? 0.0,
+      totalInvoiceAmountEgp:
+          (json['total_invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
+      estimatedFreightCost:
+          (json['estimated_freight_cost'] as num?)?.toDouble() ?? 0.0,
       freightCurrency: json['freight_currency'] ?? 'USD',
-      estimatedFreightCostEgp: (json['estimated_freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
-      estimatedCustomsDutiesEgp: (json['estimated_customs_duties_egp'] as num?)?.toDouble() ?? 0.0,
-      estimatedClearanceFeesEgp: (json['estimated_clearance_fees_egp'] as num?)?.toDouble() ?? 0.0,
+      estimatedFreightCostEgp:
+          (json['estimated_freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
+      estimatedCustomsDutiesEgp:
+          (json['estimated_customs_duties_egp'] as num?)?.toDouble() ?? 0.0,
+      estimatedClearanceFeesEgp:
+          (json['estimated_clearance_fees_egp'] as num?)?.toDouble() ?? 0.0,
       brokerId: json['broker_id'],
       brokerName: json['broker_name'],
-      estimatedGrandTotalEgp: (json['estimated_grand_total_egp'] as num?)?.toDouble() ?? 0.0,
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      estimatedGrandTotalEgp:
+          (json['estimated_grand_total_egp'] as num?)?.toDouble() ?? 0.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -198,7 +208,7 @@ class PaymentRequestModel {
     required this.paymentType,
     required this.requestedAmount,
     this.currencyCode = 'USD',
-    this.exchangeRate = 50.0,
+    this.exchangeRate = 0.0,
     required this.requestedAmountEgp,
     required this.dueDate,
     required this.requestDate,
@@ -239,8 +249,9 @@ class PaymentRequestModel {
       paymentType: json['payment_type'] ?? 'Advance Payment',
       requestedAmount: (json['requested_amount'] as num?)?.toDouble() ?? 0.0,
       currencyCode: json['currency_code'] ?? 'USD',
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
-      requestedAmountEgp: (json['requested_amount_egp'] as num?)?.toDouble() ?? 0.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
+      requestedAmountEgp:
+          (json['requested_amount_egp'] as num?)?.toDouble() ?? 0.0,
       dueDate: json['due_date'] ?? '',
       requestDate: json['request_date'] ?? '',
       status: json['status'] ?? 'Draft',
@@ -251,7 +262,8 @@ class PaymentRequestModel {
       bankCountry: json['bank_country'],
       swiftReferenceNo: json['swift_reference_no'],
       swiftReceiptDate: json['swift_receipt_date'],
-      swiftTransferredAmount: (json['swift_transferred_amount'] as num?)?.toDouble(),
+      swiftTransferredAmount:
+          (json['swift_transferred_amount'] as num?)?.toDouble(),
       swiftTransferredCurrency: json['swift_transferred_currency'],
       swiftVarianceAmount: (json['swift_variance_amount'] as num?)?.toDouble(),
       swiftVarianceStatus: json['swift_variance_status'],
@@ -357,7 +369,7 @@ class ImportBudgetModel {
     this.freightCurrency = 'USD',
     this.customsDutiesEgp = 0.0,
     this.clearanceInlandEgp = 0.0,
-    this.exchangeRate = 50.0,
+    this.exchangeRate = 0.0,
     required this.totalBudgetEgp,
     required this.budgetStatus,
     this.approvedBy,
@@ -386,14 +398,17 @@ class ImportBudgetModel {
       poId: json['po_id'],
       projectId: json['project_id'],
       invoiceAmountEgp: (json['invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
-      invoiceAmountForeign: (json['invoice_amount_foreign'] as num?)?.toDouble() ?? 0.0,
+      invoiceAmountForeign:
+          (json['invoice_amount_foreign'] as num?)?.toDouble() ?? 0.0,
       invoiceCurrency: json['invoice_currency'] ?? 'USD',
       freightCostEgp: (json['freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
-      freightCostForeign: (json['freight_cost_foreign'] as num?)?.toDouble() ?? 0.0,
+      freightCostForeign:
+          (json['freight_cost_foreign'] as num?)?.toDouble() ?? 0.0,
       freightCurrency: json['freight_currency'] ?? 'USD',
       customsDutiesEgp: (json['customs_duties_egp'] as num?)?.toDouble() ?? 0.0,
-      clearanceInlandEgp: (json['clearance_inland_egp'] as num?)?.toDouble() ?? 0.0,
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      clearanceInlandEgp:
+          (json['clearance_inland_egp'] as num?)?.toDouble() ?? 0.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
       totalBudgetEgp: (json['total_budget_egp'] as num?)?.toDouble() ?? 0.0,
       budgetStatus: json['budget_status'] ?? 'Pending Review',
       approvedBy: json['approved_by'],
@@ -473,9 +488,15 @@ class SmartSwiftExtractResultModel {
   factory SmartSwiftExtractResultModel.fromJson(Map<String, dynamic> json) {
     return SmartSwiftExtractResultModel(
       success: json['success'] ?? false,
-      parsedSwift: json['parsed_swift'] != null ? Map<String, dynamic>.from(json['parsed_swift']) : {},
-      matchedPaymentRequest: json['matched_payment_request'] != null ? Map<String, dynamic>.from(json['matched_payment_request']) : null,
-      candidateMatches: json['candidate_matches'] != null ? List<dynamic>.from(json['candidate_matches']) : [],
+      parsedSwift: json['parsed_swift'] != null
+          ? Map<String, dynamic>.from(json['parsed_swift'])
+          : {},
+      matchedPaymentRequest: json['matched_payment_request'] != null
+          ? Map<String, dynamic>.from(json['matched_payment_request'])
+          : null,
+      candidateMatches: json['candidate_matches'] != null
+          ? List<dynamic>.from(json['candidate_matches'])
+          : [],
       rawText: json['raw_text'],
       detectedFilename: json['detected_filename'],
       detectedFileType: json['detected_file_type'],
@@ -530,8 +551,10 @@ class BudgetVarianceLogModel {
       oldValue: (json['old_value'] as num?)?.toDouble() ?? 0.0,
       newValue: (json['new_value'] as num?)?.toDouble() ?? 0.0,
       varianceAmount: (json['variance_amount'] as num?)?.toDouble() ?? 0.0,
-      variancePercentage: (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
-      thresholdPercentage: (json['threshold_percentage'] as num?)?.toDouble() ?? 5.0,
+      variancePercentage:
+          (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      thresholdPercentage:
+          (json['threshold_percentage'] as num?)?.toDouble() ?? 5.0,
       isHardBlock: json['is_hard_block'] ?? false,
       detectedAt: json['detected_at'] ?? '',
       modifiedBy: json['modified_by'],
@@ -595,7 +618,6 @@ class BudgetSyncResultModel {
     );
   }
 }
-
 
 class SwiftFieldModel {
   final int id;
@@ -725,11 +747,11 @@ class SwiftBatchModel {
               .toList() ??
           [],
       allMandatoryValid: json['all_mandatory_valid'] ?? false,
-      missingMandatoryFields: (json['missing_mandatory_fields'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      missingMandatoryFields:
+          (json['missing_mandatory_fields'] as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toList() ??
+              [],
     );
   }
 }
-

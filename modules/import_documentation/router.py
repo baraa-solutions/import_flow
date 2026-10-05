@@ -1,17 +1,108 @@
 """
 FastAPI Router for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
+
+HTTP only (Phase 3a, DOC-01 / DOC-12 / DOC-14 / DOC-16 / DOC-17):
+- every route declares ``require_permission``: ``import_documentation.view`` for reads and pure compare / parse /
+  template routes, ``import_documentation.upload`` for every write and every upload / extract route (OCR and
+  optional external LLMs), ``import_documentation.approve`` for the draft B/L approval routes;
+- the acting user is always the authenticated user (``user=current_user.username``); client identity fields
+  (``approved_by``, ``reviewer_name``, ``reviewed_by``, ``certified_by``) are ignored;
+- uploads are size / extension checked (``validators.validate_upload``) and read in the threadpool (plain ``def``);
+- free-text status fields are checked against today's values (``validators.validate_status``).
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from modules.auth.router import get_current_user
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.import_documentation.schemas import *
+from modules.auth.permissions import require_permission
+from modules.auth.router import get_current_user
+from modules.import_documentation import validators
+from modules.import_documentation.schemas import (
+    AcidComparisonRequest,
+    AcidRegistrationCreate,
+    AcidRegistrationResponse,
+    AcidRegistrationUpdate,
+    AcidRequestTemplateResponse,
+    AcidTextParseRequest,
+    AcidTextParseResponse,
+    AcidTrackerSummary,
+    BankingDocumentCreate,
+    BankingDocumentReceive,
+    BankingDocumentResponse,
+    BankingDocumentUpdate,
+    CentralArchiveResponse,
+    CertificateOfOriginReviewCreate,
+    CertificateOfOriginReviewResponse,
+    CertificateOfOriginReviewUpdate,
+    COOComparisonRequest,
+    COODraftTemplateResponse,
+    CustomsDeclarationCreate,
+    CustomsDeclarationResponse,
+    DocumentExtractRequest,
+    DocumentExtractResponse,
+    DraftBLChecklistItem,
+    DraftBLComparisonRequest,
+    DraftBLReviewCreate,
+    DraftBLReviewResponse,
+    DraftBLReviewUpdate,
+    DualApprovalRequest,
+    InspectionCertificateReviewCreate,
+    InspectionCertificateReviewResponse,
+    InspectionCertificateReviewUpdate,
+    InspectionComparisonRequest,
+    InspectionDraftTemplateResponse,
+    InvoiceBLExtractAndMatchRequest,
+    InvoiceBLExtractAndMatchResponse,
+    InvoiceBLMatchSessionCreate,
+    InvoiceBLMatchSessionResponse,
+    InvoiceBLSyncRequest,
+    LegalDocsExpiryComplianceResponse,
+    NewDraftVersionRequest,
+    POExtractAndCompareRequest,
+    POExtractAndCompareResponse,
+    POFinalAdjustmentRequest,
+    POReconciliationSessionCreate,
+    POReconciliationSessionResponse,
+    POReconciliationSessionUpdate,
+    ShipmentDocumentCreate,
+    ShipmentDocumentResponse,
+    ThreeWayCrossMatchRequest,
+    ThreeWayCrossMatchResponse,
+)
+from modules.users.model import User
 import modules.import_documentation.service as service
 
 router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Documentation"], dependencies=[Depends(get_current_user)])
+
+PERM_VIEW = "import_documentation.view"
+PERM_UPLOAD = "import_documentation.upload"
+PERM_APPROVE = "import_documentation.approve"
+
+can_view = require_permission(PERM_VIEW)
+can_upload = require_permission(PERM_UPLOAD)
+can_approve = require_permission(PERM_APPROVE)
+
+UploadedFile = Tuple[str, bytes]
+
+
+def _read_upload(file: UploadFile) -> UploadedFile:
+    """(filename, bytes) of a validated upload. Reads at most MAX_UPLOAD_BYTES + 1 bytes, so an oversized file
+    is rejected (413) without being loaded whole."""
+    content = file.file.read(validators.MAX_UPLOAD_BYTES + 1)
+    return validators.validate_upload(file.filename, content), content
+
+
+def _read_uploads(*groups: Optional[Any]) -> List[UploadedFile]:
+    """Validated uploads of single-file and multi-file form fields, in order, each file once."""
+    files: List[UploadFile] = []
+    for group in groups:
+        for f in (group if isinstance(group, list) else [group]):
+            if f is not None and not any(f is seen for seen in files):
+                files.append(f)
+    return [_read_upload(f) for f in files]
 
 
 # --- ACID REGISTRATION & TRACKER ENDPOINTS (BP-014) ---
@@ -20,7 +111,7 @@ router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Document
     response_model=AcidTrackerSummary,
     status_code=status.HTTP_200_OK,
 )
-def get_acid_tracker(db: Session = Depends(get_db)):
+def get_acid_tracker(db: Session = Depends(get_db), current_user: User = Depends(can_view)):
     """
     ACID Expiry Tracker: Lists all active ACID registrations and import files with
     calculated days remaining, validity %, and customs release status (alerts removed once customs released).
@@ -33,20 +124,21 @@ def get_acid_tracker(db: Session = Depends(get_db)):
     response_model=AcidTextParseResponse,
     status_code=status.HTTP_200_OK,
 )
-def parse_acid_text(payload: AcidTextParseRequest, db: Session = Depends(get_db)):
+def parse_acid_text(
+    payload: AcidTextParseRequest, db: Session = Depends(get_db), current_user: User = Depends(can_view)
+):
     """
     Smart Nafeza Text Parser: Extracts structured ACID fields from raw MTS text notifications
     and optionally computes live discrepancy comparison against the selected import file.
     """
-    res = service.parse_acid_text_service(db, payload.raw_text, payload.import_file_id)
-    return res
+    return service.parse_acid_text_service(db, payload.raw_text, payload.import_file_id)
 
 
 @router.post(
     "/acid/compare",
     status_code=status.HTTP_200_OK,
 )
-def compare_acid_data(payload: AcidComparisonRequest):
+def compare_acid_data(payload: AcidComparisonRequest, current_user: User = Depends(can_view)):
     """
     Compares requested shipment parameters with generated ACID data and returns a discrepancy matrix.
     """
@@ -58,7 +150,7 @@ def compare_acid_data(payload: AcidComparisonRequest):
     response_model=AcidRequestTemplateResponse,
     status_code=status.HTTP_200_OK,
 )
-def generate_acid_templates(payload: dict):
+def generate_acid_templates(payload: Dict[str, Any], current_user: User = Depends(can_view)):
     """
     Generates ready-to-use WhatsApp and Email templates for customs broker communication.
     """
@@ -71,9 +163,11 @@ def generate_acid_templates(payload: dict):
     status_code=status.HTTP_201_CREATED,
 )
 def create_acid_session(
-    payload: AcidRegistrationCreate, db: Session = Depends(get_db)
+    payload: AcidRegistrationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.create_acid_session_service(db, payload)
+    return service.create_acid_session_service(db, payload, user=current_user.username)
 
 
 @router.get("/acid-sessions", response_model=List[AcidRegistrationResponse])
@@ -83,53 +177,37 @@ def list_acid_sessions(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
-    items = service.get_all_acid_sessions_service(
+    return service.list_acid_sessions_service(
         db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
     )
-    if not items:
-        return []
-    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
-    return [service.enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
 
 
-@router.get(
-    "/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse
-)
-def get_acid_session(acid_id: int, db: Session = Depends(get_db)):
-    item = service.get_acid_session_by_id_service(db, acid_id)
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ACID Registration Session ID {acid_id} not found.",
-        )
-    return service.enrich_acid_response(db, item)
+@router.get("/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse)
+def get_acid_session(acid_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
+    return service.get_acid_session_service(db, acid_id)
 
 
-@router.put(
-    "/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse
-)
+@router.put("/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse)
 def update_acid_session(
     acid_id: int,
     payload: AcidRegistrationUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_acid_session_service(db, acid_id, payload)
+    validators.validate_status("acid", payload.status)
+    return service.update_acid_session_service(db, acid_id, payload, user=current_user.username)
 
 
 @router.delete("/acid-sessions/{acid_id}", status_code=status.HTTP_204_NO_CONTENT)
-def soft_delete_acid_session(acid_id: int, db: Session = Depends(get_db)):
-    success = service.soft_delete_acid_session_service(db, acid_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ACID Registration Session ID {acid_id} not found.",
-        )
+def soft_delete_acid_session(acid_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    service.soft_delete_acid_session_service(db, acid_id, user=current_user.username)
 
 
 @router.patch("/acid-sessions/{acid_id}/restore", response_model=AcidRegistrationResponse)
-def restore_acid_session(acid_id: int, db: Session = Depends(get_db)):
-    return service.restore_acid_session_service(db, acid_id)
+def restore_acid_session(acid_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    return service.restore_acid_session_service(db, acid_id, user=current_user.username)
 
 
 # --- BANKING DOCUMENTS ENDPOINTS (BP-015) ---
@@ -139,34 +217,32 @@ def restore_acid_session(acid_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_banking_document(
-    payload: BankingDocumentCreate, db: Session = Depends(get_db)
+    payload: BankingDocumentCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_banking_document_service(db, payload)
+    return service.create_banking_document_service(db, payload, user=current_user.username)
 
 
 @router.get("/banking-documents", response_model=List[BankingDocumentResponse])
-def list_banking_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
-    items = service.get_all_banking_documents_service(db, import_file_id=import_file_id)
-    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
-    return [service.enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+def list_banking_documents(
+    import_file_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(can_view)
+):
+    return service.list_banking_documents_service(db, import_file_id=import_file_id)
 
 
 @router.get("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
-def get_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
-    item = service.get_banking_document_by_id_service(db, bank_doc_id)
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Banking Document ID {bank_doc_id} not found.",
-        )
-    return service.enrich_banking_response(db, item)
+def get_banking_document(bank_doc_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
+    return service.get_banking_document_service(db, bank_doc_id)
 
 
 @router.put("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
 def update_banking_document(
-    bank_doc_id: int, payload: BankingDocumentUpdate, db: Session = Depends(get_db)
+    bank_doc_id: int,
+    payload: BankingDocumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_banking_document_service(db, bank_doc_id, payload)
+    validators.validate_status("banking", payload.status)
+    return service.update_banking_document_service(db, bank_doc_id, payload, user=current_user.username)
 
 
 @router.post(
@@ -174,7 +250,10 @@ def update_banking_document(
     response_model=BankingDocumentResponse,
 )
 def receive_banking_document(
-    bank_doc_id: int, payload: BankingDocumentReceive, db: Session = Depends(get_db)
+    bank_doc_id: int,
+    payload: BankingDocumentReceive,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     return service.receive_banking_document_service(
         db,
@@ -182,12 +261,13 @@ def receive_banking_document(
         form4_number=payload.form4_number,
         received_date=payload.received_date,
         notes=payload.notes,
+        user=current_user.username,
     )
 
 
 @router.delete("/banking-documents/{bank_doc_id}")
-def delete_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
-    return service.delete_banking_document_service(db, bank_doc_id)
+def delete_banking_document(bank_doc_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    return service.delete_banking_document_service(db, bank_doc_id, user=current_user.username)
 
 
 # --- SHIPMENT DOCUMENTS & CARGOX ENDPOINTS (BP-016, BP-017, BP-018) ---
@@ -197,16 +277,16 @@ def delete_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_shipment_document(
-    payload: ShipmentDocumentCreate, db: Session = Depends(get_db)
+    payload: ShipmentDocumentCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_shipment_document_service(db, payload)
+    return service.create_shipment_document_service(db, payload, user=current_user.username)
 
 
 @router.get("/shipment-documents", response_model=List[ShipmentDocumentResponse])
-def list_shipment_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
-    items = service.get_all_shipment_documents_service(db, import_file_id=import_file_id)
-    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
-    return [service.enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+def list_shipment_documents(
+    import_file_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(can_view)
+):
+    return service.list_shipment_documents_service(db, import_file_id=import_file_id)
 
 
 @router.post(
@@ -218,9 +298,10 @@ def update_cargox_and_bl_endorsement(
     cargox_envelope_id: Optional[str] = None,
     endorsement_number: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     return service.update_cargox_and_bl_endorsement_service(
-        db, doc_id, cargox_envelope_id, endorsement_number
+        db, doc_id, cargox_envelope_id, endorsement_number, user=current_user.username
     )
 
 
@@ -231,44 +312,21 @@ def update_cargox_and_bl_endorsement(
     status_code=status.HTTP_201_CREATED,
 )
 def create_customs_declaration(
-    payload: CustomsDeclarationCreate, db: Session = Depends(get_db)
+    payload: CustomsDeclarationCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_customs_declaration_service(db, payload)
+    return service.create_customs_declaration_service(db, payload, user=current_user.username)
 
 
 # ==============================================================================
 # PHASE 6: INTELLIGENT DOCUMENT VERIFICATION & COMPARISON ENDPOINTS
 # ==============================================================================
-from modules.import_documentation.schemas import (
-    POFinalAdjustmentRequest,
-    POExtractAndCompareRequest,
-    POExtractAndCompareResponse,
-    InvoiceBLSyncRequest,
-    POReconciliationSessionCreate,
-    POReconciliationSessionUpdate,
-    POReconciliationSessionResponse,
-    DraftBLComparisonRequest,
-    DraftBLReviewCreate,
-    DraftBLReviewUpdate,
-    DraftBLReviewResponse,
-    COOComparisonRequest,
-    CertificateOfOriginReviewCreate,
-    CertificateOfOriginReviewUpdate,
-    CertificateOfOriginReviewResponse,
-    InspectionComparisonRequest,
-    InspectionCertificateReviewCreate,
-    InspectionCertificateReviewUpdate,
-    InspectionCertificateReviewResponse,
-    LegalDocsExpiryComplianceResponse,
-)
-
 
 # --- 1. PO FINAL RECONCILIATION ---
 @router.post("/po-reconciliation", status_code=status.HTTP_200_OK)
 def reconcile_po_final_adjustments(
-    payload: POFinalAdjustmentRequest, db: Session = Depends(get_db)
+    payload: POFinalAdjustmentRequest, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.reconcile_po_final_adjustments_service(db, payload)
+    return service.reconcile_po_final_adjustments_service(db, payload, user=current_user.username)
 
 
 @router.post(
@@ -277,7 +335,7 @@ def reconcile_po_final_adjustments(
     status_code=status.HTTP_200_OK,
 )
 def extract_and_compare_po_documents(
-    payload: POExtractAndCompareRequest, db: Session = Depends(get_db)
+    payload: POExtractAndCompareRequest, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
     """
     Intelligently extracts Commercial Invoice and Final Packing List data,
@@ -291,35 +349,27 @@ def extract_and_compare_po_documents(
     response_model=POExtractAndCompareResponse,
     status_code=status.HTTP_200_OK,
 )
-async def extract_po_reconciliation_files_and_compare(
+def extract_po_reconciliation_files_and_compare(
     invoice_file: Optional[UploadFile] = File(None),
     packing_file: Optional[UploadFile] = File(None),
     import_file_id: Optional[int] = Form(None),
     invoice_text: Optional[str] = Form(None),
     packing_text: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Accepts uploaded Commercial Invoice and/or Packing List files (PDF, Word, Excel, Text)
     and executes 3-way reconciliation against System PO data.
     """
-    inv_raw = invoice_text or ""
-    pl_raw = packing_text or ""
-
-    if invoice_file:
-        content = await invoice_file.read()
-        inv_raw = service.extract_text_from_uploaded_file(invoice_file.filename, content)
-
-    if packing_file:
-        content = await packing_file.read()
-        pl_raw = service.extract_text_from_uploaded_file(packing_file.filename, content)
-
-    req = POExtractAndCompareRequest(
+    return service.extract_po_files_and_compare_service(
+        db,
+        invoice=_read_upload(invoice_file) if invoice_file else None,
+        packing=_read_upload(packing_file) if packing_file else None,
         import_file_id=import_file_id,
-        invoice_raw_text=inv_raw,
-        packing_list_raw_text=pl_raw,
+        invoice_text=invoice_text,
+        packing_text=packing_text,
     )
-    return service.extract_and_compare_po_documents_service(db, req)
 
 
 # --- PO & PACKING RECONCILIATION SESSIONS ENDPOINTS (BP-016) ---
@@ -331,12 +381,14 @@ async def extract_po_reconciliation_files_and_compare(
 def create_po_reconciliation_session(
     payload: POReconciliationSessionCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Creates a new PO & Packing List final reconciliation session.
     Strictly prevents duplicate sessions for the same import file.
     """
-    return service.create_po_reconciliation_session_service(db, payload)
+    validators.validate_status("reconciliation", payload.overall_status)
+    return service.create_po_reconciliation_session_service(db, payload, user=current_user.username)
 
 
 @router.get(
@@ -349,6 +401,7 @@ def get_po_reconciliation_sessions(
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Lists saved PO & Packing List final reconciliation sessions with optional filters.
@@ -366,6 +419,7 @@ def get_po_reconciliation_sessions(
 def get_po_reconciliation_session_by_id(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Retrieves a single PO & Packing List final reconciliation session by ID.
@@ -382,11 +436,13 @@ def update_po_reconciliation_session(
     session_id: int,
     payload: POReconciliationSessionUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Updates an existing PO & Packing List final reconciliation session.
     """
-    return service.update_po_reconciliation_session_service(db, session_id, payload)
+    validators.validate_status("reconciliation", payload.overall_status)
+    return service.update_po_reconciliation_session_service(db, session_id, payload, user=current_user.username)
 
 
 @router.delete(
@@ -396,55 +452,35 @@ def update_po_reconciliation_session(
 def delete_po_reconciliation_session(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Soft-deletes a PO & Packing List final reconciliation session.
     """
-    return service.delete_po_reconciliation_session_service(db, session_id)
-
-
+    return service.delete_po_reconciliation_session_service(db, session_id, user=current_user.username)
 
 
 # --- 2. DRAFT BILL OF LADING (B/L) ENDPOINTS ---
 @router.post("/draft-bl/extract-file", status_code=status.HTTP_200_OK)
-async def extract_draft_bl_from_file(
+def extract_draft_bl_from_file(
     file: UploadFile = File(...),
     import_file_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Extracts raw text from uploaded PDF, Word, Excel, or Text file, extracts B/L fields,
     and optionally executes comparison against the active import file.
     """
-    content_bytes = await file.read()
-    raw_text, spatial_boxes = service.extract_text_and_boxes_from_uploaded_file(file.filename, content_bytes)
-    extracted_fields = service.parse_draft_bl_raw_text(raw_text, spatial_boxes=spatial_boxes)
-
-
-    comp_result = None
-    if import_file_id:
-        comp_req = DraftBLComparisonRequest(
-            import_file_id=import_file_id,
-            draft_source="FILE_UPLOAD",
-            raw_draft_text=raw_text,
-            draft_fields=extracted_fields,
-        )
-        comp_result = service.compare_draft_bl_service(db, comp_req)
-    guardrails = extracted_fields.get("_guardrails", {})
-    return {
-        "filename": file.filename,
-        "raw_text": raw_text,
-        "extracted_fields": extracted_fields,
-        "extraction_status": guardrails.get("extraction_status", "EXTRACTION_COMPLETE"),
-        "missing_critical_fields": guardrails.get("missing_critical_fields", []),
-        "safety_warning": guardrails.get("safety_warning"),
-        "comparison_result": comp_result,
-    }
+    filename, content = _read_upload(file)
+    return service.extract_draft_bl_file_service(
+        db, filename=filename, content=content, import_file_id=import_file_id
+    )
 
 
 @router.post("/draft-bl/compare", status_code=status.HTTP_200_OK)
 def compare_draft_bl(
-    payload: DraftBLComparisonRequest, db: Session = Depends(get_db)
+    payload: DraftBLComparisonRequest, db: Session = Depends(get_db), current_user: User = Depends(can_view)
 ):
     return service.compare_draft_bl_service(db, payload)
 
@@ -455,9 +491,10 @@ def compare_draft_bl(
     status_code=status.HTTP_201_CREATED,
 )
 def create_draft_bl_review(
-    payload: DraftBLReviewCreate, db: Session = Depends(get_db)
+    payload: DraftBLReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_draft_bl_review_service(db, payload)
+    # status / stage / approval fields of the payload are server-owned (C2): the service ignores them.
+    return service.create_draft_bl_review_service(db, payload, user=current_user.username)
 
 
 @router.get("/draft-bl", response_model=List[DraftBLReviewResponse])
@@ -468,6 +505,7 @@ def list_draft_bl_reviews(
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     return service.get_draft_bl_reviews_service(
         db,
@@ -480,61 +518,60 @@ def list_draft_bl_reviews(
 
 
 @router.get("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
-def get_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
-    item = service.get_draft_bl_review_by_id_service(db, review_id, include_inactive=True)
-    if not item:
-        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
-    return item
+def get_draft_bl_review(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
+    return service.get_draft_bl_review_service(db, review_id)
 
 
 @router.delete("/draft-bl/{review_id}", status_code=status.HTTP_200_OK)
-def delete_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
-    return service.delete_draft_bl_review_service(db, review_id)
+def delete_draft_bl_review(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    return service.delete_draft_bl_review_service(db, review_id, user=current_user.username)
 
 
 @router.put("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
 def update_draft_bl_review(
-    review_id: int, payload: DraftBLReviewUpdate, db: Session = Depends(get_db)
+    review_id: int,
+    payload: DraftBLReviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_draft_bl_review_service(db, review_id, payload)
+    return service.update_draft_bl_review_service(db, review_id, payload, user=current_user.username)
 
 
 @router.put("/draft-bl/{review_id}/checklist", response_model=DraftBLReviewResponse)
 def update_draft_bl_checklist(
     review_id: int,
     checklist_items: List[DraftBLChecklistItem],
-    reviewer_name: str = "Kamal",
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_draft_bl_checklist_service(
-        db, review_id, checklist_items, reviewer_name=reviewer_name
-    )
+    # The former ?reviewer_name= query param is ignored (C3): the reviewer is the logged-in user.
+    return service.update_draft_bl_checklist_service(db, review_id, checklist_items, user=current_user.username)
 
 
 @router.post("/draft-bl/dual-approval", response_model=DraftBLReviewResponse)
 def process_draft_bl_dual_approval(
-    payload: DualApprovalRequest, db: Session = Depends(get_db)
+    payload: DualApprovalRequest, db: Session = Depends(get_db), current_user: User = Depends(can_approve)
 ):
-    return service.process_dual_approval_service(db, payload)
+    return service.process_dual_approval_service(db, payload, user=current_user.username)
 
 
 @router.post("/draft-bl/new-version", response_model=DraftBLReviewResponse, status_code=status.HTTP_201_CREATED)
 def create_new_draft_version(
-    payload: NewDraftVersionRequest, db: Session = Depends(get_db)
+    payload: NewDraftVersionRequest, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_new_draft_version_service(db, payload)
+    return service.create_new_draft_version_service(db, payload, user=current_user.username)
 
 
 @router.post("/draft-bl/{review_id}/approve", response_model=DraftBLReviewResponse)
-def approve_draft_bl(
-    review_id: int, approved_by: str = "Kamal", db: Session = Depends(get_db)
-):
-    return service.approve_draft_bl_service(db, review_id, approved_by=approved_by)
+def approve_draft_bl(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_approve)):
+    # The former ?approved_by= query param is ignored (C3): the approver is the logged-in user. It only completes
+    # the one missing role of a half-approved review (409 when none or both roles are open, or same approver).
+    return service.approve_draft_bl_service(db, review_id, user=current_user.username)
 
 
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) ENDPOINTS ---
 @router.post("/coo/compare", status_code=status.HTTP_200_OK)
-def compare_coo(payload: COOComparisonRequest, db: Session = Depends(get_db)):
+def compare_coo(payload: COOComparisonRequest, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
     return service.compare_coo_service(db, payload)
 
 
@@ -544,9 +581,10 @@ def compare_coo(payload: COOComparisonRequest, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_coo_review(
-    payload: CertificateOfOriginReviewCreate, db: Session = Depends(get_db)
+    payload: CertificateOfOriginReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_coo_review_service(db, payload)
+    validators.validate_status("coo", payload.status)
+    return service.create_coo_review_service(db, payload, user=current_user.username)
 
 
 @router.get("/coo", response_model=List[CertificateOfOriginReviewResponse])
@@ -557,6 +595,7 @@ def list_coo_reviews(
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     return service.get_coo_reviews_service(
         db,
@@ -570,14 +609,18 @@ def list_coo_reviews(
 
 @router.put("/coo/{review_id}", response_model=CertificateOfOriginReviewResponse)
 def update_coo_review(
-    review_id: int, payload: CertificateOfOriginReviewUpdate, db: Session = Depends(get_db)
+    review_id: int,
+    payload: CertificateOfOriginReviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_coo_review_service(db, review_id, payload)
+    validators.validate_status("coo", payload.status)
+    return service.update_coo_review_service(db, review_id, payload, user=current_user.username)
 
 
 @router.delete("/coo/{review_id}", status_code=status.HTTP_200_OK)
-def delete_coo_review(review_id: int, db: Session = Depends(get_db)):
-    return service.delete_coo_review_service(db, review_id)
+def delete_coo_review(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    return service.delete_coo_review_service(db, review_id, user=current_user.username)
 
 
 @router.get(
@@ -589,6 +632,7 @@ def get_coo_draft_template(
     import_file_id: int,
     cert_type: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Generates a pre-filled, official draft template for China CCPIT COO or EUR.1 Movement Certificate
@@ -600,7 +644,7 @@ def get_coo_draft_template(
 # --- 4. INSPECTION CERTIFICATE ENDPOINTS ---
 @router.post("/inspection/compare", status_code=status.HTTP_200_OK)
 def compare_inspection(
-    payload: InspectionComparisonRequest, db: Session = Depends(get_db)
+    payload: InspectionComparisonRequest, db: Session = Depends(get_db), current_user: User = Depends(can_view)
 ):
     return service.compare_inspection_cert_service(db, payload)
 
@@ -611,9 +655,12 @@ def compare_inspection(
     status_code=status.HTTP_201_CREATED,
 )
 def create_inspection_review(
-    payload: InspectionCertificateReviewCreate, db: Session = Depends(get_db)
+    payload: InspectionCertificateReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.create_inspection_review_service(db, payload)
+    validators.validate_status("inspection", payload.status)
+    return service.create_inspection_review_service(db, payload, user=current_user.username)
 
 
 @router.get("/inspection", response_model=List[InspectionCertificateReviewResponse])
@@ -623,6 +670,7 @@ def list_inspection_reviews(
     status: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     return service.get_inspection_reviews_service(
         db,
@@ -635,14 +683,18 @@ def list_inspection_reviews(
 
 @router.put("/inspection/{review_id}", response_model=InspectionCertificateReviewResponse)
 def update_inspection_review(
-    review_id: int, payload: InspectionCertificateReviewUpdate, db: Session = Depends(get_db)
+    review_id: int,
+    payload: InspectionCertificateReviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
-    return service.update_inspection_review_service(db, review_id, payload)
+    validators.validate_status("inspection", payload.status)
+    return service.update_inspection_review_service(db, review_id, payload, user=current_user.username)
 
 
 @router.delete("/inspection/{review_id}", status_code=status.HTTP_200_OK)
-def delete_inspection_review(review_id: int, db: Session = Depends(get_db)):
-    return service.delete_inspection_review_service(db, review_id)
+def delete_inspection_review(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
+    return service.delete_inspection_review_service(db, review_id, user=current_user.username)
 
 
 @router.get(
@@ -655,6 +707,7 @@ def get_inspection_draft_template(
     agency: str = "COTECNA",
     cert_type: str = "COC (Certificate of Conformity)",
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Generates a pre-filled, official draft template for COTECNA / TÜV Rheinland / SGS VoC
@@ -669,9 +722,7 @@ def get_inspection_draft_template(
     response_model=DocumentExtractResponse,
     status_code=status.HTTP_200_OK,
 )
-def extract_certificate_data(
-    payload: DocumentExtractRequest,
-):
+def extract_certificate_data(payload: DocumentExtractRequest, current_user: User = Depends(can_upload)):
     """
     Intelligently extracts fields from China COO, EUR.1, VoC Inspection, Draft B/L, or Invoice.
     """
@@ -683,22 +734,19 @@ def extract_certificate_data(
     response_model=DocumentExtractResponse,
     status_code=status.HTTP_200_OK,
 )
-async def extract_certificate_file(
+def extract_certificate_file(
     document_type: str = Form(...),
     file: UploadFile = File(...),
     import_file_id: Optional[int] = Form(None),
+    current_user: User = Depends(can_upload),
 ):
     """
     Uploads a certificate file (PDF, Word, TXT) and parses its fields automatically.
     """
-    content = await file.read()
-    raw_text = service.extract_text_from_uploaded_file(file.filename, content)
-    req = DocumentExtractRequest(
-        document_type=document_type,
-        raw_text=raw_text,
-        import_file_id=import_file_id,
+    filename, content = _read_upload(file)
+    return service.extract_certificate_file_service(
+        document_type=document_type, filename=filename, content=content, import_file_id=import_file_id
     )
-    return service.extract_document_service(req)
 
 
 @router.post(
@@ -709,6 +757,7 @@ async def extract_certificate_file(
 def cross_match_certificates(
     payload: ThreeWayCrossMatchRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Executes deep cross-document reconciliation between COO/EUR.1, Inspection VoC,
@@ -723,7 +772,7 @@ def cross_match_certificates(
     response_model=LegalDocsExpiryComplianceResponse,
     status_code=status.HTTP_200_OK,
 )
-def get_legal_compliance(import_file_id: int, db: Session = Depends(get_db)):
+def get_legal_compliance(import_file_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
     return service.check_acid_and_company_docs_validity_service(db, import_file_id)
 
 
@@ -734,7 +783,7 @@ def get_legal_compliance(import_file_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
 )
 def extract_and_match_invoice_bl(
-    payload: InvoiceBLExtractAndMatchRequest, db: Session = Depends(get_db)
+    payload: InvoiceBLExtractAndMatchRequest, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
     """
     Intelligently extracts Commercial Invoice and Draft B/L data,
@@ -748,7 +797,7 @@ def extract_and_match_invoice_bl(
     response_model=InvoiceBLExtractAndMatchResponse,
     status_code=status.HTTP_200_OK,
 )
-async def extract_invoice_bl_files_and_match(
+def extract_invoice_bl_files_and_match(
     invoice_file: Optional[UploadFile] = File(None),
     invoice_files: Optional[List[UploadFile]] = File(None),
     bl_file: Optional[UploadFile] = File(None),
@@ -760,63 +809,22 @@ async def extract_invoice_bl_files_and_match(
     bl_text: Optional[str] = Form(None),
     packing_list_text: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
 ):
     """
     Accepts uploaded Invoice, Packing List, and/or B/L files (Single or Multi-Page / Multi-File)
     and executes automated multi-page extraction and cross-matching.
     """
-    inv_raw_parts = [invoice_text] if invoice_text else []
-    bl_raw_parts = [bl_text] if bl_text else []
-    pl_raw_parts = [packing_list_text] if packing_list_text else []
-
-    all_inv_files = []
-    if invoice_files:
-        all_inv_files.extend(invoice_files)
-    if invoice_file and invoice_file not in all_inv_files:
-        all_inv_files.append(invoice_file)
-
-    for idx, f in enumerate(all_inv_files):
-        content = await f.read()
-        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
-        if extracted:
-            inv_raw_parts.append(f"--- INVOICE FILE {idx+1}: {f.filename} ---\n{extracted}")
-
-    all_bl_files = []
-    if bl_files:
-        all_bl_files.extend(bl_files)
-    if bl_file and bl_file not in all_bl_files:
-        all_bl_files.append(bl_file)
-
-    for idx, f in enumerate(all_bl_files):
-        content = await f.read()
-        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
-        if extracted:
-            bl_raw_parts.append(f"--- BL FILE {idx+1}: {f.filename} ---\n{extracted}")
-
-    all_pl_files = []
-    if packing_list_files:
-        all_pl_files.extend(packing_list_files)
-    if packing_list_file and packing_list_file not in all_pl_files:
-        all_pl_files.append(packing_list_file)
-
-    for idx, f in enumerate(all_pl_files):
-        content = await f.read()
-        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
-        if extracted:
-            pl_raw_parts.append(f"--- PACKING LIST FILE {idx+1}: {f.filename} ---\n{extracted}")
-
-    inv_raw = "\n\n".join(inv_raw_parts)
-    bl_raw = "\n\n".join(bl_raw_parts)
-    pl_raw = "\n\n".join(pl_raw_parts)
-
-    req = InvoiceBLExtractAndMatchRequest(
+    return service.extract_invoice_bl_files_and_match_service(
+        db,
+        invoices=_read_uploads(invoice_files, invoice_file),
+        bls=_read_uploads(bl_files, bl_file),
+        packings=_read_uploads(packing_list_files, packing_list_file),
         import_file_id=import_file_id,
-        invoice_raw_text=inv_raw,
-        bl_raw_text=bl_raw,
-        packing_list_raw_text=pl_raw,
+        invoice_text=invoice_text,
+        bl_text=bl_text,
+        packing_list_text=packing_list_text,
     )
-    return service.extract_and_match_invoice_bl_service(db, req)
-
 
 
 @router.post(
@@ -824,12 +832,12 @@ async def extract_invoice_bl_files_and_match(
     status_code=status.HTTP_200_OK,
 )
 def certify_and_sync_invoice_bl(
-    payload: InvoiceBLSyncRequest, db: Session = Depends(get_db)
+    payload: InvoiceBLSyncRequest, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
     """
     Certifies reconciled invoice and B/L parameters and synchronizes them with the Import File and Downstream Records.
     """
-    return service.sync_certified_invoice_bl_to_file_service(db, payload)
+    return service.sync_certified_invoice_bl_to_file_service(db, payload, user=current_user.username)
 
 
 @router.post(
@@ -839,9 +847,10 @@ def certify_and_sync_invoice_bl(
     summary="Create or update an Invoice vs B/L Match Session (supports Draft or Certified Save)",
 )
 def create_invoice_bl_session(
-    payload: InvoiceBLMatchSessionCreate, db: Session = Depends(get_db)
+    payload: InvoiceBLMatchSessionCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    return service.create_invoice_bl_match_session_service(db, payload)
+    validators.validate_status("invoice_bl", payload.overall_status)
+    return service.create_invoice_bl_match_session_service(db, payload, user=current_user.username)
 
 
 @router.get(
@@ -854,6 +863,7 @@ def list_invoice_bl_sessions(
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     return service.list_invoice_bl_match_sessions_service(
         db, import_file_id=import_file_id, is_draft=is_draft, search=search
@@ -865,15 +875,8 @@ def list_invoice_bl_sessions(
     response_model=InvoiceBLMatchSessionResponse,
     summary="Get single Invoice vs B/L Match Session by ID",
 )
-def get_invoice_bl_session(session_id: int, db: Session = Depends(get_db)):
-    session = service.get_invoice_bl_match_session_service(db, session_id)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invoice B/L Match Session not found.",
-        )
-    return session
-
+def get_invoice_bl_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_view)):
+    return service.get_invoice_bl_match_session_service(db, session_id)
 
 
 # --- 7. CENTRAL SHIPMENT DOCUMENTS ARCHIVE & DISCREPANCIES SUMMARY ---
@@ -885,6 +888,7 @@ def get_invoice_bl_session(session_id: int, db: Session = Depends(get_db)):
 def get_central_archive(
     import_file_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
     """
     Retrieves the comprehensive central archive for an Import File:
@@ -893,5 +897,3 @@ def get_central_archive(
     and ready-to-send supplier email/WhatsApp notice.
     """
     return service.get_central_archive_service(db, import_file_id)
-
-

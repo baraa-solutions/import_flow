@@ -1,30 +1,18 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, desc
+from sqlalchemy import func, or_, desc
+
+from modules.common.sequence_generator import next_yearly_code
 
 from .model import InlandTransportBooking
-from .schemas import InlandTransportBookingCreate, InlandTransportBookingUpdate
+from .schemas import InlandTransportBookingCreate
+
 
 def generate_transport_code(db: Session) -> str:
-    """Generate sequential TR code: TR-YYYY-XXXX."""
-    year = datetime.now().year
-    prefix = f"TR-{year}-"
-    last_record = (
-        db.query(InlandTransportBooking)
-        .filter(InlandTransportBooking.transport_code.like(f"{prefix}%"))
-        .order_by(desc(InlandTransportBooking.transport_id))
-        .first()
-    )
-    if last_record and last_record.transport_code:
-        try:
-            last_seq = int(last_record.transport_code.split("-")[-1])
-            new_seq = last_seq + 1
-        except ValueError:
-            new_seq = 1
-    else:
-        new_seq = 1
-    return f"{prefix}{new_seq:04d}"
+    """Next TR code TR-YYYY-NNNN (highest numeric suffix of the year + 1)."""
+    return next_yearly_code(db, InlandTransportBooking.transport_code, "TR", pad=4)
+
 
 def create_transport_booking(
     db: Session,
@@ -62,12 +50,15 @@ def create_transport_booking(
     db.flush()
     return booking
 
-def get_transport_booking_by_id(db: Session, transport_id: int) -> Optional[InlandTransportBooking]:
-    return (
-        db.query(InlandTransportBooking)
-        .filter(InlandTransportBooking.transport_id == transport_id)
-        .first()
-    )
+
+def get_transport_booking_by_id(
+    db: Session, transport_id: int, include_inactive: bool = False
+) -> Optional[InlandTransportBooking]:
+    q = db.query(InlandTransportBooking).filter(InlandTransportBooking.transport_id == transport_id)
+    if not include_inactive:
+        q = q.filter(InlandTransportBooking.is_active == True)
+    return q.first()
+
 
 def get_transport_booking_by_file(db: Session, import_file_id: int) -> Optional[InlandTransportBooking]:
     return (
@@ -79,6 +70,23 @@ def get_transport_booking_by_file(db: Session, import_file_id: int) -> Optional[
         .order_by(desc(InlandTransportBooking.transport_id))
         .first()
     )
+
+
+def find_active_booking_by_waybill(
+    db: Session, import_file_id: int, waybill_key: str
+) -> Optional[InlandTransportBooking]:
+    """Active booking of the file with the same waybill (trimmed, case-insensitive)."""
+    return (
+        db.query(InlandTransportBooking)
+        .filter(
+            InlandTransportBooking.import_file_id == import_file_id,
+            InlandTransportBooking.is_active == True,
+            func.lower(func.trim(InlandTransportBooking.waybill_number)) == waybill_key,
+        )
+        .order_by(desc(InlandTransportBooking.transport_id))
+        .first()
+    )
+
 
 def list_transport_bookings(
     db: Session,
@@ -107,29 +115,15 @@ def list_transport_bookings(
         )
     return q.order_by(desc(InlandTransportBooking.transport_id)).all()
 
-def update_transport_booking(
-    db: Session,
+
+def apply_changes(
     booking: InlandTransportBooking,
-    schema: InlandTransportBookingUpdate,
+    values: Dict[str, Any],
     user: str = "System",
 ) -> InlandTransportBooking:
-    data = schema.model_dump(exclude_unset=True)
-    for key, value in data.items():
+    """Set already-validated fields (the service commits)."""
+    for key, value in values.items():
         setattr(booking, key, value)
     booking.updated_at = datetime.now(timezone.utc)
     booking.updated_by = user
-    db.commit()
-    db.refresh(booking)
-    return booking
-
-def soft_delete_transport_booking(
-    db: Session,
-    booking: InlandTransportBooking,
-    user: str = "System",
-) -> InlandTransportBooking:
-    booking.is_active = False
-    booking.updated_at = datetime.now(timezone.utc)
-    booking.updated_by = user
-    db.commit()
-    db.refresh(booking)
     return booking

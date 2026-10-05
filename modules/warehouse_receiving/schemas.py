@@ -2,6 +2,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
+from modules.common.legacy_rows import LegacyRowTolerantModel
+
 class GrnItemSchema(BaseModel):
     item_code: str
     item_name: str
@@ -22,7 +24,7 @@ class WarehouseReceivingCreate(BaseModel):
     seal_intact: bool = True
     grn_items: List[GrnItemSchema] = []
     discrepancy_notes: Optional[str] = None
-    inspector_name: str = "Kamal"
+    inspector_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
     notes: Optional[str] = None
 
 class DiscrepancyReportSubmit(BaseModel):
@@ -34,8 +36,11 @@ class DiscrepancyReportSubmit(BaseModel):
 
 class WarehouseInspectionSubmit(BaseModel):
     inspection_date: Optional[datetime] = None
-    inspection_committee: Optional[str] = "لجنة الفحص والاستلام المخزني"
-    inspection_verdict: Optional[str] = Field("ACCEPTED_FULL", description="ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED, DAMAGE_CLAIM_PENDING")
+    inspection_committee: Optional[str] = Field(None, description="Defaults to DEFAULT_INSPECTION_COMMITTEE")
+    inspection_verdict: Optional[str] = Field(
+        None,
+        description="ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED, DAMAGE_CLAIM_PENDING; null = derived from the quantities",
+    )
     root_cause: Optional[str] = Field(None, description="Port Handling, Transit Vibration, Packaging Failure, Water Ingress, Factory Shortage")
     grn_items: Optional[List[GrnItemSchema]] = None
     discrepancy_type: Optional[str] = "None"
@@ -69,7 +74,8 @@ class WarehouseReceivingUpdate(BaseModel):
     claim_amount_estimated: Optional[float] = None
     claim_currency: Optional[str] = None
 
-class WarehouseReceivingResponse(BaseModel):
+class WarehouseReceivingResponse(LegacyRowTolerantModel):
+    # supplier_claim_filed / claim_* / discrepancy_rate_percent were added on 2026-09-18: NULL on older rows.
     receiving_id: int
     grn_code: str
     import_file_id: int
@@ -100,9 +106,9 @@ class WarehouseReceivingResponse(BaseModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float = 0.0
+    claim_amount_estimated: Optional[float] = 0.0  # amounts / rates: a legacy NULL stays None
     claim_currency: str = "EGP"
-    discrepancy_rate_percent: float = 0.0
+    discrepancy_rate_percent: Optional[float] = 0.0
     status: str
     inspector_name: str
     notes: Optional[str] = None

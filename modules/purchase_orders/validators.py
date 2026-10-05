@@ -1,18 +1,64 @@
+from typing import Any, Dict, Iterable, Optional, Sequence, Set
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from modules.common import enum_codes
+from modules.common.errors import CodedHTTPException
+from modules.common.validators import not_null_columns, require_active
 from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
 from modules.import_companies.model import ImportCompany
+from modules.import_files.model import ImportFile
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
 from modules.purchase_orders.model import PurchaseOrder
+from modules.purchase_orders.repository import PurchaseOrderRepository
+from modules.purchase_orders.schemas import POShipmentAllocationCreate, PurchaseOrderUpdate
 from modules.suppliers.model import Supplier
+
+# field -> (master model, Arabic label)
+FOREIGN_KEYS = {
+    "project_id": (Project, "المشروع"),
+    "company_id": (ImportCompany, "شركة الاستيراد"),
+    "supplier_id": (Supplier, "المورد"),
+    "incoterm_id": (Incoterm, "شرط التسليم"),
+    "currency_id": (Currency, "العملة"),
+    "import_file_id": (ImportFile, "ملف الاستيراد"),
+}
+
+# Arabic labels of the PO header fields an update can set.
+FIELD_LABELS_AR = {
+    "project_id": "المشروع",
+    "company_id": "شركة الاستيراد",
+    "supplier_id": "المورد",
+    "incoterm_id": "شرط التسليم",
+    "currency_id": "العملة",
+    "order_date": "تاريخ الفاتورة",
+    "exchange_rate": "سعر الصرف",
+    "status": "حالة أمر الشراء",
+}
+
+# NOT NULL columns an update may change but never clear (an explicit null used to fail on commit with a 500).
+REQUIRED_UPDATE_FIELDS = {
+    field: FIELD_LABELS_AR.get(field, field)
+    for field in sorted(not_null_columns(PurchaseOrder) & set(PurchaseOrderUpdate.model_fields) - {"version"})
+}
+
+FINAL_STATUSES = frozenset({"CLOSED", "CANCELLED"})
+
+
+def _bad_request(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 class PurchaseOrderValidator:
 
     def __init__(self, db: Session):
         self.db = db
+        self.repo = PurchaseOrderRepository(db)
+
+    # ── master data ──
 
     def validate_foreign_keys(
         self,
@@ -21,86 +67,80 @@ class PurchaseOrderValidator:
         supplier_id: int,
         incoterm_id: int,
         currency_id: int,
-        import_file_id: int = None,
-    ):
-        project = self.db.query(Project).filter(Project.project_id == project_id, Project.is_active.is_(True)).first()
-        if not project:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Project with ID {project_id} not found or inactive.",
-            )
+        import_file_id: Optional[int] = None,
+    ) -> None:
+        """Create: every master-data reference must exist and be active."""
+        values = dict(project_id=project_id, company_id=company_id, supplier_id=supplier_id,
+                      incoterm_id=incoterm_id, currency_id=currency_id, import_file_id=import_file_id)
+        for field, value in values.items():
+            model, label = FOREIGN_KEYS[field]
+            require_active(self.db, model, value, label)
 
-        company = self.db.query(ImportCompany).filter(ImportCompany.company_id == company_id, ImportCompany.is_active.is_(True)).first()
-        if not company:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Import Company with ID {company_id} not found or inactive.",
-            )
+    def validate_changed_foreign_keys(self, po: PurchaseOrder, changes: Dict[str, Any]) -> None:
+        """Update: only references the payload changes are checked, so an old PO whose supplier was later
+        deactivated can still be edited (notes, status, ...)."""
+        for field, (model, label) in FOREIGN_KEYS.items():
+            if field in changes and changes[field] is not None and changes[field] != getattr(po, field):
+                require_active(self.db, model, changes[field], label)
 
-        supplier = self.db.query(Supplier).filter(Supplier.supplier_id == supplier_id, Supplier.is_active.is_(True)).first()
-        if not supplier:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Supplier with ID {supplier_id} not found or inactive.",
-            )
+    def reject_cleared_required_fields(self, changes: Dict[str, Any]) -> None:
+        for field, label in REQUIRED_UPDATE_FIELDS.items():
+            if field in changes and changes[field] is None:
+                raise _bad_request(f"لا يمكن مسح الحقل الإلزامي ({label}) من أمر الشراء.")
 
-        incoterm = self.db.query(Incoterm).filter(Incoterm.incoterm_id == incoterm_id, Incoterm.is_active.is_(True)).first()
-        if not incoterm:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Incoterm with ID {incoterm_id} not found or inactive.",
-            )
+    # ── line items ──
 
-        currency = self.db.query(Currency).filter(Currency.currency_id == currency_id, Currency.is_active.is_(True)).first()
-        if not currency:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Currency with ID {currency_id} not found or inactive.",
-            )
-
-        if import_file_id is not None:
-            from modules.import_files.model import ImportFile
-            import_file = self.db.query(ImportFile).filter(
-                ImportFile.import_file_id == import_file_id,
-                ImportFile.is_active.is_(True),
-            ).first()
-            if not import_file:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Import File with ID {import_file_id} not found or inactive.",
-                )
-
-    def validate_line_items(self, items):
+    def validate_line_items(self, items: Iterable[Any]) -> None:
         for idx, item in enumerate(items, start=1):
             if item.quantity is not None and item.quantity <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Item #{idx}: Quantity must be greater than zero.",
-                )
+                raise _bad_request(f"البند رقم {idx}: الكمية يجب أن تكون أكبر من صفر.")
             if item.unit_price is not None and item.unit_price < 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Item #{idx}: Unit price cannot be negative.",
-                )
-            if getattr(item, "tariff_id", None) is not None:
-                from modules.customs_tariff.model import CustomsTariff
-                tariff = self.db.query(CustomsTariff).filter(
-                    CustomsTariff.tariff_id == item.tariff_id,
-                    CustomsTariff.is_active.is_(True),
-                ).first()
-                if not tariff:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Item #{idx}: Tariff with ID {item.tariff_id} not found or inactive.",
-                    )
+                raise _bad_request(f"البند رقم {idx}: سعر الوحدة لا يمكن أن يكون سالباً.")
+            require_active(self.db, CustomsTariff, item.tariff_id, f"البند رقم {idx}: بند التعريفة الجمركية")
 
-    def validate_po_number_unique(self, po_number: str, exclude_id: int = None):
-        pattern = po_number.upper().strip()
-        query = self.db.query(PurchaseOrder).filter(PurchaseOrder.po_number == pattern)
-        if exclude_id:
-            query = query.filter(PurchaseOrder.po_id != exclude_id)
-        if query.first():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Purchase Order Number '{po_number}' already exists.",
+    def validate_row_ids_belong(self, existing_ids: Set[int], sent_ids: Sequence[Optional[int]], label_ar: str) -> None:
+        """Every id sent on update must be a row of this PO and appear once."""
+        seen: Set[int] = set()
+        for row_id in sent_ids:
+            if row_id is None:
+                continue
+            if row_id not in existing_ids or row_id in seen:
+                raise _bad_request(f"{label_ar} رقم {row_id} غير تابع لأمر الشراء أو مكرر في الطلب.")
+            seen.add(row_id)
+
+    def validate_removed_items_not_allocated(self, po_id: int, removed_ids: Set[int]) -> None:
+        referenced = removed_ids & self.repo.allocated_item_ids(po_id)
+        if referenced:
+            ids = ", ".join(str(i) for i in sorted(referenced))
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                "PO_ITEMS_ALLOCATED",
+                f"لا يمكن حذف بنود أمر الشراء ({ids}) لأنها مرتبطة بشحنات مسجلة. أرسل رقم البند (item_id) لتعديله بدلاً من حذفه.",
+                item_ids=ids,
             )
+
+    # ── header ──
+
+    def validate_po_number_unique(self, po_number: str, exclude_id: Optional[int] = None) -> None:
+        """``po_number`` is already normalized (trimmed, upper-case) by the request schema."""
+        if self.repo.po_number_exists(po_number, exclude_id=exclude_id):
+            raise _bad_request(f"رقم أمر الشراء '{po_number}' مستخدم بالفعل.")
+
+    def normalize_status(self, value: Any) -> str:
+        code = enum_codes.normalize(enum_codes.PO_STATUS, value)
+        if not enum_codes.is_code(enum_codes.PO_STATUS, code):
+            allowed = ", ".join(enum_codes.codes(enum_codes.PO_STATUS))
+            raise _bad_request(f"حالة أمر الشراء '{value}' غير معروفة. القيم المسموحة: {allowed}.")
+        return code
+
+    # ── shipment allocations ──
+
+    def validate_allocation(self, po: PurchaseOrder, data: POShipmentAllocationCreate) -> Optional[Any]:
+        """Returns the allocated line item (None for a PO-level allocation)."""
+        item = None
+        if data.po_item_id:
+            item = next((it for it in po.line_items if it.item_id == data.po_item_id), None)
+            if item is None:
+                raise _bad_request(f"البند رقم #{data.po_item_id} غير مرتبط بأمر الشراء #{po.po_number}.")
+        require_active(self.db, ImportFile, data.import_file_id, "ملف الاستيراد")
+        return item

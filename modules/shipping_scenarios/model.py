@@ -41,6 +41,8 @@ class ShippingEvaluationSession(Base):
 
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

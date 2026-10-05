@@ -1,4 +1,5 @@
 import '../../../core/performance/dispose_tracker.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../projects/models/project_model.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../widgets/saved_cbm_registry_tab.dart';
@@ -24,6 +25,7 @@ import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class CBMCalculatorScreen extends ConsumerStatefulWidget {
   const CBMCalculatorScreen({super.key});
@@ -150,7 +152,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       _activeSessionNotes = calc.notes;
       _activeSessionImportFileId = calc.importFileId;
       _isStackable = calc.isStackable;
-      _quickShipmentMode = (calc.recommendedShippingMethod ?? '').toLowerCase().contains('air') ? 'air' : 'sea';
+      // The stored mode wins; legacy rows (null) fall back to the recommendation.
+      _quickShipmentMode = calc.shipmentMode == 'AIR' || calc.shipmentMode == 'SEA'
+          ? calc.shipmentMode!.toLowerCase()
+          : (DomainEnums.legacyToCode(DomainEnumType.shippingMethod, calc.recommendedShippingMethod) == 'AIR' ? 'air' : 'sea');
 
       _quickItems.clear();
       if (calc.items.isNotEmpty) {
@@ -192,6 +197,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       'import_file_id': _activeSessionImportFileId,
       'notes': _activeSessionNotes,
       'is_stackable': _isStackable,
+      'shipment_mode': _quickShipmentMode.toUpperCase(),
       'items': _quickItems.map((i) => i.toCreateJson()).toList(),
     };
     final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(_activeSessionId!, payload);
@@ -204,7 +210,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       );
       ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
     } else if (mounted) {
-      final err = ref.read(cbmCalculatorProvider).errorMessage ?? l.operationFailed;
+      final err = ref.read(cbmCalculatorProvider).errorText(l);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
       );
@@ -221,7 +227,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
     return Scaffold(
-      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade100,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.charcoalSurface,
       body: Column(
         children: [
           // Header Banner (Responsive LayoutBuilder)
@@ -236,7 +242,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isDark
-                        ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
+                        ? [AppTheme.darkScaffoldBackground, AppTheme.cobaltMedium]
                         : [AppTheme.charcoal, AppTheme.cobalt],
                     begin: AlignmentDirectional.centerStart,
                     end: AlignmentDirectional.centerEnd,
@@ -248,7 +254,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
+                              const Icon(Icons.calculate_outlined, color: AppTheme.white, size: 28),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -256,7 +262,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   children: [
                                     Text(
                                       l.cbmCalculatorTitle,
-                                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
@@ -274,11 +280,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           TabBar(
                             controller: _tabController,
                             isScrollable: true,
-                            indicatorColor: Colors.amber,
+                            indicatorColor: AppTheme.orange,
                             indicatorWeight: 3,
                             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             unselectedLabelColor: Colors.white70,
-                            labelColor: Colors.amber,
+                            labelColor: AppTheme.orange,
                             tabs: [
                               Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
                               Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
@@ -288,7 +294,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       )
                     : Row(
                         children: [
-                          const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
+                          const Icon(Icons.calculate_outlined, color: AppTheme.white, size: 28),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -296,7 +302,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               children: [
                                 Text(
                                   l.cbmCalculatorTitle,
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
@@ -312,11 +318,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           TabBar(
                             controller: _tabController,
                             isScrollable: true,
-                            indicatorColor: Colors.amber,
+                            indicatorColor: AppTheme.orange,
                             indicatorWeight: 3,
                             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             unselectedLabelColor: Colors.white70,
-                            labelColor: Colors.amber,
+                            labelColor: AppTheme.orange,
                             tabs: [
                               Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
                               Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
@@ -362,7 +368,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       final wM = item.widthM;
       final hM = item.heightM;
       final cbm = item.quantity * lM * wM * hM;
-      final volWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
+      final volWt = item.quantity * lM * wM * hM * kAirVolumetricKgPerCbm;
       final gross = item.quantity * item.grossWeightPerUnitKg;
 
       totalCbm += cbm;
@@ -420,9 +426,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkElevatedSurface : Colors.amber.shade50,
+                      color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orangeLight,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? AppTheme.wcagOrange : Colors.amber.shade700, width: 1.5),
+                      border: Border.all(color: AppTheme.wcagOrange, width: 1.5),
                     ),
                     child: Wrap(
                       alignment: WrapAlignment.spaceBetween,
@@ -433,7 +439,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.edit_note, color: isDark ? AppTheme.wcagOrange : Colors.amber.shade700, size: 24),
+                            const Icon(Icons.edit_note, color: AppTheme.wcagOrange, size: 24),
                             const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,12 +447,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               children: [
                                 Text(
                                   '${l.activeEditSessionBanner}: [$_activeSessionCode] - ${_activeSessionTitle ?? ""}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.wcagOrange),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   l.activeEditSessionHint,
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.brown.shade800),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.wcagOrange),
                                 ),
                               ],
                             ),
@@ -455,25 +461,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.emerald,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              icon: const Icon(Icons.check, size: 16),
-                              label: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
+                            AppButton(
+                              label: '${l.saveChangesInSession} [$_activeSessionCode]',
+                              icon: Icons.check,
+                              variant: AppButtonVariant.success,
+                              size: AppButtonSize.small,
                               onPressed: _updateActiveSessionDirectly,
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                              icon: const Icon(Icons.add, size: 16),
-                              label: Text(l.newBlankSession),
+                            AppButton(
+                              label: l.newBlankSession,
+                              icon: Icons.add,
+                              variant: AppButtonVariant.secondary,
+                              size: AppButtonSize.small,
                               onPressed: _clearActiveSession,
                             ),
                           ],
@@ -487,14 +487,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final cards = [
-                      _buildResultCardItem(l.totalCbmVolumeMetric, '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
+                      _buildResultCardItem(l.totalCbmVolumeMetric, '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, AppTheme.orange),
                       if (_quickShipmentMode == 'air') ...[
-                        _buildResultCardItem(l.airChargeableWtMetric, '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
+                        _buildResultCardItem(l.airChargeableWtMetric, '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, AppTheme.cobalt,
                             subtitle: '${l.volumetricWeight}: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
-                        _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
+                        _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, AppTheme.emerald),
                       ],
                       _buildResultCardItem(l.recommendedShippingMetric, recMethod, Icons.directions_boat,
-                          modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue),
+                          modeRec.isAirSuggested ? AppTheme.cobalt : (modeRec.isLclSuggested ? AppTheme.wcagOrange : AppTheme.cobalt),
                           subtitle: recContainer),
                     ];
 
@@ -534,13 +534,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: modeRec.isAirSuggested
-                    ? (isDark ? Colors.purple.withOpacity(0.15) : Colors.purple.shade50)
-                    : (modeRec.isLclSuggested ? (isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50) : AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08)),
+                    ? (isDark ? AppTheme.cobalt.withOpacity(0.15) : AppTheme.cobaltLight)
+                    : (modeRec.isLclSuggested ? (isDark ? AppTheme.orange.withOpacity(0.15) : AppTheme.orangeLight) : AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08)),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: modeRec.isAirSuggested
-                      ? Colors.purple.shade300
-                      : (modeRec.isLclSuggested ? Colors.amber.shade300 : AppTheme.cobalt.withOpacity(0.3)),
+                      ? AppTheme.cobaltBorder
+                      : (modeRec.isLclSuggested ? AppTheme.orange : AppTheme.cobalt.withOpacity(0.3)),
                 ),
               ),
               child: Column(
@@ -565,14 +565,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             label: Text(l.stackableOption),
                             selected: _isStackable,
                             selectedColor: AppTheme.cobalt,
-                            labelStyle: TextStyle(color: _isStackable ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
+                            labelStyle: TextStyle(color: _isStackable ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
                             onSelected: (val) => setState(() => _isStackable = true),
                           ),
                           ChoiceChip(
                             label: Text(l.nonStackableOption),
                             selected: !_isStackable,
-                            selectedColor: Colors.orange.shade800,
-                            labelStyle: TextStyle(color: !_isStackable ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
+                            selectedColor: AppTheme.wcagOrange,
+                            labelStyle: TextStyle(color: !_isStackable ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
                             onSelected: (val) => setState(() => _isStackable = false),
                           ),
                         ],
@@ -582,22 +582,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            ),
-                            icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
-                            label: Text(l.compareContainersMatrix, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.compareContainersMatrix,
+                            icon: Icons.table_chart,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
                           ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            ),
-                            icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                            label: Text(l.visualLoadPlanSimulator, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.visualLoadPlanSimulator,
+                            icon: Icons.view_in_ar,
+                            variant: AppButtonVariant.success,
+                            size: AppButtonSize.small,
                             onPressed: () => _showVisualLoadPlanDialog(context, _quickItems),
                           ),
                         ],
@@ -608,15 +604,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Row(
                       children: [
                         Icon(
                           modeRec.isAirSuggested ? Icons.airplanemode_active : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
-                          color: modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                          color: modeRec.isAirSuggested ? AppTheme.cobalt : (modeRec.isLclSuggested ? AppTheme.wcagOrange : AppTheme.cobalt),
                           size: 18,
                         ),
                         const SizedBox(width: 8),
@@ -626,7 +622,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: modeRec.isAirSuggested ? Colors.purple.shade900 : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                              color: modeRec.isAirSuggested ? AppTheme.wcagCobalt : (modeRec.isLclSuggested ? AppTheme.wcagOrange : AppTheme.charcoal),
                             ),
                           ),
                         ),
@@ -642,7 +638,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)
             Card(
               elevation: 2,
-              color: isDark ? AppTheme.darkCardBackground : Colors.white,
+              color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Wrap(
@@ -675,7 +671,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
+                            color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cloudWhite,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -686,7 +682,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: _quickShipmentMode == 'air',
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: _quickShipmentMode == 'air' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: _quickShipmentMode == 'air' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -698,7 +694,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: _quickShipmentMode == 'sea',
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: _quickShipmentMode == 'sea' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: _quickShipmentMode == 'sea' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -707,10 +703,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             ],
                           ),
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: Text(l.addPackageLine),
+                        AppButton(
+                          label: l.addPackageLine,
+                          icon: Icons.add,
+                          variant: AppButtonVariant.primary,
                           onPressed: () {
                             setState(() {
                               _quickItems.add(
@@ -728,52 +724,34 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             });
                           },
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: Text(_activeSessionId != null ? l.saveChanges : l.saveCalculationSession),
+                        AppButton(
+                          label: _activeSessionId != null ? l.saveChanges : l.saveCalculationSession,
+                          icon: Icons.save_outlined,
+                          variant: AppButtonVariant.success,
                           onPressed: () => _showSaveCalcDialog(context, _quickItems),
                         ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.emerald,
-                            side: const BorderSide(color: AppTheme.emerald),
-                          ),
-                          icon: const Icon(Icons.table_chart, size: 16),
-                          label: Text(
-                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        AppButton(
+                          label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                                 ? 'تصدير إكسيل'
                                 : 'Export Excel',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
+                          icon: Icons.table_chart,
+                          variant: AppButtonVariant.success,
                           onPressed: () => _exportQuickItemsToExcel(context),
                         ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.crimson,
-                            side: const BorderSide(color: AppTheme.crimson),
-                          ),
-                          icon: const Icon(Icons.picture_as_pdf, size: 16),
-                          label: Text(
-                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        AppButton(
+                          label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                                 ? 'تصدير PDF'
                                 : 'Export PDF',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
+                          icon: Icons.picture_as_pdf,
+                          variant: AppButtonVariant.danger,
                           onPressed: () => _exportQuickItemsToPdf(context),
                         ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cobalt,
-                            side: const BorderSide(color: AppTheme.cobalt),
-                          ),
-                          icon: const Icon(Icons.content_copy, size: 16),
-                          label: Text(
-                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        AppButton(
+                          label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
                                 ? 'نسخ الطرود'
                                 : 'Copy Packages',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
+                          icon: Icons.content_copy,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () => _copyQuickItemsAsTsv(context),
                         ),
                       ],
@@ -788,7 +766,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             SelectionArea(
               child: Card(
                 elevation: 1,
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                 child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
@@ -805,7 +783,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       children: [
                         // Table Header Bar
                         Container(
-                          color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
+                          color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cloudWhite,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           child: Row(
                             children: [
@@ -848,7 +826,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             final wM = item.widthM;
                             final hM = item.heightM;
                             final itemCbm = item.quantity * lM * wM * hM;
-                            final itemVolWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
+                            final itemVolWt = item.quantity * lM * wM * hM * kAirVolumetricKgPerCbm;
                             final itemGross = item.quantity * item.grossWeightPerUnitKg;
 
                             return Row(
@@ -1094,16 +1072,16 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     children: [
                                       CopyableText(
                                         '${l.cbmRowLineCbm}: ${itemCbm.toStringAsFixed(4)} m³',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 12),
                                       ),
                                       if (_quickShipmentMode == 'air') ...[
                                         CopyableText(
                                           '${l.cbmRowLineGross}: ${itemGross.toStringAsFixed(1)} kg',
-                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                                         ),
                                         CopyableText(
                                           '${l.cbmRowLineAirVol}: ${itemVolWt.toStringAsFixed(1)} kg',
-                                          style: const TextStyle(fontSize: 11, color: Colors.purple),
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.cobalt),
                                         ),
                                       ],
                                     ],
@@ -1153,7 +1131,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 2,
-      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -1168,7 +1146,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                  Text(title, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   CopyableText(
                     value,
@@ -1179,7 +1157,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     const SizedBox(height: 2),
                     CopyableText(
                       subtitle,
-                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
+                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -1210,10 +1188,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+          backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
           title: Row(
             children: [
-              Icon(isEditing ? Icons.edit_document : Icons.save_outlined, color: isEditing ? Colors.amber.shade700 : AppTheme.emerald),
+              Icon(isEditing ? Icons.edit_document : Icons.save_outlined, color: isEditing ? AppTheme.wcagOrange : AppTheme.emerald),
               const SizedBox(width: 8),
               Text(
                 isEditing ? '${l.saveChangesInSession} [$_activeSessionCode]' : l.saveCalculationSession,
@@ -1234,13 +1212,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.amber.shade900.withOpacity(0.2) : Colors.amber.shade50,
+                        color: isDark ? AppTheme.wcagOrange.withOpacity(0.2) : AppTheme.orangeLight,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.amber.shade700),
+                        border: Border.all(color: AppTheme.wcagOrange),
                       ),
                       child: Text(
                         l.activeEditSessionHint,
-                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
+                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.wcagOrange),
                       ),
                     ),
                   SearchableDropdownField<int?>(
@@ -1277,15 +1255,17 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             ),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(dialogCtx),
-              child: Text(l.cancel),
             ),
             if (isEditing) ...[
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                icon: const Icon(Icons.copy, size: 16),
-                label: Text(l.saveAsNewSession),
+              AppButton(
+                label: l.saveAsNewSession,
+                icon: Icons.copy,
+                variant: AppButtonVariant.primary,
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
                     final calc = CBMCalculationModel(
@@ -1294,6 +1274,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       title: titleCtrl.text.trim(),
                       notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       isStackable: _isStackable,
+                      shipmentMode: _quickShipmentMode.toUpperCase(),
                       items: items,
                     );
                     final ok = await ref.read(cbmCalculatorProvider.notifier).createCalculation(calc);
@@ -1305,7 +1286,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       );
                       _tabController.animateTo(1);
                     } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorMessage ?? l.operationFailed;
+                      final err = ref.read(cbmCalculatorProvider).errorText(l);
                       ScaffoldMessenger.of(dialogCtx).showSnackBar(
                         SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
                       );
@@ -1314,10 +1295,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 },
               ),
               const SizedBox(width: 6),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                icon: const Icon(Icons.check, size: 16),
-                label: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
+              AppButton(
+                label: '${l.saveChangesInSession} [$_activeSessionCode]',
+                icon: Icons.check,
+                variant: AppButtonVariant.success,
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
                     final payload = {
@@ -1325,6 +1306,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       'import_file_id': selectedImportFileId,
                       'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       'is_stackable': _isStackable,
+                      'shipment_mode': _quickShipmentMode.toUpperCase(),
                       'items': items.map((i) => i.toCreateJson()).toList(),
                     };
                     final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(_activeSessionId!, payload);
@@ -1343,7 +1325,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       );
                       _tabController.animateTo(1);
                     } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorMessage ?? l.operationFailed;
+                      final err = ref.read(cbmCalculatorProvider).errorText(l);
                       ScaffoldMessenger.of(dialogCtx).showSnackBar(
                         SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
                       );
@@ -1352,10 +1334,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 },
               ),
             ] else ...[
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                icon: const Icon(Icons.save, size: 16),
-                label: Text(l.saveChanges),
+              AppButton(
+                label: l.saveChanges,
+                icon: Icons.save,
+                variant: AppButtonVariant.success,
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
                     final calc = CBMCalculationModel(
@@ -1364,6 +1346,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       title: titleCtrl.text.trim(),
                       notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       isStackable: _isStackable,
+                      shipmentMode: _quickShipmentMode.toUpperCase(),
                       items: items,
                     );
                     final ok = await ref.read(cbmCalculatorProvider.notifier).createCalculation(calc);
@@ -1374,7 +1357,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       );
                       _tabController.animateTo(1);
                     } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorMessage ?? l.operationFailed;
+                      final err = ref.read(cbmCalculatorProvider).errorText(l);
                       ScaffoldMessenger.of(dialogCtx).showSnackBar(
                         SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
                       );
@@ -1402,7 +1385,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
         return DefaultTabController(
           length: 2,
           child: AlertDialog(
-            backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+            backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
             title: Row(
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
@@ -1427,7 +1410,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     child: TabBar(
                       indicatorColor: AppTheme.cobalt,
-                      labelColor: Colors.white,
+                      labelColor: AppTheme.white,
                       unselectedLabelColor: Colors.white70,
                       tabs: [
                         Tab(icon: const Icon(Icons.layers), text: l.stackableOption),
@@ -1447,7 +1430,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
+              AppButton(
+                label: l.close,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
         );
@@ -1467,18 +1455,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : AppTheme.orange.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
             ),
             child: Text(
               '${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? Colors.orange.shade300 : Colors.orange.shade900)),
+              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : AppTheme.wcagOrange)),
             ),
           ),
           const SizedBox(height: 12),
           Table(
-            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             columnWidths: const {
               0: FlexColumnWidth(2.0),
               1: FlexColumnWidth(1.2),
@@ -1517,7 +1505,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
                           ],
                         ),
                       ),
@@ -1535,7 +1523,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       rowSummary: rowSummary,
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                        child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
                       ),
                     ),
                     CopyableTableCell(
@@ -1543,7 +1531,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       rowSummary: rowSummary,
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                        child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
                       ),
                     ),
                     CopyableTableCell(
@@ -1555,9 +1543,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             ? Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                                child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                                child: Text(l.bestOptionBadge, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 10)),
                               )
-                            : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                       ),
                     ),
                   ],
@@ -1617,7 +1605,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           title: Text(l.cbmCalculatorTitle),
           content: Text(l.noDataFound),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.ok)),
+            AppButton(
+              label: l.ok,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+            ),
           ],
         ),
       );
@@ -1661,7 +1654,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
             final isDark = Theme.of(context).brightness == Brightness.dark;
             return AlertDialog(
-              backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+              backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
               title: Row(
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
@@ -1695,9 +1688,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Wrap(
                         alignment: WrapAlignment.spaceBetween,
@@ -1718,7 +1711,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1734,9 +1727,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ChoiceChip(
                                 label: Text(l.flatOnlyOption),
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
-                                selectedColor: Colors.blue.shade700,
+                                selectedColor: AppTheme.wcagCobalt,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1752,9 +1745,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ChoiceChip(
                                 label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1771,7 +1764,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1792,7 +1785,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1803,14 +1796,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               const SizedBox(width: 8),
                               _buildMetricPill(l.grossWeightMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildMetricPill(l.stackableOption, '$stackableInActive', Colors.green.shade800),
+                              _buildMetricPill(l.stackableOption, '$stackableInActive', AppTheme.wcagEmerald),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', Colors.red.shade800),
+                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', AppTheme.crimson),
                             ],
                           ),
                         ],
@@ -1820,7 +1813,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
                     // 2. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: AppTheme.cloudWhite),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -1906,7 +1899,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   padding: const EdgeInsets.all(6.0),
                                   child: Text(
                                     '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
                                   ),
                                 ),
                               ),
@@ -1921,8 +1914,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       color: statusText.contains(l.operationFailed)
-                                          ? Colors.red.shade800
-                                          : Colors.green.shade800,
+                                          ? AppTheme.crimson
+                                          : AppTheme.wcagEmerald,
                                     ),
                                   ),
                                 ),
@@ -1944,7 +1937,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             return Container(
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
                               child: Row(
                                 children: [
                                   const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
@@ -1961,7 +1954,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                           const SizedBox(height: 4),
                                           Text(
                                             '# ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                            style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                                            style: const TextStyle(color: AppTheme.crimson, fontSize: 11),
                                           ),
                                         ],
                                       ],
@@ -1991,7 +1984,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
                                             child: Text('${l.internalDimensions}: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
                                           ),
                                         ],
@@ -2005,7 +1998,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     height: 190,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -2021,7 +2014,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     height: 140,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -2040,10 +2033,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 ),
               ),
               actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.close),
+                AppButton(
+                  label: l.closePlan,
+                  icon: Icons.close,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => Navigator.pop(context),
-                  label: Text(l.closePlan),
                 ),
               ],
             );
@@ -2085,34 +2080,33 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   }
 
   Future<void> _exportQuickItemsToExcel(BuildContext context) async {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد طرود للتصدير' : 'No package lines to export'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToExport), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
-      isArabic ? 'م' : '#',
-      isArabic ? 'نوع الطرد' : 'Package Type',
-      isArabic ? 'الوحدة' : 'Unit',
-      isArabic ? 'العدد' : 'Qty',
-      isArabic ? 'الطول' : 'Length',
-      isArabic ? 'العرض' : 'Width',
-      isArabic ? 'الارتفاع' : 'Height',
-      isArabic ? 'قابل للتراص' : 'Stackable',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن القائم للوحدة (كجم)' : 'Gross Wt/Unit (kg)',
-      isArabic ? 'الحجم الإجمالي (CBM)' : 'Total CBM',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الخاضع للشحن (كجم)' : 'Chargeable Wt (kg)',
+      context.l10n.cargoShippingColUnitNumber,
+      context.l10n.packageTypeCol,
+      context.l10n.unitCol,
+      context.l10n.qtyCol,
+      context.l10n.lengthCol,
+      context.l10n.widthCol,
+      context.l10n.heightCol,
+      context.l10n.cbmStackable,
+      if (_quickShipmentMode == 'air') context.l10n.cbmGrossWtUnitKg,
+      context.l10n.cbmTotalCBM,
+      if (_quickShipmentMode == 'air') context.l10n.cbmVolumetricWtKg,
+      if (_quickShipmentMode == 'air') context.l10n.cbmChargeableWtKg,
     ];
 
     final rows = _quickItems.asMap().entries.map((entry) {
       final idx = entry.key + 1;
       final item = entry.value;
       final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
-      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalVol = item.lengthM * item.widthM * item.heightM * item.quantity * kAirVolumetricKgPerCbm;
       final totalGross = item.grossWeightPerUnitKg * item.quantity;
       final chargeable = math.max(totalVol, totalGross);
 
@@ -2124,7 +2118,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
         '${item.length}',
         '${item.width}',
         '${item.height}',
-        item.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        item.isStackable ? (context.l10n.projectMultiShipmentYes) : (context.l10n.projectMultiShipmentNo),
         if (_quickShipmentMode == 'air') '${item.grossWeightPerUnitKg}',
         totalCbm.toStringAsFixed(3),
         if (_quickShipmentMode == 'air') totalVol.toStringAsFixed(1),
@@ -2136,35 +2130,34 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'بيان أبعاد وأوزان الطرود' : 'Package Measurements',
+      stageName: context.l10n.cbmPackageMeasurements,
       importFileNameOrCode: _activeSessionCode ?? 'Quick_CBM',
     );
   }
 
   Future<void> _exportQuickItemsToPdf(BuildContext context) async {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد طرود للتصدير' : 'No package lines to export'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToExport), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
       '#',
-      isArabic ? 'النوع' : 'Type',
-      isArabic ? 'العدد' : 'Qty',
-      isArabic ? 'الأبعاد' : 'Dimensions',
-      isArabic ? 'CBM' : 'CBM',
-      if (_quickShipmentMode == 'air') isArabic ? 'الحجمي' : 'Vol Wt',
-      if (_quickShipmentMode == 'air') isArabic ? 'الخاضع للشحن' : 'Chargeable',
+      context.l10n.cooRegistryColType,
+      context.l10n.qtyCol,
+      context.l10n.cbmDimensions,
+      context.l10n.cbmRowLineCbm,
+      if (_quickShipmentMode == 'air') context.l10n.cbmVolWt,
+      if (_quickShipmentMode == 'air') context.l10n.cbmChargeable,
     ];
 
     final rows = _quickItems.asMap().entries.map((entry) {
       final idx = entry.key + 1;
       final item = entry.value;
       final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
-      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalVol = item.lengthM * item.widthM * item.heightM * item.quantity * kAirVolumetricKgPerCbm;
       final totalGross = item.grossWeightPerUnitKg * item.quantity;
       final chargeable = math.max(totalVol, totalGross);
 
@@ -2183,49 +2176,48 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isArabic ? 'حساب الحجم CBM' : 'CBM Calculator',
+      stageName: context.l10n.cbmCBMCalculator,
       importFileNameOrCode: _activeSessionCode ?? 'Quick_CBM',
       headerContext: TableExportHeaderContext(
-        title: isArabic ? 'بيان أبعاد وحجوم الطرود' : 'Package Measurements Specification',
+        title: context.l10n.cbmPackageMeasurementsSpecification,
         subtitle: 'Sorour Logistics ERP — ${_activeSessionTitle ?? "Quick CBM"}',
         metadata: {
-          isArabic ? 'طريقة الشحن' : 'Shipment Mode': _quickShipmentMode == 'air' ? (isArabic ? 'جوي' : 'Air') : (isArabic ? 'بحري' : 'Sea'),
-          isArabic ? 'إجمالي السطور' : 'Package Lines': '${_quickItems.length}',
-          isArabic ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+          context.l10n.cbmShipmentMode: _quickShipmentMode == 'air' ? (context.l10n.cbmAir) : (context.l10n.cbmSea),
+          context.l10n.cbmPackageLines: '${_quickItems.length}',
+          context.l10n.date: DateTime.now().toString().substring(0, 10),
         },
       ),
     );
   }
 
   void _copyQuickItemsAsTsv(BuildContext context) {
-    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد طرود للنسخ' : 'No package lines to copy'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToCopy), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     final headers = [
-      isArabic ? 'م' : '#',
-      isArabic ? 'نوع الطرد' : 'Package Type',
-      isArabic ? 'الوحدة' : 'Unit',
-      isArabic ? 'العدد' : 'Qty',
-      isArabic ? 'الطول' : 'Length',
-      isArabic ? 'العرض' : 'Width',
-      isArabic ? 'الارتفاع' : 'Height',
-      isArabic ? 'قابل للتراص' : 'Stackable',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن القائم للوحدة (كجم)' : 'Gross Wt/Unit (kg)',
-      isArabic ? 'الحجم الإجمالي (CBM)' : 'Total CBM',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
-      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الخاضع للشحن (كجم)' : 'Chargeable Wt (kg)',
+      context.l10n.cargoShippingColUnitNumber,
+      context.l10n.packageTypeCol,
+      context.l10n.unitCol,
+      context.l10n.qtyCol,
+      context.l10n.lengthCol,
+      context.l10n.widthCol,
+      context.l10n.heightCol,
+      context.l10n.cbmStackable,
+      if (_quickShipmentMode == 'air') context.l10n.cbmGrossWtUnitKg,
+      context.l10n.cbmTotalCBM,
+      if (_quickShipmentMode == 'air') context.l10n.cbmVolumetricWtKg,
+      if (_quickShipmentMode == 'air') context.l10n.cbmChargeableWtKg,
     ];
 
     final rows = _quickItems.asMap().entries.map((entry) {
       final idx = entry.key + 1;
       final item = entry.value;
       final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
-      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalVol = item.lengthM * item.widthM * item.heightM * item.quantity * kAirVolumetricKgPerCbm;
       final totalGross = item.grossWeightPerUnitKg * item.quantity;
       final chargeable = math.max(totalVol, totalGross);
 
@@ -2237,7 +2229,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
         '${item.length}',
         '${item.width}',
         '${item.height}',
-        item.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        item.isStackable ? (context.l10n.projectMultiShipmentYes) : (context.l10n.projectMultiShipmentNo),
         if (_quickShipmentMode == 'air') '${item.grossWeightPerUnitKg}',
         totalCbm.toStringAsFixed(3),
         if (_quickShipmentMode == 'air') totalVol.toStringAsFixed(1),
@@ -2249,7 +2241,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       context,
       headers,
       rows,
-      customMessage: isArabic ? 'تم نسخ بيانات الطرود كجدول بنجاح' : 'Packages table copied to clipboard',
+      customMessage: context.l10n.cbmPackagesTableCopiedToClipboard,
     );
   }
 }

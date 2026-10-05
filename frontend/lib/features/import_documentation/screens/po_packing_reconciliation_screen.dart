@@ -11,6 +11,8 @@ import '../providers/import_documentation_provider.dart';
 import '../widgets/formal_letter_generator_dialog.dart';
 import '../widgets/po_reconciliation_tab.dart';
 import '../widgets/search_and_clone_po_reconciliation_dialog.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../widgets/idoc_ui.dart';
 
 /// Stage 1 of Draft Documents: PO & Packing Reconciliation Screen (Full-Width View)
 class POPackingReconciliationScreen extends ConsumerStatefulWidget {
@@ -99,30 +101,19 @@ class _POPackingReconciliationScreenState extends ConsumerState<POPackingReconci
           headerActions: [
             IconButton(
               key: const Key('searchAndClonePoReconBtn'),
-              icon: Icon(Icons.copy_all, color: Colors.white70, size: density.headerIconSize),
+              icon: Icon(Icons.copy_all, color: AppTheme.white, size: density.headerIconSize),
               tooltip: l.searchAndClonePoReconBtn,
               onPressed: _openSearchAndCloneDialog,
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white60),
-                padding: EdgeInsets.symmetric(
-                  horizontal: density.isUltraCompact ? 8 : (density.isCompact ? 10 : 12),
-                  vertical: density.isUltraCompact ? 4 : (density.isCompact ? 6 : 8),
-                ),
-                textStyle: TextStyle(
-                  fontSize: density.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            IdocUi.fit(AppButton(
+              label: l.formalLetterDialogTitle,
+              icon: Icons.description,
+              variant: AppButtonVariant.secondary,
               onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-              icon: Icon(Icons.description, size: density.buttonIconSize, color: AppTheme.cobalt),
-              label: Text(l.formalLetterDialogTitle),
-            ),
+            )),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(Icons.refresh, color: Colors.white70, size: density.headerIconSize),
+              icon: Icon(Icons.refresh, color: AppTheme.white, size: density.headerIconSize),
               tooltip: l.refresh,
               onPressed: _refreshData,
             ),

@@ -10,14 +10,14 @@ class InsuranceCalculationInput(BaseModel):
     invoice_value: float = Field(..., ge=0.0, description="Commercial invoice value (FOB/EXW)")
     freight_cost: float = Field(0.0, ge=0.0, description="Ocean/Air/Road freight charges")
     other_costs: float = Field(0.0, ge=0.0, description="Inland transport, packing or other costs")
-    markup_percentage: float = Field(0.10, ge=0.0, le=1.0, description="Incoterms markup ratio (default 0.10 for 110% CIF)")
+    markup_percentage: Optional[float] = Field(None, ge=0.0, le=1.0, description="Incoterms markup ratio (null = system parameter INSURANCE_MARKUP, today 0.10 for 110% CIF)")
     coverage_clause: str = Field("ICC_A", description="Coverage clause: ICC_A, AIR_ALL_RISKS, ICC_B, ICC_C")
     transport_mode: str = Field("OCEAN", description="Transport mode: OCEAN, AIR, ROAD")
     include_war_and_strikes: bool = Field(True, description="Include War & Strikes Risk clauses")
     currency: str = Field("USD", description="Currency code")
-    minimum_premium: float = Field(30.0, ge=0.0, description="Minimum policy net premium")
-    issuance_fee: float = Field(15.0, ge=0.0, description="Fixed issuance administrative fee")
-    tax_rate: float = Field(0.05, ge=0.0, description="Applicable tax / stamp duty rate (5%)")
+    minimum_premium: Optional[float] = Field(None, ge=0.0, description="Minimum policy net premium (null = system parameter INSURANCE_MIN_PREMIUM)")
+    issuance_fee: Optional[float] = Field(None, ge=0.0, description="Fixed issuance administrative fee (null = system parameter INSURANCE_ISSUANCE_FEE)")
+    tax_rate: Optional[float] = Field(None, ge=0.0, description="Applicable tax / stamp duty rate (null = system parameter INSURANCE_TAX_RATE)")
 
 
 class InsuranceCalculationResult(BaseModel):
@@ -30,6 +30,7 @@ class InsuranceCalculationResult(BaseModel):
     war_rate: float
     war_strikes_premium: float
     net_premium: float
+    minimum_premium: float = 0.0
     issuance_fee: float
     tax_rate: float
     tax_amount: float
@@ -62,13 +63,14 @@ class CargoInsuranceCertificateCreate(BaseModel):
     invoice_value: float = Field(..., ge=0.0)
     freight_cost: float = Field(0.0, ge=0.0)
     other_logistics_costs: float = Field(0.0, ge=0.0)
-    markup_percentage: float = Field(0.10, ge=0.0, le=1.0)
+    markup_percentage: Optional[float] = Field(None, ge=0.0, le=1.0)  # null = system parameter INSURANCE_MARKUP
 
     coverage_clause: str = "ICC_A"
     include_war_and_strikes: bool = True
-    minimum_premium: float = 30.0
-    issuance_fee: float = 15.0
-    tax_rate: float = 0.05
+    # null = system parameters INSURANCE_MIN_PREMIUM / INSURANCE_ISSUANCE_FEE / INSURANCE_TAX_RATE
+    minimum_premium: Optional[float] = Field(None, ge=0.0)
+    issuance_fee: Optional[float] = Field(None, ge=0.0)
+    tax_rate: Optional[float] = Field(None, ge=0.0)
 
     goods_description: Optional[str] = None
     package_count: Optional[int] = None
@@ -114,7 +116,7 @@ class CargoInsuranceCertificateUpdate(BaseModel):
     gross_weight_kg: Optional[float] = None
     survey_agent_in_destination: Optional[str] = None
     claims_payable_at: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[str] = Field(None, description="Deprecated and ignored: the status only changes through /issue")
     remarks: Optional[str] = None
 
 

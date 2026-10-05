@@ -65,7 +65,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
     final l = context.l10n;
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 820, maxHeight: 680),
@@ -84,7 +84,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppTheme.wcagCobalt.withOpacity(0.12),
+                            color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 22),
@@ -96,7 +96,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                             style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -117,16 +117,16 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                 key: const Key('searchCustomsApprovalQueryInput'),
                 controller: _queryController,
                 autofocus: true,
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                 decoration: InputDecoration(
                   hintText: l.searchCustomsApprovalHint,
                   hintStyle: TextStyle(
                     fontSize: 13,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                    color: AppTheme.textMutedOf(context),
                   ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
@@ -138,14 +138,14 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                  fillColor: AppTheme.surfaceAltOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppTheme.borderOf(context)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
@@ -163,14 +163,14 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                             Icon(
                               Icons.verified_user_outlined,
                               size: 48,
-                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400,
+                              color: AppTheme.textMutedOf(context),
                             ),
                             const SizedBox(height: 10),
                             Text(
                               l.noCustomsApprovalsFound,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: AppTheme.textSecondaryOf(context),
                               ),
                             ),
                           ],
@@ -189,7 +189,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                           if (isRectReq) statusColor = AppTheme.crimson;
 
                           return Material(
-                            color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                            color: AppTheme.surfaceAltOf(context),
                             borderRadius: BorderRadius.circular(8),
                             child: InkWell(
                               key: Key('selectApprovalItem_${item.approvalId}'),
@@ -203,7 +203,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                                    color: AppTheme.borderOf(context),
                                   ),
                                 ),
                                 child: Row(
@@ -211,7 +211,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.wcagCobalt.withOpacity(0.1),
+                                        color: AppTheme.wcagCobalt.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Icon(
@@ -248,7 +248,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.wcagCobalt.withOpacity(0.12),
+                                                        color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                                                         borderRadius: BorderRadius.circular(4),
                                                       ),
                                                       child: Text(
@@ -256,21 +256,21 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                                         style: TextStyle(
                                                           fontSize: 11.0,
                                                           fontWeight: FontWeight.w600,
-                                                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                          color: AppTheme.textSecondaryOf(context),
                                                         ),
                                                       ),
                                                     ),
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.grey.withOpacity(0.1),
+                                                      color: AppTheme.textMutedOf(context).withValues(alpha: 0.1),
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: Text(
                                                       item.approvalCode,
                                                       style: TextStyle(
                                                         fontSize: 11.0,
-                                                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                        color: AppTheme.textSecondaryOf(context),
                                                       ),
                                                     ),
                                                   ),
@@ -279,9 +279,9 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: statusColor.withOpacity(0.15),
+                                                  color: statusColor.withValues(alpha: 0.15),
                                                   borderRadius: BorderRadius.circular(6),
-                                                  border: Border.all(color: statusColor.withOpacity(0.4)),
+                                                  border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                                                 ),
                                                 child: Text(
                                                   item.overallStatus,
@@ -341,14 +341,14 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12.5, color: color ?? (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+        Icon(icon, size: 12.5, color: color ?? (AppTheme.textSecondaryOf(context))),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 11,
             fontWeight: color != null ? FontWeight.w600 : FontWeight.normal,
-            color: color ?? (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+            color: color ?? (AppTheme.textSecondaryOf(context)),
           ),
         ),
       ],

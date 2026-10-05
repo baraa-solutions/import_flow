@@ -14,6 +14,7 @@ import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../shipment_updates/widgets/shipment_update_dialog.dart';
 import '../../customs_clearance/providers/customs_clearance_provider.dart';
 import '../../customs_clearance/models/customs_clearance_model.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../services/comprehensive_report_export_service.dart';
@@ -1428,11 +1429,11 @@ class _ImportFileComprehensiveReportScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _miniStat(l.compReportDutyImport, clr.importDutyAmount.toStringAsFixed(2)),
-                  _miniStat(l.compReportDutyVat, clr.vatAmount.toStringAsFixed(2)),
-                  _miniStat(l.compReportDutySchedule, clr.scheduleTaxAmount.toStringAsFixed(2)),
-                  _miniStat(l.compReportDutyInspection, clr.labServiceFees.toStringAsFixed(2)),
-                  _miniStat(l.compReportDutyTotal, clr.totalDutyPayable.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutyImport, CcFormat.fixed(clr.importDutyAmount)),
+                  _miniStat(l.compReportDutyVat, CcFormat.fixed(clr.vatAmount)),
+                  _miniStat(l.compReportDutySchedule, CcFormat.fixed(clr.scheduleTaxAmount)),
+                  _miniStat(l.compReportDutyInspection, CcFormat.fixed(clr.labServiceFees)),
+                  _miniStat(l.compReportDutyTotal, CcFormat.fixed(clr.totalDutyPayable)),
                 ],
               ),
               const SizedBox(height: 8),

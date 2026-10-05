@@ -3,10 +3,18 @@ Smart Document Upload — Validators
 File type, size, and module validation.
 """
 
+import os
+import re
+from typing import List, Optional
+
 from fastapi import HTTPException, UploadFile, status
 
 # Max file size: 20 MB
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+# Files per multi-document upload (SDU-03)
+MAX_FILES_PER_UPLOAD = 10
+# Pasted raw text (characters) accepted by /extract/* (SDU-02)
+MAX_RAW_TEXT_CHARS = 200_000
 
 ALLOWED_EXTENSIONS = {
     ".pdf", ".docx", ".doc",
@@ -94,16 +102,13 @@ def validate_upload_file(file: UploadFile) -> str:
         raise HTTPException(
             status_code=415,
             detail=(
-                f"File type not supported: '{filename}'. "
-                f"Allowed types: PDF, Word (.docx/.doc), Excel (.xlsx/.xls), Text (.txt/.csv)"
+                "File type not supported. "
+                f"Allowed types: PDF, Word (.docx/.doc), Excel (.xlsx/.xls), Text (.txt/.csv), "
+                f"Images (.png/.jpg/.jpeg/.webp)"
             ),
         )
 
     return EXTENSION_TO_TYPE[matched_ext]
-
-
-import os
-import re
 
 
 def sanitize_filename(filename: str) -> str:
@@ -121,24 +126,24 @@ def validate_magic_bytes(content_bytes: bytes, filename: str) -> None:
     if not content_bytes:
         raise HTTPException(
             status_code=400,
-            detail=f"File '{filename}' is empty (0 bytes).",
+            detail=f"The uploaded file is empty (0 bytes).",
         )
 
     # 1. Unconditional executable and script blocking
     if content_bytes.startswith(b"MZ"):
         raise HTTPException(
             status_code=415,
-            detail=f"Security Violation: Windows executable (PE/EXE) detected in file '{filename}'.",
+            detail=f"Security Violation: Windows executable (PE/EXE) detected.",
         )
     if content_bytes.startswith(b"\x7fELF"):
         raise HTTPException(
             status_code=415,
-            detail=f"Security Violation: Linux executable (ELF) detected in file '{filename}'.",
+            detail=f"Security Violation: Linux executable (ELF) detected.",
         )
     if content_bytes.startswith(b"<!DOCTYPE html") or content_bytes.startswith(b"<html") or content_bytes.startswith(b"<?php"):
         raise HTTPException(
             status_code=415,
-            detail=f"Security Violation: Web script or HTML file detected in file '{filename}'.",
+            detail=f"Security Violation: Web script or HTML file detected.",
         )
 
     # 2. Check declared extension against binary headers
@@ -147,37 +152,37 @@ def validate_magic_bytes(content_bytes: bytes, filename: str) -> None:
         if not content_bytes.startswith(b"%PDF-"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has .pdf extension but lacks a valid PDF header (%PDF-).",
+                detail=f"The file has .pdf extension but lacks a valid PDF header (%PDF-).",
             )
     elif lower.endswith(".xlsx") or lower.endswith(".docx"):
         if not content_bytes.startswith(b"PK\x03\x04"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has Office OpenXML extension but lacks valid ZIP header (PK..).",
+                detail=f"The file has Office OpenXML extension but lacks valid ZIP header (PK..).",
             )
     elif lower.endswith(".xls") or lower.endswith(".doc"):
         if not content_bytes.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1") and not content_bytes.startswith(b"PK\x03\x04"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has legacy Office extension but lacks valid CFBF/OLE header.",
+                detail=f"The file has legacy Office extension but lacks valid CFBF/OLE header.",
             )
     elif lower.endswith(".png"):
         if not content_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has .png extension but lacks valid PNG header.",
+                detail=f"The file has .png extension but lacks valid PNG header.",
             )
     elif lower.endswith(".jpg") or lower.endswith(".jpeg"):
         if not content_bytes.startswith(b"\xff\xd8\xff"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has JPEG extension but lacks valid JPEG SOI marker.",
+                detail=f"The file has JPEG extension but lacks valid JPEG SOI marker.",
             )
     elif lower.endswith(".webp"):
         if not (content_bytes.startswith(b"RIFF") and len(content_bytes) >= 12 and content_bytes[8:12] == b"WEBP"):
             raise HTTPException(
                 status_code=415,
-                detail=f"File '{filename}' has .webp extension but lacks valid WEBP header.",
+                detail=f"The file has .webp extension but lacks valid WEBP header.",
             )
 
 
@@ -186,8 +191,67 @@ def validate_file_size(content_bytes: bytes, filename: str) -> None:
         size_mb = len(content_bytes) / (1024 * 1024)
         raise HTTPException(
             status_code=413,
-            detail=f"File '{filename}' is too large ({size_mb:.1f} MB). Maximum allowed: 20 MB.",
+            detail=f"The file is too large ({size_mb:.1f} MB). Maximum allowed: 20 MB.",
         )
     # Content magic bytes inspection
     validate_magic_bytes(content_bytes, filename)
 
+
+
+async def read_limited(file: UploadFile, limit: int = MAX_FILE_SIZE_BYTES) -> bytes:
+    """Read at most ``limit + 1`` bytes: an upload above ``limit`` is rejected with 413 without loading the rest
+    into memory (SDU-03)."""
+    content = await file.read(limit + 1)
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"The file is too large. Maximum allowed: {limit // (1024 * 1024)} MB.",
+        )
+    return content
+
+
+async def read_validated_upload(file: UploadFile) -> tuple:
+    """Extension whitelist + bounded read + size / magic-byte checks. Returns ``(file_type, content_bytes)``."""
+    file_type = validate_upload_file(file)
+    content = await read_limited(file)
+    validate_file_size(content, file.filename or "unknown")
+    return file_type, content
+
+
+def validate_files_count(files: Optional[List[UploadFile]]) -> None:
+    if files and len(files) > MAX_FILES_PER_UPLOAD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"عدد الملفات ({len(files)}) يتجاوز الحد الأقصى المسموح ({MAX_FILES_PER_UPLOAD}) في الرفع الواحد.",
+        )
+
+
+def validate_raw_text(raw_text: Optional[str]) -> None:
+    if raw_text is not None and len(raw_text) > MAX_RAW_TEXT_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"النص الملصق طويل جداً ({len(raw_text)} حرف). الحد الأقصى {MAX_RAW_TEXT_CHARS} حرف.",
+        )
+
+
+def stored_filename(filename: Optional[str]) -> str:
+    """Client filename as stored / echoed: sanitized and cut to the column size (SDU-08)."""
+    return sanitize_filename(filename or "")[:255]
+
+
+# ── Apply targets ─────────────────────────────────────────────────────────────
+CLOSED_FILE_STATUSES = ("Closed", "Archived")
+
+
+def ensure_import_file_open(import_file) -> None:
+    """Extracted data is never applied to a closed / archived (read-only) import file: 409 SDU_FILE_CLOSED."""
+    if (import_file.status or "") in CLOSED_FILE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SDU_FILE_CLOSED",
+                "message": f"ملف الاستيراد {import_file.import_file_code} مغلق ولا يمكن تعديل بياناته.",
+                "import_file_code": import_file.import_file_code,
+                "status": import_file.status,
+            },
+        )

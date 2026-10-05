@@ -5,6 +5,7 @@ import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 class PostSaveStatusDialog extends StatelessWidget {
   final CustomsConsultationModel saved;
@@ -29,7 +30,7 @@ class PostSaveStatusDialog extends StatelessWidget {
             blocking.isNotEmpty
                 ? Icons.warning_amber_rounded
                 : Icons.check_circle_rounded,
-            color: blocking.isNotEmpty ? Colors.orange : AppTheme.emerald,
+            color: blocking.isNotEmpty ? AppTheme.orange : AppTheme.emerald,
             size: 26,
           ),
           const SizedBox(width: 8),
@@ -66,19 +67,19 @@ class PostSaveStatusDialog extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   ConsultationMetricBadge(
-                      title: l.clearanceReadyStatus, value: '${approved.length}', color: Colors.green),
+                      title: l.clearanceReadyStatus, value: '${approved.length}', color: AppTheme.emerald),
                   ConsultationMetricBadge(
                       title: l.statusPending,
                       value: '${pending.length}',
-                      color: Colors.orange),
+                      color: AppTheme.orange),
                   ConsultationMetricBadge(
                       title: l.openBlockingIssues,
                       value: '${blocking.length}',
-                      color: blocking.isNotEmpty ? Colors.red : Colors.green),
+                      color: blocking.isNotEmpty ? AppTheme.crimson : AppTheme.emerald),
                   ConsultationMetricBadge(
                       title: l.avgReadinessMetric,
                       value: '${saved.readinessPercentage.toStringAsFixed(0)}%',
-                      color: Colors.blue),
+                      color: AppTheme.cobalt),
                 ],
               ),
               const SizedBox(height: 16),
@@ -87,9 +88,9 @@ class PostSaveStatusDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: AppTheme.crimsonLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(color: AppTheme.crimsonBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +98,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                       Text(
                         l.blockingIssuesTitle,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.red),
+                            fontWeight: FontWeight.bold, color: AppTheme.crimson),
                       ),
                       const SizedBox(height: 8),
                       ...blocking.map(
@@ -106,7 +107,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                           child: Row(
                             children: [
                               const Icon(Icons.block,
-                                  color: Colors.red, size: 14),
+                                  color: AppTheme.crimson, size: 14),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Column(
@@ -146,9 +147,9 @@ class PostSaveStatusDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
+                    color: AppTheme.orangeLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
+                    border: Border.all(color: AppTheme.orange),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,7 +158,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                         l.statusPending,
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange),
+                            color: AppTheme.orange),
                       ),
                       const SizedBox(height: 8),
                       ...pending.map(
@@ -165,8 +166,8 @@ class PostSaveStatusDialog extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Row(
                             children: [
-                              Icon(Icons.hourglass_empty,
-                                  color: Colors.orange.shade700, size: 14),
+                              const Icon(Icons.hourglass_empty,
+                                  color: AppTheme.wcagOrange, size: 14),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Column(
@@ -203,14 +204,14 @@ class PostSaveStatusDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: AppTheme.emeraldLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: AppTheme.emeraldBorder),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.verified_rounded,
-                          color: Colors.green, size: 32),
+                          color: AppTheme.emerald, size: 32),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -220,7 +221,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                               l.clearanceReadyStatus,
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                                  color: AppTheme.emerald,
                                   fontSize: 14),
                             ),
                           ],
@@ -234,10 +235,12 @@ class PostSaveStatusDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton.icon(
-          icon: const Icon(Icons.close),
+        AppButton(
+          label: l.close,
+          icon: Icons.close,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
           onPressed: () => Navigator.pop(context),
-          label: Text(l.close),
         ),
       ],
     );

@@ -11,6 +11,7 @@ from modules.incoterms.model import Incoterm
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.import_files.model import ImportFile
+from modules.common.system_parameters import SystemParameter  # noqa: F401  (registers system_parameters on Base.metadata)
 
 
 # ==================================================
@@ -60,19 +61,21 @@ class PurchaseOrder(Base):
     # Workflow Status & Information
     country_of_origin = Column(String(100), nullable=True) # بلد المنشأ لأمر التوريد e.g. "CN", "DE - Germany"
     payment_terms = Column(String(100), nullable=True, default="LC at Sight")
-    status = Column(String(50), nullable=False, default="Draft", index=True) # Draft, Approved, In Transit, Closed, Cancelled
+    status = Column(String(50), nullable=False, default="DRAFT", index=True)  # enum_codes.PO_STATUS code (legacy rows: English label)
     notes = Column(Text, nullable=True)
 
     # Concurrency Control & Audit Trail
     version = Column(Integer, default=1, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), nullable=True)
     updated_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     import_file = relationship("ImportFile", foreign_keys=[import_file_id])
@@ -145,6 +148,8 @@ class PackingListItem(Base):
     height_cm = Column(Numeric(10, 2), nullable=True, default=0.0)
     net_weight_unit_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
     gross_weight_unit_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
+    # Declared weight UOM label (MEASURE_UNIT code KGM / GRM / STN / SET) exported to CargoX. The weights in
+    # this row are ALWAYS kilograms: the label is never used to convert them.
     weight_unit = Column(String(30), nullable=True, default="KGM")
 
     # Computed fields stored for reports and fast retrieval
@@ -226,12 +231,14 @@ class POShipmentAllocation(Base):
     notes = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), nullable=True)
     updated_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    updated_by = Column(String(100), nullable=True)
 
     purchase_order = relationship("PurchaseOrder", backref="shipment_allocations")
     po_item = relationship("POLineItem", backref="shipment_allocations")

@@ -359,15 +359,17 @@ void main() {
       await tester.tap(loadSampleBtn);
       await tester.pumpAndSettle();
 
+      // The debug sample text is deliberately neutral (all-zero ACID, 'Sample ...' parties):
+      // the former real-looking ACID / supplier were fabricated data and were removed.
       // Verify text field contains sample notification
       final textFieldFinder = find.byType(TextField).first;
       final TextField textFieldWidget = tester.widget(textFieldFinder);
-      expect(textFieldWidget.controller?.text.contains('5281534391023010013'), isTrue);
+      expect(textFieldWidget.controller?.text.contains('0000000000000000000'), isTrue);
       expect(textFieldWidget.controller?.text.contains('MTS Notification'), isTrue);
 
       // Verify results container is displayed
-      expect(find.textContaining('5281534391023010013'), findsWidgets);
-      expect(find.textContaining('Suzhou Yuheng Textile Co.,Ltd'), findsWidgets);
+      expect(find.textContaining('0000000000000000000'), findsWidgets);
+      expect(find.textContaining('Sample Exporter Co.,Ltd'), findsWidgets);
       expect(find.byIcon(Icons.compare_arrows), findsWidgets);
       expect(find.byIcon(Icons.save_as), findsOneWidget);
 
@@ -388,7 +390,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify parsed card rendered on mobile without overflow
-      expect(find.textContaining('5281534391023010013'), findsWidgets);
+      expect(find.textContaining('0000000000000000000'), findsWidgets);
       expect(find.byIcon(Icons.save_as), findsOneWidget);
       expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 

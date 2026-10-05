@@ -111,15 +111,18 @@ def test_empty_db_seeds_only_the_admin(seed_session):
 
 
 def test_existing_users_are_never_touched_or_added_to(seed_session):
+    # An active admin exists (any case): no break-glass admin (users without one: test_break_glass_admin.py).
+    boss = User(username="real-boss", email="boss@example.com", full_name="Real Boss",
+                hashed_password=hash_password("Their-Own-8"), role="Admin", is_active=True)
     op = User(username="real-operator", email="op@example.com", full_name="Real Op",
               hashed_password=hash_password("Their-Own-9"), role="OPERATOR", is_active=True)
-    seed_session.add(op)
+    seed_session.add_all([boss, op])
     seed_session.commit()
     before = (op.user_id, op.hashed_password, op.role, op.email)
 
     assert mds.MasterDataSyncService(seed_session).sync_system_users() == 0
 
-    assert seed_session.query(User).count() == 1
+    assert seed_session.query(User).count() == 2
     seed_session.refresh(op)
     assert (op.user_id, op.hashed_password, op.role, op.email) == before
     assert seed_session.query(User).filter(User.username == "admin").first() is None

@@ -39,10 +39,14 @@ class CBMCalculation(Base):
     recommended_shipping_method = Column(String(50), nullable=True)
     recommended_container_type = Column(String(50), nullable=True)
     recommended_container_count = Column(Integer, default=0, nullable=False)
+    # SHIPMENT_MODE code (AIR / SEA); NULL on legacy rows = unknown
+    shipment_mode = Column(String(10), nullable=True)
 
     notes = Column(Text, nullable=True)
     is_stackable = Column(Boolean, default=True, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

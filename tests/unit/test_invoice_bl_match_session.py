@@ -89,6 +89,13 @@ def test_invoice_bl_match_session_lifecycle(db_session):
     assert len(sessions) == 1
     assert sessions[0].session_code == draft_session.session_code
 
+    # Phase 3a DOC-13: certify-and-sync validates the invoice currency against the currency master data, so the
+    # USD row must exist (the shared session DB may already hold it).
+    from modules.currencies.model import Currency
+    if not db_session.query(Currency).filter(Currency.currency_code == "USD").first():
+        db_session.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+        db_session.commit()
+
     # 5. Save Certified Session (is_draft = False) -> Should reflect in CustomsDocumentApproval!
     certified_payload = InvoiceBLMatchSessionCreate(
         import_file_id=file.import_file_id,
@@ -103,7 +110,8 @@ def test_invoice_bl_match_session_lifecycle(db_session):
         notes="Final certified matching session",
         certified_by="Eng. Ahmed Sorour",
     )
-    cert_session = create_invoice_bl_match_session_service(db_session, certified_payload)
+    # Phase 3a DOC-12: the certifier is the logged-in user (``user``); the payload's certified_by is ignored.
+    cert_session = create_invoice_bl_match_session_service(db_session, certified_payload, user="Eng. Ahmed Sorour")
     assert cert_session.is_draft is False
     assert cert_session.overall_status == "FULLY_MATCHED"
 
@@ -158,16 +166,21 @@ def test_docs_customs_approval_session_lifecycle(db_session):
     assert len(sessions) == 1
 
     # 3. Final Certification Session
+    # DCA-04 (phase-03b plan, Q3): a final certification must set all five document statuses explicitly
+    # (final_invoice / final_pl / draft_bl / coo / coc); the schema defaults are not accepted on a final save,
+    # otherwise an empty payload would advance STEP_09 -> STEP_10. Omitting one gives 400 DCA_SESSION_NOT_READY.
     final_payload = DocsCustomsApprovalSessionCreate(
         import_file_id=file.import_file_id,
         overall_status="APPROVED",
         is_draft=False,
         final_invoice_ref="INV-FINAL-101",
         final_invoice_status="Approved",
+        final_pl_status="Approved",
         draft_bl_ref="BL-DRAFT-777",
         draft_bl_status="Approved",
         coo_ref="COO-CERT-01",
         coo_status="Approved",
+        coc_status="Approved",
         commercial_signoff_by="Commercial Manager",
         customs_signoff_by="Customs Broker",
         customs_broker_name="Al-Amal Customs Clearance",

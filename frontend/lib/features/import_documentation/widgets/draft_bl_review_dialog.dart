@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import 'draft_bl_review_tab.dart';
@@ -40,7 +41,7 @@ class DraftBLReviewDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: AppTheme.black.withValues(alpha: 0.2),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -56,7 +57,7 @@ class DraftBLReviewDialog extends StatelessWidget {
                 decoration: const BoxDecoration(
                   color: AppTheme.charcoal,
                   border: Border(
-                    bottom: BorderSide(color: Colors.white10),
+                    bottom: BorderSide(color: AppTheme.white),
                   ),
                 ),
                 child: Row(
@@ -64,12 +65,12 @@ class DraftBLReviewDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF059669).withOpacity(0.2),
+                        color: AppTheme.wcagEmerald.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.fact_check_rounded,
-                        color: Color(0xFF10B981),
+                        color: AppTheme.emerald,
                         size: 20,
                       ),
                     ),
@@ -83,10 +84,10 @@ class DraftBLReviewDialog extends StatelessWidget {
                             spacing: 10,
                             runSpacing: 4,
                             children: [
-                              const Text(
-                                'مراجعة مسودة بوليصة الشحن والاعتماد المزدوج (SH-02)',
+                              Text(
+                                context.l10n.idocADraftBillOfLadingReviewAnd,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -94,9 +95,9 @@ class DraftBLReviewDialog extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.25),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.5)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   file.primaryNameWithCode,
@@ -111,9 +112,9 @@ class DraftBLReviewDialog extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'مطابقة آلية لـ 20 حقلاً حرجاً مع أمر الشراء والفاتورة التجارية ومنع غرامات التعديل الجمركي',
+                            context.l10n.idocAAutomatedMatchingOf20CriticalFields,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: AppTheme.white.withValues(alpha: 0.7),
                               fontSize: 12,
                             ),
                           ),
@@ -121,8 +122,8 @@ class DraftBLReviewDialog extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      tooltip: 'إغلاق',
+                      icon: const Icon(Icons.close, color: AppTheme.white),
+                      tooltip: context.l10n.close,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],

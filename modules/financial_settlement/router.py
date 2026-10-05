@@ -1,6 +1,8 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -38,7 +40,14 @@ from .odoo_export_service import (
     generate_odoo_journal_entry_service,
     export_odoo_csv_service,
     export_odoo_excel_service,
+    odoo_export_filename,
 )
+
+# Reads, exports and calculations without persistence: financial_settlement.view.
+# Writes, confirm and approve: financial_settlement.calculate (Q3).
+# The acting user (current_user.username) is recorded; actor names sent in the body are ignored (FS-04).
+VIEW = require_permission("financial_settlement.view")
+CALCULATE = require_permission("financial_settlement.calculate")
 
 router = APIRouter(prefix="/api/v1/financial-settlement", tags=["Phase 9 - Financial Settlement & Landed Cost"], dependencies=[Depends(get_current_user)])
 
@@ -49,6 +58,7 @@ def list_settlements(
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by operational status"),
     search: Optional[str] = Query(None, description="Search term"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     return list_settlements_service(db, include_inactive, import_file_id, status_filter, search)
 
@@ -56,13 +66,15 @@ def list_settlements(
 def create_settlement(
     schema: FinancialSettlementCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
-    return create_settlement_service(db, schema)
+    return create_settlement_service(db, schema, actor=current_user.username)
 
 @router.get("/{settlement_id}", response_model=FinancialSettlementResponse)
 def get_settlement(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     return get_settlement_service(db, settlement_id)
 
@@ -71,35 +83,40 @@ def update_settlement(
     settlement_id: int,
     schema: FinancialSettlementUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
-    return update_settlement_service(db, settlement_id, schema)
+    return update_settlement_service(db, settlement_id, schema, actor=current_user.username)
 
 @router.post("/{settlement_id}/recalculate", response_model=FinancialSettlementResponse)
 def recalculate_settlement(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
-    return recalculate_settlement_service(db, settlement_id)
+    return recalculate_settlement_service(db, settlement_id, actor=current_user.username)
 
 @router.delete("/{settlement_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_settlement(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
-    soft_delete_settlement_service(db, settlement_id)
+    soft_delete_settlement_service(db, settlement_id, actor=current_user.username)
     return None
 
 @router.patch("/{settlement_id}/restore", response_model=FinancialSettlementResponse)
 def restore_settlement(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
-    return restore_settlement_service(db, settlement_id)
+    return restore_settlement_service(db, settlement_id, actor=current_user.username)
 
 @router.get("/{settlement_id}/odoo-journal-entry", response_model=OdooJournalEntryResponse)
 def get_odoo_journal_entry(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
     Returns balanced double-entry accounting journal for Odoo and ERP General Ledger.
@@ -110,12 +127,13 @@ def get_odoo_journal_entry(
 def export_odoo_csv(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
-    Exports Odoo-compatible CSV file for account.move / account.move.line batch import.
+    Exports Odoo-compatible CSV file for account.move / account.move.line batch import (409 when unbalanced).
     """
     csv_data = export_odoo_csv_service(db, settlement_id)
-    filename = f"odoo_landed_cost_settlement_{settlement_id}.csv"
+    filename = odoo_export_filename(db, settlement_id, "csv")
     return Response(
         content=csv_data,
         media_type="text/csv",
@@ -126,12 +144,14 @@ def export_odoo_csv(
 def export_odoo_excel(
     settlement_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
-    Exports full professional Excel file containing Odoo import sheet, Accounting Voucher, and Item Landed Cost breakdown.
+    Exports full professional Excel file containing Odoo import sheet, Accounting Voucher, and Item Landed Cost
+    breakdown (409 when the journal is unbalanced).
     """
     excel_bytes = export_odoo_excel_service(db, settlement_id)
-    filename = f"accounting_landed_cost_voucher_{settlement_id}.xlsx"
+    filename = odoo_export_filename(db, settlement_id, "xlsx")
     return Response(
         content=excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -144,6 +164,7 @@ def simulate_estimated_landed_cost(
     import_file_id: int,
     payload: Optional[EstimatedLandedCostSimulationRequest] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
     محاكاة واحتساب تكلفة الوصول التقديرية للشحنة وللوحدة الواحدة (PL-08: Estimated Landed Cost Simulation).
@@ -155,6 +176,7 @@ def simulate_estimated_landed_cost(
 def get_invoices_aggregation(
     import_file_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
     CLO-01: تجميع فواتير ومصروفات الشحنة من كافة الموديولات (المورد، الشحن، الجمارك، التأمين، المخلص، النقل، غرامات التأخير).
@@ -166,11 +188,12 @@ def get_invoices_aggregation(
 def confirm_invoices_settlement(
     payload: ConfirmInvoicesSettlementRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
     """
     CLO-01: اعتماد تسوية الفواتير الختامية للملف وإغلاق TSK-0901 وتصعيد المهمة الذكية التالية CLO-02.
     """
-    return confirm_invoices_settlement_service(db, payload)
+    return confirm_invoices_settlement_service(db, payload, actor=current_user.username)
 
 
 @router.post("/calculate-actual-landed-cost/{import_file_id}", response_model=ActualLandedCostCalculationResponse)
@@ -178,6 +201,7 @@ def calculate_actual_landed_cost(
     import_file_id: int,
     payload: Optional[ActualLandedCostCalculationRequest] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
 ):
     """
     CLO-02: احتساب تكلفة الوصول الفعلية وتوزيع المصاريف على الأصناف ومقارنة الفعلي بالتقديري والانحراف.
@@ -189,10 +213,9 @@ def calculate_actual_landed_cost(
 def approve_actual_landed_cost(
     payload: ApproveActualLandedCostRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
 ):
     """
     CLO-02: اعتماد تكلفة الوصول الفعلية للشحنة وتحديث حالة الملف وإغلاق TSK-0902 وإطلاق مهمة الملف الشامل TSK-0903.
     """
-    return approve_actual_landed_cost_service(db, payload)
-
-
+    return approve_actual_landed_cost_service(db, payload, actor=current_user.username)

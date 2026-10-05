@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.database import Base
 from modules.import_files.model import ImportFile
+from modules.suppliers.model import Supplier
 from modules.import_documentation.model import DraftBLReviewSession, CertificateOfOriginReviewSession
 from modules.docs_customs_approval.model import CustomsDocumentApproval
 from modules.import_documentation.schemas import (
@@ -20,8 +21,23 @@ def db_session():
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # Phase 3a review #13: certified COO saves are compared on the server, so the file has a real supplier
+    # (origin) and an invoice number.
+    session.add(Supplier(
+        supplier_id=1,
+        supplier_code="SUP-PARITY-001",
+        company_name="Test Global Exporter Ltd",
+        supplier_type="Manufacturer",
+        registration_type="Factory",
+        foreign_exporter_id="EXP-DE-001",
+        foreign_exporter_country="Germany",
+        foreign_exporter_country_code="DE",
+        address="Hamburg, Germany",
+        is_active=True,
+    ))
     # Create dummy import file
     file = ImportFile(
+        pi_number="PI-PARITY-001",
         import_file_id=101,
         import_file_code="IMP-2026-TEST-PARITY",
         custom_file_number="FILE-PARITY-001",
@@ -97,10 +113,24 @@ def test_draft_bl_certified_save_approves_customs(db_session):
 
     created = service.create_draft_bl_review_service(db_session, schema)
     assert created.is_draft is False
-    assert created.status == "APPROVED"
-    assert created.stage == "Stage 5: Final"
+    # Phase 3a DOC-04 / Q4: a certified save is no longer an approval (the client "APPROVED" status is ignored);
+    # it stops at REVIEWED_PENDING_APPROVAL and the customs approval stays untouched until someone approves.
+    assert created.status == "REVIEWED_PENDING_APPROVAL"
+    bl_app = db_session.query(CustomsDocumentApproval).filter(
+        CustomsDocumentApproval.import_file_id == 101,
+        CustomsDocumentApproval.document_type == "Bill of Lading",
+    ).first()
+    assert bl_app.commercial_status == "Pending"
 
-    # Verify customs approval IS updated
+    # Security review: /approve only completes the missing role, so the importer approves first.
+    from modules.import_documentation.schemas import DualApprovalRequest
+    service.process_dual_approval_service(db_session, DualApprovalRequest(
+        bl_review_id=created.bl_review_id, role="importer", action="Approved", approved_by="x"), user="Import Officer")
+    approved = service.approve_draft_bl_service(db_session, created.bl_review_id, user="Auditor General")
+    assert approved.status == "FINAL"
+    assert approved.stage == "Stage 5: Final"
+
+    # Verify customs approval IS updated once approved
     bl_app = db_session.query(CustomsDocumentApproval).filter(
         CustomsDocumentApproval.import_file_id == 101,
         CustomsDocumentApproval.document_type == "Bill of Lading",
@@ -151,6 +181,15 @@ def test_coo_certified_save_approves_customs(db_session):
         destination_country="Egypt",
         is_draft=False,
         reviewed_by="Origin Inspector",
+        # Review #13: the server compares the draft with the master data; this certified save is clean.
+        draft_input_data={
+            "exporter_name": "Test Global Exporter Ltd",
+            "importer_name": "Test Importer Corp",
+            "country_of_origin": "Germany",
+            "destination_country": "Egypt",
+            "invoice_number": "PI-PARITY-001",
+            "certificate_type": "EUR.1",
+        },
     )
 
     created = service.create_coo_review_service(db_session, schema)

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
+import '../models/demurrage_model.dart';
+import 'demurrage_status.dart';
 
 void showDualClockRadarDialog(BuildContext context, WidgetRef ref, {
   required int trackingId,
@@ -39,7 +46,7 @@ class DualClockRadarDialog extends ConsumerStatefulWidget {
 class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
   bool _isLoading = true;
   String? _error;
-  Map<String, dynamic>? _data;
+  DualClockModel? _data;
 
   // Gate-out controllers
   final _containerController = TextEditingController();
@@ -71,14 +78,14 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
       final res = await dio.get('/demurrage-detention/trackings/${widget.trackingId}/dual-clock');
       if (mounted) {
         setState(() {
-          _data = res.data is Map<String, dynamic> ? res.data : null;
+          _data = res.data is Map ? DualClockModel.fromJson(Map<String, dynamic>.from(res.data as Map)) : null;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = ApiErrorText.of(context.l10n, e);
           _isLoading = false;
         });
       }
@@ -89,7 +96,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     final l10n = context.l10n;
     if (_containerController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.dualClockEnterContainerValidation)),
+        AppTheme.snackBar(context, l10n.dualClockEnterContainerValidation, severity: AppSeverity.warning),
       );
       return;
     }
@@ -111,9 +118,10 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.emerald,
-            content: Text('${l10n.dualClockGateOutSuccessSnack} ($containerNo)'),
+          AppTheme.snackBar(
+            context,
+            '${l10n.dualClockGateOutSuccessSnack} ($containerNo)',
+            severity: AppSeverity.success,
           ),
         );
         _containerController.clear();
@@ -125,7 +133,11 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppTheme.crimson, content: Text('${l10n.dualClockGateOutErrorSnack}: $e')),
+          AppTheme.snackBar(
+            context,
+            '${l10n.dualClockGateOutErrorSnack}: ${ApiErrorText.of(l10n, e)}',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -136,81 +148,139 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final isArabic = Directionality.of(context) == TextDirection.rtl;
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: SelectionArea(
-        child: Container(
-          width: 820,
-          padding: const EdgeInsets.all(24),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 300,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : _error != null
-                  ? SizedBox(
-                      height: 250,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
-                            const SizedBox(height: 12),
-                            Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _fetchDualClockData,
-                              child: Text(l10n.dualClockRetryBtn),
+    final screen = MediaQuery.of(context).size;
+    final width = screen.width > 880 ? 820.0 : screen.width * 0.95;
+    final onDark = AppTheme.white.withValues(alpha: 0.78);
+
+    return SelectionArea(
+      child: Dialog(
+        backgroundColor: AppTheme.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: width, maxHeight: screen.height * 0.9),
+          child: SizedBox(
+            width: width,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(l10n, onDark),
+                Flexible(
+                  child: _isLoading
+                      ? const SizedBox(height: 300, child: CcStateView.loading())
+                      : _error != null
+                          ? SizedBox(
+                              height: 260,
+                              child: CcStateView.error(
+                                message: _error!,
+                                actionLabel: l10n.dualClockRetryBtn,
+                                onAction: _fetchDualClockData,
+                              ),
                             )
-                          ],
-                        ),
-                      ),
-                    )
-                  : _buildContent(isArabic),
+                          : _buildContent(),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  void _copyRadarMetrics(BuildContext context, bool isArabic) {
+  Widget _header(AppLocalizations l10n, Color onDark) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 24, vertical: 16),
+      color: AppTheme.charcoal,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsetsDirectional.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
+            child: const Icon(Icons.speed_rounded, color: AppTheme.cobalt, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.dualClockRadarDialogTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.white),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    _chip(Icons.description_outlined, l10n.billOfLadingLabel(widget.billOfLadingNo), onDark),
+                    _chip(Icons.directions_boat_outlined, widget.carrierName, onDark),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.copy_rounded, color: onDark, size: 20),
+            tooltip: l10n.dualClockCopyMetricsBtn,
+            onPressed: _data == null ? null : () => _copyRadarMetrics(context),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: onDark),
+            tooltip: l10n.close,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String label, Color onDark) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: onDark),
+          const SizedBox(width: 4),
+          Flexible(
+            child: LtrText(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: onDark)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyRadarMetrics(BuildContext context) {
     final l10n = context.l10n;
-    final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
-    final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
-    final buffer = StringBuffer();
-    if (isArabic) {
-      buffer.writeln('بيانات رادار المتابعة المزدوج (غرامات التأخير وأرضيات الميناء)');
-      buffer.writeln('بوليصة الشحن:\t${widget.billOfLadingNo}');
-      buffer.writeln('الخط الملاحي:\t${widget.carrierName}');
-      buffer.writeln('');
-      buffer.writeln('غرامات التوكيل الملاحي:');
-      buffer.writeln('الإجمالي المستحق:\t\$${(carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0}');
-      buffer.writeln('أيام السماح:\t${carrierClock['demurrage_free_days'] ?? 0} يوم');
-      buffer.writeln('أيام التجاوز:\t${carrierClock['demurrage_overdue_days'] ?? 0} يوم');
-      buffer.writeln('المعدل اليومي:\t\$${(carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0}');
-      buffer.writeln('');
-      buffer.writeln('أرضيات هيئة الميناء:');
-      buffer.writeln('الإجمالي المستحق:\t${(portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0} ج.م');
-      buffer.writeln('أيام السماح:\t${portClock['port_storage_free_days'] ?? 0} يوم');
-      buffer.writeln('أيام التجاوز:\t${portClock['storage_overdue_days'] ?? 0} يوم');
-      buffer.writeln('المعدل اليومي:\t${(portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0} ج.م');
-    } else {
-      buffer.writeln('Dual-Clock Radar Metrics (Demurrage & Port Storage)');
-      buffer.writeln('Bill of Lading:\t${widget.billOfLadingNo}');
-      buffer.writeln('Carrier:\t${widget.carrierName}');
-      buffer.writeln('');
-      buffer.writeln('Carrier Demurrage:');
-      buffer.writeln('Total Accrued:\t\$${(carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0}');
-      buffer.writeln('Free Days:\t${carrierClock['demurrage_free_days'] ?? 0} days');
-      buffer.writeln('Overdue Days:\t${carrierClock['demurrage_overdue_days'] ?? 0} days');
-      buffer.writeln('Daily Rate:\t\$${(carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0}');
-      buffer.writeln('');
-      buffer.writeln('Port Storage:');
-      buffer.writeln('Total Accrued:\t${(portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0} EGP');
-      buffer.writeln('Free Days:\t${portClock['port_storage_free_days'] ?? 0} days');
-      buffer.writeln('Overdue Days:\t${portClock['storage_overdue_days'] ?? 0} days');
-      buffer.writeln('Daily Rate:\t${(portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0} EGP');
-    }
+    final data = _data;
+    if (data == null) return;
+    final carrier = data.carrierClock;
+    final port = data.portStorageClock;
+    final buffer = StringBuffer()
+      ..writeln(l10n.dualClockRadarDialogTitle)
+      ..writeln('${l10n.billOfLadingLabel(widget.billOfLadingNo)}\t${widget.carrierName}')
+      ..writeln('')
+      ..writeln(l10n.dualClockCarrierClockTitle)
+      ..writeln('${l10n.dualClockTotalAccruedLabel}:\t${carrier.accruedDemurrageFx.toStringAsFixed(2)} ${carrier.currency}')
+      ..writeln('${l10n.colFreeDays}:\t${l10n.daysCountFormatted(carrier.freeDaysAllowed)}')
+      ..writeln('${l10n.colOverdueDays}:\t${l10n.daysCountFormatted(carrier.overdueDays)}')
+      ..writeln('')
+      ..writeln(l10n.dualClockPortClockTitle)
+      ..writeln('${l10n.dualClockTotalAccruedLabel}:\t${port.accruedStorageEgp.toStringAsFixed(2)} ${l10n.egpCurrency}')
+      ..writeln('${l10n.colFreeDays}:\t${l10n.daysCountFormatted(port.storageFreeDays)}')
+      ..writeln('${l10n.colOverdueDays}:\t${l10n.daysCountFormatted(port.overdueDays)}')
+      ..writeln('${l10n.dailyStorageRateLabel}:\t${port.dailyRateEgp.toStringAsFixed(2)} ${l10n.egpCurrency}');
 
     CopyHelper.copy(
       context,
@@ -219,71 +289,86 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     );
   }
 
-  Widget _buildContent(bool isArabic) {
+  String _carrierStatusNote(AppLocalizations l10n, CarrierClockModel c) {
+    if (c.isOverdue) {
+      return '${l10n.dualClockOverdueDaysNote} (${l10n.daysCountFormatted(c.overdueDays)})';
+    }
+    if (c.isWarning) {
+      return '${l10n.dualClockStatusLast3Days} (${l10n.daysCountFormatted(c.daysRemaining)})';
+    }
+    return '${l10n.dualClockFreeDaysRemaining} (${l10n.daysCountFormatted(c.daysRemaining)})';
+  }
+
+  String _portStatusNote(AppLocalizations l10n, PortStorageClockModel p) {
+    if (p.isOverdue) {
+      return '${l10n.dualClockOverdueDaysNote} (${l10n.daysCountFormatted(p.overdueDays)})';
+    }
+    if (p.isCritical72hWarning) return l10n.dualClockStatusCritical72h;
+    return '${l10n.dualClockFreeDaysRemaining} (${l10n.daysCountFormatted(p.daysRemaining)})';
+  }
+
+  Widget _buildContent() {
     final l10n = context.l10n;
-    final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
-    final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
-    final bool warning72h = portClock['warning_72h_active'] == true || portClock['is_critical_72h_warning'] == true;
-    final String portAdvice = portClock['urgent_advice_ar'] ?? _data?['summary_ar'] ?? '';
+    final carrierClock = _data?.carrierClock ?? const CarrierClockModel();
+    final portClock = _data?.portStorageClock ?? const PortStorageClockModel();
+    final bool warning72h = portClock.isCritical72hWarning && !portClock.isOverdue;
+    final String portAdvice = l10n.dualClockHoursUntilPenalties(portClock.hoursUntilPenalties);
+
+    final carrierSeverity = carrierClock.isOverdue
+        ? AppSeverity.danger
+        : (carrierClock.isWarning ? AppSeverity.warning : AppSeverity.success);
+    final portSeverity = portClock.isOverdue
+        ? AppSeverity.danger
+        : (portClock.isCritical72hWarning ? AppSeverity.warning : AppSeverity.success);
+
+    final carrierCard = _ClockCard(
+      title: l10n.dualClockCarrierClockTitle,
+      icon: Icons.directions_boat_outlined,
+      accentColor: AppTheme.cobalt,
+      severity: carrierSeverity,
+      statusNote: _carrierStatusNote(l10n, carrierClock),
+      totalAmount: carrierClock.accruedDemurrageFx,
+      currency: carrierClock.currency,
+      consumedDays: carrierClock.daysConsumed,
+      freeDays: carrierClock.freeDaysAllowed,
+      overdueDays: carrierClock.overdueDays,
+      extraLabel: carrierClock.expiryDate != null ? l10n.dualClockExpiryLabel : null,
+      extraValue: carrierClock.expiryDate,
+    );
+    final portCard = _ClockCard(
+      title: l10n.dualClockPortClockTitle,
+      icon: Icons.warehouse_outlined,
+      accentColor: AppTheme.orange,
+      severity: portSeverity,
+      statusNote: _portStatusNote(l10n, portClock),
+      totalAmount: portClock.accruedStorageEgp,
+      currency: l10n.egpCurrency,
+      consumedDays: portClock.daysConsumed,
+      freeDays: portClock.storageFreeDays,
+      overdueDays: portClock.overdueDays,
+      extraLabel: l10n.dailyStorageRateLabel,
+      extraValue: '${portClock.dailyRateEgp.toStringAsFixed(2)} ${l10n.egpCurrency}',
+    );
 
     return SingleChildScrollView(
+      padding: const EdgeInsetsDirectional.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.speed_rounded, color: AppTheme.cobalt, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.dualClockRadarDialogTitle,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                    ),
-                    Text(
-                      '${l10n.billOfLadingLabel(widget.billOfLadingNo)}  •  ${widget.carrierName}',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
-                tooltip: l10n.dualClockCopyMetricsBtn,
-                onPressed: () => _copyRadarMetrics(context, isArabic),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
           // 72-Hour Warning Alert
           if (warning72h)
             Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsetsDirectional.only(bottom: 16),
+              padding: const EdgeInsetsDirectional.all(14),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.orange, width: 1.5),
+                color: AppTheme.severityBackgroundOf(context, AppSeverity.warning),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                border: Border.all(color: AppTheme.severityForegroundOf(context, AppSeverity.warning), width: 1.5),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 30),
+                  Icon(Icons.warning_amber_rounded,
+                      color: AppTheme.severityForegroundOf(context, AppSeverity.warning), size: 30),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -291,10 +376,14 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       children: [
                         Text(
                           l10n.dualClockWarning72hTitle,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13.5),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.severityForegroundOf(context, AppSeverity.warning),
+                            fontSize: 13.5,
+                          ),
                         ),
                         if (portAdvice.isNotEmpty)
-                          Text(portAdvice, style: TextStyle(color: Colors.grey.shade800, fontSize: 12.5)),
+                          Text(portAdvice, style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 12.5)),
                       ],
                     ),
                   ),
@@ -302,169 +391,144 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               ),
             ),
 
-          // Dual Clocks (Side-by-Side)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Clock 1: Carrier Demurrage (USD)
-              Expanded(
-                child: _buildClockCard(
-                  title: l10n.dualClockCarrierClockTitle,
-                  currencySymbol: '\$',
-                  currencyCode: 'USD',
-                  totalAmount: (carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0,
-                  freeDays: carrierClock['demurrage_free_days'] ?? 0,
-                  overdueDays: carrierClock['demurrage_overdue_days'] ?? 0,
-                  dailyRate: (carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0,
-                  statusNote: carrierClock['is_demurrage_overdue'] == true
-                      ? '${l10n.dualClockOverdueDaysNote} (${carrierClock['demurrage_overdue_days']} ${l10n.daysCountFormatted(1)})'
-                      : '${l10n.dualClockFreeDaysRemaining} (${carrierClock['free_days_remaining']} ${l10n.daysCountFormatted(1)})',
-                  isDanger: carrierClock['is_demurrage_overdue'] == true,
-                  icon: Icons.directions_boat_outlined,
-                  accentColor: AppTheme.cobalt,
-                  isArabic: isArabic,
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Clock 2: Port Storage (EGP)
-              Expanded(
-                child: _buildClockCard(
-                  title: l10n.dualClockPortClockTitle,
-                  currencySymbol: isArabic ? 'ج.م' : 'EGP',
-                  currencyCode: 'EGP',
-                  totalAmount: (portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0,
-                  freeDays: portClock['port_storage_free_days'] ?? 0,
-                  overdueDays: portClock['storage_overdue_days'] ?? 0,
-                  dailyRate: (portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0,
-                  statusNote: '${l10n.dualClockCurrentTierPrefix}: ${portClock['current_tier_name'] ?? l10n.dualClockStandardTierLabel}',
-                  isDanger: portClock['is_storage_overdue'] == true,
-                  icon: Icons.warehouse_outlined,
-                  accentColor: AppTheme.orange,
-                  isArabic: isArabic,
-                ),
-              ),
-            ],
+          // Dual Clocks (side by side, stacked when narrow)
+          LayoutBuilder(
+            builder: (context, c) {
+              if (c.maxWidth < 640) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [carrierCard, const SizedBox(height: 12), portCard],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: carrierCard),
+                  const SizedBox(width: 16),
+                  Expanded(child: portCard),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Partial Gate-Out Section (LOG-CONT-002)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          CcFormSection(
+            title: l10n.dualClockGateOutSectionTitle,
+            icon: Icons.local_shipping_outlined,
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final container = TextFormField(
+                  controller: _containerController,
+                  textDirection: TextDirection.ltr,
+                  decoration: InputDecoration(
+                    labelText: l10n.dualClockContainerNoLabel,
+                    hintText: l10n.dualClockContainerNoHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                      tooltip: l10n.demurrageCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _containerController.text, customMessage: l10n.demurrageCopyFieldTooltip),
+                    ),
+                  ),
+                );
+                final eir = TextFormField(
+                  controller: _eirController,
+                  decoration: InputDecoration(
+                    labelText: l10n.dualClockEirReceiptLabel,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                      tooltip: l10n.demurrageCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _eirController.text, customMessage: l10n.demurrageCopyFieldTooltip),
+                    ),
+                  ),
+                );
+                final submit = AppButton(
+                  onPressed: _isSubmittingGateOut ? null : _submitContainerGateOut,
+                  isLoading: _isSubmittingGateOut,
+                  icon: Icons.check_circle_outline,
+                  label: l10n.dualClockRecordGateOutBtn,
+                  variant: AppButtonVariant.success,
+                );
+                if (c.maxWidth < 560) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      container,
+                      const SizedBox(height: 10),
+                      eir,
+                      const SizedBox(height: 10),
+                      Align(alignment: AlignmentDirectional.centerEnd, child: submit),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.local_shipping_outlined, color: AppTheme.charcoal, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.dualClockGateOutSectionTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _containerController,
-                        textDirection: TextDirection.ltr,
-                        decoration: InputDecoration(
-                          labelText: l10n.dualClockContainerNoLabel,
-                          hintText: l10n.dualClockContainerNoHint,
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                            tooltip: l10n.demurrageCopyFieldTooltip,
-                            onPressed: () => CopyHelper.copy(context, _containerController.text, customMessage: l10n.demurrageCopyFieldTooltip),
-                          ),
-                        ),
-                      ),
-                    ),
+                    Expanded(flex: 2, child: container),
                     const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _eirController,
-                        decoration: InputDecoration(
-                          labelText: l10n.dualClockEirReceiptLabel,
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                            tooltip: l10n.demurrageCopyFieldTooltip,
-                            onPressed: () => CopyHelper.copy(context, _eirController.text, customMessage: l10n.demurrageCopyFieldTooltip),
-                          ),
-                        ),
-                      ),
-                    ),
+                    Expanded(flex: 2, child: eir),
                     const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: _isSubmittingGateOut ? null : _submitContainerGateOut,
-                      icon: _isSubmittingGateOut
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check_circle_outline, size: 18),
-                      label: Text(l10n.dualClockRecordGateOutBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
+                    submit,
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildClockCard({
-    required String title,
-    required String currencySymbol,
-    required String currencyCode,
-    required double totalAmount,
-    required int freeDays,
-    required int overdueDays,
-    required double dailyRate,
-    required String statusNote,
-    required bool isDanger,
-    required IconData icon,
-    required Color accentColor,
-    required bool isArabic,
-  }) {
+/// One of the two penalty clocks: accrued amount (severity coloured), a free-
+/// days progress bar and the key counters.
+class _ClockCard extends StatelessWidget {
+  const _ClockCard({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.severity,
+    required this.statusNote,
+    required this.totalAmount,
+    required this.currency,
+    required this.consumedDays,
+    required this.freeDays,
+    required this.overdueDays,
+    this.extraLabel,
+    this.extraValue,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final AppSeverity severity;
+  final String statusNote;
+  final double totalAmount;
+  final String currency;
+  final int consumedDays;
+  final int freeDays;
+  final int overdueDays;
+  final String? extraLabel;
+  final String? extraValue;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDanger = severity == AppSeverity.danger;
+    final fg = AppTheme.severityForegroundOf(context, severity);
+    final progress = freeDays <= 0 ? (consumedDays > 0 ? 1.0 : 0.0) : (consumedDays / freeDays).clamp(0.0, 1.0);
+
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+      padding: const EdgeInsetsDirectional.all(18),
+      decoration: AppTheme.cardDecorationOf(context).copyWith(
         border: Border.all(
-          color: isDanger ? AppTheme.crimson.withOpacity(0.5) : Colors.grey.shade200,
+          color: isDanger ? fg.withValues(alpha: 0.6) : AppTheme.borderOf(context),
           width: isDanger ? 1.5 : 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,7 +540,11 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.grey.shade800),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: AppTheme.textPrimaryOf(context),
+                  ),
                 ),
               ),
             ],
@@ -488,30 +556,33 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               totalAmount.toStringAsFixed(2),
               customMessage: l10n.demurrageCopyFieldTooltip,
             ),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '$currencySymbol ${totalAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: isDanger ? AppTheme.crimson : AppTheme.charcoal,
-                  ),
-                ),
+                Flexible(child: CcMoneyText(totalAmount, currency: currency, fontSize: 24, color: isDanger ? fg : null)),
                 const SizedBox(width: 6),
-                const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                Icon(Icons.copy_rounded, size: 15, color: AppTheme.textMutedOf(context)),
               ],
             ),
           ),
-          Text(
-            currencyCode,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              color: fg,
+              backgroundColor: AppTheme.surfaceAltOf(context),
+            ),
           ),
-          const Divider(height: 20),
+          const SizedBox(height: 6),
+          Text(
+            l10n.freeDaysConsumed(consumedDays, freeDays),
+            style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context)),
+          ),
+          Divider(height: 22, color: AppTheme.borderOf(context)),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
@@ -528,35 +599,29 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isDanger ? AppTheme.crimson : Colors.grey.shade700,
+                    color: isDanger ? fg : AppTheme.textSecondaryOf(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 6),
-          Text(
-            '${l10n.dailyStorageRateLabel}: $currencySymbol ${dailyRate.toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isDanger ? AppTheme.crimson.withOpacity(0.1) : AppTheme.emerald.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
+          if (extraLabel != null && extraValue != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    extraLabel!,
+                    style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context)),
+                  ),
+                ),
+                LtrText(extraValue!, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+              ],
             ),
-            child: Text(
-              statusNote,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: isDanger ? AppTheme.crimson : AppTheme.emerald,
-              ),
-            ),
-          ),
+          ],
+          const SizedBox(height: 12),
+          CcStatusChip(label: statusNote, severity: severity, icon: DemurrageStatusStyle.iconOf(severity)),
         ],
       ),
     );

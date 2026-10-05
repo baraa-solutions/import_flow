@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/financial_approval_model.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
+
 /// Search and Clone Previous Payment Request Dialog (UX-CLONE-012)
 ///
 /// Allows users to quickly search previous payment requests by code,
@@ -19,10 +20,12 @@ class SearchAndClonePaymentDialog extends StatefulWidget {
   });
 
   @override
-  State<SearchAndClonePaymentDialog> createState() => _SearchAndClonePaymentDialogState();
+  State<SearchAndClonePaymentDialog> createState() =>
+      _SearchAndClonePaymentDialogState();
 }
 
-class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialog> {
+class _SearchAndClonePaymentDialogState
+    extends State<SearchAndClonePaymentDialog> {
   final TextEditingController _queryController = TextEditingController();
   late List<PaymentRequestModel> _filtered;
 
@@ -69,10 +72,11 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(
+            color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
@@ -90,7 +94,8 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                       color: AppTheme.cobalt.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 22),
+                    child: const Icon(Icons.control_point_duplicate_rounded,
+                        color: AppTheme.cobalt, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -102,7 +107,9 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.charcoal,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -110,14 +117,19 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                           l.searchAndClonePaymentRequestSubtitle,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                    icon: Icon(Icons.close,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -129,16 +141,22 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                 controller: _queryController,
                 onChanged: _filter,
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: l.searchByPaymentCodeOrSupplierHint,
                   hintStyle: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textMuted,
                     fontSize: 12,
                   ),
-                  prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, size: 20),
+                  prefixIcon: Icon(Icons.search,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                      size: 20),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -149,19 +167,27 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  fillColor: isDark
+                      ? AppTheme.darkInputBackground
+                      : AppTheme.charcoalSurface,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(
+                        color:
+                            isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(
+                        color:
+                            isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+                    borderSide:
+                        const BorderSide(color: AppTheme.cobalt, width: 1.5),
                   ),
                 ),
               ),
@@ -173,7 +199,9 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -185,12 +213,18 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off_rounded, size: 48, color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                            Icon(Icons.search_off_rounded,
+                                size: 48,
+                                color: isDark
+                                    ? AppTheme.darkBorder
+                                    : AppTheme.textMuted),
                             const SizedBox(height: 8),
                             Text(
                               l.noMatchingPaymentRequestsFound,
                               style: TextStyle(
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : AppTheme.textSecondary,
                                 fontSize: 13,
                               ),
                             ),
@@ -211,27 +245,39 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                                color: isDark
+                                    ? AppTheme.darkElevatedSurface
+                                    : AppTheme.charcoalSurface,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                                  color: isDark
+                                      ? AppTheme.darkBorder
+                                      : AppTheme.cloudWhite,
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // Code + Status Row
                                         Row(
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: AppTheme.cobalt.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                color: AppTheme.cobalt
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                border: Border.all(
+                                                    color: AppTheme.cobalt
+                                                        .withOpacity(0.3)),
                                               ),
                                               child: LtrText(
                                                 p.paymentCode,
@@ -244,19 +290,29 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                             ),
                                             const SizedBox(width: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: (p.status == 'Approved' || p.status == 'Paid')
-                                                    ? AppTheme.emerald.withOpacity(0.12)
-                                                    : Colors.orange.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(4),
+                                                color:
+                                                    (p.status == 'Approved' ||
+                                                            p.status == 'Paid')
+                                                        ? AppTheme.emerald
+                                                            .withOpacity(0.12)
+                                                        : AppTheme.orange
+                                                            .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: Text(
                                                 p.status,
                                                 style: TextStyle(
-                                                  color: (p.status == 'Approved' || p.status == 'Paid')
+                                                  color: (p.status ==
+                                                              'Approved' ||
+                                                          p.status == 'Paid')
                                                       ? AppTheme.emerald
-                                                      : Colors.orange.shade800,
+                                                      : AppTheme.wcagOrange,
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
                                                 ),
@@ -267,7 +323,9 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                               p.paymentType,
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                color: isDark
+                                                    ? AppTheme.darkTextSecondary
+                                                    : AppTheme.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -279,7 +337,9 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                            color: isDark
+                                                ? AppTheme.darkTextPrimary
+                                                : AppTheme.charcoal,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -293,23 +353,50 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Icon(Icons.business_outlined, size: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                                Icon(Icons.business_outlined,
+                                                    size: 12,
+                                                    color: isDark
+                                                        ? AppTheme
+                                                            .darkTextSecondary
+                                                        : AppTheme
+                                                            .textSecondary),
                                                 const SizedBox(width: 4),
                                                 Text(
                                                   p.supplierName,
-                                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: isDark
+                                                          ? AppTheme
+                                                              .darkTextSecondary
+                                                          : AppTheme
+                                                              .textStrong),
                                                 ),
                                               ],
                                             ),
-                                            if (p.bankName != null && p.bankName!.isNotEmpty)
+                                            if (p.bankName != null &&
+                                                p.bankName!.isNotEmpty)
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.account_balance_outlined, size: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                                  Icon(
+                                                      Icons
+                                                          .account_balance_outlined,
+                                                      size: 12,
+                                                      color: isDark
+                                                          ? AppTheme
+                                                              .darkTextSecondary
+                                                          : AppTheme
+                                                              .textSecondary),
                                                   const SizedBox(width: 4),
                                                   Text(
                                                     '${p.bankName} (${p.swiftCode ?? ""})',
-                                                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: isDark
+                                                            ? AppTheme
+                                                                .darkTextSecondary
+                                                            : AppTheme
+                                                                .textStrong),
                                                   ),
                                                 ],
                                               ),
@@ -332,7 +419,9 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                               '≈ ${(p.requestedAmount * p.exchangeRate).toStringAsFixed(2)} EGP',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                color: isDark
+                                                    ? AppTheme.darkTextSecondary
+                                                    : AppTheme.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -341,7 +430,7 @@ class _SearchAndClonePaymentDialogState extends State<SearchAndClonePaymentDialo
                                     ),
                                   ),
                                   Icon(
-                                    isArabic ? Icons.chevron_left : Icons.chevron_right,
+                                    Icons.chevron_right,
                                     color: AppTheme.cobalt,
                                     size: 20,
                                   ),

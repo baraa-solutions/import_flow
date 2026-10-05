@@ -1,3 +1,3 @@
 # security-reviewer memory index
 
-- [Security baseline 2026-09-24](project_security_baseline.md) — fixed vs open; Phase 2/5 re-check 2026-09-25: all fixed; 2026-09-25 cleanup pass clean; publish_update.yml split reviewed 2026-09-25 (MINORs only); v2.1.1 R2m migration 2026-09-26 (2 MAJOR open)
+- [Security baseline 2026-09-24](project_security_baseline.md) — fixed vs open; Phase 2/5 re-check 2026-09-25: all fixed; 2026-09-25 cleanup pass clean; publish_update.yml split reviewed 2026-09-25 (MINORs only); v2.1.1 R2m migration 2026-09-26 (2 MAJOR open); default-admin forced change 2026-09-29 (BLOCKER+MAJORs fixed on re-check; token revocation MINOR open); desktop close commit 9d0d0b1 2026-10-05 clean; Phase-1 planning RBAC 2026-10-05; Phase 2/6-7/8-10 perm wave 2026-10-05 (1 MAJOR payment un-approve on manage); Phase 3/4-5/9 wave 2026-10-05 (3 MAJOR, partial)

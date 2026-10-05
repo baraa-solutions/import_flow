@@ -2,7 +2,8 @@
 Default admin on a new installation + forced password change on first login (CTO decision 2026-09-29).
 
 - An empty users table is seeded with admin / settings.DEFAULT_ADMIN_PASSWORD ("Admin@123") and
-  must_change_password=True. Nothing is seeded (or touched) when any user exists.
+  must_change_password=True. Nothing is seeded (or touched) when an active admin exists (users without any
+  active admin get a break-glass admin: tests/unit/test_break_glass_admin.py).
 - While must_change_password is true, every token-authenticated route answers
   403 {"code": "PASSWORD_CHANGE_REQUIRED", ...} except login / refresh / me / me/permissions / logout /
   me/change-password. The check lives in the shared auth dependencies (get_current_user and
@@ -49,7 +50,7 @@ auth_router_module = importlib.import_module("modules.auth.router")
 currencies_router_module = importlib.import_module("modules.currencies.router")
 purchase_orders_router_module = importlib.import_module("modules.purchase_orders.router")
 
-HEAD_REVISION = "d9e4f5a6b7c8"
+HEAD_REVISION = "f6a7b8c9d0e1"
 DEFAULT_PASSWORD = "Admin@123"
 NEW_PASSWORD = "Sorour-Admin-2026"
 CHANGE_URL = "/api/v1/auth/me/change-password"

@@ -135,3 +135,80 @@ Open (MINOR): env allows `v*` tags (unprotectable) -> drop it, dispatch from mai
 (no hashes, sudo runner) runs before SSH key is written -> split sign / verify / upload jobs; `commits/$TAG` and
 build-run lookup should use refs/tags/ + filter event==push (branch named like the tag); verify step uses main's
 ManifestVerifier when dispatched from main; upload-artifact runs before "Remove SSH Credentials".
+
+## Default admin forced change review 2026-09-29 (feat/default-admin-forced-change, uncommitted)
+Design (CTO-accepted): empty users table -> admin/Admin@123 + users.must_change_password; enforce_password_change
+in get_current_user + require_permission (permissions.py) 403s everything but login/refresh/me/me-permissions/
+logout/me/change-password. OK: every resolve_user call site is behind a router-level get_current_user; path exact-match
+after rstrip, fails closed; flag read from DB each request; seeder only on count()==0; migration add-only ALTER,
+server_default 0 (existing users never flagged); bypass ignored in frozen build; audit has no secrets; Flutter clean.
+OPEN (reported): BLOCKER main.py:248 CORS allows Origin "null"/"*" with credentials + PNA -> any web page can log in
+with the now-public Admin@123 on a fresh install and change the password (was harmless with a random password);
+MAJOR reset_clean_production_db.py seed_core_users inserts admin/ADMIN_INITIAL_PASSWORD (now Admin@123) without
+must_change_password=1; MAJOR if .env override is dropped in frozen builds, _forget_used_admin_initial_password must
+still compare against the .env value or it deletes an unchanged 2.1.x admin's only password record; MINOR no rate
+limit on change-password current_password; MINOR tokens not revoked on password change (no per-user iat cutoff);
+MINOR WS authenticate_ws_token ignores the flag (flagged user gets broadcasts).
+Re-check 2026-09-29 (same branch): RESOLVED - CORS only regex origins (no null/*); reset script admin
+must_change_password=1 + DEFAULT_ADMIN_PASSWORD; frozen seed always Admin@123, both .env cleanups compare against
+settings.env_admin_initial_password (None -> keep); WS rejects flagged; change-password throttled per user key
+"change-password:user:<id>" (no collision with /login IP keys; /login behaviour unchanged, XFF-spoofable as before).
+Accepted: /shutdown exempt for flagged admin (DoS only, less than the takeover the design already accepts).
+Schema 4b add_column_ddl: NOT NULL only with a constant server_default (func/()/CURRENT_* -> nullable as before),
+model-defined only. Still OPEN: MINOR tokens not revoked on password change.
+Commit 9d0d0b1 (2026-10-05, desktop close crash): clean at BLOCKER/MAJOR. Frontend single-instance mutex
+Local\SorourLogisticsFrontend (same-session squat = DoS by code already running as the user, accepted); restore
+targets only a window whose process image path equals ours. Backend watchdog: Toolhelp snapshot handle closed in
+finally, frontend handle held for life (prevents PID reuse), tasklist fallback is a fixed argv, no shell.
+[InstallDelete] allow-list now also the 3 legacy launchers (exact names, lowercased compare). MINOR: test_bundle_guard
+launcher tests use non-raw strings ('\b' in "{app}\backups\..." is a backspace) - tests pass for the wrong reason.
+
+## Phase-1 planning RBAC review 2026-10-05 (feat/update-notice-rtl-p1, uncommitted on 8f776ae)
+RESOLVED: Phase-2 item "handler-level resolve_user in customs_consultation" (now require_permission, no X-User left).
+PO/CBM/shipping_scenarios/customs_consultation/import_requirements/freight_quotations: every route has a catalog code;
+writes on *.manage / purchase_orders.delete; POST quick-calculate + customs recalculate on view codes are pure compute
+(verified no commit/add). next_yearly_code fully bound (constant prefixes). seed_rbac DERIVED_GRANTS one-time copy
+(roles + user overrides incl. revokes) only when new code inserted AND source pre-existed; no escalation vs before
+(those routes were any-authenticated). OPEN (reported, MINOR): step 2 re-adds config codes to system roles every
+sync_all (admin removal of purchase_orders.delete from GENERAL_MANAGER undone on restart; per-user revoke still wins);
+step 1 commits before 1b, so a failed copy is never retried (fail-closed lockout of custom roles); no backfill tests.
+Pre-existing NIT: ADMIN compare exact in get_user_effective_permissions/has_user_permission vs .upper() in is_admin_user.
+
+## Phase 2 / 6-7 / 8-10 permission wave review 2026-10-05 (feat/update-notice-rtl-p1, 4d22473 + uncommitted)
+OK: financial_approval, customs_clearance, customs_clearance_quotations, warehouse_receiving, inland_transport,
+file_closure: every route has a catalog code matching the plans (FA-01, CL-01, CCQ-01, WR-01, IT-01, FC-06); all
+require_permission codes exist in PERMISSIONS_CATALOG (scripted check); acting user always current_user (budget
+approved_by query ignored, SWIFT user_name ignored). seed_rbac step 2 now links config codes only when the role is
+created or the code is new (old MINOR "re-adds removed codes" RESOLVED); whole seed one commit (old "1b never
+retried" RESOLVED). ONE_TIME_ROLE_GRANTS batch marker idempotent, never re-grants after removal. Carrier tracking:
+explorer.exe argv + http/https check + encoded AWB (injection fixed).
+OPEN (reported): MAJOR PUT payment Approved->Rejected (and Pending->Rejected) needs only financial_approval.manage,
+now held by LOGISTICS_OPERATOR/CUSTOMS_OFFICER (un-approve with a non-approve code); MINOR lab-test-result CONFORMING
+grants Final Release on customs_clearance.update (no seeded role has update without release); MINOR CUSTOMS_OFFICER
+lacks quotations.manage but its consultation screen embeds the clearance RFQ/price-list screen (writes 403);
+MINOR no maker-checker on payment/budget approve (no created_by, D1 deferred; payment approve records no approver);
+MINOR financial_export_service.launchUrlNative still cmd /c start + runInShell with typed phone/email (| > not
+escaped); MINOR no test that require_permission codes exist in the catalog; NIT file_closure _require_any_permission
+skips when actor is None.
+
+## Phase 3 / 4-5 / 9 wave review 2026-10-05 (same branch, uncommitted; turn-limited, partial)
+Method: runtime inventory = import each modules.<m>.router, walk route.dependant deps, read permission_code from the
+require_permission closure (catches constants; regex scans miss them). All codes in catalog at that time.
+RESOLVED: launchUrlNative now explorer.exe argv + scheme allow-list; test_permission_codes_in_catalog exists (but see
+below); cargo_shipping L1/L2, import_documentation, DCA reviewer identities now from login (old MINOR identity part).
+OK: import_documentation 62 routes view/upload/approve, upload ext whitelist + bounded 20 MB read, no disk writes;
+DCA/ODC/freight_booking/cargo_insurance/cargo_shipping/shipment_updates/demurrage/financial_settlement all per-route
+codes; FS simulate/calculate-actual on view are pure compute; recalculation preview/logs/deps check target view perm
+in service (TARGET_VIEW_PERMISSIONS); one-time grant batches idempotent (marker). Feature dirs: no cmd /c / runInShell.
+OPEN (reported): MAJOR draft-bl POST /{id}/approve single-step override records one user as importer AND broker,
+bypassing DOC-04 dual approval (LOGISTICS_OPERATOR + CUSTOMS_OFFICER hold .approve); MAJOR smart_document_upload
+(3b WIP) upload/parse/parse-multi/parse-text/extract/cross-check/sessions login-only (sessions expose extracted fields
+of all modules incl. financial-document); MAJOR demurrage push-to-settlement writes settlement expense rows on
+demurrage_detention.manage (LOGISTICS_OPERATOR only) and honours req.import_file_id != tracking file (cross-file cost
+injection) + client accountant_name; MINOR cargo_shipping L1==L2 log-only (Q6) and LOGISTICS_OPERATOR holds both
+codes, no durable audit; MINOR DCA tier1/tier2 same user; MINOR FINAL draft B/L soft-deletable on upload; soft delete
+of confirmed booking / dual-approved shipping / issued certificate on create/update/manage codes; MINOR catalog test
+regex misses constant codes (10 routers); route coverage test counts router-level get_current_user as enough;
+MINOR smart-upload apply services ignore `user` (no updated_by); NIT filename echoed unsanitized in 413/415 details.
+Not reviewed (turn limit): import_documentation service internals beyond draft B/L, shipment_updates/insurance
+services, financial_settlement approve SoD details, ODC verified_by source.

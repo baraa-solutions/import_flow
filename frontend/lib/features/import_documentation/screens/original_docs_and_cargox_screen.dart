@@ -87,7 +87,7 @@ class _OriginalDocsAndCargoXScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
+                  color: AppTheme.cobalt.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -126,7 +126,7 @@ class _OriginalDocsAndCargoXScreenState
         onShipmentStatusChanged: _refreshData,
         headerActions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+            icon: Icon(Icons.refresh, color: AppTheme.white, size: density.buttonIconSize),
             tooltip: l.refreshDataTooltip,
             onPressed: _refreshData,
           ),

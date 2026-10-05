@@ -62,7 +62,7 @@ def upsert_dependency(
     """
     Create or update a dependency row.
     Idempotent: matches on (target_entity_type, target_field, source_entity_type, source_field).
-    Used by seed_dependencies.py.
+    Used by seed_dependencies.py (flush only: the caller commits).
     """
     dep = (
         db.query(RecalculationDependencyMap)
@@ -100,8 +100,7 @@ def upsert_dependency(
         dep.label_en = label_en
         dep.display_order = display_order
         dep.is_active = True
-    db.commit()
-    db.refresh(dep)
+    db.flush()
     return dep
 
 
@@ -121,7 +120,7 @@ def create_log(
     action_taken: Optional[str] = None,
     new_entity_id: Optional[int] = None,
 ) -> RecalculationLog:
-    """Creates a unified audit log entry. Must be called for every preview() and apply()."""
+    """Creates a unified audit log entry (flush only: the service commits it with the change, RC-04)."""
     log = RecalculationLog(
         target_entity_type=target_entity_type,
         target_entity_id=target_entity_id,
@@ -136,8 +135,7 @@ def create_log(
         new_entity_id=new_entity_id,
     )
     db.add(log)
-    db.commit()
-    db.refresh(log)
+    db.flush()
     return log
 
 

@@ -59,6 +59,11 @@ class AppButton extends StatelessWidget {
   final bool trailingIcon;
   final String? tooltip;
 
+  /// When true the label is single-line with ellipsis and shrinks to the
+  /// available width, so features no longer need to wrap the button in
+  /// `FittedBox` / `Flexible`. Default false keeps the previous behaviour.
+  final bool fit;
+
   const AppButton({
     super.key,
     required this.label,
@@ -69,6 +74,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.trailingIcon = false,
     this.tooltip,
+    this.fit = false,
   });
 
   // ── Size helpers ──────────────────────────────────────────────────────────
@@ -76,13 +82,28 @@ class AppButton extends StatelessWidget {
   EdgeInsetsGeometry get _padding {
     switch (size) {
       case AppButtonSize.small:
-        return const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+        return const EdgeInsets.symmetric(horizontal: 12, vertical: 5);
       case AppButtonSize.medium:
-        return const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+        return const EdgeInsets.symmetric(horizontal: 16, vertical: 9);
       case AppButtonSize.large:
-        return const EdgeInsets.symmetric(horizontal: 22, vertical: 14);
+        return const EdgeInsets.symmetric(horizontal: 22, vertical: 12);
     }
   }
+
+  /// Minimum height per size (32 / 40 / 48) so every button row lines up.
+  double get _minHeight {
+    switch (size) {
+      case AppButtonSize.small:
+        return 32;
+      case AppButtonSize.medium:
+        return 40;
+      case AppButtonSize.large:
+        return 48;
+    }
+  }
+
+  /// Gap between the icon / spinner and the label.
+  static const double _iconGap = 8;
 
   double get _fontSize {
     switch (size) {
@@ -119,7 +140,7 @@ class AppButton extends StatelessWidget {
 
   // ── Color / style resolver ────────────────────────────────────────────────
 
-  _ButtonStyle get _resolved {
+  _ButtonStyle _resolve(bool dark) {
     switch (variant) {
       case AppButtonVariant.primary:
         return const _ButtonStyle(
@@ -150,24 +171,26 @@ class AppButton extends StatelessWidget {
           spinnerColor: Colors.white,
         );
       case AppButtonVariant.secondary:
-        return const _ButtonStyle(
-          bg: Colors.white,
-          fg: AppTheme.charcoal,
-          border: BorderSide(color: Color(0xFFBDBDBD)),
-          spinnerColor: AppTheme.charcoal,
+        return _ButtonStyle(
+          bg: dark ? AppTheme.darkSurface : AppTheme.surface,
+          fg: dark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+          border: BorderSide(
+              color: dark ? AppTheme.darkBorderLight : AppTheme.borderStrong),
+          spinnerColor: dark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
         );
       case AppButtonVariant.ghost:
-        return const _ButtonStyle(
+        return _ButtonStyle(
           bg: Colors.transparent,
-          fg: AppTheme.charcoal,
-          border: BorderSide(color: Color(0xFFBDBDBD)),
+          fg: dark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+          border: BorderSide(
+              color: dark ? AppTheme.darkBorderLight : AppTheme.borderStrong),
           spinnerColor: AppTheme.cobalt,
         );
       case AppButtonVariant.saveDraft:
-        return const _ButtonStyle(
-          bg: Color(0xFFEFF6FF),
-          fg: AppTheme.cobalt,
-          border: BorderSide(color: AppTheme.cobalt),
+        return _ButtonStyle(
+          bg: dark ? AppTheme.cobaltMedium : AppTheme.infoBackground,
+          fg: dark ? AppTheme.darkHyperlink : AppTheme.wcagCobalt,
+          border: const BorderSide(color: AppTheme.cobaltBorder),
           spinnerColor: AppTheme.cobalt,
         );
     }
@@ -178,7 +201,7 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = _resolved;
+    final s = _resolve(AppTheme.isDark(context));
     final bool disabled = isLoading || onPressed == null;
 
     final Widget spinner = SizedBox(
@@ -190,7 +213,33 @@ class AppButton extends StatelessWidget {
       ),
     );
 
-    final Widget iconWidget = Icon(icon, size: _iconSize, color: s.fg);
+    // Disabled look: muted slate text/icon on a neutral tint (filled) or
+    // transparent surface (outlined), instead of a washed-out brand colour.
+    final bool filled = s.border == null && s.bg != Colors.transparent;
+    final Color disabledFg = AppTheme.isDark(context)
+        ? AppTheme.darkTextMuted
+        : const Color(0xFF94A3B8);
+    // While loading the button keeps its colour so the spinner stays visible.
+    final Color contentColor =
+        (onPressed == null && !isLoading) ? disabledFg : s.fg;
+
+    final Widget iconWidget = Icon(icon, size: _iconSize, color: contentColor);
+
+    // With [fit] the label shrinks (single line + ellipsis) to whatever width
+    // the parent offers instead of overflowing the button's Row.
+    final Widget labelText = Text(
+      label,
+      maxLines: fit ? 1 : null,
+      overflow: fit ? TextOverflow.ellipsis : null,
+      softWrap: fit ? false : null,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: _fontSize,
+        color: contentColor,
+        letterSpacing: 0,
+      ),
+    );
+    final Widget labelWidget = fit ? Flexible(child: labelText) : labelText;
 
     Widget content;
     if (icon != null) {
@@ -200,65 +249,77 @@ class AppButton extends StatelessWidget {
       content = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (leading != null) ...[leading, const SizedBox(width: 6)],
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: _fontSize,
-              color: disabled ? s.fg.withOpacity(0.5) : s.fg,
-            ),
-          ),
-          if (trailing != null) ...[const SizedBox(width: 6), trailing],
+          if (leading != null) ...[leading, const SizedBox(width: _iconGap)],
+          labelWidget,
+          if (trailing != null) ...[const SizedBox(width: _iconGap), trailing],
         ],
       );
     } else {
       content = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isLoading) ...[spinner, const SizedBox(width: 6)],
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: _fontSize,
-              color: disabled ? s.fg.withOpacity(0.5) : s.fg,
-            ),
-          ),
+          if (isLoading) ...[spinner, const SizedBox(width: _iconGap)],
+          labelWidget,
         ],
       );
+    }
+
+    // Without [fit], a button squeezed narrower than its natural width (an
+    // Expanded slot on a phone-width layout) scales its content down instead
+    // of overflowing. Unconstrained it lays out exactly as before, and it
+    // never asks for a bounded width (safe in scroll views / unbounded Rows).
+    if (!fit) {
+      content = FittedBox(fit: BoxFit.scaleDown, child: content);
     }
 
     final ButtonStyle buttonStyle = ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
-          return s.bg == Colors.transparent
-              ? Colors.transparent
-              : s.bg.withOpacity(0.5);
+          if (isLoading) return s.bg; // keep brand colour while busy
+          if (s.bg == Colors.transparent) return Colors.transparent;
+          return filled
+              ? (AppTheme.isDark(context)
+                  ? AppTheme.darkBorder
+                  : const Color(0xFFE2E8F0))
+              : s.bg.withValues(alpha: 0.6);
         }
         return s.bg;
       }),
       foregroundColor: WidgetStateProperty.all(s.fg),
       padding: WidgetStateProperty.all(_padding),
+      minimumSize: WidgetStateProperty.all(Size(0, _minHeight)),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shadowColor: WidgetStateProperty.all(const Color(0x401E293B)),
+      surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
       shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
       ),
       side: s.border != null
           ? WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.disabled)) {
-                return BorderSide(color: s.border!.color.withOpacity(0.4));
+                return BorderSide(
+                    color: s.border!.color.withValues(alpha: 0.5));
+              }
+              if (states.contains(WidgetState.focused)) {
+                return BorderSide(color: s.border!.color, width: 1.6);
               }
               return s.border;
             })
           : null,
       elevation: WidgetStateProperty.resolveWith((states) {
         if (s.bg == Colors.transparent || s.border != null) return 0;
-        if (states.contains(WidgetState.hovered)) return 3;
-        return 2;
+        if (states.contains(WidgetState.disabled)) return 0;
+        if (states.contains(WidgetState.pressed)) return 0;
+        if (states.contains(WidgetState.hovered)) return 2;
+        return 1;
       }),
       overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return (filled ? Colors.white : s.fg).withValues(alpha: 0.14);
+        }
         if (states.contains(WidgetState.hovered)) {
-          return Colors.white.withOpacity(0.08);
+          return (filled ? Colors.white : s.fg).withValues(alpha: 0.08);
         }
         return null;
       }),

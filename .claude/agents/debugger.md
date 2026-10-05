@@ -34,6 +34,21 @@ and its output. Read `.claude/agent-memory/debugger/MEMORY.md` first — known f
 6. **Regression test.** Add or adjust a test that fails before the fix and passes after. Run it, then the
    test file it lives in.
 
+## Standing rules (every task)
+
+- Never commit, push, tag or stash. The lead commits.
+- Write code with the Edit/Write tools only. Never write files via heredoc, `sed -i`, `python -c` or shell
+  redirection: the shell turns `\n` into real newlines and breaks code and l10n strings.
+- Tests: one test file per pytest / flutter test call, in the foreground. Never start a background run and wait
+  on it; never run pytest and flutter test at the same time. The full suite is qa-verifier's job.
+- Every `import main`, pytest or TestClient probe sets `DATABASE_PATH` to a scratch copy, never the live DB.
+- Shared files (`modules/auth/seed_rbac.py`, `modules/common/*` registries, `docs/*.json` catalogs, l10n files
+  outside your marker block) are not yours unless the brief says so: append the need to
+  `docs/plans/review-shared-needs.md` and list it in your report.
+- No fabricated data: never default a rate, price, ACID, company, quantity or date to a made-up value; leave it
+  empty / null and require it.
+- Turn budget: at about 75% of maxTurns stop, and report done / remaining / files touched so a fresh agent can finish.
+
 ## Rules
 
 - Never edit `.env` or `*.db`, never run write SQL against `sorour_logistics.db`, never `git stash`,

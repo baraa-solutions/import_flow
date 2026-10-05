@@ -70,6 +70,9 @@ class RecalculationPreviewResponse {
   final String currentEntityStatus;
   final bool canApply;
   final String messageAr;
+  /// Additive backend contract: render from this code, `messageAr` is the legacy fallback.
+  final String? messageCode;
+  final Map<String, dynamic> params;
 
   const RecalculationPreviewResponse({
     required this.targetEntityType,
@@ -82,6 +85,8 @@ class RecalculationPreviewResponse {
     required this.currentEntityStatus,
     required this.canApply,
     required this.messageAr,
+    this.messageCode,
+    this.params = const {},
   });
 
   factory RecalculationPreviewResponse.fromJson(Map<String, dynamic> json) {
@@ -99,6 +104,8 @@ class RecalculationPreviewResponse {
       currentEntityStatus: json['current_entity_status'] as String? ?? '',
       canApply: json['can_apply'] as bool? ?? false,
       messageAr: json['message_ar'] as String? ?? '',
+      messageCode: json['message_code'] as String?,
+      params: Map<String, dynamic>.from(json['params'] as Map? ?? const {}),
     );
   }
 
@@ -118,6 +125,10 @@ class RecalculationApplyResult {
   final String? newEntityCode;
   final int logId;
   final String messageAr;
+  final String? messageCode;
+  final Map<String, dynamic> params;
+  /// Real list of applied changes returned by the backend (may be empty on old servers).
+  final List<Map<String, dynamic>> appliedChanges;
 
   const RecalculationApplyResult({
     required this.targetEntityType,
@@ -128,6 +139,9 @@ class RecalculationApplyResult {
     this.newEntityCode,
     required this.logId,
     required this.messageAr,
+    this.messageCode,
+    this.params = const {},
+    this.appliedChanges = const [],
   });
 
   factory RecalculationApplyResult.fromJson(Map<String, dynamic> json) {
@@ -140,6 +154,12 @@ class RecalculationApplyResult {
       newEntityCode: json['new_entity_code'] as String?,
       logId: json['log_id'] as int? ?? 0,
       messageAr: json['message_ar'] as String? ?? '',
+      messageCode: json['message_code'] as String?,
+      params: Map<String, dynamic>.from(json['params'] as Map? ?? const {}),
+      appliedChanges: (json['applied_changes'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
     );
   }
 }

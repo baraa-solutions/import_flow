@@ -4,7 +4,41 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../core/services/file_save_helper.dart';
 
+/// Thrown when a COO export is attempted with a required field missing.
+/// [field] is one of `acid`, `hs_code`, `origin`.
+class CooExportBlockedException implements Exception {
+  final String field;
+  const CooExportBlockedException(this.field);
+  @override
+  String toString() => 'CooExportBlockedException($field)';
+}
+
 class CooExportService {
+  /// Returns the first missing mandatory field (`acid`, `hs_code`, `origin`)
+  /// or null when the certificate can be exported. No value is ever invented.
+  static String? missingExportField(Map<String, dynamic> templateData, String? acidNumber) {
+    bool blank(dynamic v) => v == null || v.toString().trim().isEmpty;
+    final acid = (acidNumber ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (acid.isEmpty) return 'acid';
+    final rows = templateData['table_rows'];
+    final rowHasHs = rows is List &&
+        rows.any((r) => r is Map && !blank(r['hs_code']));
+    final hasHs = !blank(templateData['box_8_hs_code']) ||
+        !blank(templateData['hs_code']) ||
+        !blank(templateData['hs_codes']) ||
+        rowHasHs;
+    if (!hasHs) return 'hs_code';
+    if (blank(templateData['country_of_origin']) && blank(templateData['box_4_country_origin'])) {
+      return 'origin';
+    }
+    return null;
+  }
+
+  static void _assertExportable(Map<String, dynamic> templateData, String acidNumber) {
+    final missing = missingExportField(templateData, acidNumber);
+    if (missing != null) throw CooExportBlockedException(missing);
+  }
+
   static String sanitizeEnglishOnly(String input) {
     if (input.isEmpty) return input;
     var text = input.replaceAll(RegExp(r'\s*\([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\.\-]+\)'), '');
@@ -60,7 +94,7 @@ class CooExportService {
   }
 
   static String formatCooHsCode(String input, {bool isChina = true}) {
-    if (input.isEmpty) return isChina ? '56.02' : '5602290000';
+    if (input.trim().isEmpty) return '';
     if (!isChina) return input;
 
     if (input.contains(',') || input.contains('\n') || input.contains(' / ')) {
@@ -173,17 +207,18 @@ class CooExportService {
     required String acidNumber,
     String? exemptionNotes,
   }) async {
+    _assertExportable(templateData, acidNumber);
     final pdf = pw.Document();
     final fontCairo = await PdfGoogleFonts.cairoRegular();
     final fontCairoBold = await PdfGoogleFonts.cairoBold();
 
     final cleanAcidNumber = (acidNumber.isNotEmpty && acidNumber != 'CN - China')
         ? sanitizeEnglishOnly(acidNumber).replaceAll(RegExp(r'[^0-9]'), '')
-        : '5281534391023010013';
+        : '';
     final rawCert = templateData['certificate_number']?.toString() ?? '';
     final certNo = (rawCert.isNotEmpty && !rawCert.startsWith('26C') && !rawCert.startsWith('No A'))
         ? sanitizeEnglishOnly(rawCert)
-        : (cleanAcidNumber.isNotEmpty ? 'DRAFT-$cleanAcidNumber' : 'DRAFT-5281534391023010013');
+        : (cleanAcidNumber.isNotEmpty ? 'DRAFT-$cleanAcidNumber' : 'DRAFT');
 
     final tableRows = (templateData['table_rows'] as List<dynamic>?)
             ?.map((r) => Map<String, dynamic>.from(r as Map))
@@ -205,10 +240,10 @@ class CooExportService {
     final transport = rawTransport;
 
     final destination = sanitizeEnglishOnly((templateData['box_4_country_of_destination'] ?? templateData['box_5_country_destination'] ?? 'EGYPT').toString());
-    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? templateData['box_4_country_origin'] ?? 'EUROPEAN UNION').toString());
+    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? templateData['box_4_country_origin'] ?? '').toString());
     final hsCodes = isChina
-        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString())
-        : (templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '').toString())
+        : (templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '').toString();
     final goodsDesc = sanitizeEnglishOnly((templateData['box_7_description_and_acid'] ?? templateData['box_8_description_packages'] ?? templateData['description'] ?? 'COMMERCIAL CARGO').toString());
     
     final rawWeight = (templateData['box_9_quantity_and_weight'] ?? templateData['box_9_gross_mass'] ?? '').toString().trim();
@@ -286,7 +321,7 @@ class CooExportService {
     List<Map<String, dynamic>> tableRows = const [],
     required String acidNumber,
   }) {
-    final validAcid = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? acidNumber : '5281534391023010013';
+    final validAcid = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? acidNumber : '';
 
     // Format clean Box 7 description with main description, total packed line, stars line, and ACID line
     String cleanBox7;
@@ -1000,7 +1035,7 @@ class CooExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Phase3_Draft_Certificate_of_Origin_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
+      name: 'Draft Certificate of Origin - ${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
     );
   }
 
@@ -1020,7 +1055,7 @@ class CooExportService {
     );
 
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final defaultName = 'Phase3_Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
+    final defaultName = 'Draft Certificate of Origin - $certClean.pdf';
     final bytes = await pdf.save();
 
     if (context == null || !context.mounted) return null;
@@ -1039,12 +1074,13 @@ class CooExportService {
     required String certificateType,
     required String acidNumber,
   }) {
+    _assertExportable(templateData, acidNumber);
     final isChina = certificateType.toUpperCase().contains('CHINA') || certificateType.toUpperCase().contains('CCPIT');
     final certNo = sanitizeEnglishOnly((templateData['certificate_number'] ?? 'DRAFT-COO').toString());
-    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? 'EUROPEAN UNION').toString());
+    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? '').toString());
     final hsCodes = isChina
-        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString())
-        : (templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '').toString())
+        : (templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '').toString();
     final exporter = sanitizeEnglishOnly((templateData['box_1_exporter'] ?? '').toString().replaceAll('\n', ' '));
     final consignee = sanitizeEnglishOnly((templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? '').toString().replaceAll('\n', ' '));
     final cleanAcidNo = sanitizeEnglishOnly(acidNumber);
@@ -1101,7 +1137,7 @@ class CooExportService {
     );
 
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final defaultName = 'Phase3_Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.csv';
+    final defaultName = 'Draft Certificate of Origin - $certClean.csv';
 
     return FileSaveHelper.saveText(
       context: context,

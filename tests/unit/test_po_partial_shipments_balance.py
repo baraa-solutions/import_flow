@@ -166,7 +166,7 @@ class TestPOPartialShipmentsAndBalance:
             ),
         )
         assert alloc1.shipped_quantity == 300.0
-        assert po.status == "Partially Shipped"
+        assert po.status == "PARTIALLY_SHIPPED"  # stored as PO_STATUS code
 
         # 5. Allocate Partial Shipment 2 (200 units of Item 2)
         alloc2 = service.allocate_shipment(
@@ -226,7 +226,7 @@ class TestPOPartialShipmentsAndBalance:
         assert final_balance.total_remaining_qty == 0.0
         assert final_balance.overall_fulfillment_percent == 100.0
         assert final_balance.fulfillment_status == "Fully Shipped"
-        assert po.status == "Fully Shipped"
+        assert po.status == "FULLY_SHIPPED"
 
     def test_api_po_balance_endpoints(self, client, db_session):
         # Create minimal entities

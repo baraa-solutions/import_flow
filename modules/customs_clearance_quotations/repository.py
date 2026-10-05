@@ -1,12 +1,13 @@
 """
-Customs Clearance Quotations & Price Lists Repository
+Customs Clearance Quotations & Price Lists Repository.
+Writes only add / flush: the service owns the single commit per request.
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, desc
+from sqlalchemy import Integer, and_, cast, desc, func, select
 
 from modules.customs_clearance_quotations.model import (
     CustomsClearanceRFQ,
@@ -41,13 +42,48 @@ def get_rfqs(
     return list(db.execute(stmt.offset(skip).limit(limit)).unique().scalars().all())
 
 
-def get_rfq_by_id(db: Session, rfq_id: int) -> Optional[CustomsClearanceRFQ]:
+def get_rfq_by_id(db: Session, rfq_id: int, active_only: bool = False) -> Optional[CustomsClearanceRFQ]:
     stmt = (
         select(CustomsClearanceRFQ)
         .options(joinedload(CustomsClearanceRFQ.quotations))
         .where(CustomsClearanceRFQ.rfq_id == rfq_id)
     )
+    if active_only:
+        stmt = stmt.where(CustomsClearanceRFQ.is_active == True)  # noqa: E712
     return db.execute(stmt).unique().scalar_one_or_none()
+
+
+RFQ_CODE_PREFIX = "CRFQ-"
+
+
+def next_rfq_code(db: Session) -> str:
+    """Next ``CRFQ-NNNNNN`` code: highest numeric suffix + 1 (deleted rows never give their number back)."""
+    suffix = func.substr(CustomsClearanceRFQ.rfq_code, len(RFQ_CODE_PREFIX) + 1)
+    highest = (
+        db.query(func.max(cast(suffix, Integer)))
+        .filter(
+            and_(
+                CustomsClearanceRFQ.rfq_code.like(f"{RFQ_CODE_PREFIX}%"),
+                suffix != "",
+                suffix.op("NOT GLOB")("*[^0-9]*"),  # SQLite: digits only
+            )
+        )
+        .scalar()
+    )
+    return f"{RFQ_CODE_PREFIX}{(highest or 0) + 1:06d}"
+
+
+def rfq_code_exists(db: Session, rfq_code: str) -> bool:
+    return db.query(CustomsClearanceRFQ.rfq_id).filter(CustomsClearanceRFQ.rfq_code == rfq_code).first() is not None
+
+
+def get_active_quotations(db: Session, rfq_id: int) -> List[CustomsClearanceQuotationItem]:
+    db.flush()
+    stmt = select(CustomsClearanceQuotationItem).where(
+        CustomsClearanceQuotationItem.rfq_id == rfq_id,
+        CustomsClearanceQuotationItem.is_active == True,  # noqa: E712
+    )
+    return list(db.execute(stmt).scalars().all())
 
 
 def get_rfq_by_code(db: Session, rfq_code: str) -> Optional[CustomsClearanceRFQ]:
@@ -67,11 +103,8 @@ def create_rfq(db: Session, rfq_data: dict, rfq_code: str) -> CustomsClearanceRF
 
     for q in quotations_data:
         q_dict = q if isinstance(q, dict) else q.model_dump()
-        quotation = CustomsClearanceQuotationItem(rfq_id=rfq.rfq_id, **q_dict)
-        db.add(quotation)
-
-    db.commit()
-    db.refresh(rfq)
+        rfq.quotations.append(CustomsClearanceQuotationItem(**q_dict))
+    db.flush()
     return rfq
 
 
@@ -82,8 +115,7 @@ def update_rfq(db: Session, rfq_id: int, update_data: dict) -> Optional[CustomsC
     for k, v in update_data.items():
         if v is not None and hasattr(rfq, k):
             setattr(rfq, k, v)
-    db.commit()
-    db.refresh(rfq)
+    db.flush()
     return rfq
 
 
@@ -97,20 +129,21 @@ def delete_rfq(db: Session, rfq_id: int, soft: bool = True) -> bool:
             q.is_active = False
     else:
         db.delete(rfq)
-    db.commit()
+    db.flush()
     return True
 
 
-def get_quotation_by_id(db: Session, quotation_id: int) -> Optional[CustomsClearanceQuotationItem]:
+def get_quotation_by_id(db: Session, quotation_id: int, active_only: bool = False) -> Optional[CustomsClearanceQuotationItem]:
     stmt = select(CustomsClearanceQuotationItem).where(CustomsClearanceQuotationItem.quotation_id == quotation_id)
+    if active_only:
+        stmt = stmt.where(CustomsClearanceQuotationItem.is_active == True)  # noqa: E712
     return db.execute(stmt).scalar_one_or_none()
 
 
-def add_quotation_to_rfq(db: Session, rfq_id: int, quotation_data: dict) -> CustomsClearanceQuotationItem:
-    quotation = CustomsClearanceQuotationItem(rfq_id=rfq_id, **quotation_data)
-    db.add(quotation)
-    db.commit()
-    db.refresh(quotation)
+def add_quotation_to_rfq(db: Session, rfq: CustomsClearanceRFQ, quotation_data: dict) -> CustomsClearanceQuotationItem:
+    quotation = CustomsClearanceQuotationItem(**quotation_data)
+    rfq.quotations.append(quotation)
+    db.flush()
     return quotation
 
 
@@ -121,18 +154,13 @@ def update_quotation(db: Session, quotation_id: int, update_data: dict) -> Optio
     for k, v in update_data.items():
         if v is not None and hasattr(quotation, k):
             setattr(quotation, k, v)
-    db.commit()
-    db.refresh(quotation)
+    db.flush()
     return quotation
 
 
-def delete_quotation(db: Session, quotation_id: int) -> bool:
-    quotation = get_quotation_by_id(db, quotation_id)
-    if not quotation:
-        return False
-    db.delete(quotation)
-    db.commit()
-    return True
+def soft_delete_quotation(db: Session, quotation: CustomsClearanceQuotationItem) -> None:
+    quotation.is_active = False
+    db.flush()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,8 +195,7 @@ def get_price_item_by_id(db: Session, price_item_id: int) -> Optional[ClearanceS
 def create_price_item(db: Session, price_data: dict) -> ClearanceServicePriceListItem:
     item = ClearanceServicePriceListItem(**price_data)
     db.add(item)
-    db.commit()
-    db.refresh(item)
+    db.flush()
     return item
 
 
@@ -179,8 +206,7 @@ def update_price_item(db: Session, price_item_id: int, update_data: dict) -> Opt
     for k, v in update_data.items():
         if v is not None and hasattr(item, k):
             setattr(item, k, v)
-    db.commit()
-    db.refresh(item)
+    db.flush()
     return item
 
 
@@ -189,5 +215,5 @@ def delete_price_item(db: Session, price_item_id: int) -> bool:
     if not item:
         return False
     item.is_active = False
-    db.commit()
+    db.flush()
     return True

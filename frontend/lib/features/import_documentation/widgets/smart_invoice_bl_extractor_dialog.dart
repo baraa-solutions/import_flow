@@ -6,11 +6,17 @@ import '../../../core/helpers/file_picker_helper.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
+import '../../cargo_shipping/providers/cargo_shipping_provider.dart';
+import '../providers/import_documentation_provider.dart' show invalidateImportDocDependentsW;
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui.dart';
 
 class SmartInvoiceBLExtractorDialog extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -156,7 +162,7 @@ class _SmartInvoiceBLExtractorDialogState
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(l.smartExtractorExtractInvoiceError(e), isError: true);
+        _showSnackBar(l.smartExtractorExtractInvoiceError(ApiErrorText.of(l, e)), isError: true);
       }
     } finally {
       if (mounted) {
@@ -203,7 +209,7 @@ class _SmartInvoiceBLExtractorDialogState
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(l.smartExtractorExtractBlError(e), isError: true);
+        _showSnackBar(l.smartExtractorExtractBlError(ApiErrorText.of(l, e)), isError: true);
       }
     } finally {
       if (mounted) {
@@ -227,7 +233,6 @@ class _SmartInvoiceBLExtractorDialogState
       final payload = {
         'invoice_data': _extractedInvoice,
         'bl_data': _extractedBL,
-        'weight_tolerance_pct': 3.0,
       };
       final resp = await _dio.post(url, data: payload);
       if (resp.statusCode == 200 && resp.data != null) {
@@ -240,7 +245,7 @@ class _SmartInvoiceBLExtractorDialogState
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(l.smartExtractorAuditError(e), isError: true);
+        _showSnackBar(l.smartExtractorAuditError(ApiErrorText.of(l, e)), isError: true);
       }
     } finally {
       if (mounted) {
@@ -268,13 +273,15 @@ class _SmartInvoiceBLExtractorDialogState
       });
       if (resp.statusCode == 200) {
         ref.invalidate(importFilesProvider);
+        ref.invalidate(purchaseOrdersProvider);
+        invalidateImportDocDependentsW(ref);
         if (mounted) {
           _showSnackBar(l.smartExtractorInvoiceAppliedSuccess);
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(l.smartExtractorApplyInvoiceError(e), isError: true);
+        _showSnackBar(l.smartExtractorApplyInvoiceError(ApiErrorText.of(l, e)), isError: true);
       }
     } finally {
       if (mounted) {
@@ -299,14 +306,27 @@ class _SmartInvoiceBLExtractorDialogState
         'bl_data': _extractedBL,
       });
       if (resp.statusCode == 200) {
-        ref.invalidate(importFilesProvider);
-        if (mounted) {
-          _showSnackBar(l.smartExtractorBlAppliedSuccess);
+        final data = resp.data;
+        // Older/other responses may report applied:false with a 200: not applied.
+        final applied = !(data is Map && data['applied'] == false);
+        if (applied) {
+          ref.invalidate(importFilesProvider);
+          ref.invalidate(cargoShippingProvider);
+          invalidateImportDocDependentsW(ref);
+          if (mounted) {
+            _showSnackBar(l.smartExtractorBlAppliedSuccess);
+          }
+        } else if (mounted) {
+          final msg = data is Map ? (data['message']?.toString() ?? '') : '';
+          _showSnackBar(
+            l.smartExtractorApplyBlError(msg.isNotEmpty ? msg : l.idocABlNotApplied),
+            isError: true,
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(l.smartExtractorApplyBlError(e), isError: true);
+        _showSnackBar(l.smartExtractorApplyBlError(ApiErrorText.of(l, e)), isError: true);
       }
     } finally {
       if (mounted) {
@@ -383,7 +403,7 @@ class _SmartInvoiceBLExtractorDialogState
               ),
               Text(
                 l.smartExtractorDialogSubtitle,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -402,12 +422,12 @@ class _SmartInvoiceBLExtractorDialogState
     final l = context.l10n;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppTheme.surfaceAltOf(context),
         borderRadius: BorderRadius.circular(10),
       ),
       child: TabBar(
         controller: _tabController,
-        labelColor: Colors.white,
+        labelColor: AppTheme.white,
         unselectedLabelColor: AppTheme.charcoal,
         indicator: BoxDecoration(
           color: AppTheme.cobalt,
@@ -497,7 +517,7 @@ class _SmartInvoiceBLExtractorDialogState
                   ),
                   child: Text(
                     l.smartExtractorCurrency(currency),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
@@ -531,7 +551,7 @@ class _SmartInvoiceBLExtractorDialogState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -559,7 +579,7 @@ class _SmartInvoiceBLExtractorDialogState
                 constraints: const BoxConstraints(maxHeight: 220),
                 child: SingleChildScrollView(
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                    headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                     columnSpacing: 18,
                     columns: [
                       const DataColumn(label: Text('#')),
@@ -641,10 +661,10 @@ class _SmartInvoiceBLExtractorDialogState
     final importFilesAsync = ref.watch(importFilesProvider);
     return Card(
       elevation: 0,
-      color: Colors.grey.shade50,
+      color: AppTheme.surfaceAltOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -675,18 +695,13 @@ class _SmartInvoiceBLExtractorDialogState
               ),
             ),
             const SizedBox(width: 16),
-            ElevatedButton.icon(
+            IdocUi.fit(AppButton(
+              label: l.smartExtractorApplyInvoiceButton,
+              icon: Icons.check_circle_outline,
+              variant: AppButtonVariant.success,
+              isLoading: _isApplyingInvoice,
               onPressed: _isApplyingInvoice ? null : _applyInvoiceToImportFile,
-              icon: _isApplyingInvoice
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.check_circle_outline),
-              label: Text(l.smartExtractorApplyInvoiceButton),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-            ),
+            )),
           ],
         ),
       ),
@@ -759,7 +774,7 @@ class _SmartInvoiceBLExtractorDialogState
                   ),
                   child: Text(
                     bl['freight_payment_term'] == 'FREIGHT_PREPAID' ? l.smartExtractorPaymentPrepaid : l.smartExtractorPaymentCollect,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
@@ -797,7 +812,7 @@ class _SmartInvoiceBLExtractorDialogState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -825,7 +840,7 @@ class _SmartInvoiceBLExtractorDialogState
                 constraints: const BoxConstraints(maxHeight: 200),
                 child: SingleChildScrollView(
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                    headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                     columnSpacing: 24,
                     columns: [
                       const DataColumn(label: Text('#')),
@@ -894,10 +909,10 @@ class _SmartInvoiceBLExtractorDialogState
     final l = context.l10n;
     return Card(
       elevation: 0,
-      color: Colors.grey.shade50,
+      color: AppTheme.surfaceAltOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -907,18 +922,13 @@ class _SmartInvoiceBLExtractorDialogState
             const SizedBox(width: 8),
             Text(l.smartExtractorApplyBlSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
             const Spacer(),
-            ElevatedButton.icon(
+            IdocUi.fit(AppButton(
+              label: l.smartExtractorApplyBlButton,
+              icon: Icons.save_alt,
+              variant: AppButtonVariant.primary,
+              isLoading: _isApplyingBL,
               onPressed: _isApplyingBL ? null : _applyBLToShipping,
-              icon: _isApplyingBL
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save_alt),
-              label: Text(l.smartExtractorApplyBlButton),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-            ),
+            )),
           ],
         ),
       ),
@@ -956,23 +966,18 @@ class _SmartInvoiceBLExtractorDialogState
                         ),
                         Text(
                           l.smartExtractorAuditCardSubtitle,
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                         ),
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
+                  IdocUi.fit(AppButton(
+                    label: l.smartExtractorRunAuditButton,
+                    icon: Icons.play_arrow,
+                    variant: AppButtonVariant.warning,
+                    isLoading: _isAuditing,
                     onPressed: _isAuditing ? null : _runCrossAudit,
-                    icon: _isAuditing
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.play_arrow),
-                    label: Text(l.smartExtractorRunAuditButton),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.orange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -1034,7 +1039,7 @@ class _SmartInvoiceBLExtractorDialogState
                   ),
                   child: Text(
                     l.smartExtractorMatchRatio(score),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1054,7 +1059,7 @@ class _SmartInvoiceBLExtractorDialogState
                 decoration: BoxDecoration(
                   color: AppTheme.crimsonLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: AppTheme.crimsonBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1081,7 +1086,7 @@ class _SmartInvoiceBLExtractorDialogState
                 decoration: BoxDecoration(
                   color: AppTheme.orangeLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
+                  border: Border.all(color: AppTheme.orange),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1114,7 +1119,7 @@ class _SmartInvoiceBLExtractorDialogState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1130,7 +1135,7 @@ class _SmartInvoiceBLExtractorDialogState
               constraints: const BoxConstraints(maxHeight: 280),
               child: SingleChildScrollView(
                 child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                  headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                   columnSpacing: 14,
                   columns: [
                     DataColumn(label: Text(l.smartExtractorColCheckItem)),
@@ -1231,10 +1236,10 @@ class _SmartInvoiceBLExtractorDialogState
 
     return Card(
       elevation: 0,
-      color: Colors.blueGrey.shade50,
+      color: AppTheme.surfaceAltOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blueGrey.shade200),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1252,12 +1257,15 @@ class _SmartInvoiceBLExtractorDialogState
                   ),
                   Text(
                     l.smartExtractorNoticeCardSubtitle,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                   ),
                 ],
               ),
             ),
-            OutlinedButton.icon(
+            IdocUi.fit(AppButton(
+              label: l.smartExtractorCopyEnglishNoticeButton,
+              icon: Icons.copy,
+              variant: AppButtonVariant.secondary,
               onPressed: () {
                 CopyHelper.copy(
                   context,
@@ -1265,11 +1273,12 @@ class _SmartInvoiceBLExtractorDialogState
                   customMessage: l.smartExtractorNoticeEnCopied,
                 );
               },
-              icon: const Icon(Icons.copy, size: 16),
-              label: Text(l.smartExtractorCopyEnglishNoticeButton),
-            ),
+            )),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
+            IdocUi.fit(AppButton(
+              label: l.smartExtractorCopyArabicNoticeButton,
+              icon: Icons.copy,
+              variant: AppButtonVariant.primary,
               onPressed: () {
                 CopyHelper.copy(
                   context,
@@ -1277,13 +1286,7 @@ class _SmartInvoiceBLExtractorDialogState
                   customMessage: l.smartExtractorNoticeArCopied,
                 );
               },
-              icon: const Icon(Icons.copy, size: 16),
-              label: Text(l.smartExtractorCopyArabicNoticeButton),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.charcoal,
-                foregroundColor: Colors.white,
-              ),
-            ),
+            )),
           ],
         ),
       ),
@@ -1308,7 +1311,7 @@ class _SmartInvoiceBLExtractorDialogState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: AppTheme.borderOf(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1333,29 +1336,25 @@ class _SmartInvoiceBLExtractorDialogState
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                OutlinedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: pickedFile != null ? pickedFile.name : l.smartExtractorPickFileButton,
+                  icon: Icons.upload_file,
+                  variant: AppButtonVariant.secondary,
                   onPressed: onPickFile,
-                  icon: const Icon(Icons.upload_file),
-                  label: Text(pickedFile != null ? pickedFile.name : l.smartExtractorPickFileButton),
-                ),
+                )),
                 if (pickedFile != null) ...[
                   IconButton(
                     icon: const Icon(Icons.clear, color: AppTheme.crimson, size: 20),
                     onPressed: onClearFile,
                   ),
                 ],
-                ElevatedButton.icon(
+                IdocUi.fit(AppButton(
+                  label: extractButtonLabel,
+                  icon: Icons.auto_awesome,
+                  variant: AppButtonVariant.primary,
+                  isLoading: isLoading,
                   onPressed: isLoading ? null : onExtract,
-                  icon: isLoading
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.auto_awesome),
-                  label: Text(extractButtonLabel),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  ),
-                ),
+                )),
               ],
             ),
           ],
@@ -1368,14 +1367,14 @@ class _SmartInvoiceBLExtractorDialogState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isHighlight ? Colors.amber.shade100 : Colors.white,
+        color: isHighlight ? AppTheme.severityBackgroundOf(context, AppSeverity.warning) : AppTheme.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isHighlight ? Colors.amber.shade400 : Colors.grey.shade300),
+        border: Border.all(color: isHighlight ? AppTheme.orange : AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11.0, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 11.0, color: AppTheme.textMuted)),
           const SizedBox(height: 2),
           CopyableText(
             value,

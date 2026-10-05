@@ -1,12 +1,14 @@
 """
 Database Repository for Docs Customs Approval Hub (DCA-001)
+Queries only: writes flush, the service owns the transaction and commits once (DCA-06).
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Iterable, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, desc
+from sqlalchemy import or_, desc, func
 
+from modules.common.sequence_generator import next_yearly_code
 from modules.docs_customs_approval.model import (
     CustomsDocumentApproval,
     DiscrepancyRectificationTicket,
@@ -15,6 +17,11 @@ from modules.docs_customs_approval.model import (
 
 
 # --- Approval Queries ---
+
+def generate_approval_code(db: Session) -> str:
+    """``CDA-<year>-NNNN`` (DCA-05). The unique constraint stays the guard."""
+    return next_yearly_code(db, CustomsDocumentApproval.approval_code, "CDA", pad=4)
+
 
 def get_approval_by_id(db: Session, approval_id: int) -> Optional[CustomsDocumentApproval]:
     return db.query(CustomsDocumentApproval).filter(
@@ -28,6 +35,21 @@ def get_approval_by_code(db: Session, approval_code: str) -> Optional[CustomsDoc
         CustomsDocumentApproval.approval_code == approval_code,
         CustomsDocumentApproval.is_active == True
     ).first()
+
+
+def get_approval_by_type(
+    db: Session, import_file_id: int, document_types: Iterable[str]
+) -> Optional[CustomsDocumentApproval]:
+    return (
+        db.query(CustomsDocumentApproval)
+        .filter(
+            CustomsDocumentApproval.import_file_id == import_file_id,
+            CustomsDocumentApproval.document_type.in_(list(document_types)),
+            CustomsDocumentApproval.is_active == True,
+        )
+        .order_by(desc(CustomsDocumentApproval.approval_id))
+        .first()
+    )
 
 
 def list_approvals(
@@ -62,8 +84,7 @@ def list_approvals(
 
 def create_approval(db: Session, approval: CustomsDocumentApproval) -> CustomsDocumentApproval:
     db.add(approval)
-    db.commit()
-    db.refresh(approval)
+    db.flush()
     return approval
 
 
@@ -71,27 +92,45 @@ def update_approval(db: Session, approval: CustomsDocumentApproval) -> CustomsDo
     current_version = getattr(approval, "version", 1) or 1
     approval.version = current_version + 1
     approval.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(approval)
+    db.flush()
     return approval
 
 
 def soft_delete_approval(db: Session, approval_id: int) -> bool:
-    approval = db.query(CustomsDocumentApproval).filter(CustomsDocumentApproval.approval_id == approval_id).first()
+    approval = get_approval_by_id(db, approval_id)
     if not approval:
         return False
     approval.is_active = False
-    db.commit()
+    approval.updated_at = datetime.now(timezone.utc)
+    db.flush()
     return True
 
 
 # --- Discrepancy Ticket Queries ---
+
+def generate_ticket_code(db: Session) -> str:
+    """``RECT-<year>-NNNN`` (DCA-05)."""
+    return next_yearly_code(db, DiscrepancyRectificationTicket.ticket_code, "RECT", pad=4)
+
 
 def get_ticket_by_id(db: Session, ticket_id: int) -> Optional[DiscrepancyRectificationTicket]:
     return db.query(DiscrepancyRectificationTicket).filter(
         DiscrepancyRectificationTicket.ticket_id == ticket_id,
         DiscrepancyRectificationTicket.is_active == True
     ).first()
+
+
+def count_tickets_with_status(db: Session, import_file_id: int, statuses: Iterable[str]) -> int:
+    return (
+        db.query(func.count(DiscrepancyRectificationTicket.ticket_id))
+        .filter(
+            DiscrepancyRectificationTicket.import_file_id == import_file_id,
+            DiscrepancyRectificationTicket.is_active == True,
+            DiscrepancyRectificationTicket.status.in_(list(statuses)),
+        )
+        .scalar()
+        or 0
+    )
 
 
 def list_tickets(
@@ -128,22 +167,21 @@ def list_tickets(
 
 def create_ticket(db: Session, ticket: DiscrepancyRectificationTicket) -> DiscrepancyRectificationTicket:
     db.add(ticket)
-    db.commit()
-    db.refresh(ticket)
+    db.flush()
     return ticket
 
 
 def update_ticket(db: Session, ticket: DiscrepancyRectificationTicket) -> DiscrepancyRectificationTicket:
-    db.commit()
-    db.refresh(ticket)
+    ticket.updated_at = datetime.now(timezone.utc)
+    db.flush()
     return ticket
 
 
 # --- Customs Approval Session Queries (STEP-09) ---
 
 def generate_session_code(db: Session) -> str:
-    count = db.query(DocsCustomsApprovalSession).count()
-    return f"DOCAPPR-2026-{count + 1:04d}"
+    """``DOCAPPR-<year>-NNNN`` (DCA-05)."""
+    return next_yearly_code(db, DocsCustomsApprovalSession.session_code, "DOCAPPR", pad=4)
 
 
 def get_session_by_id(db: Session, session_id: int) -> Optional[DocsCustomsApprovalSession]:
@@ -188,8 +226,7 @@ def list_sessions(
 
 def create_session(db: Session, session_obj: DocsCustomsApprovalSession) -> DocsCustomsApprovalSession:
     db.add(session_obj)
-    db.commit()
-    db.refresh(session_obj)
+    db.flush()
     return session_obj
 
 
@@ -197,7 +234,5 @@ def update_session(db: Session, session_obj: DocsCustomsApprovalSession) -> Docs
     current_version = getattr(session_obj, "version", 1) or 1
     session_obj.version = current_version + 1
     session_obj.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(session_obj)
+    db.flush()
     return session_obj
-

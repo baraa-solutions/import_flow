@@ -29,3 +29,9 @@ Related pitfalls:
   `detail` (403 on admin-only routes) in SnackBars instead of `$e`.
 - The role comes from the JWT on the backend. Never send `x-user-role` overrides from features.
 - SDK / test pitfalls moved to [[flutter-344-pitfalls]].
+- No go_router in lib/: auth routing is `AuthGate` (main.dart: Login vs HomeScreen) plus a guard at the top of
+  `HomeScreen.build` (`requiresPasswordChange` -> `ForceChangePasswordScreen`, 2026-09-29). New shell-level gates
+  go there (or into AuthGate if main.dart edits are allowed), not into a router.
+- `403 {"detail": {"code": "PASSWORD_CHANGE_REQUIRED"}}` is caught in both Dio clients
+  (`ApiError.isPasswordChangeRequired`) -> `authNotifier.markPasswordChangeRequired()`. Structured
+  `{code, message}` details: use `ApiError.message` (returns `message`).

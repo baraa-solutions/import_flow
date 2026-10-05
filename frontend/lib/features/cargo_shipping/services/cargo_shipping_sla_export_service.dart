@@ -278,7 +278,7 @@ class CargoShippingSlaExportService {
   }
 
   /// Generates vector A4 Landscape PDF with Cairo typography and executive summary.
-  Future<void> printOrSavePdf() async {
+  Future<void> printOrSavePdf({bool save = false}) async {
     final l10n = _l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final textDir = isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr;
@@ -434,6 +434,18 @@ class CargoShippingSlaExportService {
       ),
     );
 
+    if (save) {
+      final bytes = await pdf.save();
+      if (!context.mounted) return;
+      await FileSaveHelper.exportAndSaveFile(
+        context: context,
+        bytes: bytes,
+        stageName: l10n.cargoShippingSlaStageTitle,
+        importFileNameOrCode: importFile?.importFileCode ?? 'SLA',
+        extension: 'pdf',
+      );
+      return;
+    }
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Cargo_Shipping_SLA_${importFile?.importFileCode ?? "SLA"}.pdf',

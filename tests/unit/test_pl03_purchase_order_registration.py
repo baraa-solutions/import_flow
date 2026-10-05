@@ -360,7 +360,7 @@ class TestPL03PurchaseOrderRegistration:
                 )
             )
         assert exc_info.value.status_code == 400
-        assert "Project with ID 99999" in exc_info.value.detail
+        assert "99999" in exc_info.value.detail  # Arabic detail (PO-16)
 
         # 2. Inactive / Non-existent import file
         with pytest.raises(HTTPException) as exc_info:
@@ -376,7 +376,7 @@ class TestPL03PurchaseOrderRegistration:
                 )
             )
         assert exc_info.value.status_code == 400
-        assert "Import File with ID 88888" in exc_info.value.detail
+        assert "88888" in exc_info.value.detail
 
         # 3. Invalid / Non-existent tariff on item
         with pytest.raises(HTTPException) as exc_info:
@@ -399,7 +399,7 @@ class TestPL03PurchaseOrderRegistration:
                 )
             )
         assert exc_info.value.status_code == 400
-        assert "Tariff with ID 77777" in exc_info.value.detail
+        assert "77777" in exc_info.value.detail
 
         # 4. Zero or Negative Quantity (rejected by Pydantic schema validation)
         with pytest.raises(pydantic.ValidationError):
@@ -446,4 +446,4 @@ class TestPL03PurchaseOrderRegistration:
                 )
             )
         assert exc_info.value.status_code == 400
-        assert "already exists" in exc_info.value.detail
+        assert "مستخدم بالفعل" in exc_info.value.detail

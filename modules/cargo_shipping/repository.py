@@ -6,29 +6,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from .model import CargoShippingRecord
 from .schemas import CargoShippingCreate, CargoShippingUpdate
+from .validators import SERVER_MANAGED_CARGOX_KEYS
+from modules.common.sequence_generator import next_yearly_code
+from modules.common.validators import not_null_columns
 
 def generate_cargo_shipping_code(db: Session) -> str:
-    """Generates unique Cargo Shipping Code in format SHP-YYYY-XXXX."""
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"SHP-{current_year}-"
-    
-    last_record = (
-        db.query(CargoShippingRecord)
-        .filter(CargoShippingRecord.cargo_shipping_code.like(f"{prefix}%"))
-        .order_by(desc(CargoShippingRecord.cargo_shipping_id))
-        .first()
-    )
-    
-    if last_record:
-        try:
-            last_seq = int(last_record.cargo_shipping_code.split("-")[-1])
-            new_seq = last_seq + 1
-        except ValueError:
-            new_seq = 1
-    else:
-        new_seq = 1
-        
-    return f"{prefix}{new_seq:04d}"
+    """Next Cargo Shipping Code ``SHP-YYYY-XXXX`` (highest suffix of the year + 1)."""
+    return next_yearly_code(db, CargoShippingRecord.cargo_shipping_code, "SHP", pad=4)
 
 def get_cargo_shipping_by_id(db: Session, record_id: int, include_inactive: bool = False) -> Optional[CargoShippingRecord]:
     query = db.query(CargoShippingRecord).filter(CargoShippingRecord.cargo_shipping_id == record_id)
@@ -64,7 +48,22 @@ def get_cargo_shipping_list(
         )
     return query.order_by(desc(CargoShippingRecord.cargo_shipping_id)).all()
 
-def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str, processed_containers: list, processed_lcl: dict) -> CargoShippingRecord:
+def _client_cargox_data(cargox_item, current: Optional[dict]) -> dict:
+    """cargox_exchange_data from a request: client fields (platform provider) are taken, the server-managed
+    keys (checklist, envelope status, tx hash, envelope id) keep their stored values."""
+    data = dict(current or {})
+    incoming = cargox_item.model_dump() if hasattr(cargox_item, "model_dump") else dict(cargox_item or {})
+    for key, value in incoming.items():
+        if key not in SERVER_MANAGED_CARGOX_KEYS:
+            data[key] = value
+    if current is None:
+        data.update({"verification_checklist": [], "envelope_status": "Created", "blockchain_tx_hash": None, "envelope_id": None})
+    return data
+
+
+def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str, processed_containers: list, processed_lcl: dict,
+                          status: str, owner: str, user: str) -> CargoShippingRecord:
+    """Adds and flushes the record (the service commits)."""
     db_obj = CargoShippingRecord(
         cargo_shipping_code=code,
         import_file_id=schema.import_file_id,
@@ -75,78 +74,59 @@ def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str, p
         containers_loading_data=processed_containers,
         lcl_tracking_data=processed_lcl,
         courier_tracking_data=schema.courier_tracking_data.model_dump() if schema.courier_tracking_data else {},
-        cargox_exchange_data=schema.cargox_exchange_data.model_dump() if schema.cargox_exchange_data else {},
+        cargox_exchange_data=_client_cargox_data(schema.cargox_exchange_data, None) if schema.cargox_exchange_data else {},
         live_tracking_url=schema.live_tracking_url,
-        status=schema.status,
-        owner=schema.owner,
+        status=status,
+        owner=owner,
         notes=schema.notes,
         is_active=True,
         created_at=datetime.now(timezone.utc),
+        created_by=user,
         updated_at=datetime.now(timezone.utc),
+        updated_by=user,
     )
     db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
+    db.flush()
     return db_obj
 
-def update_cargo_shipping(db: Session, record_id: int, schema: CargoShippingUpdate, processed_containers: Optional[list] = None, processed_lcl: Optional[dict] = None) -> Optional[CargoShippingRecord]:
-    db_obj = get_cargo_shipping_by_id(db, record_id, include_inactive=True)
-    if not db_obj:
-        return None
 
-    # Auto restore upon edit
-    db_obj.is_active = True
-
+def apply_cargo_shipping_update(db_obj: CargoShippingRecord, schema: CargoShippingUpdate, processed_containers: Optional[list] = None,
+                                processed_lcl: Optional[dict] = None) -> CargoShippingRecord:
+    """Copies the sent fields onto an ACTIVE record (no commit). ``status`` is resolved by the service and the
+    server-managed CargoX keys are never taken from the payload."""
     update_data = schema.model_dump(exclude_unset=True)
+    update_data.pop("status", None)
     if processed_containers is not None:
         db_obj.containers_loading_data = processed_containers
         flag_modified(db_obj, "containers_loading_data")
-        if "containers_loading_data" in update_data:
-            del update_data["containers_loading_data"]
-    elif "containers_loading_data" in update_data and update_data["containers_loading_data"] is not None:
-        db_obj.containers_loading_data = [c.model_dump() if hasattr(c, 'model_dump') else c for c in schema.containers_loading_data]
-        flag_modified(db_obj, "containers_loading_data")
-        del update_data["containers_loading_data"]
+    update_data.pop("containers_loading_data", None)
 
     if processed_lcl is not None:
         db_obj.lcl_tracking_data = processed_lcl
         flag_modified(db_obj, "lcl_tracking_data")
-        if "lcl_tracking_data" in update_data:
-            del update_data["lcl_tracking_data"]
+    update_data.pop("lcl_tracking_data", None)
 
-    if "courier_tracking_data" in update_data and update_data["courier_tracking_data"] is not None:
-        db_obj.courier_tracking_data = schema.courier_tracking_data.model_dump() if hasattr(schema.courier_tracking_data, 'model_dump') else update_data["courier_tracking_data"]
+    if update_data.get("courier_tracking_data") is not None:
+        db_obj.courier_tracking_data = schema.courier_tracking_data.model_dump()
         flag_modified(db_obj, "courier_tracking_data")
-        del update_data["courier_tracking_data"]
+    update_data.pop("courier_tracking_data", None)
 
-    if "cargox_exchange_data" in update_data and update_data["cargox_exchange_data"] is not None:
-        db_obj.cargox_exchange_data = schema.cargox_exchange_data.model_dump() if hasattr(schema.cargox_exchange_data, 'model_dump') else update_data["cargox_exchange_data"]
+    if update_data.get("cargox_exchange_data") is not None:
+        db_obj.cargox_exchange_data = _client_cargox_data(schema.cargox_exchange_data, db_obj.cargox_exchange_data or {})
         flag_modified(db_obj, "cargox_exchange_data")
-        del update_data["cargox_exchange_data"]
+    update_data.pop("cargox_exchange_data", None)
 
+    required = not_null_columns(CargoShippingRecord)
     for key, value in update_data.items():
+        if value is None and key in required:
+            continue
         setattr(db_obj, key, value)
 
     db_obj.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(db_obj)
     return db_obj
 
-def soft_delete_cargo_shipping(db: Session, record_id: int) -> bool:
-    db_obj = get_cargo_shipping_by_id(db, record_id, include_inactive=False)
-    if not db_obj:
-        return False
-    db_obj.is_active = False
-    db_obj.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
 
-def restore_cargo_shipping(db: Session, record_id: int) -> Optional[CargoShippingRecord]:
-    db_obj = get_cargo_shipping_by_id(db, record_id, include_inactive=True)
-    if not db_obj:
-        return None
-    db_obj.is_active = True
+def set_cargo_shipping_active(db_obj: CargoShippingRecord, is_active: bool, user: str) -> None:
+    db_obj.is_active = is_active
     db_obj.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(db_obj)
-    return db_obj
+    db_obj.updated_by = user

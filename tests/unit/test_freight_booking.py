@@ -1,5 +1,6 @@
 from datetime import datetime, date, timezone
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -114,14 +115,19 @@ class TestFreightBookingBackend:
         )
         booking = create_booking_service(db_session, payload)
 
+        # FB-02: Confirmed / Sailed can no longer be set through PUT (409); the manual statuses still can
+        with pytest.raises(HTTPException) as exc_info:
+            update_booking_service(db_session, booking.booking_id, ShipmentBookingUpdate(status="Confirmed"))
+        assert exc_info.value.status_code == 409
+
         update_payload = ShipmentBookingUpdate(
             vessel_name="MSC Oscar",
             voyage_number="VY-99",
-            status="Confirmed"
+            status="Booking Requested"
         )
         updated = update_booking_service(db_session, booking.booking_id, update_payload)
         assert updated.vessel_name == "MSC Oscar"
-        assert updated.status == "Confirmed"
+        assert updated.status == "Booking Requested"
 
     def test_soft_delete_booking(self, db_session):
         payload = ShipmentBookingCreate(
@@ -134,8 +140,9 @@ class TestFreightBookingBackend:
         success = soft_delete_booking_service(db_session, b_id)
         assert success is True
 
-        fetched = get_booking_service(db_session, b_id)
-        assert fetched is None
+        with pytest.raises(HTTPException) as exc_info:
+            get_booking_service(db_session, b_id)
+        assert exc_info.value.status_code == 404
 
         # Restore
         restored = restore_booking_service(db_session, b_id)

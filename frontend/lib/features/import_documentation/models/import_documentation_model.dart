@@ -709,6 +709,9 @@ class AcidTrackerSummaryModel {
 
 class POReconciliationItemModel {
   final int? poItemId;
+  /// Packing-list row this line updates (C4). Packing rows are only updated
+  /// by the backend when this is sent.
+  final int? packingItemId;
   final String itemCode;
   final String description;
   final String? hsCode;
@@ -733,6 +736,7 @@ class POReconciliationItemModel {
 
   POReconciliationItemModel({
     this.poItemId,
+    this.packingItemId,
     required this.itemCode,
     required this.description,
     this.hsCode,
@@ -762,6 +766,7 @@ class POReconciliationItemModel {
 
     return POReconciliationItemModel(
       poItemId: json['po_item_id'] as int?,
+      packingItemId: json['packing_item_id'] as int?,
       itemCode: json['item_code'] ?? '',
       description: json['description'] ?? '',
       hsCode: json['hs_code'],
@@ -788,6 +793,7 @@ class POReconciliationItemModel {
 
   POReconciliationItemModel copyWith({
     int? poItemId,
+    int? packingItemId,
     String? itemCode,
     String? description,
     String? hsCode,
@@ -812,6 +818,7 @@ class POReconciliationItemModel {
   }) {
     return POReconciliationItemModel(
       poItemId: poItemId ?? this.poItemId,
+      packingItemId: packingItemId ?? this.packingItemId,
       itemCode: itemCode ?? this.itemCode,
       description: description ?? this.description,
       hsCode: hsCode ?? this.hsCode,
@@ -838,6 +845,7 @@ class POReconciliationItemModel {
 
   Map<String, dynamic> toJson() => {
     'po_item_id': poItemId,
+    if (packingItemId != null) 'packing_item_id': packingItemId,
     'item_code': itemCode,
     'description': description,
     'hs_code': hsCode,
@@ -1708,3 +1716,32 @@ class LegalDocsExpiryComplianceModel {
 }
 
 
+
+/// Which approval actions the draft B/L approval step offers.
+enum DraftBLApprovalMode {
+  /// Neither role approved yet, or the caller cannot use the single step:
+  /// show the dual-approval actions (`POST /draft-bl/dual-approval`).
+  dual,
+
+  /// Exactly one role approved by somebody else: the caller completes the
+  /// missing role with `POST /draft-bl/{id}/approve`.
+  singleStep,
+}
+
+/// The role (`importer` / `customs_broker`) that `/approve` would complete, or
+/// null when the single step is not available.
+String? draftBlSingleStepRole(DraftBLReviewModel? s, {required Set<String> currentUserNames}) {
+  if (s == null) return null;
+  final impDone = s.importerApprovalStatus == 'Approved';
+  final brkDone = s.brokerApprovalStatus == 'Approved';
+  if (impDone == brkDone) return null; // none or both approved
+  final approver = (impDone ? s.importerApprovedBy : s.brokerApprovedBy)?.trim().toLowerCase() ?? '';
+  final me = currentUserNames.map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toSet();
+  if (approver.isNotEmpty && me.contains(approver)) return null; // same user would get 409
+  return impDone ? 'customs_broker' : 'importer';
+}
+
+DraftBLApprovalMode draftBlApprovalMode(DraftBLReviewModel? s, {required Set<String> currentUserNames}) =>
+    draftBlSingleStepRole(s, currentUserNames: currentUserNames) == null
+        ? DraftBLApprovalMode.dual
+        : DraftBLApprovalMode.singleStep;

@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/features/currencies/models/currency_model.dart';
+import 'package:frontend/features/currencies/providers/currencies_provider.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
+import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
+import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
 import 'package:frontend/features/import_documentation/screens/customs_declaration46_screen.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
@@ -40,6 +44,48 @@ class _MockCustomsTariffNotifier extends CustomsTariffNotifier {
     state = AsyncValue.data(initialTariffs);
   }
 }
+
+class _MockPurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> implements PurchaseOrdersNotifier {
+  final List<PurchaseOrderModel> initialPOs;
+  _MockPurchaseOrdersNotifier(this.initialPOs) : super(PurchaseOrdersState(purchaseOrders: initialPOs));
+
+  @override
+  Future<void> fetchPurchaseOrders() async {
+    state = state.copyWith(purchaseOrders: initialPOs, isLoading: false);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCurrenciesNotifier extends CurrenciesNotifier {
+  final List<CurrencyModel> initial;
+  _MockCurrenciesNotifier(this.initial) : super(Dio()) {
+    state = AsyncValue.data(initial);
+  }
+
+  @override
+  Future<void> fetchCurrencies({bool includeInactive = true, String? search}) async {
+    state = AsyncValue.data(initial);
+  }
+}
+
+/// A PO linked to [fileId] whose single line carries [hsCode].
+PurchaseOrderModel _poWithHs(int fileId, String hsCode) => PurchaseOrderModel.fromJson({
+      'po_id': 1,
+      'po_number': 'PO-1',
+      'import_file_id': fileId,
+      'items': [
+        {'item_id': 1, 'po_id': 1, 'hs_code': hsCode, 'quantity': 1, 'unit_price': 1},
+      ],
+    });
+
+CurrencyModel _currency(String code, double? customsRate) => CurrencyModel(
+      currencyCode: code,
+      currencyName: code,
+      currencySymbol: code,
+      latestCustomsRate: customsRate,
+    );
 
 class _FakeRef implements Ref {
   @override
@@ -117,6 +163,8 @@ void main() {
           overrides: [
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
             customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([mockTariff])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(5, '8471.30.00')])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('USD', 48.5)])),
           ],
           child: const MaterialApp(
           locale: Locale('ar'),
@@ -227,6 +275,8 @@ void main() {
           overrides: [
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
             customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([mockTariff])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(7, '8471.30.00')])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('EUR', 55.0)])),
           ],
           child: const MaterialApp(
             locale: Locale('ar'),
@@ -272,6 +322,71 @@ void main() {
       expect(find.text('تفصيل وعاء القيمة للأغراض الجمركية (سيف)'), findsOneWidget);
       expect(find.text('جدول الضرائب والرسوم الجمركية المقررة'), findsOneWidget);
       expect(find.text('بيانات الشحنة والإقرار الجمركي'), findsOneWidget);
+    });
+
+    testWidgets('Missing tariff and customs FX rate show the missing banner and no computed duties', (tester) async {
+      final mockFile = ImportFileModel(
+        importFileId: 9,
+        importFileCode: 'IMP-2026-0009',
+        companyId: 1,
+        companyName: 'Co',
+        supplierId: 2,
+        supplierName: 'Sup',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        estimatedCost: 10000.0,
+        estimatedCostCurrency: 'USD',
+        status: 'Active',
+        owner: 'Admin',
+        progressPercent: 10.0,
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('USD', null)])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('en'),
+            home: AppLocalizationsProvider(
+              locale: Locale('en'),
+              child: Scaffold(
+                body: CustomsDeclaration46Screen(initialSubTab: 0, initialImportFileId: 9),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('decl46FiguresBanner')), findsOneWidget);
+      expect(find.textContaining('Missing:'), findsOneWidget);
+      final cif = tester.widget<TextFormField>(find.byKey(const Key('decl46CifField')));
+      expect(cif.controller!.text, isEmpty, reason: 'no fake CIF/duty number may be shown');
     });
   });
 }

@@ -30,7 +30,7 @@ Each customs calculation may include the following charge items (applicability d
 ```text
 Step 1: CIF = FOB Value + Freight + Insurance
 Step 2: Import Duty = CIF × HS Code Import Duty Rate %
-Step 3: VAT Base = CIF + Import Duty + Freight + Other Applicable Fees
+Step 3: VAT Base = CIF + Import Duty   (freight/insurance are already inside CIF; development, service and basic fees are NOT in the VAT base - engine: modules/customs_tariff/service.py)
 Step 4: VAT = VAT Base × HS Code VAT Rate %
 Step 5: Schedule Tax = CIF × Schedule Tax Rate % (from HS Code, if applicable)
 Step 6: Service Fees + Basic Fees (from fee schedule)

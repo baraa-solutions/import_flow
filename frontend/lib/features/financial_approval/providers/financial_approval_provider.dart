@@ -6,8 +6,8 @@ import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
 
-final paymentRequestsProvider =
-    StateNotifierProvider<PaymentRequestsNotifier, AsyncValue<List<PaymentRequestModel>>>((ref) {
+final paymentRequestsProvider = StateNotifierProvider<PaymentRequestsNotifier,
+    AsyncValue<List<PaymentRequestModel>>>((ref) {
   return PaymentRequestsNotifier(
     ref.watch(dioProvider),
     ref,
@@ -15,11 +15,32 @@ final paymentRequestsProvider =
   );
 });
 
-class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentRequestModel>>> {
+class PaymentRequestsNotifier
+    extends StateNotifier<AsyncValue<List<PaymentRequestModel>>> {
   final Ref? ref;
   final Dio _dio;
   final Dio _uploadDio;
   CancelToken? _cancelToken;
+
+  /// Filters of the last list fetch; every mutation re-fetches with them so the
+  /// user's search / status filter is not silently reset.
+  bool _includeInactive = false;
+  String? _search;
+  int? _poId;
+  int? _supplierId;
+  String? _status;
+
+  /// The backend advances the import-file lifecycle on create / approve / pay /
+  /// reconcile, so the import files list must be reloaded too.
+  void _invalidateImportFiles() {
+    final r = ref;
+    if (r == null) return;
+    try {
+      r.invalidate(importFilesProvider);
+    } catch (_) {
+      // Notifier already disposed (screen closed mid-request): nothing to refresh.
+    }
+  }
 
   /// The first argument must be the authenticated client from `dioProvider`;
   /// [uploadDio] (multipart) defaults to it when omitted.
@@ -42,6 +63,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     int? supplierId,
     String? status,
   }) async {
+    _includeInactive = includeInactive;
+    _search = search;
+    _poId = poId;
+    _supplierId = supplierId;
+    _status = status;
     _cancelToken?.cancel('New fetch requested');
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
@@ -52,7 +78,8 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (poId != null) queryParams['po_id'] = poId;
       if (supplierId != null) queryParams['supplier_id'] = supplierId;
-      if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
+      if (status != null && status.isNotEmpty && status != 'All')
+        queryParams['status'] = status;
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests',
@@ -61,7 +88,8 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       );
 
       final List<dynamic> data = response.data;
-      final requests = data.map((json) => PaymentRequestModel.fromJson(json)).toList();
+      final requests =
+          data.map((json) => PaymentRequestModel.fromJson(json)).toList();
       state = AsyncValue.data(requests);
     } catch (e, stack) {
       if (e is DioException && CancelToken.isCancel(e)) return;
@@ -69,42 +97,57 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     }
   }
 
-  Future<PaymentRequestModel?> createPaymentRequest(Map<String, dynamic> payload) async {
+  /// Re-fetch the list with the filters of the last fetch.
+  Future<void> _refresh() => fetchPaymentRequests(
+        includeInactive: _includeInactive,
+        search: _search,
+        poId: _poId,
+        supplierId: _supplierId,
+        status: _status,
+      );
+
+  Future<PaymentRequestModel?> createPaymentRequest(
+      Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests',
         data: payload,
       );
       final created = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
+      await _refresh();
+      _invalidateImportFiles();
       return created;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<PaymentRequestModel?> updatePaymentRequest(int paymentId, Map<String, dynamic> payload) async {
+  Future<PaymentRequestModel?> updatePaymentRequest(
+      int paymentId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId',
         data: payload,
       );
       final updated = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
+      await _refresh();
+      _invalidateImportFiles();
       return updated;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<PaymentRequestModel?> clonePaymentRequest(int paymentId, Map<String, dynamic> payload) async {
+  Future<PaymentRequestModel?> clonePaymentRequest(
+      int paymentId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/clone',
         data: payload,
       );
       final cloned = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
+      await _refresh();
+      _invalidateImportFiles();
       return cloned;
     } catch (e) {
       rethrow;
@@ -117,26 +160,25 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
         '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/approve',
       );
       final approved = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
+      await _refresh();
+      _invalidateImportFiles();
       return approved;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<PaymentRequestModel?> executePayment(int paymentId, {String? swiftRef}) async {
+  Future<PaymentRequestModel?> executePayment(int paymentId,
+      {String? swiftRef}) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/pay',
-        queryParameters: swiftRef != null ? {'swift_reference_no': swiftRef} : null,
+        queryParameters:
+            swiftRef != null ? {'swift_reference_no': swiftRef} : null,
       );
       final paid = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
-      if (ref != null) {
-        try {
-          ref!.invalidate(importFilesProvider);
-        } catch (_) {}
-      }
+      await _refresh();
+      _invalidateImportFiles();
       return paid;
     } catch (e) {
       rethrow;
@@ -159,17 +201,14 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
           'swift_receipt_date': swiftReceiptDate,
           'swift_transferred_amount': swiftTransferredAmount,
           'swift_transferred_currency': swiftTransferredCurrency,
-          if (swiftReconciliationNotes != null && swiftReconciliationNotes.isNotEmpty)
+          if (swiftReconciliationNotes != null &&
+              swiftReconciliationNotes.isNotEmpty)
             'swift_reconciliation_notes': swiftReconciliationNotes,
         },
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
-      if (ref != null) {
-        try {
-          ref!.invalidate(importFilesProvider);
-        } catch (_) {}
-      }
+      await _refresh();
+      _invalidateImportFiles();
       return reconciled;
     } catch (e) {
       rethrow;
@@ -240,17 +279,14 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
           if (bankName != null) 'bank_name': bankName,
           if (swiftCode != null) 'swift_code': swiftCode,
           if (ibanAccountNo != null) 'iban_account_no': ibanAccountNo,
-          if (swiftReconciliationNotes != null) 'swift_reconciliation_notes': swiftReconciliationNotes,
+          if (swiftReconciliationNotes != null)
+            'swift_reconciliation_notes': swiftReconciliationNotes,
           'auto_execute': autoExecute,
         },
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
-      if (ref != null) {
-        try {
-          ref!.invalidate(importFilesProvider);
-        } catch (_) {}
-      }
+      await _refresh();
+      _invalidateImportFiles();
       return reconciled;
     } catch (e) {
       rethrow;
@@ -272,15 +308,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     required int batchId,
     required String fieldKey,
     required String value,
-    String userName = 'admin',
   }) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/field/$fieldKey',
-        data: {
-          'value': value,
-          'user_name': userName,
-        },
+        data: {'value': value},
       );
       return SwiftBatchModel.fromJson(response.data);
     } catch (e) {
@@ -304,14 +336,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
   Future<Map<String, dynamic>> confirmSwiftBatchReview({
     required int batchId,
-    String userName = 'admin',
   }) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/confirm',
-        data: {
-          'user_name': userName,
-        },
+        data: <String, dynamic>{},
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -351,12 +380,8 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
         },
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
-      await fetchPaymentRequests();
-      if (ref != null) {
-        try {
-          ref!.invalidate(importFilesProvider);
-        } catch (_) {}
-      }
+      await _refresh();
+      _invalidateImportFiles();
       return reconciled;
     } catch (e) {
       rethrow;
@@ -365,8 +390,10 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
   Future<void> softDeletePaymentRequest(int paymentId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId');
-      await fetchPaymentRequests();
+      await _dio.delete(
+          '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId');
+      await _refresh();
+      _invalidateImportFiles();
     } catch (e) {
       rethrow;
     }
@@ -374,25 +401,52 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
   Future<void> restorePaymentRequest(int paymentId) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/restore');
-      await fetchPaymentRequests();
+      await _dio.post(
+          '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/restore');
+      await _refresh();
+      _invalidateImportFiles();
     } catch (e) {
       rethrow;
     }
   }
 }
 
-final importBudgetsProvider =
-    StateNotifierProvider<ImportBudgetsNotifier, AsyncValue<List<ImportBudgetModel>>>((ref) {
+final importBudgetsProvider = StateNotifierProvider<ImportBudgetsNotifier,
+    AsyncValue<List<ImportBudgetModel>>>((ref) {
   return ImportBudgetsNotifier(ref.watch(dioProvider), ref);
 });
 
-class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetModel>>> {
+class ImportBudgetsNotifier
+    extends StateNotifier<AsyncValue<List<ImportBudgetModel>>> {
   final Ref? ref;
   final Dio _dio;
   CancelToken? _cancelToken;
 
-  ImportBudgetsNotifier(this._dio, [this.ref]) : super(const AsyncValue.loading()) {
+  bool _includeInactive = false;
+  String? _search;
+  int? _poId;
+  String? _budgetStatus;
+
+  /// Budget writes advance the import-file lifecycle on the backend.
+  void _invalidateImportFiles() {
+    final r = ref;
+    if (r == null) return;
+    try {
+      r.invalidate(importFilesProvider);
+    } catch (_) {
+      // Notifier already disposed (screen closed mid-request): nothing to refresh.
+    }
+  }
+
+  Future<void> _refresh() => fetchImportBudgets(
+        includeInactive: _includeInactive,
+        search: _search,
+        poId: _poId,
+        budgetStatus: _budgetStatus,
+      );
+
+  ImportBudgetsNotifier(this._dio, [this.ref])
+      : super(const AsyncValue.loading()) {
     fetchImportBudgets();
   }
 
@@ -408,6 +462,10 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     int? poId,
     String? budgetStatus,
   }) async {
+    _includeInactive = includeInactive;
+    _search = search;
+    _poId = poId;
+    _budgetStatus = budgetStatus;
     _cancelToken?.cancel('New fetch requested');
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
@@ -417,7 +475,9 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       };
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (poId != null) queryParams['po_id'] = poId;
-      if (budgetStatus != null && budgetStatus.isNotEmpty && budgetStatus != 'All') {
+      if (budgetStatus != null &&
+          budgetStatus.isNotEmpty &&
+          budgetStatus != 'All') {
         queryParams['budget_status'] = budgetStatus;
       }
 
@@ -428,7 +488,8 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       );
 
       final List<dynamic> data = response.data;
-      final budgets = data.map((json) => ImportBudgetModel.fromJson(json)).toList();
+      final budgets =
+          data.map((json) => ImportBudgetModel.fromJson(json)).toList();
       state = AsyncValue.data(budgets);
     } catch (e, stack) {
       if (e is DioException && CancelToken.isCancel(e)) return;
@@ -436,28 +497,32 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     }
   }
 
-  Future<ImportBudgetModel?> createImportBudget(Map<String, dynamic> payload) async {
+  Future<ImportBudgetModel?> createImportBudget(
+      Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets',
         data: payload,
       );
       final created = ImportBudgetModel.fromJson(response.data);
-      await fetchImportBudgets();
+      await _refresh();
+      _invalidateImportFiles();
       return created;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<ImportBudgetModel?> updateImportBudget(int budgetId, Map<String, dynamic> payload) async {
+  Future<ImportBudgetModel?> updateImportBudget(
+      int budgetId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId',
         data: payload,
       );
       final updated = ImportBudgetModel.fromJson(response.data);
-      await fetchImportBudgets();
+      await _refresh();
+      _invalidateImportFiles();
       return updated;
     } catch (e) {
       rethrow;
@@ -466,8 +531,10 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
 
   Future<void> softDeleteImportBudget(int budgetId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId');
-      await fetchImportBudgets();
+      await _dio.delete(
+          '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId');
+      await _refresh();
+      _invalidateImportFiles();
     } catch (e) {
       rethrow;
     }
@@ -475,26 +542,28 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
 
   Future<void> restoreImportBudget(int budgetId) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/restore');
-      await fetchImportBudgets();
+      await _dio.post(
+          '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/restore');
+      await _refresh();
+      _invalidateImportFiles();
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<ImportBudgetModel?> approveImportBudget(int budgetId, {String approvedBy = 'Finance Manager'}) async {
+  Future<ImportBudgetModel?> approveImportBudget(int budgetId) async {
     try {
+      // The approver is the signed-in user, resolved by the backend.
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/approve',
-        queryParameters: {'approved_by': approvedBy},
       );
       final approved = ImportBudgetModel.fromJson(response.data);
-      await fetchImportBudgets();
-      if (ref != null) {
-        try {
-          ref!.invalidate(importFilesProvider);
-          ref!.invalidate(paymentRequestsProvider);
-        } catch (_) {}
+      await _refresh();
+      _invalidateImportFiles();
+      try {
+        ref?.invalidate(paymentRequestsProvider);
+      } catch (_) {
+        // Notifier already disposed: nothing to refresh.
       }
       return approved;
     } catch (e) {
@@ -502,20 +571,21 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     }
   }
 
-  Future<ImportBudgetModel?> cloneImportBudget(int budgetId, Map<String, dynamic> payload) async {
+  Future<ImportBudgetModel?> cloneImportBudget(
+      int budgetId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/clone',
         data: payload,
       );
       final cloned = ImportBudgetModel.fromJson(response.data);
-      await fetchImportBudgets();
+      await _refresh();
+      _invalidateImportFiles();
       return cloned;
     } catch (e) {
       rethrow;
     }
   }
-
 
   Future<BudgetPrefillModel?> fetchBudgetPrefill(int importFileId) async {
     try {
@@ -524,11 +594,13 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       );
       return BudgetPrefillModel.fromJson(response.data);
     } catch (e) {
-      return null;
+      // Surface backend errors (e.g. 400 FA_FX_RATE_MISSING) to the caller.
+      rethrow;
     }
   }
 
-  Future<BudgetSyncResultModel?> syncBudgetWithUpstream(int budgetId, {String? justificationNote}) async {
+  Future<BudgetSyncResultModel?> syncBudgetWithUpstream(int budgetId,
+      {String? justificationNote}) async {
     try {
       final queryParams = <String, dynamic>{};
       if (justificationNote != null && justificationNote.trim().isNotEmpty) {
@@ -539,28 +611,32 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
       final result = BudgetSyncResultModel.fromJson(response.data);
-      await fetchImportBudgets();
+      await _refresh();
+      _invalidateImportFiles();
       return result;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<ImportBudgetModel?> overrideBudgetVariance(int budgetId, String justificationNote) async {
+  Future<ImportBudgetModel?> overrideBudgetVariance(
+      int budgetId, String justificationNote) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/override-variance',
         data: {'justification_note': justificationNote},
       );
       final updated = ImportBudgetModel.fromJson(response.data);
-      await fetchImportBudgets();
+      await _refresh();
+      _invalidateImportFiles();
       return updated;
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<List<BudgetVarianceLogModel>> fetchBudgetVarianceLogs(int budgetId) async {
+  Future<List<BudgetVarianceLogModel>> fetchBudgetVarianceLogs(
+      int budgetId) async {
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/variance-logs',
@@ -568,7 +644,7 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       final List<dynamic> data = response.data;
       return data.map((json) => BudgetVarianceLogModel.fromJson(json)).toList();
     } catch (e) {
-      return [];
+      rethrow;
     }
   }
 }

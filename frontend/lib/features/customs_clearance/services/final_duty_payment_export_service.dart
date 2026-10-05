@@ -7,6 +7,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_clearance_model.dart';
+import '../widgets/customs_ui.dart';
 
 /// Dedicated Export & Dossier Service for Screen 62:
 /// Customs Clearance - Final Duty Payment & Release.
@@ -45,9 +46,9 @@ class FinalDutyPaymentExportService {
 
     for (final r in records) {
       final isPaid = r.paymentStatus == 'Paid & Verified';
-      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
-      final est = r.estimatedDutyTotal.toStringAsFixed(2);
-      final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} (${r.dutyVariancePercentage}%)';
+      final actual = CcFormat.fixed(r.effectiveDutyTotal);
+      final est = CcFormat.fixed(r.estimatedDutyTotal);
+      final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
       final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
       final releasePermitStr = r.releasePermitNo ?? '-';
       final bankReceiptStr = r.bankReceiptNo ?? '-';
@@ -92,9 +93,9 @@ class FinalDutyPaymentExportService {
 
     for (final r in records) {
       final isPaid = r.paymentStatus == 'Paid & Verified';
-      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
-      final est = r.estimatedDutyTotal.toStringAsFixed(2);
-      final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} (${r.dutyVariancePercentage}%)';
+      final actual = CcFormat.fixed(r.effectiveDutyTotal);
+      final est = CcFormat.fixed(r.estimatedDutyTotal);
+      final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
       final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
       final releasePermitStr = r.releasePermitNo ?? '-';
       final bankReceiptStr = r.bankReceiptNo ?? '-';
@@ -170,16 +171,16 @@ class FinalDutyPaymentExportService {
 
     final totalPayable = records.fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
     final netVariance = records.fold<double>(
       0.0,
-      (sum, r) => sum + r.dutyVarianceAmount,
+      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
     );
 
     buf.writeln(l.finalDutyDossierKpiSummary);
@@ -197,9 +198,9 @@ class FinalDutyPaymentExportService {
       for (int i = 0; i < records.length; i++) {
         final r = records[i];
         final isPaid = r.paymentStatus == 'Paid & Verified';
-        final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
-        final est = r.estimatedDutyTotal.toStringAsFixed(2);
-        final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} (${r.dutyVariancePercentage}%)';
+        final actual = CcFormat.fixed(r.effectiveDutyTotal);
+        final est = CcFormat.fixed(r.estimatedDutyTotal);
+        final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
         final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
 
         buf.writeln('[${i + 1}] ${l.customsClearanceColClearanceCode}: ${r.clearanceCode}');
@@ -264,16 +265,16 @@ class FinalDutyPaymentExportService {
 
     final totalPayable = records.fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
       0.0,
-      (sum, r) => sum + (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable),
+      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
     final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
     final netVariance = records.fold<double>(
       0.0,
-      (sum, r) => sum + r.dutyVarianceAmount,
+      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
     );
 
     doc.addPage(
@@ -441,9 +442,9 @@ class FinalDutyPaymentExportService {
                   // Data Rows
                   ...records.map((r) {
                     final isPaid = r.paymentStatus == 'Paid & Verified';
-                    final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
-                    final est = r.estimatedDutyTotal.toStringAsFixed(2);
-                    final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
+                    final actual = CcFormat.fixed(r.effectiveDutyTotal);
+                    final est = CcFormat.fixed(r.estimatedDutyTotal);
+                    final variance = CcFormat.signedFixed(r.dutyVarianceAmount);
                     final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
                     final releasePermitStr = r.releasePermitNo ?? '-';
                     final bankReceiptStr = r.bankReceiptNo ?? '-';
@@ -458,7 +459,7 @@ class FinalDutyPaymentExportService {
                         _buildPdfTableCell(r.customsOfficeName, isAr: isAr),
                         _buildPdfTableCell('$actual ${l.finalDutyCurrencyEgp}', isAr: isAr, isBold: true, color: PdfColors.green900),
                         _buildPdfTableCell('$est ${l.finalDutyCurrencyEgp}', isAr: isAr),
-                        _buildPdfTableCell(variance, isAr: isAr, color: r.dutyVarianceAmount.abs() > 500 ? PdfColors.orange900 : PdfColors.grey800),
+                        _buildPdfTableCell(variance, isAr: isAr, color: (r.dutyVarianceAmount ?? 0).abs() > 500 ? PdfColors.orange900 : PdfColors.grey800),
                         _buildPdfTableCell(paymentStatusStr, isAr: isAr, isBold: true, color: isPaid ? PdfColors.green900 : PdfColors.orange900),
                         _buildPdfTableCell(bankReceiptStr, isAr: isAr),
                         _buildPdfTableCell(releasePermitStr, isAr: isAr),

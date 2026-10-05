@@ -2,9 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../import_files/providers/import_files_provider.dart';
-import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/original_documents_collection_model.dart';
+import 'import_documentation_provider.dart' show invalidateImportDocDependents;
 
 final originalDocsDioProvider = Provider<Dio>((ref) {
   return ref.watch(dioProvider);
@@ -21,6 +20,8 @@ class OriginalDocumentsCollectionNotifier
   final Dio _dio;
   final Ref? _ref;
   CancelToken? _cancelToken;
+  String? _lastStatus;
+  String? _lastSearch;
 
   OriginalDocumentsCollectionNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSessions();
@@ -38,6 +39,8 @@ class OriginalDocumentsCollectionNotifier
   }) async {
     _cancelToken?.cancel('New fetch requested');
     _cancelToken = CancelToken();
+    _lastStatus = status;
+    _lastSearch = search;
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -82,9 +85,18 @@ class OriginalDocumentsCollectionNotifier
       );
       if (response.data == null) return null;
       return OriginalDocumentsCollectionSessionModel.fromJson(response.data as Map<String, dynamic>);
-    } catch (e) {
-      return null;
+    } on DioException catch (e) {
+      // Only "no session yet" is null. Any other failure (network, 401/403,
+      // 500) must surface: treating it as "no session" makes the next save
+      // upsert over the existing session (FED-09).
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
     }
+  }
+
+  Future<void> _afterMutation() async {
+    await fetchSessions(status: _lastStatus, search: _lastSearch);
+    invalidateImportDocDependents(_ref);
   }
 
   Future<OriginalDocumentsCollectionSessionModel> saveOrUpsertSession(
@@ -98,9 +110,7 @@ class OriginalDocumentsCollectionNotifier
       final created = OriginalDocumentsCollectionSessionModel.fromJson(
         response.data as Map<String, dynamic>,
       );
-      await fetchSessions();
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
+      await _afterMutation();
       return created;
     } catch (e) {
       rethrow;
@@ -118,9 +128,7 @@ class OriginalDocumentsCollectionNotifier
       final updated = OriginalDocumentsCollectionSessionModel.fromJson(
         response.data as Map<String, dynamic>,
       );
-      await fetchSessions();
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
+      await _afterMutation();
       return updated;
     } catch (e) {
       rethrow;
@@ -146,10 +154,10 @@ class OriginalDocumentsCollectionNotifier
     }
   }
 
-  Future<List<int>> downloadExcel(int importFileIdOrSessionId) async {
+  Future<List<int>> downloadExcel(int importFileId) async {
     try {
       final response = await _dio.get<List<int>>(
-        '/original-documents-collection/export/excel/$importFileIdOrSessionId',
+        '/original-documents-collection/export/excel/$importFileId',
         options: Options(responseType: ResponseType.bytes),
       );
       return response.data ?? [];

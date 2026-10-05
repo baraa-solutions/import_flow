@@ -36,6 +36,9 @@ from modules.customs_tariff.model import CustomsTariff
 from modules.common.system_messages import coded_text, msg, render_en
 from modules.common.enum_codes import Placeholder, finalize_structured_values
 from modules.common.file_tracking import set_file_tracking
+from modules.common.errors import best_effort
+from modules.common.validators import not_found, require_active
+from modules.import_files.repository import codes_by_ids
 
 
 from modules.import_documentation.nafeza_acid_parser import (
@@ -58,6 +61,104 @@ from modules.import_documentation.ai_document_parser import (
 
 
 from modules.import_files.model import ImportFile
+
+
+# Day thresholds (DOC-21): module constants now, system_parameters later (Q9).
+ACID_DEFAULT_VALIDITY_DAYS = 90
+ACID_EXPIRING_SOON_DAYS = 14
+DEFAULT_ETA_DAYS = 21
+ETA_SAFETY_MARGIN_DAYS = 30
+COMPANY_DOC_EXPIRING_SOON_DAYS = 60
+
+# Actor recorded when a service runs without a logged-in user (internal call / job).
+SYSTEM_ACTOR = "system"
+
+LABEL_IMPORT_FILE = "ملف الاستيراد"
+LABEL_PURCHASE_ORDER = "أمر الشراء"
+LABEL_ACID_SESSION = "جلسة تسجيل ACID"
+LABEL_BANKING_DOC = "المستند البنكي"
+LABEL_SHIPMENT_DOC = "مستند الشحن"
+LABEL_DRAFT_BL_REVIEW = "مراجعة مسودة البوليصة"
+LABEL_COO_REVIEW = "مراجعة شهادة المنشأ"
+LABEL_INSPECTION_REVIEW = "مراجعة شهادة الفحص"
+LABEL_PO_RECON_SESSION = "جلسة المطابقة"
+LABEL_INVOICE_BL_SESSION = "جلسة مطابقة الفاتورة والبوليصة"
+
+# Draft B/L review statuses that end the workflow (FINAL from approval, APPROVED from legacy certified saves).
+DRAFT_BL_TERMINAL_STATUSES = frozenset({"FINAL", "APPROVED"})
+DRAFT_BL_APPROVAL_ROLES = frozenset({"importer", "customs_broker"})
+DRAFT_BL_APPROVAL_ACTIONS = frozenset({"Approved", "Rejected"})
+# Client-sent fields the server owns on a draft B/L review (DOC-04 / C2).
+_DRAFT_BL_SERVER_OWNED = (
+    "status", "stage",
+    "importer_approval_status", "importer_approved_by", "importer_approval_date", "importer_approval_notes",
+    "broker_approval_status", "broker_approved_by", "broker_approval_date", "broker_approval_notes",
+    "approved_by", "approved_at", "reviewed_by", "reviewed_at",
+)
+PO_FINAL_STATUSES = frozenset({"CLOSED", "CANCELLED"})
+
+
+def _actor(user: Optional[str], legacy: Optional[str] = None) -> str:
+    """The acting user name: the logged-in ``user`` passed by the router. ``legacy`` (a client-sent identity field)
+    is used only by internal callers that pass no user; HTTP routes always pass ``user`` (contract C3)."""
+    return (user or "").strip() or (legacy or "").strip() or SYSTEM_ACTOR
+
+
+def _bad_request(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+def _conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _active_import_file(db: Session, import_file_id: Any, status_code: int = status.HTTP_400_BAD_REQUEST) -> ImportFile:
+    """Active import file or HTTPException (DOC-18): writes use 400, reads of a path id use 404."""
+    if import_file_id is None:
+        raise HTTPException(status_code=status_code, detail=f"{LABEL_IMPORT_FILE} مطلوب.")
+    return require_active(db, ImportFile, import_file_id, LABEL_IMPORT_FILE, status_code=status_code)
+
+
+def _get_active_import_file(db: Session, import_file_id: Any) -> Optional[ImportFile]:
+    """Active import file or None (read paths that tolerate a missing file)."""
+    if not import_file_id:
+        return None
+    return db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True).first()
+
+
+def _require_active_po(db: Session, po_id: Any) -> None:
+    if po_id is not None:
+        from modules.purchase_orders.model import PurchaseOrder as _PO
+        require_active(db, _PO, po_id, LABEL_PURCHASE_ORDER)
+
+
+def _to_float(value: Any, field_label: str) -> float:
+    """``float(value)`` or 400 with an Arabic detail (DOC-07 / DOC-13 number guards)."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise _bad_request(f"قيمة غير صالحة للحقل '{field_label}': {value}")
+
+
+def _field_accepts_none(model: Any, field: str) -> bool:
+    info = model.model_fields.get(field)
+    return info is not None and not info.is_required()
+
+
+def _commit_follow_up(db: Session, fn: Any, label: str, *args: Any, **kwargs: Any) -> None:
+    """``errors.best_effort`` for a follow-up step that commits its own work after the main commit (DOC-11)."""
+
+    def _run() -> None:
+        fn(*args, **kwargs)
+        db.commit()
+
+    best_effort(db, _run, label)
+
+
+def _lifecycle_follow_up(db: Session, label: str, **kwargs: Any) -> None:
+    """Best-effort lifecycle advance after the main commit (the lifecycle service commits its own work)."""
+    from modules.lifecycle_board.service import advance_lifecycle_step_service
+    best_effort(db, lambda: advance_lifecycle_step_service(db=db, **kwargs), label)
 
 
 def get_import_files_map(db: Session, file_ids: Any) -> Dict[int, ImportFile]:
@@ -95,10 +196,7 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
             if imp:
                 import_file_code = imp.import_file_code or imp.custom_file_number
         else:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
-            if imp:
-                import_file_code = imp.import_file_code or imp.custom_file_number
+            import_file_code = codes_by_ids(db, [item.import_file_id]).get(item.import_file_id)
 
     return AcidRegistrationResponse(
         acid_id=item.acid_id,
@@ -163,11 +261,7 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession, import_fi
     po_number = None
 
     if item.import_file_id:
-        if import_file is not None:
-            imp = import_file
-        else:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        imp = import_file if import_file is not None else get_import_files_map(db, [item.import_file_id]).get(item.import_file_id)
         if imp:
             import_file_code = imp.import_file_code or imp.custom_file_number
             importer_name = imp.company_name
@@ -187,12 +281,9 @@ def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem, import
     import_file_code = None
     if item.import_file_id:
         if import_file is not None:
-            imp = import_file
+            import_file_code = import_file.import_file_code or import_file.custom_file_number
         else:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
-        if imp:
-            import_file_code = imp.import_file_code or imp.custom_file_number
+            import_file_code = codes_by_ids(db, [item.import_file_id]).get(item.import_file_id)
 
     from modules.import_documentation.schemas import ShipmentDocumentResponse
     res = ShipmentDocumentResponse.model_validate(item)
@@ -212,6 +303,8 @@ def _handle_acid_verification_workflow(
     3. Auto-completes prior pending SmartTasks for extracting ACID registration.
     4. Dispatches new SmartTask for Logistics Officer to proceed with Freight Booking (BK-01 / STEP_06).
     5. Emits SystemNotification for LOGISTICS_OFFICER & ALL.
+
+    Runs after the session commit: every step is a best-effort follow-up that commits its own work (DOC-11).
     """
     if not db_item.import_file_id:
         return
@@ -219,129 +312,156 @@ def _handle_acid_verification_workflow(
     acid_num = (db_item.acid_number or "").strip()
     is_issued_acid = len(acid_num) == 19 and acid_num.isdigit() and acid_num.upper() != "PENDING"
 
-    from modules.import_files.model import ImportFile
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+    imp = _get_active_import_file(db, db_item.import_file_id)
     if not imp:
         return
+    file_id = imp.import_file_id
 
     # 1. Synchronize to ImportFile
     if is_issued_acid:
-        imp.acid_number = acid_num
-        if db_item.requested_date:
-            imp.acid_request_date = db_item.requested_date
-        if db_item.generated_date:
-            imp.acid_issue_date = db_item.generated_date
-        elif db_item.requested_date and not imp.acid_issue_date:
-            imp.acid_issue_date = db_item.requested_date
-        if db_item.expiry_date:
-            imp.acid_expiry_date = db_item.expiry_date
-        if db_item.execution_days is not None:
-            imp.acid_execution_days = db_item.execution_days
-        db.commit()
+        def _sync_file() -> None:
+            imp.acid_number = acid_num
+            if db_item.requested_date:
+                imp.acid_request_date = db_item.requested_date
+            if db_item.generated_date:
+                imp.acid_issue_date = db_item.generated_date
+            elif db_item.requested_date and not imp.acid_issue_date:
+                imp.acid_issue_date = db_item.requested_date
+            if db_item.expiry_date:
+                imp.acid_expiry_date = db_item.expiry_date
+            if db_item.execution_days is not None:
+                imp.acid_execution_days = db_item.execution_days
+
+        _commit_follow_up(db, _sync_file, "ACID import file sync")
 
     # Only advance lifecycle and dispatch next tasks if it's verified/issued
-    if is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"]:
-        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+    if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"]):
+        return
 
-        # 2. Advance lifecycle from STEP_05 to STEP_06 (Phase 3: Booking & Doc Prep)
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                completed_step_code="STEP_05",
-                import_file_id=imp.import_file_id,
-                target_step_codes=["STEP_06"],
-                auto_complete_prior=True,
-                assigned_user="Logistics Officer",
-                notes_msg=msg("DOC_ACID_REGISTERED", acid_number=acid_num, import_file_code=file_code),
-                next_action_msg=msg("NA_STEP06_CONFIRM_BOOKING"),
-                source_module="ACID Verification Engine",
-                min_progress_percent=40.0,
-            )
-        except Exception as e:
-            logger.warning("Failed to advance lifecycle step STEP_05->STEP_06: %s", e)
+    imp = _get_active_import_file(db, file_id)
+    if not imp:
+        return
+    file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+    acid_id = db_item.acid_id
+    expiry_date = db_item.expiry_date
 
-        # 3. Auto-complete prior pending SmartTasks for ACID issuance
-        try:
-            from modules.smart_tasks.model import SmartTask
-            pending_acid_tasks = (
-                db.query(SmartTask)
-                .filter(
-                    SmartTask.import_file_id == imp.import_file_id,
-                    SmartTask.status.in_(["Pending", "In Progress"]),
-                )
-                .all()
-            )
-            for t in pending_acid_tasks:
-                if any(k in (t.title or "") + (t.description or "") for k in ["ACID", "نافذة", "STEP_05", "رقم القيد"]):
-                    t.status = "Completed"
-                    t.completion_notes = f"ACID {acid_num} obtained and verified via Nafeza."
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to complete prior ACID smart tasks: %s", e)
+    # 2. Advance lifecycle from STEP_05 to STEP_06 (Phase 3: Booking & Doc Prep)
+    _lifecycle_follow_up(
+        db, "Lifecycle advance STEP_05->STEP_06",
+        completed_step_code="STEP_05",
+        import_file_id=file_id,
+        target_step_codes=["STEP_06"],
+        auto_complete_prior=True,
+        assigned_user="Logistics Officer",
+        notes_msg=msg("DOC_ACID_REGISTERED", acid_number=acid_num, import_file_code=file_code),
+        next_action_msg=msg("NA_STEP06_CONFIRM_BOOKING"),
+        source_module="ACID Verification Engine",
+        min_progress_percent=40.0,
+    )
 
-        # 4. Dispatch new SmartTask for Logistics Officer for Freight Booking (BK-01 / STEP_06)
-        try:
-            from modules.smart_tasks.repository import create_task as create_smart_task
-            from modules.smart_tasks.schemas import SmartTaskCreate
+    # 3. Auto-complete prior pending SmartTasks for ACID issuance
+    def _complete_prior_tasks() -> None:
+        from modules.smart_tasks.model import SmartTask
+        pending_acid_tasks = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending_acid_tasks:
+            if any(k in (t.title or "") + (t.description or "") for k in ["ACID", "نافذة", "STEP_05", "رقم القيد"]):
+                t.status = "Completed"
+                t.completion_notes = f"ACID {acid_num} obtained and verified via Nafeza."
 
-            booking_task_msg = msg("DOC_TASK_FREIGHT_BOOKING", import_file_code=file_code, acid_number=acid_num)
-            task_title = render_en(booking_task_msg.code, booking_task_msg.params, "title")
-            task_desc = render_en(booking_task_msg.code, booking_task_msg.params, "body")
-            booking_due = date.today() + timedelta(days=3)
-            task_schema = SmartTaskCreate(
-                title=task_title,
-                description=task_desc,
-                task_type="System Generated",
-                import_file_id=imp.import_file_id,
-                import_file_code=file_code,
-                phase_name="Phase 3: Booking & Doc Prep",
-                assigned_user="Logistics Officer",
-                priority="High",
-                reminder_type="Freight Booking",
-                due_date=str(booking_due),
-                status="Pending",
-                notes=f"ACTION:FREIGHT_BOOKING | File: {file_code} | ACID: {acid_num}",
-            )
-            create_smart_task(db, task_schema, commit=False, msg_code=booking_task_msg.code, msg_params=booking_task_msg.params, created_by="ACID Verification Engine")
-        except Exception as e:
-            logger.warning("Failed to create freight booking smart task: %s", e)
+    _commit_follow_up(db, _complete_prior_tasks, "Complete prior ACID smart tasks")
 
-        # 5. Emit SystemNotification
-        try:
-            from modules.notifications.model import SystemNotification
-            acid_msg = msg(
-                "DOC_ACID_REGISTERED",
-                acid_number=acid_num,
-                import_file_code=file_code,
-                expiry_date=str(db_item.expiry_date) if db_item.expiry_date else None,
-            )
-            notif = SystemNotification(
-                title=render_en(acid_msg.code, acid_msg.params, "title"),
-                message=render_en(acid_msg.code, acid_msg.params, "body"),
-                msg_code=acid_msg.code,
-                msg_params=acid_msg.params,
-                severity="INFO",
-                category="ACID_VERIFICATION",
-                entity_type="AcidRegistrationSession",
-                entity_id=db_item.acid_id,
-                target_role="LOGISTICS_OFFICER",
-            )
-            db.add(notif)
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to create ACID system notification: %s", e)
+    # 4. Dispatch new SmartTask for Logistics Officer for Freight Booking (BK-01 / STEP_06)
+    def _create_booking_task() -> None:
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+
+        booking_task_msg = msg("DOC_TASK_FREIGHT_BOOKING", import_file_code=file_code, acid_number=acid_num)
+        task_title = render_en(booking_task_msg.code, booking_task_msg.params, "title")
+        task_desc = render_en(booking_task_msg.code, booking_task_msg.params, "body")
+        booking_due = date.today() + timedelta(days=3)
+        task_schema = SmartTaskCreate(
+            title=task_title,
+            description=task_desc,
+            task_type="System Generated",
+            import_file_id=file_id,
+            import_file_code=file_code,
+            phase_name="Phase 3: Booking & Doc Prep",
+            assigned_user="Logistics Officer",
+            priority="High",
+            reminder_type="Freight Booking",
+            due_date=str(booking_due),
+            status="Pending",
+            notes=f"ACTION:FREIGHT_BOOKING | File: {file_code} | ACID: {acid_num}",
+        )
+        create_smart_task(db, task_schema, commit=False, msg_code=booking_task_msg.code, msg_params=booking_task_msg.params, created_by="ACID Verification Engine")
+
+    _commit_follow_up(db, _create_booking_task, "Create freight booking smart task")
+
+    # 5. Emit SystemNotification
+    def _notify() -> None:
+        from modules.notifications.model import SystemNotification
+        acid_msg = msg(
+            "DOC_ACID_REGISTERED",
+            acid_number=acid_num,
+            import_file_code=file_code,
+            expiry_date=str(expiry_date) if expiry_date else None,
+        )
+        db.add(SystemNotification(
+            title=render_en(acid_msg.code, acid_msg.params, "title"),
+            message=render_en(acid_msg.code, acid_msg.params, "body"),
+            msg_code=acid_msg.code,
+            msg_params=acid_msg.params,
+            severity="INFO",
+            category="ACID_VERIFICATION",
+            entity_type="AcidRegistrationSession",
+            entity_id=acid_id,
+            target_role="LOGISTICS_OFFICER",
+        ))
+
+    _commit_follow_up(db, _notify, "ACID system notification")
+
+
+_ACID_PENDING_NUMBERS = frozenset({"", "PENDING", "REQUESTED", "DRAFT"})
+_ACID_ISSUED_STATUSES = frozenset({"Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"})
+
+
+def _acid_number_is_pending(acid_number: Optional[str]) -> bool:
+    return (acid_number or "").strip().upper() in _ACID_PENDING_NUMBERS
+
+
+def _apply_acid_derived_fields(item: AcidRegistrationSession) -> bool:
+    """Server-derived ACID fields (DOC-15): execution days from the dates, and a pending/empty number can never
+    carry an issued status. Returns True when something changed."""
+    changed = False
+    if item.generated_date and item.requested_date:
+        days = max(0, (item.generated_date - item.requested_date).days)
+        if item.execution_days != days:
+            item.execution_days = days
+            changed = True
+    if _acid_number_is_pending(item.acid_number) and item.status in _ACID_ISSUED_STATUSES:
+        item.status = "Requested"
+        changed = True
+    return changed
 
 
 def create_acid_session_service(
-    db: Session, schema: AcidRegistrationCreate
+    db: Session, schema: AcidRegistrationCreate, user: Optional[str] = None
 ) -> AcidRegistrationResponse:
     validate_acid_number(schema.acid_number, allow_pending=True)
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
+    if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
 
     # Check if an active session already exists for this import file - if so, seamlessly update it (Upsert)
     if schema.import_file_id:
-        from modules.import_documentation.model import AcidRegistrationSession
         existing = (
             db.query(AcidRegistrationSession)
             .filter(
@@ -357,26 +477,29 @@ def create_acid_session_service(
                     setattr(existing, k, v)
             if hasattr(existing, "set_updated_info"):
                 existing.set_updated_info()
-            
-            # Compute execution days if dates are present
-            if existing.generated_date and existing.requested_date:
-                existing.execution_days = max(0, (existing.generated_date - existing.requested_date).days)
+            _apply_acid_derived_fields(existing)
 
             db.commit()
             db.refresh(existing)
-            db_item = existing
 
             # Trigger ACID verification and synchronization workflow
-            _handle_acid_verification_workflow(db, db_item)
-
-            return enrich_acid_response(db, db_item)
+            _handle_acid_verification_workflow(db, existing)
+            return enrich_acid_response(db, existing)
 
     db_item = repo.create_acid_session(db, schema)
 
-    # Compute execution days if dates are present
-    if db_item.generated_date and db_item.requested_date:
-        db_item.execution_days = max(0, (db_item.generated_date - db_item.requested_date).days)
+    # DOC-15: no expiry sent -> issue (or request) date + ACID_DEFAULT_VALIDITY_DAYS, the same default the tracker
+    # uses. The column is NOT NULL, so "leave it null" needs a schema change (deferred); never "today" any more.
+    changed = False
+    if schema.expiry_date is None:
+        base = db_item.generated_date or db_item.requested_date or date.today()
+        default_expiry = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
+        if db_item.expiry_date != default_expiry:
+            db_item.expiry_date = default_expiry
+            changed = True
+    if _apply_acid_derived_fields(db_item) or changed:
         db.commit()
+        db.refresh(db_item)
 
     # Trigger ACID verification and synchronization workflow
     _handle_acid_verification_workflow(db, db_item)
@@ -385,27 +508,32 @@ def create_acid_session_service(
 
 
 def update_acid_session_service(
-    db: Session, acid_id: int, schema: AcidRegistrationUpdate
+    db: Session, acid_id: int, schema: AcidRegistrationUpdate, user: Optional[str] = None
 ) -> AcidRegistrationResponse:
     db_item = repo.get_acid_session_by_id(db, acid_id)
     if not db_item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ACID Registration Session ID {acid_id} not found.",
-        )
+        raise not_found(LABEL_ACID_SESSION, acid_id)
 
     if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
         validate_no_duplicate_acid_session(db, schema.import_file_id, current_acid_id=acid_id)
+    if "po_id" in schema.model_fields_set:
+        _require_active_po(db, schema.po_id)
 
     if schema.acid_number:
         validate_acid_number(schema.acid_number, allow_pending=True)
 
+    # DOC-15: the expiry rule applies on update too, whenever a date changes.
+    if {"expiry_date", "requested_date"} & schema.model_fields_set:
+        new_expiry = schema.expiry_date if "expiry_date" in schema.model_fields_set else db_item.expiry_date
+        new_requested = schema.requested_date if "requested_date" in schema.model_fields_set else db_item.requested_date
+        validate_acid_expiry(new_expiry, new_requested)
+
     updated = repo.update_acid_session(db, db_item, schema)
 
-    # Compute execution days if dates are present
-    if updated.generated_date and updated.requested_date:
-        updated.execution_days = max(0, (updated.generated_date - updated.requested_date).days)
+    if _apply_acid_derived_fields(updated):
         db.commit()
+        db.refresh(updated)
 
     # Trigger ACID verification and synchronization workflow
     _handle_acid_verification_workflow(db, updated)
@@ -413,14 +541,57 @@ def update_acid_session_service(
     return enrich_acid_response(db, updated)
 
 
+def list_acid_sessions_service(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+) -> List[AcidRegistrationResponse]:
+    """ACID sessions with the import file code, one bulk file query (DOC-17 / DOC-24)."""
+    items = repo.get_all_acid_sessions(
+        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
+    )
+    if not items:
+        return []
+    import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
+    return [enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
+
+
+def get_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationResponse:
+    item = repo.get_acid_session_by_id(db, acid_id)
+    if not item:
+        raise not_found(LABEL_ACID_SESSION, acid_id)
+    return enrich_acid_response(db, item)
+
+
+def _acid_tracker_status(acid_number: Optional[str], days_rem: int, is_released: bool) -> Tuple[str, str, bool]:
+    """(status, deprecated Arabic label, alert_required) for one tracker row. Buckets: released, pending number,
+    <= 0 days Expired, <= ACID_EXPIRING_SOON_DAYS Expiring Soon, else Valid."""
+    if is_released:
+        return "Customs Released", "صُرفت من الجمرك (معفى من التنبيه)", False
+    if _acid_number_is_pending(acid_number):
+        return "Pending Issue", "قيد استخراج الـ ACID", False
+    if days_rem <= 0:
+        return "Expired", f"منتهي الصلاحية (منذ {abs(days_rem)} يوم)", True
+    if days_rem <= ACID_EXPIRING_SOON_DAYS:
+        return "Expiring Soon", f"يوشك على الانتهاء (متبقي {days_rem} يوم)", True
+    return "Valid", f"ساري وصالح (متبقي {days_rem} يوم)", False
+
+
+def _tracker_message(status_value: str, days_rem: int) -> Dict[str, Any]:
+    # DOC-19 / C6: language-neutral twin of status_label_ar (code registered centrally, see review-shared-needs.md).
+    return {"message_code": "DOC_ACID_TRACKER_STATUS", "message_params": {"status": status_value, "days": days_rem}}
+
+
 def get_acid_tracker_service(db: Session):
-    from datetime import timedelta
-    from modules.import_files.model import ImportFile
     from modules.customs_clearance.model import CustomsClearanceRecord
     from modules.import_documentation.schemas import AcidTrackerItem, AcidTrackerSummary
 
     today = date.today()
     items = []
+    names_nullable = _field_accepts_none(AcidTrackerItem, "importer_name")
+    blank_name = None if names_nullable else ""
 
     # Map clearances for rapid release check
     clearances = db.query(CustomsClearanceRecord).filter(CustomsClearanceRecord.is_active == True).all()
@@ -436,7 +607,7 @@ def get_acid_tracker_service(db: Session):
     acid_sessions_by_file = {s.import_file_id: s for s in acid_sessions if s.import_file_id}
     processed_session_ids = set()
 
-    # Query all import files
+    # Query all import files (single-laptop scale: DOC-24 keeps this as is)
     import_files = db.query(ImportFile).filter(ImportFile.is_active == True).all()
 
     for imp in import_files:
@@ -451,7 +622,7 @@ def get_acid_tracker_service(db: Session):
         acid_issue_date = imp.acid_issue_date or (acid_sess.generated_date if acid_sess else None) or (acid_sess.requested_date if acid_sess else None)
         acid_expiry_date = imp.acid_expiry_date or (acid_sess.expiry_date if acid_sess else None)
         if not acid_expiry_date and acid_issue_date:
-            acid_expiry_date = acid_issue_date + timedelta(days=90)
+            acid_expiry_date = acid_issue_date + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
 
         cl = clearance_by_file.get(imp.import_file_id)
         is_released = (
@@ -462,32 +633,13 @@ def get_acid_tracker_service(db: Session):
         customs_released_at = imp.customs_released_at or (cl.release_date if cl else None) or (cl.dispatch_date if cl else None)
         release_permit_no = cl.release_permit_no if cl else None
 
-        days_rem = (acid_expiry_date - today).days if acid_expiry_date else 90
-        total_days = (acid_expiry_date - acid_issue_date).days if (acid_expiry_date and acid_issue_date) else 90
+        days_rem = (acid_expiry_date - today).days if acid_expiry_date else ACID_DEFAULT_VALIDITY_DAYS
+        total_days = (acid_expiry_date - acid_issue_date).days if (acid_expiry_date and acid_issue_date) else ACID_DEFAULT_VALIDITY_DAYS
         if total_days <= 0:
-            total_days = 90
+            total_days = ACID_DEFAULT_VALIDITY_DAYS
         validity_pct = max(0.0, min(100.0, (days_rem / total_days) * 100.0)) if not is_released else 100.0
 
-        if is_released:
-            status = "Customs Released"
-            status_label_ar = "صُرفت من الجمرك (معفى من التنبيه)"
-            alert_required = False
-        elif not acid_num or acid_num.upper() in ["PENDING", "REQUESTED", "DRAFT", ""]:
-            status = "Pending Issue"
-            status_label_ar = "قيد استخراج الـ ACID"
-            alert_required = False
-        elif days_rem <= 0:
-            status = "Expired"
-            status_label_ar = f"منتهي الصلاحية (منذ {abs(days_rem)} يوم)"
-            alert_required = True
-        elif days_rem <= 14:
-            status = "Expiring Soon"
-            status_label_ar = f"يوشك على الانتهاء (متبقي {days_rem} يوم)"
-            alert_required = True
-        else:
-            status = "Valid"
-            status_label_ar = f"ساري وصالح (متبقي {days_rem} يوم)"
-            alert_required = False
+        status, status_label_ar, alert_required = _acid_tracker_status(acid_num, days_rem, is_released)
 
         items.append(
             AcidTrackerItem(
@@ -497,8 +649,8 @@ def get_acid_tracker_service(db: Session):
                 acid_session_id=acid_sess.acid_id if acid_sess else None,
                 acid_code=acid_sess.acid_code if acid_sess else None,
                 acid_number=acid_num or "PENDING",
-                importer_name=imp.company_name or (acid_sess.importer_name if acid_sess else "الشركة المستوردة"),
-                supplier_name=imp.supplier_name or (acid_sess.exporter_name if acid_sess else "المورد الأجنبي"),
+                importer_name=imp.company_name or (acid_sess.importer_name if acid_sess else None) or blank_name,
+                supplier_name=imp.supplier_name or (acid_sess.exporter_name if acid_sess else None) or blank_name,
                 po_number=imp.po_number or (acid_sess.po_number if acid_sess else None),
                 pi_number=imp.pi_number or (acid_sess.proforma_invoice_no if acid_sess else None),
                 shipment_mode=imp.shipment_mode,
@@ -516,6 +668,7 @@ def get_acid_tracker_service(db: Session):
                 status=status,
                 status_label_ar=status_label_ar,
                 alert_required=alert_required,
+                **_tracker_message(status, days_rem),
             )
         )
 
@@ -523,28 +676,17 @@ def get_acid_tracker_service(db: Session):
     for sess in acid_sessions:
         if sess.acid_id in processed_session_ids:
             continue
-        days_rem = (sess.expiry_date - today).days if sess.expiry_date else 90
-        total_days = (sess.expiry_date - (sess.generated_date or sess.requested_date)).days if sess.expiry_date else 90
+        days_rem = (sess.expiry_date - today).days if sess.expiry_date else ACID_DEFAULT_VALIDITY_DAYS
+        total_days = (sess.expiry_date - (sess.generated_date or sess.requested_date)).days if sess.expiry_date else ACID_DEFAULT_VALIDITY_DAYS
         if total_days <= 0:
-            total_days = 90
+            total_days = ACID_DEFAULT_VALIDITY_DAYS
         validity_pct = max(0.0, min(100.0, (days_rem / total_days) * 100.0))
 
         if sess.acid_number == "PENDING":
-            status = "Pending Issue"
-            status_label_ar = "قيد استخراج الـ ACID"
-            alert_required = False
-        elif days_rem <= 0:
-            status = "Expired"
-            status_label_ar = f"منتهي الصلاحية (منذ {abs(days_rem)} يوم)"
-            alert_required = True
-        elif days_rem <= 14:
-            status = "Expiring Soon"
-            status_label_ar = f"يوشك على الانتهاء (متبقي {days_rem} يوم)"
-            alert_required = True
+            status, status_label_ar, alert_required = "Pending Issue", "قيد استخراج الـ ACID", False
         else:
-            status = "Valid"
-            status_label_ar = f"ساري وصالح (متبقي {days_rem} يوم)"
-            alert_required = False
+            # Same buckets; "pending" here means the literal PENDING number only (unchanged behaviour).
+            status, status_label_ar, alert_required = _acid_tracker_status("X", days_rem, False)
 
         items.append(
             AcidTrackerItem(
@@ -573,6 +715,7 @@ def get_acid_tracker_service(db: Session):
                 status=status,
                 status_label_ar=status_label_ar,
                 alert_required=alert_required,
+                **_tracker_message(status, days_rem),
             )
         )
 
@@ -593,7 +736,6 @@ def get_acid_tracker_service(db: Session):
     )
 
 
-
 def parse_acid_text_service(
     db: Session, raw_text: str, import_file_id: int | None = None
 ) -> dict:
@@ -601,11 +743,10 @@ def parse_acid_text_service(
     comparison = None
 
     if import_file_id:
-        from modules.import_files.model import ImportFile
         from modules.suppliers.model import Supplier
         from modules.import_companies.model import ImportCompany
 
-        file_obj = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        file_obj = _get_active_import_file(db, import_file_id)
         if file_obj:
             comp_obj = db.query(ImportCompany).filter(ImportCompany.company_id == file_obj.company_id).first() if file_obj.company_id else None
             supp_obj = db.query(Supplier).filter(Supplier.supplier_id == file_obj.supplier_id).first() if file_obj.supplier_id else None
@@ -645,14 +786,17 @@ def generate_acid_templates_service(req_data: dict) -> dict:
     }
 
 
-def restore_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationResponse:
+def restore_acid_session_service(db: Session, acid_id: int, user: Optional[str] = None) -> AcidRegistrationResponse:
     item = repo.restore_acid_session(db, acid_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ACID Registration Session ID {acid_id} not found.",
-        )
+        raise not_found(LABEL_ACID_SESSION, acid_id)
     return enrich_acid_response(db, item)
+
+
+def soft_delete_acid_session_service(db: Session, acid_id: int, user: Optional[str] = None) -> bool:
+    if not repo.soft_delete_acid_session(db, acid_id):
+        raise not_found(LABEL_ACID_SESSION, acid_id)
+    return True
 
 
 # --- BANKING DOCUMENTS SERVICE ---
@@ -669,6 +813,8 @@ def _handle_banking_document_verification_workflow(
     3. Auto-completes prior pending SmartTasks for Form 4 / LC bank approvals.
     4. Dispatches new SmartTask for Customs Broker / Specialist to prepare Customs Declaration 46 (CS-03 / STEP_13).
     5. Emits SystemNotification for CUSTOMS_BROKER & FINANCIAL_CONTROLLER & ALL.
+
+    Runs after the document commit: every step is a best-effort follow-up that commits its own work (DOC-11).
     """
     if not db_item.import_file_id:
         return
@@ -676,157 +822,168 @@ def _handle_banking_document_verification_workflow(
     ref_num = (db_item.doc_reference_number or "").strip()
     is_valid_ref = bool(ref_num and ref_num.upper() != "PENDING")
 
-    from modules.import_files.model import ImportFile
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+    imp = _get_active_import_file(db, db_item.import_file_id)
     if not imp:
         return
+    file_id = imp.import_file_id
+    doc_type = db_item.doc_type
+    bank_name = db_item.bank_name
+    bank_doc_id = db_item.bank_doc_id
 
     # 1. Synchronize to ImportFile
-    if db_item.request_date:
-        imp.form4_request_date = db_item.request_date
-    if is_valid_ref:
-        imp.form4_no = ref_num
-    if db_item.received_date:
-        imp.form4_received_date = db_item.received_date
-        imp.form4_execution_days = db_item.execution_days
-    db.commit()
+    def _sync_file() -> None:
+        if db_item.request_date:
+            imp.form4_request_date = db_item.request_date
+        if is_valid_ref:
+            imp.form4_no = ref_num
+        if db_item.received_date:
+            imp.form4_received_date = db_item.received_date
+            imp.form4_execution_days = db_item.execution_days
+
+    _commit_follow_up(db, _sync_file, "Banking document import file sync")
 
     # Only advance lifecycle and dispatch next tasks if it's verified / received / approved by bank
-    if is_valid_ref and db_item.status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"]:
-        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+    if not (is_valid_ref and db_item.status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"]):
+        return
 
-        # 2. Advance lifecycle from STEP_12 to STEP_13
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                completed_step_code="STEP_12",
-                import_file_id=imp.import_file_id,
-                target_step_codes=["STEP_13"],
-                auto_complete_prior=True,
-                assigned_user="Customs Broker",
-                notes_msg=msg(
-                    "DOC_BANK_DOCUMENT_RECORDED",
-                    doc_type=db_item.doc_type,
-                    reference_no=ref_num,
-                    import_file_code=file_code,
-                ),
-                next_action_msg=msg("NA_CS_REGISTER_DECLARATION_46"),
-                source_module="Banking Documents Engine",
-                min_progress_percent=65.0,
-            )
-        except Exception as e:
-            logger.warning("Failed to advance lifecycle step STEP_12->STEP_13: %s", e)
+    imp = _get_active_import_file(db, file_id)
+    if not imp:
+        return
+    file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
 
-        # 3. Auto-complete prior pending SmartTasks for Banking Document / Form 4
-        try:
-            from modules.smart_tasks.model import SmartTask
-            pending_tasks = (
-                db.query(SmartTask)
-                .filter(
-                    SmartTask.import_file_id == imp.import_file_id,
-                    SmartTask.status.in_(["Pending", "In Progress"]),
-                )
-                .all()
-            )
-            for t in pending_tasks:
-                combined_text = (t.title or "") + " " + (t.description or "") + " " + (t.reminder_type or "")
-                if any(k in combined_text for k in ["نموذج 4", "اعتماد", "Form 4", "L/C", "STEP_12", "مستند بنكي", "المصادقة البنكية"]):
-                    t.status = "Completed"
-                    t.completion_notes = f"{db_item.doc_type} no. {ref_num} received and approved via {db_item.bank_name}."
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to complete prior banking smart tasks: %s", e)
+    # 2. Advance lifecycle from STEP_12 to STEP_13
+    _lifecycle_follow_up(
+        db, "Lifecycle advance STEP_12->STEP_13",
+        completed_step_code="STEP_12",
+        import_file_id=file_id,
+        target_step_codes=["STEP_13"],
+        auto_complete_prior=True,
+        assigned_user="Customs Broker",
+        notes_msg=msg(
+            "DOC_BANK_DOCUMENT_RECORDED",
+            doc_type=doc_type,
+            reference_no=ref_num,
+            import_file_code=file_code,
+        ),
+        next_action_msg=msg("NA_CS_REGISTER_DECLARATION_46"),
+        source_module="Banking Documents Engine",
+        min_progress_percent=65.0,
+    )
 
-        # 4. Dispatch new SmartTask for Customs Broker / Specialist (CS-03 / STEP_13)
-        try:
-            from modules.smart_tasks.repository import create_task as create_smart_task
-            from modules.smart_tasks.schemas import SmartTaskCreate
+    # 3. Auto-complete prior pending SmartTasks for Banking Document / Form 4
+    def _complete_prior_tasks() -> None:
+        from modules.smart_tasks.model import SmartTask
+        pending_tasks = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending_tasks:
+            combined_text = (t.title or "") + " " + (t.description or "") + " " + (t.reminder_type or "")
+            if any(k in combined_text for k in ["نموذج 4", "اعتماد", "Form 4", "L/C", "STEP_12", "مستند بنكي", "المصادقة البنكية"]):
+                t.status = "Completed"
+                t.completion_notes = f"{doc_type} no. {ref_num} received and approved via {bank_name}."
 
-            decl_task_msg = msg(
-                "DOC_TASK_DECLARATION_46",
-                import_file_code=file_code,
-                doc_type=db_item.doc_type,
-                reference_no=ref_num,
-                bank_name=db_item.bank_name,
-            )
-            task_title = render_en(decl_task_msg.code, decl_task_msg.params, "title")
-            task_desc = render_en(decl_task_msg.code, decl_task_msg.params, "body")
-            decl_due = date.today() + timedelta(days=2)
-            task_schema = SmartTaskCreate(
-                title=task_title,
-                description=task_desc,
-                task_type="System Generated",
-                import_file_id=imp.import_file_id,
-                import_file_code=file_code,
-                phase_name="Phase 5: Port Operations & Clearance",
-                assigned_user="Customs Broker",
-                priority="High",
-                reminder_type="Customs Declaration 46",
-                due_date=str(decl_due),
-                status="Pending",
-                notes=f"ACTION:DECLARATION_46 | File: {file_code} | BankDoc: {ref_num}",
-            )
-            create_smart_task(
-                db, task_schema, created_by="Banking Documents Engine",
-                msg_code=decl_task_msg.code, msg_params=decl_task_msg.params, commit=False,
-            )
-        except Exception as e:
-            logger.warning("Failed to create Customs Declaration 46 smart task: %s", e)
+    _commit_follow_up(db, _complete_prior_tasks, "Complete prior banking smart tasks")
 
-        # 5. Emit SystemNotification
-        try:
-            from modules.notifications.model import SystemNotification
-            bank_msg = msg(
-                "DOC_BANK_DOCUMENT_RECORDED",
-                doc_type=db_item.doc_type,
-                reference_no=ref_num,
-                bank_name=db_item.bank_name,
-                import_file_code=file_code,
-            )
-            notif = SystemNotification(
-                title=render_en(bank_msg.code, bank_msg.params, "title"),
-                message=render_en(bank_msg.code, bank_msg.params, "body"),
-                msg_code=bank_msg.code,
-                msg_params=bank_msg.params,
-                severity="INFO",
-                category="BANKING_DOCUMENT_VERIFICATION",
-                entity_type="BankingDocumentSession",
-                entity_id=db_item.bank_doc_id,
-                target_role="CUSTOMS_BROKER",
-            )
-            db.add(notif)
-            db.commit()
-        except Exception as e:
-            logger.warning("Failed to create banking system notification: %s", e)
+    # 4. Dispatch new SmartTask for Customs Broker / Specialist (CS-03 / STEP_13)
+    def _create_declaration_task() -> None:
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+
+        decl_task_msg = msg(
+            "DOC_TASK_DECLARATION_46",
+            import_file_code=file_code,
+            doc_type=doc_type,
+            reference_no=ref_num,
+            bank_name=bank_name,
+        )
+        task_title = render_en(decl_task_msg.code, decl_task_msg.params, "title")
+        task_desc = render_en(decl_task_msg.code, decl_task_msg.params, "body")
+        decl_due = date.today() + timedelta(days=2)
+        task_schema = SmartTaskCreate(
+            title=task_title,
+            description=task_desc,
+            task_type="System Generated",
+            import_file_id=file_id,
+            import_file_code=file_code,
+            phase_name="Phase 5: Port Operations & Clearance",
+            assigned_user="Customs Broker",
+            priority="High",
+            reminder_type="Customs Declaration 46",
+            due_date=str(decl_due),
+            status="Pending",
+            notes=f"ACTION:DECLARATION_46 | File: {file_code} | BankDoc: {ref_num}",
+        )
+        create_smart_task(
+            db, task_schema, created_by="Banking Documents Engine",
+            msg_code=decl_task_msg.code, msg_params=decl_task_msg.params, commit=False,
+        )
+
+    _commit_follow_up(db, _create_declaration_task, "Create Customs Declaration 46 smart task")
+
+    # 5. Emit SystemNotification
+    def _notify() -> None:
+        from modules.notifications.model import SystemNotification
+        bank_msg = msg(
+            "DOC_BANK_DOCUMENT_RECORDED",
+            doc_type=doc_type,
+            reference_no=ref_num,
+            bank_name=bank_name,
+            import_file_code=file_code,
+        )
+        db.add(SystemNotification(
+            title=render_en(bank_msg.code, bank_msg.params, "title"),
+            message=render_en(bank_msg.code, bank_msg.params, "body"),
+            msg_code=bank_msg.code,
+            msg_params=bank_msg.params,
+            severity="INFO",
+            category="BANKING_DOCUMENT_VERIFICATION",
+            entity_type="BankingDocumentSession",
+            entity_id=bank_doc_id,
+            target_role="CUSTOMS_BROKER",
+        ))
+
+    _commit_follow_up(db, _notify, "Banking system notification")
 
 
 def create_banking_document_service(
-    db: Session, schema: BankingDocumentCreate
+    db: Session, schema: BankingDocumentCreate, user: Optional[str] = None
 ):
+    if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
     if schema.doc_type == "Form 4":
         validate_no_duplicate_form4_session(db, schema.import_file_id)
 
     item = repo.create_banking_document(db, schema)
-    
+
     # Sync and trigger workflow
     _handle_banking_document_verification_workflow(db, item)
 
     return enrich_banking_response(db, item)
 
 
-def update_banking_document_service(
-    db: Session, bank_doc_id: int, schema: BankingDocumentUpdate
-):
+def _get_banking_document_or_404(db: Session, bank_doc_id: int) -> BankingDocumentSession:
     item = repo.get_banking_document_by_id(db, bank_doc_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Banking Document ID {bank_doc_id} not found.",
-        )
+        raise not_found(LABEL_BANKING_DOC, bank_doc_id)
+    return item
+
+
+def update_banking_document_service(
+    db: Session, bank_doc_id: int, schema: BankingDocumentUpdate, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
 
     if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
         validate_no_duplicate_form4_session(db, schema.import_file_id, current_doc_id=bank_doc_id)
+    if getattr(schema, "po_id", None) is not None:
+        _require_active_po(db, schema.po_id)
 
     updated = repo.update_banking_document(db, item, schema)
 
@@ -837,14 +994,10 @@ def update_banking_document_service(
 
 
 def receive_banking_document_service(
-    db: Session, bank_doc_id: int, form4_number: str, received_date: date, notes: str | None = None
+    db: Session, bank_doc_id: int, form4_number: str, received_date: date, notes: str | None = None,
+    user: Optional[str] = None,
 ):
-    item = repo.get_banking_document_by_id(db, bank_doc_id)
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Banking Document ID {bank_doc_id} not found.",
-        )
+    item = _get_banking_document_or_404(db, bank_doc_id)
 
     req_date = item.request_date or item.issue_date or date.today()
     exec_days = max(0, (received_date - req_date).days)
@@ -866,23 +1019,38 @@ def receive_banking_document_service(
     return enrich_banking_response(db, item)
 
 
-def delete_banking_document_service(db: Session, bank_doc_id: int):
-    item = repo.get_banking_document_by_id(db, bank_doc_id)
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Banking Document ID {bank_doc_id} not found.",
-        )
+def delete_banking_document_service(db: Session, bank_doc_id: int, user: Optional[str] = None):
+    item = _get_banking_document_or_404(db, bank_doc_id)
     repo.delete_banking_document(db, item)
     return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
+def list_banking_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
+    """Banking documents with import file details, one bulk file query (DOC-17 / DOC-24)."""
+    items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
+    import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
+    return [enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+
+
+def get_banking_document_service(db: Session, bank_doc_id: int):
+    return enrich_banking_response(db, _get_banking_document_or_404(db, bank_doc_id))
+
+
 # --- SHIPMENT DOCUMENTS SERVICE ---
 def create_shipment_document_service(
-    db: Session, schema: ShipmentDocumentCreate
+    db: Session, schema: ShipmentDocumentCreate, user: Optional[str] = None
 ):
+    if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
     item = repo.create_shipment_document(db, schema)
     return enrich_shipment_doc_response(db, item)
+
+
+def list_shipment_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
+    items = repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+    import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
+    return [enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
 
 
 def update_cargox_and_bl_endorsement_service(
@@ -890,7 +1058,16 @@ def update_cargox_and_bl_endorsement_service(
     doc_id: int,
     cargox_envelope_id: str | None = None,
     endorsement_number: str | None = None,
+    user: Optional[str] = None,
 ):
+    exists = (
+        db.query(ShipmentDocumentItem.document_id)
+        .filter(ShipmentDocumentItem.document_id == doc_id, ShipmentDocumentItem.is_active == True)
+        .first()
+    )
+    if not exists:
+        raise not_found(LABEL_SHIPMENT_DOC, doc_id)
+
     schema = ShipmentDocumentUpdate()
     if cargox_envelope_id:
         schema.is_cargox_uploaded = True
@@ -906,8 +1083,11 @@ def update_cargox_and_bl_endorsement_service(
 
 # --- CUSTOMS DECLARATION SERVICE ---
 def create_customs_declaration_service(
-    db: Session, schema: CustomsDeclarationCreate
+    db: Session, schema: CustomsDeclarationCreate, user: Optional[str] = None
 ) -> CustomsDeclarationDraft:
+    if schema.import_file_id is not None:
+        _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
     return repo.create_customs_declaration(db, schema)
 
 
@@ -992,13 +1172,74 @@ def _numeric_match(val1: Any, val2: Any, tolerance_pct: float = 0.5) -> tuple[bo
     return pct <= tolerance_pct, pct, diff
 
 
+def _open_pos_of_file(db: Session, import_file_id: int) -> Dict[int, PurchaseOrder]:
+    """Active POs of the import file that are not CLOSED / CANCELLED (legacy labels normalized)."""
+    from modules.common import enum_codes
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True,
+    ).all()
+    return {
+        po.po_id: po for po in pos
+        if enum_codes.normalize(enum_codes.PO_STATUS, po.status) not in PO_FINAL_STATUSES
+    }
+
+
+def _load_owned_po_rows(
+    db: Session, import_file_id: int, po_item_ids: List[int], packing_item_ids: List[int]
+) -> Tuple[Dict[int, POLineItem], Dict[int, PackingListItem], Dict[int, PurchaseOrder]]:
+    """PO line and packing rows by id, each owned by an active, open PO of the import file (DOC-02 b).
+    Any foreign / unknown id -> 400 with an Arabic detail. (D1 may later move this check to
+    ``validators.validate_po_lines_belong``.)"""
+    open_pos = _open_pos_of_file(db, import_file_id)
+    lines: Dict[int, POLineItem] = {}
+    packs: Dict[int, PackingListItem] = {}
+    if po_item_ids:
+        rows = db.query(POLineItem).filter(POLineItem.item_id.in_(set(po_item_ids))).all()
+        lines = {r.item_id: r for r in rows if r.po_id in open_pos}
+        foreign = sorted({i for i in po_item_ids if i not in lines})
+        if foreign:
+            raise _bad_request(
+                f"بنود أمر الشراء التالية لا تتبع أمر شراء نشطاً ومفتوحاً لملف الاستيراد رقم {import_file_id}: "
+                f"{', '.join(str(i) for i in foreign)}"
+            )
+    if packing_item_ids:
+        rows = db.query(PackingListItem).filter(PackingListItem.packing_item_id.in_(set(packing_item_ids))).all()
+        packs = {r.packing_item_id: r for r in rows if r.po_id in open_pos}
+        foreign = sorted({i for i in packing_item_ids if i not in packs})
+        if foreign:
+            raise _bad_request(
+                f"بنود قائمة التعبئة التالية لا تتبع أمر شراء نشطاً ومفتوحاً لملف الاستيراد رقم {import_file_id}: "
+                f"{', '.join(str(i) for i in foreign)}"
+            )
+    return lines, packs, open_pos
+
+
+_PO_ADJUSTMENT_NUMBER_FIELDS = (
+    "final_quantity", "final_unit_price", "unit_price", "final_packages_count",
+    "final_net_weight_kg", "final_gross_weight_kg", "final_cbm",
+)
+
+
 # --- 1. FINAL INVOICE & PACKING LIST PO RECONCILIATION ---
-def reconcile_po_final_adjustments_service(db: Session, request: POFinalAdjustmentRequest) -> dict:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+def reconcile_po_final_adjustments_service(
+    db: Session, request: POFinalAdjustmentRequest, user: Optional[str] = None
+) -> dict:
+    imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
+    actor = _actor(user)
+
+    for itm in request.items:
+        negative = [f for f in _PO_ADJUSTMENT_NUMBER_FIELDS if (getattr(itm, f, 0.0) or 0.0) < 0]
+        if negative:
+            raise _bad_request(f"لا يمكن أن تكون القيم سالبة للبند '{itm.item_code}': {', '.join(negative)}")
+
+    po_item_ids = [itm.po_item_id for itm in request.items if itm.po_item_id]
+    packing_item_ids = [pid for pid in (getattr(itm, "packing_item_id", None) for itm in request.items) if pid]
+    lines, packs, open_pos = _load_owned_po_rows(db, request.import_file_id, po_item_ids, packing_item_ids)
 
     updated_items = []
+    touched_po_ids: Set[int] = set()
+    line_po_ids: Set[int] = set()
     total_net_weight = 0.0
     total_gross_weight = 0.0
     total_cbm = 0.0
@@ -1009,39 +1250,50 @@ def reconcile_po_final_adjustments_service(db: Session, request: POFinalAdjustme
         itm.unit_price = final_price
         itm.final_unit_price = final_price
 
-        if itm.po_item_id:
-            db_po_item = db.query(POLineItem).filter(POLineItem.item_id == itm.po_item_id).first()
-            if db_po_item:
-                db_po_item.quantity = itm.final_quantity
-                if final_price > 0:
-                    db_po_item.unit_price = final_price
-                    db_po_item.total_price = itm.final_quantity * final_price
-                if itm.final_net_weight_kg > 0:
-                    db_po_item.net_weight_kg = itm.final_net_weight_kg
-                if itm.final_gross_weight_kg > 0:
-                    db_po_item.gross_weight_kg = itm.final_gross_weight_kg
-                if itm.final_cbm > 0:
-                    db_po_item.total_cbm = itm.final_cbm
+        db_po_item = lines.get(itm.po_item_id) if itm.po_item_id else None
+        # A zero final value means "unchanged": the stored line value is kept and counted (review #9).
+        line_price = final_price if final_price > 0 else (float(db_po_item.unit_price or 0.0) if db_po_item is not None else 0.0)
+        line_total = round(itm.final_quantity * line_price, 2) if line_price > 0 else 0.0
+        if db_po_item is not None:
+            db_po_item.quantity = itm.final_quantity
+            if line_price > 0:
+                db_po_item.unit_price = line_price
+                db_po_item.total_price = line_total
+            if itm.final_net_weight_kg > 0:
+                db_po_item.net_weight_kg = itm.final_net_weight_kg
+            if itm.final_gross_weight_kg > 0:
+                db_po_item.gross_weight_kg = itm.final_gross_weight_kg
+            if itm.final_cbm > 0:
+                db_po_item.total_cbm = itm.final_cbm
+            touched_po_ids.add(db_po_item.po_id)
+            line_po_ids.add(db_po_item.po_id)
 
-            db_pl_item = db.query(PackingListItem).filter(PackingListItem.packing_item_id == itm.po_item_id).first()
-            if db_pl_item:
-                if itm.final_packages_count > 0:
-                    db_pl_item.qty_pkg = itm.final_packages_count
-                if itm.final_net_weight_kg > 0:
-                    db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
-                if itm.final_gross_weight_kg > 0:
-                    db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
-                if itm.final_cbm > 0:
-                    db_pl_item.total_cbm = itm.final_cbm
-                if itm.package_type:
-                    db_pl_item.package_type = itm.package_type
-        
-        total_net_weight += itm.final_net_weight_kg
-        total_gross_weight += itm.final_gross_weight_kg
-        total_cbm += itm.final_cbm
-        if final_price > 0:
-            total_final_amount += itm.final_quantity * final_price
-        
+        # DOC-02 a: a packing row is updated only through its own id, never through the PO line id.
+        packing_item_id = getattr(itm, "packing_item_id", None)
+        db_pl_item = packs.get(packing_item_id) if packing_item_id else None
+        if db_pl_item is not None:
+            if itm.final_packages_count > 0:
+                db_pl_item.qty_pkg = itm.final_packages_count
+            if itm.final_net_weight_kg > 0:
+                db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
+            if itm.final_gross_weight_kg > 0:
+                db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
+            if itm.final_cbm > 0:
+                db_pl_item.total_cbm = itm.final_cbm
+            if itm.package_type:
+                db_pl_item.package_type = itm.package_type
+            touched_po_ids.add(db_pl_item.po_id)
+
+        def _final_or_stored(final_value: float, column: str) -> float:
+            if final_value > 0 or db_po_item is None:
+                return final_value
+            return float(getattr(db_po_item, column) or 0.0)
+
+        total_net_weight += _final_or_stored(itm.final_net_weight_kg, "net_weight_kg")
+        total_gross_weight += _final_or_stored(itm.final_gross_weight_kg, "gross_weight_kg")
+        total_cbm += _final_or_stored(itm.final_cbm, "total_cbm")
+        total_final_amount += line_total  # sum of rounded line totals (review #8)
+
         qty_variance = 0.0
         if itm.initial_quantity > 0:
             qty_variance = ((itm.final_quantity - itm.initial_quantity) / itm.initial_quantity) * 100.0
@@ -1059,9 +1311,24 @@ def reconcile_po_final_adjustments_service(db: Session, request: POFinalAdjustme
 
         updated_items.append(itm.model_dump())
 
-    # Update Import File Snapshot
+    # DOC-02 c: one version bump + audit stamp per touched PO. Header totals follow the adjusted lines (lead
+    # decision on Q2): plain sums of the stored line values, the line math itself is not recomputed.
+    now = datetime.now(timezone.utc)
+    for po_id in touched_po_ids:
+        po = open_pos[po_id]
+        if po_id in line_po_ids:
+            po_lines = list(po.line_items or [])
+            po.total_amount_fob = round(sum(float(l.total_price or 0.0) for l in po_lines), 2)
+            po.total_gross_weight_kg = sum(float(l.gross_weight_kg or 0.0) for l in po_lines)
+            po.total_net_weight_kg = sum(float(l.net_weight_kg or 0.0) for l in po_lines)
+            po.total_cbm = sum(float(l.total_cbm or 0.0) for l in po_lines)
+        po.version = (po.version or 1) + 1
+        po.updated_at = now
+        po.updated_by = actor
+
+    # Update Import File Snapshot (the final amount is not stored on the file: no column yet, deferred)
     imp_file.pi_number = request.final_invoice_number
-    imp_file.total_amount = total_final_amount
+    imp_file.updated_by = actor
     db.commit()
 
     return {
@@ -1080,8 +1347,20 @@ def reconcile_po_final_adjustments_service(db: Session, request: POFinalAdjustme
 
 
 # --- 2. DRAFT BILL OF LADING (B/L) 5-STAGE REVIEW ENGINE ---
+def _party_block(name: Optional[str], address: Optional[str], phone: Optional[str]) -> Optional[str]:
+    """Shipper / consignee block from the known parts only: a missing part is left out, never invented (DOC-03)."""
+    parts = [name] if name else []
+    if address:
+        parts.append(f"Address: {address}")
+    if phone:
+        parts.append(f"Phone: {phone}")
+    return "\n".join(parts).strip() or None
+
+
 def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    """System side of the draft B/L comparison. A value the system does not have is ``None`` (DOC-03): the
+    comparison then takes the draft value instead of flagging a placeholder as a mismatch."""
+    imp_file = _get_active_import_file(db, import_file_id)
     booking = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id == import_file_id, ShipmentBooking.is_active == True).first()
     cargo_shp = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id == import_file_id, CargoShippingRecord.is_active == True).first()
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file and imp_file.company_id else None
@@ -1133,7 +1412,7 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
         # 1. Line items
         if po.line_items:
             for itm in po.line_items:
-                desc = itm.description_ar or itm.description_en or itm.item_code
+                desc = itm.description_en or itm.description_ar or itm.item_code
                 if desc and desc not in goods_desc:
                     goods_desc.append(desc)
                 qty = float(itm.quantity or 0.0)
@@ -1194,33 +1473,35 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
         total_pkgs = inv_total_pkgs
         total_pcs = inv_total_pcs
 
-    shipper_name = supplier.company_name if supplier else (imp_file.supplier_name if imp_file else 'Foreign Supplier')
-    shipper_addr = supplier.address if (supplier and supplier.address) else 'Export Industrial District, Global Port'
-    shipper_phone = getattr(supplier, 'phone', None) or getattr(supplier, 'contact_phone', None) or '+49-89-636-00'
-    shipper_full = f"{shipper_name}\nAddress: {shipper_addr}\nPhone: {shipper_phone}".strip()
+    shipper_name = supplier.company_name if supplier else (imp_file.supplier_name if imp_file else None)
+    shipper_addr = supplier.address if (supplier and supplier.address) else None
+    shipper_phone = getattr(supplier, 'phone', None) or getattr(supplier, 'contact_phone', None)
+    shipper_full = _party_block(shipper_name, shipper_addr, shipper_phone)
 
-    consignee_name = company.importer_name if company else (imp_file.company_name if imp_file else 'Importing Company')
-    consignee_addr = company.address if (company and company.address) else '15 Industrial Zone, Cairo, Egypt'
-    consignee_phone = getattr(company, 'phone', None) or '+20-2-25778899'
-    consignee_full = f"{consignee_name}\nAddress: {consignee_addr}\nPhone: {consignee_phone}".strip()
+    consignee_name = company.importer_name if company else (imp_file.company_name if imp_file else None)
+    consignee_addr = company.address if (company and company.address) else None
+    consignee_phone = getattr(company, 'phone', None)
+    consignee_full = _party_block(consignee_name, consignee_addr, consignee_phone)
 
     notify_party_full = consignee_full
-    vessel = booking.vessel_name if (booking and booking.vessel_name) else "OCEAN VESSEL"
-    voyage = getattr(booking, 'voyage_number', None) or getattr(booking, 'voyage_no', None) or "VOY-01"
-    pol = booking.pol_name if (booking and booking.pol_name) else "Port of Loading (POL)"
-    pod = booking.pod_name if (booking and booking.pod_name) else "Port of Discharge (POD)"
-    freight_terms = getattr(booking, 'freight_terms', None) or "Freight Prepaid"
+    vessel = booking.vessel_name if (booking and booking.vessel_name) else None
+    voyage = getattr(booking, 'voyage_number', None) or getattr(booking, 'voyage_no', None)
+    pol = booking.pol_name if (booking and booking.pol_name) else None
+    pod = booking.pod_name if (booking and booking.pod_name) else None
+    freight_terms = getattr(booking, 'freight_terms', None) or None
     place_of_deliv = getattr(booking, 'place_of_delivery', None) or pod
-    bkg_no = booking.booking_confirmation_no if (booking and booking.booking_confirmation_no) else (cargo_shp.booking_no if (cargo_shp and cargo_shp.booking_no) else "BKG-REF")
-    acid_no = imp_file.acid_number if (imp_file and imp_file.acid_number) else "N/A"
-    tax_id = company.vat_id if company else "N/A"
-    shipper_reg = getattr(supplier, 'registration_id', None) or getattr(supplier, 'tax_id', None) or "N/A"
-    shp_mode = booking.shipment_type if (booking and booking.shipment_type) else "FCL / FCL"
-    container_summary_str = "; ".join(container_str_parts) if container_str_parts else "N/A"
+    # CargoShippingRecord has no booking number / shipping line columns: fall back through its booking relation.
+    cargo_booking = cargo_shp.booking if cargo_shp is not None else None
+    bkg_no = (booking.booking_confirmation_no if booking else None) or (cargo_booking.booking_confirmation_no if cargo_booking else None) or None
+    acid_no = imp_file.acid_number if (imp_file and imp_file.acid_number) else None
+    tax_id = (company.vat_id or None) if company else None
+    shipper_reg = getattr(supplier, 'registration_id', None) or getattr(supplier, 'tax_id', None)
+    shp_mode = booking.shipment_type if (booking and booking.shipment_type) else None
+    container_summary_str = "; ".join(container_str_parts) if container_str_parts else None
 
     return {
-        "forwarder_name": booking.freight_forwarder_name if (booking and booking.freight_forwarder_name) else "Direct Shipping Line",
-        "shipping_line": booking.shipping_line_name if (booking and booking.shipping_line_name) else (cargo_shp.shipping_line if (cargo_shp and cargo_shp.shipping_line) else "OCEAN CARRIER / FREIGHT LINE"),
+        "forwarder_name": booking.freight_forwarder_name if (booking and booking.freight_forwarder_name) else None,
+        "shipping_line": (booking.shipping_line_name if booking else None) or (cargo_booking.shipping_line_name if cargo_booking else None) or None,
         "vessel_name": vessel,
         "voyage_number": voyage,
         "pol": pol,
@@ -1238,13 +1519,14 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
         "shipper": shipper_full,
         "consignee": consignee_full,
         "notify_party": notify_party_full,
-        "hs_codes": list(hs_codes) if hs_codes else ["N/A"],
-        "goods_description": ", ".join(goods_desc) if goods_desc else "General Merchandise & Import Goods",
-        "qty_pcs": total_pcs,
-        "qty_pkg": total_pkgs,
-        "total_net_weight_kg": round(total_nw, 2),
-        "total_gross_weight_kg": round(total_gw, 2),
-        "cbm": round(total_cbm, 4),
+        "hs_codes": list(hs_codes),
+        "goods_description": ", ".join(goods_desc) if goods_desc else None,
+        # Unknown measurements are None, not 0 (review #15): the comparison then takes the draft value.
+        "qty_pcs": total_pcs or None,
+        "qty_pkg": total_pkgs or None,
+        "total_net_weight_kg": round(total_nw, 2) if total_nw else None,
+        "total_gross_weight_kg": round(total_gw, 2) if total_gw else None,
+        "cbm": round(total_cbm, 4) if total_cbm else None,
         "containers": containers,
         "container_count": len(containers),
     }
@@ -1476,6 +1758,44 @@ def _drop_stale_reason_code(item_dict: Dict[str, Any]) -> Dict[str, Any]:
     return item_dict
 
 
+_LETTER_COMPARE = {
+    "intro": "upon verification of the Draft Bill of Lading received for Booking No: {booking}, the following discrepancies were identified and require immediate amendment prior to final B/L issuance:",
+    "item": "{idx}. Item: {item}\n",
+    "reason": "   - Reason / Details: {reason}\n\n",
+    "closing": "Please provide the revised Draft B/L with the requested corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department",
+}
+_LETTER_CHECKLIST = {
+    "intro": "upon review of the Draft Bill of Lading received for Booking No: {booking}, the following corrections are required:",
+    "item": "{idx}. {item}:\n",
+    "reason": "   - Reason: {reason}\n\n",
+    "closing": "Please reissue the draft B/L with these corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department",
+}
+
+
+def _letter_value(value: Any) -> Any:
+    return "N/A" if value is None or str(value).strip() == "" else value
+
+
+def _build_bl_correction_letter(sys_data: Dict[str, Any], revision_report: List[Dict[str, Any]], variant: Dict[str, str]) -> str:
+    """The carrier correction request for a draft B/L (one builder for compare and checklist review, DOC-23).
+    Empty report -> "". A value the system does not know prints as N/A, never as a placeholder."""
+    if not revision_report:
+        return ""
+    booking = _letter_value(sys_data.get("booking_no"))
+    acid = _letter_value(sys_data.get("acid_number"))
+    letter = (
+        f"Subject: Urgent: Draft B/L Correction Request - Booking Ref: {booking} / ACID: {acid}\n\n"
+        "Dear Shipping Line / Forwarder Operations Team,\n\n"
+        f"Please be advised that {variant['intro'].format(booking=booking)}\n\n"
+    )
+    for idx, itm in enumerate(revision_report, 1):
+        letter += variant["item"].format(idx=idx, item=itm["item"])
+        letter += f"   - Required Action: {itm['required_action']}\n"
+        letter += f"   - Responsible Party: {itm['responsible']}\n"
+        letter += variant["reason"].format(reason=itm["reason"])
+    return letter + variant["closing"]
+
+
 def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> dict:
     sys_data = _build_system_bl_snapshot(db, request.import_file_id)
     draft_fields = dict(request.draft_fields or {})
@@ -1650,22 +1970,8 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
         })
 
     # Auto-generate Correction Letter
-    correction_letter = ""
-    if revision_report:
-        correction_letter = f"""Subject: Urgent: Draft B/L Correction Request - Booking Ref: {sys_data.get('booking_no')} / ACID: {sys_data.get('acid_number')}
+    correction_letter = _build_bl_correction_letter(sys_data, revision_report, _LETTER_COMPARE)
 
-Dear Shipping Line / Forwarder Operations Team,
-
-Please be advised that upon verification of the Draft Bill of Lading received for Booking No: {sys_data.get('booking_no')}, the following discrepancies were identified and require immediate amendment prior to final B/L issuance:
-
-"""
-        for idx, item in enumerate(revision_report, 1):
-            correction_letter += f"{idx}. Item: {item['item']}\n"
-            correction_letter += f"   - Required Action: {item['required_action']}\n"
-            correction_letter += f"   - Responsible Party: {item['responsible']}\n"
-            correction_letter += f"   - Reason / Details: {item['reason']}\n\n"
-        
-        correction_letter += "Please provide the revised Draft B/L with the requested corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department"
 
     stage_calc = "Stage 2: Revision Required" if open_discrepancies else "Stage 4: Dual Approval"
     status_calc = "REVISION_REQUIRED" if open_discrepancies else "REVIEWED_PENDING_APPROVAL"
@@ -1699,161 +2005,206 @@ def _complete_draft_bl_review_workflow(
     4. Auto-completes pending SH-02 SmartTasks.
     5. Dispatches downstream SH-03 SmartTask (CargoX Digital Transfer & Sealing).
     6. Emits SystemNotification.
+
+    Runs after the approval commit: every step is a best-effort follow-up that commits its own work, in this
+    order (DOC-11). One failing step no longer blocks the next ones.
     """
-    try:
-        from modules.import_files.model import ImportFile
-        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == session.import_file_id).first()
-        file_code = imp_file.import_file_code if imp_file else f"FILE-{session.import_file_id}"
-        approver = approved_by or session.approved_by or "Compliance Officer"
+    file_id = session.import_file_id
+    bl_number = session.draft_bl_number
+    booking_no = session.booking_no
+    vessel_name = session.vessel_name
+    approver = approved_by or session.approved_by or "Compliance Officer"
+    imp_file = _get_active_import_file(db, file_id)
+    file_code = imp_file.import_file_code if imp_file else f"FILE-{file_id}"
+    has_real_bl_number = bool(bl_number and bl_number != "DRAFT-BL")
 
-        if imp_file:
-            if hasattr(imp_file, "bl_number") and session.draft_bl_number and session.draft_bl_number != "DRAFT-BL":
-                imp_file.bl_number = session.draft_bl_number
-            if hasattr(imp_file, "booking_no") and session.booking_no:
-                imp_file.booking_no = session.booking_no
-            if hasattr(imp_file, "vessel_name") and session.vessel_name:
-                imp_file.vessel_name = session.vessel_name
-            imp_file.current_module = "STEP_09 CargoX Digital Transfer (SH-03)"
-            set_file_tracking(imp_file, next_action=msg("NA_STEP09_CARGOX_ENVELOPE"))
-            if (imp_file.progress_percent or 0.0) < 65.0:
-                imp_file.progress_percent = 65.0
-            db.commit()
+    def _sync_import_file() -> None:
+        imp = _get_active_import_file(db, file_id)
+        if not imp:
+            return
+        if hasattr(imp, "bl_number") and has_real_bl_number:
+            imp.bl_number = bl_number
+        if hasattr(imp, "booking_no") and booking_no:
+            imp.booking_no = booking_no
+        if hasattr(imp, "vessel_name") and vessel_name:
+            imp.vessel_name = vessel_name
+        imp.current_module = "STEP_09 CargoX Digital Transfer (SH-03)"
+        set_file_tracking(imp, next_action=msg("NA_STEP09_CARGOX_ENVELOPE"))
+        if (imp.progress_percent or 0.0) < 65.0:
+            imp.progress_percent = 65.0
 
-        # Sync to CargoShippingRecord
-        try:
-            from modules.cargo_shipping.model import CargoShippingRecord
-            cargo_shp = db.query(CargoShippingRecord).filter(
-                CargoShippingRecord.import_file_id == session.import_file_id,
-                CargoShippingRecord.is_active == True,
-            ).first()
-            if cargo_shp:
-                if session.draft_bl_number and session.draft_bl_number != "DRAFT-BL":
-                    cargo_shp.bl_number = session.draft_bl_number
-                if session.vessel_name:
-                    cargo_shp.vessel_name = session.vessel_name
-                db.commit()
-        except Exception as e_cs:
-            logger.warning("CargoShippingRecord sync failed for certified draft B/L review: %s", e_cs)
+    _commit_follow_up(db, _sync_import_file, "Draft B/L import file sync")
 
-        # Sync to CustomsDocumentApproval (Bill of Lading)
-        try:
-            from modules.docs_customs_approval.model import CustomsDocumentApproval
-            bl_app = db.query(CustomsDocumentApproval).filter(
-                CustomsDocumentApproval.import_file_id == session.import_file_id,
-                CustomsDocumentApproval.document_type == "Bill of Lading",
-                CustomsDocumentApproval.is_active == True,
-            ).first()
-            if bl_app:
-                bl_app.document_reference_no = session.draft_bl_number or bl_app.document_reference_no
-                bl_app.commercial_status = "Approved"
-                bl_app.commercial_reviewed_by = approver
-                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                bl_app.commercial_notes = f"Draft B/L {session.draft_bl_number} approved (SH-02 / STEP_08_BL)."
-                if bl_app.customs_status == "Approved":
-                    bl_app.overall_status = "Approved for Clearance"
-                else:
-                    bl_app.overall_status = "Under Review"
-                db.commit()
-        except Exception as e_cda:
-            logger.warning("CustomsDocumentApproval sync failed for certified draft B/L review: %s", e_cda)
+    # CargoShippingRecord has no B/L number / vessel columns (the old sync wrote nothing): the import file above
+    # carries them. A cargo-side B/L column needs a schema change (deferred).
 
-        # Transition lifecycle
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=session.import_file_id,
-                completed_step_code="STEP_08_BL",
-                target_step_codes=["STEP_08_COO"],
-                notes_msg=msg("DOC_DRAFT_BL_REVIEWED", draft_bl_number=session.draft_bl_number),
-                assigned_user=approver,
-            )
-        except Exception as e_lc:
-            logger.warning("Lifecycle step advancement failed for SH-02: %s", e_lc)
+    def _sync_customs_approval() -> None:
+        from modules.docs_customs_approval.model import CustomsDocumentApproval
+        bl_app = db.query(CustomsDocumentApproval).filter(
+            CustomsDocumentApproval.import_file_id == file_id,
+            CustomsDocumentApproval.document_type == "Bill of Lading",
+            CustomsDocumentApproval.is_active == True,
+        ).first()
+        if bl_app:
+            bl_app.document_reference_no = bl_number or bl_app.document_reference_no
+            bl_app.commercial_status = "Approved"
+            bl_app.commercial_reviewed_by = approver
+            bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
+            bl_app.commercial_notes = f"Draft B/L {bl_number} approved (SH-02 / STEP_08_BL)."
+            if bl_app.customs_status == "Approved":
+                bl_app.overall_status = "Approved for Clearance"
+            else:
+                bl_app.overall_status = "Under Review"
 
-        # Auto-close prior SH-02 smart tasks
-        try:
-            from modules.smart_tasks.model import SmartTask
-            prior_tasks = db.query(SmartTask).filter(
-                SmartTask.import_file_id == session.import_file_id,
-                SmartTask.status != "Completed",
-                SmartTask.is_active == True,
-            ).all()
-            for pt in prior_tasks:
-                notes_str = pt.notes or ""
-                title_str = pt.title or ""
-                if "SH-02" in notes_str or "SH-02" in title_str or pt.reminder_type == "Draft B/L Dual Review" or "DRAFT_BL" in notes_str:
-                    pt.status = "Completed"
-                    pt.is_auto_closed = True
-                    pt.completion_date = date.today()
-            db.commit()
-        except Exception as e_st:
-            logger.warning("Failed to auto-close prior SH-02 smart tasks: %s", e_st)
+    _commit_follow_up(db, _sync_customs_approval, "Draft B/L CustomsDocumentApproval sync")
 
-        # Dispatch downstream SmartTask: SH-03 (CargoX Digital Transfer & Sealing)
-        try:
-            from modules.smart_tasks.model import SmartTask
-            from modules.smart_tasks.service import create_task_service
-            from modules.smart_tasks.schemas import SmartTaskCreate
-            existing_sh03 = db.query(SmartTask).filter(
-                SmartTask.import_file_id == session.import_file_id,
-                SmartTask.status != "Completed",
-                SmartTask.is_active == True,
-            ).all()
-            has_sh03 = any("SH-03" in (t.notes or "") or "SH-03" in (t.title or "") for t in existing_sh03)
-            if not has_sh03:
-                cargox_task_msg = msg(
-                    "DOC_TASK_CARGOX_TRANSFER", import_file_code=file_code, draft_bl_number=session.draft_bl_number
-                )
-                task_title = render_en(cargox_task_msg.code, cargox_task_msg.params, "title")
-                task_desc = render_en(cargox_task_msg.code, cargox_task_msg.params, "body")
-                due_dt = date.today() + timedelta(days=3)
-                task_schema = SmartTaskCreate(
-                    title=task_title,
-                    description=task_desc,
-                    task_type="System Generated",
-                    import_file_id=session.import_file_id,
-                    import_file_code=file_code,
-                    phase_name="Phase 3: Booking & Doc Prep",
-                    assigned_user="Logistics Officer",
-                    priority="High",
-                    reminder_type="CargoX Digital Transfer",
-                    due_date=str(due_dt),
-                    status="Pending",
-                    notes=f"ACTION:CARGOX_SEAL | File: {file_code} | BL: {session.draft_bl_number}",
-                )
-                create_task_service(
-                    db, task_schema, user_name="Draft B/L Dual Review Engine",
-                    msg_code=cargox_task_msg.code, msg_params=cargox_task_msg.params, commit=False,
-                )
-        except Exception as e_sh03:
-            logger.warning("Failed to dispatch SH-03 smart task: %s", e_sh03)
+    _lifecycle_follow_up(
+        db, "Lifecycle advance STEP_08_BL->STEP_08_COO",
+        import_file_id=file_id,
+        completed_step_code="STEP_08_BL",
+        target_step_codes=["STEP_08_COO"],
+        notes_msg=msg("DOC_DRAFT_BL_REVIEWED", draft_bl_number=bl_number),
+        assigned_user=approver,
+    )
 
-        # Dispatch SystemNotification
-        try:
-            from modules.notifications.model import SystemNotification
-            bl_msg = msg("DOC_DRAFT_BL_REVIEWED", import_file_code=file_code, draft_bl_number=session.draft_bl_number)
-            db.add(SystemNotification(
-                title=render_en(bl_msg.code, bl_msg.params, "title"),
-                message=render_en(bl_msg.code, bl_msg.params, "body"),
-                msg_code=bl_msg.code,
-                msg_params=bl_msg.params,
-                severity="INFO",
-                category="STAGE_PROGRESSION",
-                entity_type="ImportFile",
-                entity_id=session.import_file_id,
-                target_role="ALL",
-                is_read=False,
-            ))
-            db.commit()
-        except Exception as e_notif:
-            logger.warning("Failed to emit notification for certified draft B/L review: %s", e_notif)
+    def _close_prior_tasks() -> None:
+        from modules.smart_tasks.model import SmartTask
+        prior_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == file_id,
+            SmartTask.status != "Completed",
+            SmartTask.is_active == True,
+        ).all()
+        for pt in prior_tasks:
+            notes_str = pt.notes or ""
+            title_str = pt.title or ""
+            if "SH-02" in notes_str or "SH-02" in title_str or pt.reminder_type == "Draft B/L Dual Review" or "DRAFT_BL" in notes_str:
+                pt.status = "Completed"
+                pt.is_auto_closed = True
+                pt.completion_date = date.today()
 
-    except Exception as e:
-        logger.warning("Sync failed for certified draft B/L review: %s", e)
+    _commit_follow_up(db, _close_prior_tasks, "Auto-close prior SH-02 smart tasks")
+
+    def _dispatch_sh03() -> None:
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.service import create_task_service
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        existing_sh03 = db.query(SmartTask).filter(
+            SmartTask.import_file_id == file_id,
+            SmartTask.status != "Completed",
+            SmartTask.is_active == True,
+        ).all()
+        if any("SH-03" in (t.notes or "") or "SH-03" in (t.title or "") for t in existing_sh03):
+            return
+        cargox_task_msg = msg("DOC_TASK_CARGOX_TRANSFER", import_file_code=file_code, draft_bl_number=bl_number)
+        task_schema = SmartTaskCreate(
+            title=render_en(cargox_task_msg.code, cargox_task_msg.params, "title"),
+            description=render_en(cargox_task_msg.code, cargox_task_msg.params, "body"),
+            task_type="System Generated",
+            import_file_id=file_id,
+            import_file_code=file_code,
+            phase_name="Phase 3: Booking & Doc Prep",
+            assigned_user="Logistics Officer",
+            priority="High",
+            reminder_type="CargoX Digital Transfer",
+            due_date=str(date.today() + timedelta(days=3)),
+            status="Pending",
+            notes=f"ACTION:CARGOX_SEAL | File: {file_code} | BL: {bl_number}",
+        )
+        create_task_service(
+            db, task_schema, user_name="Draft B/L Dual Review Engine",
+            msg_code=cargox_task_msg.code, msg_params=cargox_task_msg.params, commit=False,
+        )
+
+    _commit_follow_up(db, _dispatch_sh03, "Dispatch SH-03 smart task")
+
+    def _notify() -> None:
+        from modules.notifications.model import SystemNotification
+        bl_msg = msg("DOC_DRAFT_BL_REVIEWED", import_file_code=file_code, draft_bl_number=bl_number)
+        db.add(SystemNotification(
+            title=render_en(bl_msg.code, bl_msg.params, "title"),
+            message=render_en(bl_msg.code, bl_msg.params, "body"),
+            msg_code=bl_msg.code,
+            msg_params=bl_msg.params,
+            severity="INFO",
+            category="STAGE_PROGRESSION",
+            entity_type="ImportFile",
+            entity_id=file_id,
+            target_role="ALL",
+            is_read=False,
+        ))
+
+    _commit_follow_up(db, _notify, "Draft B/L review notification")
 
 
-def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> DraftBLReviewSession:
+def _audit_draft_bl(db: Session, saved: DraftBLReviewSession, action: str, new_data: Dict[str, Any], actor: str) -> None:
+    from modules.audit_logs.service import AuditLogService
+    best_effort(
+        db, AuditLogService(db).log_activity, "AuditLog for DraftBLReviewSession",
+        entity_type="DraftBLReviewSession",
+        entity_id=saved.bl_review_id,
+        entity_code=saved.bl_review_code,
+        action=action,
+        new_data=new_data,
+        performed_by=actor,
+    )
+
+
+def _reset_server_owned_draft_bl_fields(schema: DraftBLReviewCreate) -> None:
+    """DOC-04 / C2: status, stage, approvals and reviewer identity sent by the client are ignored on create."""
+    schema.status = "AUTO_COMPARISON_RUN"
+    schema.stage = "Stage 1: Draft Review"
+    schema.importer_approval_status = "Pending"
+    schema.broker_approval_status = "Pending"
+    for field in ("importer_approved_by", "importer_approval_date", "importer_approval_notes",
+                  "broker_approved_by", "broker_approval_date", "broker_approval_notes",
+                  "approved_by", "approved_at", "reviewed_by", "reviewed_at"):
+        setattr(schema, field, None)
+
+
+# Critical fields of the draft B/L comparison (is_critical in compare_draft_bl_service's field list).
+_DRAFT_BL_CRITICAL_FIELDS = frozenset({"consignee", "booking_no", "acid_number", "importer_tax_id", "container_summary"})
+_DRAFT_BL_APPROVAL_RESET = {
+    "importer_approval_status": "Pending", "importer_approved_by": None, "importer_approval_date": None,
+    "importer_approval_notes": None, "broker_approval_status": "Pending", "broker_approved_by": None,
+    "broker_approval_date": None, "broker_approval_notes": None,
+}
+
+
+def _checklist_has_blocking(checklist: List[Any]) -> bool:
+    return any(
+        isinstance(c, dict) and c.get("status") in ("Incorrect", "Missing") and c.get("field_key") in _DRAFT_BL_CRITICAL_FIELDS
+        for c in checklist or []
+    )
+
+
+def _require_pending_approval(review: DraftBLReviewSession) -> None:
+    """Approval acts only on a certified review waiting for approval, with no blocking mismatch."""
+    if review.is_draft or review.status != "REVIEWED_PENDING_APPROVAL" or review.has_blocking_mismatch:
+        raise _bad_request(
+            f"لا يمكن اعتماد مراجعة مسودة البوليصة ({review.bl_review_code}) إلا وهي معتمدة كمراجعة نهائية "
+            f"وفي انتظار الاعتماد وبدون أخطاء حرجة (الحالة الحالية: {review.status})."
+        )
+
+
+def _draft_bl_stage_and_status(is_draft: bool, open_count: int, has_blocking: bool) -> Tuple[str, str]:
+    """Server-computed stage/status of a saved review: never beyond REVIEWED_PENDING_APPROVAL (Q4: approval only
+    through dual approval or /approve)."""
+    if is_draft:
+        return "Stage 1: Draft Review", "DRAFT"
+    if open_count > 0 or has_blocking:
+        return "Stage 2: Revision Required", "REVISION_REQUIRED"
+    return "Stage 4: Dual Approval", "REVIEWED_PENDING_APPROVAL"
+
+
+def create_draft_bl_review_service(
+    db: Session, schema: DraftBLReviewCreate, user: Optional[str] = None
+) -> DraftBLReviewSession:
+    _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
+    actor = _actor(user, schema.approved_by)
+    _reset_server_owned_draft_bl_fields(schema)
+    is_draft = bool(getattr(schema, "is_draft", False))
+
     if schema.checklist_data:
         # Convert any Pydantic models to dicts
         raw_checklist = []
@@ -1865,9 +2216,15 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
                 _drop_stale_reason_code(item_dict)
             status_val = item_dict.get("status", "Correct")
             if status_val == "Incorrect":
+                if not is_draft and not (item_dict.get("required_correction") and item_dict.get("reason")):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"الحقول 'Required Correction' و 'Reason' إلزامية للبند غير المطابق: {item_dict.get('field_label_ar') or item_dict.get('field_key')}",
+                    )
                 open_count += 1
                 revision_report.append({
-                    "item": item_dict.get("field_label_ar") or item_dict.get("field_label_en", ""),
+                    # DOC-19: the stored revision report carries the English label.
+                    "item": item_dict.get("field_label_en") or item_dict.get("field_label_ar", ""),
                     "required_action": item_dict.get("required_correction", ""),
                     "responsible": item_dict.get("responsible_party") or "Shipping Provider",
                     "reason": item_dict.get("reason", ""),
@@ -1877,15 +2234,8 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.checklist_data = raw_checklist
         schema.revision_report_data = revision_report
         schema.open_discrepancies_count = open_count
-        if getattr(schema, "is_draft", False):
-            schema.status = "DRAFT"
-            schema.stage = "Stage 1: Draft Review"
-        elif open_count > 0:
-            schema.stage = "Stage 2: Revision Required"
-            schema.status = "REVISION_REQUIRED"
-        else:
-            schema.stage = "Stage 4: Dual Approval"
-            schema.status = "REVIEWED_PENDING_APPROVAL"
+        # Server-computed: an open item on a critical B/L field blocks approval (client flag ignored).
+        schema.has_blocking_mismatch = _checklist_has_blocking(raw_checklist)
     elif not schema.comparison_matrix:
         comp_req = DraftBLComparisonRequest(
             import_file_id=schema.import_file_id,
@@ -1902,27 +2252,14 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.blocking_reasons = comp_res["blocking_reasons"]
         schema.blocking_reasons_coded = comp_res["blocking_reasons_coded"]
         schema.correction_request_letter = comp_res["correction_request_letter"]
-        if getattr(schema, "is_draft", False):
-            schema.status = "DRAFT"
-            schema.stage = "Stage 1: Draft Review"
-        elif schema.status != "APPROVED":
-            schema.stage = comp_res["stage"]
-            schema.status = comp_res["status"]
 
-    if getattr(schema, "is_draft", False):
-        schema.status = "DRAFT"
-        schema.stage = "Stage 1: Draft Review"
-    elif schema.status == "APPROVED":
-        schema.status = "APPROVED"
-        schema.stage = "Stage 5: Final"
-    elif (schema.open_discrepancies_count or 0) > 0 or schema.has_blocking_mismatch:
-        schema.status = "REVISION_REQUIRED"
-        schema.stage = "Stage 2: Revision Required"
-    elif schema.status in ["REVIEWED_PENDING_APPROVAL", "AUTO_COMPARISON_RUN"]:
-        schema.status = "APPROVED"
-        schema.stage = "Stage 5: Final"
+    schema.stage, schema.status = _draft_bl_stage_and_status(
+        is_draft, schema.open_discrepancies_count or 0, bool(schema.has_blocking_mismatch)
+    )
+    if not is_draft:
+        schema.reviewed_by = actor
+        schema.reviewed_at = datetime.now(timezone.utc)
 
-    is_draft = getattr(schema, "is_draft", False)
     existing_draft = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     is_update = False
 
@@ -1945,23 +2282,8 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
             )
         saved_session = repo.create_draft_bl_review(db, schema)
 
-    try:
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="DraftBLReviewSession",
-            entity_id=saved_session.bl_review_id,
-            entity_code=saved_session.bl_review_code,
-            action="UPDATE" if is_update else "CREATE",
-            new_data=schema.model_dump(exclude_unset=True),
-            performed_by=schema.approved_by or "Kamal",
-        )
-    except Exception as e:
-        logger.warning("AuditLog for DraftBLReviewSession failed: %s", e)
-
-    # If certified and approved (not draft, not revision required), trigger complete workflow
-    if not is_draft and saved_session.status == "APPROVED":
-        _complete_draft_bl_review_workflow(db, saved_session, approved_by=schema.approved_by)
-
+    _audit_draft_bl(db, saved_session, "UPDATE" if is_update else "CREATE", schema.model_dump(mode="json", exclude_unset=True), actor)
+    # No approval side effects here any more: a saved review waits for dual approval (DOC-04 a, Q4).
     return saved_session
 
 
@@ -1972,27 +2294,70 @@ def _drop_stale_blocking_codes(schema: DraftBLReviewUpdate) -> DraftBLReviewUpda
     return schema
 
 
-def update_draft_bl_review_service(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
-    updated = repo.update_draft_bl_review(db, review_id, _drop_stale_blocking_codes(schema))
-    try:
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="DraftBLReviewSession",
-            entity_id=updated.bl_review_id,
-            entity_code=updated.bl_review_code,
-            action="UPDATE",
-            new_data=schema.model_dump(exclude_unset=True),
-            performed_by=getattr(schema, "approved_by", None) or "Kamal",
+def _get_active_draft_bl_review(db: Session, review_id: int) -> DraftBLReviewSession:
+    review = repo.get_draft_bl_review_by_id(db, review_id)
+    if not review:
+        raise not_found(LABEL_DRAFT_BL_REVIEW, review_id)
+    return review
+
+
+def _reject_terminal_draft_bl(review: DraftBLReviewSession) -> None:
+    if review.status in DRAFT_BL_TERMINAL_STATUSES:
+        raise _conflict(
+            f"مراجعة مسودة البوليصة ({review.bl_review_code}) معتمدة نهائياً ولا يمكن تعديلها أو اعتمادها مرة أخرى. "
+            f"أنشئ إصداراً جديداً (Version) عند الحاجة."
         )
-    except Exception as e:
-        logger.warning("AuditLog for update DraftBLReviewSession failed: %s", e)
+
+
+def get_draft_bl_review_service(db: Session, review_id: int) -> DraftBLReviewSession:
+    """Single review (soft-deleted rows included, as the screen opens history) or 404."""
+    review = repo.get_draft_bl_review_by_id(db, review_id, include_inactive=True)
+    if not review:
+        raise not_found(LABEL_DRAFT_BL_REVIEW, review_id)
+    return review
+
+
+def update_draft_bl_review_service(
+    db: Session, review_id: int, schema: DraftBLReviewUpdate, user: Optional[str] = None
+) -> DraftBLReviewSession:
+    review = _get_active_draft_bl_review(db, review_id)
+    _reject_terminal_draft_bl(review)
+    actor = _actor(user, getattr(schema, "approved_by", None))
+
+    # DOC-04 b: status, stage and approval fields are server-owned.
+    data = schema.model_dump(exclude_unset=True)
+    for field in _DRAFT_BL_SERVER_OWNED:
+        data.pop(field, None)
+    clean = DraftBLReviewUpdate(**data)
+
+    review_inputs = {"checklist_data", "open_discrepancies_count", "has_blocking_mismatch", "is_draft"}
+    if review_inputs & clean.model_fields_set:
+        is_draft = bool(clean.is_draft if "is_draft" in clean.model_fields_set else review.is_draft)
+        if "checklist_data" in clean.model_fields_set and clean.checklist_data is not None:
+            open_count = sum(1 for c in clean.checklist_data if isinstance(c, dict) and c.get("status") == "Incorrect")
+            clean.open_discrepancies_count = open_count
+        else:
+            open_count = clean.open_discrepancies_count if "open_discrepancies_count" in clean.model_fields_set else review.open_discrepancies_count
+        has_blocking = clean.has_blocking_mismatch if "has_blocking_mismatch" in clean.model_fields_set else review.has_blocking_mismatch
+        clean.stage, clean.status = _draft_bl_stage_and_status(is_draft, open_count or 0, bool(has_blocking))
+    if clean.model_fields_set:
+        # Content changed: earlier approvals no longer cover it.
+        for field, value in _DRAFT_BL_APPROVAL_RESET.items():
+            setattr(clean, field, value)
+    clean.reviewed_by = actor
+    clean.reviewed_at = datetime.now(timezone.utc)
+
+    updated = repo.update_draft_bl_review(db, review_id, _drop_stale_blocking_codes(clean))
+    _audit_draft_bl(db, updated, "UPDATE", schema.model_dump(mode="json", exclude_unset=True), actor)
     return updated
 
 
-def update_draft_bl_checklist_service(db: Session, review_id: int, checklist_items: List[DraftBLChecklistItem], reviewer_name: str = "Kamal") -> DraftBLReviewSession:
-    review = repo.get_draft_bl_review_by_id(db, review_id)
-    if not review:
-        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+def update_draft_bl_checklist_service(
+    db: Session, review_id: int, checklist_items: List[DraftBLChecklistItem], reviewer_name: Optional[str] = None,
+    user: Optional[str] = None,
+) -> DraftBLReviewSession:
+    review = _get_active_draft_bl_review(db, review_id)
+    _reject_terminal_draft_bl(review)
 
     updated_checklist = []
     revision_report = []
@@ -2017,28 +2382,17 @@ def update_draft_bl_checklist_service(db: Session, review_id: int, checklist_ite
         updated_checklist.append(item_dict)
 
     review.checklist_data = updated_checklist
+    for field, value in _DRAFT_BL_APPROVAL_RESET.items():
+        setattr(review, field, value)
+    review.has_blocking_mismatch = _checklist_has_blocking(updated_checklist)
     review.revision_report_data = revision_report
     review.open_discrepancies_count = open_count
-    review.reviewed_by = reviewer_name
+    review.reviewed_by = _actor(user, reviewer_name)
     review.reviewed_at = datetime.now(timezone.utc)
 
     # Re-generate correction letter
     if revision_report:
-        sys_data = review.system_snapshot_data or {}
-        correction_letter = f"""Subject: Urgent: Draft B/L Correction Request - Booking Ref: {sys_data.get('booking_no')} / ACID: {sys_data.get('acid_number')}
-
-Dear Shipping Line / Forwarder Operations Team,
-
-Please be advised that upon review of the Draft Bill of Lading received for Booking No: {sys_data.get('booking_no')}, the following corrections are required:
-
-"""
-        for idx, itm in enumerate(revision_report, 1):
-            correction_letter += f"{idx}. {itm['item']}:\n"
-            correction_letter += f"   - Required Action: {itm['required_action']}\n"
-            correction_letter += f"   - Responsible Party: {itm['responsible']}\n"
-            correction_letter += f"   - Reason: {itm['reason']}\n\n"
-        correction_letter += "Please reissue the draft B/L with these corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department"
-        review.correction_request_letter = correction_letter
+        review.correction_request_letter = _build_bl_correction_letter(review.system_snapshot_data or {}, revision_report, _LETTER_CHECKLIST)
         review.stage = "Stage 2: Revision Required"
         review.status = "REVISION_REQUIRED"
     else:
@@ -2050,10 +2404,20 @@ Please be advised that upon review of the Draft Bill of Lading received for Book
     return review
 
 
-def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> DraftBLReviewSession:
-    review = repo.get_draft_bl_review_by_id(db, request.bl_review_id)
-    if not review:
-        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+def process_dual_approval_service(
+    db: Session, request: DualApprovalRequest, user: Optional[str] = None
+) -> DraftBLReviewSession:
+    if request.role not in DRAFT_BL_APPROVAL_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid approval role. Must be 'importer' or 'customs_broker'.")
+    if request.action not in DRAFT_BL_APPROVAL_ACTIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="إجراء الاعتماد غير صالح: القيم المسموحة Approved أو Rejected.",
+        )
+
+    review = _get_active_draft_bl_review(db, request.bl_review_id)
+    _reject_terminal_draft_bl(review)
+    _require_pending_approval(review)
 
     if review.open_discrepancies_count > 0:
         raise HTTPException(
@@ -2061,12 +2425,24 @@ def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> 
             detail="لا يمكن اعتماد درافت البوليصة طالما توجد بنود غير مطابقة (Open Discrepancies) لم يتم إغلاقها."
         )
 
+    approver = _actor(user, request.approved_by)
     now = datetime.now(timezone.utc)
+    approving = request.action == "Approved"
+
+    # DOC-04 d: one person cannot hold both approval roles.
+    if approving:
+        other_status, other_by = (
+            (review.broker_approval_status, review.broker_approved_by)
+            if request.role == "importer"
+            else (review.importer_approval_status, review.importer_approved_by)
+        )
+        if other_status == "Approved" and (other_by or "").strip().lower() == approver.lower():
+            raise _conflict("لا يمكن لنفس المستخدم اعتماد مسودة البوليصة بصفتي المستورد والمخلص الجمركي معاً.")
 
     if request.role == "importer":
-        if request.action == "Approved":
+        if approving:
             review.importer_approval_status = "Approved"
-            review.importer_approved_by = request.approved_by
+            review.importer_approved_by = approver
             review.importer_approval_date = now
             review.importer_approval_notes = request.notes
         else:
@@ -2074,10 +2450,10 @@ def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> 
             review.importer_approval_notes = request.notes
             review.stage = "Stage 2: Revision Required"
             review.status = "REVISION_REQUIRED"
-    elif request.role == "customs_broker":
-        if request.action == "Approved":
+    else:
+        if approving:
             review.broker_approval_status = "Approved"
-            review.broker_approved_by = request.approved_by
+            review.broker_approved_by = approver
             review.broker_approval_date = now
             review.broker_approval_notes = request.notes
         else:
@@ -2085,28 +2461,50 @@ def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> 
             review.broker_approval_notes = request.notes
             review.stage = "Stage 2: Revision Required"
             review.status = "REVISION_REQUIRED"
-    else:
-        raise HTTPException(status_code=400, detail="Invalid approval role. Must be 'importer' or 'customs_broker'.")
 
     # If BOTH approved -> Stage 5 Final
-    if review.importer_approval_status == "Approved" and review.broker_approval_status == "Approved":
+    became_final = review.importer_approval_status == "Approved" and review.broker_approval_status == "Approved"
+    if became_final:
         review.stage = "Stage 5: Final"
         review.status = "FINAL"
         review.approved_by = f"{review.importer_approved_by} & {review.broker_approved_by}"
         review.approved_at = now
-        db.commit()
-        db.refresh(review)
-        _complete_draft_bl_review_workflow(db, review, approved_by=review.approved_by)
 
     db.commit()
     db.refresh(review)
+    if became_final:
+        _complete_draft_bl_review_workflow(db, review, approved_by=review.approved_by)
+        db.refresh(review)
     return review
 
 
-def create_new_draft_version_service(db: Session, request: NewDraftVersionRequest) -> DraftBLReviewSession:
+def _draft_bl_version_chain(db: Session, parent: DraftBLReviewSession) -> Tuple[str, List[DraftBLReviewSession]]:
+    """(root code, every review of the version chain). Versions are coded ``<root>-v<n>``."""
+    root_code = re.sub(r"-v\d+$", "", parent.bl_review_code or "")
+    chain = db.query(DraftBLReviewSession).filter(
+        (DraftBLReviewSession.bl_review_code == root_code)
+        | (DraftBLReviewSession.bl_review_code.like(f"{root_code}-v%"))
+    ).all()
+    return root_code, chain
+
+
+def create_new_draft_version_service(
+    db: Session, request: NewDraftVersionRequest, user: Optional[str] = None
+) -> DraftBLReviewSession:
     parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id)
     if not parent:
-        raise HTTPException(status_code=404, detail="Parent Draft B/L Review not found")
+        raise not_found(LABEL_DRAFT_BL_REVIEW, request.parent_session_id)
+    _active_import_file(db, parent.import_file_id)
+
+    # DOC-05: branch only from the latest active version; the version number keeps rising across the chain.
+    root_code, chain = _draft_bl_version_chain(db, parent)
+    active_versions = [s for s in chain if s.is_active]
+    latest_active = max(active_versions, key=lambda s: (s.version_number or 1, s.bl_review_id)) if active_versions else parent
+    if latest_active.bl_review_id != parent.bl_review_id:
+        raise _conflict(
+            f"لا يمكن إنشاء إصدار جديد إلا من أحدث إصدار نشط لمسودة البوليصة ({latest_active.bl_review_code})."
+        )
+    new_version_num = max((s.version_number or 1) for s in chain) + 1 if chain else (parent.version_number or 1) + 1
 
     # Run new comparison
     comp_req = DraftBLComparisonRequest(
@@ -2133,15 +2531,14 @@ def create_new_draft_version_service(db: Session, request: NewDraftVersionReques
             itm["previous_status"] = prev_itm.get("status") if prev_itm else None
         new_checklist.append(itm)
 
-    new_version_num = parent.version_number + 1
-    new_code = f"{parent.bl_review_code}-v{new_version_num}"
-
+    open_count = len([c for c in new_checklist if c["status"] == "Incorrect"])
     new_session = DraftBLReviewSession(
-        bl_review_code=new_code,
+        bl_review_code=f"{root_code}-v{new_version_num}",
         import_file_id=parent.import_file_id,
         po_id=parent.po_id,
         booking_id=parent.booking_id,
-        draft_bl_number=f"{parent.draft_bl_number}-v{new_version_num}",
+        # DOC-05 a: the B/L number stays the carrier's number; version_number carries the version.
+        draft_bl_number=parent.draft_bl_number,
         shipping_line=parent.shipping_line,
         vessel_name=parent.vessel_name,
         voyage_number=parent.voyage_number,
@@ -2166,11 +2563,13 @@ def create_new_draft_version_service(db: Session, request: NewDraftVersionReques
         checklist_data=new_checklist,
         revision_report_data=comp_res["revision_report_data"],
         has_blocking_mismatch=comp_res["has_blocking_mismatch"],
-        open_discrepancies_count=len([c for c in new_checklist if c["status"] == "Incorrect"]),
+        open_discrepancies_count=open_count,
         blocking_reasons=comp_res["blocking_reasons"],
         blocking_reasons_coded=comp_res["blocking_reasons_coded"],
         correction_request_letter=comp_res["correction_request_letter"],
-        status="REVIEWED_PENDING_APPROVAL" if len([c for c in new_checklist if c["status"] == "Incorrect"]) == 0 else "REVISION_REQUIRED",
+        status=_draft_bl_stage_and_status(False, open_count, bool(comp_res["has_blocking_mismatch"]))[1],
+        reviewed_by=_actor(user),
+        reviewed_at=datetime.now(timezone.utc),
     )
     db.add(new_session)
     db.commit()
@@ -2178,28 +2577,49 @@ def create_new_draft_version_service(db: Session, request: NewDraftVersionReques
     return new_session
 
 
-def approve_draft_bl_service(db: Session, review_id: int, approved_by: str = "Kamal") -> DraftBLReviewSession:
-    review = repo.get_draft_bl_review_by_id(db, review_id)
-    if not review:
-        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+def approve_draft_bl_service(
+    db: Session, review_id: int, approved_by: Optional[str] = None, user: Optional[str] = None
+) -> DraftBLReviewSession:
+    """Completes a half-approved review for ``import_documentation.approve`` holders: fills the ONE missing role
+    (importer or customs broker) with the caller, who must differ from the user who approved the other role.
+    Nothing approved yet -> 409 (use dual approval)."""
+    review = _get_active_draft_bl_review(db, review_id)
+    _reject_terminal_draft_bl(review)
+    _require_pending_approval(review)
     if review.open_discrepancies_count > 0 or review.has_blocking_mismatch:
         raise HTTPException(
             status_code=400,
             detail=f"لا يمكن اعتماد درافت البوليصة لوجود بنود غير مطابقة أو أخطاء حرجة (Blocking Discrepancies)."
         )
+    approver = _actor(user, approved_by)
+    importer_done = review.importer_approval_status == "Approved"
+    broker_done = review.broker_approval_status == "Approved"
+    if importer_done == broker_done:
+        raise _conflict(
+            "الاعتماد المباشر يكمل دوراً واحداً ناقصاً فقط: يرجى استخدام الاعتماد المزدوج "
+            "(المستورد ثم المخلص الجمركي) لهذه المراجعة."
+        )
+    other_by = review.importer_approved_by if importer_done else review.broker_approved_by
+    if (other_by or "").strip().lower() == approver.lower():
+        raise _conflict("لا يمكن لنفس المستخدم اعتماد مسودة البوليصة بصفتي المستورد والمخلص الجمركي معاً.")
+
+    now = datetime.now(timezone.utc)
+    if importer_done:
+        review.broker_approval_status = "Approved"
+        review.broker_approved_by = approver
+        review.broker_approval_date = now
+    else:
+        review.importer_approval_status = "Approved"
+        review.importer_approved_by = approver
+        review.importer_approval_date = now
     review.stage = "Stage 5: Final"
     review.status = "FINAL"
-    review.importer_approval_status = "Approved"
-    review.importer_approved_by = approved_by
-    review.importer_approval_date = datetime.now(timezone.utc)
-    review.broker_approval_status = "Approved"
-    review.broker_approved_by = approved_by
-    review.broker_approval_date = datetime.now(timezone.utc)
-    review.approved_by = approved_by
-    review.approved_at = datetime.now(timezone.utc)
+    review.approved_by = f"{review.importer_approved_by} & {review.broker_approved_by}"
+    review.approved_at = now
     db.commit()
     db.refresh(review)
-    _complete_draft_bl_review_workflow(db, review, approved_by=approved_by)
+    _complete_draft_bl_review_workflow(db, review, approved_by=review.approved_by)
+    db.refresh(review)
     return review
 
 
@@ -2219,13 +2639,12 @@ def _compare_origins(sys_origin: str, drf_origin: str) -> Tuple[bool, float]:
 
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
 def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+    imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
-    raw_country = (getattr(supplier, 'foreign_exporter_country', None)) or (getattr(imp_file, 'origin_country', None)) or "Lithuania"
-    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(raw_country).strip().lower(), "")
+    # DOC-03: an unknown origin / invoice stays None (never a sample country or invoice number).
+    raw_country = (getattr(supplier, 'foreign_exporter_country', None)) or (getattr(imp_file, 'origin_country', None)) or None
+    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(raw_country or "").strip().lower(), "")
     raw_reg = (getattr(supplier, 'tax_id', None)) or (getattr(supplier, 'foreign_exporter_id', None)) or (getattr(supplier, 'exporter_code', None)) or ""
     if raw_reg and country_iso and not str(raw_reg).strip().upper().startswith(country_iso.upper()):
         exp_reg_id = f"{country_iso.upper()}{str(raw_reg).strip()}"
@@ -2240,8 +2659,8 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
         "importer_name": company.importer_name if company else imp_file.company_name,
         "importer_address": company.address if company else "",
         "destination_country": "Egypt",
-        "invoice_number": imp_file.pi_number or "INV-2026-FINAL",
-        "invoice_date": str(date.today()),
+        "invoice_number": imp_file.pi_number or None,
+        "invoice_date": str(imp_file.pi_date) if getattr(imp_file, "pi_date", None) else None,
         "certificate_type": request.certificate_type,
     }
 
@@ -2355,8 +2774,104 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     }
 
 
-def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCreate) -> CertificateOfOriginReviewSession:
-    if not schema.comparison_matrix:
+_COO_JUSTIFICATION_DETAIL = (
+    "يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة المنشأ، أو العودة للتعديل ومخاطبة المورد."
+)
+_INSPECTION_JUSTIFICATION_DETAIL = (
+    "يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة الفحص، أو العودة للتعديل ومخاطبة المورد."
+)
+_INSPECTION_APPROVED_STATUSES = ("Verified", "Approved", "Discrepancy_Accepted")
+
+
+def _matrix_flags(matrix: Optional[List[Any]]) -> Tuple[bool, bool]:
+    """(has_discrepancies, has_critical_mismatch) derived from a stored comparison matrix, so a client cannot hide
+    a mismatch by sending the flags as False (DOC-06)."""
+    has_disc = False
+    has_crit = False
+    for row in matrix or []:
+        if not isinstance(row, dict):
+            continue
+        match_status = str(row.get("match_status") or "").strip().upper()
+        severity = str(row.get("severity") or "").strip().upper()
+        if match_status and match_status != "MATCH":
+            has_disc = True
+        if severity == "BLOCKING" or match_status == "MISMATCH_CRITICAL":
+            has_disc = True
+            has_crit = True
+    return has_disc, has_crit
+
+
+def _has_text(value: Optional[str]) -> bool:
+    return bool(value and value.strip())
+
+
+def _known(value: Optional[str]) -> Optional[str]:
+    """A master value or None: blank and the schema placeholder "N/A" count as unknown."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text if text and text.upper() != "N/A" else None
+
+
+def _coo_certified_follow_ups(db: Session, file_id: int, certificate_type: Optional[str],
+                              certificate_number: Optional[str], actor: str) -> None:
+    """Customs approval sync, lifecycle STEP_08_COO -> STEP_09 and file tracking of a certified COO review."""
+
+    def _sync_customs_approval() -> None:
+        from modules.docs_customs_approval.model import CustomsDocumentApproval
+        coo_app = db.query(CustomsDocumentApproval).filter(
+            CustomsDocumentApproval.import_file_id == file_id,
+            CustomsDocumentApproval.document_type == "Certificate of Origin",
+            CustomsDocumentApproval.is_active == True,
+        ).first()
+        if coo_app:
+            coo_app.document_reference_no = certificate_number or coo_app.document_reference_no
+            coo_app.commercial_status = "Approved"
+            coo_app.commercial_reviewed_by = actor
+            coo_app.commercial_reviewed_at = datetime.now(timezone.utc)
+            coo_app.commercial_notes = f"Certificate of origin {certificate_type} - {certificate_number} approved (STEP_08_COO)."
+            if coo_app.customs_status == "Approved":
+                coo_app.overall_status = "Approved for Clearance"
+            else:
+                coo_app.overall_status = "Under Review"
+
+    _commit_follow_up(db, _sync_customs_approval, "COO CustomsDocumentApproval sync")
+
+    _lifecycle_follow_up(
+        db, "Lifecycle advance STEP_08_COO->STEP_09",
+        import_file_id=file_id,
+        completed_step_code="STEP_08_COO",
+        target_step_codes=["STEP_09"],
+        notes_msg=msg(
+            "DOC_COO_APPROVED",
+            certificate_type=certificate_type,
+            certificate_number=certificate_number,
+        ),
+        next_action_msg=msg("NA_STEP09_FINAL_DOCS_APPROVAL"),
+        assigned_user=actor,
+    )
+
+    def _track_file() -> None:
+        imp_file = _get_active_import_file(db, file_id)
+        if imp_file:
+            set_file_tracking(imp_file, step_code="STEP_09", next_action=msg("NA_STEP09_FINAL_DOCS_APPROVAL"))
+            if (imp_file.progress_percent or 0.0) < 58.0:
+                imp_file.progress_percent = 58.0
+
+    _commit_follow_up(db, _track_file, "COO import file tracking")
+
+
+def create_coo_review_service(
+    db: Session, schema: CertificateOfOriginReviewCreate, user: Optional[str] = None
+) -> CertificateOfOriginReviewSession:
+    _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
+    actor = _actor(user, schema.reviewed_by)
+
+    # Review #13: a certified save always uses the server comparison (a client matrix is kept for drafts only).
+    if not schema.comparison_matrix or not getattr(schema, "is_draft", False):
+        schema.has_discrepancies = False
+        schema.has_critical_mismatch = False
         comp = compare_coo_service(db, COOComparisonRequest(
             import_file_id=schema.import_file_id,
             certificate_type=schema.certificate_type,
@@ -2366,31 +2881,37 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
         schema.comparison_matrix = comp["comparison_matrix"]
         schema.has_discrepancies = comp["has_discrepancies"]
         schema.has_critical_mismatch = comp["has_critical_mismatch"]
-        schema.status = comp["status"]
+    derived_disc, derived_crit = _matrix_flags(schema.comparison_matrix)
+    schema.has_discrepancies = bool(schema.has_discrepancies or derived_disc)
+    schema.has_critical_mismatch = bool(schema.has_critical_mismatch or derived_crit)
 
-    # Auto-populate exporter, importer, country of origin if missing
+    # Auto-populate exporter, importer, country of origin from the draft or the system snapshot. Unknown values
+    # stay empty (DOC-03): the NOT NULL columns get "" instead of an invented name or country.
     draft_dict = schema.draft_input_data or {}
     sys_dict = schema.system_snapshot_data or {}
-    if not schema.exporter_name or schema.exporter_name == "N/A":
-        schema.exporter_name = draft_dict.get("exporter_name") or sys_dict.get("exporter_name") or "Exporter"
-    if not schema.importer_name or schema.importer_name == "N/A":
-        schema.importer_name = draft_dict.get("importer_name") or sys_dict.get("importer_name") or "Importer"
-    if not schema.country_of_origin or schema.country_of_origin == "N/A":
-        schema.country_of_origin = draft_dict.get("country_of_origin") or sys_dict.get("country_of_origin") or "China"
+    schema.exporter_name = _known(schema.exporter_name) or _known(draft_dict.get("exporter_name")) or _known(sys_dict.get("exporter_name")) or ""
+    schema.importer_name = _known(schema.importer_name) or _known(draft_dict.get("importer_name")) or _known(sys_dict.get("importer_name")) or ""
+    schema.country_of_origin = _known(schema.country_of_origin) or _known(draft_dict.get("country_of_origin")) or _known(sys_dict.get("country_of_origin")) or ""
 
-    # Mandatory justification validation on discrepancies (only enforced on certified save)
-    is_draft = getattr(schema, "is_draft", False)
+    is_draft = bool(getattr(schema, "is_draft", False))
     if is_draft:
         schema.status = "Draft Generated"
     else:
-        if (schema.has_discrepancies or schema.has_critical_mismatch):
-            if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
-                raise HTTPException(
-                    status_code=400,
-                    detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة المنشأ، أو العودة للتعديل ومخاطبة المورد."
-                )
+        # DOC-06: any discrepancy needs a justification, whatever status the client or the compare reported.
+        if (schema.has_discrepancies or schema.has_critical_mismatch) and not _has_text(schema.override_reason):
+            raise HTTPException(status_code=400, detail=_COO_JUSTIFICATION_DETAIL)
+        if not schema.country_of_origin:
+            raise _bad_request("لا يمكن اعتماد دراسة شهادة المنشأ بدون بلد منشأ معروف. يرجى إدخال بلد المنشأ أولاً.")
         schema.status = "Approved"
+        schema.reviewed_by = actor
+        schema.reviewed_at = datetime.now(timezone.utc)
 
+    existing_certified = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=False)
+    if is_draft and existing_certified:
+        raise _conflict(
+            f"يوجد بالفعل دراسة معتمدة لشهادة المنشأ لهذا الملف ({existing_certified.coo_review_code}): "
+            f"لا يمكن حفظ مسودة فوقها."
+        )
     existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     if existing:
         update_schema = CertificateOfOriginReviewUpdate(**schema.model_dump(exclude_unset=True))
@@ -2398,66 +2919,74 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
     else:
         saved_session = repo.create_coo_review(db, schema)
 
-    # If certified (not draft), sync to Customs Document Approvals and Central Lifecycle
+    # If certified (not draft), sync to Customs Document Approvals and Central Lifecycle (follow-ups, DOC-11)
     if not is_draft:
-        try:
-            from modules.docs_customs_approval.model import CustomsDocumentApproval
-            from modules.import_files.model import ImportFile
-
-            coo_app = db.query(CustomsDocumentApproval).filter(
-                CustomsDocumentApproval.import_file_id == schema.import_file_id,
-                CustomsDocumentApproval.document_type == "Certificate of Origin",
-                CustomsDocumentApproval.is_active == True,
-            ).first()
-            if coo_app:
-                coo_app.document_reference_no = schema.certificate_number or coo_app.document_reference_no
-                coo_app.commercial_status = "Approved"
-                coo_app.commercial_reviewed_by = schema.reviewed_by or "Draft COO Review Engine"
-                coo_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                coo_app.commercial_notes = f"Certificate of origin {schema.certificate_type} - {schema.certificate_number} approved (STEP_08_COO)."
-                if coo_app.customs_status == "Approved":
-                    coo_app.overall_status = "Approved for Clearance"
-                else:
-                    coo_app.overall_status = "Under Review"
-                db.commit()
-
-            # Advance Central Lifecycle
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=schema.import_file_id,
-                completed_step_code="STEP_08_COO",
-                target_step_codes=["STEP_09"],
-                notes_msg=msg(
-                    "DOC_COO_APPROVED",
-                    certificate_type=schema.certificate_type,
-                    certificate_number=schema.certificate_number,
-                ),
-                next_action_msg=msg("NA_STEP09_FINAL_DOCS_APPROVAL"),
-                assigned_user=schema.reviewed_by or "Compliance Officer",
-            )
-
-            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
-            if imp_file:
-                set_file_tracking(imp_file, step_code="STEP_09", next_action=msg("NA_STEP09_FINAL_DOCS_APPROVAL"))
-                if (imp_file.progress_percent or 0.0) < 58.0:
-                    imp_file.progress_percent = 58.0
-                db.commit()
-        except Exception as e:
-            logger.warning("Sync failed for certified COO review: %s", e)
+        _coo_certified_follow_ups(db, schema.import_file_id, schema.certificate_type, schema.certificate_number, actor)
+        db.refresh(saved_session)
 
     return saved_session
 
 
-def update_coo_review_service(db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate) -> CertificateOfOriginReviewSession:
-    return repo.update_coo_review(db, review_id, schema)
+def update_coo_review_service(
+    db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, user: Optional[str] = None
+) -> CertificateOfOriginReviewSession:
+    review = repo.get_coo_review_by_id(db, review_id)
+    if not review:
+        raise not_found(LABEL_COO_REVIEW, review_id)
+    fields = schema.model_fields_set
+
+    def _merged(name: str) -> Any:
+        return getattr(schema, name) if name in fields else getattr(review, name)
+
+    is_draft = bool(_merged("is_draft"))
+    if is_draft and not review.is_draft:
+        raise _conflict(f"دراسة شهادة المنشأ ({review.coo_review_code}) معتمدة: لا يمكن إعادتها إلى مسودة.")
+
+    data = schema.model_dump(exclude_unset=True)
+    data.pop("status", None)
+    data.pop("reviewed_by", None)
+    data.pop("reviewed_at", None)
+    for name in ("exporter_name", "importer_name", "country_of_origin"):
+        if name in data and data[name] is None:
+            data[name] = ""  # NOT NULL columns: unknown stays empty
+    clean = CertificateOfOriginReviewUpdate(**data)
+
+    if not is_draft:
+        # Review #13: a certified save always uses the server comparison.
+        comp = compare_coo_service(db, COOComparisonRequest(
+            import_file_id=review.import_file_id,
+            certificate_type=_merged("certificate_type"),
+            draft_fields=_merged("draft_input_data"),
+        ))
+        clean.comparison_matrix = comp["comparison_matrix"]
+        clean.has_discrepancies = comp["has_discrepancies"]
+        clean.has_critical_mismatch = comp["has_critical_mismatch"]
+        has_disc, has_crit = comp["has_discrepancies"], comp["has_critical_mismatch"]
+    else:
+        derived_disc, derived_crit = _matrix_flags(_merged("comparison_matrix"))
+        has_disc = bool(_merged("has_discrepancies") or derived_disc)
+        has_crit = bool(_merged("has_critical_mismatch") or derived_crit)
+    if is_draft:
+        clean.status = "Draft Generated"
+    else:
+        if (has_disc or has_crit) and not _has_text(_merged("override_reason")):
+            raise HTTPException(status_code=400, detail=_COO_JUSTIFICATION_DETAIL)
+        if not _known(_merged("country_of_origin")):
+            raise _bad_request("لا يمكن اعتماد دراسة شهادة المنشأ بدون بلد منشأ معروف. يرجى إدخال بلد المنشأ أولاً.")
+        clean.status = "Approved"
+        clean.reviewed_by = _actor(user)
+        clean.reviewed_at = datetime.now(timezone.utc)
+    becomes_certified = bool(review.is_draft) and not is_draft
+    saved = repo.update_coo_review(db, review_id, clean)
+    if becomes_certified:
+        _coo_certified_follow_ups(db, saved.import_file_id, saved.certificate_type, saved.certificate_number, clean.reviewed_by)
+        db.refresh(saved)
+    return saved
 
 
 # --- 4. INSPECTION CERTIFICATE (COC / COA / VOC) VERIFICATION ENGINE ---
 def compare_inspection_cert_service(db: Session, request: InspectionComparisonRequest) -> dict:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+    imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
     acid_session = db.query(AcidRegistrationSession).filter(
@@ -2465,8 +2994,8 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         AcidRegistrationSession.is_active == True
     ).first()
 
-    acid_val = (acid_session.acid_number if acid_session else None) or getattr(imp_file, 'acid_number', None) or "7595528271015010011"
-    country_val = getattr(supplier, 'country_name', None) or getattr(imp_file, 'country_of_origin', None) or "Italy"
+    acid_val = (acid_session.acid_number if acid_session else None) or getattr(imp_file, 'acid_number', None) or None
+    country_val = getattr(supplier, 'country_name', None) or getattr(imp_file, 'country_of_origin', None) or None
 
     draft_fields = request.draft_fields or {}
 
@@ -2478,7 +3007,7 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         "inspection_agency": request.inspection_agency,
         "inspection_type": request.inspection_type,
         "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
-        "invoice_number": getattr(imp_file, 'pi_number', None) or (draft_fields.get("invoice_number") if draft_fields else None) or (acid_session.proforma_invoice_no if acid_session else None) or "INV-FINAL",
+        "invoice_number": getattr(imp_file, 'pi_number', None) or (draft_fields.get("invoice_number") if draft_fields else None) or (acid_session.proforma_invoice_no if acid_session else None) or None,
         "standard_specification": "Egyptian Standard ES / EN 13501-1:2018",
     }
 
@@ -2604,27 +3133,42 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
     }
 
 
-def create_inspection_review_service(db: Session, schema: InspectionCertificateReviewCreate) -> InspectionCertificateReviewSession:
-    if not schema.comparison_matrix:
-        comp = compare_inspection_cert_service(db, InspectionComparisonRequest(
-            import_file_id=schema.import_file_id,
-            inspection_type=schema.inspection_type,
-            inspection_agency=schema.inspection_agency,
-            draft_fields=schema.draft_input_data,
-        ))
-        schema.system_snapshot_data = comp["system_snapshot_data"]
-        schema.comparison_matrix = comp["comparison_matrix"]
-        schema.has_discrepancies = comp["has_discrepancies"]
-        schema.has_critical_mismatch = comp["has_critical_mismatch"]
-        schema.status = comp["status"]
+def _inspection_status(has_disc: bool, has_crit: bool, override_reason: Optional[str]) -> str:
+    """Server-computed inspection review status (DOC-06): clean -> Verified; any discrepancy needs a
+    justification (400 without one) and is then Discrepancy_Accepted."""
+    if not (has_disc or has_crit):
+        return "Verified"
+    if not _has_text(override_reason):
+        raise HTTPException(status_code=400, detail=_INSPECTION_JUSTIFICATION_DETAIL)
+    return "Discrepancy_Accepted"
 
-    # Mandatory justification validation on discrepancies
-    if (schema.has_discrepancies or schema.has_critical_mismatch):
-        if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
-            raise HTTPException(
-                status_code=400,
-                detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة الفحص، أو العودة للتعديل ومخاطبة المورد."
-            )
+
+def create_inspection_review_service(
+    db: Session, schema: InspectionCertificateReviewCreate, user: Optional[str] = None
+) -> InspectionCertificateReviewSession:
+    _active_import_file(db, schema.import_file_id)
+    _require_active_po(db, schema.po_id)
+    actor = _actor(user, schema.reviewed_by)
+
+    # Review #13: inspection saves are always certified, so the comparison always runs on the server.
+    comp = compare_inspection_cert_service(db, InspectionComparisonRequest(
+        import_file_id=schema.import_file_id,
+        inspection_type=schema.inspection_type,
+        inspection_agency=schema.inspection_agency,
+        draft_fields=schema.draft_input_data,
+    ))
+    schema.system_snapshot_data = comp["system_snapshot_data"]
+    schema.comparison_matrix = comp["comparison_matrix"]
+    schema.has_discrepancies = comp["has_discrepancies"]
+    schema.has_critical_mismatch = comp["has_critical_mismatch"]
+    derived_disc, derived_crit = _matrix_flags(schema.comparison_matrix)
+    schema.has_discrepancies = bool(schema.has_discrepancies or derived_disc)
+    schema.has_critical_mismatch = bool(schema.has_critical_mismatch or derived_crit)
+
+    # Mandatory justification validation on discrepancies; the client status is ignored.
+    schema.status = _inspection_status(schema.has_discrepancies, schema.has_critical_mismatch, schema.override_reason)
+    schema.reviewed_by = actor
+    schema.reviewed_at = datetime.now(timezone.utc)
 
     existing = repo.get_inspection_review_by_file_id(db, schema.import_file_id, include_inactive=False)
     if existing:
@@ -2634,42 +3178,63 @@ def create_inspection_review_service(db: Session, schema: InspectionCertificateR
         saved = repo.create_inspection_review(db, schema)
 
     # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
-    if saved.status in ["Verified", "Approved", "Discrepancy_Accepted"]:
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=saved.import_file_id,
-                completed_step_code="STEP_08_COC",
-                target_step_codes=["STEP_09"],
-                notes_msg=msg("DOC_INSPECTION_REVIEW_APPROVED", review_code=saved.inspection_review_code),
-                assigned_user="Compliance Officer",
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_COC->STEP_09 failed: %s", e)
+    if saved.status in _INSPECTION_APPROVED_STATUSES:
+        file_id, review_code = saved.import_file_id, saved.inspection_review_code
+        _lifecycle_follow_up(
+            db, "Lifecycle advance STEP_08_COC->STEP_09",
+            import_file_id=file_id,
+            completed_step_code="STEP_08_COC",
+            target_step_codes=["STEP_09"],
+            notes_msg=msg("DOC_INSPECTION_REVIEW_APPROVED", review_code=review_code),
+            assigned_user="Compliance Officer",
+        )
+        db.refresh(saved)
 
     return saved
 
 
-def update_inspection_review_service(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
-    saved = repo.update_inspection_review(db, review_id, schema)
+def update_inspection_review_service(
+    db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, user: Optional[str] = None
+) -> InspectionCertificateReviewSession:
+    review = repo.get_inspection_review_by_id(db, review_id)
+    if not review:
+        raise not_found(LABEL_INSPECTION_REVIEW, review_id)
+    fields = schema.model_fields_set
+
+    def _merged(name: str) -> Any:
+        return getattr(schema, name) if name in fields else getattr(review, name)
+
+    data = schema.model_dump(exclude_unset=True)
+    for name in ("status", "reviewed_by", "reviewed_at"):
+        data.pop(name, None)
+    clean = InspectionCertificateReviewUpdate(**data)
+    # Review #13: inspection saves are certified, so the comparison always runs on the server.
+    comp = compare_inspection_cert_service(db, InspectionComparisonRequest(
+        import_file_id=review.import_file_id,
+        inspection_type=_merged("inspection_type"),
+        inspection_agency=_merged("inspection_agency"),
+        draft_fields=_merged("draft_input_data"),
+    ))
+    clean.comparison_matrix = comp["comparison_matrix"]
+    clean.has_discrepancies = comp["has_discrepancies"]
+    clean.has_critical_mismatch = comp["has_critical_mismatch"]
+    clean.status = _inspection_status(comp["has_discrepancies"], comp["has_critical_mismatch"], _merged("override_reason"))
+    clean.reviewed_by = _actor(user)
+    clean.reviewed_at = datetime.now(timezone.utc)
+    saved = repo.update_inspection_review(db, review_id, clean)
 
     # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
-    if saved.status in ["Verified", "Approved", "Discrepancy_Accepted"]:
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=saved.import_file_id,
-                completed_step_code="STEP_08_COC",
-                target_step_codes=["STEP_09"],
-                notes_msg=msg("DOC_INSPECTION_REVIEW_UPDATED", review_code=saved.inspection_review_code),
-                assigned_user="Compliance Officer",
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_COC->STEP_09 failed: %s", e)
+    if saved.status in _INSPECTION_APPROVED_STATUSES:
+        file_id, review_code = saved.import_file_id, saved.inspection_review_code
+        _lifecycle_follow_up(
+            db, "Lifecycle advance STEP_08_COC->STEP_09",
+            import_file_id=file_id,
+            completed_step_code="STEP_08_COC",
+            target_step_codes=["STEP_09"],
+            notes_msg=msg("DOC_INSPECTION_REVIEW_UPDATED", review_code=review_code),
+            assigned_user="Compliance Officer",
+        )
+        db.refresh(saved)
 
     return saved
 
@@ -2899,10 +3464,11 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 distinct_hs_codes.add(hs)
             
             clean_desc = itm.description_en or (itm.tariff.hs_description if itm.tariff else None) or sanitize_english_only(itm.description_ar or "") or "COMMERCIAL CARGO"
-            clean_itm_origin = sanitize_english_only(itm_origin or (supplier.foreign_exporter_country if supplier else "China")) or "China"
+            # DOC-03: unknown origin / HS code stay empty (never a sample country or tariff line).
+            clean_itm_origin = sanitize_english_only(itm_origin or (supplier.foreign_exporter_country if supplier else "") or "")
             items_summary.append({
                 "description": clean_desc,
-                "hs_code": hs or "560229",
+                "hs_code": hs or "",
                 "origin": clean_itm_origin,
                 "quantity": float(itm.quantity or 1.0),
                 "unit": itm.unit_of_measure or "PCS",
@@ -2938,15 +3504,7 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
         clean_sup = sanitize_english_only(supplier.foreign_exporter_country.strip())
         if clean_sup:
             distinct_origins.add(clean_sup)
-    if not distinct_origins:
-        distinct_origins.add("China")
-
-    if not distinct_hs_codes:
-        distinct_hs_codes.add("560229")
-
     origins_list = sorted([sanitize_english_only(o) for o in distinct_origins if sanitize_english_only(o)])
-    if not origins_list:
-        origins_list = ["China"]
     hs_codes_list = sorted(list(distinct_hs_codes))
     origin_countries_str = ", ".join(origins_list)
     hs_codes_str = ", ".join(hs_codes_list)
@@ -3133,14 +3691,24 @@ def format_coo_quantity_box(
     return f"{line1}\n{gw_line}"
 
 
+def _missing_fields(**checks: Any) -> List[str]:
+    """Names of the template inputs the system does not have (falsy value), in argument order (DOC-03 / C5)."""
+    return [name for name, value in checks.items() if not value]
+
+
+def _template_response(model: Any, missing: List[str], **kwargs: Any) -> Any:
+    """Template response with ``missing_fields`` once the schema declares it (additive contract C5, D1)."""
+    if "missing_fields" in model.model_fields:
+        kwargs["missing_fields"] = missing
+    return model(**kwargs)
+
+
 def generate_coo_draft_template_service(
     db: Session,
     import_file_id: int,
     cert_type: Optional[str] = None
 ) -> COODraftTemplateResponse:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+    imp_file = _active_import_file(db, import_file_id, status_code=status.HTTP_404_NOT_FOUND)
 
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
@@ -3166,7 +3734,7 @@ def generate_coo_draft_template_service(
     items_summary = extracted_meta["items_summary"]
 
     # Automated Classification Rule for COO
-    primary_origin = origins_list[0] if origins_list else (supplier.foreign_exporter_country if supplier else "China")
+    primary_origin = (origins_list[0] if origins_list else (supplier.foreign_exporter_country if supplier else None)) or ""
     classification = classify_coo_certificate_type(primary_origin)
 
     rec_type = classification.get("recommended_type")
@@ -3188,8 +3756,8 @@ def generate_coo_draft_template_service(
     # Dynamic goods description grouping by (HS Code, Origin) - English Only
     hs_origin_pairs: dict[tuple[str, str], list[str]] = {}
     for itm in items_summary:
-        hs = str(itm.get("hs_code") or "560229").strip()
-        orig = sanitize_english_only(str(itm.get("origin") or origin_countries_str or "China").strip())
+        hs = str(itm.get("hs_code") or "").strip()
+        orig = sanitize_english_only(str(itm.get("origin") or origin_countries_str or "").strip())
         desc = itm.get("description")
         desc_str = sanitize_english_only(str(desc).strip()) if desc else ""
         pair_key = (hs, orig)
@@ -3213,7 +3781,7 @@ def generate_coo_draft_template_service(
 
     goods_desc_str = " | ".join(structured_desc_lines) if structured_desc_lines else "COMMERCIAL CARGO"
 
-    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
+    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or ""
     clean_acid_digits = re.sub(r'[^0-9]', '', str(acid_no))
     cert_draft_number = f"DRAFT-{clean_acid_digits}" if clean_acid_digits else "DRAFT-COO"
 
@@ -3230,8 +3798,8 @@ def generate_coo_draft_template_service(
 
     if pos:
         for po in pos:
-            po_inv_num = po.proforma_invoice_number or po.po_number or f"IN{imp_file.import_file_code}"
-            po_inv_date = str(po.order_date).split(' ')[0] if po.order_date else (str(getattr(imp_file, 'pi_date', None) or date.today()).split(' ')[0])
+            po_inv_num = po.proforma_invoice_number or po.po_number or ""
+            po_inv_date = str(po.order_date).split(' ')[0] if po.order_date else (str(getattr(imp_file, 'pi_date', None) or "").split(' ')[0])
             po_gw = float(po.total_gross_weight_kg or 0.0)
             po_pkgs = int(po.total_packages_count or 0)
             
@@ -3261,7 +3829,7 @@ def generate_coo_draft_template_service(
                     tf = db.query(CustomsTariff).filter(CustomsTariff.tariff_id == itm.tariff_id).first()
                     if tf and tf.hs_code:
                         hs = str(tf.hs_code).strip()
-                hs = hs or (hs_codes_list[0] if hs_codes_list else "5602290000")
+                hs = hs or (hs_codes_list[0] if hs_codes_list else "")
                 if hs not in po_items_by_hs:
                     po_items_by_hs[hs] = []
                 po_items_by_hs[hs].append(itm)
@@ -3331,27 +3899,27 @@ def generate_coo_draft_template_service(
                     consolidated_table_items[group_key]["packages_count"] += calc_pkgs
                 else:
                     itm_gw = sum(float(i.gross_weight_kg or 0.0) for i in itm_list)
-                    consolidated_table_items[group_key]["gross_weight_kg"] += (itm_gw if itm_gw > 0 else 10510.0)
-                    consolidated_table_items[group_key]["packages_count"] += (po_pkgs if po_pkgs > 0 else 144)
+                    consolidated_table_items[group_key]["gross_weight_kg"] += itm_gw
+                    consolidated_table_items[group_key]["packages_count"] += po_pkgs
 
     # Fallback if no PO items found
     if not consolidated_table_items:
-        def_inv = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
-        def_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today()).split(' ')[0]
-        def_hs = hs_codes_list[0] if hs_codes_list else "5602290000"
-        def_gw = float(getattr(imp_file, 'total_weight', None) or (10510.0 if is_china else 1774.514))
-        def_pkgs = int(getattr(imp_file, 'total_packages', None) or (144 if is_china else 141))
+        def_inv = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or ""
+        def_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or "").split(' ')[0]
+        def_hs = hs_codes_list[0] if hs_codes_list else ""
+        def_gw = float(getattr(imp_file, 'total_weight', None) or 0.0)
+        def_pkgs = int(getattr(imp_file, 'total_packages', None) or 0)
         consolidated_table_items[(def_inv, def_date, def_hs)] = {
             "invoice_number": def_inv,
             "invoice_date": def_date,
             "hs_code": def_hs,
             "descriptions": [goods_desc_str],
             "main_descriptions": ["ACOUSTIC PANELS" if "560229" in def_hs else "COMMERCIAL CARGO"],
-            "quantity": float(getattr(imp_file, 'total_quantity', 720.0) or 720.0),
+            "quantity": float(getattr(imp_file, 'total_quantity', None) or 0.0),
             "unit": "PCS",
             "packages_count": def_pkgs,
             "gross_weight_kg": def_gw,
-            "total_price": float(getattr(imp_file, 'estimated_cost', 43704.0) or 43704.0),
+            "total_price": float(getattr(imp_file, 'estimated_cost', None) or 0.0),
         }
 
     total_gross_wt = sum(v["gross_weight_kg"] for v in consolidated_table_items.values())
@@ -3369,7 +3937,7 @@ def generate_coo_draft_template_service(
                 clean_item = extract_clean_main_description(md)
                 if clean_item and clean_item not in distinct_m:
                     distinct_m.append(clean_item)
-            clean_d = " / ".join(distinct_m[:2]) if distinct_m else "ACOUSTIC PANEL"
+            clean_d = " / ".join(distinct_m[:2]) if distinct_m else "COMMERCIAL CARGO"
         else:
             d_text = " / ".join(c_item["descriptions"][:2]) if c_item["descriptions"] else "COMMERCIAL CARGO"
             clean_d = extract_clean_main_description(d_text.split(" / ACID:")[0].split(" | ")[0])
@@ -3382,7 +3950,7 @@ def generate_coo_draft_template_service(
 
         # In Chinese COO, Box 6 is always N/M
         marks_str = "N/M" if is_china else (clean_d[:25].strip() if clean_d else "")
-        p_cnt = c_item["packages_count"] if c_item["packages_count"] > 0 else (144 if is_china else 141)
+        p_cnt = c_item["packages_count"]
         pkg_type_val = getattr(imp_file, 'package_type', None)
         total_packed_line_item = format_total_packages_line(p_cnt, pkg_type_val)
         
@@ -3394,7 +3962,7 @@ def generate_coo_draft_template_service(
 
         q_val = c_item["quantity"]
         u_str = c_item["unit"]
-        gw_val = c_item["gross_weight_kg"] if c_item["gross_weight_kg"] > 0 else 10510.0
+        gw_val = c_item["gross_weight_kg"]
         box_9_formatted = format_coo_quantity_box(
             quantity=q_val,
             unit=u_str,
@@ -3423,7 +3991,7 @@ def generate_coo_draft_template_service(
 
     # Summary strings
     summary_invoices_str = "\n".join(f"{r['invoice_number']} ({r['invoice_date']})" for r in table_rows)
-    primary_invoice_str = f"{table_rows[0]['invoice_number']}\n{table_rows[0]['invoice_date']}" if table_rows else f"IN{imp_file.import_file_code}\n{date.today()}"
+    primary_invoice_str = f"{table_rows[0]['invoice_number']}\n{table_rows[0]['invoice_date']}".strip() if table_rows else ""
     primary_box_9_str = format_coo_quantity_box(
         quantity=total_qty_all,
         unit=first_unit,
@@ -3434,7 +4002,7 @@ def generate_coo_draft_template_service(
     )
 
     # Dynamic exporter details in pure English
-    exporter_name = sanitize_english_only((supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER")
+    exporter_name = sanitize_english_only((supplier.company_name if supplier else None) or imp_file.supplier_name or "")
     raw_exp_addr = (supplier.address if supplier else None) or (f"{supplier.city}, {supplier.foreign_exporter_country}" if supplier and getattr(supplier, 'city', None) and getattr(supplier, 'foreign_exporter_country', None) else None) or (supplier.foreign_exporter_country if supplier else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or ""
     exporter_addr = sanitize_english_only(raw_exp_addr)
     
@@ -3450,35 +4018,36 @@ def generate_coo_draft_template_service(
         full_exporter_reg = reg_clean
 
     # Dynamic importer details in pure English
-    importer_name = sanitize_english_only((company.importer_name if company and hasattr(company, 'importer_name') and company.importer_name else None) or (company.company_name if company else None) or imp_file.company_name or "EGYPTIAN IMPORTER")
+    importer_name = sanitize_english_only((company.importer_name if company and hasattr(company, 'importer_name') and company.importer_name else None) or (company.company_name if company else None) or imp_file.company_name or "")
     raw_imp_addr = (company.address if company else None) or (f"{company.city}, Egypt" if company and hasattr(company, 'city') and company.city else None) or "EGYPT"
     importer_addr = sanitize_english_only(raw_imp_addr)
 
     dest_country = "EGYPT"
-    raw_pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI"
-    raw_pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
+    raw_pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or ""
+    raw_pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or ""
     
     # Format Port of Loading + Country
     pol_name_clean = re.sub(r'(?i)\s+port\s*$', '', sanitize_english_only(raw_pol)).strip().upper()
+    pol_country_name = sanitize_english_only(clean_country_name or "").upper()
     if not pol_name_clean:
-        pol_name_clean = "NINGBO-ZHOUSHAN" if is_china else "SHANGHAI"
-    pol_country_name = sanitize_english_only(clean_country_name or ("CHINA" if is_china else "EUROPEAN UNION")).upper()
-    if pol_country_name and pol_country_name not in pol_name_clean:
+        pol_full = ""
+    elif pol_country_name and pol_country_name not in pol_name_clean:
         pol_full = f"{pol_name_clean} {pol_country_name}".strip()
     else:
         pol_full = pol_name_clean
 
     # Format Port of Discharge + Country
     pod_name_clean = re.sub(r'(?i)\s+port\s*$', '', sanitize_english_only(raw_pod)).strip().upper()
-    if not pod_name_clean:
-        pod_name_clean = "ALEXANDRIA"
     pod_country_name = "EGYPT"
-    if pod_country_name not in pod_name_clean:
+    if not pod_name_clean:
+        pod_full = ""
+    elif pod_country_name not in pod_name_clean:
         pod_full = f"{pod_name_clean} {pod_country_name}".strip()
     else:
         pod_full = pod_name_clean
 
-    transport_route_str = f"FROM {pol_full} TO {pod_full} BY SEA"
+    # DOC-03: the route is printed only when both ports are known (no sample ports).
+    transport_route_str = f"FROM {pol_full} TO {pod_full} BY SEA" if (pol_full and pod_full) else ""
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
@@ -3488,7 +4057,7 @@ def generate_coo_draft_template_service(
             d = r.get("description", "").strip()
             if d and d not in distinct_main_descs:
                 distinct_main_descs.append(d)
-        primary_desc = "\n".join(distinct_main_descs) if distinct_main_descs else "Acoustic Panels"
+        primary_desc = "\n".join(distinct_main_descs) if distinct_main_descs else "COMMERCIAL CARGO"
         total_pkgs_line_summary = format_total_packages_line(total_packages_all, getattr(imp_file, 'package_type', None))
         box_7_formatted = f"{primary_desc}\n\n{total_pkgs_line_summary}\n\n*** *** *** *** ***\n\nACID:{acid_no}"
 
@@ -3554,13 +4123,13 @@ def generate_coo_draft_template_service(
             "box_3_means_of_transport": transport_route_str,
             "box_4_country_origin": "EU",
             "box_5_country_destination": dest_country,
-            "box_6_transport_details": f"BY SEA FROM {pol_full} TO {pod_full}",
+            "box_6_transport_details": f"BY SEA FROM {pol_full} TO {pod_full}" if (pol_full and pod_full) else "",
             "box_7_remarks": "REVISED RULES",
             "box_8_description_packages": f"{goods_desc_str} {total_packages_all} PACKAGES HS: {hs_codes_str}",
             "box_9_gross_mass": f"{total_gross_wt:,.3f} KG",
             "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {summary_invoices_str}",
-            "box_11_customs_endorsement": f"Customs Office EU - {date.today()}",
-            "box_12_declaration_by_exporter": f"{exporter_name} - {date.today()}",
+            "box_11_customs_endorsement": "",
+            "box_12_declaration_by_exporter": "",
             "is_revised_rules_compliant": True,
             "countries_of_origin_list": origins_list,
             "country_of_origin": origin_countries_str,
@@ -3598,7 +4167,22 @@ def generate_coo_draft_template_service(
 **11. Customs Endorsement:** {template['box_11_customs_endorsement']}"""
         exemption = f"مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) لدول المنشأ ({origin_countries_str}) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
 
-    return COODraftTemplateResponse(
+    missing = _missing_fields(
+        acid_number=acid_no,
+        hs_code=hs_codes_list,
+        country_of_origin=origins_list,
+        exporter_name=exporter_name,
+        importer_name=importer_name,
+        invoice_number=table_rows and all(r["invoice_number"] for r in table_rows),
+        gross_weight_kg=total_gross_wt > 0,
+        packages_count=total_packages_all > 0,
+        port_of_loading=pol_full,
+        port_of_discharge=pod_full,
+    )
+    template["missing_fields"] = missing
+    return _template_response(
+        COODraftTemplateResponse,
+        missing,
         import_file_id=import_file_id,
         import_file_code=imp_file.import_file_code or f"IMP-{import_file_id:04d}",
         certificate_type=cert_name,
@@ -3618,9 +4202,7 @@ def generate_inspection_draft_template_service(
     agency: str = "COTECNA",
     cert_type: str = "COC (Certificate of Conformity)"
 ) -> InspectionDraftTemplateResponse:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+    imp_file = _active_import_file(db, import_file_id, status_code=status.HTTP_404_NOT_FOUND)
 
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
@@ -3641,17 +4223,18 @@ def generate_inspection_draft_template_service(
     hs_codes_str = extracted_meta["hs_codes_str"]
     items_summary = extracted_meta["items_summary"]
 
-    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271015010011"
-    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
-    inv_amount = float(getattr(reconciliation, 'total_invoice_amount', None) or getattr(imp_file, 'estimated_cost', None) or getattr(imp_file, 'fob_amount', None) or 15375.50)
-    inv_currency = getattr(reconciliation, 'currency', None) or getattr(imp_file, 'estimated_cost_currency', None) or getattr(imp_file, 'currency', None) or "EUR"
-    incoterm_val = getattr(imp_file, 'incoterm_code', None) or getattr(imp_file, 'incoterm', None) or "EXW"
+    # DOC-03: values the system does not have stay empty and are listed in missing_fields.
+    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or ""
+    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or ""
+    inv_amount = float(getattr(reconciliation, 'total_invoice_amount', None) or getattr(imp_file, 'estimated_cost', None) or getattr(imp_file, 'fob_amount', None) or 0.0)
+    inv_currency = getattr(reconciliation, 'currency', None) or getattr(imp_file, 'estimated_cost_currency', None) or getattr(imp_file, 'currency', None) or ""
+    incoterm_val = getattr(imp_file, 'incoterm_code', None) or getattr(imp_file, 'incoterm', None) or ""
 
-    importer_name = (company.importer_name if company else imp_file.company_name) or "Archi brands for corpet and floor trading"
-    importer_addr = (company.address if company else None) or "Maadi, Street 18, Building 44, Third Floor, Cairo 11728 - Egypt"
+    importer_name = (company.importer_name if company else imp_file.company_name) or ""
+    importer_addr = (company.address if company else None) or ""
 
-    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB Narbutas International"
-    exporter_addr = (supplier.address if supplier else None) or "Eitminų g. 3, 12113, Vilnius - Lithuania"
+    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or ""
+    exporter_addr = (supplier.address if supplier else None) or ""
 
     # Dynamic generation of inspected items
     inspected_items = []
@@ -3683,23 +4266,7 @@ def generate_inspection_draft_template_service(
                 "description": f"{d_name}, brand: {exporter_name.split()[0] if exporter_name else 'Standard'}",
                 "adopted_standard": std,
             })
-    else:
-        if "italy" in origin_countries_str.lower():
-            inspected_items = [
-                {"item_no": 1, "quantity": "2 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.10.24.112.00 Acoustic Panel, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
-                {"item_no": 2, "quantity": "4 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.10.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
-                {"item_no": 3, "quantity": "4 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "7938.10.24.115.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
-                {"item_no": 4, "quantity": "1 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.12.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
-                {"item_no": 5, "quantity": "2 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.13.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
-            ]
-        else:
-            inspected_items = [
-                {"item_no": 1, "quantity": "4 pieces", "country_of_origin": "Lithuania", "product_type": "Office Furniture", "description": "Table, Mobile table with metal base, W=400, D=500, H=620 MOBI, Brand: Narbutas", "adopted_standard": "ES 4029-1 / 2024 + ES 7321 / 2011"},
-                {"item_no": 2, "quantity": "2 pieces", "country_of_origin": "Lithuania", "product_type": "Office Furniture", "description": "Table, Meeting table (3 seats), Ø 800, H=740 FSC Mix 70% FORUM, Brand: Narbutas", "adopted_standard": "ES 4029-1 / 2024 + ES 7321 / 2011"},
-                {"item_no": 3, "quantity": "6 pieces", "country_of_origin": "Lithuania", "product_type": "Office Chairs", "description": "Office Chairs, Conference chair. Powder coated wire steel frame, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 495-1/2005"},
-                {"item_no": 4, "quantity": "22 pieces", "country_of_origin": "Lithuania", "product_type": "Office Chairs", "description": "Office Chairs, Armchair. Steel framework. Entirely moulded in cold-cure polyurethane, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 495-2/2015"},
-                {"item_no": 5, "quantity": "1 pieces", "country_of_origin": "Lithuania", "product_type": "Sofas", "description": "Sofa, Three-seater sofa. Base: powder-coated metal legs with glides MYAMI, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 5309-1/2017"},
-            ]
+    # DOC-03: no PO lines -> no inspected items (the former sample item lists were invented data).
 
     # Dynamic derivation of applicable standards linked directly to product items in the shipment
     unique_standards = []
@@ -3744,7 +4311,7 @@ def generate_inspection_draft_template_service(
         "method_of_shipment": getattr(imp_file, 'shipping_mode', 'Sea') or "Sea",
         "place_of_inspection": origin_countries_str,
         "date_of_inspection": str(date.today()),
-        "port_of_entry": getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "Alexandria",
+        "port_of_entry": getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "",
         "issuing_office": issuing_office,
         "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
         "applicable_standards": applicable_standards,
@@ -3769,7 +4336,22 @@ def generate_inspection_draft_template_service(
 ### 📋 Egyptian Mandatory Standards Tested:
 """ + "\n".join([f"- {s}" for s in applicable_standards])
 
-    return InspectionDraftTemplateResponse(
+    missing = _missing_fields(
+        acid_number=acid_no,
+        hs_code=hs_codes_list,
+        country_of_origin=origins_list,
+        importer_name=importer_name,
+        exporter_name=exporter_name,
+        invoice_number=invoice_no,
+        invoice_amount=inv_amount > 0,
+        currency=inv_currency,
+        incoterm=incoterm_val,
+        port_of_entry=template["port_of_entry"],
+    )
+    template["missing_fields"] = missing
+    return _template_response(
+        InspectionDraftTemplateResponse,
+        missing,
         import_file_id=import_file_id,
         import_file_code=imp_file.import_file_code or f"IMP-{import_file_id:04d}",
         inspection_agency=agency,
@@ -4010,10 +4592,27 @@ def cross_match_certificates_service(db: Session, request: ThreeWayCrossMatchReq
 
 
 # --- 5. ACID & IMPORTER LEGAL DOCS EXPIRY & ETA + 30 DAYS SAFETY MARGIN ENGINE ---
+_LEGAL_STATUS_CODES = {
+    "EXPIRED": "DOC_LEGAL_DOC_EXPIRED",
+    "CRITICAL_BREACH": "DOC_LEGAL_DOC_CRITICAL_BREACH",
+    "EXPIRING_SOON": "DOC_LEGAL_DOC_EXPIRING_SOON",
+    "VALID": "DOC_LEGAL_DOC_VALID",
+}
+
+
+def _legal_message(status_str: str, doc_kind: str, doc_number: Any, expiry: Any, eta: Any, days: int) -> Dict[str, Any]:
+    """message_code + message_params of a legal-document alert (DOC-19 / C6; doc_kind = LEGAL_DOC_KIND code).
+    Codes are registered centrally (see docs/plans/review-shared-needs.md)."""
+    return {
+        "message_code": _LEGAL_STATUS_CODES[status_str],
+        "message_params": {"doc_kind": doc_kind, "doc_number": doc_number,
+                           "expiry_date": str(expiry) if expiry else None, "eta_date": str(eta) if eta else None,
+                           "days": days},
+    }
+
+
 def check_acid_and_company_docs_validity_service(db: Session, import_file_id: int) -> LegalDocsExpiryComplianceResponse:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+    imp_file = _active_import_file(db, import_file_id, status_code=status.HTTP_404_NOT_FOUND)
 
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     booking = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id == import_file_id, ShipmentBooking.is_active == True).first()
@@ -4032,13 +4631,11 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
         eta_date = imp_file.required_eta
         eta_source = "Import File (ملف الشحنة)"
     else:
-        # Default safety assumption: 21 days from today
-        from datetime import timedelta
-        eta_date = today + timedelta(days=21)
+        # Default safety assumption: DEFAULT_ETA_DAYS from today
+        eta_date = today + timedelta(days=DEFAULT_ETA_DAYS)
         eta_source = "Estimated Default (+21 Days)"
 
-    from datetime import timedelta
-    safety_window_date = eta_date + timedelta(days=30)
+    safety_window_date = eta_date + timedelta(days=ETA_SAFETY_MARGIN_DAYS)
 
     alerts: List[LegalDocAlertItem] = []
     has_critical_alerts = False
@@ -4073,6 +4670,7 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
             is_critical_breach=is_breach,
             alert_message=msg,
             status=status_str,
+            **_legal_message(status_str, "ACID", acid_session.acid_number, acid_exp, eta_date, days_rem),
         ))
     else:
         alerts.append(LegalDocAlertItem(
@@ -4085,18 +4683,21 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
             is_critical_breach=True,
             alert_message="لم يتم استخراج أو تسجيل تاريخ صلاحية الـ ACID للشحنة بعد.",
             status="CRITICAL_BREACH",
+            message_code="DOC_LEGAL_ACID_MISSING",
+            message_params={"doc_kind": "ACID", "doc_number": imp_file.acid_number, "expiry_date": None,
+                            "eta_date": str(eta_date), "days": None},
         ))
         has_critical_alerts = True
 
     # 2. Importer Legal Documents Checks (Import Card, Commercial Registry, Tax Card)
     if company:
         docs_to_check = [
-            ("البطاقة الاستيرادية (Import Card)", company.importer_id or "—", company.importer_id_expiry),
-            ("السجل التجاري (Commercial Registry)", company.registration_number or "—", company.registration_expiry),
-            ("البطاقة الضريبية / ملف القيمة المضافة (Tax Card)", company.vat_id or "—", company.vat_id_expiry),
+            ("البطاقة الاستيرادية (Import Card)", company.importer_id or "—", company.importer_id_expiry, "IMPORT_CARD"),
+            ("السجل التجاري (Commercial Registry)", company.registration_number or "—", company.registration_expiry, "COMMERCIAL_REGISTRY"),
+            ("البطاقة الضريبية / ملف القيمة المضافة (Tax Card)", company.vat_id or "—", company.vat_id_expiry, "TAX_CARD"),
         ]
 
-        for doc_name, doc_num, exp_dt in docs_to_check:
+        for doc_name, doc_num, exp_dt, doc_kind in docs_to_check:
             if exp_dt:
                 days_rem = (exp_dt - today).days
                 days_after_eta = (exp_dt - eta_date).days
@@ -4111,7 +4712,7 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
                     status_str = "CRITICAL_BREACH"
                     msg = f"تحذير حرج: {doc_name} تنتهي في {exp_dt} (قبل نافذة الـ 30 يوماً من وصول الشحنة في {eta_date})."
                     has_critical_alerts = True
-                elif days_rem <= 60:
+                elif days_rem <= COMPANY_DOC_EXPIRING_SOON_DAYS:
                     status_str = "EXPIRING_SOON"
                     msg = f"{doc_name} قاربت على الانتهاء في {exp_dt} (متبقي {days_rem} يوم)."
                 else:
@@ -4128,6 +4729,7 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
                     is_critical_breach=is_breach,
                     alert_message=msg,
                     status=status_str,
+                    **_legal_message(status_str, doc_kind, str(doc_num), exp_dt, eta_date, days_rem),
                 ))
 
     # Overall Compliance Calculation
@@ -4149,6 +4751,9 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
         alerts=alerts,
         overall_compliance_status=overall_status,
         persistent_banner_text=banner_text,
+        # DOC-19 / C6: coded twin of the Arabic banner (the client lists the coded alerts under it).
+        banner_message_code="DOC_LEGAL_BANNER" if has_critical_alerts else None,
+        banner_message_params={"critical_count": sum(1 for a in alerts if a.is_critical_breach or a.is_expired)} if has_critical_alerts else None,
     )
 
 
@@ -4239,28 +4844,46 @@ def extract_and_match_invoice_bl_service(
 
 
 
-def sync_certified_invoice_bl_to_file_service(
-    db: Session, request: InvoiceBLSyncRequest
-) -> dict:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
+def _validate_currency_code(db: Session, value: Any) -> str:
+    """Active ISO currency code or 400 (DOC-13). (D1 may later move this to validators.validate_currency_code.)"""
+    from modules.currencies.model import Currency
+    from modules.common import enum_codes
+    code = str(enum_codes.normalize_currency(value) or "").strip().upper()
+    found = db.query(Currency.currency_id).filter(Currency.currency_code == code, Currency.is_active == True).first() if code else None
+    if not found:
+        raise _bad_request(f"رمز العملة '{value}' غير معروف أو غير نشط في جدول العملات.")
+    return code
 
-    inv = request.invoice_data or {}
-    bl = request.bl_data or {}
+
+def _validate_incoterm_code(db: Session, value: Any) -> str:
+    """Active Incoterm code or 400 (DOC-13). (D1 may later move this to validators.validate_incoterm_code.)"""
+    from modules.incoterms.model import Incoterm
+    code = str(value or "").strip().upper()
+    found = db.query(Incoterm.incoterm_id).filter(Incoterm.incoterm_code == code, Incoterm.is_active == True).first() if code else None
+    if not found:
+        raise _bad_request(f"شرط التسليم '{value}' غير معروف أو غير نشط في جدول شروط التسليم (Incoterms).")
+    return code
+
+
+def _apply_invoice_bl_sync(
+    db: Session, imp_file: ImportFile, inv: Dict[str, Any], bl: Dict[str, Any], sync_to_shipping: bool, actor: str
+) -> None:
+    """Validated invoice / B/L values onto the import file and the cargo shipping record. No commit: the caller
+    commits them together with its own entity (DOC-13). Every value is checked before anything is written."""
+    # ImportFile has no amount column: the invoice amount stays in the session's invoice_data (deferred: column +
+    # migration). Currency -> estimated_cost_currency, incoterm -> incoterm_code.
+    incoterm = _validate_incoterm_code(db, inv["incoterm"]) if inv.get("incoterm") else None
+    currency = _validate_currency_code(db, inv["currency"]) if inv.get("currency") else None
+    if bl.get("total_gross_weight_kg"):
+        _to_float(bl["total_gross_weight_kg"], "total_gross_weight_kg")  # still rejected when not a number
 
     # Sync Invoice fields
     if inv.get("invoice_number"):
         imp_file.pi_number = str(inv["invoice_number"])
-    if inv.get("total_amount"):
-        try:
-            imp_file.total_amount = float(inv["total_amount"])
-        except (ValueError, TypeError):
-            pass
-    if inv.get("currency"):
-        imp_file.currency = str(inv["currency"])
-    if inv.get("incoterm"):
-        imp_file.incoterm = str(inv["incoterm"])
+    if incoterm:
+        imp_file.incoterm_code = incoterm
+    if currency:
+        imp_file.estimated_cost_currency = currency
 
     # Sync B/L fields
     if bl.get("draft_bl_number"):
@@ -4269,138 +4892,147 @@ def sync_certified_invoice_bl_to_file_service(
         imp_file.booking_no = str(bl["booking_no"])
     if bl.get("vessel_name"):
         imp_file.vessel_name = str(bl["vessel_name"])
+    imp_file.updated_by = actor
 
     # Sync to Cargo Shipping Record if requested
-    if request.sync_to_shipping:
+    if sync_to_shipping:
         cargo_shp = db.query(CargoShippingRecord).filter(
-            CargoShippingRecord.import_file_id == request.import_file_id,
+            CargoShippingRecord.import_file_id == imp_file.import_file_id,
             CargoShippingRecord.is_active == True
         ).first()
-        if cargo_shp:
-            if bl.get("draft_bl_number"):
-                cargo_shp.bl_number = str(bl["draft_bl_number"])
-            if bl.get("vessel_name"):
-                cargo_shp.vessel_name = str(bl["vessel_name"])
-            if bl.get("containers"):
-                cargo_shp.containers_loading_data = bl["containers"]
-            if bl.get("total_gross_weight_kg"):
-                cargo_shp.total_gross_weight_kg = float(bl["total_gross_weight_kg"])
+        # Only containers_loading_data is a real column; B/L number, vessel and gross weight have no cargo column
+        # (deferred: schema change) and are kept on the import file / session data.
+        if cargo_shp and bl.get("containers"):
+            cargo_shp.containers_loading_data = bl["containers"]
 
-    # Reflect directly in Customs Document Approvals (الموافقة الجمركية على الأوراق)
-    try:
+
+def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], bl: Dict[str, Any], actor: str) -> None:
+    """Customs document approvals, lifecycle STEP_08_MATCH -> STEP_08_COO and file tracking, after the main commit."""
+
+    def _sync_approvals() -> None:
         from modules.docs_customs_approval.model import CustomsDocumentApproval
         approvals = db.query(CustomsDocumentApproval).filter(
-            CustomsDocumentApproval.import_file_id == request.import_file_id,
+            CustomsDocumentApproval.import_file_id == file_id,
             CustomsDocumentApproval.is_active == True,
         ).all()
         app_by_type = {a.document_type: a for a in approvals}
+        now = datetime.now(timezone.utc)
 
-        # 1. Commercial Invoice
-        if inv.get("invoice_number"):
-            inv_app = app_by_type.get("Commercial Invoice")
-            if inv_app:
-                inv_app.document_reference_no = str(inv["invoice_number"])
-                inv_app.commercial_status = "Approved"
-                inv_app.commercial_reviewed_by = "Smart Match Engine"
-                inv_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                inv_app.commercial_notes = "Smart match with the B/L completed and approved (STEP_08_MATCH)."
-                if inv_app.customs_status == "Approved":
-                    inv_app.overall_status = "Approved for Clearance"
-                else:
-                    inv_app.overall_status = "Under Review"
+        def _approve(app: Any, ref: Any, note: str, set_overall: bool = True) -> None:
+            app.document_reference_no = str(ref)
+            app.commercial_status = "Approved"
+            app.commercial_reviewed_by = actor
+            app.commercial_reviewed_at = now
+            app.commercial_notes = note
+            if set_overall:
+                app.overall_status = "Approved for Clearance" if app.customs_status == "Approved" else "Under Review"
 
-        # 2. Bill of Lading
-        if bl.get("draft_bl_number"):
-            bl_app = app_by_type.get("Bill of Lading")
-            if bl_app:
-                bl_app.document_reference_no = str(bl["draft_bl_number"])
-                bl_app.commercial_status = "Approved"
-                bl_app.commercial_reviewed_by = "Smart Match Engine"
-                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                bl_app.commercial_notes = "Smart match with the commercial invoice completed and approved (STEP_08_MATCH)."
-                if bl_app.customs_status == "Approved":
-                    bl_app.overall_status = "Approved for Clearance"
-                else:
-                    bl_app.overall_status = "Under Review"
-
-        # 3. Packing List
+        if inv.get("invoice_number") and app_by_type.get("Commercial Invoice"):
+            _approve(app_by_type["Commercial Invoice"], inv["invoice_number"],
+                     "Smart match with the B/L completed and approved (STEP_08_MATCH).")
+        if bl.get("draft_bl_number") and app_by_type.get("Bill of Lading"):
+            _approve(app_by_type["Bill of Lading"], bl["draft_bl_number"],
+                     "Smart match with the commercial invoice completed and approved (STEP_08_MATCH).")
         pl_ref = bl.get("packing_list_number") or inv.get("packing_list_number")
-        if pl_ref:
-            pl_app = app_by_type.get("Packing List")
-            if pl_app:
-                pl_app.document_reference_no = str(pl_ref)
-                pl_app.commercial_status = "Approved"
-                pl_app.commercial_reviewed_by = "Smart Match Engine"
-                pl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                pl_app.commercial_notes = "Packing list measurements matched and approved (STEP_08_MATCH)."
-    except Exception as e:
-        logger.warning("Failed to sync customs document approval from match: %s", e)
+        if pl_ref and app_by_type.get("Packing List"):
+            _approve(app_by_type["Packing List"], pl_ref,
+                     "Packing list measurements matched and approved (STEP_08_MATCH).", set_overall=False)
 
-    # Sync with Central Lifecycle Board Engine (STEP_08_MATCH -> STEP_08_COO)
-    try:
-        from modules.lifecycle_board.service import transition_stage_activity_service
-        transition_stage_activity_service(
-            db=db,
-            import_file_id=request.import_file_id,
-            completed_step_code="STEP_08_MATCH",
-            target_step_codes=["STEP_08_COO"],
-            notes=render_en(
-                "DOC_INVOICE_BL_MATCH_DONE",
-                {"invoice_number": inv.get("invoice_number", "N/A"), "draft_bl_number": bl.get("draft_bl_number", "N/A")},
-                "note",
-            ),
-            performed_by="Compliance Officer",
-        )
-    except Exception as e:
-        logger.warning("Lifecycle sync in invoice-bl match skipped: %s", e)
+    _commit_follow_up(db, _sync_approvals, "Invoice/B-L customs document approval sync")
 
-    set_file_tracking(imp_file, step_code="STEP_08_COO", next_action=msg("NA_STEP08COO_REVIEW_COO"))
-    if (imp_file.progress_percent or 0.0) < 54.0:
-        imp_file.progress_percent = 54.0
+    _lifecycle_follow_up(
+        db, "Lifecycle advance STEP_08_MATCH->STEP_08_COO",
+        import_file_id=file_id,
+        completed_step_code="STEP_08_MATCH",
+        target_step_codes=["STEP_08_COO"],
+        notes=render_en(
+            "DOC_INVOICE_BL_MATCH_DONE",
+            {"invoice_number": inv.get("invoice_number", "N/A"), "draft_bl_number": bl.get("draft_bl_number", "N/A")},
+            "note",
+        ),
+        assigned_user="Compliance Officer",
+    )
 
+    def _track() -> None:
+        imp = _get_active_import_file(db, file_id)
+        if imp:
+            set_file_tracking(imp, step_code="STEP_08_COO", next_action=msg("NA_STEP08COO_REVIEW_COO"))
+            if (imp.progress_percent or 0.0) < 54.0:
+                imp.progress_percent = 54.0
+
+    _commit_follow_up(db, _track, "Invoice/B-L file tracking")
+
+
+def sync_certified_invoice_bl_to_file_service(
+    db: Session, request: InvoiceBLSyncRequest, user: Optional[str] = None
+) -> dict:
+    imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
+    actor = _actor(user)
+    inv = request.invoice_data or {}
+    bl = request.bl_data or {}
+
+    _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
     db.commit()
-    db.refresh(imp_file)
+    _invoice_bl_sync_follow_ups(db, imp_file.import_file_id, inv, bl, actor)
+    imp_file = _get_active_import_file(db, request.import_file_id) or imp_file
 
+    invoice_number = inv.get('invoice_number', 'N/A')
+    draft_bl_number = bl.get('draft_bl_number', 'N/A')
     return {
         "status": "success",
-        "message": f"تمت مطابقة واعتماد الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
+        "message": f"تمت مطابقة واعتماد الفاتورة ({invoice_number}) والبوليصة ({draft_bl_number}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
+        # DOC-19 / C6: language-neutral twin of message (code registered centrally, see review-shared-needs.md).
+        "message_code": "DOC_INVOICE_BL_SYNCED",
+        "message_params": {"invoice_number": str(invoice_number), "draft_bl_number": str(draft_bl_number)},
         "import_file_id": imp_file.import_file_id,
         "import_file_code": imp_file.import_file_code,
         "synced_invoice_number": imp_file.pi_number,
         "synced_bl_number": imp_file.bl_number,
-        "total_amount": imp_file.total_amount,
-        "currency": imp_file.currency,
+        "synced_incoterm_code": imp_file.incoterm_code,
+        # Kept for old clients: the file has no amount column (deferred), the currency is estimated_cost_currency.
+        "total_amount": None,
+        "currency": imp_file.estimated_cost_currency,
     }
 
 
 def create_invoice_bl_match_session_service(
-    db: Session, payload: InvoiceBLMatchSessionCreate
+    db: Session, payload: InvoiceBLMatchSessionCreate, user: Optional[str] = None
 ) -> InvoiceBLMatchSession:
-    # 1. Fetch import file to enrich file code
-    file = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id).first()
-    if not payload.import_file_code and file:
-        payload.import_file_code = file.custom_file_number or file.import_file_code
+    imp_file = _active_import_file(db, payload.import_file_id)
+    actor = _actor(user, payload.certified_by)
+    if not payload.import_file_code:
+        payload.import_file_code = imp_file.custom_file_number or imp_file.import_file_code
 
-    # 2. Check if an active session already exists for this file
     existing = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=True)
+    certify = not payload.is_draft
+    existing_certified = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=False)
+    if not certify and existing_certified:
+        raise _conflict(
+            f"يوجد بالفعل جلسة مطابقة معتمدة للفاتورة والبوليصة لهذا الملف ({existing_certified.session_code}): "
+            f"لا يمكن حفظ مسودة فوقها."
+        )
+    if certify:
+        if existing_certified:
+            raise _conflict(
+                f"يوجد بالفعل جلسة مطابقة معتمدة للفاتورة والبوليصة لهذا الملف ({existing_certified.session_code})."
+            )
+        # Q6: certifying with critical discrepancies is allowed only with a written justification in notes.
+        if ((payload.critical_discrepancies_count or 0) > 0 or not payload.is_safe_for_certification) and not _has_text(payload.notes):
+            raise _bad_request("يوجد اختلافات حرجة بين الفاتورة والبوليصة: يجب كتابة مبرر الاعتماد في الملاحظات قبل الاعتماد.")
+        payload.certified_by = actor
+        if payload.invoice_data and payload.bl_data:
+            # Validated and applied before the session save: one commit for session + file sync (DOC-13).
+            _apply_invoice_bl_sync(db, imp_file, payload.invoice_data, payload.bl_data, True, actor)
+
     if existing and (existing.is_draft or payload.is_draft):
         update_schema = InvoiceBLMatchSessionUpdate(**payload.model_dump())
         session_res = repo.update_invoice_bl_match_session(db, existing.session_id, update_schema)
     else:
         session_res = repo.create_invoice_bl_match_session(db, payload)
 
-    # 3. If certified (not draft), sync to ImportFile, Shipping, and Customs Document Approvals!
-    if not payload.is_draft and payload.invoice_data and payload.bl_data:
-        sync_req = InvoiceBLSyncRequest(
-            import_file_id=payload.import_file_id,
-            invoice_data=payload.invoice_data,
-            bl_data=payload.bl_data,
-            sync_to_po=True,
-            sync_to_shipping=True,
-            notes=payload.notes,
-        )
-        sync_certified_invoice_bl_to_file_service(db, sync_req)
-
+    if certify and payload.invoice_data and payload.bl_data:
+        _invoice_bl_sync_follow_ups(db, payload.import_file_id, payload.invoice_data, payload.bl_data, actor)
+        db.refresh(session_res)
     return session_res
 
 
@@ -4415,9 +5047,11 @@ def list_invoice_bl_match_sessions_service(
 
 def get_invoice_bl_match_session_service(
     db: Session, session_id: int
-) -> Optional[InvoiceBLMatchSession]:
-    return repo.get_invoice_bl_match_session_by_id(db, session_id)
-
+) -> InvoiceBLMatchSession:
+    session = repo.get_invoice_bl_match_session_by_id(db, session_id)
+    if not session:
+        raise not_found(LABEL_INVOICE_BL_SESSION, session_id)
+    return session
 
 
 def extract_and_compare_po_documents_service(
@@ -4612,17 +5246,19 @@ def extract_and_compare_po_documents_service(
 
 # --- PO & PACKING RECONCILIATION SESSIONS SERVICES (BP-016) ---
 def enrich_po_reconciliation_session_response(
-    db: Session, session: POPackingReconciliationSession
+    db: Session, session: POPackingReconciliationSession, import_files_map: Optional[Dict[int, ImportFile]] = None
 ) -> POReconciliationSessionResponse:
     import_file_code = None
     importer_name = None
 
     if session.import_file_id:
-        file = db.query(ImportFile).filter(ImportFile.import_file_id == session.import_file_id).first()
+        if import_files_map is not None:
+            file = import_files_map.get(session.import_file_id)
+        else:
+            file = get_import_files_map(db, [session.import_file_id]).get(session.import_file_id)
         if file:
             import_file_code = file.import_file_code
             importer_name = file.company_name or (file.company.importer_name if file.company else None)
-
 
     resp_dict = {
         "session_id": session.session_id,
@@ -4658,20 +5294,53 @@ def enrich_po_reconciliation_session_response(
     return POReconciliationSessionResponse(**resp_dict)
 
 
-def create_po_reconciliation_session_service(
-    db: Session, schema: POReconciliationSessionCreate
-) -> POReconciliationSessionResponse:
-    # 1. Validate import file exists
-    file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
-    if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"الملف الاستيرادي رقم {schema.import_file_id} غير موجود بالمنظومة.",
+_PO_RECON_PASS_STATUSES = ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"]
+
+
+def _audit_po_recon(db: Session, session: POPackingReconciliationSession, action: str, actor: str,
+                    new_data: Optional[Dict[str, Any]] = None, old_data: Optional[Dict[str, Any]] = None) -> None:
+    from modules.audit_logs.service import AuditLogService
+    kwargs: Dict[str, Any] = {}
+    if new_data is not None:
+        kwargs["new_data"] = new_data
+    if old_data is not None:
+        kwargs["old_data"] = old_data
+    best_effort(
+        db, AuditLogService(db).log_activity, f"AuditLog for PO reconciliation {action.lower()}",
+        entity_type="POPackingReconciliationSession",
+        entity_id=session.session_id,
+        entity_code=session.session_code,
+        action=action,
+        performed_by=actor,
+        **kwargs,
+    )
+
+
+def _po_recon_lifecycle(db: Session, session: POPackingReconciliationSession, msg_code: str, actor: str) -> None:
+    if session.overall_status in _PO_RECON_PASS_STATUSES or session.is_safe_for_certification:
+        file_id, code = session.import_file_id, session.session_code
+        _lifecycle_follow_up(
+            db, "Lifecycle advance STEP_08_PO->STEP_08_BL",
+            import_file_id=file_id,
+            completed_step_code="STEP_08_PO",
+            target_step_codes=["STEP_08_BL"],
+            notes_msg=msg(msg_code, session_code=code),
+            assigned_user=actor,
         )
+        db.refresh(session)
+
+
+def create_po_reconciliation_session_service(
+    db: Session, schema: POReconciliationSessionCreate, user: Optional[str] = None
+) -> POReconciliationSessionResponse:
+    # 1. Validate import file exists and is active
+    _active_import_file(db, schema.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
+    actor = _actor(user, schema.certified_by)
+    schema.certified_by = actor
 
     # 2. Strict Rule: Prevent duplicate session for the same import file!
-    existing = repo.get_po_reconciliation_session_by_file_id(db, schema.import_file_id)
-    if existing:
+    existing = repo.get_po_reconciliation_session_by_file_id(db, schema.import_file_id, include_inactive=True)
+    if existing and existing.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -4680,38 +5349,22 @@ def create_po_reconciliation_session_service(
             ),
         )
 
-    session = repo.create_po_reconciliation_session(db, schema)
+    if existing:
+        # DOC-09 / Q5: import_file_id is unique in the table, so a soft-deleted session is reused: overwritten
+        # with the new data, reactivated, and audited as CREATE (no schema change this wave).
+        for field, value in schema.model_dump().items():
+            if field != "import_file_id":
+                setattr(existing, field, value)
+        existing.is_active = True
+        existing.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(existing)
+        session = existing
+    else:
+        session = repo.create_po_reconciliation_session(db, schema)
 
-    try:
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="POPackingReconciliationSession",
-            entity_id=session.session_id,
-            entity_code=session.session_code,
-            action="CREATE",
-            new_data=schema.model_dump(exclude_unset=True),
-            performed_by=session.certified_by or "Documentation Auditor",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("AuditLog for PO reconciliation create failed: %s", e)
-
-    # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
-    if session.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or session.is_safe_for_certification:
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=session.import_file_id,
-                completed_step_code="STEP_08_PO",
-                target_step_codes=["STEP_08_BL"],
-                notes_msg=msg("DOC_PO_RECONCILIATION_DONE", session_code=session.session_code),
-                assigned_user=session.certified_by or "Documentation Auditor",
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_PO->STEP_08_BL failed: %s", e)
-
+    _audit_po_recon(db, session, "CREATE", actor, new_data=schema.model_dump(mode="json", exclude_unset=True))
+    _po_recon_lifecycle(db, session, "DOC_PO_RECONCILIATION_DONE", actor)
     return enrich_po_reconciliation_session_response(db, session)
 
 
@@ -4724,7 +5377,8 @@ def get_po_reconciliation_sessions_service(
     sessions = repo.get_po_reconciliation_sessions(
         db, import_file_id=import_file_id, overall_status=overall_status, search=search
     )
-    return [enrich_po_reconciliation_session_response(db, s) for s in sessions]
+    files_map = get_import_files_map(db, [s.import_file_id for s in sessions])
+    return [enrich_po_reconciliation_session_response(db, s, import_files_map=files_map) for s in sessions]
 
 
 def get_po_reconciliation_session_by_id_service(
@@ -4732,86 +5386,40 @@ def get_po_reconciliation_session_by_id_service(
 ) -> POReconciliationSessionResponse:
     session = repo.get_po_reconciliation_session_by_id(db, session_id)
     if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"جلسة المطابقة رقم {session_id} غير موجودة.",
-        )
+        raise not_found(LABEL_PO_RECON_SESSION, session_id)
     return enrich_po_reconciliation_session_response(db, session)
 
 
 def update_po_reconciliation_session_service(
-    db: Session, session_id: int, schema: POReconciliationSessionUpdate
+    db: Session, session_id: int, schema: POReconciliationSessionUpdate, user: Optional[str] = None
 ) -> POReconciliationSessionResponse:
+    session = repo.get_po_reconciliation_session_by_id(db, session_id)
+    if not session:
+        raise not_found(LABEL_PO_RECON_SESSION, session_id)
+    actor = _actor(user, schema.certified_by)
+    schema.certified_by = actor
+
+    update_data = schema.model_dump(mode="json", exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(session, k, None) for k in update_data.keys()}
+    old_data = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in old_data.items()}
+
+    updated = repo.update_po_reconciliation_session(db, session_id, schema)
+
+    _audit_po_recon(db, updated, "UPDATE", actor, new_data=update_data, old_data=old_data)
+    _po_recon_lifecycle(db, updated, "DOC_PO_RECONCILIATION_UPDATED", actor)
+    return enrich_po_reconciliation_session_response(db, updated)
+
+
+def delete_po_reconciliation_session_service(db: Session, session_id: int, user: Optional[str] = None) -> dict:
     session = repo.get_po_reconciliation_session_by_id(db, session_id)
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"جلسة المطابقة رقم {session_id} غير موجودة للتحديث.",
-        )
-
-    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
-    old_data = {k: getattr(session, k, None) for k in update_data.keys()}
-
-    updated = repo.update_po_reconciliation_session(db, session_id, schema)
-
-    try:
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="POPackingReconciliationSession",
-            entity_id=updated.session_id,
-            entity_code=updated.session_code,
-            action="UPDATE",
-            old_data=old_data,
-            new_data=update_data,
-            performed_by=updated.certified_by or "Documentation Auditor",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("AuditLog for PO reconciliation update failed: %s", e)
-
-    # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
-    if updated.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or updated.is_safe_for_certification:
-        try:
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=updated.import_file_id,
-                completed_step_code="STEP_08_PO",
-                target_step_codes=["STEP_08_BL"],
-                notes_msg=msg("DOC_PO_RECONCILIATION_UPDATED", session_code=updated.session_code),
-                assigned_user=updated.certified_by or "Documentation Auditor",
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_PO->STEP_08_BL failed: %s", e)
-
-    return enrich_po_reconciliation_session_response(db, updated)
-
-
-def delete_po_reconciliation_session_service(db: Session, session_id: int) -> dict:
-    session = repo.get_po_reconciliation_session_by_id(db, session_id)
-    ok = repo.delete_po_reconciliation_session(db, session_id)
-    if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة المطابقة رقم {session_id} غير موجودة للحذف.",
         )
-    if session:
-        try:
-            from modules.audit_logs.service import AuditLogService
-            AuditLogService(db).log_activity(
-                entity_type="POPackingReconciliationSession",
-                entity_id=session.session_id,
-                entity_code=session.session_code,
-                action="DELETE",
-                performed_by=session.certified_by or "Documentation Auditor",
-            )
-        except Exception:
-            pass
+    repo.delete_po_reconciliation_session(db, session_id)
+    _audit_po_recon(db, session, "DELETE", _actor(user, session.certified_by))
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
-
-
-
 
 
 def get_all_acid_sessions_service(db: Session, include_inactive: bool = False, search: str = None, import_file_id: int = None, status: str = None):
@@ -4819,9 +5427,6 @@ def get_all_acid_sessions_service(db: Session, include_inactive: bool = False, s
 
 def get_acid_session_by_id_service(db: Session, acid_id: int):
     return repo.get_acid_session_by_id(db, acid_id)
-
-def soft_delete_acid_session_service(db: Session, acid_id: int):
-    return repo.soft_delete_acid_session(db, acid_id)
 
 def get_all_banking_documents_service(db: Session, import_file_id: int = None):
     return repo.get_all_banking_documents(db, import_file_id=import_file_id)
@@ -4838,19 +5443,23 @@ def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, im
 def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inactive: bool = True):
     return repo.get_draft_bl_review_by_id(db, review_id, include_inactive=include_inactive)
 
-def delete_draft_bl_review_service(db: Session, review_id: int) -> dict:
-    ok = repo.delete_draft_bl_review(db, review_id)
-    if not ok:
+def delete_draft_bl_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
+    review = repo.get_draft_bl_review_by_id(db, review_id, include_inactive=True)
+    if not review:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة مراجعة مسودة البوليصة رقم {review_id} غير موجودة للحذف.",
         )
+    _reject_terminal_draft_bl(review)  # an approved (FINAL) review is a record of the approval: never deleted
+    repo.delete_draft_bl_review(db, review_id)
+    # The table has no updated_by / deleted_by column (DOC-26, deferred): the deleting user goes to the audit log.
+    _audit_draft_bl(db, review, "DELETE", {"is_active": False}, _actor(user))
     return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
 
 def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
     return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
 
-def delete_coo_review_service(db: Session, review_id: int) -> dict:
+def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     ok = repo.delete_coo_review(db, review_id)
     if not ok:
         raise HTTPException(
@@ -4862,7 +5471,7 @@ def delete_coo_review_service(db: Session, review_id: int) -> dict:
 def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
     return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
 
-def delete_inspection_review_service(db: Session, review_id: int) -> dict:
+def delete_inspection_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     ok = repo.delete_inspection_review(db, review_id)
     if not ok:
         raise HTTPException(
@@ -5330,3 +5939,88 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         supplier_email_rectification_text=email_text,
         supplier_whatsapp_rectification_text=wa_text,
     )
+
+
+# --- UPLOAD ORCHESTRATION (moved out of the router, DOC-17). The router validates each upload first. ---
+def extract_po_files_and_compare_service(
+    db: Session,
+    invoice: Optional[Tuple[str, bytes]],
+    packing: Optional[Tuple[str, bytes]],
+    import_file_id: Optional[int],
+    invoice_text: Optional[str] = None,
+    packing_text: Optional[str] = None,
+) -> POExtractAndCompareResponse:
+    inv_raw = invoice_text or ""
+    pl_raw = packing_text or ""
+    if invoice:
+        inv_raw = extract_text_from_uploaded_file(invoice[0], invoice[1])
+    if packing:
+        pl_raw = extract_text_from_uploaded_file(packing[0], packing[1])
+    req = POExtractAndCompareRequest(
+        import_file_id=import_file_id,
+        invoice_raw_text=inv_raw,
+        packing_list_raw_text=pl_raw,
+    )
+    return extract_and_compare_po_documents_service(db, req)
+
+
+def extract_draft_bl_file_service(db: Session, filename: str, content: bytes, import_file_id: Optional[int]) -> dict:
+    raw_text, spatial_boxes = extract_text_and_boxes_from_uploaded_file(filename, content)
+    extracted_fields = parse_draft_bl_raw_text(raw_text, spatial_boxes=spatial_boxes)
+    comp_result = None
+    if import_file_id:
+        comp_result = compare_draft_bl_service(db, DraftBLComparisonRequest(
+            import_file_id=import_file_id,
+            draft_source="FILE_UPLOAD",
+            raw_draft_text=raw_text,
+            draft_fields=extracted_fields,
+        ))
+    guardrails = extracted_fields.get("_guardrails", {})
+    return {
+        "filename": filename,
+        "raw_text": raw_text,
+        "extracted_fields": extracted_fields,
+        "extraction_status": guardrails.get("extraction_status", "EXTRACTION_COMPLETE"),
+        "missing_critical_fields": guardrails.get("missing_critical_fields", []),
+        "safety_warning": guardrails.get("safety_warning"),
+        "comparison_result": comp_result,
+    }
+
+
+def extract_certificate_file_service(
+    document_type: str, filename: str, content: bytes, import_file_id: Optional[int]
+) -> DocumentExtractResponse:
+    raw_text = extract_text_from_uploaded_file(filename, content)
+    return extract_document_service(DocumentExtractRequest(
+        document_type=document_type,
+        raw_text=raw_text,
+        import_file_id=import_file_id,
+    ))
+
+
+def _merge_uploaded_texts(label: str, files: List[Tuple[str, bytes]], seed_text: Optional[str]) -> str:
+    parts = [seed_text] if seed_text else []
+    for idx, (filename, content) in enumerate(files):
+        extracted, _ = extract_text_and_boxes_from_uploaded_file(filename, content)
+        if extracted:
+            parts.append(f"--- {label} FILE {idx+1}: {filename} ---\n{extracted}")
+    return "\n\n".join(parts)
+
+
+def extract_invoice_bl_files_and_match_service(
+    db: Session,
+    invoices: List[Tuple[str, bytes]],
+    bls: List[Tuple[str, bytes]],
+    packings: List[Tuple[str, bytes]],
+    import_file_id: Optional[int],
+    invoice_text: Optional[str] = None,
+    bl_text: Optional[str] = None,
+    packing_list_text: Optional[str] = None,
+) -> InvoiceBLExtractAndMatchResponse:
+    req = InvoiceBLExtractAndMatchRequest(
+        import_file_id=import_file_id,
+        invoice_raw_text=_merge_uploaded_texts("INVOICE", invoices, invoice_text),
+        bl_raw_text=_merge_uploaded_texts("BL", bls, bl_text),
+        packing_list_raw_text=_merge_uploaded_texts("PACKING LIST", packings, packing_list_text),
+    )
+    return extract_and_match_invoice_bl_service(db, req)

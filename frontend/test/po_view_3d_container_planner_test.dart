@@ -154,15 +154,16 @@ void main() {
         projectsProvider.overrideWith((ref) => ProjectsNotifier(Dio())),
         importFilesProvider.overrideWith((ref) => ImportFilesNotifier(Dio())),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeMode,
+      // The provider must sit ABOVE MaterialApp so dialog routes see context.l10n.
+      child: AppLocalizationsProvider(
         locale: locale,
-        home: AppLocalizationsProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
           locale: locale,
-          child: Directionality(
+          home: Directionality(
             textDirection: textDir,
             child: MediaQuery(
               data: MediaQueryData(size: size),

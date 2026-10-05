@@ -6,6 +6,8 @@ import '../services/customs_export_service.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 
 class NafezaFeeBreakdownCard extends StatelessWidget {
   final List<CustomsItemCalcRow> calcLines;
@@ -52,9 +54,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final egpLabel = context.l10n.financialSettlementCurrencyEgp;
     final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
       totalDutyEgp: totalDutyEgp,
       totalVatEgp: totalVatEgp,
@@ -66,12 +67,12 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(top: 16),
         decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: AppTheme.black.withOpacity(0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -115,12 +116,11 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                     runSpacing: 6,
                     children: [
                       // 1. TSV Export Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      AppButton(
+                        label: l.customsTaxExportTsvBtn,
+                        icon: Icons.table_view_outlined,
+                        variant: AppButtonVariant.primary,
+                        size: AppButtonSize.small,
                         onPressed: () {
                           CustomsExportService.exportCustomsLinesTsv(
                             context: context,
@@ -128,16 +128,13 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                             currency: customsCurrency,
                           );
                         },
-                        icon: const Icon(Icons.table_view_outlined, color: Colors.white, size: 14),
-                        label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       // 2. Excel Export Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      AppButton(
+                        label: l.customsTaxExportExcelBtn,
+                        icon: Icons.table_chart,
+                        variant: AppButtonVariant.success,
+                        size: AppButtonSize.small,
                         onPressed: () async {
                           try {
                             final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
@@ -161,21 +158,18 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red),
+                                SnackBar(content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
                               );
                             }
                           }
                         },
-                        icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
-                        label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       // 3. PDF Export Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      AppButton(
+                        label: l.customsTaxPrintPdfBtn,
+                        icon: Icons.picture_as_pdf,
+                        variant: AppButtonVariant.primary,
+                        size: AppButtonSize.small,
                         onPressed: () async {
                           final session = CustomsConsultationModel(
                             consultationId: editingConsultationId ?? 0,
@@ -196,16 +190,13 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                             name: 'Nafeza_Statement_${DateTime.now().millisecondsSinceEpoch}',
                           );
                         },
-                        icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
-                        label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       // 4. Dossier Copy Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      AppButton(
+                        label: l.customsTaxCopyDossierBtn,
+                        icon: Icons.copy_all,
+                        variant: AppButtonVariant.primary,
+                        size: AppButtonSize.small,
                         onPressed: () {
                           CustomsExportService.copyCustomsDutyDossier(
                             context: context,
@@ -220,8 +211,6 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                             nafezaResult: nafezaResult,
                           );
                         },
-                        icon: const Icon(Icons.copy_all, color: Colors.white, size: 14),
-                        label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -237,9 +226,9 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                      color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     ),
                     child: Column(
                       children: [
@@ -247,7 +236,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkCardBackground : Colors.blueGrey.shade100.withOpacity(0.4),
+                            color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.4),
                             borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(5), topEnd: Radius.circular(5)),
                           ),
                           child: Row(
@@ -283,13 +272,13 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                       width: 44,
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade200,
+                                        color: isDark ? AppTheme.darkCardBackground : AppTheme.cloudWhite,
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                       ),
                                       child: Text(
                                         '[${item.code}]',
-                                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.cobalt : Colors.blueGrey, fontWeight: FontWeight.bold),
+                                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.cobalt : AppTheme.charcoal, fontWeight: FontWeight.bold),
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -308,8 +297,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: item.calculationType == 'flat'
-                                        ? (isDark ? Colors.blue.withOpacity(0.2) : Colors.blue.shade50)
-                                        : (isDark ? Colors.teal.withOpacity(0.2) : Colors.teal.shade50),
+                                        ? (isDark ? AppTheme.cobalt.withOpacity(0.2) : AppTheme.cobaltLight)
+                                        : (isDark ? AppTheme.emerald.withOpacity(0.2) : AppTheme.emeraldLight),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -317,8 +306,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: item.calculationType == 'flat'
-                                          ? (isDark ? Colors.blue.shade300 : Colors.blue.shade800)
-                                          : (isDark ? Colors.teal.shade300 : Colors.teal.shade800),
+                                          ? (isDark ? AppTheme.cobaltBorder : AppTheme.wcagCobalt)
+                                          : (isDark ? AppTheme.emeraldBorder : AppTheme.wcagEmerald),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

@@ -1,26 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/master_data_export_service.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-
 import 'package:printing/printing.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../../core/services/file_save_helper.dart';
+import '../../../core/services/master_data_export_service.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../customs_consultation/providers/customs_consultation_provider.dart';
 import '../../customs_consultation/services/customs_consultation_pdf_service.dart';
-import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/models/import_file_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../models/shipment_update_model.dart';
 import '../providers/shipment_updates_provider.dart';
 import '../widgets/shipment_update_dialog.dart';
-import '../../../core/services/display_name_resolver.dart';
+import '../widgets/su_consultation_dialog.dart';
+import '../widgets/su_customs_section.dart';
+import '../widgets/su_ui.dart';
 
 class ShipmentUpdateEngineScreen extends ConsumerStatefulWidget {
   const ShipmentUpdateEngineScreen({super.key});
@@ -46,19 +56,24 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     'Phase 10',
   ];
 
+  bool get _isAr => Localizations.localeOf(context).languageCode == 'ar';
+
+  String get _selectedFileCode => _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode ?? '';
+
   String _getPhaseName(AppLocalizations l, String phaseCode) {
-    return DisplayNameResolver.resolvePhaseName(
-      phaseCode,
-      isArabic: Localizations.localeOf(context).languageCode == 'ar',
-    );
+    return DisplayNameResolver.resolvePhaseName(phaseCode, isArabic: _isAr);
   }
 
   String _getStatusName(AppLocalizations l, String status) {
     switch (status) {
-      case 'Completed': return l.shipmentUpdateStatusCompleted;
-      case 'Current': return l.shipmentUpdateStatusCurrent;
-      case 'Future': return l.shipmentUpdateStatusFuture;
-      default: return status;
+      case 'Completed':
+        return l.shipmentUpdateStatusCompleted;
+      case 'Current':
+        return l.shipmentUpdateStatusCurrent;
+      case 'Future':
+        return l.shipmentUpdateStatusFuture;
+      default:
+        return status;
     }
   }
 
@@ -99,7 +114,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     final l = context.l10n;
     if (logs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.shipmentUpdateLogsEmptyMessage), backgroundColor: AppTheme.charcoal),
+        AppTheme.snackBar(context, l.shipmentUpdateLogsEmptyMessage, severity: AppSeverity.info),
       );
       return;
     }
@@ -174,1221 +189,551 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: val);
   }
 
+  void _reload() {
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
+    if (_selectedFileId != null) {
+      ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
+    }
+  }
+
+  void _openDailyCheckin({String? phase}) {
+    final file = _selectedFile;
+    if (file == null) return;
+    ShipmentUpdateDialog.show(
+      context,
+      initialFileId: file.importFileId,
+      initialFileCode: _selectedFileCode,
+      initialTargetPhase: phase ?? file.currentModule,
+      defaultCategory: 'Daily Check-in',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final importFilesState = ref.watch(importFilesProvider);
     final updatesState = ref.watch(shipmentUpdatesProvider);
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: Row(
-          children: [
-            const Icon(Icons.published_with_changes, color: AppTheme.cobalt),
-            const SizedBox(width: 10),
-            Text(l.shipmentUpdateEngineTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
+      backgroundColor: AppTheme.surfaceAltOf(context),
+      appBar: PageHeader(
+        icon: Icons.published_with_changes,
+        iconColor: AppTheme.cobalt,
+        title: l.shipmentUpdateEngineTitle,
         actions: [
-          const BackToDashboardButton(),
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: AppTheme.white, size: density.buttonIconSize),
             tooltip: l.shipmentUpdateRefreshTooltip,
-            onPressed: () {
-              ref.read(importFilesProvider.notifier).fetchImportFiles();
-              if (_selectedFileId != null) {
-                ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
-              }
-            },
+            onPressed: _reload,
           ),
+          const BackToDashboardButton(),
+          const SizedBox(width: 12),
         ],
       ),
       body: SelectionArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsetsDirectional.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            // Top Toolbar: Shipment Selector Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: importFilesState.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (err, _) => Text(l.shipmentUpdateErrorLoadingShipments(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
-                  data: (files) {
-                    if (files.isEmpty) {
-                      return Text(l.shipmentUpdateNoShipmentsRegistered);
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: SearchableDropdownField<int>(
-                            value: _selectedFileId,
-                            labelText: l.shipmentUpdateSelectShipmentPrompt,
-                            items: files.map((f) {
-                              final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                              final sTitle = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
-                              final pTitle = DisplayNameResolver.resolvePhaseName(f.currentModule, isArabic: isAr);
-                              return SearchableDropdownItem<int>(
-                                value: f.importFileId,
-                                label: '$sTitle - ${f.supplierName} ($pTitle)',
-                              );
-                            }).toList(),
-                            onChanged: (val) => _onShipmentSelected(val, files),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
-                          onPressed: _selectedFile == null
-                              ? null
-                              : () {
-                                  ShipmentUpdateDialog.show(
-                                    context,
-                                    initialFileId: _selectedFile!.importFileId,
-                                    initialFileCode: _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
-                                    initialTargetPhase: _selectedFile!.currentModule,
-                                    defaultCategory: 'Daily Check-in',
-                                  );
-                                },
-                          icon: const Icon(Icons.today, color: Colors.white),
-                          label: Text(l.shipmentUpdateComprehensiveDailyCheckinBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
-                          onPressed: updatesState.logs.isEmpty ? null : () => _copyShipmentUpdatesTsv(updatesState.logs),
-                          icon: const Icon(Icons.copy_all_rounded, size: 16, color: AppTheme.cobalt),
-                          label: Text(l.shipmentUpdatesExportTsvBtn),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
-                          onPressed: updatesState.logs.isEmpty
-                              ? null
-                              : () => MasterDataExportService.exportShipmentUpdatesToExcel(
-                                    context,
-                                    updatesState.logs,
-                                    shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
-                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
-                                  ),
-                          icon: const Icon(Icons.table_view_rounded, size: 16, color: AppTheme.emerald),
-                          label: Text(l.shipmentUpdatesExportExcelBtn),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
-                          onPressed: updatesState.logs.isEmpty
-                              ? null
-                              : () => MasterDataExportService.printOrSaveShipmentUpdatesListPdf(
-                                    context,
-                                    updatesState.logs,
-                                    shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
-                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
-                                  ),
-                          icon: const Icon(Icons.print_rounded, size: 16, color: AppTheme.charcoal),
-                          label: Text(l.shipmentUpdatesExportPdfBtn),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Visual 10-Phase Pipeline Inspector Component
-            if (_selectedFile != null) ...[
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    DisplayNameResolver.resolveShipmentName(
-                                      _selectedFile!,
-                                      isArabic: Localizations.localeOf(context).languageCode == 'ar',
-                                    ),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            DisplayNameResolver.resolvePhaseName(
-                              _selectedFile!.currentModule,
-                              isArabic: Localizations.localeOf(context).languageCode == 'ar',
-                            ),
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Inspected Phases Stepper
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _phaseCodes.map((pCode) {
-                            final pName = _getPhaseName(l, pCode);
-
-                            // Find inspection data
-                            final insp = updatesState.inspectedPhases.firstWhere(
-                              (ip) => ip.phaseCode == pCode,
-                              orElse: () => PhaseInspectionModel(phaseCode: pCode, phaseName: pName, phaseNumber: 1, status: 'Future', updateCount: 0),
-                            );
-
-                            Color tileBg = Colors.grey.shade100;
-                            Color borderCol = Colors.grey.shade300;
-                            Color textCol = Colors.grey.shade700;
-                            IconData statusIcon = Icons.hourglass_empty;
-
-                            if (insp.status == 'Completed') {
-                              tileBg = Colors.green.shade50;
-                              borderCol = AppTheme.emerald;
-                              textCol = Colors.green.shade900;
-                              statusIcon = Icons.check_circle;
-                            } else if (insp.status == 'Current') {
-                              tileBg = Colors.blue.shade50;
-                              borderCol = AppTheme.cobalt;
-                              textCol = AppTheme.cobalt;
-                              statusIcon = Icons.play_circle_fill;
-                            } else {
-                              tileBg = Colors.orange.shade50;
-                              borderCol = Colors.orange.shade300;
-                              textCol = Colors.orange.shade900;
-                              statusIcon = Icons.upcoming;
-                            }
-
-                            return Container(
-                              margin: const EdgeInsetsDirectional.only(end: 10),
-                              width: 140,
-                              child: InkWell(
-                                onTap: () {
-                                  ShipmentUpdateDialog.show(
-                                    context,
-                                    initialFileId: _selectedFile!.importFileId,
-                                    initialFileCode: _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
-                                    initialTargetPhase: pCode,
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(color: tileBg, border: Border.all(color: borderCol), borderRadius: BorderRadius.circular(8)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(statusIcon, size: 16, color: borderCol),
-                                          const SizedBox(width: 6),
-                                          Text(_getStatusName(l, insp.status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: borderCol)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(pName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textCol), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                      const SizedBox(height: 6),
-                                      Text(l.shipmentUpdateCountBadge(insp.updateCount), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ── CUSTOMS CONSULTATION & INSPECTION RESULTS CARD ──────────────
-            if (_selectedFile != null) ...[
-              _buildCustomsConsultationSection(
-                (ref.watch(customsConsultationsProvider).value ?? []).where((c) =>
-                    (c.importFileId != null && c.importFileId == _selectedFileId) ||
-                    (c.importFileCode != null && c.importFileCode == (_selectedFile!.customFileNumber ?? _selectedFile!.importFileCode)) ||
-                    (c.importFileCode != null && c.importFileCode == _selectedFile!.importFileCode)
-                ).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Master Data Toolbar (Data Actions & Export/Import)
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'shipment-updates',
-              title: 'Shipment_Updates',
-              onRefreshNeeded: () {
-                if (_selectedFileId != null) {
-                  if (!ref.read(shipmentUpdatesProvider).isLoading) {
-                    ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
-                  }
-                  if (!ref.read(customsConsultationsProvider).isLoading) {
-                    ref.read(customsConsultationsProvider.notifier).fetchConsultations();
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Live Update Logs Table
-            Expanded(
-              child: Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: updatesState.isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : updatesState.error != null
-                        ? Center(child: Text(l.shipmentUpdateLogsFetchError(updatesState.error.toString()), style: const TextStyle(color: AppTheme.crimson)))
-                        : updatesState.logs.isEmpty
-                            ? Center(child: Text(l.shipmentUpdateLogsEmptyMessage))
-                            : SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SingleChildScrollView(
-                                  child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
-                                    columns: [
-                                      DataColumn(label: Text(l.shipmentUpdateColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColDate, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColType, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColTargetStage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColCostAdjustment, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text(l.shipmentUpdateColAssignedUser, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                    ],
-                                    rows: updatesState.logs.map((log) {
-                                      final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
-                                      final isDaily = log.updateCategory == 'Daily Check-in';
-                                      final rowSummary = _buildRowSummary(log);
-
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                RowActionsPill(
-                                                  onView: () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (c) => SelectionArea(
-                                                        child: AlertDialog(
-                                                          title: Text(l.shipmentUpdateViewDialogTitle(log.updateCode)),
-                                                          content: Column(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                            children: [
-                                                              Text(l.shipmentUpdateViewStage(_getPhaseName(l, log.targetPhase)), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                              Text(l.shipmentUpdateViewDate(log.logDate)),
-                                                              Text(l.shipmentUpdateViewUser(log.assignedUser)),
-                                                              const SizedBox(height: 8),
-                                                              Text('${l.shipmentUpdateViewNotes}\n${log.note}'),
-                                                            ],
-                                                          ),
-                                                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(l.shipmentUpdateViewCloseBtn))],
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                  onEdit: () {
-                                                    ShipmentUpdateDialog.show(
-                                                      context,
-                                                      initialFileId: log.importFileId,
-                                                      initialTargetPhase: log.targetPhase,
-                                                      defaultCategory: log.updateCategory,
-                                                    );
-                                                  },
-                                                  onPrint: () => MasterDataExportService.printOrSaveShipmentUpdateSlipPdf(
-                                                    log,
-                                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
-                                                  ),
-                                                  onDelete: () async {
-                                                    final confirm = await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (c) => SelectionArea(
-                                                        child: AlertDialog(
-                                                          title: Text(l.shipmentUpdateDeleteConfirmTitle),
-                                                          content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
-                                                          actions: [
-                                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.shipmentUpdateDeleteCancelBtn)),
-                                                            ElevatedButton(
-                                                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                                                              onPressed: () => Navigator.pop(c, true),
-                                                              child: Text(l.shipmentUpdateDeleteConfirmBtn, style: const TextStyle(color: Colors.white)),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    );
-                                                    if (confirm == true) {
-                                                      ref.read(shipmentUpdatesProvider.notifier).deleteLog(log.updateId);
-                                                    }
-                                                  },
-                                                  viewTooltip: l.shipmentUpdateActionViewTooltip,
-                                                  editTooltip: l.shipmentUpdateActionEditTooltip,
-                                                  printTooltip: l.shipmentUpdateActionPrintTooltip,
-                                                  deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                IconButton(
-                                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                                                  tooltip: l.shipmentUpdateCopySummaryBtn,
-                                                  onPressed: () => CopyHelper.copy(
-                                                    context,
-                                                    rowSummary,
-                                                    customMessage: l.shipmentUpdateCopySummarySuccess,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: log.updateCode,
-                                              rowSummary: rowSummary,
-                                              child: InkWell(
-                                                onTap: () => CopyHelper.copy(
-                                                  context,
-                                                  log.updateCode,
-                                                  customMessage: l.shipmentUpdateCodeBadgeLabel,
-                                                ),
-                                                borderRadius: BorderRadius.circular(4),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.cobalt.withOpacity(0.08),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
-                                                      const SizedBox(width: 4),
-                                                      Text(log.updateCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: log.logDate,
-                                              rowSummary: rowSummary,
-                                              child: Text(log.logDate),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: isDaily
-                                                  ? l.shipmentUpdateBadgeDaily
-                                                  : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : _getCategoryLabel(l, log.updateCategory)),
-                                              rowSummary: rowSummary,
-                                              child: Chip(
-                                                label: Text(
-                                                  isDaily
-                                                      ? l.shipmentUpdateBadgeDaily
-                                                      : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : _getCategoryLabel(l, log.updateCategory)),
-                                                  style: const TextStyle(fontSize: 10, color: Colors.white),
-                                                ),
-                                                backgroundColor: isDaily ? AppTheme.emerald : (isCostAdj ? AppTheme.orange : AppTheme.cobalt),
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: _getPhaseName(l, log.targetPhase),
-                                              rowSummary: rowSummary,
-                                              child: Text(_getPhaseName(l, log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: log.note,
-                                              rowSummary: rowSummary,
-                                              child: SizedBox(
-                                                width: 320,
-                                                child: Text(log.note, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: isCostAdj
-                                                  ? '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}'
-                                                  : '-',
-                                              rowSummary: rowSummary,
-                                              child: isCostAdj
-                                                  ? Text(
-                                                      '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} ➔ ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}',
-                                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
-                                                    )
-                                                  : const Text('-'),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            CopyableTableCell(
-                                              value: log.assignedUser,
-                                              rowSummary: rowSummary,
-                                              child: Text(log.assignedUser),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  }
-
-  Widget _buildCustomsConsultationSection(List<CustomsConsultationModel> consultations) {
-    final l = context.l10n;
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.gavel_rounded, color: AppTheme.cobalt, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  l.shipmentUpdateCustomsSecTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: consultations.isNotEmpty ? AppTheme.emerald.withOpacity(0.12) : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: consultations.isNotEmpty ? AppTheme.emerald.withOpacity(0.4) : Colors.grey.shade300),
-                  ),
-                  child: Text(
-                    consultations.isNotEmpty
-                        ? l.shipmentUpdateCustomsStudiesCount(consultations.length)
-                        : l.shipmentUpdateCustomsNoStudies,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: consultations.isNotEmpty ? AppTheme.emerald : Colors.grey.shade700,
-                    ),
-                  ),
-                ),
+              if (_selectedFile != null && !updatesState.isLoading && updatesState.error == null) ...[
+                _buildMetrics(l, updatesState),
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 12),
-
-            if (consultations.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
+              _buildSelectorCard(l, importFilesState, updatesState),
+              const SizedBox(height: 16),
+              if (_selectedFile != null) ...[
+                _buildPipelineCard(l, updatesState),
+                const SizedBox(height: 16),
+                SuCustomsSection(
+                  consultations: (ref.watch(customsConsultationsProvider).value ?? [])
+                      .where((c) =>
+                          (c.importFileId != null && c.importFileId == _selectedFileId) ||
+                          (c.importFileCode != null && c.importFileCode == _selectedFileCode) ||
+                          (c.importFileCode != null && c.importFileCode == _selectedFile!.importFileCode))
+                      .toList(),
+                  onPrint: _printConsultation,
+                  onSavePdf: _saveConsultationPdf,
+                  onView: (c) => _showConsultationDetailsDialog(c, initialEditMode: false),
+                  onEdit: (c) => _showConsultationDetailsDialog(c, initialEditMode: true),
+                  onRecordDaily: () => _openDailyCheckin(phase: 'Phase 6'),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        l.shipmentUpdateCustomsEmptyPrompt,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...consultations.map((c) {
-                final readinessPct = c.readinessPercentage;
-                final hasBlocking = c.hasBlockingIssues || c.blockingIssuesCount > 0;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Row: Code, Title, Broker, Status
-                       Row(
-                        children: [
-                          InkWell(
-                            onTap: () => CopyHelper.copy(
-                              context,
-                              c.consultationCode,
-                              customMessage: l.shipmentUpdateConsultCodeBadgeLabel,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    c.consultationCode,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              c.title,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Row(
-                            children: [
-                              const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text(l.shipmentUpdateBrokerPrefix(c.brokerName), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                          const SizedBox(width: 10),
-                          _buildCustomsStatusBadge(l, c.overallStatus),
-                        ],
-                      ),
-                      const Divider(height: 18),
-
-                      // Metrics & Quick Status Bar
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _buildMetricBadge(
-                            l.shipmentUpdateMetricEstDuties,
-                            '${c.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
-                            AppTheme.crimson,
-                          ),
-                          _buildMetricBadge(
-                            l.shipmentUpdateMetricApprovedDocs,
-                            l.shipmentUpdateMetricDocsRatio(c.approvedDocumentsCount, c.totalDocumentsCount),
-                            Colors.green.shade800,
-                          ),
-                          _buildMetricBadge(
-                            l.shipmentUpdateMetricBlockingIssues,
-                            hasBlocking
-                                ? l.shipmentUpdateMetricBlockingCount(c.blockingIssuesCount)
-                                : l.shipmentUpdateMetricZeroBlocking,
-                            hasBlocking ? AppTheme.crimson : AppTheme.emerald,
-                          ),
-                          // Progress Bar
-                          Container(
-                            width: 160,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(l.shipmentUpdateMetricReadinessRate, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                                    Text(
-                                      '${readinessPct.toStringAsFixed(0)}%',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: (readinessPct / 100).clamp(0.0, 1.0),
-                                    minHeight: 6,
-                                    backgroundColor: Colors.grey.shade200,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Actions Row: View, Edit, Print & Daily Update
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.charcoal,
-                              side: BorderSide(color: Colors.grey.shade400),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            onPressed: () {
-                              Printing.layoutPdf(
-                                onLayout: (format) =>
-                                    CustomsConsultationPdfService.generateConsultationPdf(c),
-                                name: 'Customs_Consultation_${c.consultationCode}',
-                              );
-                            },
-                            icon: const Icon(Icons.print_rounded, size: 16),
-                            label: Text(l.shipmentUpdateBtnPrintPdf, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.cobalt,
-                              side: const BorderSide(color: AppTheme.cobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            onPressed: () => _showConsultationDetailsDialog(c, initialEditMode: false),
-                            icon: const Icon(Icons.visibility_rounded, size: 16),
-                            label: Text(l.shipmentUpdateBtnViewChecklist, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.orange,
-                              side: const BorderSide(color: AppTheme.orange),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            onPressed: () => _showConsultationDetailsDialog(c, initialEditMode: true),
-                            icon: const Icon(Icons.edit_note_rounded, size: 16),
-                            label: Text(l.shipmentUpdateBtnEditDocs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            onPressed: () {
-                              ShipmentUpdateDialog.show(
-                                context,
-                                initialFileId: _selectedFile!.importFileId,
-                                initialFileCode: _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
-                                initialTargetPhase: 'Phase 6',
-                                defaultCategory: 'Daily Check-in',
-                              );
-                            },
-                            icon: const Icon(Icons.post_add_rounded, color: Colors.white, size: 16),
-                            label: Text(l.shipmentUpdateBtnRecordDailyUpdate, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }),
-          ],
+                const SizedBox(height: 16),
+              ],
+              MasterDataToolbarWidget(
+                moduleEndpoint: 'shipment-updates',
+                title: 'Shipment_Updates',
+                onRefreshNeeded: () {
+                  if (_selectedFileId != null) {
+                    if (!ref.read(shipmentUpdatesProvider).isLoading) {
+                      ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
+                    }
+                    if (!ref.read(customsConsultationsProvider).isLoading) {
+                      ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildLogsCard(l, updatesState),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showConsultationDetailsDialog(CustomsConsultationModel session, {bool initialEditMode = false}) {
-    final l = context.l10n;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        bool isEditing = initialEditMode;
-        bool isSaving = false;
-        String selectedStatus = session.overallStatus;
-        final List<CustomsChecklistItemModel> editableItems = session.checklistItems
-            .map((item) => CustomsChecklistItemModel(
-                  itemId: item.itemId,
-                  consultationId: item.consultationId,
-                  documentType: item.documentType,
-                  hsCode: item.hsCode,
-                  isRequired: item.isRequired,
-                  isBlockingShipment: item.isBlockingShipment,
-                  responsibleParty: item.responsibleParty,
-                  regulatoryAgency: item.regulatoryAgency,
-                  status: item.status,
-                  remarks: item.remarks,
-                ))
-            .toList();
+  // ---------------------------------------------------------------------------
+  // Metric strip (loaded values only)
+  // ---------------------------------------------------------------------------
+  Widget _buildMetrics(AppLocalizations l, ShipmentUpdatesState state) {
+    final logs = state.logs;
+    final daily = logs.where((x) => x.updateCategory == 'Daily Check-in').length;
+    final costAdj = logs.where((x) => x.updateCategory == 'Phase Cost Adjustment').length;
+    final completed = state.inspectedPhases.where((p) => p.status == 'Completed').length;
+    return CcUi.metrics([
+      MetricCardData(
+        title: l.suMetricTotalUpdates,
+        value: '${logs.length}',
+        icon: Icons.history_rounded,
+        color: AppTheme.cobalt,
+      ),
+      MetricCardData(
+        title: l.shipmentUpdateBadgeDaily,
+        value: '$daily',
+        icon: Icons.today,
+        color: AppTheme.emerald,
+      ),
+      MetricCardData(
+        title: l.shipmentUpdateBadgeCostAdj,
+        value: '$costAdj',
+        icon: Icons.price_change_outlined,
+        color: AppTheme.orange,
+      ),
+      MetricCardData(
+        title: l.suMetricCompletedPhases,
+        value: '$completed/${_phaseCodes.length}',
+        icon: Icons.check_circle_outline,
+        color: AppTheme.charcoal,
+      ),
+    ]);
+  }
 
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            final approvedCount = editableItems.where((i) => i.status == 'Approved' || i.status == 'Verified').length;
-            final totalCount = editableItems.length;
-            final blockingCount = editableItems.where((i) => i.isBlockingShipment && i.status != 'Approved' && i.status != 'Verified').length;
-            final readinessPct = totalCount > 0 ? (approvedCount / totalCount * 100) : 0.0;
-
-            return SelectionArea(
-              child: AlertDialog(
-                title: Row(
-                  children: [
-                    const Icon(Icons.assignment_turned_in, color: AppTheme.cobalt),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isEditing
-                            ? l.shipmentUpdateConsultDialogEditTitle(session.consultationCode)
-                            : l.shipmentUpdateConsultDialogViewTitle(session.consultationCode),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.print_rounded, color: AppTheme.charcoal),
-                      tooltip: l.shipmentUpdateConsultPrintTooltip,
-                      onPressed: () {
-                        Printing.layoutPdf(
-                          onLayout: (format) =>
-                              CustomsConsultationPdfService.generateConsultationPdf(session),
-                          name: 'Customs_Consultation_${session.consultationCode}',
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(isEditing ? Icons.visibility_rounded : Icons.edit_rounded,
-                          color: isEditing ? AppTheme.cobalt : AppTheme.orange),
-                      tooltip: isEditing ? l.shipmentUpdateConsultSwitchViewTooltip : l.shipmentUpdateConsultSwitchEditTooltip,
-                      onPressed: () => setDialogState(() => isEditing = !isEditing),
-                    ),
-                  ],
-                ),
-                content: SizedBox(
-                  width: 850,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(session.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isEditing ? Colors.amber.shade50 : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isEditing ? Colors.orange.shade300 : Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(l.shipmentUpdateConsultBrokerPrefix(session.brokerName), style: const TextStyle(fontSize: 12)),
-                              Text(l.shipmentUpdateConsultEstDuties(session.estimatedDutiesEgp.toStringAsFixed(2)),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12)),
-                              if (isEditing)
-                                Row(
-                                  children: [
-                                    Text(l.shipmentUpdateConsultOverallStatusLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                    DropdownButton<String>(
-                                      value: selectedStatus,
-                                      isDense: true,
-                                      items: [
-                                        DropdownMenuItem(value: 'In Progress', child: Text(l.shipmentUpdateConsultStatusInProgress)),
-                                        DropdownMenuItem(value: 'Clearance Ready', child: Text(l.shipmentUpdateConsultStatusClearanceReady)),
-                                        DropdownMenuItem(value: 'Blocked', child: Text(l.shipmentUpdateConsultStatusBlocked)),
-                                        DropdownMenuItem(value: 'Action Required', child: Text(l.shipmentUpdateConsultStatusActionRequired)),
-                                        DropdownMenuItem(value: 'Completed', child: Text(l.shipmentUpdateConsultStatusCompleted)),
-                                      ],
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          setDialogState(() => selectedStatus = val);
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                )
-                              else
-                                Text(l.shipmentUpdateConsultStatus(_getCustomsStatusLabel(l, session.overallStatus)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Metrics Summary
-                        Row(
-                          children: [
-                            _buildMetricBadge(l.shipmentUpdateConsultReadinessRateLabel, '${readinessPct.toStringAsFixed(0)}%', readinessPct >= 80 ? Colors.green : Colors.blue),
-                            const SizedBox(width: 8),
-                            _buildMetricBadge(l.shipmentUpdateConsultTotalDocsLabel, '$totalCount', Colors.grey),
-                            const SizedBox(width: 8),
-                            _buildMetricBadge(l.shipmentUpdateConsultApprovedLabel, '$approvedCount', Colors.green),
-                            const SizedBox(width: 8),
-                            _buildMetricBadge(l.shipmentUpdateConsultBlockingLabel, '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        Row(
-                          children: [
-                            Text(l.shipmentUpdateConsultChecklistSectionTitle,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            const Spacer(),
-                            if (isEditing)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(l.shipmentUpdateConsultEditModeBanner,
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Checklist Table
-                        Table(
-                          border: TableBorder.all(color: Colors.grey.shade300),
-                          columnWidths: const {
-                            0: FlexColumnWidth(2.8),
-                            1: FlexColumnWidth(1.2),
-                            2: FlexColumnWidth(1.4),
-                            3: FlexColumnWidth(2.2),
-                          },
-                          children: [
-                            TableRow(
-                              decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                              children: [
-                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColDocType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColRemarks, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              ],
+  // ---------------------------------------------------------------------------
+  // Shipment selector + actions
+  // ---------------------------------------------------------------------------
+  Widget _buildSelectorCard(
+    AppLocalizations l,
+    AsyncValue<List<ImportFileModel>> importFilesState,
+    ShipmentUpdatesState updatesState,
+  ) {
+    return Container(
+      padding: const EdgeInsetsDirectional.all(16),
+      decoration: AppTheme.cardDecorationOf(context),
+      child: importFilesState.when(
+        loading: () => const LinearProgressIndicator(),
+        error: (err, _) => CcStateView.error(
+          message: l.shipmentUpdateErrorLoadingShipments(ApiErrorText.of(l, err)),
+          actionLabel: l.retry,
+          onAction: _reload,
+        ),
+        data: (files) {
+          if (files.isEmpty) {
+            return CcStateView.empty(
+              message: l.shipmentUpdateNoShipmentsRegistered,
+              icon: Icons.local_shipping_outlined,
+            );
+          }
+          final logs = updatesState.logs;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SearchableDropdownField<int>(
+                value: _selectedFileId,
+                labelText: l.shipmentUpdateSelectShipmentPrompt,
+                items: files.map((f) {
+                  final sTitle = DisplayNameResolver.resolveShipmentTitle(f, isArabic: _isAr);
+                  final pTitle = DisplayNameResolver.resolvePhaseName(f.currentModule, isArabic: _isAr);
+                  return SearchableDropdownItem<int>(
+                    value: f.importFileId,
+                    label: '$sTitle - ${f.supplierName} ($pTitle)',
+                  );
+                }).toList(),
+                onChanged: (val) => _onShipmentSelected(val, files),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  CcUi.fit(AppButton(
+                    label: l.shipmentUpdateComprehensiveDailyCheckinBtn,
+                    icon: Icons.today,
+                    onPressed: _selectedFile == null ? null : () => _openDailyCheckin(),
+                  )),
+                  CcUi.fit(AppButton(
+                    label: l.shipmentUpdatesExportTsvBtn,
+                    icon: Icons.copy_all_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: logs.isEmpty ? null : () => _copyShipmentUpdatesTsv(logs),
+                  )),
+                  CcUi.fit(AppButton(
+                    label: l.shipmentUpdatesExportExcelBtn,
+                    icon: Icons.table_view_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: logs.isEmpty
+                        ? null
+                        : () => MasterDataExportService.exportShipmentUpdatesToExcel(
+                              context,
+                              logs,
+                              shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
+                              isAr: _isAr,
                             ),
-                            ...editableItems.asMap().entries.map((entry) {
-                              final idx = entry.key;
-                              final doc = entry.value;
-
-                              return TableRow(
-                                decoration: BoxDecoration(
-                                  color: idx % 2 == 1 ? Colors.grey.shade50 : Colors.white,
-                                ),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Builder(
-                                          builder: (context) {
-                                            final statusLower = doc.status.toLowerCase();
-                                            final isApproved = statusLower == 'approved' ||
-                                                statusLower == 'verified' ||
-                                                statusLower == 'completed' ||
-                                                statusLower == 'received' ||
-                                                statusLower == 'obtained' ||
-                                                statusLower.contains('معتمد') ||
-                                                statusLower.contains('مستوفى');
-                                            final isRejected = statusLower == 'rejected' ||
-                                                statusLower.contains('مرفوض');
-                                            final isBlocking = doc.isBlockingShipment && !isApproved;
-
-                                            return Row(
-                                              children: [
-                                                if (isApproved)
-                                                  const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 14)
-                                                else if (isRejected)
-                                                  const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 14)
-                                                else if (isBlocking)
-                                                  Tooltip(
-                                                    message: l.shipmentUpdateConsultBlockingTooltip,
-                                                    child: const Icon(Icons.block, color: Colors.red, size: 14),
-                                                  )
-                                                else
-                                                  const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 14),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(
-                                                    doc.documentType,
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 11.5,
-                                                      color: isBlocking ? Colors.red.shade900 : AppTheme.charcoal,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ),
-                                        if (doc.hsCode != null && doc.hsCode!.isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 2),
-                                            child: Text(l.shipmentUpdateConsultHsCodesPrefix(doc.hsCode!),
-                                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Text(doc.responsibleParty, style: const TextStyle(fontSize: 11)),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(6),
-                                    child: isEditing
-                                        ? DropdownButton<String>(
-                                            value: doc.status,
-                                            isDense: true,
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
-                                            items: [
-                                              DropdownMenuItem(value: 'Approved', child: Text('🟢 ${l.shipmentUpdateDocStatusApproved}')),
-                                              DropdownMenuItem(value: 'Pending', child: Text('🟠 ${l.shipmentUpdateDocStatusPending}')),
-                                              DropdownMenuItem(value: 'Received', child: Text('🔵 ${l.shipmentUpdateDocStatusReceived}')),
-                                              DropdownMenuItem(value: 'Verified', child: Text('🟣 ${l.shipmentUpdateDocStatusVerified}')),
-                                              DropdownMenuItem(value: 'Rejected', child: Text('🔴 ${l.shipmentUpdateDocStatusRejected}')),
-                                            ],
-                                            onChanged: (newSt) {
-                                              if (newSt != null) {
-                                                setDialogState(() {
-                                                  editableItems[idx] = CustomsChecklistItemModel(
-                                                    itemId: doc.itemId,
-                                                    consultationId: doc.consultationId,
-                                                    documentType: doc.documentType,
-                                                    hsCode: doc.hsCode,
-                                                    isRequired: doc.isRequired,
-                                                    isBlockingShipment: doc.isBlockingShipment,
-                                                    responsibleParty: doc.responsibleParty,
-                                                    regulatoryAgency: doc.regulatoryAgency,
-                                                    status: newSt,
-                                                    remarks: doc.remarks,
-                                                  );
-                                                });
-                                              }
-                                            },
-                                          )
-                                        : _buildDocItemStatusBadge(l, doc.status),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Text(doc.remarks ?? '-', style: const TextStyle(fontSize: 11)),
-                                  ),
-                                ],
-                              );
-                            }),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
-                    onPressed: () {
-                      Printing.layoutPdf(
-                        onLayout: (format) =>
-                            CustomsConsultationPdfService.generateConsultationPdf(session),
-                        name: 'Customs_Consultation_${session.consultationCode}',
-                      );
-                    },
-                    icon: const Icon(Icons.print_rounded, size: 16),
-                    label: Text(l.shipmentUpdateBtnPrintPdf),
-                  ),
-                  if (isEditing)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                              setDialogState(() => isSaving = true);
-                              try {
-                                final payload = {
-                                  'overall_status': selectedStatus,
-                                  'checklist_items': editableItems.map((item) => item.toJson()).toList(),
-                                };
-                                await ref
-                                    .read(customsConsultationsProvider.notifier)
-                                    .updateConsultation(session.consultationId, payload);
-                                if (dialogContext.mounted) {
-                                  Navigator.pop(dialogContext);
-                                }
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l.shipmentUpdateConsultSaveSuccess(session.consultationCode)),
-                                      backgroundColor: AppTheme.emerald,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                setDialogState(() => isSaving = false);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(l.shipmentUpdateConsultSaveError(e.toString())), backgroundColor: AppTheme.crimson),
-                                  );
-                                }
-                              }
-                            },
-                      icon: isSaving
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.save, color: Colors.white, size: 16),
-                      label: Text(
-                        isSaving ? l.shipmentUpdateConsultSavingBtn : l.shipmentUpdateConsultSaveBtn,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: Text(l.shipmentUpdateConsultCloseBtn),
-                  ),
+                  )),
+                  CcUi.fit(AppButton(
+                    label: l.shipmentUpdatesExportPdfBtn,
+                    icon: Icons.print_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: logs.isEmpty
+                        ? null
+                        : () => MasterDataExportService.printOrSaveShipmentUpdatesListPdf(
+                              context,
+                              logs,
+                              shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
+                              isAr: _isAr,
+                            ),
+                  )),
                 ],
               ),
-            );
-          },
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildMetricBadge(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.25)),
+  // ---------------------------------------------------------------------------
+  // 10-phase pipeline
+  // ---------------------------------------------------------------------------
+  Widget _buildPipelineCard(AppLocalizations l, ShipmentUpdatesState updatesState) {
+    final file = _selectedFile!;
+    return CcSectionCard(
+      title: DisplayNameResolver.resolveShipmentName(file, isArabic: _isAr),
+      icon: Icons.hub,
+      margin: EdgeInsets.zero,
+      trailing: CcStatusChip(
+        label: DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: _isAr),
+        severity: AppSeverity.success,
+        icon: Icons.flag_outlined,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SuCodeBadge(code: _selectedFileCode, copiedMessage: l.shipmentUpdateCodeBadgeLabel, fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _phaseCodes.map((pCode) {
+                final pName = _getPhaseName(l, pCode);
+                final insp = updatesState.inspectedPhases.firstWhere(
+                  (ip) => ip.phaseCode == pCode,
+                  orElse: () => PhaseInspectionModel(
+                    phaseCode: pCode,
+                    phaseName: pName,
+                    phaseNumber: 1,
+                    status: 'Future',
+                    updateCount: 0,
+                  ),
+                );
+                return SuPhaseTile(
+                  name: pName,
+                  status: insp.status,
+                  statusLabel: _getStatusName(l, insp.status),
+                  countLabel: l.shipmentUpdateCountBadge(insp.updateCount),
+                  onTap: () => ShipmentUpdateDialog.show(
+                    context,
+                    initialFileId: file.importFileId,
+                    initialFileCode: _selectedFileCode,
+                    initialTargetPhase: pCode,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  String _getCustomsStatusLabel(AppLocalizations l, String status) {
-    switch (status) {
-      case 'In Progress':
-        return l.shipmentUpdateConsultStatusInProgress;
-      case 'Clearance Ready':
-        return l.shipmentUpdateConsultStatusClearanceReady;
-      case 'Blocked':
-        return l.shipmentUpdateConsultStatusBlocked;
-      case 'Action Required':
-        return l.shipmentUpdateConsultStatusActionRequired;
-      case 'Completed':
-        return l.shipmentUpdateConsultStatusCompleted;
-      default:
-        return status;
+  // ---------------------------------------------------------------------------
+  // Update logs table
+  // ---------------------------------------------------------------------------
+  Widget _buildLogsCard(AppLocalizations l, ShipmentUpdatesState updatesState) {
+    final Widget content;
+    if (updatesState.isLoading) {
+      content = const SizedBox(height: 160, child: CcStateView.loading());
+    } else if (updatesState.error != null) {
+      content = CcStateView.error(
+        message: l.shipmentUpdateLogsFetchError(updatesState.error.toString()),
+        actionLabel: l.retry,
+        onAction: _reload,
+      );
+    } else if (updatesState.logs.isEmpty) {
+      content = CcStateView.empty(message: l.shipmentUpdateLogsEmptyMessage, icon: Icons.history_toggle_off_rounded);
+    } else {
+      content = _buildLogsTable(l, updatesState.logs);
     }
-  }
-
-  String _getDocItemStatusLabel(AppLocalizations l, String status) {
-    switch (status) {
-      case 'Approved':
-        return l.shipmentUpdateDocStatusApproved;
-      case 'Pending':
-        return l.shipmentUpdateDocStatusPending;
-      case 'Received':
-        return l.shipmentUpdateDocStatusReceived;
-      case 'Verified':
-        return l.shipmentUpdateDocStatusVerified;
-      case 'Rejected':
-        return l.shipmentUpdateDocStatusRejected;
-      default:
-        return status;
-    }
-  }
-
-  Widget _buildCustomsStatusBadge(AppLocalizations l, String status) {
-    Color bg = Colors.grey;
-    if (status == 'Clearance Ready') bg = Colors.green;
-    if (status == 'Blocked') bg = Colors.red;
-    if (status == 'Action Required') bg = Colors.orange;
-    if (status == 'In Progress') bg = Colors.blue;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-      child: Text(_getCustomsStatusLabel(l, status), style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
+      decoration: AppTheme.cardDecorationOf(context),
+      clipBehavior: Clip.antiAlias,
+      child: content,
     );
   }
 
-  Widget _buildDocItemStatusBadge(AppLocalizations l, String status) {
-    Color bg = Colors.grey;
-    if (status == 'Approved') bg = Colors.green;
-    if (status == 'Rejected') bg = Colors.red;
-    if (status == 'Verified') bg = Colors.blue;
-    if (status == 'Received') bg = Colors.orange;
+  Widget _buildLogsTable(AppLocalizations l, List<ShipmentUpdateLogModel> logs) {
+    TextStyle head() => const TextStyle(fontWeight: FontWeight.bold);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: const WidgetStatePropertyAll(AppTheme.charcoalSurface),
+        columns: [
+          DataColumn(label: Text(l.shipmentUpdateColActions, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColCode, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColDate, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColType, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColTargetStage, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColNotes, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColCostAdjustment, style: head())),
+          DataColumn(label: Text(l.shipmentUpdateColAssignedUser, style: head())),
+        ],
+        rows: logs.map((log) => _buildLogRow(l, log)).toList(),
+      ),
+    );
+  }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-      child: Text(_getDocItemStatusLabel(l, status), style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 10)),
+  DataRow _buildLogRow(AppLocalizations l, ShipmentUpdateLogModel log) {
+    final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
+    final rowSummary = _buildRowSummary(log);
+    final categoryLabel = _getCategoryLabel(l, log.updateCategory);
+    final costText =
+        '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}';
+
+    return DataRow(
+      cells: [
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RowActionsPill(
+                onView: () => _showLogViewDialog(l, log),
+                onEdit: () {
+                  ShipmentUpdateDialog.show(
+                    context,
+                    initialFileId: log.importFileId,
+                    initialTargetPhase: log.targetPhase,
+                    defaultCategory: log.updateCategory,
+                  );
+                },
+                onPrint: () => MasterDataExportService.printOrSaveShipmentUpdateSlipPdf(log, isAr: _isAr),
+                onDelete: () => _confirmDelete(l, log),
+                viewTooltip: l.shipmentUpdateActionViewTooltip,
+                editTooltip: l.shipmentUpdateActionEditTooltip,
+                printTooltip: l.shipmentUpdateActionPrintTooltip,
+                deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                tooltip: l.shipmentUpdateCopySummaryBtn,
+                onPressed: () => CopyHelper.copy(
+                  context,
+                  rowSummary,
+                  customMessage: l.shipmentUpdateCopySummarySuccess,
+                ),
+              ),
+            ],
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: log.updateCode,
+            rowSummary: rowSummary,
+            child: SuCodeBadge(code: log.updateCode, copiedMessage: l.shipmentUpdateCodeBadgeLabel, fontSize: 12),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: log.logDate,
+            rowSummary: rowSummary,
+            child: LtrText(log.logDate),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: categoryLabel,
+            rowSummary: rowSummary,
+            child: CcStatusChip(label: categoryLabel, severity: SuUi.categorySeverity(log.updateCategory)),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: _getPhaseName(l, log.targetPhase),
+            rowSummary: rowSummary,
+            child: Text(_getPhaseName(l, log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: log.note,
+            rowSummary: rowSummary,
+            child: SizedBox(
+              width: 320,
+              child: Text(log.note, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: isCostAdj ? costText : '-',
+            rowSummary: rowSummary,
+            child: isCostAdj
+                ? Text(
+                    costText,
+                    textDirection: TextDirection.ltr,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
+                  )
+                : const Text('-'),
+          ),
+        ),
+        DataCell(
+          CopyableTableCell(
+            value: log.assignedUser,
+            rowSummary: rowSummary,
+            child: Text(log.assignedUser),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showLogViewDialog(AppLocalizations l, ShipmentUpdateLogModel log) {
+    showDialog(
+      context: context,
+      builder: (c) => SelectionArea(
+        child: CcStageDialogShell(
+          title: l.shipmentUpdateViewDialogTitle(log.updateCode),
+          icon: Icons.visibility_rounded,
+          maxWidth: 560,
+          chips: [CcHeaderChip(Icons.confirmation_number_outlined, log.updateCode, ltr: true)],
+          showCancel: false,
+          confirmLabel: l.shipmentUpdateViewCloseBtn,
+          confirmIcon: Icons.close,
+          confirmVariant: AppButtonVariant.secondary,
+          isSubmitting: false,
+          onConfirm: () => Navigator.pop(c),
+          body: CcFormSection(
+            title: l.shipmentUpdateViewDialogTitle(log.updateCode),
+            icon: Icons.notes_rounded,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.shipmentUpdateViewStage(_getPhaseName(l, log.targetPhase)),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(l.shipmentUpdateViewDate(log.logDate)),
+                const SizedBox(height: 4),
+                Text(l.shipmentUpdateViewUser(log.assignedUser)),
+                const SizedBox(height: 10),
+                Text('${l.shipmentUpdateViewNotes}\n${log.note}'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(AppLocalizations l, ShipmentUpdateLogModel log) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => SelectionArea(
+        child: AlertDialog(
+          title: Text(l.shipmentUpdateDeleteConfirmTitle),
+          content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
+          actions: [
+            AppButton(
+              label: l.shipmentUpdateDeleteCancelBtn,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => Navigator.pop(c, false),
+            ),
+            AppButton(
+              label: l.shipmentUpdateDeleteConfirmBtn,
+              icon: Icons.delete_outline,
+              variant: AppButtonVariant.danger,
+              onPressed: () => Navigator.pop(c, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref.read(shipmentUpdatesProvider.notifier).deleteLog(log.updateId);
+      ref.invalidate(importFilesProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Customs consultation actions
+  // ---------------------------------------------------------------------------
+  void _printConsultation(CustomsConsultationModel c) {
+    Printing.layoutPdf(
+      onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(c),
+      name: 'Customs_Consultation_${c.consultationCode}',
+    );
+  }
+
+  /// Saves the consultation PDF through the shared Save-As flow
+  /// (`[Stage Name] - [File code].pdf`). Printing stays a separate action.
+  Future<void> _saveConsultationPdf(CustomsConsultationModel c) async {
+    final l = context.l10n;
+    try {
+      final bytes = await CustomsConsultationPdfService.generateConsultationPdf(c);
+      if (!mounted) return;
+      await FileSaveHelper.exportAndSaveFile(
+        context: context,
+        bytes: bytes,
+        stageName: l.shipmentUpdateStageNameCustomsConsultation,
+        importFileNameOrCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode ?? c.consultationCode,
+        extension: 'pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger),
+      );
+    }
+  }
+
+  void _showConsultationDetailsDialog(CustomsConsultationModel session, {bool initialEditMode = false}) {
+    SuConsultationDetailsDialog.show(
+      context,
+      session: session,
+      initialEditMode: initialEditMode,
+      onPrint: () => _printConsultation(session),
+      onSavePdf: () => _saveConsultationPdf(session),
     );
   }
 }

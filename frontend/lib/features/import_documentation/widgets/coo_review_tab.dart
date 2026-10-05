@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'idoc_ui_b.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
@@ -155,23 +158,23 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: 'مسودة شهادة المنشأ و EUR.1 (Draft COO Review)',
+            entityType: context.l10n.idocBCooCloneEntity,
             sourceCode: session.cooReviewCode,
             sourceTitle: '${session.certificateType} - ${session.certificateNumber}',
             suggestedNewCode: suggestedCode,
             copiedFieldsSummary: {
-              'نوع الشهادة': session.certificateType,
-              'المصدر': expName,
-              'المستورد': impName,
-              'بلد المنشأ': originCountry,
-              'بلد المقصد': destCountry,
-              'رقم الفاتورة': invNo,
+              context.l10n.idocBCooCloneFieldType: session.certificateType,
+              context.l10n.idocBCooCloneFieldExporter: expName,
+              context.l10n.idocBCooCloneFieldImporter: impName,
+              context.l10n.idocBCooCloneFieldOrigin: originCountry,
+              context.l10n.idocBCooCloneFieldDestination: destCountry,
+              context.l10n.idocBCooCloneFieldInvoice: invNo,
             },
-            mandatorilyResetFields: const [
-              'رقم شهادة المنشأ: يتم تصفيره إلى كود مسودة مؤقت جديد (DRAFT-COO-2026-)',
-              'معرف جلسة المراجعة السابقة: تم فك الارتباط وبدء جلسة جديدة فارغة الاعتمادات',
-              'اعتمادات وملاحظات الفحص الجمركي: تعاد إلى حالة المسودة (Draft) لتجنب تكرار الاعتماد القديم',
-              'لقطة بيانات النظام: يتم تحديثها ومطابقتها مع ملف الشحنة المختار',
+            mandatorilyResetFields: [
+              context.l10n.idocBCooCloneReset1,
+              context.l10n.idocBCooCloneReset2,
+              context.l10n.idocBCooCloneReset3,
+              context.l10n.idocBCooCloneReset4,
             ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
@@ -302,7 +305,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           _activeDraftTemplate = template;
           _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
               ? file.acidNumber
-              : '5281534391023010013';
+              : '';
           _activeExemptionNotes = res['exemption_notes']?.toString();
 
           if (template['certificate_number'] != null) _certNumberCtrl.text = template['certificate_number'].toString();
@@ -321,7 +324,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
   Future<void> _generateOfficialDraft() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -340,7 +343,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       final exemption = res['exemption_notes']?.toString() ?? '';
       final files = ref.read(importFilesProvider).value ?? [];
       final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
-      final acidNo = file?.acidNumber ?? '7595528271020210010';
+      final acidNo = file?.acidNumber ?? '';
 
       setState(() {
         _activeDraftTemplate = template;
@@ -364,7 +367,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey),
+                icon: const Icon(Icons.close, color: AppTheme.textMuted),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -382,15 +385,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-              icon: const Icon(Icons.check, color: Colors.white),
-              label: Text(context.l10n.cooAutoFillFieldsButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              onPressed: () {
+            IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: () => Navigator.pop(ctx), variant: AppButtonVariant.secondary)),
+            IdocBUi.fit(AppButton(label: context.l10n.cooAutoFillFieldsButton, onPressed: () {
                 Navigator.pop(ctx);
                 setState(() {
                   if (template['certificate_number'] != null) _certNumberCtrl.text = template['certificate_number'].toString();
@@ -402,17 +398,16 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   _activeStep = 1;
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.l10n.cooDraftFilledSuccess), backgroundColor: Colors.green),
+                  SnackBar(content: Text(context.l10n.cooDraftFilledSuccess), backgroundColor: AppTheme.emerald),
                 );
-              },
-            ),
+              }, variant: AppButtonVariant.success, icon: Icons.check)),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooGenerateDraftError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooGenerateDraftError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -424,7 +419,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooPasteTextOrUploadWarning), backgroundColor: Colors.orange),
+        SnackBar(content: Text(context.l10n.cooPasteTextOrUploadWarning), backgroundColor: AppTheme.orange),
       );
       return;
     }
@@ -454,18 +449,18 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       if (mounted) {
         if (warnings.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(warnings.join('\n')), backgroundColor: Colors.orange, duration: const Duration(seconds: 4)),
+            SnackBar(content: Text(warnings.join('\n')), backgroundColor: AppTheme.orange, duration: const Duration(seconds: 4)),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.cooAiExtractSuccess), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.cooAiExtractSuccess), backgroundColor: AppTheme.emerald),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooExtractError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooExtractError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -476,7 +471,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
   Future<void> _runComparison() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -507,7 +502,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooComparisonError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooComparisonError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -520,7 +515,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.cooSelectFileFirstForComparison),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.orange,
         ),
       );
       return;
@@ -534,7 +529,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.cooMustProvideJustificationSnackbar),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.orange,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -599,12 +594,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
       if (mounted) {
         final msg = isDraft
-            ? 'تم حفظ مسودة جلسة مراجعة شهادة المنشأ بنجاح 💾'
-            : 'تم اعتماد جلسة مراجعة شهادة المنشأ وتحديث الموافقة الجمركية بنجاح ✅';
+            ? '${context.l10n.idocBCooSavedDraft} 💾'
+            : '${context.l10n.idocBCooCertified} ✅';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
-            backgroundColor: isDraft ? AppTheme.cobalt : Colors.green,
+            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
           ),
         );
         setState(() => _activeStep = 3);
@@ -612,7 +607,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooSaveError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooSaveError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -709,13 +704,13 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
+              colors: [AppTheme.charcoal, AppTheme.charcoal.withValues(alpha: 0.92)],
               begin: AlignmentDirectional.topStart,
               end: AlignmentDirectional.bottomEnd,
             ),
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3)),
+              BoxShadow(color: AppTheme.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 3)),
             ],
           ),
           child: Column(
@@ -735,10 +730,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.25),
+                            color: AppTheme.cobalt.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 22),
+                          child: const Icon(Icons.auto_awesome, color: AppTheme.darkHyperlink, size: 22),
                         ),
                         const SizedBox(width: 12),
                         Flexible(
@@ -747,12 +742,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             children: [
                               Text(
                                 context.l10n.cooDecisionEngineTitle,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.white),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 context.l10n.cooDecisionEngineSub,
-                                style: const TextStyle(fontSize: 11.5, color: Colors.white70),
+                                style: const TextStyle(fontSize: 11.5, color: AppTheme.cloudWhite),
                               ),
                             ],
                           ),
@@ -761,20 +756,11 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ),
                   ),
                   if (_selectedImportFileId != null)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: Text(context.l10n.cooRecheckAgreementButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      onPressed: () => _fetchAndApplyDraft(_selectedImportFileId!),
-                    ),
+                    IdocBUi.fit(AppButton(label: context.l10n.cooRecheckAgreementButton, onPressed: () => _fetchAndApplyDraft(_selectedImportFileId!), icon: Icons.refresh)),
                 ],
               ),
               if (_selectedImportFileId != null) ...[
-                const Divider(color: Colors.white24, height: 24),
+                const Divider(color: AppTheme.darkBorderLight, height: 24),
                 Wrap(
                   spacing: 12,
                   runSpacing: 8,
@@ -784,26 +770,26 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white12,
+                          color: AppTheme.darkBorder,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white24),
+                          border: Border.all(color: AppTheme.darkBorderLight),
                         ),
                         child: CopyableText(
                           context.l10n.cooInvoiceOriginBadge(_activeDraftTemplate?['country_of_origin'] ?? _originCountryCtrl.text),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _isManualChoiceRequired ? Colors.amber.withOpacity(0.2) : Colors.green.withOpacity(0.2),
+                        color: _isManualChoiceRequired ? AppTheme.orange.withValues(alpha: 0.2) : AppTheme.emerald.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: _isManualChoiceRequired ? Colors.amber : Colors.greenAccent),
+                        border: Border.all(color: _isManualChoiceRequired ? AppTheme.orange : AppTheme.emerald),
                       ),
                       child: CopyableText(
                         _isManualChoiceRequired ? context.l10n.cooManualChoiceRequiredBadge : context.l10n.cooApprovedCertBadge(_certType),
                         style: TextStyle(
-                          color: _isManualChoiceRequired ? Colors.amberAccent : Colors.greenAccent,
+                          color: _isManualChoiceRequired ? AppTheme.orange : AppTheme.emerald,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -813,19 +799,19 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.cyan.withOpacity(0.15),
+                          color: AppTheme.cobalt.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+                          border: Border.all(color: AppTheme.darkHyperlink.withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.savings_outlined, color: Colors.cyanAccent, size: 14),
+                            const Icon(Icons.savings_outlined, color: AppTheme.darkHyperlink, size: 14),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
                                 _localizeExemption(context, _activeExemptionNotes),
-                                style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                                style: const TextStyle(color: AppTheme.darkHyperlink, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                             ),
                           ],
@@ -844,10 +830,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _isManualChoiceRequired ? Colors.amber.shade50 : Colors.blue.shade50,
+              color: _isManualChoiceRequired ? AppTheme.warningBackground : AppTheme.infoBackground,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _isManualChoiceRequired ? Colors.amber.shade400 : Colors.blue.shade300,
+                color: _isManualChoiceRequired ? AppTheme.orange : AppTheme.cobaltBorder,
                 width: 1.2,
               ),
             ),
@@ -856,7 +842,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               children: [
                 Icon(
                   _isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.info_outline,
-                  color: _isManualChoiceRequired ? Colors.amber.shade800 : AppTheme.cobalt,
+                  color: _isManualChoiceRequired ? AppTheme.warningForeground : AppTheme.cobalt,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -866,7 +852,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12.5,
-                      color: _isManualChoiceRequired ? Colors.amber.shade900 : AppTheme.charcoal,
+                      color: _isManualChoiceRequired ? AppTheme.warningForeground : AppTheme.charcoal,
                     ),
                   ),
                 ),
@@ -889,9 +875,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppTheme.infoBackground,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                      border: Border.all(color: AppTheme.cobaltBorder, width: 1.2),
                     ),
                     child: Wrap(
                       spacing: 10,
@@ -915,12 +901,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             ],
                           ),
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                          icon: const Icon(Icons.history, color: Colors.white, size: 14),
-                          label: Text(context.l10n.cooReviewRegistryButton, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () => setState(() => _activeStep = 3),
-                        ),
+                        IdocBUi.fit(AppButton(label: context.l10n.cooReviewRegistryButton, onPressed: () => setState(() => _activeStep = 3), size: AppButtonSize.small, icon: Icons.history)),
                       ],
                     ),
                   ),
@@ -982,24 +963,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       spacing: 12,
                       runSpacing: 8,
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          ),
-                          icon: const Icon(Icons.bolt, color: Colors.white),
-                          label: Text(context.l10n.cooOpenVisualPreviewButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: _generateOfficialDraft,
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cobalt,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          ),
-                          icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                          label: Text(context.l10n.cooNextDraftInputButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: () => setState(() => _activeStep = 1),
-                        ),
+                        IdocBUi.fit(AppButton(label: context.l10n.cooOpenVisualPreviewButton, onPressed: _generateOfficialDraft, variant: AppButtonVariant.success, icon: Icons.bolt)),
+                        IdocBUi.fit(AppButton(label: context.l10n.cooNextDraftInputButton, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_forward)),
                       ],
                     );
 
@@ -1032,16 +997,16 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _isManualChoiceRequired ? Colors.amber.shade50 : Colors.green.shade50,
+                      color: _isManualChoiceRequired ? AppTheme.warningBackground : AppTheme.successBackground,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _isManualChoiceRequired ? Colors.amber.shade400 : Colors.green.shade400, width: 1.2),
+                      border: Border.all(color: _isManualChoiceRequired ? AppTheme.orange : AppTheme.emeraldBorder, width: 1.2),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(_isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.verified, color: _isManualChoiceRequired ? Colors.amber.shade800 : Colors.green.shade800),
+                            Icon(_isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.verified, color: _isManualChoiceRequired ? AppTheme.warningForeground : AppTheme.successForeground),
                             const SizedBox(width: 8),
                             Expanded(
                               child: CopyableText(
@@ -1049,7 +1014,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: _isManualChoiceRequired ? Colors.amber.shade900 : Colors.green.shade900,
+                                  color: _isManualChoiceRequired ? AppTheme.warningForeground : AppTheme.successForeground,
                                 ),
                               ),
                             ),
@@ -1076,7 +1041,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                   typeLabel,
                                   style: TextStyle(
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? Colors.white : Colors.black87,
+                                    color: isSelected ? AppTheme.white : AppTheme.textPrimary,
                                   ),
                                 ),
                                 selected: isSelected,
@@ -1106,7 +1071,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           VisualDraftCOOSheet(
             templateData: _activeDraftTemplate!,
             certificateType: _certType,
-            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+            acidNumber: _activeAcidNumber ?? '',
             exemptionNotes: _localizeExemption(context, _activeExemptionNotes),
             onRefresh: () {
               if (_selectedImportFileId != null) {
@@ -1139,18 +1104,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
-                    OutlinedButton.icon(
-                      key: const Key('cooSaveDraftInputBtn'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        side: const BorderSide(color: AppTheme.cobalt),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      icon: _isSavingDraft
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.bookmark_added_outlined, size: 16),
-                      label: Text(context.l10n.cooSaveDraftSessionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      onPressed: (_isLoading || _selectedImportFileId == null)
+                    IdocBUi.fit(AppButton(key: const Key('cooSaveDraftInputBtn'), label: context.l10n.cooSaveDraftSessionBtn, onPressed: (_isLoading || _selectedImportFileId == null)
                           ? null
                           : () async {
                               if (_comparisonResult == null) {
@@ -1159,16 +1113,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                               if (_comparisonResult != null) {
                                 await _saveReview(isDraft: true);
                               }
-                            },
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                      icon: _isLoading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.compare_arrows, color: Colors.white),
-                      label: Text(context.l10n.cooRunComparisonButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
-                    ),
+                            }, variant: AppButtonVariant.secondary, icon: Icons.bookmark_added_outlined, isLoading: _isSavingDraft)),
+                    IdocBUi.fit(AppButton(label: context.l10n.cooRunComparisonButton, onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison, variant: AppButtonVariant.success, icon: Icons.compare_arrows, isLoading: _isLoading)),
                   ],
                 ),
               ],
@@ -1240,18 +1186,18 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppTheme.dangerBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade300),
+                  border: Border.all(color: AppTheme.crimsonBorder),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         context.l10n.cooSelectFileWarning,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12.5),
                       ),
                     ),
                   ],
@@ -1397,7 +1343,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       const SizedBox(width: 6),
                       Text(
                         _pickedFileName!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textStrong),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -1412,11 +1358,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(context.l10n.cooRawTextSectionTitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                TextButton.icon(
-                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                  label: Text(context.l10n.cooSmartExtractFromTextButton, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
-                ),
+                IdocBUi.fit(AppButton(label: context.l10n.cooSmartExtractFromTextButton, onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText, variant: AppButtonVariant.secondary, icon: Icons.auto_awesome)),
               ],
             ),
             const SizedBox(height: 6),
@@ -1442,16 +1384,11 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           padding: const EdgeInsets.all(30),
           child: Column(
             children: [
-              const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+              const Icon(Icons.folder_off, size: 48, color: AppTheme.orange),
               const SizedBox(height: 12),
               Text(context.l10n.cooSelectFileToViewMatrix, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: Text(context.l10n.cooBackToSelectFile, style: const TextStyle(color: Colors.white)),
-                onPressed: () => setState(() => _activeStep = 1),
-              ),
+              IdocBUi.fit(AppButton(label: context.l10n.cooBackToSelectFile, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_back)),
             ],
           ),
         ),
@@ -1469,12 +1406,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               const SizedBox(height: 12),
               Text(context.l10n.cooRunComparisonPreviousStep, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: Text(context.l10n.cooBackToRunComparison, style: const TextStyle(color: Colors.white)),
-                onPressed: () => setState(() => _activeStep = 1),
-              ),
+              IdocBUi.fit(AppButton(label: context.l10n.cooBackToRunComparison, onPressed: () => setState(() => _activeStep = 1), icon: Icons.arrow_back)),
             ],
           ),
         ),
@@ -1503,7 +1435,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? Colors.red : (hasDisc ? Colors.orange : Colors.green), size: 24),
+                    Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? AppTheme.crimson : (hasDisc ? AppTheme.orange : AppTheme.emerald), size: 24),
                     const SizedBox(width: 10),
                     Text(
                       hasCritical ? context.l10n.cooCriticalMismatchAlert : (hasDisc ? context.l10n.cooMinorDiscrepancyAlert : context.l10n.cooPerfectMatchSuccess),
@@ -1515,20 +1447,13 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.crimson,
-                        side: const BorderSide(color: AppTheme.crimson),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.picture_as_pdf, size: 16),
-                      label: Text(context.l10n.cooExportPdfButton, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                    IdocBUi.fit(AppButton(label: context.l10n.cooExportPdfButton, onPressed: () {
                         if (_selectedImportFileId != null && _activeDraftTemplate != null) {
+                          if (showCooExportBlockedIfAny(context, CooExportService.missingExportField(_activeDraftTemplate!, _activeAcidNumber))) return;
                           CooExportService.printOrSavePdf(
                             templateData: _activeDraftTemplate!,
                             certificateType: _certType,
-                            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+                            acidNumber: _activeAcidNumber ?? '',
                             exemptionNotes: _activeExemptionNotes,
                           );
                         } else {
@@ -1536,55 +1461,23 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             SnackBar(content: Text(context.l10n.cooExportingPdfReportSnackbar)),
                           );
                         }
-                      },
-                    ),
+                      }, variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                     const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.emerald,
-                        side: const BorderSide(color: AppTheme.emerald),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.table_chart, size: 16),
-                      label: Text(context.l10n.cooExportExcelButton, style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
+                    IdocBUi.fit(AppButton(label: context.l10n.cooExportExcelButton, onPressed: () {
                         if (_activeDraftTemplate != null) {
+                          if (showCooExportBlockedIfAny(context, CooExportService.missingExportField(_activeDraftTemplate!, _activeAcidNumber))) return;
                           final csv = CooExportService.exportCOOCsv(
                             templateData: _activeDraftTemplate!,
                             certificateType: _certType,
-                            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+                            acidNumber: _activeAcidNumber ?? '',
                           );
                           CopyHelper.copy(context, csv, customMessage: context.l10n.cooExcelCopiedSnackbar);
                         }
-                      },
-                    ),
+                      }, variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
                     const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      key: const Key('cooSaveDraftBtn'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        side: const BorderSide(color: AppTheme.cobalt),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: _isSavingDraft
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.bookmark_added_outlined, size: 16),
-                      label: const Text('حفظ مسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
-                      onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
-                    ),
+                    IdocBUi.fit(AppButton(key: const Key('cooSaveDraftBtn'), label: context.l10n.idocBCooSaveDraftBtn, onPressed: _isLoading ? null : () => _saveReview(isDraft: true), variant: AppButtonVariant.secondary, icon: Icons.bookmark_added_outlined, isLoading: _isSavingDraft)),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      key: const Key('cooCertifyBtn'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: _isCertifying
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.verified_rounded, color: Colors.white, size: 16),
-                      label: const Text('اعتماد نهائي وتحديث الموافقة الجمركية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: _isLoading ? null : () => _saveReview(isDraft: false),
-                    ),
+                    IdocBUi.fit(AppButton(key: const Key('cooCertifyBtn'), label: context.l10n.idocBCooCertifyBtn, onPressed: _isLoading ? null : () => _saveReview(isDraft: false), variant: AppButtonVariant.success, icon: Icons.verified_rounded, isLoading: _isCertifying)),
                   ],
                 ),
               ],
@@ -1631,15 +1524,15 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       child: Chip(
                         label: Text(
                           matchStatus == 'EXTRACTION_FAILED'
-                              ? 'لم يتم الاستخراج'
-                              : (matchStatus == 'MATCH' ? 'متطابق' : matchStatus),
-                          style: const TextStyle(fontSize: 11, color: Colors.white),
+                              ? context.l10n.idocBNotExtracted
+                              : (matchStatus == 'MATCH' ? context.l10n.idocBMatched : matchStatus),
+                          style: const TextStyle(fontSize: 11, color: AppTheme.white),
                         ),
                         backgroundColor: matchStatus == 'EXTRACTION_FAILED'
-                            ? Colors.blueGrey
+                            ? AppTheme.charcoal
                             : (m['severity'] == 'BLOCKING'
-                                ? Colors.red
-                                : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green)),
+                                ? AppTheme.crimson
+                                : (m['severity'] == 'WARNING' ? AppTheme.orange : AppTheme.emerald)),
                       ),
                     )),
                     DataCell(CopyableTableCell(
@@ -1656,21 +1549,21 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: AppTheme.warningBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                  border: Border.all(color: AppTheme.orange, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.gavel, color: Colors.amber.shade900, size: 20),
+                        Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             context.l10n.cooOverrideReasonTitle,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
                           ),
                         ),
                       ],
@@ -1678,7 +1571,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     const SizedBox(height: 8),
                     Text(
                       context.l10n.cooOverrideReasonSub,
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
+                      style: TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -1689,7 +1582,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         hintText: context.l10n.cooOverrideReasonHint,
                         border: const OutlineInputBorder(),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppTheme.white,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -1698,41 +1591,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       spacing: 12,
                       runSpacing: 8,
                       children: [
-                        ElevatedButton.icon(
-                          key: const Key('cooSaveWithJustificationBtn'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _overrideReasonCtrl.text.trim().isNotEmpty ? AppTheme.emerald : Colors.grey,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                          ),
-                          icon: _isCertifying
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.check_circle, color: Colors.white, size: 16),
-                          label: Text(context.l10n.cooSaveWithJustificationButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: (_isLoading || _overrideReasonCtrl.text.trim().isEmpty) ? null : () => _saveReview(isDraft: false),
-                        ),
-                        OutlinedButton.icon(
-                          key: const Key('cooSaveDraftJustificationBtn'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cobalt,
-                            side: const BorderSide(color: AppTheme.cobalt),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          icon: _isSavingDraft
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.bookmark_added_outlined, size: 16),
-                          label: const Text('حفظ كمسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.crimson,
-                            side: const BorderSide(color: AppTheme.crimson),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          icon: const Icon(Icons.edit_note, size: 16),
-                          label: Text(context.l10n.cooReturnToEditAndNotifySupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () => setState(() => _activeStep = 1),
-                        ),
+                        IdocBUi.fit(AppButton(key: const Key('cooSaveWithJustificationBtn'), label: context.l10n.cooSaveWithJustificationButton, onPressed: (_isLoading || _overrideReasonCtrl.text.trim().isEmpty) ? null : () => _saveReview(isDraft: false), variant: AppButtonVariant.success, icon: Icons.check_circle, isLoading: _isCertifying)),
+                        IdocBUi.fit(AppButton(key: const Key('cooSaveDraftJustificationBtn'), label: context.l10n.idocBCooSaveDraftAsBtn, onPressed: _isLoading ? null : () => _saveReview(isDraft: true), variant: AppButtonVariant.secondary, icon: Icons.bookmark_added_outlined, isLoading: _isSavingDraft)),
+                        IdocBUi.fit(AppButton(label: context.l10n.cooReturnToEditAndNotifySupplierButton, onPressed: () => setState(() => _activeStep = 1), variant: AppButtonVariant.secondary, icon: Icons.edit_note)),
                       ],
                     ),
                   ],
@@ -1750,7 +1611,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     return cooReviews.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('Error: $e'),
+      error: (e, _) => Text(ApiErrorText.of(context.l10n, e)),
       data: (reviews) {
         final totalSessions = reviews.length;
         final certifiedSessions = reviews.where((r) => !r.isDraft).length;
@@ -1799,13 +1660,13 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
+                  colors: [AppTheme.charcoal, AppTheme.charcoal.withValues(alpha: 0.92)],
                   begin: AlignmentDirectional.topStart,
                   end: AlignmentDirectional.bottomEnd,
                 ),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3)),
+                  BoxShadow(color: AppTheme.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 3)),
                 ],
               ),
               child: Column(
@@ -1823,10 +1684,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.25),
+                              color: AppTheme.cobalt.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.history_edu, color: Colors.cyanAccent, size: 22),
+                            child: const Icon(Icons.history_edu, color: AppTheme.darkHyperlink, size: 22),
                           ),
                           const SizedBox(width: 12),
                           Column(
@@ -1834,12 +1695,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             children: [
                               Text(
                                 context.l10n.cooRegistryTitle,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.white),
                               ),
                               const SizedBox(height: 2),
-                              const Text(
-                                'سجل جلسات فحص ومطابقة شهادات المنشأ و EUR.1 وحالات الاعتماد الجمركي',
-                                style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                              Text(
+                                context.l10n.idocBCooRegistrySubtitle,
+                                style: TextStyle(fontSize: 11.5, color: AppTheme.cloudWhite),
                               ),
                             ],
                           ),
@@ -1851,21 +1712,21 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         children: [
                           _sessionKpiCard(
                             icon: Icons.list_alt,
-                            label: 'إجمالي الجلسات',
+                            label: context.l10n.idocBCooKpiTotal,
                             value: '$totalSessions',
-                            color: Colors.white,
+                            color: AppTheme.white,
                           ),
                           _sessionKpiCard(
                             icon: Icons.verified,
-                            label: 'جلسات معتمدة',
+                            label: context.l10n.idocBCooKpiCertified,
                             value: '$certifiedSessions',
-                            color: Colors.greenAccent,
+                            color: AppTheme.emerald,
                           ),
                           _sessionKpiCard(
                             icon: Icons.bookmark_added,
-                            label: 'مسودات قيد المراجعة',
+                            label: context.l10n.idocBCooKpiDrafts,
                             value: '$draftSessions',
-                            color: Colors.orangeAccent,
+                            color: AppTheme.orange,
                           ),
                         ],
                       ),
@@ -1877,21 +1738,21 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text('تصفية الحالة:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(context.l10n.idocBCooFilterStatus, style: TextStyle(color: AppTheme.cloudWhite, fontSize: 12, fontWeight: FontWeight.bold)),
                       ChoiceChip(
-                        label: Text('الكل ($totalSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'ALL' ? Colors.white : Colors.black87)),
+                        label: Text(context.l10n.idocBCooFilterAll(totalSessions), style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'ALL' ? AppTheme.white : AppTheme.textPrimary)),
                         selected: _selectedStatusFilter == 'ALL',
                         selectedColor: AppTheme.cobalt,
                         onSelected: (v) => setState(() => _selectedStatusFilter = 'ALL'),
                       ),
                       ChoiceChip(
-                        label: Text('معتمدة فقط ($certifiedSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'CERTIFIED' ? Colors.white : Colors.black87)),
+                        label: Text(context.l10n.idocBCooFilterCertified(certifiedSessions), style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'CERTIFIED' ? AppTheme.white : AppTheme.textPrimary)),
                         selected: _selectedStatusFilter == 'CERTIFIED',
                         selectedColor: AppTheme.emerald,
                         onSelected: (v) => setState(() => _selectedStatusFilter = 'CERTIFIED'),
                       ),
                       ChoiceChip(
-                        label: Text('مسودات فقط ($draftSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'DRAFT' ? Colors.white : Colors.black87)),
+                        label: Text(context.l10n.idocBCooFilterDrafts(draftSessions), style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'DRAFT' ? AppTheme.white : AppTheme.textPrimary)),
                         selected: _selectedStatusFilter == 'DRAFT',
                         selectedColor: AppTheme.orange,
                         onSelected: (v) => setState(() => _selectedStatusFilter = 'DRAFT'),
@@ -1936,10 +1797,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                           width: isMobile ? double.infinity : 280,
                           child: SearchableDropdownField<int?>(
                             value: _filterImportFileId,
-                            labelText: 'تصفية حسب ملف الشحنة',
-                            searchHintText: 'بحث عن ملف شحنة...',
+                            labelText: context.l10n.idocBFilterByFile,
+                            searchHintText: context.l10n.idocBSearchFileHint,
                             items: [
-                              const SearchableDropdownItem<int?>(value: null, label: 'جميع الملفات الشحنية'),
+                              SearchableDropdownItem<int?>(value: null, label: context.l10n.idocBAllFiles),
                               ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                     value: f.importFileId,
                                     label: '${f.primaryNameWithCode} - ${f.companyName}',
@@ -1950,52 +1811,11 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         );
 
                         final actionButtons = [
-                          OutlinedButton.icon(
-                            key: const Key('searchAndCloneCooBtn'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.wcagCobalt,
-                              side: const BorderSide(color: AppTheme.wcagCobalt),
-                            ),
-                            icon: const Icon(Icons.copy_all, size: 16),
-                            label: Text(context.l10n.searchAndCloneCooBtn),
-                            onPressed: () => _openSearchAndCloneCooDialog(reviews),
-                          ),
-                          OutlinedButton.icon(
-                            key: const Key('cooRegistryCopyBtn'),
-                            icon: const Icon(Icons.copy, size: 16),
-                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.wcagCobalt,
-                              side: const BorderSide(color: AppTheme.wcagCobalt),
-                            ),
-                            onPressed: () => _copyCooRegistryAsTsv(filteredReviews),
-                          ),
-                          OutlinedButton.icon(
-                            key: const Key('cooRegistryExcelBtn'),
-                            icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
-                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.green.shade700,
-                              side: const BorderSide(color: Colors.green),
-                            ),
-                            onPressed: () => _exportCooRegistryToExcel(filteredReviews),
-                          ),
-                          OutlinedButton.icon(
-                            key: const Key('cooRegistryPdfBtn'),
-                            icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
-                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red.shade700,
-                              side: const BorderSide(color: Colors.red),
-                            ),
-                            onPressed: () => _exportCooRegistryToPdf(filteredReviews),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                            icon: const Icon(Icons.add, color: Colors.white, size: 16),
-                            label: Text(context.l10n.cooReviewNewDraftButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            onPressed: () => setState(() => _activeStep = 0),
-                          ),
+                          IdocBUi.fit(AppButton(key: const Key('searchAndCloneCooBtn'), label: context.l10n.searchAndCloneCooBtn, onPressed: () => _openSearchAndCloneCooDialog(reviews), variant: AppButtonVariant.secondary, icon: Icons.copy_all)),
+                          IdocBUi.fit(AppButton(key: const Key('cooRegistryCopyBtn'), label: context.l10n.idocBCopyTable, onPressed: () => _copyCooRegistryAsTsv(filteredReviews), variant: AppButtonVariant.secondary, icon: Icons.copy)),
+                          IdocBUi.fit(AppButton(key: const Key('cooRegistryExcelBtn'), label: context.l10n.idocBExportExcel, onPressed: () => _exportCooRegistryToExcel(filteredReviews), variant: AppButtonVariant.secondary, icon: Icons.table_chart)),
+                          IdocBUi.fit(AppButton(key: const Key('cooRegistryPdfBtn'), label: context.l10n.idocBExportPdf, onPressed: () => _exportCooRegistryToPdf(filteredReviews), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
+                          IdocBUi.fit(AppButton(label: context.l10n.cooReviewNewDraftButton, onPressed: () => setState(() => _activeStep = 0), icon: Icons.add)),
                         ];
 
                         if (isMobile) {
@@ -2044,10 +1864,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
                             columns: [
                               DataColumn(label: Text(context.l10n.cooRegistryColActions)),
-                              const DataColumn(label: Text('نوع الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(context.l10n.idocBSessionTypeCol, style: const TextStyle(fontWeight: FontWeight.bold))),
                               DataColumn(label: Text(context.l10n.cooRegistryColCode)),
                               DataColumn(label: Text(context.l10n.cooRegistryColType)),
                               DataColumn(label: Text(context.l10n.cooRegistryColNumber)),
@@ -2059,7 +1879,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                               final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
                               final isDraft = r.isDraft;
                               final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
-                              final rowSummary = '${isDraft ? "مسودة مؤقتة" : "معتمدة نهائية"}\t${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
+                              final rowSummary = '${isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified}\t${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
 
                               return DataRow(cells: [
                                 DataCell(
@@ -2076,7 +1896,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                       // 1. Load into Stepper / Edit (استعادة وتحميل)
                                       IconButton(
                                         icon: const Icon(Icons.play_circle_outline, color: AppTheme.cobalt, size: 18),
-                                        tooltip: 'استعادة وتحميل الجلسة في أداة الفحص',
+                                        tooltip: context.l10n.idocBCooRestoreTooltip,
                                         onPressed: () => _loadSessionIntoEditor(r),
                                       ),
                                       // 2. View Details (مشاهدة)
@@ -2098,18 +1918,21 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                             'box_4_country_of_destination': r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—',
                                             'box_10_invoice_number_and_date': r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—',
                                           };
+                                          final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+                                          final rowAcid = rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '';
+                                          if (showCooExportBlockedIfAny(context, CooExportService.missingExportField(tData, rowAcid))) return;
                                           await CooExportService.printOrSavePdf(
                                             templateData: tData,
                                             certificateType: r.certificateType,
-                                            acidNumber: '7595528271020210010',
+                                            acidNumber: rowAcid,
                                           );
                                         },
                                       ),
                                       // 4. Delete Draft (حذف المسودة)
                                       if (isDraft)
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                          tooltip: 'حذف المسودة',
+                                          icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                          tooltip: context.l10n.idocBCooDeleteDraftTooltip,
                                           onPressed: () => _deleteCOODraftSession(r),
                                         ),
                                     ],
@@ -2120,7 +1943,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: isDraft ? AppTheme.orange.withOpacity(0.12) : AppTheme.emerald.withOpacity(0.12),
+                                      color: isDraft ? AppTheme.orange.withValues(alpha: 0.12) : AppTheme.emerald.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
                                     ),
@@ -2130,7 +1953,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                         Icon(isDraft ? Icons.edit_document : Icons.verified_rounded, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
                                         const SizedBox(width: 4),
                                         Text(
-                                          isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                                          isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
@@ -2165,10 +1988,10 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                                   value: r.status,
                                   rowSummary: rowSummary,
                                   child: Chip(
-                                    label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                    label: Text(r.status, style: const TextStyle(color: AppTheme.white, fontSize: 11)),
                                     backgroundColor: r.status == 'Verified' || r.status == 'Approved'
-                                        ? Colors.green
-                                        : (isDraft ? Colors.orange : Colors.blue),
+                                        ? AppTheme.emerald
+                                        : (isDraft ? AppTheme.orange : AppTheme.cobalt),
                                   ),
                                 )),
                                 DataCell(CopyableTableCell(
@@ -2200,9 +2023,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: AppTheme.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2213,7 +2036,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(label, style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11)),
               Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -2266,7 +2089,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       _activeStep = 1; // Jump to editor/smart input
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تم استرجاع وتحميل بيانات الجلسة (${session.cooReviewCode}) بنجاح')),
+      SnackBar(content: Text(context.l10n.idocBCooRestored(session.cooReviewCode))),
     );
   }
 
@@ -2274,21 +2097,17 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_forever, color: AppTheme.crimson),
-            SizedBox(width: 8),
-            Text('تأكيد حذف مسودة شهادة المنشأ'),
+            const Icon(Icons.delete_forever, color: AppTheme.crimson),
+            const SizedBox(width: 8),
+            Expanded(child: Text(context.l10n.idocBCooDeleteTitle)),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف مسودة الجلسة (${session.cooReviewCode})؟ لن يؤثر ذلك على بيانات الشحنة الأصلية.'),
+        content: Text(context.l10n.idocBCooDeleteConfirm(session.cooReviewCode)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تأكيد الحذف'),
-          ),
+          IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: () => Navigator.pop(ctx, false), variant: AppButtonVariant.secondary)),
+          IdocBUi.fit(AppButton(label: context.l10n.idocBConfirmDelete, onPressed: () => Navigator.pop(ctx, true), variant: AppButtonVariant.danger)),
         ],
       ),
     );
@@ -2297,7 +2116,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       ref.invalidate(importFilesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حذف مسودة الجلسة بنجاح'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(context.l10n.idocBCooDeleted), backgroundColor: AppTheme.crimson),
         );
       }
     }
@@ -2320,7 +2139,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -2340,8 +2159,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'رقم الشهادة: ${r.certificateNumber}  |  تاريخ الإنشاء: ${r.createdAt}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    context.l10n.idocBCooCertLine(r.certificateNumber, r.createdAt),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -2349,12 +2168,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
               ),
               child: Text(
-                isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -2389,7 +2208,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                 if (overrideReason.isNotEmpty)
                   ListTile(
                     title: Text(context.l10n.cooDetailsOverrideReason),
-                    subtitle: CopyableText(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    subtitle: CopyableText(overrideReason, style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
                     dense: true,
                   ),
                 if (r.comparisonMatrix.isNotEmpty) ...[
@@ -2406,7 +2225,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       child: Row(
                         children: [
                           Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
-                              color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
+                              color: item['match_status'] == 'MATCH' ? AppTheme.emerald : AppTheme.orange, size: 16),
                           const SizedBox(width: 6),
                           Expanded(
                             child: CopyableText(
@@ -2424,29 +2243,19 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           ),
         ),
         actions: [
-          TextButton.icon(
-            onPressed: () {
+          IdocBUi.fit(AppButton(label: context.l10n.idocBCooRestoreBtn, onPressed: () {
               Navigator.of(ctx).pop();
               _loadSessionIntoEditor(r);
-            },
-            icon: const Icon(Icons.play_circle_outline, size: 16, color: AppTheme.emerald),
-            label: const Text('استعادة وتحميل في أداة المراجعة',
-                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(context.l10n.close),
-          ),
+            }, variant: AppButtonVariant.secondary, icon: Icons.play_circle_outline)),
+          IdocBUi.fit(AppButton(label: context.l10n.close, onPressed: () => Navigator.of(ctx).pop())),
         ],
       ),
     );
   }
 
   Future<void> _exportCooRegistryToExcel(List<CertificateOfOriginReviewModel> reviews) async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocBSessionTypeCol,
       context.l10n.cooRegistryColCode,
       context.l10n.cooRegistryColType,
       context.l10n.cooRegistryColNumber,
@@ -2459,7 +2268,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       final isDraft = r.isDraft;
       final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
       return [
-        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        isDraft ? context.l10n.idocBSessionDraftShort : context.l10n.idocBSessionCertifiedShort,
         r.cooReviewCode,
         r.certificateType,
         r.certificateNumber,
@@ -2473,15 +2282,14 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل شهادات المنشأ المبدئية' : 'Draft COO Registry',
+      stageName: context.l10n.idocBCooRegistryStage,
       importFileNameOrCode: 'Draft_COO_Registry',
     );
   }
 
   Future<void> _exportCooRegistryToPdf(List<CertificateOfOriginReviewModel> reviews) async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocBSessionTypeCol,
       context.l10n.cooRegistryColCode,
       context.l10n.cooRegistryColType,
       context.l10n.cooRegistryColNumber,
@@ -2494,7 +2302,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       final isDraft = r.isDraft;
       final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
       return [
-        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        isDraft ? context.l10n.idocBSessionDraftShort : context.l10n.idocBSessionCertifiedShort,
         r.cooReviewCode,
         r.certificateType,
         r.certificateNumber,
@@ -2508,15 +2316,14 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       context: context,
       headers: headers,
       rows: rows,
-      stageName: isAr ? 'سجل شهادات المنشأ المبدئية' : 'Draft COO Registry',
+      stageName: context.l10n.idocBCooRegistryStage,
       importFileNameOrCode: 'Draft_COO_Registry',
     );
   }
 
   void _copyCooRegistryAsTsv(List<CertificateOfOriginReviewModel> reviews) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
-      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.idocBSessionTypeCol,
       context.l10n.cooRegistryColCode,
       context.l10n.cooRegistryColType,
       context.l10n.cooRegistryColNumber,
@@ -2529,7 +2336,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       final isDraft = r.isDraft;
       final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
       return [
-        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        isDraft ? context.l10n.idocBSessionDraftShort : context.l10n.idocBSessionCertifiedShort,
         r.cooReviewCode,
         r.certificateType,
         r.certificateNumber,

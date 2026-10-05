@@ -26,14 +26,20 @@ class CriticalAlertBanner extends ConsumerWidget {
         return Material(
           color: Colors.transparent,
           child: Container(
-            color: AppTheme.crimson.withOpacity(0.10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
+              border: const BorderDirectional(
+                start: BorderSide(color: AppTheme.crimson, width: 4),
+                bottom: BorderSide(color: AppTheme.crimsonBorder),
+              ),
+            ),
+            padding: const EdgeInsetsDirectional.fromSTEB(14, 7, 14, 7),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: AppTheme.crimson.withOpacity(0.15),
+                    color: AppTheme.crimson.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.crisis_alert, color: AppTheme.crimson, size: 16),
@@ -42,10 +48,11 @@ class CriticalAlertBanner extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     '${criticals.length} تنبيه حرج يتطلب تدخلاً فورياً: $preview',
-                    style: const TextStyle(
-                      color: AppTheme.crimson,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11.5,
+                    style: TextStyle(
+                      color: AppTheme.severityForegroundOf(context, AppSeverity.danger),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -102,8 +109,8 @@ class _CriticalAlertsPanelSheet extends StatelessWidget {
       maxChildSize: 0.85,
       builder: (_, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceOf(context),
             borderRadius: BorderRadiusDirectional.only(
               topStart: Radius.circular(16),
               topEnd: Radius.circular(16),
@@ -188,9 +195,9 @@ class _AlertCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: severityColor.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: severityColor.withOpacity(0.3)),
+        color: severityColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: severityColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

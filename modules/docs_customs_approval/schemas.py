@@ -37,7 +37,7 @@ class DiscrepancyTicketUpdate(BaseModel):
 
 class DiscrepancyTicketResolve(BaseModel):
     supplier_response: str
-    resolved_by: str = "Compliance Officer"
+    resolved_by: Optional[str] = Field(None, description="Ignored: the server records the logged-in user (DCA-03)")
     new_status: str = "Resolved"  # Resolved, Waived, Closed
 
 
@@ -81,17 +81,18 @@ class CustomsDocumentApprovalCreate(CustomsDocumentApprovalBase):
 class CustomsDocumentApprovalUpdate(BaseModel):
     document_reference_no: Optional[str] = None
     document_date: Optional[date] = None
-    commercial_status: Optional[str] = None
+    # Ignored (DCA-03): review statuses change only through the commercial-review / customs-review endpoints.
+    commercial_status: Optional[str] = Field(None, description="Ignored: use POST /{id}/commercial-review")
     commercial_notes: Optional[str] = None
-    customs_status: Optional[str] = None
+    customs_status: Optional[str] = Field(None, description="Ignored: use POST /{id}/customs-review")
     customs_broker_name: Optional[str] = None
     customs_notes: Optional[str] = None
-    overall_status: Optional[str] = None
+    overall_status: Optional[str] = Field(None, description="Ignored: derived from the two review tiers")
     version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class CommercialReviewPayload(BaseModel):
-    reviewer_name: str
+    reviewer_name: Optional[str] = Field(None, description="Ignored: the server records the logged-in user (DCA-03)")
     status: str = Field(..., description="Approved, Rejected, Under Review")
     notes: Optional[str] = None
     version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
@@ -99,7 +100,7 @@ class CommercialReviewPayload(BaseModel):
 
 class CustomsBrokerReviewPayload(BaseModel):
     broker_name: str
-    reviewer_name: str
+    reviewer_name: Optional[str] = Field(None, description="Ignored: the server records the logged-in user (DCA-03)")
     status: str = Field(..., description="Approved, Rejected, Conditionally Approved")
     notes: Optional[str] = None
     version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
@@ -141,7 +142,7 @@ class CustomsDocumentApprovalResponse(BaseModel):
 
 class MatrixCheckItem(BaseModel):
     parameter: str
-    status: str  # Match, Mismatch, Warning, Missing
+    status: str  # Match, Mismatch, Warning, Missing, Not Checked (a source is missing: neither passed nor failed)
     invoice_val: Optional[str] = None
     bl_val: Optional[str] = None
     packing_val: Optional[str] = None
@@ -157,6 +158,7 @@ class CrossDocumentMatrixCheckResponse(BaseModel):
     total_checks: int
     passed_checks: int
     failed_checks: int
+    not_checked_checks: int = 0
     checks: List[MatrixCheckItem]
     recommendations: List[str]
     open_tickets_count: int
@@ -198,6 +200,7 @@ class DocsCustomsApprovalSessionBase(BaseModel):
 
     session_snapshot: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
+    # Ignored on requests (DCA-03): created_by / *_signoff_by come from the logged-in user.
     created_by: Optional[str] = "ADMIN"
 
 

@@ -8,6 +8,8 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 void showConsultationDetailsDialog(BuildContext context, CustomsConsultationModel session) {
   showDialog(
       context: context,
@@ -15,7 +17,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
         final l = context.l10n;
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+          backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
           title: Row(
             children: [
               const Icon(Icons.verified_user, color: AppTheme.cobalt),
@@ -39,7 +41,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
+                      color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -60,13 +62,13 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '${session.readinessPercentage}%', color: Colors.blue),
+                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '${session.readinessPercentage}%', color: AppTheme.cobalt),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${session.totalDocumentsCount}', color: Colors.grey),
+                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${session.totalDocumentsCount}', color: AppTheme.textMuted),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: l.clearanceReadyStatus, value: '${session.approvedDocumentsCount}', color: Colors.green),
+                      ConsultationMetricBadge(title: l.clearanceReadyStatus, value: '${session.approvedDocumentsCount}', color: AppTheme.emerald),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: l.blockingIssuesCount, value: '${session.blockingIssuesCount}', color: session.blockingIssuesCount > 0 ? Colors.red : Colors.green),
+                      ConsultationMetricBadge(title: l.blockingIssuesCount, value: '${session.blockingIssuesCount}', color: session.blockingIssuesCount > 0 ? AppTheme.crimson : AppTheme.emerald),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -89,7 +91,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     ),
                     const SizedBox(height: 8),
                     Table(
-                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       columnWidths: const {
                         0: FlexColumnWidth(2.8),
                         1: FlexColumnWidth(1.8),
@@ -132,7 +134,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   ),
                   const SizedBox(height: 8),
                   Table(
-                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                     columnWidths: const {
                       0: FlexColumnWidth(2.5),
                       1: FlexColumnWidth(1.2),
@@ -172,12 +174,12 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                                   else if (isRejected)
                                     const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 16)
                                   else ...[
-                                    const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 15),
+                                    const Icon(Icons.hourglass_top_rounded, color: AppTheme.orange, size: 15),
                                     if (doc.isBlockingShipment) ...[
                                       const SizedBox(width: 4),
                                       Tooltip(
                                         message: l.shipmentUpdateConsultBlockingTooltip,
-                                        child: const Icon(Icons.block, color: Colors.red, size: 13),
+                                        child: const Icon(Icons.block, color: AppTheme.crimson, size: 13),
                                       ),
                                     ],
                                   ],
@@ -199,20 +201,22 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
             ),
           ),
           actions: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
+            AppButton(
+              label: l.print,
+              icon: Icons.picture_as_pdf,
+              variant: AppButtonVariant.primary,
               onPressed: () async {
                 await Printing.layoutPdf(
                   onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),
                   name: 'Customs_Consultation_${session.consultationCode}',
                 );
               },
-              icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
-              label: Text(l.print, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+            AppButton(
+              label: l.export,
+              icon: Icons.table_chart,
+              variant: AppButtonVariant.success,
               onPressed: () async {
                 final nafezaRes = CustomsExportService.computeNafezaFeeBreakdown(
                   totalDutyEgp: session.estimatedDutiesEgp * 0.45,
@@ -241,17 +245,17 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson));
                   }
                 }
               },
-              icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
-              label: Text(l.export, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             const Spacer(),
-            TextButton(
+            AppButton(
+              label: l.close,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(context),
-              child: Text(l.close),
             ),
           ],
         );

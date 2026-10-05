@@ -903,31 +903,57 @@ class OriginalDocsExportService {
     );
   }
 
-  static Future<void> launchCarrierTracking(String company, String awb) async {
-    final cleanAwb = awb.trim();
-    final c = company.toUpperCase();
-    String url = 'https://www.google.com/search?q=$company+$cleanAwb+tracking';
-    if (c.contains('DHL')) {
-      url = 'https://www.dhl.com/en/express/tracking.html?AWB=$cleanAwb';
-    } else if (c.contains('FEDEX')) {
-      url = 'https://www.fedex.com/fedextrack/?trknbr=$cleanAwb';
-    } else if (c.contains('ARAMEX')) {
-      url = 'https://www.aramex.com/track/results?mode=0&ShipmentNumber=$cleanAwb';
-    } else if (c.contains('UPS')) {
-      url = 'https://www.ups.com/track?tracknum=$cleanAwb';
-    } else if (c.contains('NAQEL')) {
-      url = 'https://www.naqelexpress.com/tracking?trackNumbers=$cleanAwb';
-    } else if (c.contains('SMSA')) {
-      url = 'https://www.smsaexpress.com/track?trackNumber=$cleanAwb';
-    }
+  /// Returns [raw] as a [Uri] only when it is an absolute http/https URL.
+  /// Anything else (other schemes, relative, malformed) yields null.
+  static Uri? safeHttpUri(String? raw) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) return null;
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasAuthority || uri.host.isEmpty) return null;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') return null;
+    return uri;
+  }
 
+  /// Builds the carrier tracking URL. Company and AWB are user input, so they
+  /// are always percent-encoded before being placed in the query/URL.
+  static String buildCarrierTrackingUrl(String company, String awb) {
+    final cleanAwb = Uri.encodeQueryComponent(awb.trim());
+    final c = company.toUpperCase();
+    if (c.contains('DHL')) {
+      return 'https://www.dhl.com/en/express/tracking.html?AWB=$cleanAwb';
+    } else if (c.contains('FEDEX')) {
+      return 'https://www.fedex.com/fedextrack/?trknbr=$cleanAwb';
+    } else if (c.contains('ARAMEX')) {
+      return 'https://www.aramex.com/track/results?mode=0&ShipmentNumber=$cleanAwb';
+    } else if (c.contains('UPS')) {
+      return 'https://www.ups.com/track?tracknum=$cleanAwb';
+    } else if (c.contains('NAQEL')) {
+      return 'https://www.naqelexpress.com/tracking?trackNumbers=$cleanAwb';
+    } else if (c.contains('SMSA')) {
+      return 'https://www.smsaexpress.com/track?trackNumber=$cleanAwb';
+    }
+    return 'https://www.google.com/search?q=${Uri.encodeQueryComponent('${company.trim()} ${awb.trim()} tracking')}';
+  }
+
+  /// Opens [url] in the default browser. Only validated http/https URIs are
+  /// launched, without a shell (no command injection). Returns false when the
+  /// URL was rejected or the launch failed.
+  static Future<bool> openExternalUrl(String url) async {
+    final uri = safeHttpUri(url);
+    if (uri == null) return false;
     try {
       if (Platform.isWindows) {
-        await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+        await Process.start('explorer.exe', [uri.toString()], runInShell: false);
+        return true;
       }
     } catch (e) {
-      debugPrint('Error launching carrier tracking URL: $e');
+      debugPrint('Error launching external URL: $e');
     }
+    return false;
+  }
+
+  static Future<bool> launchCarrierTracking(String company, String awb) {
+    return openExternalUrl(buildCarrierTrackingUrl(company, awb));
   }
 }
-

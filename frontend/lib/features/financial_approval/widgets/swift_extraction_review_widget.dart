@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_error.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -86,8 +89,8 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث الحقل بنجاح وتسجيله في سجل التدقيق'),
+          SnackBar(
+            content: Text(context.l10n.faSwiftFieldUpdated),
             backgroundColor: AppTheme.emerald,
             duration: Duration(seconds: 1),
           ),
@@ -97,7 +100,8 @@ class _SwiftExtractionReviewWidgetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل حفظ الحقل: $e'),
+            content:
+                Text(context.l10n.faSwiftFieldSaveFailed(ApiError.message(e))),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -122,8 +126,8 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تمت إعادة استخلاص الحقل من النص الأصلي بنجاح'),
+          SnackBar(
+            content: Text(context.l10n.faSwiftFieldReExtracted),
             backgroundColor: AppTheme.cobalt,
             duration: Duration(seconds: 1),
           ),
@@ -133,7 +137,8 @@ class _SwiftExtractionReviewWidgetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل إعادة الاستخلاص: $e'),
+            content:
+                Text(context.l10n.faSwiftReExtractFailed(ApiError.message(e))),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -167,8 +172,8 @@ class _SwiftExtractionReviewWidgetState
         if (mounted) {
           setState(() => _batch = confirmedBatch);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ تم تأكيد صحة بيانات السويفت بنجاح وفتح المطابقة المالية!'),
+            SnackBar(
+              content: Text(context.l10n.faSwiftConfirmedOpened),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -179,7 +184,8 @@ class _SwiftExtractionReviewWidgetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل تأكيد المراجعة: $e'),
+            content:
+                Text(context.l10n.faSwiftConfirmFailed(ApiError.message(e))),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -204,11 +210,12 @@ class _SwiftExtractionReviewWidgetState
 
   @override
   Widget build(BuildContext context) {
-    final isConfirmed = _batch.status == 'REVIEWED_CONFIRMED' || _batch.status == 'RECONCILED';
+    final isConfirmed =
+        _batch.status == 'REVIEWED_CONFIRMED' || _batch.status == 'RECONCILED';
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isConfirmed ? AppTheme.emerald : AppTheme.cobalt,
@@ -216,7 +223,7 @@ class _SwiftExtractionReviewWidgetState
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: AppTheme.black.withOpacity(0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -269,7 +276,7 @@ class _SwiftExtractionReviewWidgetState
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isConfirmed
-              ? [const Color(0xFF1B5E20), AppTheme.emerald]
+              ? [AppTheme.wcagEmerald, AppTheme.emerald]
               : [AppTheme.charcoal, AppTheme.cobalt],
           begin: AlignmentDirectional.centerEnd,
           end: AlignmentDirectional.centerStart,
@@ -280,7 +287,7 @@ class _SwiftExtractionReviewWidgetState
         children: [
           Icon(
             isConfirmed ? Icons.verified_user : Icons.fact_check,
-            color: Colors.white,
+            color: AppTheme.white,
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -290,25 +297,26 @@ class _SwiftExtractionReviewWidgetState
               children: [
                 Row(
                   children: [
-                    const Text(
-                      'شاشة مراجعة وتدقيق نتائج استخلاص SWIFT',
+                    Text(
+                      context.l10n.faSwiftReviewTitle,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: AppTheme.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         _batch.batchCode,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.white,
                           fontFamily: 'monospace',
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
@@ -320,10 +328,10 @@ class _SwiftExtractionReviewWidgetState
                 const SizedBox(height: 2),
                 Text(
                   isConfirmed
-                      ? 'تم اعتماد وتدقيق البيانات المستخرجة بنجاح - مصفوفة المطابقة المالية مفتوحة'
-                      : 'تدقيق بشري إلزامي: لا تنتقل أي قيمة إلى مرحلة المطابقة دون تأكيد المستخدم الصريح',
+                      ? context.l10n.faSwiftReviewApprovedBanner
+                      : context.l10n.faSwiftHumanReviewRequired,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: AppTheme.white.withOpacity(0.9),
                     fontSize: 11,
                   ),
                 ),
@@ -334,11 +342,11 @@ class _SwiftExtractionReviewWidgetState
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isConfirmed
-                  ? Colors.green.shade900.withOpacity(0.4)
-                  : Colors.amber.shade900.withOpacity(0.4),
+                  ? AppTheme.wcagEmerald.withOpacity(0.4)
+                  : AppTheme.wcagOrange.withOpacity(0.4),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isConfirmed ? Colors.green.shade300 : Colors.amber.shade300,
+                color: isConfirmed ? AppTheme.emeraldBorder : AppTheme.orange,
               ),
             ),
             child: Row(
@@ -347,13 +355,15 @@ class _SwiftExtractionReviewWidgetState
                 Icon(
                   isConfirmed ? Icons.check_circle : Icons.hourglass_top,
                   size: 13,
-                  color: Colors.white,
+                  color: AppTheme.white,
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  isConfirmed ? 'معتمد بشرياً' : 'بانتظار المراجعة والاعتماد',
+                  isConfirmed
+                      ? context.l10n.faSwiftHumanApproved
+                      : context.l10n.faSwiftPendingReview,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -374,7 +384,7 @@ class _SwiftExtractionReviewWidgetState
           spacing: 6,
           children: [
             _buildFilterChip('ALL', 'كافة الحقول (${_batch.fields.length})'),
-            _buildFilterChip('MANDATORY', 'الإلزامية فقط (5)'),
+            _buildFilterChip('MANDATORY', context.l10n.faSwiftMandatoryOnly),
             _buildFilterChip(
               'EDITED',
               'المعدلة يدوياً (${_batch.fields.where((f) => f.isEditedByUser).length})',
@@ -387,25 +397,23 @@ class _SwiftExtractionReviewWidgetState
         ),
         const Spacer(),
         if (_batch.sourceFilename != null) ...[
-          Icon(Icons.attachment, size: 14, color: Colors.grey.shade600),
+          Icon(Icons.attachment, size: 14, color: AppTheme.textSecondary),
           const SizedBox(width: 4),
           Text(
             _batch.sourceFilename!,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+              color: AppTheme.textStrong,
             ),
           ),
           const SizedBox(width: 12),
         ],
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            side: BorderSide(color: Colors.grey.shade300),
-          ),
-          icon: const Icon(Icons.copy, size: 13),
-          label: const Text('نسخ المصدر الخام', style: TextStyle(fontSize: 11)),
+        AppButton(
+          label: context.l10n.faSwiftCopyRaw,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
+          icon: Icons.copy,
           onPressed: () => CopyHelper.copy(context, _batch.rawSourceText),
         ),
       ],
@@ -420,12 +428,12 @@ class _SwiftExtractionReviewWidgetState
         style: TextStyle(
           fontSize: 11,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? Colors.white : AppTheme.charcoal,
+          color: isSelected ? AppTheme.white : AppTheme.charcoal,
         ),
       ),
       selected: isSelected,
       selectedColor: AppTheme.cobalt,
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppTheme.charcoalSurface,
       visualDensity: VisualDensity.compact,
       onSelected: (_) => setState(() => _filterMode = mode),
     );
@@ -437,9 +445,9 @@ class _SwiftExtractionReviewWidgetState
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.darkScaffoldBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade800),
+        border: Border.all(color: AppTheme.textStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -447,17 +455,17 @@ class _SwiftExtractionReviewWidgetState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
-              color: Color(0xFF2D2D2D),
+              color: AppTheme.darkInputBackground,
               borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.code, color: Colors.amber, size: 16),
+                const Icon(Icons.code, color: AppTheme.orange, size: 16),
                 const SizedBox(width: 8),
-                const Text(
-                  'المصدر الخام للسويفت (Raw Source OCR)',
+                Text(
+                  context.l10n.faSwiftRawSource,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.white,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -465,16 +473,18 @@ class _SwiftExtractionReviewWidgetState
                 const Spacer(),
                 if (_highlightedFieldKey != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.3),
+                      color: AppTheme.orange.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.amber, width: 0.8),
+                      border: Border.all(color: AppTheme.orange, width: 0.8),
                     ),
                     child: Text(
-                      'تظليل الحقل: $_highlightedFieldKey',
+                      context.l10n
+                          .faSwiftHighlightedField('$_highlightedFieldKey'),
                       style: const TextStyle(
-                        color: Colors.amber,
+                        color: AppTheme.orange,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -501,7 +511,7 @@ class _SwiftExtractionReviewWidgetState
         style: const TextStyle(
           fontFamily: 'monospace',
           fontSize: 11.5,
-          color: Color(0xFFE0E0E0),
+          color: AppTheme.cloudWhite,
           height: 1.45,
         ),
       );
@@ -517,7 +527,7 @@ class _SwiftExtractionReviewWidgetState
           style: const TextStyle(
             fontFamily: 'monospace',
             fontSize: 11.5,
-            color: Color(0xFFE0E0E0),
+            color: AppTheme.cloudWhite,
             height: 1.45,
           ),
         ));
@@ -529,8 +539,8 @@ class _SwiftExtractionReviewWidgetState
             fontFamily: 'monospace',
             fontSize: 11.5,
             fontWeight: FontWeight.bold,
-            color: Colors.black,
-            backgroundColor: Colors.amber,
+            color: AppTheme.black,
+            backgroundColor: AppTheme.orange,
             height: 1.45,
           ),
         ));
@@ -545,9 +555,9 @@ class _SwiftExtractionReviewWidgetState
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppTheme.cloudWhite),
       ),
       child: Column(
         children: [
@@ -555,16 +565,40 @@ class _SwiftExtractionReviewWidgetState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+              color: AppTheme.charcoalSurface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(7)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Expanded(flex: 4, child: Text('الحقل والرمز البنكي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                Expanded(flex: 5, child: Text('القيمة المستخرجة / التدقيق اليدوي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                SizedBox(width: 80, child: Text('نسبة الثقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                SizedBox(width: 70, child: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                SizedBox(width: 45, child: Text('إجراء', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                Expanded(
+                    flex: 4,
+                    child: Text(context.l10n.faSwiftColField,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 11))),
+                Expanded(
+                    flex: 5,
+                    child: Text(context.l10n.faSwiftColValue,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 11))),
+                SizedBox(
+                    width: 80,
+                    child: Text(context.l10n.faSwiftColConfidence,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 11),
+                        textAlign: TextAlign.center)),
+                SizedBox(
+                    width: 70,
+                    child: Text(context.l10n.status,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 11),
+                        textAlign: TextAlign.center)),
+                SizedBox(
+                    width: 45,
+                    child: Text(context.l10n.faSwiftColAction,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 11),
+                        textAlign: TextAlign.center)),
               ],
             ),
           ),
@@ -588,9 +622,12 @@ class _SwiftExtractionReviewWidgetState
                   },
                   child: Container(
                     color: isSelected
-                        ? Colors.amber.shade50.withOpacity(0.7)
-                        : (index.isEven ? Colors.white : Colors.grey.shade50.withOpacity(0.5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ? AppTheme.orangeLight.withOpacity(0.7)
+                        : (index.isEven
+                            ? AppTheme.white
+                            : AppTheme.charcoalSurface.withOpacity(0.5)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     child: Row(
                       children: [
                         // Column 1: Field Name & Code
@@ -601,12 +638,16 @@ class _SwiftExtractionReviewWidgetState
                             children: [
                               Row(
                                 children: [
-                                  if (f.swiftFieldCode != null && f.swiftFieldCode!.isNotEmpty)
+                                  if (f.swiftFieldCode != null &&
+                                      f.swiftFieldCode!.isNotEmpty)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsetsDirectional.only(start: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 1),
+                                      margin: const EdgeInsetsDirectional.only(
+                                          start: 4),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        color:
+                                            AppTheme.cobalt.withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: Text(
@@ -637,34 +678,41 @@ class _SwiftExtractionReviewWidgetState
                                 children: [
                                   if (f.isMandatory)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsetsDirectional.only(start: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 1),
+                                      margin: const EdgeInsetsDirectional.only(
+                                          start: 4),
                                       decoration: BoxDecoration(
-                                        color: f.isEmpty ? Colors.red.shade100 : Colors.green.shade50,
+                                        color: f.isEmpty
+                                            ? AppTheme.crimsonLight
+                                            : AppTheme.emeraldLight,
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: Text(
-                                        '* إلزامي',
+                                        context.l10n.faSwiftMandatoryMark,
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
-                                          color: f.isEmpty ? Colors.red.shade800 : Colors.green.shade800,
+                                          color: f.isEmpty
+                                              ? AppTheme.crimson
+                                              : AppTheme.wcagEmerald,
                                         ),
                                       ),
                                     ),
                                   if (f.isEditedByUser)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: Colors.orange.shade100,
+                                        color: AppTheme.orangeLight,
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: Text(
-                                        'معدل يدويًا',
+                                        context.l10n.faSwiftManuallyEdited,
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.orange.shade900,
+                                          color: AppTheme.wcagOrange,
                                         ),
                                       ),
                                     ),
@@ -686,9 +734,11 @@ class _SwiftExtractionReviewWidgetState
                                     controller: _controllers[f.fieldKey],
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontFamily: (f.fieldKey.contains('amount') ||
+                                      fontFamily: (f.fieldKey
+                                                  .contains('amount') ||
                                               f.fieldKey.contains('date') ||
-                                              f.fieldKey.contains('reference') ||
+                                              f.fieldKey
+                                                  .contains('reference') ||
                                               f.fieldKey.contains('swift') ||
                                               f.fieldKey.contains('iban'))
                                           ? 'monospace'
@@ -696,18 +746,21 @@ class _SwiftExtractionReviewWidgetState
                                       fontWeight: FontWeight.w600,
                                     ),
                                     decoration: InputDecoration(
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(4),
                                         borderSide: BorderSide(
                                           color: f.isEmpty && f.isMandatory
-                                              ? Colors.red
-                                              : Colors.grey.shade400,
+                                              ? AppTheme.crimson
+                                              : AppTheme.textMuted,
                                         ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(4),
-                                        borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+                                        borderSide: const BorderSide(
+                                            color: AppTheme.cobalt, width: 1.5),
                                       ),
                                       suffixIcon: isLoading
                                           ? const Padding(
@@ -715,28 +768,39 @@ class _SwiftExtractionReviewWidgetState
                                               child: SizedBox(
                                                 width: 12,
                                                 height: 12,
-                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
                                               ),
                                             )
                                           : IconButton(
-                                              icon: const Icon(Icons.check, size: 14, color: AppTheme.emerald),
-                                              tooltip: 'حفظ التعديل',
+                                              icon: const Icon(Icons.check,
+                                                  size: 14,
+                                                  color: AppTheme.emerald),
+                                              tooltip:
+                                                  context.l10n.faSwiftSaveEdit,
                                               onPressed: () {
-                                                final curText = _controllers[f.fieldKey]?.text ?? '';
+                                                final curText =
+                                                    _controllers[f.fieldKey]
+                                                            ?.text ??
+                                                        '';
                                                 _saveField(f.fieldKey, curText);
                                               },
                                             ),
                                     ),
-                                    onFieldSubmitted: (v) => _saveField(f.fieldKey, v),
+                                    onFieldSubmitted: (v) =>
+                                        _saveField(f.fieldKey, v),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                icon: const Icon(Icons.copy, size: 14, color: Colors.grey),
-                                tooltip: 'نسخ القيمة',
+                                icon: const Icon(Icons.copy,
+                                    size: 14, color: AppTheme.textMuted),
+                                tooltip: context.l10n.faSwiftCopyValue,
                                 onPressed: () {
-                                  final val = _controllers[f.fieldKey]?.text ?? '';
+                                  final val =
+                                      _controllers[f.fieldKey]?.text ?? '';
                                   CopyHelper.copy(context, val);
                                 },
                               ),
@@ -749,7 +813,10 @@ class _SwiftExtractionReviewWidgetState
                           width: 80,
                           child: Builder(
                             builder: (context) {
-                              final scoreVal = (f.confidenceScore > 1.0 ? f.confidenceScore / 100.0 : f.confidenceScore).clamp(0.0, 1.0);
+                              final scoreVal = (f.confidenceScore > 1.0
+                                      ? f.confidenceScore / 100.0
+                                      : f.confidenceScore)
+                                  .clamp(0.0, 1.0);
                               final pct = (scoreVal * 100).round();
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -760,10 +827,10 @@ class _SwiftExtractionReviewWidgetState
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                       color: scoreVal >= 0.8
-                                          ? Colors.green.shade800
+                                          ? AppTheme.wcagEmerald
                                           : (scoreVal >= 0.5
-                                              ? Colors.orange.shade800
-                                              : Colors.red.shade800),
+                                              ? AppTheme.wcagOrange
+                                              : AppTheme.crimson),
                                     ),
                                   ),
                                   const SizedBox(height: 3),
@@ -772,11 +839,13 @@ class _SwiftExtractionReviewWidgetState
                                     child: LinearProgressIndicator(
                                       value: scoreVal,
                                       minHeight: 4,
-                                      backgroundColor: Colors.grey.shade200,
+                                      backgroundColor: AppTheme.cloudWhite,
                                       valueColor: AlwaysStoppedAnimation<Color>(
                                         scoreVal >= 0.8
-                                            ? Colors.green
-                                            : (scoreVal >= 0.5 ? Colors.orange : Colors.red),
+                                            ? AppTheme.emerald
+                                            : (scoreVal >= 0.5
+                                                ? AppTheme.orange
+                                                : AppTheme.crimson),
                                       ),
                                     ),
                                   ),
@@ -799,9 +868,12 @@ class _SwiftExtractionReviewWidgetState
                           width: 45,
                           child: Center(
                             child: IconButton(
-                              icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                              tooltip: 'إعادة استخلاص الحقل من الأصل',
-                              onPressed: isLoading ? null : () => _reExtractField(f.fieldKey),
+                              icon: const Icon(Icons.refresh,
+                                  size: 16, color: AppTheme.cobalt),
+                              tooltip: context.l10n.faSwiftReExtractField,
+                              onPressed: isLoading
+                                  ? null
+                                  : () => _reExtractField(f.fieldKey),
                             ),
                           ),
                         ),
@@ -820,30 +892,53 @@ class _SwiftExtractionReviewWidgetState
   Widget _buildFieldStatusBadge(SwiftFieldModel f) {
     if (f.isMandatory && f.isEmpty) {
       return Tooltip(
-        message: 'حقل إلزامي فارغ - يمنع التأكيد',
+        message: context.l10n.faSwiftEmptyMandatoryBlocks,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-          child: const Text('❌ فارغ', style: TextStyle(fontSize: 9.5, color: Colors.red, fontWeight: FontWeight.bold)),
+          decoration: BoxDecoration(
+              color: AppTheme.crimsonLight,
+              borderRadius: BorderRadius.circular(4)),
+          child: Text(context.l10n.faSwiftStatusEmpty,
+              style: TextStyle(
+                  fontSize: 9.5,
+                  color: AppTheme.crimson,
+                  fontWeight: FontWeight.bold)),
         ),
       );
     } else if (f.confidenceScore >= 0.8 && !f.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
-        child: const Text('✅ موثوق', style: TextStyle(fontSize: 9.5, color: Colors.green, fontWeight: FontWeight.bold)),
+        decoration: BoxDecoration(
+            color: AppTheme.emeraldLight,
+            borderRadius: BorderRadius.circular(4)),
+        child: Text(context.l10n.faSwiftStatusTrusted,
+            style: TextStyle(
+                fontSize: 9.5,
+                color: AppTheme.emerald,
+                fontWeight: FontWeight.bold)),
       );
     } else if (!f.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
-        child: const Text('⚠️ مدقق', style: TextStyle(fontSize: 9.5, color: Colors.orange, fontWeight: FontWeight.bold)),
+        decoration: BoxDecoration(
+            color: AppTheme.orangeLight,
+            borderRadius: BorderRadius.circular(4)),
+        child: Text(context.l10n.faSwiftStatusReviewed,
+            style: TextStyle(
+                fontSize: 9.5,
+                color: AppTheme.orange,
+                fontWeight: FontWeight.bold)),
       );
     } else {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)),
-        child: const Text('اختياري', style: TextStyle(fontSize: 9.5, color: Colors.grey, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(
+            color: AppTheme.cloudWhite, borderRadius: BorderRadius.circular(4)),
+        child: Text(context.l10n.faSwiftOptional,
+            style: TextStyle(
+                fontSize: 9.5,
+                color: AppTheme.textMuted,
+                fontWeight: FontWeight.w600)),
       );
     }
   }
@@ -854,10 +949,10 @@ class _SwiftExtractionReviewWidgetState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: canConfirm ? Colors.green.shade50 : Colors.red.shade50,
+        color: canConfirm ? AppTheme.emeraldLight : AppTheme.crimsonLight,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: canConfirm ? Colors.green.shade400 : Colors.red.shade300,
+          color: canConfirm ? AppTheme.emerald : AppTheme.crimsonBorder,
           width: 1.5,
         ),
       ),
@@ -865,7 +960,7 @@ class _SwiftExtractionReviewWidgetState
         children: [
           Icon(
             canConfirm ? Icons.check_circle : Icons.warning_amber_rounded,
-            color: canConfirm ? Colors.green.shade800 : Colors.red.shade800,
+            color: canConfirm ? AppTheme.wcagEmerald : AppTheme.crimson,
             size: 26,
           ),
           const SizedBox(width: 12),
@@ -875,12 +970,12 @@ class _SwiftExtractionReviewWidgetState
               children: [
                 Text(
                   canConfirm
-                      ? 'جميع الحقول الإلزامية الخمسة مكتملة ومحققة لقواعد التحقق المالي.'
-                      : 'حظر المطابقة: الحقول الإلزامية التالية غير مكتملة أو فارغة، يُرجى تصحيحها أولاً:',
+                      ? context.l10n.faSwiftAllMandatoryOk
+                      : context.l10n.faSwiftMatchingBlocked,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12.5,
-                    color: canConfirm ? Colors.green.shade900 : Colors.red.shade900,
+                    color: canConfirm ? AppTheme.wcagEmerald : AppTheme.crimson,
                   ),
                 ),
                 if (!canConfirm) ...[
@@ -890,7 +985,7 @@ class _SwiftExtractionReviewWidgetState
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.red.shade800,
+                      color: AppTheme.crimson,
                     ),
                   ),
                 ],
@@ -898,42 +993,20 @@ class _SwiftExtractionReviewWidgetState
             ),
           ),
           const SizedBox(width: 16),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.grey.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
+          AppButton(
+            label: context.l10n.faSwiftCancelReview,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: widget.onCancel,
-            child: const Text('إلغاء المراجعة', style: TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 10),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: canConfirm ? AppTheme.emerald : Colors.grey.shade400,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: _isConfirming
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : Icon(
-                    isConfirmed ? Icons.check_circle : Icons.verified,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-            label: Text(
-              isConfirmed
-                  ? 'تم الاعتماد • الانتقال إلى المطابقة'
-                  : '✅ تأكيد صحة البيانات والانتقال إلى المطابقة',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12.5,
-              ),
-            ),
+          AppButton(
+            label: isConfirmed
+                ? context.l10n.faSwiftApprovedGoMatch
+                : context.l10n.faSwiftConfirmAndMatch,
+            variant: AppButtonVariant.primary,
+            icon: isConfirmed ? Icons.check_circle : Icons.verified,
+            isLoading: _isConfirming,
             onPressed: (!canConfirm || _isConfirming) ? null : _confirmReview,
           ),
         ],

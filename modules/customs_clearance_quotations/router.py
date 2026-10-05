@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
-from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -27,13 +27,16 @@ import modules.customs_clearance_quotations.service as svc
 router = APIRouter(
     prefix="/api/v1/customs-clearance-quotations",
     tags=["Customs Clearance Quotations & Price Lists"],
-    dependencies=[Depends(get_current_user)],
 )
+
+# Permission codes (modules/auth/seed_rbac.py): reads vs. RFQ / quote / award / price-list writes.
+can_view = Depends(require_permission("quotations.view"))
+can_manage = Depends(require_permission("quotations.manage"))
 
 
 # ─── RFQ Endpoints ────────────────────────────────────────────────────────────
 
-@router.get("/rfqs", response_model=List[CustomsClearanceRFQResponse])
+@router.get("/rfqs", response_model=List[CustomsClearanceRFQResponse], dependencies=[can_view])
 def get_clearance_rfqs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -55,7 +58,7 @@ def get_clearance_rfqs(
     )
 
 
-@router.post("/rfqs", response_model=CustomsClearanceRFQResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/rfqs", response_model=CustomsClearanceRFQResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
 def create_clearance_rfq(
     data: CustomsClearanceRFQCreate,
     db: Session = Depends(get_db),
@@ -64,7 +67,7 @@ def create_clearance_rfq(
     return svc.create_rfq_service(db, data)
 
 
-@router.get("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse)
+@router.get("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse, dependencies=[can_view])
 def get_clearance_rfq_by_id(
     rfq_id: int,
     db: Session = Depends(get_db),
@@ -73,7 +76,7 @@ def get_clearance_rfq_by_id(
     return svc.get_rfq_by_id_service(db, rfq_id)
 
 
-@router.put("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse)
+@router.put("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse, dependencies=[can_manage])
 def update_clearance_rfq(
     rfq_id: int,
     data: CustomsClearanceRFQUpdate,
@@ -83,7 +86,7 @@ def update_clearance_rfq(
     return svc.update_rfq_service(db, rfq_id, data)
 
 
-@router.delete("/rfqs/{rfq_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/rfqs/{rfq_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
 def delete_clearance_rfq(
     rfq_id: int,
     db: Session = Depends(get_db),
@@ -95,7 +98,7 @@ def delete_clearance_rfq(
 
 # ─── Quotation Items Endpoints ────────────────────────────────────────────────
 
-@router.post("/rfqs/{rfq_id}/quotations", response_model=CustomsClearanceQuotationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/rfqs/{rfq_id}/quotations", response_model=CustomsClearanceQuotationResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
 def add_quotation_to_rfq(
     rfq_id: int,
     data: CustomsClearanceQuotationCreate,
@@ -105,7 +108,7 @@ def add_quotation_to_rfq(
     return svc.add_quotation_service(db, rfq_id, data)
 
 
-@router.put("/quotations/{quotation_id}", response_model=CustomsClearanceQuotationResponse)
+@router.put("/quotations/{quotation_id}", response_model=CustomsClearanceQuotationResponse, dependencies=[can_manage])
 def update_clearance_quotation(
     quotation_id: int,
     data: CustomsClearanceQuotationUpdate,
@@ -115,7 +118,7 @@ def update_clearance_quotation(
     return svc.update_quotation_service(db, quotation_id, data)
 
 
-@router.delete("/quotations/{quotation_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/quotations/{quotation_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
 def delete_clearance_quotation(
     quotation_id: int,
     db: Session = Depends(get_db),
@@ -125,7 +128,7 @@ def delete_clearance_quotation(
     return None
 
 
-@router.post("/rfqs/{rfq_id}/award", response_model=CustomsClearanceRFQResponse)
+@router.post("/rfqs/{rfq_id}/award", response_model=CustomsClearanceRFQResponse, dependencies=[can_manage])
 def award_clearance_quotation(
     rfq_id: int,
     data: AwardClearanceQuotationRequest,
@@ -137,7 +140,7 @@ def award_clearance_quotation(
 
 # ─── Price List Endpoints ─────────────────────────────────────────────────────
 
-@router.get("/price-list", response_model=List[ClearancePriceListItemResponse])
+@router.get("/price-list", response_model=List[ClearancePriceListItemResponse], dependencies=[can_view])
 def get_clearance_price_list(
     provider_id: Optional[int] = None,
     port_name: Optional[str] = None,
@@ -155,7 +158,7 @@ def get_clearance_price_list(
     )
 
 
-@router.post("/price-list", response_model=ClearancePriceListItemResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/price-list", response_model=ClearancePriceListItemResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
 def create_clearance_price_item(
     data: ClearancePriceListItemCreate,
     db: Session = Depends(get_db),
@@ -164,7 +167,7 @@ def create_clearance_price_item(
     return svc.create_price_item_service(db, data)
 
 
-@router.put("/price-list/{item_id}", response_model=ClearancePriceListItemResponse)
+@router.put("/price-list/{item_id}", response_model=ClearancePriceListItemResponse, dependencies=[can_manage])
 def update_clearance_price_item(
     item_id: int,
     data: ClearancePriceListItemUpdate,
@@ -174,7 +177,7 @@ def update_clearance_price_item(
     return svc.update_price_item_service(db, item_id, data)
 
 
-@router.delete("/price-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/price-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
 def delete_clearance_price_item(
     item_id: int,
     db: Session = Depends(get_db),

@@ -12,21 +12,23 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
 
 String getCategoryLabel(String category, BuildContext context) {
   final isAr = Localizations.localeOf(context).languageCode == 'ar';
   final clean = category.split('(').first.trim();
   switch (clean) {
     case 'Clearance Fees':
-      return isAr ? 'أتعاب تخليص' : 'Clearance Fees';
+      return context.l10n.ccClearanceFees;
     case 'Procedures & Approvals':
-      return isAr ? 'إجراءات وموافقات' : 'Procedures & Approvals';
+      return context.l10n.ccProceduresApprovals;
     case 'Inland Transport':
-      return isAr ? 'نقل داخلي' : 'Inland Transport';
+      return context.l10n.ccInlandTransport;
     case 'Port & Handling':
-      return isAr ? 'موانئ ومناولة' : 'Port & Handling';
+      return context.l10n.ccPortHandling;
     case 'Other Fees':
-      return isAr ? 'مصاريف أخرى' : 'Other Fees';
+      return context.l10n.othersFeeItem;
     default:
       if (isAr) {
         final match = RegExp(r'\(([\u0600-\u06FF\s]+)\)').firstMatch(category);
@@ -43,32 +45,32 @@ String getUnitLabel(String unit, BuildContext context) {
   final clean = unit.split('(').first.trim().toLowerCase().replaceAll(' ', '_');
   switch (clean) {
     case 'fixed':
-      return isAr ? 'مبلغ مقطوع' : 'Fixed Amount';
+      return context.l10n.ccFixedAmount;
     case 'per_container':
-      return isAr ? 'لكل حاوية' : 'Per Container';
+      return context.l10n.ccPerContainer;
     case 'per_invoice':
-      return isAr ? 'لكل فاتورة' : 'Per Invoice';
+      return context.l10n.ccPerInvoice;
     case 'per_ton':
-      return isAr ? 'لكل طن' : 'Per Ton';
+      return context.l10n.ccPerTon;
     case 'per_truck':
     case 'per_vehicle':
-      return isAr ? 'لكل شاحنة' : 'Per Truck';
+      return context.l10n.ccPerTruck;
     case 'per_day':
-      return isAr ? 'لكل يوم' : 'Per Day';
+      return context.l10n.ccPerDay;
     case 'per_night':
-      return isAr ? 'لكل ليلة' : 'Per Night';
+      return context.l10n.ccPerNight;
     case 'per_inspection':
-      return isAr ? 'لكل كشف' : 'Per Inspection';
+      return context.l10n.ccPerInspection;
     case 'per_shipment':
-      return isAr ? 'لكل شحنة' : 'Per Shipment';
+      return context.l10n.ccPerShipment;
     case 'per_declaration':
-      return isAr ? 'لكل شهادة إفراج' : 'Per Declaration';
+      return context.l10n.ccPerDeclaration;
     case 'per_bl':
-      return isAr ? 'لكل بوليصة شحن' : 'Per Bill of Lading';
+      return context.l10n.ccPerBillOfLading;
     case 'per_sample':
-      return isAr ? 'لكل عينة' : 'Per Sample';
+      return context.l10n.ccPerSample;
     case 'per_certificate':
-      return isAr ? 'لكل شهادة' : 'Per Certificate';
+      return context.l10n.ccPerCertificate;
     default:
       if (isAr) {
         final match = RegExp(r'\(([\u0600-\u06FF\s]+)\)').firstMatch(unit);
@@ -89,10 +91,9 @@ void showPriceListFormDialog(
   Map<String, dynamic>? initialExtractedData,
 }) {
   final l = context.l10n;
-  final isAr = Localizations.localeOf(context).languageCode == 'ar';
   if (brokersList.isEmpty && existingPriceList == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l.noBrokersRegistered), backgroundColor: Colors.orange),
+      SnackBar(content: Text(l.noBrokersRegistered), backgroundColor: AppTheme.orange),
     );
     return;
   }
@@ -563,7 +564,7 @@ void showPriceListFormDialog(
             if (ctx.mounted) {
               try { Navigator.of(ctx, rootNavigator: true).pop(); } catch (_) {}
               ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text('خطأ أثناء الاستخراج: $e'), backgroundColor: AppTheme.crimson),
+                SnackBar(content: Text('خطأ أثناء الاستخراج: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
               );
             }
           }
@@ -634,55 +635,55 @@ void showPriceListFormDialog(
                 final referenceCodeItems = <SearchableDropdownItem<String>>[
                   SearchableDropdownItem(
                     value: 'OTHER-CLIENT-PAID',
-                    label: 'OTHER-CLIENT-PAID — ${isAr ? "مصاريف مؤداة بمعرفة العميل" : "Client-Paid Expenses"}',
+                    label: 'OTHER-CLIENT-PAID — ${context.l10n.ccClientPaidExpenses}',
                     subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
                     icon: Icons.person_pin_outlined,
                   ),
                   SearchableDropdownItem(
                     value: 'OTHER-FEES',
-                    label: 'OTHER-FEES — ${isAr ? "مصاريف ورسوم إضافية عامة" : "General Other Fees"}',
+                    label: 'OTHER-FEES — ${context.l10n.ccGeneralOtherFees}',
                     subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
                     icon: Icons.attach_money_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'OTHER-STORAGE',
-                    label: 'OTHER-STORAGE — ${isAr ? "أرضيات وحراسات وتخزين" : "Storage & Demurrage"}',
+                    label: 'OTHER-STORAGE — ${context.l10n.ccStorageDemurrage}',
                     subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("per_day", c)}',
                     icon: Icons.warehouse_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'OTHER-LABOR',
-                    label: 'OTHER-LABOR — ${isAr ? "عمالة وتعتيق وكلارك ومناولة" : "Labor & Handling"}',
+                    label: 'OTHER-LABOR — ${context.l10n.ccLaborHandling}',
                     subtitle: '${getCategoryLabel("Port & Handling", c)} | ${getUnitLabel("fixed", c)}',
                     icon: Icons.handyman_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'OTHER-COMMISSION',
-                    label: 'OTHER-COMMISSION — ${isAr ? "عمولات ونثريات وإكراميات" : "Commissions & Tips"}',
+                    label: 'OTHER-COMMISSION — ${context.l10n.ccCommissionsTips}',
                     subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
                     icon: Icons.local_activity_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'CLR-CUSTOM-FEE',
-                    label: 'CLR-CUSTOM-FEE — ${isAr ? "أتعاب تخليص إضافية استثنائية" : "Exceptional Clearance Fee"}',
+                    label: 'CLR-CUSTOM-FEE — ${context.l10n.ccExceptionalClearanceFee}',
                     subtitle: '${getCategoryLabel("Clearance Fees", c)} | ${getUnitLabel("per_shipment", c)}',
                     icon: Icons.receipt_long_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'INL-CUSTOM-TRK',
-                    label: 'INL-CUSTOM-TRK — ${isAr ? "نقل داخلي أو شاحنة إضافية" : "Inland Transport Custom"}',
+                    label: 'INL-CUSTOM-TRK — ${context.l10n.ccInlandTransportCustom}',
                     subtitle: '${getCategoryLabel("Inland Transport", c)} | ${getUnitLabel("per_truck", c)}',
                     icon: Icons.local_shipping_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'PROC-CUSTOM-DOC',
-                    label: 'PROC-CUSTOM-DOC — ${isAr ? "إجراءات وموافقات إضافية" : "Additional Approvals"}',
+                    label: 'PROC-CUSTOM-DOC — ${context.l10n.ccAdditionalApprovals}',
                     subtitle: '${getCategoryLabel("Procedures & Approvals", c)} | ${getUnitLabel("fixed", c)}',
                     icon: Icons.verified_user_rounded,
                   ),
                   SearchableDropdownItem(
                     value: 'PORT-CUSTOM-EXP',
-                    label: 'PORT-CUSTOM-EXP — ${isAr ? "رسوم ومصاريف موانئ ومحطات" : "Port Terminal Expenses"}',
+                    label: 'PORT-CUSTOM-EXP — ${context.l10n.ccPortTerminalExpenses}',
                     subtitle: '${getCategoryLabel("Port & Handling", c)} | ${getUnitLabel("per_container", c)}',
                     icon: Icons.anchor_rounded,
                   ),
@@ -694,8 +695,8 @@ void showPriceListFormDialog(
                   )),
                   SearchableDropdownItem(
                     value: 'CUSTOM',
-                    label: isAr ? '➕ كود مرجعي مخصص جديد...' : '➕ New Custom Reference Code...',
-                    subtitle: isAr ? 'إدخال كود يدوي جديد' : 'Enter custom code manually',
+                    label: context.l10n.ccNewCustomReferenceCode,
+                    subtitle: context.l10n.ccEnterCustomCodeManually,
                     icon: Icons.edit_note_rounded,
                   ),
                 ];
@@ -728,7 +729,7 @@ void showPriceListFormDialog(
                               Container(
                                 margin: const EdgeInsets.only(bottom: 14),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
+                                  color: AppTheme.charcoalSurface,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -748,7 +749,7 @@ void showPriceListFormDialog(
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: activeMode == 0 ? Colors.white : AppTheme.charcoal,
+                                                color: activeMode == 0 ? AppTheme.white : AppTheme.charcoal,
                                               ),
                                             ),
                                           ),
@@ -770,7 +771,7 @@ void showPriceListFormDialog(
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: activeMode == 1 ? Colors.white : AppTheme.charcoal,
+                                                color: activeMode == 1 ? AppTheme.white : AppTheme.charcoal,
                                               ),
                                             ),
                                           ),
@@ -995,16 +996,17 @@ void showPriceListFormDialog(
                     ),
                   ),
                   actions: [
-                    TextButton(
+                    AppButton(
+                      label: l.cancel,
+                      variant: AppButtonVariant.secondary,
+                      size: AppButtonSize.small,
                       onPressed: () => Navigator.pop(c),
-                      child: Text(l.cancel),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                      icon: isSubmitting
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check, size: 16),
-                      label: Text(activeMode == 0 ? l.saveAndMapAliasBtn : l.registerCodeInCatalogBtn),
+                    AppButton(
+                      label: activeMode == 0 ? l.saveAndMapAliasBtn : l.registerCodeInCatalogBtn,
+                      icon: Icons.check,
+                      variant: AppButtonVariant.success,
+                      isLoading: isSubmitting,
                       onPressed: isSubmitting
                           ? null
                           : () async {
@@ -1013,7 +1015,7 @@ void showPriceListFormDialog(
                               final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
 
                               if (activeMode == 0) {
-                                // Mode 0: Alias pattern mapping
+                                
                                 final code = selectedCanonicalCode;
                                 final alias = aliasPatternCtrl.text.trim();
                                 if (code != null && alias.isNotEmpty) {
@@ -1061,13 +1063,13 @@ void showPriceListFormDialog(
                                   } catch (e) {
                                     if (c.mounted) {
                                       ScaffoldMessenger.of(c).showSnackBar(
-                                        SnackBar(content: Text('❌ $e'), backgroundColor: AppTheme.crimson),
+                                        SnackBar(content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
                                       );
                                     }
                                   }
                                 }
                               } else {
-                                // Mode 1: New reference code or standard code
+                                
                                 final finalCode = selectedReferenceCode == 'CUSTOM'
                                     ? customCodeCtrl.text.trim().toUpperCase()
                                     : selectedReferenceCode.trim().toUpperCase();
@@ -1075,7 +1077,7 @@ void showPriceListFormDialog(
                                 if (finalCode.isEmpty) {
                                   if (c.mounted) {
                                     ScaffoldMessenger.of(c).showSnackBar(
-                                      SnackBar(content: Text(l.selectReferenceCodeRequired), backgroundColor: Colors.red),
+                                      SnackBar(content: Text(l.selectReferenceCodeRequired), backgroundColor: AppTheme.crimson),
                                     );
                                   }
                                   setInnerState(() => isSubmitting = false);
@@ -1089,7 +1091,7 @@ void showPriceListFormDialog(
 
                                 try {
                                   if (isAlreadyInCatalog) {
-                                    // Add recognition pattern so no 409 conflict occurs
+                                    
                                     if (nameAr.isNotEmpty) {
                                       await ref.read(expenseCatalogProvider.notifier).addPattern(finalCode, nameAr);
                                     }
@@ -1187,7 +1189,6 @@ void showPriceListFormDialog(
           final cloned = Map<String, dynamic>.from(orig);
           cloned['item_id'] = null;
           cloned['expense_type_id'] = null;
-          final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
           cloned['expense_name'] = '${orig['expense_name']}${TableRowCloneHelper.copySuffix}';
           cloned['notes'] = orig['notes'] != null && orig['notes'].toString().isNotEmpty
               ? '${orig['notes']} | Cloned'
@@ -1199,7 +1200,7 @@ void showPriceListFormDialog(
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
               SnackBar(
-                content: Text(isAr ? '✨ تم استنساخ السطر بنجاح (كنترول + د)' : '✨ Row cloned successfully (Ctrl+D)'),
+                content: Text(context.l10n.ccRowClonedSuccessfullyCtrlD),
                 backgroundColor: AppTheme.cobalt,
                 duration: const Duration(seconds: 2),
               ),
@@ -1246,21 +1247,17 @@ void showPriceListFormDialog(
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                             ),
                           ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6C5CE7),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
-                            label: Text(l.smartFileExtractionBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          AppButton(
+                            label: l.smartFileExtractionBtn,
+                            icon: Icons.auto_awesome,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: extractFromDocument,
                           ),
                           const SizedBox(width: 8),
                           IconButton(
                             onPressed: () => Navigator.pop(ctx),
-                            icon: const Icon(Icons.close, color: Colors.grey),
+                            icon: const Icon(Icons.close, color: AppTheme.textMuted),
                           ),
                         ],
                       ),
@@ -1272,22 +1269,22 @@ void showPriceListFormDialog(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                            color: AppTheme.crimsonLight,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade400),
+                            border: Border.all(color: AppTheme.crimson),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                              const Icon(Icons.error_outline, color: AppTheme.crimson, size: 20),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   dialogErrorMessage!,
-                                  style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                                icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
                                 onPressed: () => setDlgState(() => dialogErrorMessage = null),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
@@ -1303,7 +1300,7 @@ void showPriceListFormDialog(
                         decoration: BoxDecoration(
                           color: AppTheme.charcoal.withOpacity(0.03),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
+                          border: Border.all(color: AppTheme.cloudWhite),
                         ),
                         child: Column(
                           children: [
@@ -1325,7 +1322,7 @@ void showPriceListFormDialog(
                                     flex: 2,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
+                                      decoration: BoxDecoration(color: AppTheme.charcoalSurface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.cloudWhite)),
                                       child: Text('${l.responsibleCustomsBroker}: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                     ),
                                   ),
@@ -1436,23 +1433,20 @@ void showPriceListFormDialog(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Add Custom Item Button
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.cobalt,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    ),
+                                  AppButton(
+                                    label: l.addCustomItemOrAliasBtn,
+                                    icon: Icons.qr_code_2,
+                                    variant: AppButtonVariant.primary,
+                                    size: AppButtonSize.small,
                                     onPressed: () => showAddCustomItemDialog(),
-                                    icon: const Icon(Icons.qr_code_2, size: 15),
-                                    label: Text(l.addCustomItemOrAliasBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 6),
                                   // Quick Fill Button
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppTheme.cobalt,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    ),
+                                  AppButton(
+                                    label: l.fillStandardRatesBtn,
+                                    icon: Icons.flash_on,
+                                    variant: AppButtonVariant.secondary,
+                                    size: AppButtonSize.small,
                                     onPressed: () {
                                       setDlgState(() {
                                         for (var itm in itemsState) {
@@ -1469,16 +1463,14 @@ void showPriceListFormDialog(
                                         SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
                                       );
                                     },
-                                    icon: const Icon(Icons.flash_on, size: 14),
-                                    label: Text(l.fillStandardRatesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 6),
                                   // Zero Out Button
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red.shade800,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    ),
+                                  AppButton(
+                                    label: l.zeroOutRatesBtn,
+                                    icon: Icons.clear_all,
+                                    variant: AppButtonVariant.danger,
+                                    size: AppButtonSize.small,
                                     onPressed: () {
                                       setDlgState(() {
                                         for (var itm in itemsState) {
@@ -1486,8 +1478,6 @@ void showPriceListFormDialog(
                                         }
                                       });
                                     },
-                                    icon: const Icon(Icons.clear_all, size: 14),
-                                    label: Text(l.zeroOutRatesBtn, style: const TextStyle(fontSize: 11)),
                                   ),
                                 ],
                               ),
@@ -1501,14 +1491,14 @@ void showPriceListFormDialog(
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: AppTheme.cloudWhite),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: ListView.separated(
                         itemCount: filteredItems.length,
-                        separatorBuilder: (ctx, idx) => Divider(height: 1, color: Colors.grey.shade200),
+                        separatorBuilder: (ctx, idx) => const Divider(height: 1, color: AppTheme.cloudWhite),
                         itemBuilder: (ctx, idx) {
                           final itm = filteredItems[idx];
                           final realIdx = itemsState.indexOf(itm);
@@ -1516,7 +1506,7 @@ void showPriceListFormDialog(
                           final isCustomItem = itm['expense_type_id'] == null;
 
                           return Container(
-                            color: isCustomItem ? Colors.amber.shade50 : (idx.isEven ? Colors.white : Colors.grey.shade50),
+                            color: isCustomItem ? AppTheme.orangeLight : (idx.isEven ? AppTheme.white : AppTheme.charcoalSurface),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             child: Row(
                               children: [
@@ -1533,7 +1523,7 @@ void showPriceListFormDialog(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               margin: const EdgeInsetsDirectional.only(start: 6),
                                               decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                                              child: Text(itm['code'].toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                              child: Text(itm['code'].toString(), style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                             )
                                           else if (itm['is_uncoded'] == true)
                                             InkWell(
@@ -1545,9 +1535,9 @@ void showPriceListFormDialog(
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
+                                                    const Icon(Icons.warning_amber_rounded, color: AppTheme.white, size: 10),
                                                     const SizedBox(width: 2),
-                                                    Text(l.needsCodingBadge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                    Text(l.needsCodingBadge, style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                                   ],
                                                 ),
                                               ),
@@ -1556,8 +1546,8 @@ void showPriceListFormDialog(
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               margin: const EdgeInsetsDirectional.only(start: 6),
-                                              decoration: BoxDecoration(color: Colors.amber.shade700, borderRadius: BorderRadius.circular(4)),
-                                              child: Text(l.customItemBadge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                              decoration: BoxDecoration(color: AppTheme.wcagOrange, borderRadius: BorderRadius.circular(4)),
+                                              child: Text(l.customItemBadge, style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                             ),
                                           Expanded(
                                             child: Text(
@@ -1569,7 +1559,7 @@ void showPriceListFormDialog(
                                       ),
                                       Text(
                                         '${getCategoryLabel(itm['category']?.toString() ?? '', ctx)} | ${getUnitLabel(itm['unit_type']?.toString() ?? '', ctx)}',
-                                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
                                       ),
                                     ],
                                   ),
@@ -1634,7 +1624,7 @@ void showPriceListFormDialog(
                                 ),
                                 if (isCustomItem)
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
                                     tooltip: l.deleteCustomItemTooltip,
                                     onPressed: () => setDlgState(() => itemsState.removeAt(realIdx)),
                                   ),
@@ -1651,8 +1641,8 @@ void showPriceListFormDialog(
                 // Actions Footer
                 Container(
                   padding: const EdgeInsets.only(top: 8),
-                  decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: Colors.grey.shade300)),
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: AppTheme.cloudWhite)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1662,20 +1652,25 @@ void showPriceListFormDialog(
                         itemsState.length,
                         itemsState.where((i) => (i['standard_price'] as num) > 0).length,
                       ),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
                     Row(
                       children: [
-                        TextButton(
+                        AppButton(
+                          label: l.cancel,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.small,
                           onPressed: () => Navigator.pop(ctx),
-                          child: Text(l.cancel),
                         ),
                         const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
+                        AppButton(
+                          label: isSaving
+                                ? l.saving
+                                : (isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn),
+                          icon: Icons.save,
+                          variant: AppButtonVariant.success,
+                          size: AppButtonSize.small,
+                          isLoading: isSaving,
                           onPressed: isSaving ? null : () async {
                             setDlgState(() => dialogErrorMessage = null);
 
@@ -1700,7 +1695,7 @@ void showPriceListFormDialog(
                                   break;
                                 }
                               }
-                              final brokerName = matchedBroker?.partnerName ?? (existingPriceList?.brokerName ?? (isAr ? 'مستخلص جمركي' : 'Customs Broker'));
+                              final brokerName = matchedBroker?.partnerName ?? (existingPriceList?.brokerName ?? (context.l10n.ccCustomsBroker2));
 
                               String cleanDate(String input) {
                                 if (input.trim().isEmpty) {
@@ -1809,11 +1804,11 @@ void showPriceListFormDialog(
                                 } else if (resData != null) {
                                   errorMsg = resData.toString();
                                 } else {
-                                  errorMsg = e.message ?? (isAr ? 'فشل الاتصال بالخادم' : 'Server connection failed');
+                                  errorMsg = e.message ?? (context.l10n.ccServerConnectionFailed);
                                 }
                               }
                               if (ctx.mounted) {
-                                setDlgState(() => dialogErrorMessage = '❌ ${(isAr ? 'تعذر الحفظ' : 'Failed to save')}: $errorMsg');
+                                setDlgState(() => dialogErrorMessage = '❌ ${(context.l10n.ccFailedToSave)}: $errorMsg');
                               }
                             } finally {
                               if (ctx.mounted) {
@@ -1821,19 +1816,6 @@ void showPriceListFormDialog(
                               }
                             }
                           },
-                          icon: isSaving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Icon(Icons.save, color: Colors.white, size: 18),
-                          label: Text(
-                            isSaving
-                                ? l.saving
-                                : (isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
                         ),
                       ],
                     ),

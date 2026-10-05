@@ -48,6 +48,30 @@ CUSTOMS_CATEGORY = "CUSTOMS_CATEGORY"
 VALUE_PLACEHOLDER = "VALUE_PLACEHOLDER"
 MEASURE_UNIT = "MEASURE_UNIT"
 DRAFT_BL_FIELD = "DRAFT_BL_FIELD"
+PO_STATUS = "PO_STATUS"
+SHIPPING_METHOD = "SHIPPING_METHOD"
+CONTAINER_TYPE = "CONTAINER_TYPE"
+SHIPMENT_MODE = "SHIPMENT_MODE"
+# Review wave (docs/plans/review-shared-needs.md)
+PAYMENT_TYPE = "PAYMENT_TYPE"
+LEGAL_DOC_KIND = "LEGAL_DOC_KIND"
+LAB_TEST_RESULT = "LAB_TEST_RESULT"
+ODC_STATUS = "ODC_STATUS"
+ORIGINAL_DOC_STATUS = "ORIGINAL_DOC_STATUS"
+ORIGINAL_DOC_REQUIRED = "ORIGINAL_DOC_REQUIRED"
+COURIER_STATUS = "COURIER_STATUS"
+DOC_REVIEW_STATUS = "DOC_REVIEW_STATUS"
+DOC_APPROVAL_STATUS = "DOC_APPROVAL_STATUS"
+TICKET_STATUS = "TICKET_STATUS"
+TICKET_SEVERITY = "TICKET_SEVERITY"
+ALLOCATION_RULE = "ALLOCATION_RULE"
+SETTLEMENT_STATUS = "SETTLEMENT_STATUS"
+ACTUAL_COST_BUCKET = "ACTUAL_COST_BUCKET"
+DUTY_COMPONENT = "DUTY_COMPONENT"
+WAREHOUSE_RECEIVING_STATUS = "WAREHOUSE_RECEIVING_STATUS"
+GRN_DISCREPANCY_TYPE = "GRN_DISCREPANCY_TYPE"
+INLAND_TRANSPORT_STATUS = "INLAND_TRANSPORT_STATUS"
+FILE_CLOSURE_STATUS = "FILE_CLOSURE_STATUS"
 
 # code -> English label, per enum type (insertion order = display order)
 LABELS_EN: Dict[str, Dict[str, str]] = {
@@ -303,6 +327,11 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "KG": "kg",
         "CBM": "CBM",
         "PACKAGES_PALLETS": "packages/pallets",
+        # Declared weight UOM of packing-list rows (CargoX "Unit of measure list": KG is exported as KGM). A label
+        # only: the stored weights are always kg.
+        "GRM": "gram (GRM)",
+        "STN": "short ton (STN)",
+        "SET": "set (SET)",
     },
     # Draft B/L comparison field (code = upper-cased field_key of the comparison matrix). Used by the
     # blocking reason messages DOC_DRAFT_BLOCKING_* (param field_enum_draft_bl_field).
@@ -327,6 +356,193 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "TOTAL_NET_WEIGHT_KG": "Net Weight (KG)",
         "CBM": "Measurement (CBM)",
         "QTY_PKG": "Number of Packages",
+    },
+    # Purchase order workflow status (purchase_orders.status)
+    PO_STATUS: {
+        "DRAFT": "Draft",
+        "APPROVED": "Approved",
+        "PARTIALLY_SHIPPED": "Partially Shipped",
+        "FULLY_SHIPPED": "Fully Shipped",
+        "CLOSED": "Closed",
+        "CANCELLED": "Cancelled",
+    },
+    # Recommended shipping mode (CBM calculator, shipping planning)
+    SHIPPING_METHOD: {
+        "AIR": "Air Freight",
+        "LCL": "LCL Ocean Freight",
+        "FCL": "FCL Container",
+    },
+    # Recommended container (CBM calculator). Air freight has no container (stored as NULL).
+    CONTAINER_TYPE: {
+        "C20_ST": "20FT Standard Container (20' ST)",
+        "C40_ST": "40FT Standard Container (40' ST)",
+        "C40_HC": "40FT High Cube Container (40' HC)",
+        "LCL": "LCL Consolidation Container",
+    },
+    # Transport mode of a CBM calculation (cbm_calculations.shipment_mode; NULL = unknown legacy row)
+    SHIPMENT_MODE: {
+        "AIR": "Air Freight",
+        "SEA": "Sea Freight",
+    },
+    # ── Review wave (docs/plans/review-shared-needs.md). Most of these columns still store the legacy label this
+    # wave (Q6); the codes are the language-neutral contract the API / Flutter converge on. ──
+    # Payment request type (payment_requests.payment_type; financial_approval.validators.normalize_payment_type)
+    PAYMENT_TYPE: {
+        "ADVANCE_PAYMENT": "Advance Payment",
+        "AGAINST_BL": "Against B/L",
+        "LETTER_OF_CREDIT": "Letter of Credit (L/C)",
+        "DOCUMENTARY_COLLECTION": "Documentary Collection (CAD)",
+        "FINAL_SETTLEMENT": "Final Settlement",
+    },
+    # Legal document of an expiry alert (import_documentation legal-docs check, message param doc_kind)
+    LEGAL_DOC_KIND: {
+        "ACID": "ACID",
+        "IMPORT_CARD": "Import Card",
+        "COMMERCIAL_REGISTRY": "Commercial Registry",
+        "TAX_CARD": "Tax Card",
+    },
+    # Laboratory test result of a quarantined clearance (customs_clearance.validators.normalize_lab_test_result)
+    LAB_TEST_RESULT: {
+        "CONFORMING": "Conforming",
+        "NON_CONFORMING": "Non-Conforming",
+        "PENDING": "Pending",
+        "NONE": "None",
+    },
+    # Original documents collection session status (stored as the code)
+    ODC_STATUS: {
+        "DRAFT": "Draft",
+        "IN_TRANSIT": "In Transit",
+        "PARTIALLY_RECEIVED": "Partially Received",
+        "FULLY_RECEIVED": "Fully Received",
+        "FULLY_VERIFIED": "Fully Verified",
+        "DISCREPANCY_NOTED": "Discrepancy Noted",
+    },
+    # Status of one original document of a session (stored as the English label this wave)
+    ORIGINAL_DOC_STATUS: {
+        "PENDING": "Pending",
+        "IN_TRANSIT": "In Transit",
+        "RECEIVED": "Received",
+        "VERIFIED": "Verified",
+        "DISCREPANT": "Discrepant",
+        "NOT_REQUIRED": "Not Required",
+    },
+    # Whether an original document is required (stored as the English label this wave)
+    ORIGINAL_DOC_REQUIRED: {
+        "YES": "Yes",
+        "NO": "No",
+        "CONDITIONAL": "Conditional",
+    },
+    # Courier status of an original documents session (stored as the code)
+    COURIER_STATUS: {
+        "DISPATCHED": "Dispatched",
+        "IN_TRANSIT": "In Transit",
+        "DELIVERED": "Delivered",
+        "DELAYED": "Delayed",
+    },
+    # Commercial / customs review tier status of a customs document approval (label stored this wave)
+    DOC_REVIEW_STATUS: {
+        "PENDING": "Pending",
+        "UNDER_REVIEW": "Under Review",
+        "APPROVED": "Approved",
+        "CONDITIONALLY_APPROVED": "Conditionally Approved",
+        "REJECTED": "Rejected",
+    },
+    # Overall status of a customs document approval (label stored this wave)
+    DOC_APPROVAL_STATUS: {
+        "DRAFT": "Draft",
+        "PENDING_REVIEW": "Pending Review",
+        "UNDER_REVIEW": "Under Review",
+        "CONDITIONALLY_APPROVED": "Conditionally Approved",
+        "APPROVED_FOR_CLEARANCE": "Approved for Clearance",
+        "RECTIFICATION_REQUIRED": "Rectification Required",
+        "REJECTED": "Rejected",
+    },
+    # Discrepancy rectification ticket status / severity (labels stored this wave)
+    TICKET_STATUS: {
+        "OPEN": "Open",
+        "SENT_TO_SUPPLIER": "Sent to Supplier",
+        "RESOLVED": "Resolved",
+        "WAIVED": "Waived",
+        "CLOSED": "Closed",
+    },
+    TICKET_SEVERITY: {
+        "CRITICAL": "Critical",
+        "MAJOR": "Major",
+        "MINOR": "Minor",
+    },
+    # Landed-cost allocation rule of an expense (API values are still the labels this wave)
+    ALLOCATION_RULE: {
+        "VALUE": "Value-Based",
+        "WEIGHT": "Weight-Based",
+        "VOLUME": "Volume-Based",
+        "EQUAL": "Equal",
+    },
+    # Financial settlement status (read-only legacy set; PUT accepts Draft / Calculated only)
+    SETTLEMENT_STATUS: {
+        "DRAFT": "Draft",
+        "CALCULATED": "Calculated",
+        "APPROVED": "Approved",
+        "CLOSED": "Closed",
+    },
+    # Actual landed-cost bucket (financial_settlement.service.ACTUAL_BUCKETS, stored as `bucket` on approved rows)
+    ACTUAL_COST_BUCKET: {
+        "FREIGHT": "Freight",
+        "INSURANCE": "Insurance",
+        "CUSTOMS_DUTY": "Customs Duty",
+        "VAT_TAXES": "VAT & Taxes",
+        "CLEARANCE_PORT": "Clearance & Port",
+        "INLAND_TRANSPORT": "Inland Transport",
+        "DEMURRAGE_STORAGE": "Demurrage & Storage",
+        "OTHER_ADMIN": "Other & Admin",
+    },
+    # Customs duty component of a settlement row auto-fetched from customs (`duty_component`, stored as the
+    # customs_clearance column name: see the legacy map)
+    DUTY_COMPONENT: {
+        "IMPORT_DUTY": "Import Duty",
+        "VAT": "VAT",
+        "SCHEDULE_TAX": "Schedule Tax",
+        "DEVELOPMENT_FEE": "Development Fee",
+        "CUSTOMS_SERVICE_FEES": "Customs Service Fees",
+        "WHT": "Withholding Tax",
+        "LAB_SERVICE_FEES": "Laboratory Service Fees",
+        "DUTY_TOTAL_OVERRIDE": "Assessed Duty Total (override)",
+    },
+    # Goods receipt note status (warehouse_receiving; labels stored this wave)
+    WAREHOUSE_RECEIVING_STATUS: {
+        "PENDING_COUNT": "Pending Warehouse Count",
+        "GOODS_RECEIVED": "Goods Received",
+        "GRN_AUDITED": "GRN Audited",
+        "DISCREPANCY_REPORTED": "Discrepancy Reported",
+        "UNDER_BOND_QUARANTINE": "Under Bond Quarantine",
+        "UNDER_QUARANTINE_INSPECTION": "Under Quarantine Inspection",
+        "INSPECTION_PASSED": "Inspection Passed",
+        "CLOSED": "Closed",
+    },
+    # Goods receipt discrepancy type (warehouse_receiving; labels stored this wave)
+    GRN_DISCREPANCY_TYPE: {
+        "NONE": "None",
+        "SHORTAGE": "Shortage",
+        "DAMAGE": "Damage",
+        "EXCESS": "Excess",
+        "WRONG_ITEM": "Wrong Item",
+        "SHORTAGE_AND_DAMAGE": "Shortage & Damaged",
+        "QUARANTINE_REJECTION": "Quarantine Rejection",
+        "BROKEN_SEAL": "Broken Seal Discrepancy",
+    },
+    # Inland transport booking status (labels stored this wave)
+    INLAND_TRANSPORT_STATUS: {
+        "BOOKING_CONFIRMED": "Booking Confirmed",
+        "DISPATCHED": "Dispatched",
+        "IN_TRANSIT": "In Transit",
+        "ARRIVED_AT_WAREHOUSE": "Arrived at Warehouse",
+        "DELIVERED": "Delivered",
+    },
+    # File closure record status (labels stored this wave; Reopened = the file was reopened after closing)
+    FILE_CLOSURE_STATUS: {
+        "DRAFT": "Draft",
+        "CLOSED": "Closed",
+        "ARCHIVED": "Archived",
+        "REOPENED": "Reopened",
     },
 }
 
@@ -537,7 +753,92 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "كجم": "KG",
         "م³": "CBM",
         "طرد/بالتة": "PACKAGES_PALLETS",
+        # one kilogram code: KG (CargoX / UN-ECE spelling KGM is an alias)
+        "KGM": "KG",
+        "KGS": "KG",
+        "KILOGRAM": "KG",
+        "GRAM": "GRM",
+        "TON": "STN",
+        "TONS": "STN",
     },
+    PO_STATUS: {
+        # "In Transit" was offered by the old PO form: goods left the supplier, so at least partially shipped.
+        "In Transit": "PARTIALLY_SHIPPED",
+        "Canceled": "CANCELLED",
+        "مسودة": "DRAFT",
+        "معتمد": "APPROVED",
+        "مغلق": "CLOSED",
+        "ملغي": "CANCELLED",
+    },
+    SHIPPING_METHOD: {
+        "Air Freight (شحن جوي)": "AIR",
+        "LCL Ocean Freight (شحن بحري تجميعي)": "LCL",
+        "FCL Container (حاوية كاملة بحرية)": "FCL",
+    },
+    CONTAINER_TYPE: {
+        "LCL Consolidation": "LCL",
+        "40FT High Cube Containers (40' HC)": "C40_HC",
+    },
+    # Same aliases as financial_approval.validators._PAYMENT_TYPE_ALIASES (labels map on their own).
+    PAYMENT_TYPE: {
+        "Advance": "ADVANCE_PAYMENT",
+        "Against BL": "AGAINST_BL",
+        "Letter of Credit": "LETTER_OF_CREDIT",
+        "L/C": "LETTER_OF_CREDIT",
+        "LC": "LETTER_OF_CREDIT",
+        "Documentary Collection": "DOCUMENTARY_COLLECTION",
+        "CAD": "DOCUMENTARY_COLLECTION",
+    },
+    # Bilingual names the legal-docs check used as the alert title.
+    LEGAL_DOC_KIND: {
+        "البطاقة الاستيرادية (Import Card)": "IMPORT_CARD",
+        "السجل التجاري (Commercial Registry)": "COMMERCIAL_REGISTRY",
+        "البطاقة الضريبية / ملف القيمة المضافة (Tax Card)": "TAX_CARD",
+    },
+    # Same map as customs_clearance.validators._LAB_RESULT_LEGACY.
+    LAB_TEST_RESULT: {
+        "مطابق": "CONFORMING",
+        "مقبول": "CONFORMING",
+        "Approved": "CONFORMING",
+        "غير مطابق": "NON_CONFORMING",
+        "مرفوض": "NON_CONFORMING",
+        "Non Conforming": "NON_CONFORMING",
+        "Nonconforming": "NON_CONFORMING",
+        "Rejected": "NON_CONFORMING",
+    },
+    ALLOCATION_RULE: {
+        "Value Based": "VALUE",
+        "Weight Based": "WEIGHT",
+        "Volume Based": "VOLUME",
+    },
+    # Values written today: the customs_clearance column names (+ actual_duty_total for an overridden total).
+    DUTY_COMPONENT: {
+        "import_duty_amount": "IMPORT_DUTY",
+        "vat_amount": "VAT",
+        "schedule_tax_amount": "SCHEDULE_TAX",
+        "development_fee_amount": "DEVELOPMENT_FEE",
+        "customs_service_fees": "CUSTOMS_SERVICE_FEES",
+        "wht_amount": "WHT",
+        "lab_service_fees": "LAB_SERVICE_FEES",
+        "actual_duty_total": "DUTY_TOTAL_OVERRIDE",
+    },
+    WAREHOUSE_RECEIVING_STATUS: {
+        "Draft / Pending Warehouse Count": "PENDING_COUNT",
+        "Inspection Passed / Clean Receipt": "INSPECTION_PASSED",
+    },
+    # Labels sent by the report-discrepancy dialog / older clients (warehouse_receiving.validators.WR_DISCREPANCY_TYPES).
+    GRN_DISCREPANCY_TYPE: {
+        "Shortage and Damage": "SHORTAGE_AND_DAMAGE",
+        "Damage & Shortage": "SHORTAGE_AND_DAMAGE",
+        "Shortage Only": "SHORTAGE",
+        "Damage Only": "DAMAGE",
+    },
+}
+
+# Legacy labels that mean "no value" (normalize returns None), e.g. the CBM calculator stored a container text for
+# air freight, which has no container.
+_LEGACY_NO_VALUE: Dict[str, Tuple[str, ...]] = {
+    CONTAINER_TYPE: ("N/A (Air Freight Cargo)",),
 }
 
 ENUM_TYPES: Tuple[str, ...] = tuple(LABELS_EN.keys())
@@ -586,6 +887,7 @@ def _build_lookup() -> Dict[str, Dict[str, str]]:
 
 
 _LOOKUP = _build_lookup()
+_NO_VALUE_KEYS: Dict[str, frozenset] = {t: frozenset(_key(v) for v in values) for t, values in _LEGACY_NO_VALUE.items()}
 
 
 def codes(enum_type: str) -> List[str]:
@@ -655,7 +957,8 @@ def _candidates(text: str) -> Iterable[str]:
 
 def normalize(enum_type: str, value: Any) -> Any:
     """Map a legacy label (or a code in any case) to the enum code. Unknown values are returned unchanged;
-    ``None`` and non-strings pass through. Never raises for a known ``enum_type``."""
+    ``None`` and non-strings pass through; a legacy "no value" label (``_LEGACY_NO_VALUE``) gives ``None``.
+    Never raises for a known ``enum_type``."""
     if enum_type not in LABELS_EN:
         raise KeyError(f"Unknown enum type: {enum_type}")
     if not isinstance(value, str):
@@ -663,6 +966,8 @@ def normalize(enum_type: str, value: Any) -> Any:
     text = value.strip()
     if not text:
         return value
+    if _key(text) in _NO_VALUE_KEYS.get(enum_type, ()):
+        return None
     labels = LABELS_EN[enum_type]
     if text in labels:
         return text
@@ -824,7 +1129,8 @@ def finalize_structured_values(item: Dict[str, Any]) -> Dict[str, Any]:
 
 # ── Flutter contract: docs/enum_codes.json ──
 def build_contract() -> Dict[str, Dict[str, Dict[str, str]]]:
-    """``{TYPE: {"codes": {CODE: English label}, "legacy": {legacy label: CODE}}}``."""
+    """``{TYPE: {"codes": {CODE: English label}, "legacy": {legacy label: CODE}}}``. ``_LEGACY_NO_VALUE`` stays
+    backend-only: the API returns the normalized value (null), so the client never sees those labels."""
     return {
         enum_type: {"codes": dict(LABELS_EN[enum_type]), "legacy": dict(_LEGACY.get(enum_type, {}))}
         for enum_type in ENUM_TYPES

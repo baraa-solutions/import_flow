@@ -326,6 +326,7 @@ class CargoInsuranceExportService {
     BuildContext context,
     List<CargoInsuranceModel> certs, {
     List<ImportFileModel>? shipments,
+    bool save = false,
   }) async {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -498,6 +499,18 @@ class CargoInsuranceExportService {
       ),
     );
 
+    if (save) {
+      final bytes = await doc.save();
+      if (!context.mounted) return;
+      await FileSaveHelper.exportAndSaveFile(
+        context: context,
+        bytes: bytes,
+        stageName: l.insuranceExportStageName,
+        importFileNameOrCode: l.insuranceExportRegistryTag,
+        extension: 'pdf',
+      );
+      return;
+    }
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => doc.save(),
       name: 'cargo_insurance_registry.pdf',

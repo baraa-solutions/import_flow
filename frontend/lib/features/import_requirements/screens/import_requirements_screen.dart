@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
@@ -17,6 +19,9 @@ import '../../operational_dashboard/providers/operational_dashboard_provider.dar
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/import_requirement_model.dart';
 import '../providers/import_requirements_provider.dart';
+import '../../../core/widgets/existing_record_snackbar.dart';
+import '../widgets/prefill_messages_banner.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 Color _getStatusColor(String status) {
   switch (status) {
@@ -55,7 +60,7 @@ Color _getStatusColor(String status) {
     case 'تم الإعفاء':
       return AppTheme.cobalt;
     default:
-      return Colors.grey.shade600;
+      return AppTheme.textSecondary;
   }
 }
 
@@ -74,7 +79,7 @@ Color _getRiskLevelColor(String risk) {
     case 'مرتفع (High)':
       return AppTheme.crimson;
     default:
-      return Colors.grey;
+      return AppTheme.textMuted;
   }
 }
 
@@ -106,6 +111,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   int? _selectedConsultationId;
   double _consultationReadiness = 0.0;
   bool _isSaving = false;
+  /// Backend prefill messages for the selected import file (shown as a banner).
+  List<PrefillMessage> _prefillMessages = const [];
 
   // Selected HS Code items
   final List<ImportRequirementHSCodeItemModel> _hsCodeItems = [];
@@ -140,15 +147,16 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   String? _decree43Justification;
 
   bool _cooRequired = false;
-  String _cooType = 'EUR.1';
+  String? _cooType;
   String _cooStatus = 'Not Required';
 
   bool _inspectionRequired = false;
-  String _inspectionBody = 'SGS';
+  String? _inspectionBody;
   String _inspectionStatus = 'Not Required';
 
   bool _importPermitRequired = false;
-  String _permitIssuingAuthority = 'EEAA';
+  /// REGULATORY_BODY code; null when unset.
+  String? _permitIssuingAuthority;
   String _permitStatus = 'Not Required';
 
   bool _msdsRequired = false;
@@ -259,13 +267,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _decree43Action = null;
       _decree43Justification = null;
       _cooRequired = false;
-      _cooType = 'EUR.1';
+      _cooType = null;
+      _prefillMessages = const [];
       _cooStatus = 'Not Required';
       _inspectionRequired = false;
-      _inspectionBody = 'SGS';
+      _inspectionBody = null;
       _inspectionStatus = 'Not Required';
       _importPermitRequired = false;
-      _permitIssuingAuthority = 'EEAA';
+      _permitIssuingAuthority = null;
       _permitStatus = 'Not Required';
       _msdsRequired = false;
       _msdsStatus = 'Not Required';
@@ -282,19 +291,38 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     });
   }
 
+  /// Prefill for [fileId]; a failure (404 inactive import file, 403, ...) is shown in a
+  /// SnackBar through `ApiErrorText` and null is returned.
+  Future<ImportRequirementPrefillModel?> _fetchPrefillOrShowError(int fileId) async {
+    try {
+      return await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiErrorText.of(context.l10n, e).replaceAll('Exception:', '').trim()),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _onImportFileChanged(int? fileId) async {
     if (fileId == null) {
       _resetForm();
       return;
     }
 
-    final prefill = await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
+    final prefill = await _fetchPrefillOrShowError(fileId);
     if (!mounted) return;
 
     final l10n = context.l10n;
 
     if (prefill != null) {
       setState(() {
+        _prefillMessages = prefill.messages;
         _selectedImportFileId = prefill.importFileId;
         _selectedImportFileCode = prefill.importFileCode;
         _selectedSupplierId = prefill.supplierId;
@@ -305,7 +333,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
         _acidNumberCtrl.text = prefill.acidNumber ?? '';
         _originCtrl.text = prefill.countryOfOrigin ?? 'China';
-        _currencyCtrl.text = prefill.currency;
+        _currencyCtrl.text = prefill.currency ?? '';
         _valueCtrl.text = prefill.shipmentValue.toStringAsFixed(2);
         _factoryRegCtrl.text = prefill.factoryRegistrationNo ?? prefill.foreignExporterId ?? '';
 
@@ -325,17 +353,17 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           _decree43Justification = null;
 
           _cooRequired = prefill.cooRequired;
-          _cooType = prefill.cooType ?? 'EUR.1';
+          _cooType = prefill.cooType;
           _cooStatus = prefill.cooStatus;
           _cooNotesCtrl.text = prefill.cooNotes ?? '';
 
           _inspectionRequired = prefill.inspectionRequired;
-          _inspectionBody = prefill.inspectionBody ?? 'SGS';
+          _inspectionBody = prefill.inspectionBody;
           _inspectionStatus = prefill.inspectionStatus;
           _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
 
           _importPermitRequired = prefill.importPermitRequired;
-          _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'EEAA';
+          _permitIssuingAuthority = DomainEnums.legacyToCode(DomainEnumType.regulatoryBody, prefill.permitIssuingAuthority);
           _permitStatus = prefill.permitStatus;
           _permitNotesCtrl.text = prefill.permitNotes ?? '';
 
@@ -410,7 +438,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     _hsCodeCtrl.text = itm.hsCode;
     _descCtrl.text = itm.commodityDescription ?? '';
     _originCtrl.text = itm.countryOfOrigin ?? _originCtrl.text;
-    _currencyCtrl.text = itm.currency;
+    _currencyCtrl.text = itm.currency ?? '';
     _valueCtrl.text = itm.itemValue.toStringAsFixed(2);
 
     _decree43Applicable = itm.decree43Applicable;
@@ -421,18 +449,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     _factoryRegCtrl.text = itm.factoryRegistrationNo ?? '';
 
     _cooRequired = itm.cooRequired;
-    _cooType = itm.cooType ?? 'EUR.1';
+    _cooType = itm.cooType;
     _cooStatus = itm.cooStatus;
     _cooNotesCtrl.text = itm.cooNotes ?? '';
 
     _inspectionRequired = itm.inspectionRequired;
-    _inspectionBody = itm.inspectionBody ?? 'SGS';
+    _inspectionBody = itm.inspectionBody;
     _inspectionStatus = itm.inspectionStatus;
     _inspReportNoCtrl.text = itm.inspectionReportNo ?? '';
     _inspNotesCtrl.text = itm.inspectionNotes ?? '';
 
     _importPermitRequired = itm.permitRequired;
-    _permitIssuingAuthority = itm.regulatoryAuthority ?? 'EEAA';
+    _permitIssuingAuthority = DomainEnums.legacyToCode(DomainEnumType.regulatoryBody, itm.regulatoryAuthority);
     _permitNumberCtrl.text = itm.permitNumber ?? '';
     _permitStatus = itm.permitStatus;
     _permitNotesCtrl.text = itm.permitNotes ?? '';
@@ -463,7 +491,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _hsCodeCtrl.text = item.hsCode ?? '';
       _descCtrl.text = item.commodityDescription ?? '';
       _originCtrl.text = item.countryOfOrigin ?? '';
-      _currencyCtrl.text = item.currency;
+      _currencyCtrl.text = item.currency ?? '';
       _valueCtrl.text = item.shipmentValue.toStringAsFixed(2);
       _acidNumberCtrl.text = item.acidNumber ?? '';
       _factoryRegCtrl.text = item.factoryRegistrationNo ?? '';
@@ -493,15 +521,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         _decree43Justification = item.decree43Justification;
 
         _cooRequired = item.cooRequired;
-        _cooType = item.cooType ?? 'EUR.1';
+        _cooType = item.cooType;
         _cooStatus = item.cooStatus;
 
         _inspectionRequired = item.inspectionRequired;
-        _inspectionBody = item.inspectionBody ?? 'SGS';
+        _inspectionBody = item.inspectionBody;
         _inspectionStatus = item.inspectionStatus;
 
         _importPermitRequired = item.importPermitRequired;
-        _permitIssuingAuthority = item.permitIssuingAuthority ?? 'EEAA';
+        _permitIssuingAuthority = DomainEnums.legacyToCode(DomainEnumType.regulatoryBody, item.permitIssuingAuthority);
         _permitStatus = item.permitStatus;
 
         _msdsRequired = item.msdsRequired;
@@ -562,14 +590,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     final l10n = context.l10n;
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.fillRequiredFieldsError), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.fillRequiredFieldsError), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectImportFileError), backgroundColor: Colors.orange),
+        SnackBar(content: Text(l10n.pleaseSelectImportFileError), backgroundColor: AppTheme.orange),
       );
       return;
     }
@@ -666,30 +694,36 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _mainTabController.animateTo(1);
     } catch (e) {
       if (mounted) {
-        final errorMsg = e.toString().replaceAll('Exception:', '').trim();
+        if (ApiErrorText.code(e) == ApiErrorCode.irAssessmentExists) {
+          _showExistingAssessmentSnack(e);
+          return;
+        }
+        final errorMsg = ApiErrorText.of(l10n, e).replaceAll('Exception:', '').trim();
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
                 const SizedBox(width: 8),
                 Text(l10n.saveRequirementErrorTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
             actions: [
-              TextButton(
+              AppButton(
+                label: l10n.close,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.close),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+              AppButton(
+                label: l10n.goToSavedRequirementsBtn,
+                variant: AppButtonVariant.primary,
                 onPressed: () {
                   Navigator.pop(ctx);
                   _mainTabController.animateTo(1);
                 },
-                child: Text(l10n.goToSavedRequirementsBtn, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -700,11 +734,45 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     }
   }
 
+  /// SnackBar for a failed write (403 "no permission", coded 409, backend message).
+  void _showWriteError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ApiErrorText.of(context.l10n, error).replaceAll('Exception:', '').trim()),
+        backgroundColor: AppTheme.crimson,
+      ),
+    );
+  }
+
+  /// 409 IR_ASSESSMENT_EXISTS: readable SnackBar with a shortcut to the existing assessment.
+  void _showExistingAssessmentSnack(Object error) {
+    final l10n = context.l10n;
+    final id = ApiErrorText.detail(error)?['assessment_id'];
+    final code = ApiErrorText.detail(error)?['assessment_code'];
+    showExistingRecordSnack(
+      context,
+      message: ApiErrorText.of(l10n, error),
+      actionLabel: l10n.openExistingRecord,
+      onOpen: () async {
+        bool matches(ImportRequirementModel r) => r.assessmentId == id || (code != null && r.assessmentCode == code);
+        var list = ref.read(importRequirementsProvider).valueOrNull ?? const <ImportRequirementModel>[];
+        var found = list.where(matches).toList();
+        if (found.isEmpty) {
+          await ref.read(importRequirementsProvider.notifier).refreshData();
+          list = ref.read(importRequirementsProvider).valueOrNull ?? const <ImportRequirementModel>[];
+          found = list.where(matches).toList();
+        }
+        if (found.isNotEmpty && mounted) _loadAssessmentForEditing(found.first);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppTheme.cloudWhite,
       appBar: AppBar(
         title: Row(
           children: [
@@ -712,7 +780,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             const SizedBox(width: 10),
             Text(
               l10n.importRequirementsScreenTitle,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.white),
             ),
           ],
         ),
@@ -721,7 +789,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           controller: _mainTabController,
           indicatorColor: AppTheme.emerald,
           indicatorWeight: 3,
-          labelColor: Colors.white,
+          labelColor: AppTheme.white,
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           tabs: [
@@ -732,7 +800,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         actions: [
           const BackToDashboardButton(),
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: AppTheme.white),
             tooltip: l10n.refresh,
             onPressed: _refreshAllData,
           ),
@@ -785,10 +853,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                       ),
                     ),
-                    TextButton.icon(
+                    AppButton(
+                      label: l10n.cancelEditingAndStartNewBtn,
+                      icon: Icons.close,
+                      variant: AppButtonVariant.secondary,
+                      size: AppButtonSize.small,
                       onPressed: _resetForm,
-                      icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                      label: Text(l10n.cancelEditingAndStartNewBtn, style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ),
                   ],
                 ),
@@ -801,6 +871,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             // Card 2: Import File & Supplier Info Card
             _buildImportFileSelectorCard(importFiles, suppliers),
             const SizedBox(height: 12),
+
+            PrefillMessagesBanner(messages: _prefillMessages),
 
             // Card 3: HS Codes List & Values Selector
             _buildHsCodesSelectorCard(),
@@ -823,10 +895,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.cloudWhite),
+        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -904,7 +976,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     required bool isCompleted,
     required bool isActive,
   }) {
-    final color = isCompleted ? AppTheme.emerald : (isActive ? AppTheme.cobalt : Colors.grey);
+    final color = isCompleted ? AppTheme.emerald : (isActive ? AppTheme.cobalt : AppTheme.textMuted);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -919,8 +991,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               radius: 12,
               backgroundColor: color,
               child: isCompleted
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : Text(step, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ? const Icon(Icons.check, size: 14, color: AppTheme.white)
+                  : Text(step, style: const TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -928,7 +1000,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color), overflow: TextOverflow.ellipsis),
-                  Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
+                  Text(subtitle, style: const TextStyle(fontSize: 10, color: AppTheme.textStrong), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -942,7 +1014,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       width: 16,
       height: 2,
-      color: isCompleted ? AppTheme.emerald : Colors.grey.shade300,
+      color: isCompleted ? AppTheme.emerald : AppTheme.cloudWhite,
       margin: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
@@ -952,10 +1024,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.cloudWhite),
+        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,7 +1079,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     labelText: l10n.acidNumberFieldLabel,
                     hintText: l10n.acidNumberOptionalHint,
                     helperText: l10n.acidNumberOptionalHint,
-                    helperStyle: TextStyle(fontSize: 10, color: Colors.blueGrey.shade600),
+                    helperStyle: const TextStyle(fontSize: 10, color: AppTheme.charcoal),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
                     suffixIcon: IconButton(
@@ -1058,10 +1130,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.cloudWhite),
+        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1097,9 +1169,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppTheme.charcoalSurface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppTheme.cloudWhite),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1115,7 +1187,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       const Spacer(),
                       Text(
                         l10n.requirementSelectHsInstruction,
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -1158,10 +1230,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                            color: isSelected ? AppTheme.cobaltLight : AppTheme.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isSelected ? AppTheme.cobalt : Colors.grey.shade300,
+                              color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
                               width: isSelected ? 2.0 : 1.0,
                             ),
                             boxShadow: isSelected
@@ -1174,7 +1246,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                               Icon(
                                 isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                                 size: 18,
-                                color: isSelected ? AppTheme.cobalt : Colors.grey,
+                                color: isSelected ? AppTheme.cobalt : AppTheme.textMuted,
                               ),
                               const SizedBox(width: 8),
                               Column(
@@ -1198,12 +1270,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                         decoration: BoxDecoration(
                                           color: isFullyCompliant
                                               ? AppTheme.emerald.withOpacity(0.12)
-                                              : (isDecree43Warning ? const Color(0xFFFEE2E2) : Colors.grey.shade100),
+                                              : (isDecree43Warning ? AppTheme.crimsonLight : AppTheme.charcoalSurface),
                                           borderRadius: BorderRadius.circular(4),
                                           border: Border.all(
                                             color: isFullyCompliant
                                                 ? AppTheme.emerald
-                                                : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade300),
+                                                : (isDecree43Warning ? AppTheme.crimson : AppTheme.cloudWhite),
                                             width: 0.8,
                                           ),
                                         ),
@@ -1217,7 +1289,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                               size: 11,
                                               color: isFullyCompliant
                                                   ? AppTheme.emerald
-                                                  : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade700),
+                                                  : (isDecree43Warning ? AppTheme.crimson : AppTheme.textStrong),
                                             ),
                                             const SizedBox(width: 3),
                                             Text(
@@ -1229,7 +1301,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                                 fontWeight: FontWeight.bold,
                                                 color: isFullyCompliant
                                                     ? AppTheme.emerald
-                                                    : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade700),
+                                                    : (isDecree43Warning ? AppTheme.crimson : AppTheme.textStrong),
                                               ),
                                             ),
                                           ],
@@ -1240,7 +1312,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                   const SizedBox(height: 2),
                                   Text(
                                     l10n.hsItemDescLabel(itm.commodityDescription ?? '', itm.itemValue.toStringAsFixed(2), itm.currency),
-                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                    style: const TextStyle(fontSize: 10, color: AppTheme.textStrong),
                                   ),
                                 ],
                               ),
@@ -1356,10 +1428,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.cloudWhite),
+        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1367,10 +1439,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           // Sub-tabs Selector for 5 Pillars
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            decoration: const BoxDecoration(
+              color: AppTheme.charcoalSurface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+              border: Border(bottom: BorderSide(color: AppTheme.cloudWhite)),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1427,21 +1499,21 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: isSelected ? Colors.white : AppTheme.charcoal),
+              Icon(icon, size: 16, color: isSelected ? AppTheme.white : AppTheme.charcoal),
               const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
-                  color: isSelected ? Colors.white : AppTheme.charcoal,
+                  color: isSelected ? AppTheme.white : AppTheme.charcoal,
                 ),
               ),
               const SizedBox(width: 6),
               if (isFulfilled)
                 const Icon(Icons.check_circle, size: 14, color: AppTheme.emerald)
               else
-                Icon(Icons.circle_outlined, size: 12, color: isSelected ? Colors.white70 : Colors.grey),
+                Icon(Icons.circle_outlined, size: 12, color: isSelected ? Colors.white70 : AppTheme.textMuted),
             ],
           ),
         ),
@@ -1530,7 +1602,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   SearchableDropdownItem(value: 'COMESA', label: l10n.cooTypeComesaOption),
                   SearchableDropdownItem(value: 'Standard COO', label: l10n.cooTypeStandardChamberOption),
                 ],
-                onChanged: (v) => setState(() => _cooType = v ?? _cooType),
+                onChanged: (v) => setState(() => _cooType = v),
               ),
             ),
             const SizedBox(width: 12),
@@ -1600,7 +1672,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   SearchableDropdownItem(value: 'QIMA', label: l10n.inspectionBodyQimaOption),
                   SearchableDropdownItem(value: 'ILAC ISO 17025', label: l10n.inspectionBodyIlacOption),
                 ],
-                onChanged: (v) => setState(() => _inspectionBody = v ?? _inspectionBody),
+                onChanged: (v) => setState(() => _inspectionBody = v),
               ),
             ),
             const SizedBox(width: 12),
@@ -1684,15 +1756,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 labelText: l10n.issuingAuthorityFieldLabel,
                 value: _permitIssuingAuthority,
                 items: [
-                  SearchableDropdownItem(value: 'EEAA', label: l10n.authorityEeaaOption),
-                  SearchableDropdownItem(value: 'NFSA', label: l10n.authorityNfsaOption),
-                  SearchableDropdownItem(value: 'EDA', label: l10n.authorityEdaOption),
-                  SearchableDropdownItem(value: 'NTRA', label: l10n.authorityNtraOption),
-                  SearchableDropdownItem(value: 'Public Security', label: l10n.authorityPublicSecurityOption),
-                  SearchableDropdownItem(value: 'Chemistry Authority', label: l10n.authorityChemistryOption),
-                  SearchableDropdownItem(value: 'GOEIC', label: l10n.authorityGoeicOption),
+                  for (final code in DomainEnums.codesOf(DomainEnumType.regulatoryBody))
+                    SearchableDropdownItem(value: code, label: DomainEnums.label(l10n, DomainEnumType.regulatoryBody, code)),
                 ],
-                onChanged: (v) => setState(() => _permitIssuingAuthority = v ?? _permitIssuingAuthority),
+                onChanged: (v) => setState(() => _permitIssuingAuthority = v),
               ),
             ),
             const SizedBox(width: 12),
@@ -1790,9 +1857,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: AppTheme.charcoalSurface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: AppTheme.cloudWhite),
           ),
           child: Row(
             children: [
@@ -1883,74 +1950,52 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.cloudWhite),
+        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE0F2FE),
-              foregroundColor: AppTheme.cobalt,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+          AppButton(
+            label: l10n.completeAllPillarsBtn,
+            icon: Icons.bolt,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.small,
             onPressed: _autoCompleteAllPillars,
-            icon: const Icon(Icons.bolt, color: AppTheme.cobalt, size: 18),
-            label: Text(l10n.completeAllPillarsBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
           const SizedBox(width: 8),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.charcoal,
-              side: BorderSide(color: Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+          AppButton(
+            label: l10n.refresh,
+            icon: Icons.refresh,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: _refreshAllData,
-            icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-            label: Text(l10n.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.grey.shade800,
-              side: BorderSide(color: Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+          AppButton(
+            label: l10n.cancelEditingAndStartNewBtn,
+            icon: Icons.cleaning_services_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: _resetForm,
-            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-            label: Text(l10n.cancelEditingAndStartNewBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEFF6FF),
-              foregroundColor: AppTheme.cobalt,
-              elevation: 0,
-              side: const BorderSide(color: AppTheme.cobalt),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+          AppButton(
+            label: l10n.saveRequirementDraftBtn,
+            icon: Icons.save_outlined,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.small,
             onPressed: _isSaving ? null : _saveAssessment,
-            icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-            label: Text(l10n.saveRequirementDraftBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const Spacer(),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              elevation: 2,
-            ),
+          AppButton(
+            label: _editingAssessmentId != null ? l10n.updateRequirementSubmitBtn : l10n.saveRequirementSubmitBtn,
+            icon: Icons.check_circle_outline,
+            variant: AppButtonVariant.success,
+            size: AppButtonSize.small,
+            isLoading: _isSaving,
             onPressed: _isSaving ? null : _saveAssessment,
-            icon: _isSaving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.check_circle_outline, size: 20),
-            label: Text(
-              _editingAssessmentId != null ? l10n.updateRequirementSubmitBtn : l10n.saveRequirementSubmitBtn,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
           ),
         ],
       ),
@@ -1978,39 +2023,33 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           // Export Actions Row
           Row(
             children: [
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.table_chart_outlined, size: 16),
-                label: Text(l10n.requirementsExportTsvBtn),
+              AppButton(
+                label: l10n.requirementsExportTsvBtn,
+                icon: Icons.table_chart_outlined,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () {
                   final list = asyncReqs.valueOrNull ?? [];
                   _copyRequirementsTsv(list);
                 },
               ),
               const SizedBox(width: 8),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.emerald,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.file_download_outlined, size: 16),
-                label: Text(l10n.requirementsExportExcelBtn),
+              AppButton(
+                label: l10n.requirementsExportExcelBtn,
+                icon: Icons.file_download_outlined,
+                variant: AppButtonVariant.success,
+                size: AppButtonSize.small,
                 onPressed: () {
                   final list = asyncReqs.valueOrNull ?? [];
                   MasterDataExportService.exportImportRequirementsToExcel(context, list);
                 },
               ),
               const SizedBox(width: 8),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.charcoal,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                label: Text(l10n.requirementsExportPdfBtn),
+              AppButton(
+                label: l10n.requirementsExportPdfBtn,
+                icon: Icons.picture_as_pdf_outlined,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () {
                   final list = asyncReqs.valueOrNull ?? [];
                   MasterDataExportService.printOrSaveImportRequirementsListPdf(context, list);
@@ -2024,9 +2063,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: AppTheme.cloudWhite),
             ),
             child: Row(
               children: [
@@ -2112,7 +2151,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             child: asyncReqs.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Text(l10n.requirementsFetchError(err.toString()), style: const TextStyle(color: Colors.red)),
+                child: Text(l10n.requirementsFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
               ),
               data: (list) {
                 final filtered = list.where((item) {
@@ -2152,15 +2191,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
+                        const Icon(Icons.folder_open, size: 64, color: AppTheme.textMuted),
                         const SizedBox(height: 12),
-                        Text(l10n.noRequirementsFound, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text(l10n.noRequirementsFound, style: const TextStyle(color: AppTheme.textMuted, fontSize: 14)),
                         const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                        AppButton(
+                          label: l10n.createNewRequirementBtn,
+                          icon: Icons.add,
+                          variant: AppButtonVariant.primary,
                           onPressed: () => _mainTabController.animateTo(0),
-                          icon: const Icon(Icons.add, color: Colors.white),
-                          label: Text(l10n.createNewRequirementBtn, style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -2200,10 +2239,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Material(type: MaterialType.transparency, child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
-        backgroundColor: req.isActive ? AppTheme.cobalt.withOpacity(0.12) : Colors.grey.shade300,
+        backgroundColor: req.isActive ? AppTheme.cobalt.withOpacity(0.12) : AppTheme.cloudWhite,
         child: Icon(
           req.isActive ? Icons.verified : Icons.delete_outline,
-          color: req.isActive ? AppTheme.cobalt : Colors.grey,
+          color: req.isActive ? AppTheme.cobalt : AppTheme.textMuted,
         ),
       ),
       title: Row(
@@ -2260,8 +2299,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           if (!req.isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red)),
-              child: Text(l10n.deletedOnlyOption, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(color: AppTheme.crimson.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.crimson)),
+              child: Text(l10n.deletedOnlyOption, style: const TextStyle(color: AppTheme.crimson, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -2272,7 +2311,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           children: [
             Text(
               l10n.requirementRowSubtitle(req.hsCode ?? "N/A", req.commodityDescription ?? "", req.shipmentValue.toStringAsFixed(2), req.currency, req.supplierName ?? "N/A", req.countryOfOrigin ?? "N/A"),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -2332,11 +2371,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               tooltip: l10n.restoreRequirementTooltip,
               onPressed: () async {
                 if (req.assessmentId != null) {
-                  await ref.read(importRequirementsProvider.notifier).restoreRequirement(req.assessmentId!);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.restoredRequirementSuccessSnack(req.assessmentCode)), backgroundColor: AppTheme.emerald),
-                    );
+                  try {
+                    await ref.read(importRequirementsProvider.notifier).restoreRequirement(req.assessmentId!);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.restoredRequirementSuccessSnack(req.assessmentCode)), backgroundColor: AppTheme.emerald),
+                      );
+                    }
+                  } catch (e) {
+                    _showWriteError(e);
                   }
                 }
               },
@@ -2344,7 +2387,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           // Delete Button
           if (req.isActive)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
               tooltip: l10n.deleteRequirementTooltip,
               onPressed: () => _confirmDeleteAssessment(req),
             ),
@@ -2396,7 +2439,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         children: [
           SizedBox(
             width: 170,
-            child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+            child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textStrong)),
           ),
           Expanded(
             child: SelectableText(value, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
@@ -2424,7 +2467,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     b.writeln('${l10n.requirementsTsvHeaderDecree43}: ${req.decree43Applicable ? (req.whiteListVerified ? (req.factoryRegistrationNo ?? l10n.decree43VerifiedBadge) : (req.decree43Action ?? l10n.decree43NotRegisteredBadge)) : "-"}');
     b.writeln('${l10n.requirementsTsvHeaderCoo}: ${req.cooRequired ? '${req.cooType ?? "COO"} (${req.cooStatus})' : "-"}');
     b.writeln('${l10n.requirementsTsvHeaderInspection}: ${req.inspectionRequired ? '${req.inspectionBody ?? "Inspection"} (${req.inspectionStatus})' : "-"}');
-    b.writeln('${l10n.requirementsTsvHeaderPermit}: ${req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderPermit}: ${req.importPermitRequired ? '${DomainEnums.label(l10n, DomainEnumType.regulatoryBody, req.permitIssuingAuthority, fallback: "Authority")} (${req.permitStatus})' : "-"}');
     b.writeln('${l10n.requirementsTsvHeaderTechCerts}: ${req.isPostAcidConfirmed ? l10n.overallStatusConfirmedOption : req.sailingStatus}');
     b.writeln('${l10n.requirementsTsvHeaderRiskLevel}: ${req.riskLevel}');
     b.writeln('${l10n.requirementsTsvHeaderOverallStatus}: ${req.overallStatus}');
@@ -2480,7 +2523,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         req.decree43Applicable ? (req.whiteListVerified ? (req.factoryRegistrationNo ?? 'Registered') : (req.decree43Action ?? 'Non-compliant')) : 'N/A',
         req.cooRequired ? '${req.cooType ?? "COO"} (${req.cooStatus})' : 'N/A',
         req.inspectionRequired ? '${req.inspectionBody ?? "Inspection"} (${req.inspectionStatus})' : 'N/A',
-        req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : 'N/A',
+        req.importPermitRequired ? '${DomainEnums.label(l10n, DomainEnumType.regulatoryBody, req.permitIssuingAuthority, fallback: "Authority")} (${req.permitStatus})' : 'N/A',
         req.isPostAcidConfirmed ? 'Confirmed' : req.sailingStatus,
         req.sailingStatus,
         req.overallStatus,
@@ -2574,7 +2617,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   ),
                   _buildDetailRow(
                     l10n.pillar4PermitsTab,
-                    req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : '-',
+                    req.importPermitRequired ? '${DomainEnums.label(l10n, DomainEnumType.regulatoryBody, req.permitIssuingAuthority, fallback: "Authority")} (${req.permitStatus})' : '-',
                   ),
                   _buildDetailRow(
                     l10n.pillar5TechCertsTab,
@@ -2592,27 +2635,29 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           ),
         ),
         actions: [
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
-            icon: const Icon(Icons.copy, size: 16),
-            label: Text(l10n.requirementCopySummaryBtn),
+          AppButton(
+            label: l10n.requirementCopySummaryBtn,
+            icon: Icons.copy,
+            variant: AppButtonVariant.secondary,
             onPressed: () {
               final summary = _buildRequirementRowSummary(req);
               CopyHelper.copy(context, summary, customMessage: l10n.requirementCopySummarySuccess);
             },
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            icon: const Icon(Icons.print, size: 16),
-            label: Text(l10n.printRequirementSlipBtn),
+          AppButton(
+            label: l10n.printRequirementSlipBtn,
+            icon: Icons.print,
+            variant: AppButtonVariant.success,
             onPressed: () {
               Navigator.pop(ctx);
               MasterDataExportService.printOrSaveImportRequirementSlipPdf(context, req);
             },
           ),
-          TextButton(
+          AppButton(
+            label: l10n.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.close),
           ),
         ],
       ),
@@ -2626,28 +2671,37 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
             const SizedBox(width: 8),
             Text(l10n.confirmDeleteRequirementTitle),
           ],
         ),
         content: Text(l10n.confirmDeleteRequirementContent(req.assessmentCode, req.importFileCode ?? '')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          AppButton(
+            label: l10n.cancel,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          AppButton(
+            label: l10n.delete,
+            variant: AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);
               if (req.assessmentId != null) {
-                await ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.deletedRequirementSuccessSnack(req.assessmentCode)), backgroundColor: Colors.red),
-                  );
+                try {
+                  await ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.deletedRequirementSuccessSnack(req.assessmentCode)), backgroundColor: AppTheme.crimson),
+                    );
+                  }
+                } catch (e) {
+                  _showWriteError(e);
                 }
               }
             },
-            child: Text(l10n.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -2690,13 +2744,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppTheme.cobaltLight,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
+                        border: Border.all(color: AppTheme.cobaltBorder),
                       ),
                       child: Text(
                         l10n.decree43JustificationDialogDesc,
-                        style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.wcagCobalt),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -2710,7 +2764,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       runSpacing: 6,
                       children: sampleReasons.map((r) => ActionChip(
                         label: Text(r, style: const TextStyle(fontSize: 10)),
-                        backgroundColor: Colors.grey.shade100,
+                        backgroundColor: AppTheme.charcoalSurface,
                         onPressed: () {
                           justCtrl.text = r;
                           setDState(() {});
@@ -2737,14 +2791,16 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               ),
             ),
             actions: [
-              TextButton(
-                child: Text(l10n.cancel),
+              AppButton(
+                label: l10n.cancel,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => Navigator.pop(ctx),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                icon: const Icon(Icons.check, size: 16),
-                label: Text(l10n.save),
+              AppButton(
+                label: l10n.save,
+                icon: Icons.check,
+                variant: AppButtonVariant.success,
                 onPressed: () {
                   final txt = justCtrl.text.trim();
                   if (txt.isEmpty) return;
@@ -2802,7 +2858,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         margin: const EdgeInsets.only(top: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4),
+          color: AppTheme.emeraldLight,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppTheme.emerald),
         ),
@@ -2821,14 +2877,16 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   const SizedBox(height: 2),
                   Text(
                     _decree43Justification ?? '',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
                   ),
                 ],
               ),
             ),
-            TextButton.icon(
-              icon: const Icon(Icons.edit, size: 14, color: AppTheme.cobalt),
-              label: Text(l10n.edit, style: const TextStyle(fontSize: 11)),
+            AppButton(
+              label: l10n.edit,
+              icon: Icons.edit,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: _showDecree43JustificationDialog,
             ),
           ],
@@ -2841,7 +2899,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         margin: const EdgeInsets.only(top: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
+          color: AppTheme.orangeLight,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppTheme.orange),
         ),
@@ -2865,10 +2923,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 ],
               ),
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt, side: const BorderSide(color: AppTheme.cobalt)),
-              icon: const Icon(Icons.gavel_rounded, size: 14),
-              label: Text(l10n.decree43ExemptionChangeBtn, style: const TextStyle(fontSize: 11)),
+            AppButton(
+              label: l10n.decree43ExemptionChangeBtn,
+              icon: Icons.gavel_rounded,
+              variant: AppButtonVariant.secondary,
               onPressed: _showDecree43JustificationDialog,
             ),
           ],
@@ -2881,9 +2939,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppTheme.crimsonLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5),
+        border: Border.all(color: AppTheme.crimsonBorder, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2903,37 +2961,25 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           const SizedBox(height: 6),
           Text(
             l10n.decree43WarningNotRegisteredDesc,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
           ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
             runSpacing: 8,
             children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-                icon: const Icon(Icons.gavel_rounded, size: 15),
-                label: Text(
-                  l10n.decree43OptionRequestJustification,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
+              AppButton(
+                label: l10n.decree43OptionRequestJustification,
+                icon: Icons.gavel_rounded,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
                 onPressed: _showDecree43JustificationDialog,
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-                icon: const Icon(Icons.notification_add_rounded, size: 15),
-                label: Text(
-                  l10n.decree43OptionCreateDashboardTask,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
+              AppButton(
+                label: l10n.decree43OptionCreateDashboardTask,
+                icon: Icons.notification_add_rounded,
+                variant: AppButtonVariant.warning,
+                size: AppButtonSize.small,
                 onPressed: _createDecree43RegistrationTask,
               ),
             ],
@@ -2991,9 +3037,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppTheme.charcoalSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
+        border: Border.all(color: AppTheme.cloudWhite),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3017,8 +3063,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             iconColor: AppTheme.cobalt,
             title: l10n.adaptivePillarMandatoryRequirements,
             content: mandatoryText,
-            bgColor: const Color(0xFFEFF6FF),
-            borderColor: const Color(0xFFBFDBFE),
+            bgColor: AppTheme.cobaltLight,
+            borderColor: AppTheme.cobaltBorder,
           ),
           const SizedBox(height: 6),
           _buildBannerSection(
@@ -3026,8 +3072,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             iconColor: AppTheme.crimson,
             title: l10n.adaptivePillarComplianceAlert,
             content: warningText,
-            bgColor: const Color(0xFFFEF2F2),
-            borderColor: const Color(0xFFFECACA),
+            bgColor: AppTheme.crimsonLight,
+            borderColor: AppTheme.crimsonBorder,
           ),
           const SizedBox(height: 6),
           _buildBannerSection(
@@ -3035,8 +3081,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             iconColor: AppTheme.emerald,
             title: l10n.adaptivePillarLegalExemptions,
             content: exemptionText,
-            bgColor: const Color(0xFFF0FDF4),
-            borderColor: const Color(0xFFBBF7D0),
+            bgColor: AppTheme.emeraldLight,
+            borderColor: AppTheme.emeraldBorder,
           ),
         ],
       ),

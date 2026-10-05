@@ -24,12 +24,15 @@ Use `Bash` only for read-only commands (`git log`, `git diff`, `git show`, listi
 
 ## Plan format (return exactly these sections)
 
+0. **DB safety / live-data impact** — does the change touch write paths or migrations run against the live
+   DB; new columns need `server_default` or a backfill; response schemas must tolerate legacy rows; backup
+   reminder. Write "none" if read-only.
 1. **Goal & business rules** — one paragraph; BP/MD codes; stage (GP-002) the change belongs to.
 2. **Existing pattern to follow** — file paths of the reference implementation.
 3. **Data model** — tables/columns (types, FK to master data, unique constraints, indexes, soft-delete and
    audit columns) and the **Alembic migration** needed. Say "none" if no schema change.
 4. **API contract** — per endpoint: method, path, permission code (existing in
-   `modules/auth/seed_rbac.py` `PERMISSIONS_CATALOG` or a new one to add), request schema fields with types
+   `modules/auth/seed_rbac.py` `PERMISSIONS_CATALOG` or a new one for the lead to register), request schema fields with types
    and validation, response schema fields, error cases with HTTP status and Arabic `detail`.
 5. **Backend work** — files to create/modify, what goes in router / service / repository / validators.
 6. **Frontend work** — files to create/modify, providers, models, screens/widgets, new localization keys
@@ -38,6 +41,8 @@ Use `Bash` only for read-only commands (`git log`, `git diff`, `git show`, listi
    both would need and say who edits it and in what order.
 8. **Test plan** — backend unit tests (happy path, validation, edge, permission denied) and frontend tests
    (providers, models, numeric formatting). Name the test files.
+7b. **Shared-file needs** — new permission codes, coded errors, enum codes, l10n keys, `modules/common`
+   registries; the lead registers them (developers do not edit shared files).
 9. **Risks & open questions** — data migration on the live DB, backward compatibility of existing API
    consumers, performance (N+1 queries, large lists), anything that needs the user's decision.
 

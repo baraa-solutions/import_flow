@@ -73,27 +73,27 @@ class _InboundWarehouseHubScreenState
     final density = ref.watch(displayDensityProvider);
 
     final tabs = [
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.local_shipping_outlined,
-        titleEn: 'Goods In Transit (GIT) Ledger',
-        titleAr: 'رصيد ومطابقة البضاعة في الطريق',
+        titleEn: l.wrHubTabGit,
+        titleAr: l.wrHubTabGit,
       ),
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.inventory_outlined,
-        titleEn: 'Warehouse Receiving & GRN',
-        titleAr: 'استلام المخازن وأذون الإضافة',
+        titleEn: l.wrHubTabGrn,
+        titleAr: l.wrHubTabGrn,
       ),
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.inventory_2_outlined,
-        titleEn: 'Received Shipments Audit Report',
-        titleAr: 'تقرير ومطابقة الشحنات المستلمة',
+        titleEn: l.wrHubTabReport,
+        titleAr: l.wrHubTabReport,
       ),
     ];
 
     return VerticalStageScaffold(
       stageCode: 'PHASE-6: STEP_19',
-      titleEn: 'Inbound Logistics & Warehouse Hub',
-      titleAr: 'مركز الاستلام والمخازن والبضاعة بالطريق',
+      titleEn: l.wrHubTitle,
+      titleAr: l.wrHubTitle,
       headerIcon: Icons.warehouse_outlined,
       headerColor: AppTheme.cobalt,
       tabs: tabs,
@@ -106,7 +106,7 @@ class _InboundWarehouseHubScreenState
       onShipmentStatusChanged: _refreshData,
       headerActions: [
         IconButton(
-          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7), size: density.buttonIconSize),
           tooltip: l.refreshDataTooltip,
           onPressed: _refreshData,
         ),

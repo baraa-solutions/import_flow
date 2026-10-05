@@ -32,12 +32,26 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(scope="function")
 def db_session():
+    from decimal import Decimal
+    from modules.currencies.model import Currency, ExchangeRate
+    from modules.currencies.service import clear_currency_cache
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
+    # Phase 09 (FS-02): foreign amounts need a configured rate (no hard-coded 48.5 any more).
+    for code, rate in (("USD", "48.5"), ("EUR", "52.8")):
+        cur = Currency(currency_code=code, currency_name=code, currency_symbol=code, is_active=True)
+        db.add(cur)
+        db.flush()
+        db.add(ExchangeRate(currency_id=cur.currency_id, customs_rate=Decimal(rate), commercial_rate=Decimal(rate),
+                            effective_date=date(2020, 1, 1), is_active=True))
+    db.commit()
+    clear_currency_cache()
     try:
         yield db
     finally:
         db.close()
+        clear_currency_cache()
         Base.metadata.drop_all(bind=engine)
 
 
@@ -280,7 +294,7 @@ class TestCLO01InvoicesAggregation:
             settled_by="Ahmed Kamal",
             settlement_notes="تمت مراجعة ومطابقة كافة فواتير الشحنة بنجاح بدون فروقات",
         )
-        res = confirm_invoices_settlement_service(db_session, req)
+        res = confirm_invoices_settlement_service(db_session, req, actor="Ahmed Kamal")
 
         assert res.success is True
         assert res.financial_settlement_status == "INVOICES_SETTLED"

@@ -33,6 +33,9 @@ import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/directional_icon.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/widgets/existing_record_snackbar.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
@@ -170,6 +173,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                   SnackBar(
                     content: Text(l.cloneStudySuccess(cloned.sessionCode)),
                     backgroundColor: AppTheme.wcagEmerald,
+                  ),
+                );
+              } else {
+                // The clone failed: show the (localized) reason instead of staying silent.
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ApiErrorText.of(l, ref.read(shippingScenariosProvider).error, fallback: l.operationFailed)),
+                    backgroundColor: AppTheme.crimson,
                   ),
                 );
               }
@@ -774,12 +785,12 @@ Best regards,
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blueGrey.shade200),
+        border: Border.all(color: AppTheme.charcoal),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: AppTheme.black.withOpacity(0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -791,13 +802,13 @@ Best regards,
           // Header Bar with Cobalt Gradient & Icons
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.cobalt, Colors.blue.shade700],
+                colors: [AppTheme.cobalt, AppTheme.wcagCobalt],
                 begin: AlignmentDirectional.centerEnd,
                 end: AlignmentDirectional.centerStart,
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -805,14 +816,14 @@ Best regards,
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                      const Icon(Icons.auto_awesome, color: AppTheme.orange, size: 20),
                       const SizedBox(width: 6),
-                      const Icon(Icons.bolt, color: Colors.white, size: 18),
+                      const Icon(Icons.bolt, color: AppTheme.white, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           l.freightExtractorTitle,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -820,7 +831,7 @@ Best regards,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
+                  icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: AppTheme.white),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   tooltip: _isFreightExtractorExpanded ? l.collapseExtractor : l.expandExtractor,
@@ -851,7 +862,7 @@ Best regards,
                             style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
                             decoration: InputDecoration(
                               hintText: 'لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...\n(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
-                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                              hintStyle: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                               contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
                             ),
@@ -872,13 +883,13 @@ Best regards,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
+                                      color: AppTheme.cloudWhite,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        const Icon(Icons.paste, size: 12, color: AppTheme.charcoal),
                                         const SizedBox(width: 4),
                                         Text(l.pasteQuoteText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       ],
@@ -898,15 +909,15 @@ Best regards,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
+                                      color: AppTheme.charcoalSurface,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        const Icon(Icons.clear, size: 12, color: AppTheme.textSecondary),
                                         const SizedBox(width: 4),
-                                        Text(l.clearField, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                                        Text(l.clearField, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                                       ],
                                     ),
                                   ),
@@ -917,16 +928,16 @@ Best regards,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade50,
-                                      border: Border.all(color: Colors.amber.shade300),
+                                      color: AppTheme.orangeLight,
+                                      border: Border.all(color: AppTheme.orange),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.lightbulb_outline, size: 12, color: Colors.amber),
+                                        const Icon(Icons.lightbulb_outline, size: 12, color: AppTheme.orange),
                                         const SizedBox(width: 4),
-                                        Text(l.sampleQuoteBtn, style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                        Text(l.sampleQuoteBtn, style: const TextStyle(fontSize: 11, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   ),
@@ -941,29 +952,20 @@ Best regards,
                       final actionButtons = Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple.shade800,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
-                            label: Text(l.uploadQuoteDocument, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.uploadQuoteDocument,
+                            icon: Icons.upload_file,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: _isFreightExtracting ? null : _extractFreightFromFile,
                           ),
                           const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: _isFreightExtracting
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.bolt, size: 16, color: Colors.amber),
-                            label: Text(l.extractQuotesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.extractQuotesBtn,
+                            icon: Icons.bolt,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
+                            isLoading: _isFreightExtracting,
                             onPressed: _isFreightExtracting ? null : _extractFreightFromText,
                           ),
                         ],
@@ -997,15 +999,15 @@ Best regards,
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppTheme.crimsonLight,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(color: AppTheme.crimsonBorder),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                          const Icon(Icons.error_outline, color: AppTheme.crimson, size: 16),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(_extractorError!, style: TextStyle(color: Colors.red.shade800, fontSize: 11))),
+                          Expanded(child: Text(_extractorError!, style: const TextStyle(color: AppTheme.crimson, fontSize: 11))),
                         ],
                       ),
                     ),
@@ -1017,9 +1019,9 @@ Best regards,
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
+                        color: AppTheme.emeraldLight,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        border: Border.all(color: AppTheme.emeraldBorder),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1034,17 +1036,11 @@ Best regards,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                 ),
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                                icon: const Icon(Icons.add_task, size: 14, color: Colors.white),
-                                label: Text(
-                                  l.addAllQuotes(_extractedOptions.length),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                ),
+                              AppButton(
+                                label: l.addAllQuotes(_extractedOptions.length),
+                                icon: Icons.add_task,
+                                variant: AppButtonVariant.success,
+                                size: AppButtonSize.small,
                                 onPressed: _addAllExtractedQuotationsToScenarios,
                               ),
                             ],
@@ -1059,28 +1055,28 @@ Best regards,
                                   Chip(
                                     avatar: const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
                                     label: Text('${l.attachedFileChip}: ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                    backgroundColor: Colors.white,
+                                    backgroundColor: AppTheme.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['origin_port'] != null)
                                   Chip(
-                                    avatar: const Icon(Icons.flight_takeoff, size: 14, color: Colors.blue),
+                                    avatar: const Icon(Icons.flight_takeoff, size: 14, color: AppTheme.cobalt),
                                     label: Text('${l.originPortChip}: ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
+                                    backgroundColor: AppTheme.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['destination_port'] != null)
                                   Chip(
-                                    avatar: const Icon(Icons.flight_land, size: 14, color: Colors.green),
+                                    avatar: const Icon(Icons.flight_land, size: 14, color: AppTheme.emerald),
                                     label: Text('${l.destinationPortChip}: ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
+                                    backgroundColor: AppTheme.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['local_charges'] != null)
                                   Chip(
-                                    avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.orange),
+                                    avatar: const Icon(Icons.monetization_on, size: 14, color: AppTheme.orange),
                                     label: Text('${l.localExpensesChip}: \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
+                                    backgroundColor: AppTheme.white,
                                     padding: EdgeInsets.zero,
                                   ),
                               ],
@@ -1095,11 +1091,11 @@ Best regards,
                                 width: 340,
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppTheme.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(color: AppTheme.cloudWhite),
                                   boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                                    BoxShadow(color: AppTheme.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
                                   ],
                                 ),
                                 child: Column(
@@ -1118,13 +1114,13 @@ Best regards,
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: opt.isDirect ? Colors.green.shade50 : Colors.orange.shade50,
+                                            color: opt.isDirect ? AppTheme.emeraldLight : AppTheme.orangeLight,
                                             borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: opt.isDirect ? Colors.green.shade200 : Colors.orange.shade200),
+                                            border: Border.all(color: opt.isDirect ? AppTheme.emeraldBorder : AppTheme.orange),
                                           ),
                                           child: Text(
                                             opt.isDirect ? l.directRoute : l.transitRoute,
-                                            style: TextStyle(fontSize: 10, color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800, fontWeight: FontWeight.bold),
+                                            style: TextStyle(fontSize: 10, color: opt.isDirect ? AppTheme.wcagEmerald : AppTheme.wcagOrange, fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ],
@@ -1135,29 +1131,26 @@ Best regards,
                                       children: [
                                         Text('${l.oceanFreightLabel}: \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                         if (opt.localCharges != null && opt.localCharges! > 0)
-                                          Text('${l.localChargesLabel}: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                                        Text('${l.totalLabel}: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                                          Text('${l.localChargesLabel}: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                        Text('${l.totalLabel}: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('⏱️ ${l.transitDaysLabel}: ${opt.transitDays ?? "-"}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
-                                        Text('⏳ ${l.freeTimeDaysLabel}: ${opt.freeTimeDays ?? 14}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                                        Text('⏱️ ${l.transitDaysLabel}: ${opt.transitDays ?? "-"}', style: const TextStyle(fontSize: 10.5, color: AppTheme.charcoal)),
+                                        Text('⏳ ${l.freeTimeDaysLabel}: ${opt.freeTimeDays ?? 14}', style: const TextStyle(fontSize: 10.5, color: AppTheme.charcoal)),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
                                     SizedBox(
                                       width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.cobalt,
-                                          side: const BorderSide(color: AppTheme.cobalt),
-                                          padding: const EdgeInsets.symmetric(vertical: 6),
-                                        ),
-                                        icon: const Icon(Icons.add, size: 14),
-                                        label: Text(l.addThisQuoteBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      child: AppButton(
+                                        label: l.addThisQuoteBtn,
+                                        icon: Icons.add,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
                                         onPressed: () => _addSingleExtractedQuotationToScenarios(opt),
                                       ),
                                     ),
@@ -1302,15 +1295,12 @@ Best regards,
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: () => _refreshData(force: true),
       headerActions: [
-        OutlinedButton.icon(
+        AppButton(
           key: const ValueKey('searchAndCloneStudyBtn'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white60),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          icon: const Icon(Icons.copy_all_rounded, size: 16),
-          label: Text(l.searchAndCloneStudyBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: l.searchAndCloneStudyBtn,
+          icon: Icons.copy_all_rounded,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
           onPressed: () => _openSearchAndCloneStudyDialog(context),
         ),
         const SizedBox(width: 8),
@@ -1461,24 +1451,25 @@ Best regards,
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: AppTheme.orangeLight,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade400),
+                        border: Border.all(color: AppTheme.orange),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.edit_note, color: Colors.orange, size: 24),
+                          const Icon(Icons.edit_note, color: AppTheme.orange, size: 24),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               '⚠️ ${l.activeEditStudyBanner}: $_editingSessionCode (${_title.isNotEmpty ? _title : l.noDataFound}). ${l.activeEditStudyHint}',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagOrange, fontSize: 13),
                             ),
                           ),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
-                            icon: const Icon(Icons.cancel_outlined, size: 18),
-                            label: Text(l.cancelEditAndStartNew, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          AppButton(
+                            label: l.cancelEditAndStartNew,
+                            icon: Icons.cancel_outlined,
+                            variant: AppButtonVariant.secondary,
+                            size: AppButtonSize.small,
                             onPressed: () {
                               _resetFormForNewStudy();
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1522,7 +1513,7 @@ Best regards,
                         l.recommendedLineMetric,
                         recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
                         Icons.stars_rounded,
-                        Colors.purple,
+                        AppTheme.cobalt,
                         subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
                       );
 
@@ -1581,7 +1572,7 @@ Best regards,
                   // Study Main Settings Card
                   Card(
                     elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -1784,16 +1775,16 @@ Best regards,
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.purple.shade50.withOpacity(0.6),
+                                color: AppTheme.cobaltLight.withOpacity(0.6),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.purple.shade200),
+                                border: Border.all(color: AppTheme.cobaltBorder),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
+                                      const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
                                       const SizedBox(width: 8),
                                       Text(
                                         '${l.totalShipmentSummary}: ',
@@ -1801,7 +1792,7 @@ Best regards,
                                       ),
                                       Text(
                                         '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg (${filteredPOs.length} POs | $linkedPlCount items)',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 13),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
                                       ),
                                     ],
                                   ),
@@ -1810,9 +1801,9 @@ Best regards,
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: hasNonStackableItems ? Colors.orange.shade50 : Colors.green.shade50,
+                                        color: hasNonStackableItems ? AppTheme.orangeLight : AppTheme.emeraldLight,
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: hasNonStackableItems ? Colors.orange.shade300 : Colors.green.shade300),
+                                        border: Border.all(color: hasNonStackableItems ? AppTheme.orange : AppTheme.emeraldBorder),
                                       ),
                                       child: Text(
                                         hasNonStackableItems
@@ -1821,7 +1812,7 @@ Best regards,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
-                                          color: hasNonStackableItems ? Colors.orange.shade900 : Colors.green.shade900,
+                                          color: hasNonStackableItems ? AppTheme.wcagOrange : AppTheme.wcagEmerald,
                                         ),
                                       ),
                                     ),
@@ -1835,15 +1826,15 @@ Best regards,
                                         label: Text('📦 ${l.stackableOption}'),
                                         selected: _isStackable,
                                         selectedColor: AppTheme.cobalt,
-                                        labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        labelStyle: TextStyle(color: _isStackable ? AppTheme.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
                                         onSelected: (val) => setState(() => _isStackable = true),
                                       ),
                                       const SizedBox(width: 8),
                                       ChoiceChip(
                                         label: Text('🚫 ${l.nonStackableOption}'),
                                         selected: !_isStackable,
-                                        selectedColor: Colors.orange.shade800,
-                                        labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        selectedColor: AppTheme.wcagOrange,
+                                        labelStyle: TextStyle(color: !_isStackable ? AppTheme.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
                                         onSelected: (val) => setState(() => _isStackable = false),
                                       ),
                                     ],
@@ -1858,45 +1849,38 @@ Best regards,
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: (_isStackable ? AppTheme.emerald : Colors.orange.shade800).withOpacity(0.15),
+                                          color: (_isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withOpacity(0.15),
                                           borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: _isStackable ? AppTheme.emerald : Colors.orange.shade800),
+                                          border: Border.all(color: _isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
                                         ),
                                         child: Text(
                                           containerRec.recommendationSummary,
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: _isStackable ? AppTheme.emerald : Colors.orange.shade900, fontSize: 12),
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: _isStackable ? AppTheme.emerald : AppTheme.wcagOrange, fontSize: 12),
                                         ),
                                       ),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade400)),
+                                        decoration: BoxDecoration(color: AppTheme.cloudWhite, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.textMuted)),
                                         child: Text(
                                           _isStackable
                                               ? '${l.nonStackableOption}: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
                                               : '${l.stackableOption}: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 11),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 11),
                                         ),
                                       ),
-                                      OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          side: const BorderSide(color: AppTheme.cobalt),
-                                        ),
-                                        icon: const Icon(Icons.table_chart, size: 14, color: AppTheme.cobalt),
-                                        label: Text(l.compareContainersMatrix, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                      AppButton(
+                                        label: l.compareContainersMatrix,
+                                        icon: Icons.table_chart,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
                                         onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCargoCbm, totalCargoWeightKg),
                                       ),
                                       const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.emerald,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        ),
-                                        icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                                        label: Text(
-                                          l.visualLoadPlanSimulator,
-                                          style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                                        ),
+                                      AppButton(
+                                        label: l.visualLoadPlanSimulator,
+                                        icon: Icons.view_in_ar,
+                                        variant: AppButtonVariant.success,
+                                        size: AppButtonSize.small,
                                         onPressed: () => _showVisualLoadPlanDialog(context, filteredPOs, totalCargoCbm, totalCargoWeightKg),
                                       ),
                                     ],
@@ -1925,10 +1909,10 @@ Best regards,
                           color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                         ),
                       );
-                      final addBtn = ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(l.addNewShippingOption),
+                      final addBtn = AppButton(
+                        label: l.addNewShippingOption,
+                        icon: Icons.add,
+                        variant: AppButtonVariant.primary,
                         onPressed: () {
                           setState(() {
                             final defaultLineName = shippingLines.isNotEmpty ? shippingLines.first.partnerName : 'COSCO Shipping';
@@ -1981,14 +1965,14 @@ Best regards,
 
                     return Card(
                       elevation: 1.5,
-                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                         side: BorderSide(
                           color: item.isRecommended 
                               ? AppTheme.emerald 
-                              : (item.isExcludedFromAverage ? (isDark ? Colors.grey.shade700 : Colors.grey.shade400) : (isDark ? const Color(0xFF334155) : Colors.blue.shade200)), 
+                              : (item.isExcludedFromAverage ? (isDark ? AppTheme.textStrong : AppTheme.textMuted) : (isDark ? AppTheme.darkBorder : AppTheme.cobaltBorder)), 
                           width: item.isRecommended ? 2 : 1
                         ),
                       ),
@@ -2001,7 +1985,7 @@ Best regards,
                             final avatarWidget = CircleAvatar(
                               radius: 14,
                               backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
-                              child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: Text('${idx + 1}', style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12)),
                             );
 
                             final forwarderDropdown = SearchableDropdownField<int?>(
@@ -2230,7 +2214,7 @@ Best regards,
                             );
 
                             final excludedChip = FilterChip(
-                              label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
+                              label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? AppTheme.crimson : AppTheme.cobalt)),
                               selected: item.isExcludedFromAverage,
                               onSelected: (val) {
                                 _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
@@ -2374,7 +2358,7 @@ Best regards,
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1B2838) : Colors.blue.shade50,
+                                  color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: SingleChildScrollView(
@@ -2389,15 +2373,14 @@ Best regards,
                                       const SizedBox(width: 16),
                                       Row(
                                         children: [
-                                          TextButton.icon(
-                                            onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
-                                            icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTheme.cobalt),
-                                            label: Text(
-                                              isExpanded 
+                                          AppButton(
+                                            label: isExpanded 
                                                   ? l.hideQuote 
                                                   : '${l.quoteDetails} [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
-                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                            ),
+                                            icon: isExpanded ? Icons.expand_less : Icons.expand_more,
+                                            variant: AppButtonVariant.secondary,
+                                            size: AppButtonSize.small,
+                                            onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
                                           ),
                                           const SizedBox(width: 10),
                                           Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
@@ -2415,9 +2398,9 @@ Best regards,
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
+                                  color: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2518,7 +2501,7 @@ Best regards,
                                       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                                       child: Text(
                                         l.totalContainersCount(currentContainersCount, item.container40ftApplicable ? item.container40ftQty : 0, item.container20ftApplicable ? item.container20ftQty : 0),
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt),
                                       ),
                                     ),
 
@@ -2765,7 +2748,7 @@ Best regards,
                   // Comparison Summary Table
                   Card(
                     elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -2777,8 +2760,8 @@ Best regards,
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF141A22) : AppTheme.charcoal),
-                              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkScaffoldBackground : AppTheme.charcoal),
+                              headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                               columns: [
                                 const DataColumn(label: Text('#')),
                                 DataColumn(label: Text(l.shippingLineCol)),
@@ -2804,9 +2787,9 @@ Best regards,
                                   cells: [
                                     DataCell(CopyableTableCell(value: '${idx + 1}', rowSummary: rowSummary, child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold)))),
                                     DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                    DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)))),
+                                    DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
                                     DataCell(CopyableTableCell(value: '${c["expectedWhDate"]}', rowSummary: rowSummary, child: Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)))),
-                                    DataCell(CopyableTableCell(value: '${c["totalDays"]} d', rowSummary: rowSummary, child: Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
+                                    DataCell(CopyableTableCell(value: '${c["totalDays"]} d', rowSummary: rowSummary, child: Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                                     DataCell(CopyableTableCell(
                                       value: '${item.customsBrokerName ?? "-"} (${item.clearanceFeeCurrency})',
                                       rowSummary: rowSummary,
@@ -2818,7 +2801,7 @@ Best regards,
                                           if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
                                             Text(
                                               l.clearanceCostSummary(((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0), item.clearanceFeeCurrency),
-                                              style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
                                             ),
                                         ],
                                       ),
@@ -2828,7 +2811,7 @@ Best regards,
                                     DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
                                     DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
                                     DataCell(CopyableTableCell(value: '${c["vesselLeadTime"]} d', rowSummary: rowSummary, child: Text('${c["vesselLeadTime"]} d'))),
-                                    DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)))),
+                                    DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                                     DataCell(CopyableTableCell(value: '${item.expectedLineDelayDays} d', rowSummary: rowSummary, child: Text('${item.expectedLineDelayDays} d'))),
                                     DataCell(CopyableTableCell(
                                       value: item.riskLevel,
@@ -2836,13 +2819,13 @@ Best regards,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: item.riskLevel == 'High' ? Colors.red.shade100 : item.riskLevel == 'Medium' ? Colors.orange.shade100 : Colors.green.shade100,
+                                          color: item.riskLevel == 'High' ? AppTheme.crimsonBorder : item.riskLevel == 'Medium' ? AppTheme.orangeLight : AppTheme.emeraldBorder,
                                           borderRadius: BorderRadius.circular(4),
                                         ),
-                                        child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? Colors.red.shade900 : item.riskLevel == 'Medium' ? Colors.orange.shade900 : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 11)),
+                                        child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? AppTheme.crimson : item.riskLevel == 'Medium' ? AppTheme.wcagOrange : AppTheme.wcagEmerald, fontWeight: FontWeight.bold, fontSize: 11)),
                                       ),
                                     )),
-                                    DataCell(CopyableTableCell(value: item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, rowSummary: rowSummary, child: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(color: item.isExcludedFromAverage ? Colors.red : AppTheme.cobalt, fontSize: 11)))),
+                                    DataCell(CopyableTableCell(value: item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, rowSummary: rowSummary, child: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(color: item.isExcludedFromAverage ? AppTheme.crimson : AppTheme.cobalt, fontSize: 11)))),
                                   ],
                                 );
                               }).toList(),
@@ -2866,9 +2849,9 @@ Best regards,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF253140) : Colors.white,
-                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300)),
-                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+                color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
+                border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
+                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -2883,42 +2866,31 @@ Best regards,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               // 1. Live Refresh Button
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                  side: BorderSide(color: isDark ? const Color(0xFF475569) : Colors.grey.shade400),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                ),
-                                icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-                                label: Text('${l.liveRefresh} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              AppButton(
+                                label: '${l.liveRefresh} 🔄',
+                                icon: Icons.refresh,
+                                variant: AppButtonVariant.secondary,
+                                size: AppButtonSize.small,
                                 onPressed: () => _refreshData(force: true),
                               ),
                               const SizedBox(width: 8),
 
                               // 2. Clear Form & Start New
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,
-                                  side: BorderSide(color: isDark ? const Color(0xFF475569) : Colors.grey.shade400),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                ),
-                                icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-                                label: Text('${l.clearAndStartNew} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              AppButton(
+                                label: '${l.clearAndStartNew} 🔄',
+                                icon: Icons.cleaning_services_outlined,
+                                variant: AppButtonVariant.secondary,
+                                size: AppButtonSize.small,
                                 onPressed: _resetFormForNewStudy,
                               ),
                               const SizedBox(width: 8),
 
                               // 3. Save Draft & Continue Later
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isDark ? const Color(0xFF1E2631) : const Color(0xFFEFF6FF),
-                                  foregroundColor: isDark ? AppTheme.darkHyperlink : AppTheme.wcagCobalt,
-                                  elevation: 0,
-                                  side: const BorderSide(color: AppTheme.cobalt),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                                icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-                                label: Text('${l.saveDraftContinueLater} 💾', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              AppButton(
+                                label: '${l.saveDraftContinueLater} 💾',
+                                icon: Icons.save_outlined,
+                                variant: AppButtonVariant.primary,
+                                size: AppButtonSize.small,
                                 onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
                               ),
                             ],
@@ -2926,20 +2898,12 @@ Best regards,
                           const SizedBox(width: 16),
 
                           // 4. Final Submit / Save Study
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.wcagEmerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-                              elevation: 2,
-                            ),
-                            icon: _isSaving
-                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.check_circle_outline, size: 20),
-                            label: Text(
-                              _editingSessionId != null ? '${l.saveChanges} 💾' : '${l.saveAndSubmitStudy} ✅',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
+                          AppButton(
+                            label: _editingSessionId != null ? '${l.saveChanges} 💾' : '${l.saveAndSubmitStudy} ✅',
+                            icon: Icons.check_circle_outline,
+                            variant: AppButtonVariant.success,
+                            size: AppButtonSize.small,
+                            isLoading: _isSaving,
                             onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
                           ),
                         ],
@@ -3036,7 +3000,7 @@ Best regards,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: applicable ? AppTheme.emerald : Colors.red.shade900,
+                color: applicable ? AppTheme.emerald : AppTheme.crimson,
               ),
             ),
           ],
@@ -3046,13 +3010,13 @@ Best regards,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: applicable 
-                ? (isDark ? const Color(0xFF132E1B) : Colors.green.shade50)
-                : (isDark ? const Color(0xFF2C1517) : Colors.red.shade50),
+                ? (AppTheme.emeraldLight)
+                : (AppTheme.crimsonLight),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: applicable 
-                  ? (isDark ? AppTheme.emerald : Colors.green.shade200)
-                  : (isDark ? AppTheme.crimson : Colors.red.shade200),
+                  ? (isDark ? AppTheme.emerald : AppTheme.emeraldBorder)
+                  : (isDark ? AppTheme.crimson : AppTheme.crimsonBorder),
             ),
           ),
           child: Text(
@@ -3062,7 +3026,7 @@ Best regards,
             style: TextStyle(
               fontWeight: FontWeight.bold, 
               fontSize: 11, 
-              color: applicable ? AppTheme.emerald : Colors.red.shade900,
+              color: applicable ? AppTheme.emerald : AppTheme.crimson,
             ),
             textAlign: TextAlign.center,
           ),
@@ -3150,10 +3114,10 @@ Best regards,
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardBackground : Colors.white,
+        color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3162,14 +3126,14 @@ Best regards,
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 6),
-              Expanded(child: Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
             ],
           ),
           const SizedBox(height: 6),
           CopyableText(val, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            CopyableText(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextPrimary : Colors.black87, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            CopyableText(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
           ],
         ],
       ),
@@ -3366,9 +3330,8 @@ Best regards,
           for (int i = 0; i < _evalItems.length; i++) {
             final o = oldSession.items[i];
             final n = _evalItems[i];
-            final isAr = Directionality.maybeOf(context) == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
-            final defaultCarrier = isAr ? "ناقل" : "Carrier";
-            final quotePrefix = isAr ? "عرض" : "Quote";
+            final defaultCarrier = context.l10n.ssCarrier;
+            final quotePrefix = context.l10n.ssQuote;
             final quoteTitle = '$quotePrefix #${i + 1} (${n.providerName.isNotEmpty ? n.providerName : defaultCarrier})';
 
             if (FieldChangeItem.isDifferent(o.providerName, n.providerName)) {
@@ -3497,7 +3460,26 @@ Best regards,
       // Instantly pop up the detailed Arabic/English results summary dialog per user instructions
       _showSaveSuccessReportDialog(context, savedSess);
     } else if (!ok && context.mounted) {
-      final err = ref.read(shippingScenariosProvider).errorMessage ?? context.l10n.saveFailed;
+      final failure = ref.read(shippingScenariosProvider).error;
+      if (ApiErrorText.code(failure) == ApiErrorCode.scenarioSessionExists) {
+        // A study for this import file already exists: readable message + open it.
+        final l = context.l10n;
+        final existingId = ApiErrorText.detail(failure)?['session_id'];
+        final existingCode = ApiErrorText.detail(failure)?['session_code'];
+        showExistingRecordSnack(
+          context,
+          message: ApiErrorText.of(l, failure),
+          actionLabel: l.openExistingRecord,
+          onOpen: () {
+            final match = ref.read(shippingScenariosProvider).sessions.where(
+                  (s) => s.sessionId == existingId || (existingCode != null && s.sessionCode == existingCode),
+                );
+            if (match.isNotEmpty && mounted) _loadSessionForEditing(match.first);
+          },
+        );
+        return;
+      }
+      final err = ApiErrorText.of(context.l10n, failure, fallback: context.l10n.saveFailed);
       await showErrorDetailsDialog(
         context,
         title: context.l10n.saveFailedTitle,
@@ -3534,9 +3516,9 @@ Best regards,
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: AppTheme.emeraldLight,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade200),
+                      border: Border.all(color: AppTheme.emeraldBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3545,7 +3527,7 @@ Best regards,
                         const SizedBox(height: 4),
                         CopyableText('${l.studyTitleDetailLabel} ${sess.title ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 4),
-                        CopyableText('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? l.unassigned}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        CopyableText('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? l.unassigned}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -3553,7 +3535,7 @@ Best regards,
                   Text(l.comparativeReportLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                   const SizedBox(height: 8),
                   Table(
-                    border: TableBorder.all(color: Colors.grey.shade300),
+                    border: TableBorder.all(color: AppTheme.cloudWhite),
                     columnWidths: const {
                       0: FlexColumnWidth(1.5),
                       1: FlexColumnWidth(1.1),
@@ -3578,19 +3560,19 @@ Best regards,
                       ),
                       ...sess.items.map((item) {
                         return TableRow(
-                          decoration: BoxDecoration(color: item.isRecommended ? Colors.green.shade50.withOpacity(0.5) : null),
+                          decoration: BoxDecoration(color: item.isRecommended ? AppTheme.emeraldLight.withOpacity(0.5) : null),
                           children: [
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.providerName, style: TextStyle(fontWeight: item.isRecommended ? FontWeight.bold : FontWeight.normal, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.sailingDate, style: const TextStyle(fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(l.avgTransitDays(item.expectedTotalDaysToWarehouse.toString()), style: const TextStyle(fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                            Padding(padding: const EdgeInsets.all(8), child: CopyableText('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson))),
                             Padding(
                               padding: const EdgeInsets.all(8),
                               child: CopyableText(
                                 item.isRecommended ? l.recommendedBadge(item.providerName) : (item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge),
-                                style: TextStyle(fontWeight: FontWeight.bold, color: item.isRecommended ? AppTheme.emerald : Colors.grey, fontSize: 10),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: item.isRecommended ? AppTheme.emerald : AppTheme.textMuted, fontSize: 10),
                               ),
                             ),
                           ],
@@ -3601,10 +3583,10 @@ Best regards,
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(6)),
                     child: Row(
                       children: [
-                        const Icon(Icons.stars, color: Colors.blue),
+                        const Icon(Icons.stars, color: AppTheme.cobalt),
                         const SizedBox(width: 8),
                         Expanded(
                           child: CopyableText(
@@ -3620,19 +3602,21 @@ Best regards,
             ),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              label: l.copySummaryBtn,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
               onPressed: () {
                 CopyHelper.copy(
                   dialogCtx,
                   '${l.freightStudiesTitle} ${sess.sessionCode}: ${sess.title}\n${l.recommendedLineMetric}: ${sess.recommendedScenarioProvider}\n${l.avgWarehouseArrivalMetric}: ${sess.avgExpectedWarehouseArrivalDate}',
                 );
               },
-              child: Text(l.copySummaryBtn),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            AppButton(
+              label: l.saveDoneBtn,
+              variant: AppButtonVariant.success,
               onPressed: () => Navigator.pop(dialogCtx),
-              child: Text(l.saveDoneBtn),
             ),
           ],
         );
@@ -3665,7 +3649,7 @@ Best regards,
                 ),
                 const SizedBox(height: 12),
                 Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
+                  border: TableBorder.all(color: AppTheme.cloudWhite),
                   children: [
                     TableRow(
                       decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
@@ -3686,7 +3670,7 @@ Best regards,
                       children: [
                         Padding(padding: const EdgeInsets.all(8), child: Text(l.containersRequiredCol)),
                         Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.stackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                       ],
                     ),
                     TableRow(
@@ -3702,7 +3686,12 @@ Best regards,
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+            AppButton(
+              label: l.close,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: () => Navigator.pop(dialogCtx),
+            ),
           ],
         );
       },
@@ -3899,9 +3888,9 @@ Best regards,
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: AppTheme.charcoalSurface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3917,7 +3906,7 @@ Best regards,
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == true ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3929,9 +3918,9 @@ Best regards,
                               ChoiceChip(
                                 label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
+                                selectedColor: AppTheme.wcagOrange,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3945,7 +3934,7 @@ Best regards,
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? AppTheme.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -3966,7 +3955,7 @@ Best regards,
                       decoration: BoxDecoration(
                         color: AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppTheme.cloudWhite),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3977,14 +3966,14 @@ Best regards,
                               const SizedBox(width: 8),
                               _buildLoadMetricPill(l.totalWeightMetricLabel, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', Colors.green.shade800),
+                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', AppTheme.wcagEmerald),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', Colors.red.shade800),
+                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', AppTheme.crimson),
                             ],
                           ),
                         ],
@@ -3994,7 +3983,7 @@ Best regards,
 
                     // 3. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: AppTheme.cloudWhite),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -4051,7 +4040,7 @@ Best regards,
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -4061,8 +4050,8 @@ Best regards,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: res.containerCode == 'FAILED'
-                                        ? Colors.red.shade800
-                                        : (res.placedItems.any((p) => !p.item.isStackable) ? Colors.brown.shade800 : Colors.green.shade800),
+                                        ? AppTheme.crimson
+                                        : (res.placedItems.any((p) => !p.item.isStackable) ? AppTheme.wcagOrange : AppTheme.wcagEmerald),
                                   ),
                                 ),
                               ),
@@ -4083,10 +4072,10 @@ Best regards,
                             return Container(
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
                               child: CopyableText(
                                 l.itemsExceedCapacity(res.unplacedItems.map((u) => u.itemId).join(', ')),
-                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold),
                               ),
                             );
                           }
@@ -4108,11 +4097,11 @@ Best regards,
                                       ),
                                       Row(
                                         children: [
-                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
                                             child: CopyableText(
                                               l.internalDimsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
@@ -4129,7 +4118,7 @@ Best regards,
                                     height: 190,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -4145,7 +4134,7 @@ Best regards,
                                     height: 140,
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
+                                      color: AppTheme.charcoal,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomPaint(
@@ -4164,10 +4153,12 @@ Best regards,
                 ),
               ),
               actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.close),
+                AppButton(
+                  label: l.closePlanBtn,
+                  icon: Icons.close,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () => Navigator.pop(context),
-                  label: Text(l.closePlanBtn),
                 ),
               ],
             );
@@ -4272,7 +4263,7 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       child: Container(
         width: math.min(720.0, screenWidth - 32),
         height: math.min(600.0, screenHeight - 64),
@@ -4309,7 +4300,7 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
                         l.searchAndCloneStudySubtitle,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -4349,12 +4340,12 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                          const Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
                           const SizedBox(height: 12),
                           Text(
                             l.noMatchingStudiesFound,
                             style: TextStyle(
-                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                               fontSize: 14,
                             ),
                           ),
@@ -4405,14 +4396,11 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
                               ],
                             ),
                           ),
-                          trailing: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.wcagCobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            ),
-                            icon: const Icon(Icons.copy_rounded, size: 14),
-                            label: Text(l.cloneRowTooltip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          trailing: AppButton(
+                            label: l.cloneRowTooltip,
+                            icon: Icons.copy_rounded,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
                             onPressed: () => widget.onSelectStudy(study),
                           ),
                           onTap: () => widget.onSelectStudy(study),

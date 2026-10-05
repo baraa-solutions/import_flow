@@ -1,14 +1,27 @@
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
+import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
 
 /// BK-02: تسجيل وتوثيق فترات السماح المجانية الممنوحة للحاويات
 /// يتيح لضابط اللوجستيات توثيق الاتفاق مع الخط الملاحي لتغذية رادار الغرامات تلقائياً.
+/// Extra free days an agreement grants over [baseline]; null when no baseline is recorded
+/// (no tariff is ever invented).
+int? extraFreeDaysOverBaseline(int agreed, int? baseline) {
+  if (baseline == null) return null;
+  final extra = agreed - baseline;
+  return extra > 0 ? extra : 0;
+}
+
 class FreeDaysAgreementDialog extends ConsumerStatefulWidget {
   final int? initialImportFileId;
   final String? initialCarrierName;
@@ -82,12 +95,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
       _carrierName = widget.initialCarrierName!;
     }
     _demurrageController = TextEditingController(
-      text: (widget.initialDemurrageDays ?? 21).toString(),
+      text: widget.initialDemurrageDays?.toString() ?? '',
     );
     _detentionController = TextEditingController(
-      text: (widget.initialDetentionDays ?? 14).toString(),
+      text: widget.initialDetentionDays?.toString() ?? '',
     );
-    _storageController = TextEditingController(text: '5');
+    _storageController = TextEditingController();
 
     if (_selectedImportFileId != null) {
       _loadExistingAgreement(_selectedImportFileId!);
@@ -134,20 +147,24 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
     }
   }
 
-  int get _demDays => int.tryParse(_demurrageController.text) ?? 14;
-  int get _detDays => int.tryParse(_detentionController.text) ?? 7;
-  int get _storDays => int.tryParse(_storageController.text) ?? 5;
+  int get _demDays => int.tryParse(_demurrageController.text) ?? 0;
+  int get _detDays => int.tryParse(_detentionController.text) ?? 0;
+  int get _storDays => int.tryParse(_storageController.text) ?? 0;
 
-  int get _savedDemDays => (_demDays - 14) > 0 ? (_demDays - 14) : 0;
-  int get _savedDetDays => (_detDays - 7) > 0 ? (_detDays - 7) : 0;
-  double get _estimatedCostAvoidance => (_savedDemDays * 60.0) + (_savedDetDays * 45.0);
+  /// Free days currently recorded on the selected import file (backend value), or null.
+  int? _baselineDemDays(List<ImportFileModel> files) {
+    for (final f in files) {
+      if (f.importFileId == _selectedImportFileId) return f.targetFreeDays;
+    }
+    return null;
+  }
 
   Future<void> _handleSubmit() async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isAr ? 'يرجى تحديد ملف الاستيراد المرتبط بالاتفاقية' : 'Please select an import file')),
+        AppTheme.snackBar(context, l.fdaSelectImportFile, severity: AppSeverity.warning),
       );
       return;
     }
@@ -159,7 +176,8 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
         'carrier_name': _carrierName,
         'agreed_demurrage_free_days': _demDays,
         'agreed_detention_free_days': _detDays,
-        'port_storage_free_days': _storDays,
+        // Left blank = not set: omitted so the backend keeps the policy value.
+        if (_storageController.text.trim().isNotEmpty) 'port_storage_free_days': _storDays,
         'agreement_reference': _refController.text.trim().isEmpty ? null : _refController.text.trim(),
         'agreement_date': _agreementDate.toIso8601String().split('T').first,
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
@@ -169,18 +187,10 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.flatEmerald,
-            content: Text(
-              result != null
-                  ? (isAr
-                      ? 'تم توثيق فترات السماح (${result.agreedDemurrageFreeDays} يوم) وتحديث رادار الغرامات بنجاح'
-                      : 'Free days (${result.agreedDemurrageFreeDays} days) documented & radar updated successfully')
-                  : (isAr
-                      ? 'تم توثيق فترات السماح وتحديث رادار الغرامات بنجاح'
-                      : 'Free days documented & radar updated successfully'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+          AppTheme.snackBar(
+            context,
+            result != null ? l.fdaSuccessWithDays(result.agreedDemurrageFreeDays) : l.fdaSuccess,
+            severity: AppSeverity.success,
           ),
         );
         Navigator.of(context).pop(result);
@@ -188,9 +198,10 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.flatCrimson,
-            content: Text(isAr ? 'فشل في توثيق فترات السماح: $e' : 'Failed to document free days: $e'),
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e, fallback: context.l10n.freeDaysDocumentFailed),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -204,514 +215,349 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
     if (_refController.text.trim().isNotEmpty) return true;
     if (_notesController.text.trim().isNotEmpty) return true;
     if (_carrierName != (widget.initialCarrierName ?? 'MSC')) return true;
-    if (_demDays != (widget.initialDemurrageDays ?? 14)) return true;
-    if (_detDays != (widget.initialDetentionDays ?? 7)) return true;
+    if (_demurrageController.text.trim() != (widget.initialDemurrageDays?.toString() ?? '')) return true;
+    if (_detentionController.text.trim() != (widget.initialDetentionDays?.toString() ?? '')) return true;
     return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final importFiles = ref.watch(importFilesProvider).asData?.value ?? [];
+    String? selectedCode;
+    for (final f in importFiles) {
+      if (f.importFileId == _selectedImportFileId) {
+        selectedCode = f.importFileCode;
+        break;
+      }
+    }
 
     return UnsavedChangesGuard(
       isDirty: _isDirty,
-      child: Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 850),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.flatEmerald.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.verified_user_outlined,
-                        color: AppTheme.flatEmerald,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isAr ? 'توثيق اتفاقية فترات السماح المجانية (BK-02)' : 'Free Days Agreement (BK-02)',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.flatCharcoal,
-                            ),
-                          ),
-                          Text(
-                            isAr ? 'توثيق فترات السماح وتغذية رادار الغرامات' : 'Free Days Agreement & Demurrage Radar Feed',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_isLoadingExisting)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-                      tooltip: isAr ? 'إغلاق' : 'Close',
-                    ),
-                  ],
+      child: Form(
+        key: _formKey,
+        child: CcStageDialogShell(
+          title: l.fdaDialogTitle,
+          icon: Icons.verified_user_outlined,
+          accent: AppTheme.emerald,
+          maxWidth: 760,
+          chips: [
+            if (selectedCode != null) CcHeaderChip(Icons.folder_open_outlined, selectedCode, ltr: true),
+            CcHeaderChip(Icons.directions_boat_outlined, _carrierName, ltr: true),
+          ],
+          headerActions: [
+            if (_isLoadingExisting)
+              const Padding(
+                padding: EdgeInsetsDirectional.only(end: 8),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.white),
                 ),
-                const Divider(height: 28),
-
-                // Content scrollable
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Import File selection
-                        SearchableDropdownField<int>(
-                          labelText: isAr ? 'ملف الاستيراد المرتبط' : 'Linked Import File',
-                          isRequired: true,
-                          value: _selectedImportFileId,
-                          items: importFiles
-                              .map(
-                                (f) => SearchableDropdownItem<int>(
-                                  value: f.importFileId,
-                                  label: '${f.importFileCode} - ${f.supplierName}',
-                                  subtitle: isAr ? 'فترات السماح الحالية: ${f.targetFreeDays ?? 14} يوم' : 'Current free days: ${f.targetFreeDays ?? 14} days',
-                                ),
-                              )
-                              .toList(),
-                          onChanged: widget.initialImportFileId != null
-                              ? null
-                              : (val) {
-                                  setState(() => _selectedImportFileId = val);
-                                  if (val != null) {
-                                    _loadExistingAgreement(val);
-                                  }
-                                },
-                          validator: (val) => val == null ? (isAr ? 'يرجى اختيار ملف الاستيراد' : 'Please select an import file') : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Carrier & Agreement Date
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: SearchableDropdownField<String>(
-                                labelText: isAr ? 'الخط الملاحي (Carrier)' : 'Shipping Carrier',
-                                isRequired: true,
-                                value: _carrierName,
-                                items: _carriers
-                                    .map(
-                                      (c) => SearchableDropdownItem<String>(
-                                        value: c,
-                                        label: c,
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _carrierName = val);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _agreementDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _agreementDate = picked);
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: InputDecorator(
-                                  decoration: InputDecoration(
-                                    labelText: isAr ? 'تاريخ الاتفاقية' : 'Agreement Date',
-                                    prefixIcon: const Icon(Icons.calendar_today, size: 18),
-                                    isDense: true,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  child: Text(
-                                    _agreementDate.toIso8601String().split('T').first,
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Section Title: Agreed Free Days
-                        Row(
-                          children: [
-                            const Icon(Icons.timer_outlined, size: 18, color: AppTheme.flatCobalt),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                isAr ? 'فترات السماح المتفق عليها بالملحق (Agreed Free Days)' : 'Agreed Free Days in Annex',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: AppTheme.flatCharcoal,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Free Days Inputs
-                        Row(
-                          children: [
-                            // Demurrage
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextFormField(
-                                    controller: _demurrageController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: isAr ? 'أرضيات الحاوية بالميناء (Demurrage)' : 'Port Demurrage',
-                                      suffixText: isAr ? 'يوم' : 'days',
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
-                                    validator: (val) {
-                                      final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 1) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
-                                      return null;
-                                    },
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 4,
-                                    children: [14, 21, 28].map((days) {
-                                      return ActionChip(
-                                        label: Text(isAr ? '$days يوم' : '$days days', style: const TextStyle(fontSize: 11)),
-                                        padding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () {
-                                          setState(() => _demurrageController.text = days.toString());
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Detention
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextFormField(
-                                    controller: _detentionController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: isAr ? 'فترة خروج الحاوية (Detention)' : 'Detention Period',
-                                      suffixText: isAr ? 'يوم' : 'days',
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
-                                    validator: (val) {
-                                      final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 1) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
-                                      return null;
-                                    },
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 4,
-                                    children: [7, 14, 21].map((days) {
-                                      return ActionChip(
-                                        label: Text(isAr ? '$days يوم' : '$days days', style: const TextStyle(fontSize: 11)),
-                                        padding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () {
-                                          setState(() => _detentionController.text = days.toString());
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Port Storage
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextFormField(
-                                    controller: _storageController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: isAr ? 'سماح الساحة (Port Storage)' : 'Port Storage',
-                                      suffixText: isAr ? 'يوم' : 'days',
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
-                                    validator: (val) {
-                                      final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 0) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
-                                      return null;
-                                    },
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 4,
-                                    children: [3, 5, 7].map((days) {
-                                      return ActionChip(
-                                        label: Text(isAr ? '$days أيام' : '$days days', style: const TextStyle(fontSize: 11)),
-                                        padding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () {
-                                          setState(() => _storageController.text = days.toString());
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Document Reference & Notes
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _refController,
-                                decoration: InputDecoration(
-                                  labelText: isAr ? 'مرجع بند الاتفاقية / ملحق الحجز' : 'Agreement Clause / Booking Annex Ref',
-                                  hintText: 'e.g. MSC-FREE-2026-0042 Clause 4.2',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  prefixIcon: const Icon(Icons.receipt_long, size: 18),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _notesController,
-                                decoration: InputDecoration(
-                                  labelText: isAr ? 'ملاحظات الاتفاقية' : 'Agreement Notes',
-                                  hintText: isAr ? 'e.g. تم التفاوض وتثبيت 21 يوماً لحاويات الخط' : 'e.g. Negotiated and confirmed 21 days for line containers',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  prefixIcon: const Icon(Icons.note_alt_outlined, size: 18),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Cost Avoidance & Benefit Card
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.flatEmerald.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppTheme.flatEmerald.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.savings_outlined,
-                                        color: AppTheme.flatEmerald,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isAr ? 'تحليل الوفر المالي وتغذية رادار الغرامات:' : 'Financial Savings & Radar Analysis:',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.flatEmerald,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.flatEmerald,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      isAr ? 'وفر متوقع: \$${_estimatedCostAvoidance.toStringAsFixed(0)} / حاوية' : 'Estimated savings: \$${_estimatedCostAvoidance.toStringAsFixed(0)} / ctr',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildMetricItem(
-                                      isAr ? 'أيام إضافية Demurrage' : 'Extra Demurrage Days',
-                                      isAr ? '+$_savedDemDays يوم' : '+$_savedDemDays days',
-                                      isAr ? 'فوق التعرفة القياسية (14 يوم)' : 'Above standard tariff (14 days)',
-                                      AppTheme.flatCobalt,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _buildMetricItem(
-                                      isAr ? 'أيام إضافية Detention' : 'Extra Detention Days',
-                                      isAr ? '+$_savedDetDays يوم' : '+$_savedDetDays days',
-                                      isAr ? 'فوق التعرفة القياسية (7 أيام)' : 'Above standard tariff (7 days)',
-                                      AppTheme.flatOrange,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _buildMetricItem(
-                                      isAr ? 'مجموع الأيام المحمية' : 'Total Protected Days',
-                                      isAr ? '${_demDays + _detDays} يوم' : '${_demDays + _detDays} days',
-                                      isAr ? 'فترة آمنة قبل بدء الغرامات' : 'Safe period before penalties',
-                                      AppTheme.flatEmerald,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                isAr
-                                    ? '⚡ ملاحظة تشغيلية: بمجرد اعتماد هذه الاتفاقية، يتم تلقائياً تحديث ملف الاستيراد وحجز الشحن وإعادة ضبط عدادات الرادار لكافة الحاويات المسجلة.'
-                                    : '⚡ Operational note: Once this agreement is confirmed, the import file and booking are updated, and radar counters reset for all containers.',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.flatCharcoal,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-
-                // Footer Action Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _isSubmitting ? null : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-                      child: Text(isAr ? 'إلغاء' : 'Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.flatEmerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: _isSubmitting ? null : _handleSubmit,
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.check_circle_outline, size: 18),
-                      label: Text(
-                        _isSubmitting
-                            ? (isAr ? 'جاري التوثيق...' : 'Submitting...')
-                            : (isAr ? 'توثيق واعتماد فترات السماح (BK-02)' : 'Confirm Free Days (BK-02)'),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+          ],
+          confirmLabel: l.fdaConfirmBtn,
+          loadingLabel: l.fdaSubmitting,
+          isSubmitting: _isSubmitting,
+          onConfirm: _handleSubmit,
+          onCancel: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
+          body: _buildBody(context, l, importFiles),
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildMetricItem(String title, String value, String subtitle, Color color) {
+  Widget _buildBody(BuildContext context, AppLocalizations l, List<ImportFileModel> importFiles) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.fdaIntro,
+          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryOf(context)),
+        ),
+        const SizedBox(height: 14),
+        CcFormSection(
+          title: l.fdaSectionAgreement,
+          icon: Icons.handshake_outlined,
+          accent: AppTheme.emerald,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SearchableDropdownField<int>(
+                labelText: l.fdaLinkedImportFile,
+                isRequired: true,
+                value: _selectedImportFileId,
+                items: importFiles
+                    .map(
+                      (f) => SearchableDropdownItem<int>(
+                        value: f.importFileId,
+                        label: '${f.importFileCode} - ${f.supplierName}',
+                        subtitle: f.targetFreeDays == null ? null : l.fdaCurrentFreeDays(f.targetFreeDays!),
+                      ),
+                    )
+                    .toList(),
+                onChanged: widget.initialImportFileId != null
+                    ? null
+                    : (val) {
+                        setState(() => _selectedImportFileId = val);
+                        if (val != null) {
+                          _loadExistingAgreement(val);
+                        }
+                      },
+                validator: (val) => val == null ? l.fdaSelectImportFile : null,
+              ),
+              const SizedBox(height: 16),
+              CcFieldRow(
+                children: [
+                  SearchableDropdownField<String>(
+                    labelText: l.fdaCarrier,
+                    isRequired: true,
+                    value: _carrierName,
+                    items: _carriers.map((c) => SearchableDropdownItem<String>(value: c, label: c)).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _carrierName = val);
+                    },
+                  ),
+                  CcField(
+                    label: l.fdaAgreementDate,
+                    child: CcDateTile(
+                      date: _agreementDate,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _agreementDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setState(() => _agreementDate = picked);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        CcFormSection(
+          title: l.fdaSectionFreeDays,
+          icon: Icons.timer_outlined,
+          child: CcFieldRow(
+            gap: 14,
+            children: [
+              _daysField(l, _demurrageController, l.fdaPortDemurrage, const [14, 21, 28], min: 1),
+              _daysField(l, _detentionController, l.fdaDetention, const [7, 14, 21], min: 1),
+              _daysField(l, _storageController, l.fdaPortStorage, const [3, 5, 7], min: 0, optional: true),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        CcFormSection(
+          title: l.fdaSectionReference,
+          icon: Icons.receipt_long_outlined,
+          child: CcFieldRow(
+            children: [
+              CcField(
+                label: l.fdaClauseRef,
+                child: TextFormField(
+                  controller: _refController,
+                  decoration: ccInputDecoration(hint: l.fdaClauseRefHint, prefix: Icons.receipt_long),
+                ),
+              ),
+              CcField(
+                label: l.fdaNotes,
+                child: TextFormField(
+                  controller: _notesController,
+                  decoration: ccInputDecoration(hint: l.fdaNotesHint, prefix: Icons.note_alt_outlined),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _buildSavingsCard(context, l, importFiles),
+      ],
+    );
+  }
+
+  /// One numeric "days" input with its quick-pick chips (the chip matching the
+  /// current value is highlighted).
+  Widget _daysField(
+    AppLocalizations l,
+    TextEditingController controller,
+    String label,
+    List<int> presets, {
+    required int min,
+    bool optional = false,
+  }) {
+    return CcField(
+      label: label,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: ccInputDecoration(suffixText: l.whatIfDaysUnit),
+            validator: (val) {
+              if (optional && (val ?? '').trim().isEmpty) return null;
+              final v = int.tryParse(val ?? '');
+              if (v == null || v < min) return l.fdaEnterValidNumber;
+              return null;
+            },
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final days in presets)
+                ChoiceChip(
+                  label: Text(l.fdaDaysCount(days), style: const TextStyle(fontSize: 11.5)),
+                  selected: controller.text.trim() == days.toString(),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onSelected: (_) => setState(() => controller.text = days.toString()),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavingsCard(BuildContext context, AppLocalizations l, List<ImportFileModel> importFiles) {
+    final baseline = _baselineDemDays(importFiles);
+    final savedDem = extraFreeDaysOverBaseline(_demDays, baseline);
+    final fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
+    final bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.all(8),
+      width: double.infinity,
+      padding: const EdgeInsetsDirectional.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-          const SizedBox(height: 2),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.savings_outlined, color: fg, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    l.fdaSavingsTitle,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, c) {
+              final tiles = [
+                _metricTile(
+                  context,
+                  l.fdaExtraDemDays,
+                  savedDem == null ? '-' : l.fdaDaysPlus(savedDem),
+                  baseline == null ? l.demFdaNoBaseline : l.demFdaAboveFileDays(baseline),
+                  AppTheme.cobalt,
+                ),
+                _metricTile(
+                  context,
+                  l.fdaExtraDetDays,
+                  '-',
+                  l.demFdaNoBaseline,
+                  AppTheme.orange,
+                ),
+                _metricTile(
+                  context,
+                  l.fdaTotalProtected,
+                  l.fdaDaysCount(_demDays + _detDays),
+                  l.fdaSafePeriod,
+                  AppTheme.emerald,
+                ),
+              ];
+              if (c.maxWidth < 520) {
+                return Column(
+                  children: [
+                    for (var i = 0; i < tiles.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      tiles[i],
+                    ],
+                  ],
+                );
+              }
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < tiles.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(child: tiles[i]),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.bolt, size: 16, color: AppTheme.orange),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${l.demFdaNoTariffNote} ${l.fdaOperationalNote}',
+                  style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context), height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricTile(BuildContext context, String title, String value, String subtitle, Color color) {
+    return Container(
+      padding: const EdgeInsetsDirectional.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.borderOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            value,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context)),
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+          LtrText(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
+          ),
         ],
       ),
     );

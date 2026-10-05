@@ -18,10 +18,12 @@ class SearchAndCloneBudgetDialog extends StatefulWidget {
   });
 
   @override
-  State<SearchAndCloneBudgetDialog> createState() => _SearchAndCloneBudgetDialogState();
+  State<SearchAndCloneBudgetDialog> createState() =>
+      _SearchAndCloneBudgetDialogState();
 }
 
-class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog> {
+class _SearchAndCloneBudgetDialogState
+    extends State<SearchAndCloneBudgetDialog> {
   final TextEditingController _queryController = TextEditingController();
   late List<ImportBudgetModel> _filtered;
 
@@ -66,10 +68,11 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
-      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        side: BorderSide(
+            color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
@@ -87,7 +90,8 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                       color: AppTheme.cobalt.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.copy_all, color: AppTheme.cobalt, size: 22),
+                    child: const Icon(Icons.copy_all,
+                        color: AppTheme.cobalt, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -99,7 +103,9 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.charcoal,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -107,14 +113,19 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                           l.searchAndCloneBudgetSubtitle,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                    icon: Icon(Icons.close,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -126,16 +137,22 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                 controller: _queryController,
                 onChanged: _filter,
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: l.searchByBudgetCodeOrTitleHint,
                   hintStyle: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textMuted,
                     fontSize: 12,
                   ),
-                  prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, size: 20),
+                  prefixIcon: Icon(Icons.search,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                      size: 20),
                   suffixIcon: _queryController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -146,19 +163,27 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                         )
                       : null,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  fillColor: isDark
+                      ? AppTheme.darkInputBackground
+                      : AppTheme.charcoalSurface,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(
+                        color:
+                            isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    borderSide: BorderSide(
+                        color:
+                            isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+                    borderSide:
+                        const BorderSide(color: AppTheme.cobalt, width: 1.5),
                   ),
                 ),
               ),
@@ -170,7 +195,9 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -182,12 +209,18 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off_rounded, size: 48, color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                            Icon(Icons.search_off_rounded,
+                                size: 48,
+                                color: isDark
+                                    ? AppTheme.darkBorder
+                                    : AppTheme.textMuted),
                             const SizedBox(height: 8),
                             Text(
                               l.noMatchingBudgetsFound,
                               style: TextStyle(
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : AppTheme.textSecondary,
                                 fontSize: 13,
                               ),
                             ),
@@ -199,8 +232,10 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, idx) {
                           final b = _filtered[idx];
-                          final isApproved = b.budgetStatus == 'Budget Approved';
-                          final statusColor = isApproved ? AppTheme.emerald : AppTheme.orange;
+                          final isApproved =
+                              b.budgetStatus == 'Budget Approved';
+                          final statusColor =
+                              isApproved ? AppTheme.emerald : AppTheme.orange;
 
                           return InkWell(
                             borderRadius: BorderRadius.circular(8),
@@ -211,74 +246,102 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                                color: isDark
+                                    ? AppTheme.darkElevatedSurface
+                                    : AppTheme.charcoalSurface,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                                  color: isDark
+                                      ? AppTheme.darkBorder
+                                      : AppTheme.cloudWhite,
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                         // Code + Status + Import File Wrap
-                                         Wrap(
-                                           spacing: 8,
-                                           runSpacing: 4,
-                                           crossAxisAlignment: WrapCrossAlignment.center,
-                                           children: [
-                                             Container(
-                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                               decoration: BoxDecoration(
-                                                 color: AppTheme.cobalt.withOpacity(0.12),
-                                                 borderRadius: BorderRadius.circular(4),
-                                                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                               ),
-                                               child: Text(
-                                                 b.budgetCode,
-                                                 style: const TextStyle(
-                                                   color: AppTheme.cobalt,
-                                                   fontWeight: FontWeight.bold,
-                                                   fontSize: 11,
-                                                 ),
-                                               ),
-                                             ),
-                                             Container(
-                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                               decoration: BoxDecoration(
-                                                 color: statusColor.withOpacity(0.12),
-                                                 borderRadius: BorderRadius.circular(4),
-                                                 border: Border.all(color: statusColor.withOpacity(0.3)),
-                                               ),
-                                               child: Text(
-                                                 b.budgetStatus,
-                                                 style: TextStyle(
-                                                   color: statusColor,
-                                                   fontWeight: FontWeight.w600,
-                                                   fontSize: 11,
-                                                 ),
-                                               ),
-                                             ),
-                                             if (b.importFileCode != null)
-                                               Container(
-                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                 decoration: BoxDecoration(
-                                                   color: Colors.blueGrey.withOpacity(0.12),
-                                                   borderRadius: BorderRadius.circular(4),
-                                                 ),
-                                                 child: Text(
-                                                   b.importFileCode!,
-                                                   style: TextStyle(
-                                                     color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade800,
-                                                     fontSize: 11,
-                                                   ),
-                                                 ),
-                                               ),
-                                           ],
-                                         ),
-                                         const SizedBox(height: 6),
+                                        // Code + Status + Import File Wrap
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.cobalt
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                border: Border.all(
+                                                    color: AppTheme.cobalt
+                                                        .withOpacity(0.3)),
+                                              ),
+                                              child: Text(
+                                                b.budgetCode,
+                                                style: const TextStyle(
+                                                  color: AppTheme.cobalt,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: statusColor
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                border: Border.all(
+                                                    color: statusColor
+                                                        .withOpacity(0.3)),
+                                              ),
+                                              child: Text(
+                                                b.budgetStatus,
+                                                style: TextStyle(
+                                                  color: statusColor,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                            if (b.importFileCode != null)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.charcoal
+                                                      .withOpacity(0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  b.importFileCode!,
+                                                  style: TextStyle(
+                                                    color: isDark
+                                                        ? AppTheme
+                                                            .darkTextSecondary
+                                                        : AppTheme.charcoal,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
 
                                         // Title
                                         Text(
@@ -286,7 +349,9 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                                           style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.bold,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                            color: isDark
+                                                ? AppTheme.darkTextPrimary
+                                                : AppTheme.charcoal,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -302,21 +367,27 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                                               '${l.estimatedInvoiceValue}: ${b.invoiceAmountForeign.toStringAsFixed(2)} ${b.invoiceCurrency}',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                color: isDark
+                                                    ? AppTheme.darkTextSecondary
+                                                    : AppTheme.textStrong,
                                               ),
                                             ),
                                             Text(
                                               '${l.estimatedFreightCost}: ${b.freightCostForeign.toStringAsFixed(2)} ${b.freightCurrency}',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                color: isDark
+                                                    ? AppTheme.darkTextSecondary
+                                                    : AppTheme.textStrong,
                                               ),
                                             ),
                                             Text(
                                               '${l.customsAndVatEstimate}: ${b.customsDutiesEgp.toStringAsFixed(0)} EGP',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                color: isDark
+                                                    ? AppTheme.darkTextSecondary
+                                                    : AppTheme.textStrong,
                                               ),
                                             ),
                                           ],
@@ -352,7 +423,7 @@ class _SearchAndCloneBudgetDialogState extends State<SearchAndCloneBudgetDialog>
                                           ),
                                           const SizedBox(width: 4),
                                           Icon(
-                                            isArabic ? Icons.chevron_left : Icons.chevron_right,
+                                            Icons.chevron_right,
                                             size: 16,
                                             color: AppTheme.cobalt,
                                           ),

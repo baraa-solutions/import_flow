@@ -38,7 +38,9 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
+
+from pydantic import BaseModel, Field
 
 from modules.common import enum_codes
 
@@ -1054,6 +1056,293 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "DOC_TOL_PACKAGES_EXACT": {"note": "0% (package count match)"},
     "DOC_TOL_WEIGHT_DIFFERENCE": {"note": "Difference: {difference_qty} kg ({difference_pct}%)"},
     "DOC_TOL_TERMS_COHERENCE": {"note": "Commercial terms coherence"},
+    # ── Purchase orders: shipment allocation warning (POShipmentAllocationResponse.messages) ──
+    "OVER_SHIPPED": {
+        "note": "Over-shipment: {shipped_qty} shipped against {ordered_qty} ordered on purchase order {po_number} {item_code}",
+    },
+    # ── Purchase orders: packing list validation report (PackingListValidationReport.messages) ──
+    # ── Purchase orders: coded 409 errors (CodedHTTPException detail.code) ──
+    "PO_ITEMS_ALLOCATED": {
+        "note": "Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.",
+    },
+    "PO_NUMBER_TAKEN": {"note": "Purchase order number {po_number} is already in use; please retry."},
+    "PO_PL_NO_ITEMS": {"note": "No packing list items recorded for this purchase order."},
+    "PO_PL_GROSS_BELOW_NET": {
+        "note": "Item #{line_num} ({item_code}): Gross weight per unit ({gross_qty} kg) cannot be less than Net weight ({net_qty} kg).",
+    },
+    "PO_PL_NEGATIVE_WEIGHT": {"note": "Item #{line_num} ({item_code}): Unit weights cannot be negative."},
+    "PO_PL_DIMENSIONS_MISSING": {
+        "note": "Item #{line_num} ({item_code}): Package dimensions missing or zero; CBM cannot be computed accurately.",
+    },
+    "PO_PL_HS_MISSING_IN_PACKING": {
+        "note": "HS Code '{hs_code}' exists in Commercial Invoice but is missing from Packing List.",
+    },
+    "PO_PL_HS_MISSING_IN_INVOICE": {
+        "note": "HS Code '{hs_code}' exists in Packing List but is missing from Commercial Invoice.",
+    },
+    "PO_PL_HS_QTY_MISMATCH": {
+        "note": "HS Code '{hs_code}': Packing List Qty ({packing_qty}) differs from Invoice Qty ({invoice_qty}) [Diff: {signed_difference}].",
+    },
+    "PO_PL_TOTAL_QTY_MISMATCH": {
+        "note": "Total Quantity Mismatch: Packing List total PCS ({packing_qty}) differs from Invoice total PCS ({invoice_qty}) [Diff: {signed_difference}].",
+    },
+    # ── Import requirements (prefill messages[], 409 detail.code) ──
+    "PREFILL_NO_HS": {
+        "note": "No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.",
+    },
+    "PREFILL_LINE_NO_HS": {"note": "PO {po_number} line {item_code} has no tariff (HS code) and was skipped."},
+    "IR_ASSESSMENT_EXISTS": {
+        "note": "An active import-requirements assessment ({assessment_code}) already exists for this import file.",
+    },
+    # ── Shipping scenarios (409 detail.code; detail also carries session_id) ──
+    "SCENARIO_SESSION_EXISTS": {
+        "note": "An active shipping-scenario study ({session_code}) already exists for this import file.",
+    },
+    # ── Customs consultation (409 detail.code; detail also carries consultation_id) ──
+    "CONSULTATION_EXISTS": {
+        "note": "An active customs consultation ({consultation_code}) already exists for this import file.",
+    },
+    # ── Customs consultation recalculation (409 detail.code) ──
+    "CUSTOMS_MIXED_CURRENCY": {
+        "note": "The purchase orders of this import file use different currencies ({currencies}): recalculation needs one currency per side.",
+    },
+    "CUSTOMS_FX_RATE_MISSING": {"note": "No customs exchange rate for {currency} on {on_date}."},
+    # ══ Review wave (docs/plans/review-shared-needs.md). Raised today as plain HTTPException(detail={code, message
+    # (Arabic), **params}) dicts or returned as message_code / message_params / msg_code response fields. ══
+    # ── 02 Financial approval (validators.fa_error; sync / confirm response message_code) ──
+    "FA_FX_RATE_MISSING": {"note": "No exchange rate is recorded for {currency_code}. Add it on the Currencies screen."},
+    "FA_CURRENCY_MISSING": {"note": "No currency is recorded for the amount of {source}. Set the currency first."},
+    "FA_SWIFT_CURRENCY_MISMATCH": {
+        "note": "The SWIFT currency {swift_currency} does not match the payment request currency {currency_code}.",
+    },
+    "FA_SWIFT_REF_ALREADY_USED": {"note": "SWIFT reference {swift_ref} is already used by payment request {payment_code}."},
+    "FA_SWIFT_BATCH_ALREADY_RECONCILED": {
+        "note": "SWIFT batch {batch_code} is already reconciled with payment request {payment_code}.",
+    },
+    "FA_SWIFT_BATCH_STATUS_INVALID": {"note": "This action is not allowed on SWIFT batch {batch_code} in status {status}."},
+    "FA_PAYMENT_STATUS_INVALID": {"note": "Payment request {payment_code} is {status}: the action {action} is not allowed."},
+    "FA_PAYMENT_LOCKED": {
+        "note": "An approved or paid payment request ({payment_code}, {status}) cannot be changed or deleted.",
+    },
+    "FA_BUDGET_LOCKED": {
+        "note": "An approved or superseded budget ({budget_code}, {status}) cannot be changed: sync it to create a new revision.",
+    },
+    "FA_BUDGET_STATUS_INVALID": {"note": "Budget {budget_code} cannot be approved in status {status}."},
+    "FA_PAYMENT_DUPLICATE_TYPE": {
+        "note": "An open payment request of type {payment_type} already exists for this file ({payment_code}).",
+    },
+    "FA_BUDGET_DUPLICATE_FILE": {
+        "note": "A budget already exists for import file {import_file_code}. Edit it instead of creating a new one.",
+    },
+    "FA_BUDGET_HARD_BLOCK": {
+        "note": "The cost variance of {variance_percentage}% on {field_name} exceeds the threshold (hard block): "
+        "sync the costs or give a written justification.",
+    },
+    "FA_BUDGET_SOD_DENIED": {
+        "note": "Segregation of duties: the user who changed the upstream costs cannot sync the approved budget.",
+    },
+    "FA_BUDGET_SYNC_REVISION_CREATED": {
+        "note": "Budget revision {budget_code} created; the approved version was archived as superseded.",
+    },
+    "FA_BUDGET_SYNC_DONE": {"note": "Budget {budget_code} synced with live costs; status {status}."},
+    "FA_SWIFT_BATCH_CONFIRMED": {"note": "SWIFT data of batch {batch_code} confirmed; matching is unlocked."},
+    "FA_SWIFT_FILE_TOO_LARGE": {"note": "The SWIFT file exceeds the {max_mb} MB limit."},
+    "FA_SWIFT_FILE_INVALID_BASE64": {"note": "The uploaded file content is not valid Base64."},
+    "FA_CODE_GENERATION_CONFLICT": {"note": "Reference {reference_code} is already in use. Please try again."},
+    # ── 03a-D2 Import documentation (ACID tracker / legal docs message_code; invoice vs B/L sync message_code) ──
+    "DOC_ACID_TRACKER_STATUS": {"note": "ACID status: {status} ({days} days remaining)."},
+    "DOC_LEGAL_DOC_EXPIRED": {
+        "note": "{doc_kind} {doc_number} expired on {expiry_date}: shipping and customs release are blocked.",
+    },
+    "DOC_LEGAL_DOC_CRITICAL_BREACH": {
+        "note": "{doc_kind} {doc_number} expires on {expiry_date}, less than 30 days after the expected arrival {eta_date}.",
+    },
+    "DOC_LEGAL_DOC_EXPIRING_SOON": {"note": "{doc_kind} {doc_number} expires on {expiry_date} ({days} days left)."},
+    "DOC_LEGAL_DOC_VALID": {"note": "{doc_kind} {doc_number} is valid until {expiry_date}."},
+    "DOC_LEGAL_ACID_MISSING": {"note": "The ACID validity date of this shipment is not recorded yet."},
+    "DOC_LEGAL_BANNER": {
+        "note": "Critical shipment safety warning (ETA + 30 days margin): {critical_count} document(s) need action.",
+    },
+    "DOC_INVOICE_BL_SYNCED": {
+        "note": "Invoice {invoice_number} and B/L {draft_bl_number} matched, approved and synced to the import file "
+        "and customs approvals.",
+    },
+    # ── 03b Original documents collection (ODC), docs customs approval (DCA), smart document upload (SDU) ──
+    "ODC_COURIER_NOT_FOUND": {
+        "note": "Courier {courier_no} is not registered on this file's original documents session. Add it to the session first.",
+    },
+    "ODC_SESSION_NOT_FOUND": {
+        "note": "No original documents collection session exists for import file {import_file_id}.",
+    },
+    "DCA_SESSION_FINAL_LOCKED": {
+        "note": "Customs approval session {session_code} is certified and can no longer be changed.",
+    },
+    "DCA_SESSION_NOT_READY": {
+        "note": "The session cannot be certified: document statuses not set ({missing_statuses}); "
+        "open rectification tickets: {open_tickets_count}.",
+    },
+    "DCA_TICKET_CLOSED": {"note": "Rectification ticket {ticket_code} is already closed ({status})."},
+    "DCA_SAME_REVIEWER": {
+        "note": "{reviewer} already signed the other review tier of {approval_code}: the commercial and customs "
+        "reviews need two different users.",
+    },
+    "SDU_ACID_INVALID": {"note": "The extracted ACID number {acid_number} is invalid: it must be 19 digits."},
+    "SDU_ACID_CONFLICT": {
+        "note": "The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
+    },
+    "SDU_FILE_CLOSED": {
+        "note": "Import file {import_file_code} is {status}: extracted data cannot be applied to it.",
+    },
+    "SDU_INVOICE_APPLIED": {"note": "Invoice {invoice_no} data applied to file {import_file_code}."},
+    "SDU_BL_APPLIED": {
+        "note": "B/L data applied to shipment {cargo_shipping_code} ({containers_applied} containers).",
+    },
+    "SDU_EXTRACTED_ONLY": {"note": "Data extracted and ready to use for a new file."},
+    "SDU_NO_SHIPPING_RECORD": {
+        "note": "Import file {import_file_code} has no active shipping record: create it before applying the B/L data.",
+    },
+    # Same text as smart_document_upload.cross_checker.XCHK_TEMPLATES_EN (cross-check issues[]).
+    "XCHK_ACID_MISMATCH": {"note": "ACID number mismatch between the commercial invoice and the bill of lading"},
+    "XCHK_TAX_ID_MISMATCH": {"note": "Egyptian importer tax ID mismatch between the invoice and the bill of lading"},
+    "XCHK_SHIPPER_MISMATCH": {"note": "Shipper / exporter name differs (similarity {similarity_pct}%)"},
+    "XCHK_CONSIGNEE_MISMATCH": {"note": "Consignee / importer name differs (similarity {similarity_pct}%)"},
+    "XCHK_WEIGHT_OVER": {
+        "note": "Gross weight variance of {diff_kg} kg ({variance_pct}%) exceeds the allowed tolerance ({tolerance_pct}%)",
+    },
+    "XCHK_WEIGHT_MINOR": {
+        "note": "Minor gross weight difference of {diff_kg} kg ({variance_pct}%) within the accepted tolerance",
+    },
+    "XCHK_PORTS_MISMATCH": {"note": "Port of loading or port of discharge does not fully match"},
+    "XCHK_INCOTERM_PREPAID_CONFLICT": {
+        "note": "Shipping terms conflict: invoice term {incoterm} but the bill of lading is Freight Prepaid",
+    },
+    "XCHK_INCOTERM_COLLECT_CONFLICT": {
+        "note": "Shipping terms conflict: invoice term {incoterm} includes freight but the bill of lading is Freight Collect",
+    },
+    "XCHK_PACKAGES_MISMATCH": {
+        "note": "Package count differs between the invoice ({invoice_packages}) and the bill of lading ({bl_packages})",
+    },
+    # ── 04-05 Demurrage & detention (settlement_warning_code; the tracking code comes from the same response) ──
+    "DD_SETTLEMENT_STALE": {
+        "note": "The demurrage charges of {tracking_code} were recalculated but its landed-cost settlement is locked; "
+        "they were not re-pushed.",
+    },
+    # ── 06-07 Customs clearance (CC) and clearance quotations (CCQ) (validators.coded_error) ──
+    "CC_RELEASE_RECORD_FILE_MISMATCH": {
+        "note": "Clearance record {clearance_id} does not belong to import file {import_file_id}.",
+    },
+    "CC_DUTY_NOT_ASSESSED": {
+        "note": "The duty payment cannot be recorded before the final duty assessment (CL-02).",
+    },
+    "CC_DUTY_UNDERPAID": {
+        "note": "The paid amount {paid_amount} EGP is below the assessed duty of {assessed_amount} EGP.",
+    },
+    "CC_DUTY_NOT_PAID": {"note": "The final release cannot be issued before the customs duty is paid (CL-03)."},
+    "CC_DUTY_PAID_AMOUNT_REQUIRED": {"note": "The paid duty amount is required and must be above zero."},
+    "CC_ASSESS_REQUIRES_DECLARATION_46": {
+        "note": "Final duties cannot be assessed before customs declaration 46 is registered (CS-03).",
+    },
+    "CC_UPDATE_NULL_NOT_ALLOWED": {"note": "These fields cannot be cleared: {fields}."},
+    "CC_RESTORE_DUPLICATE_ACTIVE": {
+        "note": "Cannot restore: another active clearance record ({clearance_code}) exists for this file.",
+    },
+    "CC_UNDER_BOND_NOT_ALLOWED": {
+        "note": "Under-bond release refused: the shipment is already under bond or finally released ({clearance_status}).",
+    },
+    "CC_INVOICE_FX_RATE_REQUIRED": {"note": "An exchange rate is required for an invoice in {currency}."},
+    "CC_INVOICE_RECORD_FILE_MISMATCH": {
+        "note": "Clearance record {customs_clearance_id} does not belong to import file {import_file_id}.",
+    },
+    "CC_ACID_EXPIRY_INVALID": {"note": "The ACID expiry date stored on import file {import_file_id} is invalid."},
+    "CC_REFERENCE_CODE_CONFLICT": {
+        "note": "A unique reference code could not be generated because of concurrent saves; please retry.",
+    },
+    "CC_RELEASE_QUARANTINE_LOCKED": {
+        "note": "The final release cannot be issued while {clearance_code} is under the laboratory quarantine lock.",
+    },
+    "CC_LAB_RESULT_ALREADY_FINAL": {
+        "note": "The lab result was already recorded and the quarantine lifted, or the shipment is finally released "
+        "({clearance_status}).",
+    },
+    "CC_ASSESSED_COMPONENTS_LOCKED": {
+        "note": "Duty components cannot be edited after the assessment ({fields}); re-assess the final duties (CL-02).",
+    },
+    "CCQ_RFQ_STATUS_INVALID": {
+        "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",
+    },
+    "CCQ_RFQ_CANCELLED": {"note": "RFQ {rfq_code} is cancelled and cannot be awarded."},
+    "CCQ_QUOTE_EXPIRED": {"note": "The quotation expired on {validity_date}."},
+    "CCQ_AWARDED_QUOTE_DELETE": {"note": "The awarded quotation cannot be deleted."},
+    "CCQ_PRICE_LIST_DATE_RANGE": {"note": "The validity start {effective_from} is after its end {effective_to}."},
+    # ── 08-10 Warehouse receiving (WR), inland transport (IT), file closure (FC) (validators.coded_error) ──
+    "WR_GRN_EXISTS": {"note": "An active goods receipt note ({grn_code}) already exists for this import file."},
+    "WR_GRN_LINE_UNBALANCED": {
+        "note": "Line {item_code}: accepted {accepted_qty} + shortage {shortage_qty} + damaged {damaged_qty} must "
+        "equal invoiced {invoiced_qty}.",
+    },
+    "WR_VERDICT_INVALID": {"note": "Unknown inspection verdict '{verdict}'."},
+    # Raised today for both shapes; the (verdict, expected_verdict) shape moves to *_EXPECTED when the module adopts it.
+    "WR_VERDICT_INCONSISTENT": {
+        "note": "The verdict cannot be accepted in full with {shortage_qty} short and {damaged_qty} damaged.",
+    },
+    "WR_VERDICT_INCONSISTENT_EXPECTED": {
+        "note": "The inspection verdict {verdict} does not match the inspection outcome (expected {expected_verdict}).",
+    },
+    "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
+    "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "IT_BOOKING_EXISTS": {
+        "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
+    },
+    "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
+    "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
+    "FC_ALREADY_CLOSED": {"note": "Import file {import_file_code} is already closed. Reopen it first."},
+    "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
+    "FC_CLOSED_RECORD_LOCKED": {
+        "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",
+    },
+    "FC_CLOSURE_EXISTS": {
+        "note": "Cannot restore: another active closure record ({closure_code}) exists for this file.",
+    },
+    "FC_STATUS_INVALID": {"note": "A closure record can only be set back to Draft."},
+    # ── 09 Financial settlement + recalculation (409 detail.code, messages[], recalc message_code) ──
+    "SETTLEMENT_FX_RATE_MISSING": {
+        "note": "No exchange rate for {currency} on {on_date}. Register the rate before calculating the settlement.",
+    },
+    "SETTLEMENT_NOT_EDITABLE": {
+        "note": "Settlement {settlement_code} is {status} and cannot be edited or recalculated.",
+    },
+    # Variant of SETTLEMENT_NOT_EDITABLE for a file whose actual landed cost is already approved (no settlement code).
+    "SETTLEMENT_COST_ALREADY_APPROVED": {
+        "note": "The actual landed cost of import file {import_file_code} is already approved ({status}).",
+    },
+    "SETTLEMENT_DUPLICATE_ACTIVE": {
+        "note": "Cannot restore: another active settlement ({settlement_code}) exists for this import file.",
+    },
+    "INVOICES_ALREADY_SETTLED": {"note": "Invoices of {import_file_code} are already settled ({status})."},
+    "JOURNAL_UNBALANCED": {"note": "The journal entry is unbalanced by {difference} EGP and cannot be exported."},
+    "SETTLEMENT_LINE_NO_HS": {"note": "Line {item_code} has no HS code: it is left out of the customs estimate."},
+    "SETTLEMENT_LINE_ZERO_VALUE": {"note": "Line {item_code} has no value: it is left out of the customs estimate."},
+    "PAYMENT_STATUS_UNKNOWN": {
+        "note": "Invoice {invoice_no} is partially paid but the paid amount is unknown: counted as unpaid.",
+    },
+    "ESTIMATE_UNAVAILABLE": {
+        "note": "The estimated landed cost is unavailable ({reason}); variances are against zero.",
+    },
+    "SETTLEMENT_UNPAID_INVOICE": {"note": "Unpaid balance for {party_name}: {amount} EGP (invoice {invoice_no})."},
+    "WHT_RATE_MISSING_WARNING": {
+        "note": "No withholding tax rate ({tax_code}) valid on {on_date}: no deduction on invoice {invoice_no}.",
+    },
+    "WHT_RATE_NOT_CONFIGURED": {
+        "note": "No withholding tax rate ({tax_code}) is valid on {on_date} for clearance invoice {invoice_code}: "
+        "configure the rate or enter the deducted amount on the invoice.",
+    },
+    "RECALC_NO_VARIANCE": {"note": "No variance: all costs match the live sources."},
+    "RECALC_SOFT_VARIANCE": {"note": "Cost variances below {threshold}% found. You can sync with a warning."},
+    "RECALC_HARD_BLOCK": {"note": "A variance above {threshold}% was found. A written justification is required."},
+    "RECALC_APPLIED": {"note": "Recalculation applied ({action_taken})."},
+    "RECALC_RATE_MISSING": {
+        "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
+    },
 }
 
 
@@ -1082,6 +1371,19 @@ def msg(code: str, **params: Any) -> SysMsg:
         if value is not None and not isinstance(value, (str, int, float, bool)):
             raise TypeError(f"System message param {name!r} must be a JSON primitive, got {type(value).__name__}")
     return SysMsg(code=code, params=dict(params))
+
+
+class SystemMessageItem(BaseModel):
+    """A coded system message in an API response: the client renders ``code`` + ``params`` (see ``to_item``)."""
+    code: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    severity: Literal["error", "warning"] = "warning"
+
+
+def to_item(code: str, severity: str = "warning", **params: Any) -> SystemMessageItem:
+    """``SystemMessageItem`` validated through ``msg`` (known code, JSON-primitive params)."""
+    m = msg(code, **params)
+    return SystemMessageItem(code=m.code, params=m.params, severity=severity)
 
 
 def coded_text(field: str, code: str, part: str = "note", **params: Any) -> Dict[str, Any]:

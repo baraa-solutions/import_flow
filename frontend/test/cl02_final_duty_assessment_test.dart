@@ -160,7 +160,7 @@ void main() {
 
       // Verify Variance Card Content
       expect(find.text('الرسوم التقديرية المبدئية'), findsOneWidget);
-      expect(find.textContaining('150000.00 ج.م'), findsOneWidget);
+      expect(find.textContaining('150,000.00 ج.م'), findsOneWidget);
       expect(find.text('إجمالي المطالبة الفعلية'), findsOneWidget);
 
       // Verify Action Button

@@ -1,21 +1,20 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import extract
 
+from modules.common.sequence_generator import next_yearly_code
+from modules.common.validators import not_null_columns
 from modules.freight_booking.model import ShipmentBooking
 from modules.freight_booking.schemas import ShipmentBookingCreate, ShipmentBookingUpdate
 
 
 def generate_booking_code(db: Session) -> str:
-    current_year = datetime.now(timezone.utc).year
-    count = db.query(ShipmentBooking).filter(
-        extract("year", ShipmentBooking.created_at) == current_year
-    ).count()
-    return f"BKG-{current_year}-{(count + 1):04d}"
+    """Next ``BKG-YYYY-NNNN`` (highest suffix of the year + 1; the unique constraint stays the final guard)."""
+    return next_yearly_code(db, ShipmentBooking.booking_code, "BKG", pad=4)
 
 
-def create_booking(db: Session, payload: ShipmentBookingCreate) -> ShipmentBooking:
+def create_booking(db: Session, payload: ShipmentBookingCreate, owner: str) -> ShipmentBooking:
+    """Adds and flushes the booking (the service commits)."""
     code = generate_booking_code(db)
     containers_json = [c.model_dump() for c in payload.containers_data]
     costs_json = [c.model_dump() for c in payload.cost_charges_data]
@@ -60,21 +59,20 @@ def create_booking(db: Session, payload: ShipmentBookingCreate) -> ShipmentBooki
         cost_variance_usd=payload.cost_variance_usd or 0.0,
         savings_notes=payload.savings_notes,
         status=payload.status,
-        owner=payload.owner,
+        owner=owner,
         notes=payload.notes,
     )
 
     db.add(booking)
-    db.commit()
-    db.refresh(booking)
+    db.flush()
     return booking
 
 
-def get_booking_by_id(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
-    return db.query(ShipmentBooking).filter(
-        ShipmentBooking.booking_id == booking_id,
-        ShipmentBooking.is_active == True
-    ).first()
+def get_booking_by_id(db: Session, booking_id: int, include_inactive: bool = False) -> Optional[ShipmentBooking]:
+    query = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id)
+    if not include_inactive:
+        query = query.filter(ShipmentBooking.is_active == True)
+    return query.first()
 
 
 def list_bookings(
@@ -103,12 +101,10 @@ def list_bookings(
     return query.order_by(ShipmentBooking.created_at.desc()).all()
 
 
-def update_booking(db: Session, booking_id: int, payload: ShipmentBookingUpdate) -> Optional[ShipmentBooking]:
-    booking = get_booking_by_id(db, booking_id)
-    if not booking:
-        return None
-
-    data = payload.model_dump(exclude_unset=True)
+def apply_booking_update(booking: ShipmentBooking, payload: ShipmentBookingUpdate) -> None:
+    """Copies the sent fields onto the booking (no commit). An explicit null on a NOT NULL column is skipped."""
+    required = not_null_columns(ShipmentBooking)
+    data = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if not (v is None and k in required)}
     if "containers_data" in data and data["containers_data"] is not None:
         data["containers_data"] = [c.model_dump() if hasattr(c, "model_dump") else c for c in data["containers_data"]]
     if "cost_charges_data" in data and data["cost_charges_data"] is not None:
@@ -118,27 +114,8 @@ def update_booking(db: Session, booking_id: int, payload: ShipmentBookingUpdate)
         setattr(booking, key, val)
 
     booking.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(booking)
-    return booking
 
 
-def soft_delete_booking(db: Session, booking_id: int) -> bool:
-    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id).first()
-    if not booking:
-        return False
-    booking.is_active = False
+def set_booking_active(booking: ShipmentBooking, is_active: bool) -> None:
+    booking.is_active = is_active
     booking.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return True
-
-
-def restore_booking(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
-    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id).first()
-    if not booking:
-        return None
-    booking.is_active = True
-    booking.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(booking)
-    return booking

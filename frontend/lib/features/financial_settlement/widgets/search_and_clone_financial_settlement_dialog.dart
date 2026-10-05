@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_settlement_model.dart';
+import 'settlement_ui.dart';
 
 /// Modal dialog that allows searching and selecting a previous Landed Cost Financial Settlement
 /// to clone into a new draft following the 5-Task Enterprise Protocol.
@@ -38,7 +40,6 @@ class _SearchAndCloneFinancialSettlementDialogState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final dialogWidth = (screenWidth - 32).clamp(360.0, 920.0);
@@ -66,64 +67,26 @@ class _SearchAndCloneFinancialSettlementDialogState
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
+      child: SizedBox(
         width: dialogWidth,
         height: dialogHeight,
-        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Dialog Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.calculate_outlined, color: AppTheme.cobalt, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.cloneFinancialSettlementDialogTitle,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l.cloneFinancialSettlementDialogSubtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  tooltip: l.cancel,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            SettlementDialogHeader(
+              icon: Icons.calculate_outlined,
+              title: l.cloneFinancialSettlementDialogTitle,
+              subtitle: l.cloneFinancialSettlementDialogSubtitle,
+              onClose: () => Navigator.of(context).pop(),
+              closeTooltip: l.cancel,
             ),
-            const SizedBox(height: 16),
-
-            // Search Bar & Filter Chips
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: l.financialSettlementSearchHint,
@@ -146,36 +109,29 @@ class _SearchAndCloneFinancialSettlementDialogState
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildFilterChip('All', l.settlementFilterAll),
+                      _buildFilterChip('Draft', l.financialSettlementStatusDraft),
+                      _buildFilterChip('Calculated', l.financialSettlementStatusCalculated),
+                      _buildFilterChip('Approved', l.financialSettlementStatusApproved),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-
-            // Filter Chips
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _buildFilterChip('All', l.isArabic ? 'الكل' : 'All', isDark),
-                _buildFilterChip('Draft', l.financialSettlementStatusDraft, isDark),
-                _buildFilterChip('Calculated', l.financialSettlementStatusCalculated, isDark),
-                _buildFilterChip('Approved', l.financialSettlementStatusApproved, isDark),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Records List
             Expanded(
               child: filteredRecords.isEmpty
-                  ? Center(
-                      child: Text(
-                        l.financialSettlementEmptyRecords,
-                        style: TextStyle(
-                          color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                        ),
-                      ),
+                  ? SettlementStateView.empty(
+                      message: l.financialSettlementEmptyRecords,
+                      icon: Icons.search_off,
                     )
                   : ListView.separated(
+                      padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 20),
                       itemCount: filteredRecords.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
@@ -186,15 +142,9 @@ class _SearchAndCloneFinancialSettlementDialogState
                         final fileTitle = compName.isNotEmpty ? '$fileCode - $compName' : fileCode;
                         final currencyStr = l.financialSettlementCurrencyEgp;
 
-                        return Container(
+                        return SettlementPanel(
+                          filled: true,
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-                            ),
-                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -224,20 +174,17 @@ class _SearchAndCloneFinancialSettlementDialogState
                                         _buildStatusBadge(context, rec.status),
                                         Text(
                                           l.financialSettlementAccountantLabel(rec.accountantName),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-                                          ),
+                                          style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
                                       fileTitle,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white : AppTheme.charcoal,
+                                        color: AppTheme.charcoal,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -246,14 +193,11 @@ class _SearchAndCloneFinancialSettlementDialogState
                                       runSpacing: 4,
                                       children: [
                                         Text(
-                                          '${l.financialSettlementMetricFobTotal}: ${rec.totalFobEgp.toStringAsFixed(2)} $currencyStr',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-                                          ),
+                                          '${l.financialSettlementMetricFobTotal}: ${formatSettlementMoney(rec.totalFobEgp)} $currencyStr',
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.textStrong),
                                         ),
                                         Text(
-                                          '${l.financialSettlementMetricExpensesTotal}: ${rec.totalExpensesEgp.toStringAsFixed(2)} $currencyStr',
+                                          '${l.financialSettlementMetricExpensesTotal}: ${formatSettlementMoney(rec.totalExpensesEgp)} $currencyStr',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: AppTheme.orange,
@@ -261,7 +205,7 @@ class _SearchAndCloneFinancialSettlementDialogState
                                           ),
                                         ),
                                         Text(
-                                          '${l.financialSettlementMetricLandedCostTotal}: ${rec.totalLandedCostEgp.toStringAsFixed(2)} $currencyStr',
+                                          '${l.financialSettlementMetricLandedCostTotal}: ${formatSettlementMoney(rec.totalLandedCostEgp)} $currencyStr',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: AppTheme.emerald,
@@ -282,24 +226,17 @@ class _SearchAndCloneFinancialSettlementDialogState
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              ElevatedButton.icon(
+                              SettlementFit(child: AppButton(
                                 key: Key('selectSettlementToCloneBtn_${rec.settlementCode}'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.cobalt,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                icon: const Icon(Icons.copy_all, size: 16),
-                                label: Text(
-                                  l.cloneFinancialSettlementTooltip,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
+                                label: l.cloneFinancialSettlementTooltip,
+                                icon: Icons.copy_all,
+                                variant: AppButtonVariant.primary,
+                                size: AppButtonSize.small,
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                   widget.onSelectRecord(rec);
                                 },
-                              ),
+                              )),
                             ],
                           ),
                         );
@@ -312,7 +249,7 @@ class _SearchAndCloneFinancialSettlementDialogState
     );
   }
 
-  Widget _buildFilterChip(String filterValue, String label, bool isDark) {
+  Widget _buildFilterChip(String filterValue, String label) {
     final isSelected = _statusFilter == filterValue;
     return ChoiceChip(
       label: Text(
@@ -320,43 +257,18 @@ class _SearchAndCloneFinancialSettlementDialogState
         style: TextStyle(
           fontSize: 11,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? Colors.white : (isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade800),
+          color: isSelected ? AppTheme.white : AppTheme.charcoal,
         ),
       ),
       selected: isSelected,
       selectedColor: AppTheme.cobalt,
-      backgroundColor: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+      backgroundColor: SettlementTokens.tableHeadFill,
       onSelected: (val) {
         if (val) setState(() => _statusFilter = filterValue);
       },
     );
   }
 
-  Widget _buildStatusBadge(BuildContext context, String status) {
-    Color color = AppTheme.cobalt;
-    String label = status;
-    if (status == 'Calculated') {
-      color = AppTheme.emerald;
-      label = context.l10n.financialSettlementStatusCalculated;
-    } else if (status == 'Approved') {
-      color = AppTheme.cobalt;
-      label = context.l10n.financialSettlementStatusApproved;
-    } else if (status == 'Draft') {
-      color = AppTheme.orange;
-      label = context.l10n.financialSettlementStatusDraft;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 11),
-      ),
-    );
-  }
+  Widget _buildStatusBadge(BuildContext context, String status) =>
+      settlementStatusChip(context, status, dense: true);
 }

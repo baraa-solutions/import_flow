@@ -3,18 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/file_closure_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 
 
 final fileClosureProvider =
     StateNotifierProvider<FileClosureNotifier, AsyncValue<List<ImportFileClosureModel>>>((ref) {
-  return FileClosureNotifier(ref.read(dioProvider));
+  return FileClosureNotifier(ref.read(dioProvider), ref);
 });
 
 class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosureModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  FileClosureNotifier(this._dio) : super(const AsyncValue.loading()) {
+  FileClosureNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchClosures();
   }
 
@@ -57,64 +60,54 @@ class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosur
     }
   }
 
+  /// Every closure write changes the file status and its tasks: refresh both lists.
+  void _invalidateRelated() {
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+  }
+
   Future<ImportFileClosureModel?> closeImportFile(Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/file-closure',
-        data: payload,
-      );
-      final created = ImportFileClosureModel.fromJson(response.data);
-      await fetchClosures();
-      return created;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/file-closure',
+      data: payload,
+    );
+    final created = ImportFileClosureModel.fromJson(response.data);
+    _invalidateRelated();
+    await fetchClosures();
+    return created;
   }
 
   Future<void> softDeleteClosure(int closureId) async {
-    try {
-      await _dio.delete('${ApiConstants.baseUrl}/file-closure/$closureId');
-      await fetchClosures();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.delete('${ApiConstants.baseUrl}/file-closure/$closureId');
+    _invalidateRelated();
+    await fetchClosures();
   }
 
   Future<void> restoreClosure(int closureId) async {
-    try {
-      await _dio.patch('${ApiConstants.baseUrl}/file-closure/$closureId/restore');
-      await fetchClosures();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.patch('${ApiConstants.baseUrl}/file-closure/$closureId/restore');
+    _invalidateRelated();
+    await fetchClosures();
   }
 
   Future<ClosurePrecheckResponseModel> fetchClosurePrecheck(int importFileId) async {
-    try {
-      final response = await _dio.get(
-        '${ApiConstants.baseUrl}/file-closure/closure-precheck/$importFileId',
-      );
-      return ClosurePrecheckResponseModel.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.get(
+      '${ApiConstants.baseUrl}/file-closure/closure-precheck/$importFileId',
+    );
+    return ClosurePrecheckResponseModel.fromJson(response.data);
   }
 
   Future<OfficialClosureCertificateResponseModel> officialCloseImportFile(
     Map<String, dynamic> payload,
   ) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/file-closure/official-close',
-        data: payload,
-      );
-      final certificate =
-          OfficialClosureCertificateResponseModel.fromJson(response.data);
-      await fetchClosures();
-      return certificate;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/file-closure/official-close',
+      data: payload,
+    );
+    final certificate =
+        OfficialClosureCertificateResponseModel.fromJson(response.data);
+    _invalidateRelated();
+    await fetchClosures();
+    return certificate;
   }
 }
 

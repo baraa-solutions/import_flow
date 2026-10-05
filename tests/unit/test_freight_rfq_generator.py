@@ -285,7 +285,7 @@ def test_freight_rfq_example_3_shaw_carpets_pallets_breakdown(db_session):
 def test_freight_rfq_air_shipment_gi_industrial(db_session):
     """
     Test Air Freight RFQ:
-    - Chargeable weight calculation (CBM * 166.67 = 49 kg > 37 kg gross)
+    - Chargeable weight calculation (CBM * 167 air factor = 49.2 kg > 37 kg gross)
     - Cleaned concise commodity (removes OCR noise words like 'weight kg', etc.)
     - Formats all distinct HS codes: 84145925, 85369010
     - DTHC and Airport inclusions
@@ -385,7 +385,7 @@ def test_freight_rfq_air_shipment_gi_industrial(db_session):
     assert rfq["is_air"] is True
     assert rfq["gross_weight_kg"] == 37.0
     assert rfq["net_weight_kg"] == 25.0
-    assert rfq["chargeable_weight_kg"] >= 49.0  # (80*80*46/6000 = 49.06 kg)
+    assert rfq["chargeable_weight_kg"] >= 49.0  # 0.8 x 0.8 x 0.46 = 0.2944 CBM x 167 = 49.16 kg (single configurable air factor)
 
     # Verify cleaned commodity does NOT contain 'weight kg' or 'Gross weight'
     assert "weight kg" not in rfq["commodity"].lower()
@@ -399,7 +399,7 @@ def test_freight_rfq_air_shipment_gi_industrial(db_session):
 
     # Verify Email Body text
     body = rfq["email_body_template"]
-    assert "Chargeable Weight: 49.1 kg" in body or "Chargeable Weight: 49.0 kg" in body
+    assert "Chargeable Weight: 49.2 kg" in body
     assert "HS Code(s): 84145925, 85369010" in body
     assert "Stackability: " in body
     assert "DTHC" in body

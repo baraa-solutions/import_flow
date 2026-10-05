@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 
 void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemModel> checklist, Function(List<CustomsChecklistItemModel>) onUpdate) {
   final l = context.l10n;
@@ -27,13 +28,13 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.block, color: Colors.white, size: 24),
+                  const Icon(Icons.block, color: AppTheme.white, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       '${l.blockingIssuesTitle} (${blockingItems.length})',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -56,9 +57,9 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppTheme.crimsonLight,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(color: AppTheme.crimsonBorder),
                       ),
                       child: Row(
                         children: [
@@ -97,9 +98,9 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: AppTheme.charcoalSurface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: AppTheme.cloudWhite),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,15 +136,15 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.shade100,
+                                      color: AppTheme.orangeLight,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       '${l.statusCol}: ${item.status == 'Blocked' ? l.statusBlocked : (item.status == 'Pending' ? l.statusPending : (item.status == 'Action Required' ? l.statusActionRequired : item.status))}',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 11,
-                                        color: Colors.orange.shade900,
+                                        color: AppTheme.wcagOrange,
                                       ),
                                     ),
                                   ),
@@ -152,27 +153,24 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                               const SizedBox(height: 8),
                               Text(
                                 '${l.responsiblePartyLabel}: ${item.requiredText.isNotEmpty ? item.requiredText : (item.regulatoryAgency ?? "-")}',
-                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                style: const TextStyle(fontSize: 11.5, color: AppTheme.textStrong),
                               ),
                               if (item.remarks != null && item.remarks!.isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   '${l.notes}: ${item.remarks}',
-                                  style: const TextStyle(fontSize: 11.5, color: Colors.blueGrey, fontStyle: FontStyle.italic),
+                                  style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal, fontStyle: FontStyle.italic),
                                 ),
                               ],
                               const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppTheme.emerald,
-                                      side: const BorderSide(color: AppTheme.emerald),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    ),
-                                    icon: const Icon(Icons.check_circle_outline, size: 16),
-                                    label: Text(l.statusApproved, style: const TextStyle(fontSize: 11.5)),
+                                  AppButton(
+                                    label: l.statusApproved,
+                                    icon: Icons.check_circle_outline,
+                                    variant: AppButtonVariant.success,
+                                    size: AppButtonSize.small,
                                     onPressed: () {
                                       final realIndex = checklist.indexWhere((c) => c.documentType == item.documentType);
                                       if (realIndex != -1) {
@@ -198,15 +196,11 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
               ),
             ),
             actions: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.check),
-                label: Text(l.close),
+              AppButton(
+                label: l.close,
+                icon: Icons.check,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
                 onPressed: () => Navigator.of(ctx).pop(),
               ),
             ],
