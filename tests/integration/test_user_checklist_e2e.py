@@ -361,7 +361,8 @@ def test_complete_user_testing_checklist_flow(e2e_context):
         CBMItemCreate(package_type="Crate", quantity=2, length=400.0, width=200.0, height=220.0, unit="cm", gross_weight_per_unit_kg=4600.0),
         CBMItemCreate(package_type="Box", quantity=5, length=180.0, width=120.0, height=140.0, unit="cm", gross_weight_per_unit_kg=700.0),
     ]
-    _, cbm_totals = CBMService.compute_items_and_totals(cbm_items)
+    from modules.common.system_parameters import air_volumetric_kg_per_cbm
+    _, cbm_totals = CBMService.compute_items_and_totals(cbm_items, air_volumetric_kg_per_cbm(db))
     assert cbm_totals["total_cbm"] > 50.0
     assert "40" in cbm_totals["recommended_container_type"]
     checklist_results["PL-05"] = f"Passed ✅: CBM Calculated ({cbm_totals['total_cbm']:.2f} m3) -> Recommended {cbm_totals['recommended_container_type']}."
