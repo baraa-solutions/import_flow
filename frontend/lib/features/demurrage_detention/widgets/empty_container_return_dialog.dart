@@ -1,8 +1,12 @@
+import '../../../core/localization/api_error_text.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
@@ -104,13 +108,11 @@ class _EmptyContainerReturnDialogState
   }
 
   Future<void> _submit() async {
+    final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى اختيار ملف الشحنة المراد إرجاع حاوياتها'),
-          backgroundColor: AppTheme.flatCrimson,
-        ),
+        AppTheme.snackBar(context, l.erSelectFileSnack, severity: AppSeverity.warning),
       );
       return;
     }
@@ -150,27 +152,22 @@ class _EmptyContainerReturnDialogState
           .recordEmptyContainerReturn(submitModel);
 
       if (mounted && res != null) {
-        Navigator.of(context).pop(res);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(res.messageAr)),
-              ],
-            ),
-            backgroundColor: AppTheme.flatEmerald,
-            duration: const Duration(seconds: 4),
-          ),
+        final snack = AppTheme.snackBar(
+          context,
+          context.l10n.emptyReturnRecordedSuccess(res.containersReturnedCount, res.totalContainersCount),
+          severity: AppSeverity.success,
         );
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop(res);
+        messenger.showSnackBar(snack);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل تسجيل إرجاع الحاوية: ${e.toString()}'),
-            backgroundColor: AppTheme.flatCrimson,
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e, fallback: context.l10n.emptyReturnRecordFailed),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -183,153 +180,100 @@ class _EmptyContainerReturnDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final filesAsync = ref.watch(importFilesProvider);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 850),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildFileSelector(filesAsync),
-                      const SizedBox(height: 16),
-                      _buildRadarNoticeBanner(),
-                      const SizedBox(height: 20),
-                      _buildEirAndDateRow(),
-                      const SizedBox(height: 16),
-                      _buildDepotSelector(),
-                      const SizedBox(height: 20),
-                      _buildContainerConditionSection(),
-                      const SizedBox(height: 16),
-                      _buildDriverAndTruckRow(),
-                      const SizedBox(height: 16),
-                      _buildNotesField(),
-                    ],
-                  ),
-                ),
+    return Form(
+      key: _formKey,
+      child: CcStageDialogShell(
+        title: l.erTitle,
+        icon: Icons.assignment_turned_in_rounded,
+        accent: AppTheme.emerald,
+        maxWidth: 800,
+        chips: [
+          if (widget.initialContainerNumber != null)
+            CcHeaderChip(Icons.inventory_2_outlined, l.erContainerChip(widget.initialContainerNumber!), ltr: true),
+        ],
+        confirmKey: const Key('submitEmptyContainerReturnBtn'),
+        confirmLabel: l.erConfirmBtn,
+        loadingLabel: l.erSubmitting,
+        isSubmitting: _isSubmitting,
+        onConfirm: _submit,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l.erSubtitle,
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryOf(context)),
+            ),
+            const SizedBox(height: 14),
+            CcFormSection(
+              title: l.erTargetFile,
+              icon: Icons.folder_shared_outlined,
+              child: _buildFileSelector(l, filesAsync),
+            ),
+            const SizedBox(height: 14),
+            _buildRadarNoticeBanner(l),
+            const SizedBox(height: 14),
+            CcFormSection(
+              title: l.erSectionHandover,
+              icon: Icons.assignment_outlined,
+              accent: AppTheme.emerald,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildEirAndDateRow(l),
+                  const SizedBox(height: 14),
+                  _buildDepotSelector(l),
+                ],
               ),
-              _buildActions(),
-            ],
-          ),
+            ),
+            const SizedBox(height: 14),
+            _buildContainerConditionSection(l),
+            const SizedBox(height: 14),
+            CcFormSection(
+              title: l.erSectionTransport,
+              icon: Icons.local_shipping_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildDriverAndTruckRow(l),
+                  const SizedBox(height: 14),
+                  CcField(
+                    label: l.erExtraNotes,
+                    child: TextFormField(
+                      controller: _notesCtrl,
+                      maxLines: 2,
+                      decoration: ccInputDecoration(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-      decoration: const BoxDecoration(
-        color: AppTheme.flatCharcoal,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.assignment_turned_in_rounded,
-              color: AppTheme.flatEmerald,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'تأكيد إرجاع الحاويات الفارغة للخط (EIR) — (TR-05)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'إصدار إيصال استلام الحاوية وإيقاف عدادات غرامات التأخير ونقل الملف للمرحلة الختامية',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.75),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, color: Colors.white70),
-            tooltip: 'إغلاق',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFileSelector(AsyncValue<List<dynamic>> filesAsync) {
+  Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
     return filesAsync.when(
       data: (files) {
         if (files.isEmpty) {
-          return const Text('لا توجد ملفات استيراد مسجلة');
+          return Text(l.erNoImportFiles, style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
 
-        final selectedFile = files
-            .cast<dynamic>()
-            .firstWhere(
-              (f) => f.importFileId == _selectedImportFileId,
-              orElse: () => null,
-            );
+        ImportFileModel? selectedFile;
+        for (final f in files) {
+          if (f.importFileId == _selectedImportFileId) {
+            selectedFile = f;
+            break;
+          }
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.folder_shared_outlined,
-                    size: 18, color: AppTheme.flatCobalt),
-                const SizedBox(width: 8),
-                const Text(
-                  'ملف الاستيراد المستهدف',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppTheme.flatCharcoal,
-                  ),
-                ),
-                const Spacer(),
-                if (widget.initialContainerNumber != null)
-                  Chip(
-                    avatar: const Icon(Icons.inventory_2_outlined,
-                        size: 14, color: Colors.white),
-                    label: Text(
-                      'الحاوية: ${widget.initialContainerNumber}',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: AppTheme.flatCharcoal,
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
             SearchableDropdownField<int>(
               key: const Key('emptyReturnImportFileDropdown'),
               items: files
@@ -339,7 +283,7 @@ class _EmptyContainerReturnDialogState
                       ))
                   .toList(),
               value: _selectedImportFileId,
-              hintText: 'اختر ملف الاستيراد لتسليم حاوياته...',
+              hintText: l.erFileHint,
               onChanged: (val) {
                 setState(() => _selectedImportFileId = val);
               },
@@ -347,32 +291,19 @@ class _EmptyContainerReturnDialogState
             if (selectedFile != null) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsetsDirectional.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.cloudWhite.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: AppTheme.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.borderOf(context)),
                 ),
-                child: Row(
+                child: Wrap(
+                  spacing: 28,
+                  runSpacing: 10,
                   children: [
-                    Expanded(
-                      child: _buildSmallDetail(
-                        'المستورد',
-                        selectedFile.companyName ?? '-',
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildSmallDetail(
-                        'المورد',
-                        selectedFile.supplierName ?? '-',
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildSmallDetail(
-                        'حالة النقل الداخلي',
-                        selectedFile.inlandTransportStatus ?? '-',
-                      ),
-                    ),
+                    CcFact(label: l.erDetailImporter, value: _dash(selectedFile.companyName)),
+                    CcFact(label: l.erDetailSupplier, value: _dash(selectedFile.supplierName)),
+                    CcFact(label: l.erDetailInland, value: _dash(selectedFile.inlandTransportStatus)),
                   ],
                 ),
               ),
@@ -381,69 +312,43 @@ class _EmptyContainerReturnDialogState
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('خطأ في جلب الملفات: $e'),
-    );
-  }
-
-  Widget _buildSmallDetail(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.flatCharcoal,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRadarNoticeBanner() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F9F5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.flatEmerald.withOpacity(0.35)),
+      error: (e, _) => Text(
+        ApiErrorText.of(l, e, fallback: l.erFilesLoadFailed),
+        style: TextStyle(color: AppTheme.severityForegroundOf(context, AppSeverity.danger)),
       ),
-      child: const Row(
+    );
+  }
+
+  String _dash(String v) => v.trim().isEmpty ? '-' : v;
+
+  /// What recording the return does to the radar and the shipment lifecycle.
+  Widget _buildRadarNoticeBanner(AppLocalizations l) {
+    final fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
+    final bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
+    return Container(
+      padding: const EdgeInsetsDirectional.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: fg.withValues(alpha: 0.35)),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.shield_outlined,
-              color: AppTheme.flatEmerald, size: 22),
-          SizedBox(width: 12),
+          Icon(Icons.shield_outlined, color: fg, size: 22),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'أثر تسليم الحاوية الفارغة على رادار الغرامات ودورة الحياة:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: AppTheme.flatEmerald,
-                  ),
+                  l.erRadarImpactTitle,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: fg),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '1. إيقاف احتساب عداد غرامات التأخير (Detention) فورياً.\n'
-                  '2. تحويل حالة الحاوية في رادار الغرامات إلى "RETURNED_SAFE" (تم الإرجاع بسلام).\n'
-                  '3. ترقية نسبة إنجاز الشحنة إلى 98% ونقل الملف رسمياً للمرحلة التاسعة: تكلفة الوصول والتسوية الختامية (CLO-01).',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.flatCharcoal,
-                    height: 1.45,
-                  ),
+                  l.erRadarImpactBody,
+                  style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context), height: 1.45),
                 ),
               ],
             ),
@@ -453,49 +358,31 @@ class _EmptyContainerReturnDialogState
     );
   }
 
-  Widget _buildEirAndDateRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEirAndDateRow(AppLocalizations l) {
+    return CcFieldRow(
       children: [
-        Expanded(
-          flex: 3,
+        CcField(
+          label: l.erEirLabel,
+          isRequired: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'رقم إيصال استلام الحاوية (EIR) *',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _regenerateEirNumber,
-                    icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text('توليد جديد',
-                        style: TextStyle(fontSize: 11)),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
               TextFormField(
                 key: const Key('eirNumberField'),
                 controller: _eirNumberCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. EIR-2026-88001',
-                  prefixIcon: Icon(Icons.receipt_long_outlined),
-                  border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                textDirection: TextDirection.ltr,
+                decoration: ccInputDecoration(
+                  hint: 'e.g. EIR-2026-88001',
+                  prefix: Icons.receipt_long_outlined,
+                  suffix: IconButton(
+                    icon: const Icon(Icons.refresh, size: 16),
+                    tooltip: l.erRegenerate,
+                    onPressed: _regenerateEirNumber,
+                  ),
                 ),
                 validator: (val) {
                   if (val == null || val.trim().length < 3) {
-                    return 'يرجى إدخال رقم إيصال EIR صحيح (3 أحرف على الأقل)';
+                    return l.erEirValidation;
                   }
                   return null;
                 },
@@ -503,181 +390,123 @@ class _EmptyContainerReturnDialogState
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'تاريخ الإرجاع الفعلي *',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _emptyReturnDate,
-                    firstDate: DateTime(2025),
-                    lastDate: DateTime(2030),
-                  );
-                  if (picked != null) {
-                    setState(() => _emptyReturnDate = picked);
-                  }
-                },
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_rounded,
-                          size: 18, color: AppTheme.flatCobalt),
-                      const SizedBox(width: 10),
-                      Text(
-                        _emptyReturnDate
-                            .toIso8601String()
-                            .split('T')
-                            .first,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        CcField(
+          label: l.erReturnDate,
+          isRequired: true,
+          child: CcDateTile(
+            date: _emptyReturnDate,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _emptyReturnDate,
+                firstDate: DateTime(2025),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                setState(() => _emptyReturnDate = picked);
+              }
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDepotSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Text(
-              'مستودع وساحة إرجاع الحاوية (Carrier Depot / Terminal)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            Text(' *', style: TextStyle(color: Colors.red)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        SearchableDropdownField<String>(
-          key: const Key('depotNameDropdown'),
-          items: _popularDepots
-              .map((d) => SearchableDropdownItem<String>(
-                    value: d,
-                    label: DomainEnums.label(context.l10n, DomainEnumType.depot, d),
-                  ))
-              .toList(),
-          value: _popularDepots.contains(_depotNameCtrl.text)
-              ? _depotNameCtrl.text
-              : null,
-          hintText: 'اختر ساحة ومستودع الخط الملاحي...',
-          onChanged: (val) {
-            if (val != null) {
-              setState(() => _depotNameCtrl.text = val);
-            }
-          },
-        ),
-      ],
+  Widget _buildDepotSelector(AppLocalizations l) {
+    return SearchableDropdownField<String>(
+      key: const Key('depotNameDropdown'),
+      labelText: l.erDepotLabel,
+      isRequired: true,
+      items: _popularDepots
+          .map((d) => SearchableDropdownItem<String>(
+                value: d,
+                label: DomainEnums.label(l, DomainEnumType.depot, d),
+              ))
+          .toList(),
+      value: _popularDepots.contains(_depotNameCtrl.text)
+          ? _depotNameCtrl.text
+          : null,
+      hintText: l.erDepotHint,
+      onChanged: (val) {
+        if (val != null) {
+          setState(() => _depotNameCtrl.text = val);
+        }
+      },
     );
   }
 
-  Widget _buildContainerConditionSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+  Widget _buildContainerConditionSection(AppLocalizations l) {
+    final cards = [
+      _buildConditionCard(
+        'SOUND_CLEAN',
+        l.erCondSound,
+        l.erCondSoundSub,
+        Icons.check_circle_outline,
+        AppTheme.emerald,
       ),
+      _buildConditionCard(
+        'MINOR_DAMAGE',
+        l.erCondMinor,
+        l.erCondMinorSub,
+        Icons.warning_amber_rounded,
+        AppTheme.orange,
+      ),
+      _buildConditionCard(
+        'REPAIR_REQUIRED',
+        l.erCondRepair,
+        l.erCondRepairSub,
+        Icons.build_outlined,
+        AppTheme.crimson,
+      ),
+    ];
+    return CcFormSection(
+      title: l.erConditionTitle,
+      icon: Icons.fact_check_outlined,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'حالة سلامة الحاوية عند التسليم الفعلي',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: AppTheme.flatCharcoal,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _buildConditionCard(
-                'SOUND_CLEAN',
-                'سليمة ونظيفة (Sound & Clean)',
-                'خالية من أي تلفيات أو أضرار',
-                Icons.check_circle_outline,
-                AppTheme.flatEmerald,
-              ),
-              const SizedBox(width: 12),
-              _buildConditionCard(
-                'MINOR_DAMAGE',
-                'تلفيات بسيطة (Minor Damage)',
-                'خدوش أو انحناءات طفيفة',
-                Icons.warning_amber_rounded,
-                AppTheme.flatOrange,
-              ),
-              const SizedBox(width: 12),
-              _buildConditionCard(
-                'REPAIR_REQUIRED',
-                'تتطلب إصلاح (Repair Required)',
-                'تلفيات بالأرضية أو الباب',
-                Icons.build_outlined,
-                AppTheme.flatCrimson,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, c) {
+              if (c.maxWidth < 560) {
+                return Column(
+                  children: [
+                    for (var i = 0; i < cards.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      cards[i],
+                    ],
+                  ],
+                );
+              }
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < cards.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      Expanded(child: cards[i]),
+                    ],
+                  ],
+                ),
+              );
+            },
           ),
           if (_containerCondition != 'SOUND_CLEAN') ...[
             const SizedBox(height: 14),
-            Row(
+            CcFieldRow(
               children: [
-                Expanded(
-                  flex: 3,
+                CcField(
+                  label: l.erDamageNotes,
                   child: TextFormField(
                     controller: _damageNotesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'ملاحظات وتفاصيل التلفيات بالمعاينة',
-                      hintText: 'e.g. انحناء بسيط بالقائم الأيمن والباب',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
+                    decoration: ccInputDecoration(hint: l.erDamageNotesHint),
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  flex: 1,
+                CcField(
+                  label: l.erDamageFee,
                   child: TextFormField(
                     controller: _damageFeeCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'غرامة الإصلاح (USD)',
-                      prefixIcon: Icon(Icons.attach_money, size: 18),
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
+                    decoration: ccInputDecoration(prefix: Icons.attach_money),
                   ),
                 ),
               ],
@@ -696,149 +525,72 @@ class _EmptyContainerReturnDialogState
     Color activeColor,
   ) {
     final isSelected = _containerCondition == code;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _containerCondition = code),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? activeColor.withOpacity(0.08) : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? activeColor : Colors.grey.shade300,
-              width: isSelected ? 2 : 1,
-            ),
+    return InkWell(
+      onTap: () => setState(() => _containerCondition = code),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      child: Container(
+        padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withValues(alpha: 0.08) : AppTheme.surfaceOf(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          border: Border.all(
+            color: isSelected ? activeColor : AppTheme.borderOf(context),
+            width: isSelected ? 2 : 1,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon,
-                      size: 18,
-                      color: isSelected ? activeColor : Colors.grey),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w600,
-                        color: isSelected
-                            ? activeColor
-                            : AppTheme.flatCharcoal,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: isSelected ? activeColor : AppTheme.textMutedOf(context)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected ? activeColor : AppTheme.textPrimaryOf(context),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildDriverAndTruckRow() {
-    return Row(
+  Widget _buildDriverAndTruckRow(AppLocalizations l) {
+    return CcFieldRow(
       children: [
-        Expanded(
+        CcField(
+          label: l.erDriver,
           child: TextFormField(
             controller: _driverNameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'اسم سائق شاحنة الإرجاع (اختياري)',
-              prefixIcon: Icon(Icons.person_outline),
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+            decoration: ccInputDecoration(prefix: Icons.person_outline),
           ),
         ),
-        const SizedBox(width: 14),
-        Expanded(
+        CcField(
+          label: l.erTruckPlate,
           child: TextFormField(
             controller: _truckPlateNoCtrl,
-            decoration: const InputDecoration(
-              labelText: 'رقم لوحة الشاحنة (اختياري)',
-              prefixIcon: Icon(Icons.local_shipping_outlined),
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+            decoration: ccInputDecoration(prefix: Icons.local_shipping_outlined),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildNotesField() {
-    return TextFormField(
-      controller: _notesCtrl,
-      maxLines: 2,
-      decoration: const InputDecoration(
-        labelText: 'ملاحظات إضافية على تسليم الحاوية الفارغة',
-        border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.all(12),
-      ),
-    );
-  }
-
-  Widget _buildActions() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius:
-            const BorderRadius.vertical(bottom: Radius.circular(16)),
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          OutlinedButton(
-            onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-            child: const Text('إلغاء'),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton.icon(
-            key: const Key('submitEmptyContainerReturnBtn'),
-            onPressed: _isSubmitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.flatEmerald,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: _isSubmitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.check_circle_rounded, size: 18),
-            label: Text(
-              _isSubmitting
-                  ? 'جاري إثبات التسليم...'
-                  : 'تأكيد الإرجاع واستلام إيصال EIR',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

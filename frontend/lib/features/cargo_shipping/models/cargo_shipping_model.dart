@@ -217,14 +217,29 @@ class ContainerLoadingModel {
       case 'GATED_IN_AT_PORT':
         return AppTheme.emerald;
       case 'LOADING_COMPLETED':
-        return const Color(0xFF10B981);
+        return AppTheme.emerald;
       case 'LOADING_IN_PROGRESS':
       case 'ARRIVED_AT_SUPPLIER':
         return AppTheme.orange;
       case 'ASSIGNED':
         return AppTheme.cobalt;
       default:
-        return Colors.grey.shade600;
+        return AppTheme.textSecondary;
+    }
+  }
+
+  /// Severity of the tracking status (SLA breach wins) for status chips.
+  AppSeverity get statusSeverity {
+    if (isSlaBreached) return AppSeverity.danger;
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+      case 'LOADING_COMPLETED':
+        return AppSeverity.success;
+      case 'LOADING_IN_PROGRESS':
+      case 'ARRIVED_AT_SUPPLIER':
+        return AppSeverity.warning;
+      default:
+        return AppSeverity.info;
     }
   }
 }
@@ -351,7 +366,7 @@ class LclLoadingTrackingModel {
       case 'GATED_IN_AT_PORT':
         return AppTheme.emerald;
       case 'LOADING_COMPLETED':
-        return const Color(0xFF10B981);
+        return AppTheme.emerald;
       case 'LOADING_IN_PROGRESS':
       case 'ARRIVED_AT_SUPPLIER':
       case 'ARRIVED_AT_CFS':
@@ -359,7 +374,23 @@ class LclLoadingTrackingModel {
       case 'ASSIGNED':
         return AppTheme.cobalt;
       default:
-        return Colors.grey.shade600;
+        return AppTheme.textSecondary;
+    }
+  }
+
+  /// Severity of the tracking status (SLA breach wins) for status chips.
+  AppSeverity get statusSeverity {
+    if (isSlaBreached) return AppSeverity.danger;
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+      case 'LOADING_COMPLETED':
+        return AppSeverity.success;
+      case 'LOADING_IN_PROGRESS':
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return AppSeverity.warning;
+      default:
+        return AppSeverity.info;
     }
   }
 }
@@ -592,4 +623,27 @@ class CargoShippingModel {
       'notes': notes,
     };
   }
+}
+
+/// Builds the create/update body for `/cargo-shipping`.
+///
+/// `status` is sent on create only: sending it on edit would reset a record
+/// that already reached a workflow status (Dual Approved, CargoX, Completed)
+/// back to "Cargo Ready" (CS-04). `owner` is never sent: the backend takes it
+/// from the session user.
+Map<String, dynamic> buildCargoShippingPayload({
+  required int importFileId,
+  required String shipmentType,
+  required List<ContainerLoadingModel> containers,
+  LclLoadingTrackingModel? lclTracking,
+  required bool isEdit,
+}) {
+  return {
+    'import_file_id': importFileId,
+    'shipment_type': shipmentType,
+    'containers_loading_data': containers.map((c) => c.toJson()).toList(),
+    'lcl_tracking_data':
+        shipmentType == 'LCL' && lclTracking != null ? lclTracking.toJson() : null,
+    if (!isEdit) 'status': 'Cargo Ready',
+  };
 }

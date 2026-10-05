@@ -172,7 +172,7 @@ class ShipmentBookingModel {
   final List<ContainerAllocationModel> containersData;
   final List<BookingChargeModel> costChargesData;
   final Map<String, dynamic> quotationDetailsData;
-  final double totalFreightCostUsd;
+  final double? totalFreightCostUsd;
   final double originalFreightCostUsd;
   final double costSavingsUsd;
   final double costVarianceUsd;
@@ -228,13 +228,13 @@ class ShipmentBookingModel {
     this.containersData = const [],
     this.costChargesData = const [],
     this.quotationDetailsData = const {},
-    this.totalFreightCostUsd = 0.0,
+    this.totalFreightCostUsd,
     this.originalFreightCostUsd = 0.0,
     this.costSavingsUsd = 0.0,
     this.costVarianceUsd = 0.0,
     this.savingsNotes,
     this.status = 'Draft',
-    this.owner = 'Kamal',
+    this.owner = '',
     this.notes,
     this.isActive = true,
     required this.createdAt,
@@ -286,13 +286,13 @@ class ShipmentBookingModel {
       containersData: rawCont.map((c) => ContainerAllocationModel.fromJson(c)).toList(),
       costChargesData: rawCost.map((c) => BookingChargeModel.fromJson(c)).toList(),
       quotationDetailsData: rawQuote,
-      totalFreightCostUsd: (json['total_freight_cost_usd'] as num?)?.toDouble() ?? 0.0,
+      totalFreightCostUsd: (json['total_freight_cost_usd'] as num?)?.toDouble(),
       originalFreightCostUsd: (json['original_freight_cost_usd'] as num?)?.toDouble() ?? (rawQuote['original_quote_total_usd'] as num?)?.toDouble() ?? 0.0,
       costSavingsUsd: (json['cost_savings_usd'] as num?)?.toDouble() ?? (rawQuote['cost_savings_usd'] as num?)?.toDouble() ?? 0.0,
       costVarianceUsd: (json['cost_variance_usd'] as num?)?.toDouble() ?? (rawQuote['cost_variance_usd'] as num?)?.toDouble() ?? 0.0,
       savingsNotes: json['savings_notes'],
       status: json['status'] ?? 'Draft',
-      owner: json['owner'] ?? 'Kamal',
+      owner: json['owner'] ?? '',
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',

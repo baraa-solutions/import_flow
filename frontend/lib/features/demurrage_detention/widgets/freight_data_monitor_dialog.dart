@@ -1,10 +1,33 @@
+import '../../../core/localization/api_error_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../currencies/models/currency_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
+
+/// Latest commercial USD rate recorded in Currencies, or null (the caller must ask the user).
+double? usdCommercialRate(List<CurrencyModel> currencies) {
+  for (final c in currencies) {
+    if (c.currencyCode.toUpperCase() == 'USD') {
+      final r = c.latestCommercialRate;
+      return (r != null && r > 0) ? r : null;
+    }
+  }
+  return null;
+}
+
+/// Positive rate typed by the user, or null when empty / invalid / non-positive.
+double? parsedFxRate(String? text) {
+  final v = double.tryParse((text ?? '').trim());
+  return (v != null && v > 0) ? v : null;
+}
 
 void showFreightDataMonitorDialog(BuildContext context, WidgetRef ref) {
   showDialog(
@@ -38,7 +61,10 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
   String _selectedContainerType = '40HC';
   DateTime _dischargeDate = DateTime.now().subtract(const Duration(days: 18));
   int _daysInPort = 18;
-  double _exchangeRate = 48.50;
+  // No fallback rate: taken from Currencies (latest USD commercial rate) or typed by the user.
+  final TextEditingController _fxController = TextEditingController();
+  bool _fxFromCurrencies = false;
+  bool _fxTouched = false;
   bool _isCalculating = false;
   Map<String, dynamic>? _calculationResult;
   String? _calcError;
@@ -57,10 +83,27 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
     _tabController = TabController(length: 3, vsync: this);
     _fetchStatus();
     _fetchPortTariffs();
+    ref.listenManual<AsyncValue<List<CurrencyModel>>>(
+      currenciesProvider,
+      (_, next) => _applyCurrencyRate(next.asData?.value),
+      fireImmediately: true,
+    );
+  }
+
+  /// Pre-fills the FX field from the latest USD commercial rate (never overrides user input).
+  void _applyCurrencyRate(List<CurrencyModel>? currencies) {
+    if (_fxTouched || currencies == null) return;
+    final rate = usdCommercialRate(currencies);
+    if (rate == null) return;
+    setState(() {
+      _fxController.text = rate.toString();
+      _fxFromCurrencies = true;
+    });
   }
 
   @override
   void dispose() {
+    _fxController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -82,7 +125,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
     } catch (e) {
       if (mounted) {
         setState(() {
-          _statusError = e.toString();
+          _statusError = ApiErrorText.of(context.l10n, e);
           _isLoadingStatus = false;
         });
       }
@@ -98,16 +141,13 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
       await _fetchStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.freightDataSyncSfxSuccess),
-            backgroundColor: AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, l10n.freightDataSyncSfxSuccess, severity: AppSeverity.success),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
         );
       }
     } finally {
@@ -133,6 +173,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
 
   Future<void> _runInstantCalculation() async {
     if (!_formKey.currentState!.validate()) return;
+    if (parsedFxRate(_fxController.text) == null) return;
     setState(() {
       _isCalculating = true;
       _calcError = null;
@@ -146,7 +187,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
         'container_type': _selectedContainerType,
         'discharge_date': dischargeStr,
         'days_in_port': _daysInPort,
-        'exchange_rate_usd_egp': _exchangeRate,
+        'exchange_rate_usd_egp': parsedFxRate(_fxController.text),
       };
       final res = await dio.post('/freight-data/calculate-dual-demurrage', data: payload);
       if (mounted) {
@@ -158,7 +199,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
     } catch (e) {
       if (mounted) {
         setState(() {
-          _calcError = e.toString();
+          _calcError = ApiErrorText.of(context.l10n, e);
           _isCalculating = false;
         });
       }
@@ -214,14 +255,16 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final screen = MediaQuery.of(context).size;
 
     return SelectionArea(
       child: Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppTheme.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Container(
-          width: 960,
-          height: 700,
+          width: screen.width > 1000 ? 960 : screen.width * 0.95,
+          height: screen.height > 760 ? 700 : screen.height * 0.9,
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -233,7 +276,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppTheme.cobaltLight,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     ),
                     child: const Icon(Icons.cloud_sync_rounded, color: AppTheme.cobalt, size: 28),
                   ),
@@ -244,22 +287,23 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                       children: [
                         Text(
                           l10n.freightDataConnectorDialogTitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           l10n.freightDataConnectorDialogSubtitle,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
+                    tooltip: l10n.close,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -269,24 +313,27 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
               // TabBar Navigation
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppTheme.surfaceAltOf(context),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.borderOf(context)),
                 ),
                 child: TabBar(
                   controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
                   indicator: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppTheme.surfaceOf(context),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: AppTheme.black.withValues(alpha: 0.05),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  labelColor: AppTheme.charcoal,
-                  unselectedLabelColor: Colors.grey[600],
+                  labelColor: AppTheme.textPrimaryOf(context),
+                  unselectedLabelColor: AppTheme.textSecondaryOf(context),
                   labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   tabs: [
                     Tab(
@@ -329,24 +376,13 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
   // ===========================================================================
   Widget _buildOverviewTab(AppLocalizations l10n) {
     if (_isLoadingStatus) {
-      return const Center(child: CircularProgressIndicator());
+      return const CcStateView.loading();
     }
     if (_statusError != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 40),
-            const SizedBox(height: 10),
-            Text(_statusError!, style: const TextStyle(color: AppTheme.crimson)),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _fetchStatus,
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.freightDataRefreshStatus),
-            ),
-          ],
-        ),
+      return CcStateView.error(
+        message: _statusError!,
+        actionLabel: l10n.freightDataRefreshStatus,
+        onAction: _fetchStatus,
       );
     }
 
@@ -368,34 +404,30 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
+              AppButton(
                 onPressed: _copyCompleteStatusDossier,
-                icon: const Icon(Icons.copy_all_rounded, size: 16),
-                label: Text(l10n.freightDataCopyStatusSummary),
+                icon: Icons.copy_all_rounded,
+                label: l10n.freightDataCopyStatusSummary,
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.small,
               ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
+                  AppButton(
                     onPressed: _fetchStatus,
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(l10n.freightDataRefreshStatus),
+                    icon: Icons.refresh_rounded,
+                    label: l10n.freightDataRefreshStatus,
+                    variant: AppButtonVariant.ghost,
+                    size: AppButtonSize.small,
                   ),
-                  ElevatedButton.icon(
+                  AppButton(
                     onPressed: _isSyncingSfx ? null : _syncSfxNow,
-                    icon: _isSyncingSfx
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.sync_rounded, size: 16),
-                    label: Text(l10n.freightDataSyncSfxNow),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                    ),
+                    isLoading: _isSyncingSfx,
+                    icon: Icons.sync_rounded,
+                    label: l10n.freightDataSyncSfxNow,
+                    size: AppButtonSize.small,
                   ),
                 ],
               ),
@@ -483,7 +515,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.emeraldLight,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                   ),
                   child: Row(
                     children: [
@@ -528,8 +560,9 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                         children: authorities.map((a) {
                           return Chip(
                             label: Text(a, style: const TextStyle(fontSize: 12)),
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            avatar: const Icon(Icons.location_on_outlined, size: 14, color: AppTheme.charcoal),
+                            backgroundColor: AppTheme.surfaceAltOf(context),
+                            side: BorderSide(color: AppTheme.borderOf(context)),
+                            avatar: Icon(Icons.location_on_outlined, size: 14, color: AppTheme.textPrimaryOf(context)),
                           );
                         }).toList(),
                       ),
@@ -598,7 +631,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                         });
                       }
                     },
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     child: InputDecorator(
                       decoration: InputDecoration(
                         labelText: l10n.freightDataSimDischargeDate,
@@ -606,8 +639,8 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                         isDense: true,
                         suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
                       ),
-                      child: Text(
-                        "${_dischargeDate.year}-${_dischargeDate.month.toString().padLeft(2, '0')}-${_dischargeDate.day.toString().padLeft(2, '0')}",
+                      child: LtrText(
+                        CcFormat.date(_dischargeDate),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -635,36 +668,34 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
 
                   // Exchange Rate USD/EGP
                   TextFormField(
-                    initialValue: "$_exchangeRate",
+                    key: const Key('freightDataFxRateField'),
+                    controller: _fxController,
                     decoration: InputDecoration(
                       labelText: l10n.freightDataSimFxRate,
                       border: const OutlineInputBorder(),
                       isDense: true,
+                      helperText: _fxFromCurrencies ? l10n.demFxRateFromCurrencies : l10n.demFxRateMissingHint,
+                      helperMaxLines: 2,
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) {
-                      final parsed = double.tryParse(v);
-                      if (parsed != null && parsed > 0) {
-                        setState(() => _exchangeRate = parsed);
-                      }
-                    },
+                    validator: (v) => parsedFxRate(v) == null ? l10n.demFxRateRequired : null,
+                    onChanged: (_) => setState(() {
+                      _fxTouched = true;
+                      _fxFromCurrencies = false;
+                    }),
                   ),
                   const SizedBox(height: 14),
 
-                  ElevatedButton.icon(
-                    onPressed: _isCalculating ? null : _runInstantCalculation,
-                    icon: _isCalculating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.flash_on_rounded, size: 18),
-                    label: Text(l10n.freightDataSimCalculateBtn),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AppButton(
+                        onPressed: _isCalculating ? null : _runInstantCalculation,
+                        isLoading: _isCalculating,
+                        icon: Icons.flash_on_rounded,
+                        label: l10n.freightDataSimCalculateBtn,
+                      ),
                     ),
                   ),
                 ],
@@ -684,26 +715,15 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
 
   Widget _buildCalculationOutputView(AppLocalizations l10n) {
     if (_isCalculating) {
-      return const Center(child: CircularProgressIndicator());
+      return const CcStateView.loading();
     }
     if (_calcError != null) {
-      return Center(
-        child: Text(_calcError!, style: const TextStyle(color: AppTheme.crimson)),
-      );
+      return CcStateView.error(message: _calcError!);
     }
     if (_calculationResult == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.calculate_outlined, size: 48, color: Colors.grey),
-            const SizedBox(height: 10),
-            Text(
-              l10n.freightDataSimCalculateBtn,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            ),
-          ],
-        ),
+      return CcStateView.empty(
+        message: l10n.freightDataSimCalculateBtn,
+        icon: Icons.calculate_outlined,
       );
     }
 
@@ -721,14 +741,23 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                l10n.freightDataConsolidatedSummary,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+              Expanded(
+                child: Text(
+                  l10n.freightDataConsolidatedSummary,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryOf(context)),
+                ),
               ),
-              OutlinedButton.icon(
-                onPressed: _copyCalculationDossier,
-                icon: const Icon(Icons.copy_all_rounded, size: 16),
-                label: Text(l10n.freightDataCopySimulationDossier),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AppButton(
+                    onPressed: _copyCalculationDossier,
+                    icon: Icons.copy_all_rounded,
+                    label: l10n.freightDataCopySimulationDossier,
+                    variant: AppButtonVariant.ghost,
+                    size: AppButtonSize.small,
+                  ),
+                ),
               ),
             ],
           ),
@@ -738,32 +767,30 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.charcoal, Color(0xFF34495E)],
-              ),
-              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.charcoal,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildConsolidatedCol(
                   label: l10n.freightDataConsolidatedEgp,
-                  value: "${res['consolidated_total_egp']} EGP",
-                  color: AppTheme.flatEmerald,
+                  value: "${res['consolidated_total_egp']} ${l10n.egpCurrency}",
+                  color: AppTheme.emerald,
                   context: context,
                 ),
-                Container(width: 1, height: 40, color: Colors.white24),
+                Container(width: 1, height: 40, color: AppTheme.white.withValues(alpha: 0.24)),
                 _buildConsolidatedCol(
                   label: l10n.freightDataConsolidatedUsd,
                   value: "${res['consolidated_total_usd']} USD",
                   color: AppTheme.cobalt,
                   context: context,
                 ),
-                Container(width: 1, height: 40, color: Colors.white24),
+                Container(width: 1, height: 40, color: AppTheme.white.withValues(alpha: 0.24)),
                 _buildConsolidatedCol(
                   label: l10n.freightDataSimFxRate,
-                  value: "${res['exchange_rate_applied']} EGP",
-                  color: Colors.white,
+                  value: "${res['exchange_rate_applied']} ${l10n.egpCurrency}",
+                  color: AppTheme.white,
                   context: context,
                 ),
               ],
@@ -794,7 +821,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
               Expanded(
                 child: _buildBreakdownBox(
                   title: l10n.freightDataPortStorageTitle,
-                  totalText: "${port['total_storage_egp']} EGP",
+                  totalText: "${port['total_storage_egp']} ${l10n.egpCurrency}",
                   freeDays: "${port['free_days']} ${l10n.freightDataDayUnit}",
                   chargeableDays: "${port['chargeable_days']} ${l10n.freightDataDayUnit}",
                   appliedRule: port['tariff_version_applied'] ?? '',
@@ -823,9 +850,9 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -833,7 +860,12 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+              Expanded(
+                child: Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+              ),
               IconButton(
                 icon: const Icon(Icons.copy_rounded, size: 14),
                 tooltip: l10n.freightDataCopySlabRateTooltip,
@@ -844,29 +876,14 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
             ],
           ),
           const Divider(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l10n.freightDataFreeDaysLabel, style: const TextStyle(fontSize: 12)),
-              Text(freeDays, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
-          ),
+          _kvRow(l10n.freightDataFreeDaysLabel, freeDays, const TextStyle(fontSize: 12),
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l10n.freightDataChargeableDaysLabel, style: const TextStyle(fontSize: 12)),
-              Text(chargeableDays, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
-            ],
-          ),
+          _kvRow(l10n.freightDataChargeableDaysLabel, chargeableDays, const TextStyle(fontSize: 12),
+              TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l10n.freightDataAppliedDecree, style: const TextStyle(fontSize: 12)),
-              Text(appliedRule, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
-            ],
-          ),
+          _kvRow(l10n.freightDataAppliedDecree, appliedRule, const TextStyle(fontSize: 12),
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
           const SizedBox(height: 8),
           Text(l10n.freightDataRateSlabsSummary, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           const SizedBox(height: 4),
@@ -877,9 +894,11 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "${s['from_day']}-$toDay: ${s['rate']} ${s['currency']}/${l10n.freightDataPerDayUnit} (${s['days_applied']} ${l10n.freightDataDayUnit})",
-                    style: const TextStyle(fontSize: 11),
+                  Expanded(
+                    child: Text(
+                      "${s['from_day']}-$toDay: ${s['rate']} ${s['currency']}/${l10n.freightDataPerDayUnit} (${s['days_applied']} ${l10n.freightDataDayUnit})",
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                   Row(
                     children: [
@@ -890,7 +909,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                       const SizedBox(width: 4),
                       InkWell(
                         onTap: () => CopyHelper.copy(context, "${s['cost']} ${s['currency']}"),
-                        child: const Icon(Icons.copy_rounded, size: 12, color: Colors.grey),
+                        child: Icon(Icons.copy_rounded, size: 12, color: AppTheme.textMutedOf(context)),
                       ),
                     ],
                   ),
@@ -899,16 +918,8 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
             );
           }),
           const Divider(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l10n.freightDataTotalLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text(
-                totalText,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color),
-              ),
-            ],
-          ),
+          _kvRow(l10n.freightDataTotalLabel, totalText, const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
         ],
       ),
     );
@@ -920,21 +931,37 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
     required Color color,
     required BuildContext context,
   }) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisSize: MainAxisSize.min,
+    return Expanded(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
           children: [
-            Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: () => CopyHelper.copy(context, value),
-              child: const Icon(Icons.copy_rounded, color: Colors.white54, size: 13),
+            Text(label, style: TextStyle(color: AppTheme.white.withValues(alpha: 0.7), fontSize: 11)),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LtrText(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => CopyHelper.copy(context, value),
+                  child: Icon(Icons.copy_rounded, color: AppTheme.white.withValues(alpha: 0.55), size: 13),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Label on the start edge, value on the end edge; the label shrinks instead of overflowing.
+  Widget _kvRow(String label, String value, TextStyle labelStyle, TextStyle valueStyle) {
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: labelStyle, maxLines: 2, overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 8),
+        Flexible(child: Text(value, style: valueStyle, textAlign: TextAlign.end)),
       ],
     );
   }
@@ -944,7 +971,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
   // ===========================================================================
   Widget _buildPortTariffsTab(AppLocalizations l10n) {
     if (_isLoadingTariffs) {
-      return const Center(child: CircularProgressIndicator());
+      return const CcStateView.loading();
     }
 
     return Column(
@@ -955,16 +982,14 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
           children: [
             Text(
               "${l10n.freightDataTabPortTariffs} (${_portTariffs.length})",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryOf(context)),
             ),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _fetchPortTariffs,
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text(l10n.freightDataRefreshStatus),
-                ),
-              ],
+            AppButton(
+              onPressed: _fetchPortTariffs,
+              icon: Icons.refresh_rounded,
+              label: l10n.freightDataRefreshStatus,
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.small,
             ),
           ],
         ),
@@ -972,7 +997,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
 
         Expanded(
           child: _portTariffs.isEmpty
-              ? Center(child: Text(l10n.freightDataNoDecreesFound))
+              ? CcStateView.empty(message: l10n.freightDataNoDecreesFound, icon: Icons.gavel_rounded)
               : ListView.separated(
                   itemCount: _portTariffs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -984,11 +1009,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
 
                     return Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
+                      decoration: AppTheme.cardDecorationOf(context),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1018,7 +1039,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                           const SizedBox(height: 4),
                           Text(
                             "${l10n.freightDataEffectiveFromCol}: $effFrom  |  ${l10n.freightDataEffectiveToCol}: $effTo  |  ${l10n.freightDataFreeDaysLabel}: ${t['free_days']} ${l10n.freightDataDayUnit}",
-                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                           ),
                           if (t['source_document'] != null) ...[
                             const SizedBox(height: 2),
@@ -1036,12 +1057,12 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  color: AppTheme.surfaceAltOf(context),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                  border: Border.all(color: AppTheme.borderOf(context)),
                                 ),
-                                child: Text(
-                                  "${s['from_day']}-$toDay: ${s['rate_per_day']} EGP",
+                                child: LtrText(
+                                  "${s['from_day']}-$toDay: ${s['rate_per_day']} ${l10n.egpCurrency}",
                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                                 ),
                               );
@@ -1069,11 +1090,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      decoration: AppTheme.cardDecorationOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1084,13 +1101,13 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryOf(context)),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
           const SizedBox(height: 12),
           child,
         ],
@@ -1108,20 +1125,20 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          color: AppTheme.surfaceAltOf(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          border: Border.all(color: AppTheme.borderOf(context)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            Text(label, style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 11)),
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
+                  child: LtrText(
                     value,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
                     overflow: TextOverflow.ellipsis,
@@ -1129,7 +1146,7 @@ class _FreightDataMonitorDialogState extends ConsumerState<FreightDataMonitorDia
                 ),
                 InkWell(
                   onTap: () => CopyHelper.copy(context, value),
-                  child: const Icon(Icons.copy_rounded, size: 13, color: Colors.grey),
+                  child: Icon(Icons.copy_rounded, size: 13, color: AppTheme.textMutedOf(context)),
                 ),
               ],
             ),

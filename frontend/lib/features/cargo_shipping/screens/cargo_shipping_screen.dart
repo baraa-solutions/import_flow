@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +17,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../import_files/models/import_file_model.dart';
+import '../models/cargo_container_defaults.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 import '../services/cargo_shipping_sla_export_service.dart';
@@ -24,6 +26,10 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/search_and_clone_cargo_shipping_dialog.dart';
+import '../widgets/cargo_shipping_ui.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/metric_card.dart';
 
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
@@ -54,7 +60,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   // Controllers
   final _formKey = GlobalKey<FormState>();
-  final _cfsWarehouseCtrl = TextEditingController(text: 'Shanghai International CFS Hub #3');
+  final _cfsWarehouseCtrl = TextEditingController();
 
   // Milestone Notes State
   final Map<int, String> _selectedMilestoneForNote = {};
@@ -108,28 +114,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   void _initDefaultContainer() {
     final nowIso = DateTime.now().toIso8601String();
-    _containers = [
-      ContainerLoadingModel(
-        containerType: '40HC',
-        quantity: 1,
-        containerNo: 'MSCU1234567',
-        sealNo: 'SL-99001',
-        tareWeightKg: 3800,
-        netWeightKg: 20700,
-        grossWeightKg: 24500,
-        vgmStatus: 'Submitted',
-        vgmRefNo: 'VGM-9901',
-        containerAssignmentDate: nowIso,
-        trackingStatus: 'ASSIGNED',
-        individualUnits: [
-          {'container_no': 'MSCU1234567', 'seal_no': 'SL-99001'}
-        ],
-      )
-    ];
+    // No invented container / seal / VGM / CFS values: the user enters the real ones.
+    _containers = [blankContainer(assignmentDateIso: nowIso)];
 
     _lclTracking = LclLoadingTrackingModel(
       shipmentType: 'LCL',
-      cfsWarehouseName: 'Shanghai CFS Warehouse Hub',
       consolidationScheduledDate: nowIso,
       trackingStatus: 'ASSIGNED',
     );
@@ -168,7 +157,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       _selectedImportFileId = null;
       _shipmentType = 'FCL';
       _isStackable = true;
-      _cfsWarehouseCtrl.text = 'Shanghai International CFS Hub #3';
+      _cfsWarehouseCtrl.clear();
       _activeStepIndex = 0;
       _visitedFormSteps.add(0);
       for (final c in _milestoneNoteControllers.values) {
@@ -206,10 +195,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     _mainTabController.animateTo(0);
     if (showSnack && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.cargoShippingLoadSuccessSnack(rec.importFileCode ?? rec.cargoShippingCode)),
-          backgroundColor: AppTheme.cobalt,
-        ),
+        AppTheme.snackBar(context, context.l10n.cargoShippingLoadSuccessSnack(rec.importFileCode ?? rec.cargoShippingCode), severity: AppSeverity.info),
       );
     }
   }
@@ -252,19 +238,17 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             for (final alloc in linkedBooking.containersData) {
               for (int uIdx = 0; uIdx < alloc.individualContainers.length; uIdx++) {
                 final indiv = alloc.individualContainers[uIdx];
-                final cNo = indiv.containerNumber.isNotEmpty ? indiv.containerNumber : 'MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}${loadedContainers.length + 1}';
-                final sNo = indiv.sealNumber.isNotEmpty ? indiv.sealNumber : 'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}${loadedContainers.length + 1}';
+                // Only what the freight booking really recorded; blank otherwise.
+                final cNo = indiv.containerNumber;
+                final sNo = indiv.sealNumber;
                 loadedContainers.add(
                   ContainerLoadingModel(
                     containerType: alloc.containerType.isNotEmpty ? alloc.containerType : '40HC',
                     quantity: 1,
                     containerNo: cNo,
                     sealNo: sNo,
-                    tareWeightKg: 3800,
-                    netWeightKg: indiv.vgmWeightKg > 3800 ? (indiv.vgmWeightKg - 3800) : 20700,
-                    grossWeightKg: indiv.vgmWeightKg > 0 ? indiv.vgmWeightKg : 24500,
-                    vgmStatus: 'Submitted',
-                    vgmRefNo: 'VGM-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+                    grossWeightKg: indiv.vgmWeightKg > 0 ? indiv.vgmWeightKg : 0,
+                    vgmStatus: 'Pending',
                     containerAssignmentDate: nowIso,
                     trackingStatus: 'ASSIGNED',
                     individualUnits: [
@@ -290,20 +274,18 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   String _getLocalizedContainerTypeLabel(String type) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     switch (type) {
       case '20GP':
-        return '20GP - ${isArabic ? 'حاوية نمطية قياسية' : 'Standard Dry Container'}';
       case '40GP':
-        return '40GP - ${isArabic ? 'حاوية نمطية قياسية' : 'Standard Dry Container'}';
+        return '$type - ${l.cshDryContainer}';
       case '40HC':
-        return '40HC - ${isArabic ? 'حاوية مرتفعة السعة' : 'High Cube Container'}';
+        return '$type - ${l.cshHighCubeContainer}';
       case '45HC':
-        return '45HC - ${isArabic ? 'حاوية فائقة السعة' : 'High Cube Container'}';
+        return '$type - ${l.cshSuperHighCubeContainer}';
       case '20RF':
-        return '20RF - ${isArabic ? 'حاوية مبردة' : 'Reefer Container'}';
       case '40RF':
-        return '40RF - ${isArabic ? 'حاوية مبردة' : 'Reefer Container'}';
+        return '$type - ${l.cshReeferContainer}';
       default:
         return type;
     }
@@ -334,7 +316,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
     final containerSummary = rec.containersLoadingData.isNotEmpty
         ? rec.containersLoadingData.map((c) => '${c.quantity}x ${c.containerType}').join(', ')
-        : (rec.shipmentType == 'LCL' ? 'LCL Consolidation' : 'Standard 40HC');
+        : (rec.shipmentType == 'LCL' ? l.cshLclConsolidation : l.cshStandard40hc);
 
     showDialog(
       context: context,
@@ -343,32 +325,24 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         child: Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           child: CloneEntityReviewDialog(
-            entityType: isAr ? 'شحنة وتخصيص حاويات' : 'Cargo Shipping & Container Allocation',
+            entityType: l.cshCloneEntityType,
             sourceCode: rec.cargoShippingCode,
             suggestedNewCode: newDraftCode,
             sourceTitle: '${rec.importFileCode ?? "IMP-${rec.importFileId}"} - ${rec.companyName ?? ""}',
             copiedFieldsSummary: {
-              isAr ? 'نوع الشحن' : 'Shipment Type': rec.shipmentType,
-              isAr ? 'تخصيص الحاويات' : 'Allocated Containers': containerSummary,
-              isAr ? 'إجمالي الوزن (VGM)' : 'Total VGM Weight': '${rec.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg).toStringAsFixed(0)} kg',
+              l.cshCloneFieldShipmentType: rec.shipmentType,
+              l.cshCloneFieldContainers: containerSummary,
+              l.cshCloneFieldVgm: l.cshWeightKg(rec.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg).toStringAsFixed(0)),
               if (rec.shipmentType == 'LCL' && rec.lclTrackingData?.cfsWarehouseName != null)
-                isAr ? 'مستودع التجميع (CFS)' : 'CFS Warehouse': rec.lclTrackingData!.cfsWarehouseName ?? '',
+                l.cshCloneFieldCfs: rec.lclTrackingData!.cfsWarehouseName ?? '',
             },
-            mandatorilyResetFields: isAr
-                ? const [
-                    'معرف الشحنة (Shipping ID): يتم تفريغه لتوليد سجل جديد',
-                    'كود الشحنة (Shipping Code): يعاد تعيينه كمسودة (DRAFT)',
-                    'ملف الاستيراد: يتطلب إعادة الربط بملف استيراد جديد أو قيد التجهيز',
-                    'حالة تتبع الحاويات: تعاد للبدء المبدئي (ASSIGNED / Cargo Ready)',
-                    'سجل المهل وتواريخ التحميل (48h SLA): تعاد للتهيئة والتوقيت الجديد',
-                  ]
-                : const [
-                    'Shipping Record ID: Cleared for new draft creation',
-                    'Shipping Code: Auto-generated as new DRAFT',
-                    'Import File Link: Requires selection of target import file',
-                    'Container Tracking Status: Reset to ASSIGNED / Cargo Ready',
-                    'SLA Milestones & Dates: Re-initialized to current date/time',
-                  ],
+            mandatorilyResetFields: [
+              l.cshCloneReset1,
+              l.cshCloneReset2,
+              l.cshCloneReset3,
+              l.cshCloneReset4,
+              l.cshCloneReset5,
+            ],
             allowCopyLineItems: true,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -383,25 +357,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
               if (copyLineItems && rec.containersLoadingData.isNotEmpty) {
                 for (final c in rec.containersLoadingData) {
-                  final ms = DateTime.now().millisecondsSinceEpoch.toString();
-                  final dupUnits = c.individualUnits.map((u) {
-                    return {
-                      'container_no': 'MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}${clonedContainers.length + 1}',
-                      'seal_no': 'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}${clonedContainers.length + 1}',
-                    };
-                  }).toList();
+                  // Container / seal / VGM numbers are reset on clone (never invented).
+                  final dupUnits = blankUnits(c.individualUnits.length);
 
                   clonedContainers.add(
                     ContainerLoadingModel(
                       containerType: c.containerType,
                       quantity: c.quantity,
-                      containerNo: dupUnits.isNotEmpty ? (dupUnits.first['container_no'] ?? '') : 'MSCU${ms.substring(6)}',
-                      sealNo: dupUnits.isNotEmpty ? (dupUnits.first['seal_no'] ?? '') : 'SL-${ms.substring(8)}',
+                      containerNo: '',
+                      sealNo: '',
                       tareWeightKg: c.tareWeightKg,
                       netWeightKg: c.netWeightKg,
                       grossWeightKg: c.grossWeightKg,
-                      vgmStatus: 'Submitted',
-                      vgmRefNo: 'VGM-${ms.substring(8)}',
+                      vgmStatus: 'Pending',
                       containerAssignmentDate: nowIso,
                       trackingStatus: 'ASSIGNED',
                       individualUnits: dupUnits,
@@ -444,10 +412,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${l.cloneCargoShippingTooltip}: $newCode'),
-                    backgroundColor: AppTheme.cobalt,
-                  ),
+                  AppTheme.snackBar(context, '${l.cloneCargoShippingTooltip}: $newCode', severity: AppSeverity.info),
                 );
               }
             },
@@ -473,19 +438,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       rec.status,
       '$gatedCount/${rec.containersLoadingData.length}',
       hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
-      rec.isActive ? 'Active' : 'Deleted',
+      rec.isActive ? l.cshStateActive : l.cshStateDeleted,
     ];
 
     final headers = [
-      'كود الشحنة',
-      'ملف الاستيراد',
-      'الشركة المستوردة',
-      'نوع الشحن',
-      'الحاويات وأرقام الأقفال',
-      'الحالة',
-      'دخول الميناء (Gate-In)',
-      'موقف مهلة 48h SLA',
-      'الحالة التشغيلية',
+      l.cshColCode,
+      l.cshColImportFile,
+      l.cshColCompany,
+      l.cshColShipType,
+      l.cshColContainersSeals,
+      l.cshColStatus,
+      l.cshColGateIn,
+      l.cshColSla,
+      l.cshColOp,
     ];
 
     TableCopyHelper.copyRow(
@@ -499,16 +464,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   void _copyShippingTableTsv(List<CargoShippingModel> records, AppLocalizations l) {
     final headers = [
-      'كود الشحنة',
-      'ملف الاستيراد',
-      'الشركة المستوردة',
-      'نوع الشحن',
-      'الحاويات المخصصة',
-      'إجمالي الوزن (VGM)',
-      'الحالة',
-      'دخول الميناء (Gate-In)',
-      'موقف مهلة 48h SLA',
-      'الحالة التشغيلية',
+      l.cshColCode,
+      l.cshColImportFile,
+      l.cshColCompany,
+      l.cshColShipType,
+      l.cshColContainers,
+      l.cshColTotalVgm,
+      l.cshColStatus,
+      l.cshColGateIn,
+      l.cshColSla,
+      l.cshColOp,
     ];
 
     final rows = records.map((r) {
@@ -525,11 +490,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         r.companyName ?? '',
         r.shipmentType,
         containerSummary,
-        '${totalVgm.toStringAsFixed(0)} kg',
+        l.cshWeightKg(totalVgm.toStringAsFixed(0)),
         r.status,
         '$gatedCount/${r.containersLoadingData.length}',
         hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
-        r.isActive ? 'Active' : 'Deleted',
+        r.isActive ? l.cshStateActive : l.cshStateDeleted,
       ];
     }).toList();
 
@@ -543,16 +508,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   Future<void> _exportShippingExcel(List<CargoShippingModel> records, AppLocalizations l) async {
     final headers = [
-      'كود الشحنة',
-      'ملف الاستيراد',
-      'الشركة المستوردة',
-      'نوع الشحن',
-      'الحاويات المخصصة',
-      'إجمالي الوزن (VGM)',
-      'الحالة',
-      'دخول الميناء (Gate-In)',
-      'موقف مهلة 48h SLA',
-      'الحالة التشغيلية',
+      l.cshColCode,
+      l.cshColImportFile,
+      l.cshColCompany,
+      l.cshColShipType,
+      l.cshColContainers,
+      l.cshColTotalVgm,
+      l.cshColStatus,
+      l.cshColGateIn,
+      l.cshColSla,
+      l.cshColOp,
     ];
 
     final rows = records.map((r) {
@@ -569,11 +534,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         r.companyName ?? '',
         r.shipmentType,
         containerSummary,
-        '${totalVgm.toStringAsFixed(0)} kg',
+        l.cshWeightKg(totalVgm.toStringAsFixed(0)),
         r.status,
         '$gatedCount/${r.containersLoadingData.length}',
         hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
-        r.isActive ? 'Active' : 'Deleted',
+        r.isActive ? l.cshStateActive : l.cshStateDeleted,
       ];
     }).toList();
 
@@ -588,15 +553,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   Future<void> _exportShippingPdf(List<CargoShippingModel> records, AppLocalizations l) async {
     final headers = [
-      'كود الشحنة',
-      'ملف الاستيراد',
-      'الشركة المستوردة',
-      'نوع الشحن',
-      'الحاويات',
-      'إجمالي الوزن',
-      'الحالة',
-      'Gate-In',
-      '48h SLA',
+      l.cshColCode,
+      l.cshColImportFile,
+      l.cshColCompany,
+      l.cshColShipType,
+      l.cshColContainersShort,
+      l.cshColWeightShort,
+      l.cshColStatus,
+      l.cshColGateInShort,
+      l.cshColSlaShort,
     ];
 
     final rows = records.map((r) {
@@ -613,10 +578,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         r.companyName ?? '—',
         r.shipmentType,
         containerSummary.isNotEmpty ? containerSummary : '—',
-        '${totalVgm.toStringAsFixed(0)} kg',
+        l.cshWeightKg(totalVgm.toStringAsFixed(0)),
         r.status,
         '$gatedCount/${r.containersLoadingData.length}',
-        hasBreach ? 'BREACHED' : 'ON TIME',
+        hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
       ];
     }).toList();
 
@@ -627,12 +592,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       headers: headers,
       rows: rows,
       headerContext: TableExportHeaderContext(
-        title: 'Cargo Shipping & Container Loading Registry',
-        subtitle: 'Sorour Logistics ERP — سجل تخصيص الحاويات ومتابعة الشحن',
+        title: l.cshPdfTitle,
+        subtitle: l.cshPdfSubtitle,
         metadata: {
-          'Total Records': records.length.toString(),
-          'FCL Shipments': records.where((r) => r.shipmentType == 'FCL').length.toString(),
-          'LCL Shipments': records.where((r) => r.shipmentType == 'LCL').length.toString(),
+          l.cshPdfMetaTotal: records.length.toString(),
+          l.cshPdfMetaFcl: records.where((r) => r.shipmentType == 'FCL').length.toString(),
+          l.cshPdfMetaLcl: records.where((r) => r.shipmentType == 'LCL').length.toString(),
         },
       ),
     );
@@ -702,20 +667,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   // ===========================================================================
   // DATE & TIME PICKER HELPERS
   // ===========================================================================
-  String _formatDisplayDateTime(String? raw, BuildContext ctx) {
-    if (raw == null || raw.trim().isEmpty) return ctx.l10n.cargoShippingClickToSetDateTime;
-    final dt = DateTime.tryParse(raw);
-    if (dt == null) return raw;
-    final datePart = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
-    if (!raw.contains('T') && !raw.contains(':')) {
-      return datePart;
-    }
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final ampm = dt.hour >= 12 ? (Localizations.localeOf(ctx).languageCode == 'ar' ? 'م' : 'PM') : (Localizations.localeOf(ctx).languageCode == 'ar' ? 'ص' : 'AM');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return "$datePart | $hour:$minute $ampm";
-  }
-
   Future<String?> _pickDateTime(BuildContext context, {String? initialIso, DateTime? minDate, String? title}) async {
     final now = DateTime.now();
     final initDt = (initialIso != null && initialIso.isNotEmpty) ? (DateTime.tryParse(initialIso) ?? now) : now;
@@ -754,10 +705,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (minDate != null && finalDt.isBefore(minDate)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.cargoShippingDateSequenceError),
-            backgroundColor: Colors.red,
-          ),
+          AppTheme.snackBar(context, context.l10n.cargoShippingDateSequenceError, severity: AppSeverity.danger),
         );
       }
       return null;
@@ -776,10 +724,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (_selectedImportFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.cargoShippingSelectFileFirstForContainer),
-            backgroundColor: Colors.orange,
-          ),
+          AppTheme.snackBar(context, context.l10n.cargoShippingSelectFileFirstForContainer, severity: AppSeverity.warning),
         );
       }
       return;
@@ -817,10 +762,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             });
           }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.cargoShippingSaveContainerMilestoneSuccess(c.containerNo, c.getLocalizedStatus(context.l10n))),
-              backgroundColor: AppTheme.emerald,
-            ),
+            AppTheme.snackBar(context, context.l10n.cargoShippingSaveContainerMilestoneSuccess(c.containerNo, c.getLocalizedStatus(context.l10n)), severity: AppSeverity.success),
           );
         }
       } catch (e) {
@@ -832,7 +774,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ? (e.response?.data?['detail'] ?? e.message ?? 'Server error')
               : e.toString().replaceAll('Exception:', '').trim();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.cargoShippingQuickSaveError(cleanMsg)), backgroundColor: Colors.red),
+            AppTheme.snackBar(context, context.l10n.cargoShippingQuickSaveError(cleanMsg), severity: AppSeverity.danger),
           );
         }
       } finally {
@@ -849,10 +791,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (_selectedImportFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.cargoShippingSelectFileFirstForLcl),
-            backgroundColor: Colors.orange,
-          ),
+          AppTheme.snackBar(context, context.l10n.cargoShippingSelectFileFirstForLcl, severity: AppSeverity.warning),
         );
       }
       return;
@@ -881,10 +820,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             });
           }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.cargoShippingSaveLclMilestoneSuccess(_lclTracking!.getLocalizedStatus(context.l10n))),
-              backgroundColor: AppTheme.emerald,
-            ),
+            AppTheme.snackBar(context, context.l10n.cargoShippingSaveLclMilestoneSuccess(_lclTracking!.getLocalizedStatus(context.l10n)), severity: AppSeverity.success),
           );
         }
       } catch (e) {
@@ -896,7 +832,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ? (e.response?.data?['detail'] ?? e.message ?? 'Server error')
               : e.toString().replaceAll('Exception:', '').trim();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.cargoShippingLclSaveError(cleanMsg)), backgroundColor: Colors.red),
+            AppTheme.snackBar(context, context.l10n.cargoShippingLclSaveError(cleanMsg), severity: AppSeverity.danger),
           );
         }
       } finally {
@@ -951,38 +887,21 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                Directionality.of(context) == TextDirection.rtl
-                    ? 'تمت المحاكاة الذكية واستيفاء دورة التحميل ودخول الميناء بنجاح! اضغط على "حفظ واعتماد إنهاء المرحلة" للتأكيد والترحيل.'
-                    : 'Smart Simulation completed! Click "Save & Complete Step-07" to commit to DB and advance lifecycle.',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 4),
-      ),
+      AppTheme.snackBar(context, context.l10n.cshSmartSimDone, severity: AppSeverity.info),
     );
   }
 
   Future<void> _submitForm({bool isDraftProgressive = false}) async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cargoShippingFillRequiredFields), backgroundColor: Colors.red),
+        AppTheme.snackBar(context, context.l10n.cargoShippingFillRequiredFields, severity: AppSeverity.danger),
       );
       return;
     }
 
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cargoShippingSelectLinkedFilePrompt), backgroundColor: Colors.orange),
+        AppTheme.snackBar(context, context.l10n.cargoShippingSelectLinkedFilePrompt, severity: AppSeverity.warning),
       );
       return;
     }
@@ -997,14 +916,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
     setState(() => _isSaving = true);
 
-    final payload = {
-      'import_file_id': _selectedImportFileId,
-      'shipment_type': _shipmentType,
-      'containers_loading_data': _containers.map((c) => c.toJson()).toList(),
-      'lcl_tracking_data': _shipmentType == 'LCL' && _lclTracking != null ? _lclTracking!.toJson() : null,
-      'status': 'Cargo Ready',
-      'owner': 'Kamal',
-    };
+    final payload = buildCargoShippingPayload(
+      importFileId: _selectedImportFileId!,
+      shipmentType: _shipmentType,
+      containers: _containers,
+      lclTracking: _lclTracking,
+      isEdit: _editingRecordId != null,
+    );
 
     try {
       CargoShippingModel? resultRecord;
@@ -1028,10 +946,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
         if (isDraftProgressive) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.cargoShippingDraftSaveSuccess),
-              backgroundColor: AppTheme.emerald,
-            ),
+            AppTheme.snackBar(context, context.l10n.cargoShippingDraftSaveSuccess, severity: AppSeverity.success),
           );
         } else {
           ref.invalidate(lifecycleBoardSummaryProvider);
@@ -1040,21 +955,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.verified, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.l10n.cargoShippingStudySaveSuccess(_editingRecordCode ?? ""),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: AppTheme.emerald,
-              duration: const Duration(seconds: 4),
+            AppTheme.snackBar(
+              context,
+              context.l10n.cargoShippingStudySaveSuccess(_editingRecordCode ?? ""),
+              severity: AppSeverity.success,
             ),
           );
           _resetForm();
@@ -1070,24 +974,29 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           builder: (ctx) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                Icon(Icons.warning_amber_rounded, color: AppTheme.severityForegroundOf(context, AppSeverity.warning), size: 28),
                 const SizedBox(width: 8),
-                Text(context.l10n.cargoShippingDuplicateWarningTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Expanded(
+                  child: Text(context.l10n.cargoShippingDuplicateWarningTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
               ],
             ),
             content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
             actions: [
-              TextButton(
+              AppButton(
+                label: context.l10n.close,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => Navigator.pop(ctx),
-                child: Text(context.l10n.close),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+              AppButton(
+                label: context.l10n.cargoShippingGoToSavedRegistry,
+                icon: Icons.history_edu_outlined,
+                size: AppButtonSize.small,
                 onPressed: () {
                   Navigator.pop(ctx);
                   _mainTabController.animateTo(1);
                 },
-                child: Text(context.l10n.cargoShippingGoToSavedRegistry, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -1131,14 +1040,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         ref.read(importFilesProvider.notifier).fetchImportFiles();
       },
       headerActions: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.flatCobalt,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          ),
-          icon: const Icon(Icons.auto_awesome, size: 16),
-          label: Text(context.l10n.cargoShippingAiExtractorBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        AppButton(
+          label: context.l10n.cargoShippingAiExtractorBtn,
+          icon: Icons.auto_awesome,
+          variant: AppButtonVariant.success,
+          size: AppButtonSize.small,
           onPressed: () {
             showDialog(
               context: context,
@@ -1157,19 +1063,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           onDataExtracted: (result) {
             final fields = result.extractedFields;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  context.l10n.cargoShippingUploadBlSuccess(fields['bl_number'] ?? 'N/A'),
-                ),
-                backgroundColor: AppTheme.emerald,
-                duration: const Duration(seconds: 5),
-              ),
+              AppTheme.snackBar(context, context.l10n.cargoShippingUploadBlSuccess(fields['bl_number'] ?? 'N/A'), severity: AppSeverity.success, duration: const Duration(seconds: 5)),
             );
           },
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.70)),
           tooltip: context.l10n.liveReload,
           onPressed: _refreshAllData,
         ),
@@ -1208,16 +1108,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       totalCargoWeightKg = metrics.weightKg;
     }
 
-    if (totalCargoCbm == 0 && _selectedImportFileId != null) {
-      totalCargoCbm = 40.0;
-      totalCargoWeightKg = 2274.0;
-    }
-
-    final dualRec = ContainerRequirementEngine.calculateBoth(
-      totalCbm: totalCargoCbm > 0 ? totalCargoCbm : 40.0,
-      totalWeightKg: totalCargoWeightKg > 0 ? totalCargoWeightKg : 2274.0,
-    );
-    final activeContainerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+    // Real metrics only: a file without CBM / weight shows "missing" and nothing is computed.
+    final dualRec = dualRecommendationOrNull(totalCbm: totalCargoCbm, totalWeightKg: totalCargoWeightKg);
+    final activeContainerRec = dualRec == null
+        ? null
+        : (_isStackable ? dualRec.stackableResult : dualRec.nonStackableResult);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -1228,92 +1123,26 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           children: [
             // Top Active File Banner
             if (_selectedImportFileId != null && curFile != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.folder_special, color: AppTheme.cobalt, size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            '${context.l10n.cargoShippingLinkedFileBannerPrefix} ',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
-                          ),
-                          CopyableText(
-                            curFile.primaryNameWithCode,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
-                            tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                          ),
-                          Text(
-                            ' - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ',
-                            style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
-                          ),
-                          CopyableText(
-                            curFile.supplierName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                          ),
-                          if (curFile.acidNumber != null) ...[
-                            Text(
-                              ' | ${context.l10n.cargoShippingAcidPrefix}: ',
-                              style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
-                            ),
-                            CopyableText(
-                              curFile.acidNumber!,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
-                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                            ),
-                          ],
-                          if (_editingRecordCode != null) ...[
-                            Text(
-                              ' | ${context.l10n.cargoShippingCodeLabel} ',
-                              style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
-                            ),
-                            CopyableText(
-                              _editingRecordCode!,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.flatOrange, fontSize: 13),
-                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (_editingRecordId != null)
-                      TextButton.icon(
-                        onPressed: _resetForm,
-                        icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                        label: Text(context.l10n.cargoShippingCancelStartNew, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                      ),
-                  ],
+              Padding(
+                padding: const EdgeInsetsDirectional.only(bottom: 12),
+                child: ShippingLinkedFileBanner(
+                  fileLabel: curFile.primaryNameWithCode,
+                  companyName: curFile.companyName,
+                  supplierName: curFile.supplierName,
+                  acidNumber: curFile.acidNumber,
+                  recordCode: _editingRecordCode,
+                  onCancelEdit: _editingRecordId != null ? _resetForm : null,
                 ),
               ),
-
             // Stepper Navigation Sub-Tabs (2 Steps Only)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
-              ),
-              child: Row(
-                children: [
-                  _buildStepperButton(0, context.l10n.cargoShippingStep1Title, Icons.inventory_2_outlined),
-                  _buildStepperButton(1, context.l10n.cargoShippingStep2Title, Icons.timelapse_outlined),
-                ],
-              ),
+            ShippingStepSwitcher(
+              selectedIndex: _activeStepIndex,
+              titles: [context.l10n.cargoShippingStep1Title, context.l10n.cargoShippingStep2Title],
+              icons: const [Icons.inventory_2_outlined, Icons.timelapse_outlined],
+              onSelected: (index) => setState(() {
+                _activeStepIndex = index;
+                _visitedFormSteps.add(index);
+              }),
             ),
             const SizedBox(height: 14),
 
@@ -1339,50 +1168,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
   }
 
-  Widget _buildStepperButton(int index, String title, IconData icon) {
-    final isSelected = _activeStepIndex == index;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() {
-          _activeStepIndex = index;
-          _visitedFormSteps.add(index);
-        }),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.cobalt : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: isSelected ? Colors.white : AppTheme.charcoal),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isSelected ? Colors.white : AppTheme.charcoal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // ================= STEP 1: CONTAINERS & VGM ASSIGNMENT =================
   Widget _buildStep1ContainerAssignment(
     List<dynamic> importFiles,
     double totalCargoCbm,
     double totalCargoWeightKg,
-    ContainerRecommendationResult activeContainerRec,
+    ContainerRecommendationResult? activeContainerRec,
   ) {
     final existingRecords = ref.watch(cargoShippingProvider).valueOrNull ?? [];
     final existingActiveFileIds = {for (final r in existingRecords) if (r.isActive) r.importFileId};
@@ -1390,9 +1181,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1442,23 +1233,29 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.purple.shade50,
+              color: AppTheme.cobalt.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.purple.shade200),
+              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
+                    const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: CopyableText(
-                        context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
-                        tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                      ),
+                      child: activeContainerRec == null
+                          ? Text(
+                              context.l10n.cshCargoMetricsMissing,
+                              key: const Key('cargoMetricsMissing'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
+                            )
+                          : CopyableText(
+                              context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
+                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                            ),
                     ),
                   ],
                 ),
@@ -1481,13 +1278,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     ),
                   ],
                 ),
+                if (activeContainerRec != null) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade100,
+                    color: AppTheme.emerald.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.green.shade400),
+                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.55)),
                   ),
                   child: CopyableText(
                     context.l10n.cargoShippingAutoRecommendation(
@@ -1496,10 +1294,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1),
                       activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1),
                     ),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                     tooltip: context.l10n.cargoShippingCopyFieldTooltip,
                   ),
                 ),
+                ],
               ],
             ),
           ),
@@ -1514,31 +1313,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               runSpacing: 8,
               children: [
                 Text(context.l10n.cargoShippingContainersHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                AppButton(
+                  label: context.l10n.cargoShippingAddContainerType,
+                  icon: Icons.add,
+                  size: AppButtonSize.small,
                   onPressed: () {
                     setState(() {
-                      final nowMs = DateTime.now().millisecondsSinceEpoch.toString();
-                      final nowIso = DateTime.now().toIso8601String();
-                      _containers.add(ContainerLoadingModel(
-                        containerType: '40HC',
-                        quantity: 1,
-                        containerNo: 'MSCU${nowMs.substring(6)}',
-                        sealNo: 'SL-${nowMs.substring(8)}',
-                        grossWeightKg: 24500,
-                        containerAssignmentDate: nowIso,
-                        trackingStatus: 'ASSIGNED',
-                        individualUnits: [
-                          {
-                            'container_no': 'MSCU${nowMs.substring(6)}',
-                            'seal_no': 'SL-${nowMs.substring(8)}',
-                          }
-                        ],
-                      ));
+                      _containers.add(blankContainer(assignmentDateIso: DateTime.now().toIso8601String()));
                     });
                   },
-                  icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                  label: Text(context.l10n.cargoShippingAddContainerType, style: const TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -1560,9 +1343,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppTheme.surfaceAltOf(context),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppTheme.borderOf(context)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1596,9 +1379,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1657,11 +1440,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     setState(() {
                       final units = List<Map<String, String>>.from(item.individualUnits);
                       while (units.length < q) {
-                        final ms = DateTime.now().millisecondsSinceEpoch.toString();
-                        units.add({
-                          'container_no': 'MSCU${ms.substring(6)}${units.length + 1}',
-                          'seal_no': 'SL-${ms.substring(8)}${units.length + 1}',
-                        });
+                        units.add({'container_no': '', 'seal_no': ''});
                       }
                       if (units.length > q) units.removeRange(q, units.length);
                       _containers[index] = ContainerLoadingModel(
@@ -1736,23 +1515,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   key: Key('duplicateContainerBtn_$index'),
                   icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt),
                   onPressed: () {
-                    final ms = DateTime.now().millisecondsSinceEpoch.toString();
-                    final dupUnits = item.individualUnits.map((u) {
-                      return {
-                        'container_no': 'MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}${_containers.length + 1}',
-                        'seal_no': 'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}${_containers.length + 1}',
-                      };
-                    }).toList();
+                    final dupUnits = blankUnits(item.individualUnits.length);
                     final dup = ContainerLoadingModel(
                       containerType: item.containerType,
                       quantity: item.quantity,
-                      containerNo: dupUnits.isNotEmpty ? (dupUnits.first['container_no'] ?? '') : 'MSCU${ms.substring(6)}',
-                      sealNo: dupUnits.isNotEmpty ? (dupUnits.first['seal_no'] ?? '') : 'SL-${ms.substring(8)}',
+                      containerNo: '',
+                      sealNo: '',
                       tareWeightKg: item.tareWeightKg,
                       netWeightKg: item.netWeightKg,
                       grossWeightKg: item.grossWeightKg,
-                      vgmStatus: item.vgmStatus,
-                      vgmRefNo: 'VGM-${ms.substring(8)}',
+                      vgmStatus: 'Pending',
                       containerAssignmentDate: DateTime.now().toIso8601String(),
                       trackingStatus: 'ASSIGNED',
                       individualUnits: dupUnits,
@@ -1761,11 +1533,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       _containers.insert(index + 1, dup);
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('تم تكرار الحاوية بنجاح (${dup.containerType})'),
-                        backgroundColor: AppTheme.cobalt,
-                        duration: const Duration(seconds: 2),
-                      ),
+                      AppTheme.snackBar(context, context.l10n.cshContainerDuplicated(dup.containerType), severity: AppSeverity.info, duration: const Duration(seconds: 2)),
                     );
                   },
                 ),
@@ -1774,7 +1542,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 const SizedBox(width: 4),
                 IconButton(
                   key: Key('deleteContainerBtn_$index'),
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete, color: AppTheme.crimson),
                   onPressed: () => setState(() => _containers.removeAt(index)),
                 ),
               ],
@@ -1783,7 +1551,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           const SizedBox(height: 10),
 
           // Per-Unit Container No & Seal No Fields
-          Text(context.l10n.cargoShippingUnitDetailsHeader, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          Text(context.l10n.cargoShippingUnitDetailsHeader, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryOf(context))),
           const SizedBox(height: 6),
           ...List.generate(qty, (unitIdx) {
             final units = item.individualUnits;
@@ -1917,10 +1685,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           padding: const EdgeInsets.all(14),
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surfaceOf(context),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+            border: Border.all(color: AppTheme.borderOf(context)),
+            boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1965,65 +1733,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               if (curFile != null) ...[
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, color: AppTheme.cobalt, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 4,
-                          children: [
-                            Text(
-                              '${context.l10n.cargoShippingLinkedFileBannerPrefix} ',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                            ),
-                            CopyableText(
-                              curFile.primaryNameWithCode,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
-                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                            ),
-                            Text(
-                              ' - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
-                            ),
-                            CopyableText(
-                              curFile.supplierName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                            ),
-                            if (curFile.acidNumber != null) ...[
-                              Text(
-                                ' | ${context.l10n.cargoShippingAcidPrefix}: ',
-                                style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
-                              ),
-                              CopyableText(
-                                curFile.acidNumber!,
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
-                                tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Tooltip(
-                        message: context.l10n.cargoShippingCopyFieldTooltip,
-                        child: IconButton(
-                          icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                          onPressed: () => CopyHelper.copy(
-                            context,
-                            '${curFile.primaryNameWithCode} | ${curFile.companyName} | ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "-"}',
-                          ),
-                        ),
-                      ),
-                    ],
+                ShippingLinkedFileBanner(
+                  fileLabel: curFile.primaryNameWithCode,
+                  companyName: curFile.companyName,
+                  supplierName: curFile.supplierName,
+                  acidNumber: curFile.acidNumber,
+                  copyAll: () => CopyHelper.copy(
+                    context,
+                    '${curFile.primaryNameWithCode} | ${curFile.companyName} | ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "-"}',
                   ),
                 ),
               ],
@@ -2035,15 +1752,33 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         _buildSlaExportToolbar(curFile, totalCount, inProgressCount, gatedInCount, breachedCount),
 
         // Top Summary Dashboard Cards
-        Row(
-          children: [
-            _buildMetricSummaryCard(context.l10n.cargoShippingMetricTotalContainers, totalCount.toString(), Icons.inventory_2, AppTheme.cobalt),
-            const SizedBox(width: 8),
-            _buildMetricSummaryCard(context.l10n.cargoShippingMetricInProgress, inProgressCount.toString(), Icons.hourglass_top, AppTheme.orange),
-            const SizedBox(width: 8),
-            _buildMetricSummaryCard(context.l10n.cargoShippingMetricGatedIn, gatedInCount.toString(), Icons.check_circle, AppTheme.emerald),
-            const SizedBox(width: 8),
-            _buildMetricSummaryCard(context.l10n.cargoShippingMetricSlaBreached, breachedCount.toString(), Icons.warning, breachedCount > 0 ? AppTheme.crimson : Colors.grey),
+        MetricCardStrip(
+          padding: EdgeInsets.zero,
+          metrics: [
+            MetricCardData(
+              title: context.l10n.cargoShippingMetricTotalContainers,
+              value: totalCount.toString(),
+              icon: Icons.inventory_2,
+              color: AppTheme.cobalt,
+            ),
+            MetricCardData(
+              title: context.l10n.cargoShippingMetricInProgress,
+              value: inProgressCount.toString(),
+              icon: Icons.hourglass_top,
+              color: AppTheme.orange,
+            ),
+            MetricCardData(
+              title: context.l10n.cargoShippingMetricGatedIn,
+              value: gatedInCount.toString(),
+              icon: Icons.check_circle,
+              color: AppTheme.emerald,
+            ),
+            MetricCardData(
+              title: context.l10n.cargoShippingMetricSlaBreached,
+              value: breachedCount.toString(),
+              icon: Icons.warning,
+              color: breachedCount > 0 ? AppTheme.crimson : AppTheme.textMutedOf(context),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -2086,121 +1821,50 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      margin: const EdgeInsetsDirectional.only(bottom: 14),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 10),
+      decoration: AppTheme.toolbarDecorationOf(context),
       child: Wrap(
         spacing: 10,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.charcoal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.table_chart_outlined, size: 16),
-            label: Text(l10n.cargoShippingSlaExportTsvBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          CcUi.fit(AppButton(
+            label: l10n.cargoShippingSlaExportTsvBtn,
+            icon: Icons.table_chart_outlined,
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
             onPressed: () => exportService.exportToTsv(),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.file_download_outlined, size: 16),
-            label: Text(l10n.cargoShippingSlaExportExcelBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          )),
+          CcUi.fit(AppButton(
+            label: l10n.cargoShippingSlaExportExcelBtn,
+            icon: Icons.table_chart,
+            variant: AppButtonVariant.success,
+            size: AppButtonSize.small,
             onPressed: () => exportService.exportToExcel(),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.crimson,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-            label: Text(l10n.cargoShippingSlaPrintPdfBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          )),
+          CcUi.fit(AppButton(
+            label: l10n.cargoShippingSlaPrintPdfBtn,
+            icon: Icons.picture_as_pdf,
+            variant: AppButtonVariant.danger,
+            size: AppButtonSize.small,
             onPressed: () => exportService.printOrSavePdf(),
-          ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.cobalt,
-              side: const BorderSide(color: AppTheme.cobalt),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.copy_all_outlined, size: 16),
-            label: Text(l10n.cargoShippingSlaCopyDossierBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          )),
+          CcUi.fit(AppButton(
+            label: l10n.shipmentUpdateBtnSavePdf,
+            icon: Icons.save_alt_rounded,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => exportService.printOrSavePdf(save: true),
+          )),
+          CcUi.fit(AppButton(
+            label: l10n.cargoShippingSlaCopyDossierBtn,
+            icon: Icons.copy_all_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
             onPressed: () => exportService.copyDossierToClipboard(),
-          ),
+          )),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMetricSummaryCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Tooltip(
-        message: context.l10n.cargoShippingCopyFieldTooltip,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => CopyHelper.copy(context, '$title: $value'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: color.withOpacity(0.3)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 3)],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: color.withOpacity(0.12),
-                  child: Icon(icon, size: 18, color: color),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        value,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.copy, size: 12, color: color.withOpacity(0.4)),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -2214,124 +1878,28 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.isSlaBreached ? AppTheme.crimson : Colors.grey.shade300, width: c.isSlaBreached ? 1.5 : 1),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: c.isSlaBreached ? AppTheme.crimson : AppTheme.borderOf(context), width: c.isSlaBreached ? 1.5 : 1),
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header: Container No + Status + SLA Alert + Quick Save Milestone Button
-          Row(
-            children: [
-              const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Tooltip(
-                  message: context.l10n.cargoShippingCopyFieldTooltip,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: () => CopyHelper.copy(
-                      context,
-                      '${context.l10n.cargoShippingContainerNo}: ${c.containerNo.isNotEmpty ? c.containerNo : "-"} | ${context.l10n.cargoShippingSealNo}: ${c.sealNo.isNotEmpty ? c.sealNo : "-"}',
-                      customMessage: context.l10n.cargoShippingSlaCopyContainerSuccess,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.copy, size: 13, color: Colors.grey.shade500),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: context.l10n.cargoShippingCopyFieldTooltip,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => CopyHelper.copy(
-                    context,
-                    c.getLocalizedStatus(context.l10n),
-                    customMessage: '${context.l10n.cargoShippingSlaTsvHeaderTrackingStatus}: ${c.getLocalizedStatus(context.l10n)}',
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: c.statusColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: c.statusColor),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          c.getLocalizedStatus(context.l10n),
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: c.statusColor),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.copy, size: 10, color: c.statusColor),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (c.isSlaBreached)
-                Tooltip(
-                  message: context.l10n.cargoShippingCopyFieldTooltip,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => CopyHelper.copy(
-                      context,
-                      context.l10n.cargoShippingSlaBreachedBadge,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.crimson.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.crimson),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.alarm_off, size: 14, color: AppTheme.crimson),
-                          const SizedBox(width: 4),
-                          Text(context.l10n.cargoShippingSlaBreachedBadge, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.crimson)),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.copy, size: 10, color: AppTheme.crimson),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  foregroundColor: AppTheme.cobalt,
-                  elevation: 0,
-                  side: const BorderSide(color: AppTheme.cobalt),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                ),
-                onPressed: () => _quickSaveContainerMilestone(index),
-                icon: const Icon(Icons.save, size: 16, color: AppTheme.cobalt),
-                label: Text(context.l10n.cargoShippingQuickSaveContainer, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-            ],
+          ShippingTrackingHeader(
+            icon: Icons.directions_boat,
+            title: context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
+            copyText:
+                '${context.l10n.cargoShippingContainerNo}: ${c.containerNo.isNotEmpty ? c.containerNo : "-"} | ${context.l10n.cargoShippingSealNo}: ${c.sealNo.isNotEmpty ? c.sealNo : "-"}',
+            copyMessage: context.l10n.cargoShippingSlaCopyContainerSuccess,
+            statusLabel: c.getLocalizedStatus(context.l10n),
+            statusSeverity: c.statusSeverity,
+            breached: c.isSlaBreached,
+            quickSaveLabel: context.l10n.cargoShippingQuickSaveContainer,
+            onQuickSave: () => _quickSaveContainerMilestone(index),
           ),
           const SizedBox(height: 12),
-
           // 5-Milestone Visual Timeline Progress
           _buildMilestoneTimelineProgress(
             stepIndex: c.progressStepIndex,
@@ -2487,149 +2055,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     required VoidCallback onSetNow,
     required VoidCallback onClear,
   }) {
-    final hasValue = valueText != null && valueText.trim().isNotEmpty;
-    final hasNote = noteText != null && noteText.trim().isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: hasValue ? const Color(0xFFF0FDF4) : const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: hasValue ? AppTheme.emerald : Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '$stepNumber. $stepTitle',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: hasValue ? AppTheme.charcoal : Colors.grey.shade700,
-                ),
-              ),
-              const Spacer(),
-              if (hasValue)
-                InkWell(
-                  onTap: onClear,
-                  child: const Icon(Icons.cancel, size: 14, color: Colors.grey),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          InkWell(
-            onTap: onPick,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: hasValue ? AppTheme.emerald.withOpacity(0.5) : Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    hasValue ? Icons.check_circle : Icons.schedule,
-                    size: 14,
-                    color: hasValue ? AppTheme.emerald : AppTheme.cobalt,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _formatDisplayDateTime(valueText, context),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: hasValue ? FontWeight.bold : FontWeight.normal,
-                        color: hasValue ? AppTheme.charcoal : Colors.grey.shade600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (hasValue) ...[
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message: context.l10n.cargoShippingCopyFieldTooltip,
-                      child: InkWell(
-                        onTap: () => CopyHelper.copy(
-                          context,
-                          _formatDisplayDateTime(valueText, context),
-                          customMessage: context.l10n.cargoShippingSlaCopyMilestoneSuccess,
-                        ),
-                        child: const Icon(Icons.copy, size: 12, color: AppTheme.emerald),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          if (hasNote) ...[
-            const SizedBox(height: 6),
-            Tooltip(
-              message: context.l10n.cargoShippingCopyFieldTooltip,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => CopyHelper.copy(context, noteText),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.amber.shade400),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.note_alt, size: 12, color: Colors.amber),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          noteText,
-                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.copy, size: 10, color: Colors.amber.shade800),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    side: BorderSide(color: hasValue ? AppTheme.emerald.withOpacity(0.6) : Colors.grey.shade400),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
-                  onPressed: onPick,
-                  child: Text(context.l10n.cargoShippingPickBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 4),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                  side: const BorderSide(color: AppTheme.cobalt),
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                onPressed: onSetNow,
-                child: Text(context.l10n.cargoShippingSetNowBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return ShippingMilestoneBox(
+      stepNumber: stepNumber,
+      stepTitle: stepTitle,
+      valueText: valueText,
+      noteText: noteText,
+      onPick: onPick,
+      onSetNow: onSetNow,
+      onClear: onClear,
     );
   }
 
@@ -2664,9 +2097,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppTheme.surfaceAltOf(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blueGrey.shade200),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2702,12 +2135,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                           Text(entry.value, style: TextStyle(fontSize: 11, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
                           if (hasExistingNote) ...[
                             const SizedBox(width: 4),
-                            const Icon(Icons.comment, size: 12, color: Colors.amber),
+                            const Icon(Icons.comment, size: 12, color: AppTheme.orange),
                           ],
                         ],
                       ),
                       selected: isSel,
-                      selectedColor: const Color(0xFFE0F2FE),
+                      selectedColor: AppTheme.severityBackgroundOf(context, AppSeverity.info),
                       onSelected: (selected) {
                         if (selected) {
                           setState(() {
@@ -2735,9 +2168,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             runSpacing: 4,
             children: quickTags.map((tag) {
               return ActionChip(
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.grey.shade300)),
-                label: Text(tag, style: const TextStyle(fontSize: 10, color: AppTheme.charcoal)),
+                backgroundColor: AppTheme.surfaceOf(context),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: AppTheme.borderOf(context))),
+                label: Text(tag, style: TextStyle(fontSize: 11, color: AppTheme.textPrimaryOf(context))),
                 onPressed: () {
                   final cur = ctrl.text.trim();
                   if (cur.isEmpty) {
@@ -2762,10 +2195,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   maxLines: 2,
                   decoration: InputDecoration(
                     hintText: context.l10n.cargoShippingNoteHint(stepTitles[selectedStep] ?? ""),
-                    hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    hintStyle: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
                     border: const OutlineInputBorder(),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppTheme.surfaceOf(context),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                 ),
@@ -2773,12 +2206,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const SizedBox(width: 8),
               Column(
                 children: [
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
+                  AppButton(
+                    label: context.l10n.cargoShippingSaveNote,
+                    icon: Icons.check,
+                    size: AppButtonSize.small,
                     onPressed: () {
                       final text = ctrl.text.trim();
                       final updatedNotes = Map<String, String>.from(c.milestoneNotes);
@@ -2792,13 +2223,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       });
                       _quickSaveContainerMilestone(containerIndex);
                     },
-                    icon: const Icon(Icons.check, size: 16),
-                    label: Text(context.l10n.cargoShippingSaveNote, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 4),
                   if (c.milestoneNotes[selectedStep]?.isNotEmpty ?? false)
-                    TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: Colors.red, padding: EdgeInsets.zero),
+                    AppButton(
+                      label: context.l10n.cargoShippingClearNote,
+                      icon: Icons.delete_outline,
+                      variant: AppButtonVariant.danger,
+                      size: AppButtonSize.small,
                       onPressed: () {
                         ctrl.clear();
                         final updatedNotes = Map<String, String>.from(c.milestoneNotes);
@@ -2808,8 +2240,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                         });
                         _quickSaveContainerMilestone(containerIndex);
                       },
-                      icon: const Icon(Icons.delete_outline, size: 14),
-                      label: Text(context.l10n.cargoShippingClearNote, style: const TextStyle(fontSize: 10)),
                     ),
                 ],
               ),
@@ -2877,88 +2307,23 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.warehouse, color: AppTheme.cobalt, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Tooltip(
-                  message: context.l10n.cargoShippingCopyFieldTooltip,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: () => CopyHelper.copy(
-                      context,
-                      _cfsWarehouseCtrl.text.isNotEmpty ? _cfsWarehouseCtrl.text : context.l10n.cargoShippingCfsWarehouseLabel,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.copy, size: 13, color: Colors.grey.shade500),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: context.l10n.cargoShippingCopyFieldTooltip,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => CopyHelper.copy(
-                    context,
-                    lcl.getLocalizedStatus(context.l10n),
-                    customMessage: '${context.l10n.cargoShippingSlaTsvHeaderTrackingStatus}: ${lcl.getLocalizedStatus(context.l10n)}',
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: lcl.statusColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: lcl.statusColor),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          lcl.getLocalizedStatus(context.l10n),
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: lcl.statusColor),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.copy, size: 10, color: lcl.statusColor),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  foregroundColor: AppTheme.cobalt,
-                  elevation: 0,
-                  side: const BorderSide(color: AppTheme.cobalt),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                ),
-                onPressed: _quickSaveLclMilestone,
-                icon: const Icon(Icons.save, size: 16, color: AppTheme.cobalt),
-                label: Text(context.l10n.cargoShippingQuickSaveLcl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-            ],
+          ShippingTrackingHeader(
+            icon: Icons.warehouse,
+            title: context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
+            copyText: _cfsWarehouseCtrl.text.isNotEmpty ? _cfsWarehouseCtrl.text : context.l10n.cargoShippingCfsWarehouseLabel,
+            copyMessage: null,
+            statusLabel: lcl.getLocalizedStatus(context.l10n),
+            statusSeverity: lcl.statusSeverity,
+            breached: lcl.isSlaBreached,
+            quickSaveLabel: context.l10n.cargoShippingQuickSaveLcl,
+            onQuickSave: _quickSaveLclMilestone,
           ),
           const SizedBox(height: 12),
 
@@ -3244,152 +2609,67 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   Widget _buildMilestoneTimelineProgress({required int stepIndex, required List<String> labels}) {
-    return Row(
-      children: List.generate(labels.length * 2 - 1, (i) {
-        if (i.isOdd) {
-          final isCompleted = (i ~/ 2) < stepIndex;
-          return Expanded(
-            child: Container(
-              height: 2,
-              color: isCompleted ? AppTheme.emerald : Colors.grey.shade300,
-            ),
-          );
-        }
-
-        final nodeIdx = i ~/ 2;
-        final isReached = (nodeIdx + 1) <= stepIndex;
-        final color = isReached ? AppTheme.emerald : Colors.grey.shade400;
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 10,
-              backgroundColor: color,
-              child: isReached
-                  ? const Icon(Icons.check, size: 12, color: Colors.white)
-                  : Text('${nodeIdx + 1}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              labels[nodeIdx],
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isReached ? FontWeight.bold : FontWeight.normal,
-                color: isReached ? AppTheme.charcoal : Colors.grey.shade600,
-              ),
-            ),
-          ],
-        );
-      }),
-    );
+    return ShippingMilestoneTimeline(stepIndex: stepIndex, labels: labels);
   }
 
   Widget _buildBottomActionToolbar() {
+    final l = context.l10n;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 16, vertical: 12),
+      decoration: AppTheme.cardDecorationOf(context),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // Demo action: fabricates milestone timestamps, so it exists in debug builds only.
+          if (kDebugMode)
             Tooltip(
-              message: Directionality.of(context) == TextDirection.rtl
-                  ? 'المحاكاة الذكية: توليد تواريخ ومحطات دورة التحميل والـ VGM ودخول الميناء تلقائياً في النموذج'
-                  : 'Smart Simulation: Auto-simulate loading, VGM, and port gate-in milestones in the form',
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE0F2FE),
-                  foregroundColor: AppTheme.cobalt,
-                  side: const BorderSide(color: AppTheme.cobalt),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
+              message: l.cshSmartSimTooltip,
+              child: CcUi.fit(AppButton(
+                label: l.cshSmartSimBtn,
+                icon: Icons.auto_awesome,
+                variant: AppButtonVariant.saveDraft,
+                size: AppButtonSize.small,
                 onPressed: _smartSimulationAllContainersTracking,
-                icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                label: Text(
-                  Directionality.of(context) == TextDirection.rtl
-                      ? '⚡ محاكاة ذكية (Smart Simulation) ⚡'
-                      : '⚡ Smart Simulation ⚡',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ),
+              )),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.cobalt,
-                side: const BorderSide(color: AppTheme.cobalt),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              onPressed: _copyContainerAllocationsManifest,
-              icon: const Icon(Icons.table_chart_outlined, size: 18),
-              label: Text(context.l10n.cargoShippingExportManifestBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.charcoal,
-                side: BorderSide(color: Colors.grey.shade400),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              onPressed: _refreshAllData,
-              icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-              label: Text(context.l10n.liveReload, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey.shade800,
-                side: BorderSide(color: Colors.grey.shade400),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              onPressed: _resetForm,
-              icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-              label: Text(context.l10n.cargoShippingClearStartNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEFF6FF),
-                foregroundColor: AppTheme.cobalt,
-                elevation: 0,
-                side: const BorderSide(color: AppTheme.cobalt),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              onPressed: () => _submitForm(isDraftProgressive: true),
-              icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-              label: Text(context.l10n.cargoShippingSaveDraft, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                elevation: 2,
-              ),
-              onPressed: _isSaving ? null : () => _submitForm(isDraftProgressive: false),
-              icon: _isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.verified_outlined, size: 20),
-              label: Text(
-                _editingRecordId != null
-                    ? (Directionality.of(context) == TextDirection.rtl
-                        ? 'تحديث واعتماد إنهاء المرحلة (STEP-07)'
-                        : 'Update & Complete Step-07')
-                    : (Directionality.of(context) == TextDirection.rtl
-                        ? 'حفظ واعتماد إنهاء المرحلة (STEP-07)'
-                        : 'Save & Complete Step-07'),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
+          CcUi.fit(AppButton(
+            label: l.cargoShippingExportManifestBtn,
+            icon: Icons.table_chart_outlined,
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
+            onPressed: _copyContainerAllocationsManifest,
+          )),
+          CcUi.fit(AppButton(
+            label: l.liveReload,
+            icon: Icons.refresh,
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
+            onPressed: _refreshAllData,
+          )),
+          CcUi.fit(AppButton(
+            label: l.cargoShippingClearStartNew,
+            icon: Icons.cleaning_services_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: _resetForm,
+          )),
+          CcUi.fit(AppButton(
+            label: l.cargoShippingSaveDraft,
+            icon: Icons.save_outlined,
+            variant: AppButtonVariant.saveDraft,
+            size: AppButtonSize.small,
+            onPressed: _isSaving ? null : () => _submitForm(isDraftProgressive: true),
+          )),
+          CcUi.fit(AppButton(
+            label: _editingRecordId != null ? l.cshUpdateCompleteBtn : l.cshSaveCompleteBtn,
+            icon: Icons.verified_outlined,
+            variant: AppButtonVariant.success,
+            isLoading: _isSaving,
+            onPressed: _isSaving ? null : () => _submitForm(isDraftProgressive: false),
+          )),
+        ],
       ),
     );
   }
@@ -3399,8 +2679,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   // ===========================================================================
   Widget _buildSavedShippingRegistryTab() {
     final recordsAsync = ref.watch(cargoShippingProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l = context.l10n;
+    final allRecords = recordsAsync.valueOrNull ?? const <CargoShippingModel>[];
+    final breachedCount = allRecords
+        .where((r) => r.containersLoadingData.any((c) => c.isSlaBreached) || (r.lclTrackingData?.isSlaBreached ?? false))
+        .length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -3414,118 +2697,98 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           ),
           const SizedBox(height: 12),
 
-          // Top Actions Toolbar (Task D, E, J)
-          Card(
-            elevation: 2,
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final list = recordsAsync.valueOrNull ?? [];
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        key: const Key('createShippingBtn'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () {
-                          _resetForm();
-                          _mainTabController.animateTo(0);
-                        },
-                        icon: const Icon(Icons.add_task, size: 16),
-                        label: Text(
-                          l.cargoShippingCreateNewRecord,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('searchAndCloneShippingBtn'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
-                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => _openSearchAndCloneShippingDialog(list),
-                        icon: const Icon(Icons.copy_all_rounded, size: 16),
-                        label: Text(
-                          l.searchAndCloneCargoShippingBtn,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('copyShippingTableTsvBtn'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
-                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => _copyShippingTableTsv(list, l),
-                        icon: const Icon(Icons.copy, size: 16),
-                        label: Text(
-                          l.customsDeclExportTsvButton,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('exportShippingExcelBtn'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFF86EFAC) : Colors.green.shade700,
-                          side: BorderSide(color: isDark ? const Color(0xFF22C55E) : Colors.green.shade600),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => _exportShippingExcel(list, l),
-                        icon: const Icon(Icons.table_chart, size: 16),
-                        label: Text(
-                          l.exportCargoShippingExcelTooltip,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        key: const Key('exportShippingPdfBtn'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
-                          side: BorderSide(color: isDark ? const Color(0xFFEF4444) : Colors.red.shade400),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () => _exportShippingPdf(list, l),
-                        icon: const Icon(Icons.picture_as_pdf, size: 16),
-                        label: Text(
-                          l.exportCargoShippingPdfTooltip,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+          // Registry metrics (values already loaded)
+          MetricCardStrip(
+            padding: EdgeInsets.zero,
+            metrics: [
+              MetricCardData(
+                title: l.cshMetricRecords,
+                value: '${allRecords.length}',
+                icon: Icons.local_shipping_outlined,
+                color: AppTheme.cobalt,
               ),
+              MetricCardData(
+                title: l.cshPdfMetaFcl,
+                value: '${allRecords.where((r) => r.shipmentType == 'FCL').length}',
+                icon: Icons.view_in_ar_outlined,
+                color: AppTheme.emerald,
+              ),
+              MetricCardData(
+                title: l.cshPdfMetaLcl,
+                value: '${allRecords.where((r) => r.shipmentType == 'LCL').length}',
+                icon: Icons.warehouse_outlined,
+                color: AppTheme.orange,
+              ),
+              MetricCardData(
+                title: l.cargoShippingMetricSlaBreached,
+                value: '$breachedCount',
+                icon: Icons.alarm_off,
+                color: breachedCount > 0 ? AppTheme.crimson : AppTheme.textMutedOf(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Top Actions Toolbar (Task D, E, J)
+          Container(
+            padding: const EdgeInsetsDirectional.all(12),
+            decoration: AppTheme.toolbarDecorationOf(context),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                CcUi.fit(AppButton(
+                  key: const Key('createShippingBtn'),
+                  label: l.cargoShippingCreateNewRecord,
+                  icon: Icons.add_task,
+                  size: AppButtonSize.small,
+                  onPressed: () {
+                    _resetForm();
+                    _mainTabController.animateTo(0);
+                  },
+                )),
+                CcUi.fit(AppButton(
+                  key: const Key('searchAndCloneShippingBtn'),
+                  label: l.searchAndCloneCargoShippingBtn,
+                  icon: Icons.copy_all_rounded,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
+                  onPressed: () => _openSearchAndCloneShippingDialog(allRecords),
+                )),
+                CcUi.fit(AppButton(
+                  key: const Key('copyShippingTableTsvBtn'),
+                  label: l.customsDeclExportTsvButton,
+                  icon: Icons.copy,
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.small,
+                  onPressed: () => _copyShippingTableTsv(allRecords, l),
+                )),
+                CcUi.fit(AppButton(
+                  key: const Key('exportShippingExcelBtn'),
+                  label: l.exportCargoShippingExcelTooltip,
+                  icon: Icons.table_chart,
+                  variant: AppButtonVariant.success,
+                  size: AppButtonSize.small,
+                  onPressed: () => _exportShippingExcel(allRecords, l),
+                )),
+                CcUi.fit(AppButton(
+                  key: const Key('exportShippingPdfBtn'),
+                  label: l.exportCargoShippingPdfTooltip,
+                  icon: Icons.picture_as_pdf,
+                  variant: AppButtonVariant.danger,
+                  size: AppButtonSize.small,
+                  onPressed: () => _exportShippingPdf(allRecords, l),
+                )),
+              ],
             ),
           ),
           const SizedBox(height: 12),
 
           // Filters Bar (Responsive LayoutBuilder for Task A)
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-            ),
+            padding: const EdgeInsetsDirectional.all(12),
+            decoration: AppTheme.cardDecorationOf(context),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
@@ -3622,11 +2885,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           ),
           const SizedBox(height: 12),
 
-          // Registry DataTable
+          // Registry list
           recordsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(
-              child: Text('${context.l10n.error}: $err', style: const TextStyle(color: Colors.red)),
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: CcStateView.loading(),
+            ),
+            error: (err, _) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: CcStateView.error(
+                message: '${context.l10n.error}: $err',
+                actionLabel: l.retry,
+                onAction: _refreshAllData,
+              ),
             ),
             data: (list) {
               final filtered = list.where((item) {
@@ -3656,21 +2927,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               }).toList();
 
               if (filtered.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      Text(context.l10n.cargoShippingNoMatchingRecords, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                        onPressed: () => _mainTabController.animateTo(0),
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: Text(context.l10n.cargoShippingCreateNewRecord, style: const TextStyle(color: Colors.white)),
-                      ),
-                    ],
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: CcStateView.empty(
+                    message: context.l10n.cargoShippingNoMatchingRecords,
+                    icon: Icons.folder_open,
+                    actionLabel: context.l10n.cargoShippingCreateNewRecord,
+                    onAction: () => _mainTabController.animateTo(0),
                   ),
                 );
               }
@@ -3678,21 +2941,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
               final importFilesMap = {for (final f in importFiles) f.importFileId: f};
 
-              return Card(
-                elevation: 1,
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-                ),
+              return Container(
+                decoration: AppTheme.cardDecorationOf(context),
+                clipBehavior: Clip.antiAlias,
                 child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: filtered.length,
-                  separatorBuilder: (_, __) => Divider(
-                    height: 1,
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                  ),
+                  separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
                   itemBuilder: (ctx, idx) {
                     final rec = filtered[idx];
                     return _buildRegistryRow(rec, importFilesMap);
@@ -3707,191 +2963,67 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   Widget _buildRegistryRow(CargoShippingModel rec, Map<int, dynamic> importFilesMap) {
-    final hasBreach = rec.containersLoadingData.any((c) => c.isSlaBreached) || (rec.lclTrackingData?.isSlaBreached ?? false);
-    final gatedCount = rec.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final matchingFile = importFilesMap[rec.importFileId];
     final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
     final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
         ? matchingFile!.companyName
         : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : context.l10n.importCompanies);
     final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
-
     final displayName = fileCode.isNotEmpty ? '$fileCode - $companyName' : companyName;
 
-    return ListTile(
-      onTap: () => _loadRecordForEditing(rec),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        backgroundColor: rec.isActive
-            ? AppTheme.cobalt.withOpacity(0.12)
-            : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-        child: Icon(
-          rec.isActive ? Icons.folder_special : Icons.delete_outline,
-          color: rec.isActive ? AppTheme.cobalt : Colors.grey,
-        ),
-      ),
-      title: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 8,
-        runSpacing: 4,
-        children: [
-          Text(
-            displayName,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(rec.cargoShippingCode, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: rec.shipmentType == 'FCL' ? Colors.blue.withOpacity(0.1) : Colors.purple.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(rec.shipmentType, style: TextStyle(fontSize: 11, color: rec.shipmentType == 'FCL' ? Colors.blue : Colors.purple, fontWeight: FontWeight.bold)),
-          ),
-          if (!rec.isActive)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red)),
-              child: Text(context.l10n.cargoShippingSoftDeletedBadge, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-        ],
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${supplierName.isNotEmpty ? "${context.l10n.cargoShippingSupplierLabel} $supplierName | " : ""}${context.l10n.cargoShippingContainersHeader} ${rec.containersLoadingData.map((c) => "${c.containerNo} (${c.sealNo})").join(", ")}',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                _buildBadge(
-                  '${context.l10n.status}: ${rec.status == "Completed" ? context.l10n.cargoShippingStatusCompleted : (rec.status == "Cargo Ready" ? context.l10n.cargoShippingStatusCargoReady : rec.status)}',
-                  rec.status == 'Completed' ? AppTheme.emerald : AppTheme.cobalt,
-                ),
-                if (rec.shipmentType == 'FCL')
-                  _buildBadge(
-                    context.l10n.cargoShippingGatedCountBadge(gatedCount, rec.containersLoadingData.length),
-                    AppTheme.emerald,
-                  ),
-                if (hasBreach)
-                  _buildBadge(context.l10n.cargoShippingSlaBreached, AppTheme.crimson)
-                else
-                  _buildBadge(context.l10n.cargoShippingSlaOnTime, AppTheme.emerald),
-              ],
-            ),
-          ],
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Copy row TSV Button (Task E)
-          IconButton(
-            key: Key('copyShippingRowBtn_${rec.cargoShippingCode}'),
-            icon: const Icon(Icons.copy, color: AppTheme.cobalt),
-            tooltip: context.l10n.copyCargoShippingRowSuccess,
-            onPressed: () => _copyShippingRowTsv(rec, context.l10n),
-          ),
-          // Clone Shipping Record Button (Task D)
-          IconButton(
-            key: Key('cloneShippingRowBtn_${rec.cargoShippingCode}'),
-            icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt),
-            tooltip: context.l10n.cloneCargoShippingTooltip,
-            onPressed: () => _onCloneCargoShipping(rec),
-          ),
-          // Edit Button (Restores if deleted and loads into form)
-          IconButton(
-            key: Key('editShippingBtn_${rec.cargoShippingCode}'),
-            icon: const Icon(Icons.edit, color: AppTheme.cobalt),
-            tooltip: context.l10n.cargoShippingEditTooltip,
-            onPressed: () => _loadRecordForEditing(rec),
-          ),
-          // Restore Button if inactive
-          if (!rec.isActive)
-            IconButton(
-              icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-              tooltip: context.l10n.cargoShippingRestoreTooltip,
-              onPressed: () async {
-                await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cargoShippingRestoreSuccess(rec.cargoShippingCode)), backgroundColor: AppTheme.emerald),
-                  );
-                }
-              },
-            ),
-          // Soft Delete Button
-          if (rec.isActive)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: context.l10n.delete,
-              onPressed: () => _confirmDeleteRecord(rec),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+    return ShippingRegistryRow(
+      rec: rec,
+      displayName: displayName,
+      supplierName: supplierName,
+      onOpen: () => _loadRecordForEditing(rec),
+      onCopyRow: () => _copyShippingRowTsv(rec, context.l10n),
+      onClone: () => _onCloneCargoShipping(rec),
+      onRestore: () async {
+        await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            AppTheme.snackBar(context, context.l10n.cargoShippingRestoreSuccess(rec.cargoShippingCode), severity: AppSeverity.success),
+          );
+        }
+      },
+      onDelete: () => _confirmDeleteRecord(rec),
     );
   }
 
   void _confirmDeleteRecord(CargoShippingModel rec) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            Icon(Icons.warning_amber_rounded, color: AppTheme.severityForegroundOf(context, AppSeverity.danger)),
             const SizedBox(width: 8),
-            Text(context.l10n.cargoShippingDeleteConfirmTitle),
+            Expanded(child: Text(l.cargoShippingDeleteConfirmTitle)),
           ],
         ),
-        content: Text(context.l10n.cargoShippingDeleteConfirmMessage(rec.cargoShippingCode, rec.importFileCode ?? '')),
+        content: Text(l.cargoShippingDeleteConfirmMessage(rec.cargoShippingCode, rec.importFileCode ?? '')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          AppButton(
+            label: l.cancel,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          AppButton(
+            label: l.cargoShippingConfirmDeleteBtn,
+            icon: Icons.delete_outline,
+            variant: AppButtonVariant.danger,
+            size: AppButtonSize.small,
             onPressed: () async {
               Navigator.pop(ctx);
               await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.l10n.cargoShippingDeleteSuccess(rec.cargoShippingCode)), backgroundColor: Colors.red),
+                  AppTheme.snackBar(context, l.cargoShippingDeleteSuccess(rec.cargoShippingCode), severity: AppSeverity.danger),
                 );
               }
             },
-            child: Text(context.l10n.cargoShippingConfirmDeleteBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
+import 'freight_booking_ui.dart';
 
+/// SH-01: confirm the actual sailing (ATD), issue / update the B/L number and
+/// the revised ETA of a confirmed or sailed booking.
 class DepartureConfirmationDialog extends ConsumerStatefulWidget {
   final ShipmentBookingModel booking;
 
@@ -101,19 +109,6 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
       initialDate: initialDate,
       firstDate: firstDate ?? DateTime(2020),
       lastDate: lastDate ?? DateTime(2035),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.cobalt,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppTheme.charcoal,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => onSelected(picked));
@@ -122,6 +117,7 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
 
   Future<void> _onSubmit() async {
     if (!_formKey.currentState!.validate()) return;
+    final l = AppLocalizations.of(context);
 
     setState(() => _isSubmitting = true);
     try {
@@ -147,36 +143,16 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم (${_bolController.text.trim()}) وانتقال الشحنة لحالة In-Transit',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
+          AppTheme.snackBar(
+            context,
+            l.fbkDepSuccess(_bolController.text.trim()),
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تعذر تأكيد الإبحار: ${e.toString().replaceAll('Exception:', '')}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: AppTheme.crimson,
-          ),
-        );
+        FbkUi.snack(context, l.fbkDepError(ApiErrorText.of(l, e)), severity: AppSeverity.danger);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -185,357 +161,190 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final b = widget.booking;
-    final isDark = AppTheme.isDark(context);
     final delayDays = _calculatedDelayDays;
     final transitDays = _calculatedTransitDays;
+    final fileCode = b.importFileCode ?? (b.importFileId != null ? 'IMP-${b.importFileId}' : l.fbkDepNotLinked);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Container(
-        width: 680,
-        constraints: const BoxConstraints(maxHeight: 780),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
+    return CcStageDialogShell(
+      title: l.fbkDepTitle,
+      icon: Icons.sailing_rounded,
+      maxWidth: 720,
+      chips: [
+        CcHeaderChip(Icons.tag, b.bookingConfirmationNo ?? b.bookingCode, ltr: true),
+        CcHeaderChip(Icons.folder_special, fileCode, ltr: true),
+      ],
+      isSubmitting: _isSubmitting,
+      confirmKey: const Key('fbkDepartureConfirmBtn'),
+      confirmLabel: l.fbkDepBtn,
+      loadingLabel: l.fbkDepBtnBusy,
+      confirmVariant: AppButtonVariant.primary,
+      onConfirm: _onSubmit,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _context(context, l, delayDays),
+            const SizedBox(height: 14),
+            CcFormSection(
+              title: l.fbkDepSectionBl,
+              icon: Icons.receipt_long,
+              child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.sailing_rounded, color: AppTheme.cobalt, size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'تأكيد الإبحار الفعلي وإصدار بوليصة الشحن (SH-01)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'حجز: ${b.bookingConfirmationNo ?? b.bookingCode} | ملف: ${b.importFileCode ?? (b.importFileId != null ? "IMP-${b.importFileId}" : "غير مرتبط")}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                      ],
+                  CcField(
+                    label: l.fbkDepBolLabel,
+                    child: TextFormField(
+                      controller: _bolController,
+                      textDirection: TextDirection.ltr,
+                      decoration: ccInputDecoration(prefix: Icons.receipt_long),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return l.fbkDepBolRequired;
+                        if (v.trim().length < 3) return l.fbkDepBolShort;
+                        return null;
+                      },
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Operational Context & Delay Banner
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade900 : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.withOpacity(0.25)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'الخط الملاحي: ${b.shippingLineName ?? "MSC"}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'المسار: ${b.polName ?? "POL"} ➔ ${b.podName ?? "POD"}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (delayDays > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.orange.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.orange),
-                            const SizedBox(width: 4),
-                            Text(
-                              'تأخر إبحار: $delayDays يوم',
-                              style: const TextStyle(color: AppTheme.orange, fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_outline, size: 14, color: AppTheme.emerald),
-                            SizedBox(width: 4),
-                            Text(
-                              'إبحار في الموعد (On Schedule)',
-                              style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Scrollable Inputs Form
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  const SizedBox(height: 12),
+                  CcFieldRow(
                     children: [
-                      // Row 1: Bill of Lading Number (Required)
-                      TextFormField(
-                        controller: _bolController,
-                        decoration: InputDecoration(
-                          labelText: 'رقم بوليصة الشحن (Bill of Lading No / Master B/L) *',
-                          hintText: 'مثال: MSCU1234567 / COSU62001122',
-                          prefixIcon: const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'يرجى إدخال رقم بوليصة الشحن B/L';
-                          }
-                          if (v.trim().length < 3) {
-                            return 'رقم البوليصة يجب ألا يقل عن 3 أحرف/أرقام';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Row 2: Actual Departure Date (ATD) & Revised ETA
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDate(
-                                initialDate: _actualDepartureDate,
-                                onSelected: (d) => _actualDepartureDate = d,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'تاريخ الإبحار الفعلي (ATD) *',
-                                  prefixIcon: const Icon(Icons.event_available, color: AppTheme.cobalt, size: 20),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                ),
-                                child: Text(
-                                  _actualDepartureDate.toIso8601String().substring(0, 10),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDate(
-                                initialDate: _revisedEta ?? _actualDepartureDate.add(const Duration(days: 15)),
-                                firstDate: _actualDepartureDate,
-                                onSelected: (d) => _revisedEta = d,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'موعد الوصول المحدث (Revised ETA)',
-                                  prefixIcon: const Icon(Icons.pin_drop_outlined, color: AppTheme.emerald, size: 20),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                ),
-                                child: Text(
-                                  _revisedEta != null ? _revisedEta!.toIso8601String().substring(0, 10) : 'تلقائي',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Row 3: Vessel & Voyage
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _vesselController,
-                              decoration: InputDecoration(
-                                labelText: 'اسم الباخرة (Vessel Name)',
-                                hintText: 'مثال: MSC OSCAR',
-                                prefixIcon: const Icon(Icons.directions_boat_filled_outlined, size: 20),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _voyageController,
-                              textDirection: TextDirection.ltr,
-                              decoration: InputDecoration(
-                                labelText: 'رقم الرحلة (Voyage Number)',
-                                hintText: 'مثال: 2608W / 042E',
-                                prefixIcon: const Icon(Icons.tag, size: 20),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Row 4: Shipped on Board Date
-                      InkWell(
-                        onTap: () => _selectDate(
-                          initialDate: _shippedOnBoardDate ?? _actualDepartureDate,
-                          onSelected: (d) => _shippedOnBoardDate = d,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'تاريخ الشحن على ظهر السفينة (Shipped On Board Date)',
-                            hintText: 'تاريخ ختم On Board الرسمي على البوليصة',
-                            prefixIcon: const Icon(Icons.fact_check_outlined, size: 20),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          child: Text(
-                            _shippedOnBoardDate != null
-                                ? _shippedOnBoardDate!.toIso8601String().substring(0, 10)
-                                : 'نفس تاريخ الإبحار الفعلي (${_actualDepartureDate.toIso8601String().substring(0, 10)})',
-                            style: TextStyle(
-                              color: _shippedOnBoardDate != null ? null : Colors.grey.shade600,
-                              fontSize: 13,
-                            ),
+                      CcField(
+                        label: l.fbkDepAtdLabel,
+                        child: CcDateTile(
+                          date: _actualDepartureDate,
+                          onTap: () => _selectDate(
+                            initialDate: _actualDepartureDate,
+                            onSelected: (d) => _actualDepartureDate = d,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
-
-                      // Row 5: Notes & Observations
-                      TextFormField(
-                        controller: _notesController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          labelText: 'ملاحظات خط الملاحة ومحطات الترانزيت (اختياري)',
-                          hintText: 'مثال: الشحنة أبحرت مباشرة، الترانزيت المتوقع $transitDays يوم بدون تأخير...',
-                          prefixIcon: const Icon(Icons.note_alt_outlined, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Live Automation Card
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.auto_awesome, size: 16, color: AppTheme.cobalt),
-                                SizedBox(width: 6),
-                                Text(
-                                  'المعالجة الآلية الفورية عند الحفظ:',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '• تحويل حالة الشحنة إلى In-Transit / On Water بنسبة إنجاز 60%+\n'
-                              '• تحديث رادار غرامات الحاويات (Demurrage) برقم بوليصة الشحن\n'
-                              '• إغلاق مهام الإبحار وإطلاق مهمة (SH-02): المراجعة المزدوجة لمسودة البوليصة\n'
-                              '• بث إشعار تشغيلي رسمي لغرفة العمليات بموعد الوصول المحدث',
-                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.4),
-                            ),
-                          ],
+                      CcField(
+                        label: l.fbkDepRevisedEtaLabel,
+                        child: CcDateTile(
+                          date: _revisedEta,
+                          placeholder: l.fbkDepAuto,
+                          onTap: () => _selectDate(
+                            initialDate: _revisedEta ?? _actualDepartureDate.add(const Duration(days: 15)),
+                            firstDate: _actualDepartureDate,
+                            onSelected: (d) => _revisedEta = d,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                    child: const Text('إلغاء', style: TextStyle(fontSize: 13)),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: _isSubmitting ? null : _onSubmit,
-                    icon: _isSubmitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check_circle, size: 18),
-                    label: Text(
-                      _isSubmitting ? 'جاري توثيق الإبحار...' : 'تأكيد الإبحار وإصدار البوليصة',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  const SizedBox(height: 12),
+                  CcField(
+                    label: l.fbkDepSobLabel,
+                    child: CcDateTile(
+                      date: _shippedOnBoardDate,
+                      placeholder: l.fbkDepSobSameAsAtd(CcFormat.date(_actualDepartureDate)),
+                      onTap: () => _selectDate(
+                        initialDate: _shippedOnBoardDate ?? _actualDepartureDate,
+                        onSelected: (d) => _shippedOnBoardDate = d,
+                      ),
                     ),
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            CcFormSection(
+              title: l.fbkSectionVessel,
+              icon: Icons.directions_boat_filled_outlined,
+              child: Column(
+                children: [
+                  CcFieldRow(
+                    children: [
+                      CcField(
+                        label: l.freightBookingVesselNameInput,
+                        child: TextFormField(
+                          controller: _vesselController,
+                          decoration: ccInputDecoration(prefix: Icons.directions_boat_filled_outlined),
+                        ),
+                      ),
+                      CcField(
+                        label: l.freightBookingVoyageNoInput,
+                        child: TextFormField(
+                          controller: _voyageController,
+                          textDirection: TextDirection.ltr,
+                          decoration: ccInputDecoration(prefix: Icons.tag),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  CcField(
+                    label: l.fbkDepNotesLabel,
+                    child: TextFormField(
+                      controller: _notesController,
+                      maxLines: 2,
+                      decoration: ccInputDecoration(hint: l.fbkDepNotesHint(transitDays)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            CcSectionCard(
+              title: l.fbkDepAutoTitle,
+              icon: Icons.auto_awesome,
+              margin: EdgeInsetsDirectional.zero,
+              child: Text(
+                l.fbkDepAutoBody,
+                style: TextStyle(fontSize: 11.5, height: 1.5, color: AppTheme.textSecondaryOf(context)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Carrier / route of the booking and the on-schedule or delay indicator.
+  Widget _context(BuildContext context, AppLocalizations l, int delayDays) {
+    final b = widget.booking;
+    return Container(
+      padding: const EdgeInsetsDirectional.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceAltOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppTheme.borderOf(context)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 8,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l.fbkDepCarrier(FbkFormat.orDash(b.shippingLineName)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.textPrimaryOf(context)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                l.fbkDepRoute(FbkFormat.orDash(b.polName), FbkFormat.orDash(b.podName)),
+                style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context)),
+              ),
             ],
           ),
-        ),
+          if (delayDays > 0)
+            CcStatusChip(
+              label: l.fbkDepDelayed(delayDays),
+              severity: AppSeverity.warning,
+              icon: Icons.warning_amber_rounded,
+            )
+          else
+            CcStatusChip(
+              label: l.fbkDepOnSchedule,
+              severity: AppSeverity.success,
+              icon: Icons.check_circle_outline,
+            ),
+        ],
       ),
     );
   }

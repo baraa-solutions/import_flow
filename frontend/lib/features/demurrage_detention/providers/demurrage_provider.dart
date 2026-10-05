@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_error.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../inland_transport/providers/inland_transport_provider.dart';
@@ -15,6 +17,10 @@ class DemurrageState {
   final bool isLoading;
   final String? error;
 
+  /// The raw failure behind [error]; screens render it with `ApiErrorText.of`
+  /// so the backend Arabic detail and 403s reach the user.
+  final Object? errorObject;
+
   const DemurrageState({
     this.policies = const [],
     this.trackings = const [],
@@ -22,6 +28,7 @@ class DemurrageState {
     this.activeAgreement,
     this.isLoading = false,
     this.error,
+    this.errorObject,
   });
 
   DemurrageState copyWith({
@@ -31,6 +38,7 @@ class DemurrageState {
     FreeDaysAgreementModel? activeAgreement,
     bool? isLoading,
     String? error,
+    Object? errorObject,
   }) {
     return DemurrageState(
       policies: policies ?? this.policies,
@@ -39,6 +47,7 @@ class DemurrageState {
       activeAgreement: activeAgreement ?? this.activeAgreement,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      errorObject: errorObject,
     );
   }
 }
@@ -68,7 +77,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       if (e is DioException && CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
     }
   }
 
@@ -92,7 +101,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       if (e is DioException && CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
     }
   }
 
@@ -121,7 +130,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       if (e is DioException && CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
     }
   }
 
@@ -134,7 +143,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         return result;
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
       rethrow;
     }
     return null;
@@ -147,7 +156,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       await fetchTrackings();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
       return false;
     }
   }
@@ -163,7 +172,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       await fetchTrackings();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
       return false;
     }
   }
@@ -174,10 +183,12 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         '/demurrage-detention/trackings/push-to-settlement',
         data: {'tracking_id': trackingId, 'import_file_id': importFileId},
       );
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(lifecycleBoardSummaryProvider);
       await fetchTrackings();
       return res.data as Map<String, dynamic>?;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
       return null;
     }
   }
@@ -189,7 +200,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       await fetchPolicies();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
       return false;
     }
   }
@@ -202,8 +213,10 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         state = state.copyWith(activeAgreement: agreement);
         return agreement;
       }
-    } catch (_) {
-      // If none registered yet, return null quietly
+    } catch (e) {
+      // Only "no agreement registered yet" (404) is quiet; surface the rest.
+      if (e is DioException && e.response?.statusCode == 404) return null;
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
       return null;
     }
     return null;
@@ -224,13 +237,14 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         _ref?.invalidate(importFilesProvider);
         _ref?.invalidate(smartTasksProvider);
         _ref?.invalidate(freightBookingProvider);
+        _ref?.invalidate(lifecycleBoardSummaryProvider);
 
         // Refresh trackings to reflect newly calculated free days
         await fetchTrackings();
         return agreement;
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
       rethrow;
     }
     return null;
@@ -243,7 +257,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         return ContainerRadarOverviewModel.fromJson(res.data);
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
     }
     return null;
   }
@@ -266,12 +280,13 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         _ref?.invalidate(containerRadarOverviewProvider);
         _ref?.invalidate(smartTasksProvider);
         _ref?.invalidate(inlandTransportProvider);
+        _ref?.invalidate(lifecycleBoardSummaryProvider);
 
         await fetchTrackings();
         return responseModel;
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
       rethrow;
     }
     return null;
