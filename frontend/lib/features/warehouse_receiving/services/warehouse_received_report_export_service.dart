@@ -473,9 +473,14 @@ class WarehouseReceivedReportExportService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
-      name: 'Warehouse_Received_Detailed_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    final bytes = await doc.save();
+    if (!context.mounted) return;
+    await FileSaveHelper.exportAndSaveFile(
+      context: context,
+      bytes: bytes,
+      stageName: 'Warehouse Received Report',
+      importFileNameOrCode: 'Detailed Report',
+      extension: 'pdf',
     );
   }
 

@@ -1,10 +1,35 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/network/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/inland_transport/models/inland_transport_model.dart';
 import 'package:frontend/features/inland_transport/widgets/inland_transport_dialog.dart';
+
+/// No booking exists for the file: the by-file lookup answers 200 with an empty body, so the
+/// dialog offers the create form. (Without a backend the lookup fails and the dialog shows the
+/// error + retry instead of the form, FE-06.)
+class _NoBookingAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    return ResponseBody.fromString('null', 200, headers: {
+      Headers.contentTypeHeader: ['application/json'],
+    });
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+List<Override> _noBookingOverrides() {
+  final dio = Dio(BaseOptions(validateStatus: (s) => s != null && s >= 200 && s < 300))
+    ..httpClientAdapter = _NoBookingAdapter();
+  return [dioProvider.overrideWithValue(dio), uploadDioProvider.overrideWithValue(dio)];
+}
 
 void main() {
   group('TR-01: Inland Transport Coordination Model Tests', () {
@@ -143,6 +168,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _noBookingOverrides(),
           child: AppLocalizationsProvider(
             locale: const Locale('ar'),
             child: MaterialApp(
@@ -171,7 +197,8 @@ void main() {
 
       // 3. Form Section & Elements
       expect(find.text('نموذج حجز وتنسيق النقل الداخلي'), findsOneWidget);
-      expect(find.byKey(const Key('inlandAutoWaybillBtn')), findsOneWidget);
+      // The fabricated "auto waybill" button was removed: the user types the real waybill.
+      expect(find.byKey(const Key('inlandAutoWaybillBtn')), findsNothing);
       expect(find.byKey(const Key('inlandWaybillNoField')), findsOneWidget);
       expect(find.byKey(const Key('inlandCarrierNameField')), findsOneWidget);
       expect(find.byKey(const Key('inlandTruckPlateField')), findsOneWidget);
@@ -181,12 +208,7 @@ void main() {
       expect(find.byKey(const Key('inlandFareEgpField')), findsOneWidget);
       expect(find.byKey(const Key('inlandSubmitBookingBtn')), findsOneWidget);
 
-      // 4. Test Auto Generate Waybill
-      await tester.tap(find.byKey(const Key('inlandAutoWaybillBtn')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('inlandWaybillNoField')), findsOneWidget);
-
-      // 5. Fill and edit form inputs
+      // 4. Fill and edit form inputs
       await tester.enterText(find.byKey(const Key('inlandCarrierNameField')), 'شركة الأهرام للنقل السريع');
       await tester.enterText(find.byKey(const Key('inlandTruckPlateField')), 'س ف ج 9123 / ق ر 45');
       await tester.enterText(find.byKey(const Key('inlandDriverNameField')), 'محمود علي الشاذلي');
@@ -232,6 +254,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _noBookingOverrides(),
           child: AppLocalizationsProvider(
             locale: const Locale('ar'),
             child: MaterialApp(
@@ -248,7 +271,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('inlandAutoWaybillBtn')), findsOneWidget);
+      expect(find.byKey(const Key('inlandAutoWaybillBtn')), findsNothing);
       expect(find.byKey(const Key('inlandSubmitBookingBtn')), findsOneWidget);
     });
   });

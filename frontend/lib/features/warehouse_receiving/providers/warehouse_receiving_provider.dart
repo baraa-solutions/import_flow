@@ -27,12 +27,35 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
     super.dispose();
   }
 
+  // Last filters, re-applied after a mutation (FE-15).
+  bool _includeInactive = false;
+  int? _importFileId;
+  String? _status;
+  String? _search;
+
+  void _invalidateRelated() {
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    _ref?.invalidate(goodsInTransitProvider);
+  }
+
+  Future<void> _refetch() => fetchRecords(
+        includeInactive: _includeInactive,
+        importFileId: _importFileId,
+        status: _status,
+        search: _search,
+      );
+
   Future<void> fetchRecords({
     bool includeInactive = false,
     int? importFileId,
     String? status,
     String? search,
   }) async {
+    _includeInactive = includeInactive;
+    _importFileId = importFileId;
+    _status = status;
+    _search = search;
     _cancelToken?.cancel('Cancelled by new fetchRecords request');
     _cancelToken = CancelToken();
 
@@ -65,88 +88,58 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
   }
 
   Future<WarehouseReceivingModel?> createRecord(Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/warehouse-receiving',
-        data: payload,
-      );
-      final created = WarehouseReceivingModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      _ref?.invalidate(goodsInTransitProvider);
-      await fetchRecords();
-      return created;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/warehouse-receiving',
+      data: payload,
+    );
+    final created = WarehouseReceivingModel.fromJson(response.data);
+    _invalidateRelated();
+    await _refetch();
+    return created;
   }
 
   Future<WarehouseReceivingModel?> updateRecord(int recordId, Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.put(
-        '${ApiConstants.baseUrl}/warehouse-receiving/$recordId',
-        data: payload,
-      );
-      final updated = WarehouseReceivingModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      _ref?.invalidate(goodsInTransitProvider);
-      await fetchRecords();
-      return updated;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.put(
+      '${ApiConstants.baseUrl}/warehouse-receiving/$recordId',
+      data: payload,
+    );
+    final updated = WarehouseReceivingModel.fromJson(response.data);
+    _invalidateRelated();
+    await _refetch();
+    return updated;
   }
 
   Future<WarehouseReceivingModel?> reportDiscrepancy(int recordId, Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/warehouse-receiving/$recordId/report-discrepancy',
-        data: payload,
-      );
-      final updated = WarehouseReceivingModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      _ref?.invalidate(goodsInTransitProvider);
-      await fetchRecords();
-      return updated;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/warehouse-receiving/$recordId/report-discrepancy',
+      data: payload,
+    );
+    final updated = WarehouseReceivingModel.fromJson(response.data);
+    _invalidateRelated();
+    await _refetch();
+    return updated;
   }
 
   Future<WarehouseReceivingModel?> submitInspectionProtocol(int recordId, Map<String, dynamic> payload) async {
-    try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/warehouse-receiving/$recordId/inspection-protocol',
-        data: payload,
-      );
-      final updated = WarehouseReceivingModel.fromJson(response.data);
-      _ref?.invalidate(importFilesProvider);
-      _ref?.invalidate(smartTasksProvider);
-      _ref?.invalidate(goodsInTransitProvider);
-      await fetchRecords();
-      return updated;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/warehouse-receiving/$recordId/inspection-protocol',
+      data: payload,
+    );
+    final updated = WarehouseReceivingModel.fromJson(response.data);
+    _invalidateRelated();
+    await _refetch();
+    return updated;
   }
 
   Future<void> softDeleteRecord(int recordId) async {
-    try {
-      await _dio.delete('${ApiConstants.baseUrl}/warehouse-receiving/$recordId');
-      await fetchRecords();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.delete('${ApiConstants.baseUrl}/warehouse-receiving/$recordId');
+    _invalidateRelated();
+    await _refetch();
   }
 
   Future<void> restoreRecord(int recordId) async {
-    try {
-      await _dio.patch('${ApiConstants.baseUrl}/warehouse-receiving/$recordId/restore');
-      await fetchRecords();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.patch('${ApiConstants.baseUrl}/warehouse-receiving/$recordId/restore');
+    _invalidateRelated();
+    await _refetch();
   }
 }

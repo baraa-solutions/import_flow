@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/buttons/app_button.dart';
 import 'package:frontend/features/file_closure/models/file_closure_model.dart';
 import 'package:frontend/features/file_closure/providers/file_closure_provider.dart';
 import 'package:frontend/features/file_closure/widgets/official_file_closure_dialog.dart';
@@ -229,7 +230,9 @@ void main() {
 
       // Verify Certificate Preview
       expect(find.text('CLR-2026-0046'), findsOneWidget);
-      expect(find.byKey(const Key('exportClosureCertificateBtn')), findsOneWidget);
+      // The certificate can only be exported AFTER the server closed the file (plan FE-07):
+      // the pre-close view never offers it.
+      expect(find.byKey(const Key('exportClosureCertificateBtn')), findsNothing);
 
       // Verify Form fields
       expect(find.byKey(const Key('closureAuditorNameField')), findsOneWidget);
@@ -239,6 +242,9 @@ void main() {
       final confirmBtn = find.byKey(const Key('confirmOfficialClosureBtn'));
       expect(confirmBtn, findsOneWidget);
 
+      // No fabricated defaults any more (plan FE-08): the user supplies the real auditor and vault.
+      await tester.enterText(find.byKey(const Key('closureAuditorNameField')), 'Kamal');
+      await tester.enterText(find.byKey(const Key('closureArchiveLocationField')), 'Digital Vault A-1');
       await tester.ensureVisible(confirmBtn);
       await tester.tap(confirmBtn);
       await tester.pump();
@@ -248,6 +254,10 @@ void main() {
       expect(mockNotifier.officialCloseCalled, true);
       expect(mockNotifier.lastPayload?['import_file_id'], 46);
       expect(mockNotifier.lastPayload?['is_draft'], false);
+
+      // The dialog switched to the closed view: certificate export + lesson are offered now.
+      expect(find.byKey(const Key('exportClosureCertificateBtn')), findsOneWidget);
+      expect(find.byKey(const Key('closureDoneBtn')), findsOneWidget);
     });
 
     testWidgets('Disables confirm button and shows red alert box when canClose=false', (tester) async {
@@ -286,7 +296,7 @@ void main() {
       // Confirm button disabled
       final confirmBtnFinder = find.byKey(const Key('confirmOfficialClosureBtn'));
       expect(confirmBtnFinder, findsOneWidget);
-      final ElevatedButton btn = tester.widget(confirmBtnFinder);
+      final AppButton btn = tester.widget(confirmBtnFinder);
       expect(btn.onPressed, isNull);
     });
   });

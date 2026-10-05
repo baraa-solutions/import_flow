@@ -1,12 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
+import 'ops_ui_kit.dart';
+
+/// Inspection verdict codes accepted by the backend (`WAREHOUSE_INSPECTION_VERDICT`).
+class InspectionVerdict {
+  InspectionVerdict._();
+  static const acceptedFull = 'ACCEPTED_FULL';
+  static const acceptedWithDiscrepancy = 'ACCEPTED_WITH_DISCREPANCY';
+  static const rejectedQuarantined = 'REJECTED_QUARANTINED';
+
+  /// Full acceptance contradicts a recorded shortage or damage (plan WR-03 / FE-05).
+  static bool isFullAcceptanceAllowed({required int shortageQty, required int damagedQty}) =>
+      shortageQty + damagedQty == 0;
+
+  /// The verdict to preselect: the saved one when still consistent, otherwise the one
+  /// implied by the real quantities.
+  static String initial({
+    required String? saved,
+    required int shortageQty,
+    required int damagedQty,
+  }) {
+    final fullAllowed = isFullAcceptanceAllowed(shortageQty: shortageQty, damagedQty: damagedQty);
+    if (saved != null && saved != 'PENDING' && (saved != acceptedFull || fullAllowed)) return saved;
+    return fullAllowed ? acceptedFull : acceptedWithDiscrepancy;
+  }
+}
 
 class WarehouseInspectionDialog extends ConsumerStatefulWidget {
   final WarehouseReceivingModel record;
@@ -54,33 +83,42 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
   late bool _supplierClaimFiled;
   bool _isLoading = false;
 
+  bool get _fullAllowed => InspectionVerdict.isFullAcceptanceAllowed(
+        shortageQty: widget.record.totalShortageQty,
+        damagedQty: widget.record.totalDamagedQty,
+      );
+
   @override
   void initState() {
     super.initState();
     final rec = widget.record;
     final hasDiscrepancy = (rec.totalShortageQty + rec.totalDamagedQty) > 0;
 
-    _committeeCtrl = TextEditingController(
-      text: rec.inspectionCommittee ?? 'لجنة الفحص الفني والاستلام المخزني (م. كمال - رئيس اللجنة)',
-    );
-    _notesCtrl = TextEditingController(
-      text: rec.discrepancyNotes ?? (hasDiscrepancy ? 'تم رصد فروقات أثناء تفريغ ومطابقة الشحنة.' : 'البضاعة كاملة وسليمة ومطابقة للفاتورة.'),
-    );
+    // Nothing is invented: the committee and notes start from what is saved, and the
+    // server fills the standard committee when it is left empty.
+    _committeeCtrl = TextEditingController(text: rec.inspectionCommittee ?? '');
+    _notesCtrl = TextEditingController(text: rec.discrepancyNotes ?? '');
     _insuranceRefCtrl = TextEditingController(text: rec.insuranceClaimRef ?? '');
     _supplierRefCtrl = TextEditingController(text: rec.supplierClaimRef ?? '');
     _claimAmountCtrl = TextEditingController(
-      text: rec.claimAmountEstimated > 0 ? rec.claimAmountEstimated.toStringAsFixed(0) : '',
+      text: (rec.claimAmountEstimated ?? 0) > 0 ? rec.claimAmountEstimated!.toStringAsFixed(0) : '',
     );
 
-    _selectedVerdict = rec.inspectionVerdict != 'PENDING'
-        ? (rec.inspectionVerdict ?? 'ACCEPTED_FULL')
-        : (hasDiscrepancy ? 'ACCEPTED_WITH_DISCREPANCY' : 'ACCEPTED_FULL');
+    _selectedVerdict = InspectionVerdict.initial(
+      saved: rec.inspectionVerdict,
+      shortageQty: rec.totalShortageQty,
+      damagedQty: rec.totalDamagedQty,
+    );
 
-    _selectedRootCause = rec.rootCause ?? (hasDiscrepancy ? 'Port Handling & Rough Unloading' : 'None - Clean Delivery');
+    _selectedRootCause = rec.rootCause ?? (hasDiscrepancy ? null : 'None - Clean Delivery');
     _claimCurrency = rec.claimCurrency;
     _quarantineAssigned = rec.quarantineZoneAssigned;
     _insuranceClaimFiled = rec.insuranceClaimFiled;
     _supplierClaimFiled = rec.supplierClaimFiled;
+
+    Future.microtask(() {
+      if (mounted) ref.read(currenciesProvider.notifier).fetchCurrencies(includeInactive: false);
+    });
   }
 
   @override
@@ -94,19 +132,20 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
   }
 
   Future<void> _exportInspectionReport() async {
+    final l10n = context.l10n;
     final rec = widget.record;
     final headers = [
-      'كود الصنف',
-      'اسم الصنف',
-      'كمية الفاتورة',
-      'الكمية المقبولة',
-      'العجز',
-      'التالف',
-      'الحالة',
+      l10n.wrItemCodeLabel,
+      l10n.wrColItemName,
+      l10n.warehouseReceivingColInvoicedQty,
+      l10n.warehouseReceivingColAcceptedQty,
+      l10n.warehouseReceivingColShortageQty,
+      l10n.warehouseReceivingColDamagedQty,
+      l10n.warehouseReceivingColStatus,
     ];
 
     final rows = rec.grnItems.map((item) {
-      final status = (item.shortageQty > 0 || item.damagedQty > 0) ? 'يوجد فروقات' : 'مطابق وسليم';
+      final status = (item.shortageQty > 0 || item.damagedQty > 0) ? l10n.wrLineStatusDiscrepancy : l10n.wrLineStatusClean;
       return [
         item.itemCode,
         item.itemName,
@@ -137,16 +176,13 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
 
     try {
       final claimAmount = double.tryParse(_claimAmountCtrl.text.trim()) ?? 0.0;
+      final committee = _committeeCtrl.text.trim();
+      // The server derives the discrepancy type; the verdict is the user's decision.
       final payload = {
         'inspection_date': DateTime.now().toIso8601String(),
-        'inspection_committee': _committeeCtrl.text.trim(),
+        if (committee.isNotEmpty) 'inspection_committee': committee,
         'inspection_verdict': _selectedVerdict,
         'root_cause': _selectedRootCause,
-        'discrepancy_type': (_selectedVerdict == 'ACCEPTED_FULL')
-            ? 'None'
-            : (widget.record.totalShortageQty > 0 && widget.record.totalDamagedQty > 0
-                ? 'Shortage & Damaged'
-                : (widget.record.totalShortageQty > 0 ? 'Shortage' : 'Damage')),
         'discrepancy_notes': _notesCtrl.text.trim(),
         'quarantine_zone_assigned': _quarantineAssigned,
         'insurance_claim_filed': _insuranceClaimFiled,
@@ -165,14 +201,14 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
       nav.pop();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('تم اعتماد محضر الفحص الفني والمطابقة بنجاح (${widget.record.grnCode})'),
+          content: Text(l10n.wrInspSuccess(widget.record.grnCode)),
           backgroundColor: AppTheme.emerald,
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${l10n.error}: $e'),
+          content: Text(ApiErrorText.of(l10n, e)),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -183,12 +219,15 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isDark = AppTheme.isDark(context);
     final rec = widget.record;
     final totalDiscrepancy = rec.totalShortageQty + rec.totalDamagedQty;
     final discrepancyRate = rec.totalInvoicedQty > 0
         ? (totalDiscrepancy / rec.totalInvoicedQty * 100).toStringAsFixed(1)
         : '0.0';
+    final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
+    final fileLabel = widget.importFileCode ?? 'IMP-FILE-${rec.importFileId}';
 
     return AlertDialog(
       titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 12),
@@ -209,338 +248,372 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'محضر الفحص الفني ومطابقة العجز والتالف (TR-04)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.wrInspTitle,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'إذن الإضافة: ${rec.grnCode} | الشحنة: ${widget.importFileCode ?? "IMP-FILE-${rec.importFileId}"}',
-                  style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : AppTheme.charcoal.withOpacity(0.7)),
+                  l10n.wrInspSubtitle(rec.grnCode, fileLabel),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                 ),
               ],
             ),
           ),
-          OutlinedButton.icon(
+          AppButton(
             key: const Key('exportInspectionProtocolBtn'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            icon: const Icon(Icons.file_download_outlined, size: 16),
-            label: const Text('تصدير المحضر Excel', style: TextStyle(fontSize: 12)),
+            label: l10n.wrInspExportBtn,
+            icon: Icons.file_download_outlined,
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
             onPressed: _exportInspectionReport,
           ),
         ],
       ),
       content: SizedBox(
-        width: 860,
-        height: 560,
+        width: (MediaQuery.of(context).size.width - 48).clamp(360.0, 860.0),
+        height: (MediaQuery.of(context).size.height * 0.7).clamp(360.0, 560.0),
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. KPI Metric Strip
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildMetricTile('الكمية بالفاتورة', '${rec.totalInvoicedQty}', Colors.blueGrey),
-                      _buildMetricTile('الكمية المقبولة', '${rec.totalAcceptedQty}', AppTheme.emerald),
-                      _buildMetricTile('كمية العجز', '${rec.totalShortageQty}', totalDiscrepancy > 0 ? AppTheme.orange : Colors.grey),
-                      _buildMetricTile('كمية التالف', '${rec.totalDamagedQty}', rec.totalDamagedQty > 0 ? AppTheme.crimson : Colors.grey),
-                      _buildMetricTile('نسبة الفروقات', '$discrepancyRate%', totalDiscrepancy > 0 ? AppTheme.crimson : AppTheme.emerald),
-                    ],
-                  ),
-                ),
+                _buildMetricStrip(l10n, isDark, rec, totalDiscrepancy, discrepancyRate),
                 const SizedBox(height: 16),
-
-                // 2. Line Items Table Preview
                 if (rec.grnItems.isNotEmpty) ...[
-                  const Text(
-                    'مطابقة بنود وأصناف الشحنة:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    constraints: const BoxConstraints(maxHeight: 140),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: DataTable(
-                        headingRowHeight: 32,
-                        dataRowMinHeight: 30,
-                        dataRowMaxHeight: 32,
-                        columnSpacing: 18,
-                        columns: const [
-                          DataColumn(label: Text('كود الصنف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('اسم الصنف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الفاتورة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('المقبول', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('العجز', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('التالف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        ],
-                        rows: rec.grnItems.map((item) {
-                          return DataRow(cells: [
-                            DataCell(Text(item.itemCode, style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(item.itemName, style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.invoicedQty}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.acceptedQty}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                            DataCell(Text('${item.shortageQty}', style: TextStyle(fontSize: 11, color: item.shortageQty > 0 ? AppTheme.orange : null))),
-                            DataCell(Text('${item.damagedQty}', style: TextStyle(fontSize: 11, color: item.damagedQty > 0 ? AppTheme.crimson : null))),
-                          ]);
-                        }).toList(),
-                      ),
-                    ),
-                  ),
+                  _buildItemsTable(l10n, isDark, rec),
                   const SizedBox(height: 16),
                 ],
-
-                // 3. Inspection Committee & Verdict
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        controller: _committeeCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'لجنة الفحص الفني والاستلام *',
-                          prefixIcon: Icon(Icons.people_alt_outlined, size: 18),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال أسماء أعضاء اللجنة' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownField<String>(
-                        value: _selectedVerdict,
-                        labelText: 'قرار ونتيجة الفحص *',
-                        items: const [
-                          SearchableDropdownItem(value: 'ACCEPTED_FULL', label: '🟢 قبول كامل ومطابق (سليم)'),
-                          SearchableDropdownItem(value: 'ACCEPTED_WITH_DISCREPANCY', label: '🟡 قبول مع إثبات عجز/تالف'),
-                          SearchableDropdownItem(value: 'REJECTED_QUARANTINED', label: '🔴 رفض وحجز في منطقة الحجر'),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() {
-                              _selectedVerdict = v;
-                              if (v == 'REJECTED_QUARANTINED') {
-                                _quarantineAssigned = true;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                _buildVerdictRow(l10n),
                 const SizedBox(height: 12),
-
-                // 4. Root Cause and Notes
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownField<String>(
-                        value: _selectedRootCause ?? 'None - Clean Delivery',
-                        labelText: 'السبب الجذري للفروقات والتلفيات',
-                        items: const [
-                          SearchableDropdownItem(value: 'None - Clean Delivery', label: 'سليم - لا توجد تلفيات أو عجز'),
-                          SearchableDropdownItem(value: 'Port Handling & Rough Unloading', label: 'سوء مناولة وتفريغ بالميناء'),
-                          SearchableDropdownItem(value: 'Inland Transit Vibration & Shock', label: 'اهتزازات وسوء نقل بري للشاحنة'),
-                          SearchableDropdownItem(value: 'Supplier Packaging Defect', label: 'سوء تعبئة وتغليف من المورد'),
-                          SearchableDropdownItem(value: 'Container Water Ingress & Humidity', label: 'تسريب مياه ورطوبة بالحاوية'),
-                          SearchableDropdownItem(value: 'Supplier Factory Shortage', label: 'عجز مصنعي في الشحن من المصنع'),
-                          SearchableDropdownItem(value: 'Other / Under Investigation', label: 'أسباب أخرى / قيد التحقيق'),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _selectedRootCause = v);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        controller: _notesCtrl,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'ملاحظات الفحص ومحضر المعاينة الفنية *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى تدوين الملاحظات الفنية' : null,
-                      ),
-                    ),
-                  ],
-                ),
+                _buildRootCauseRow(l10n),
                 const SizedBox(height: 14),
-
-                // 5. Insurance & Supplier Claims Panel
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : Colors.amber.shade50.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade300),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.shield_outlined, size: 18, color: AppTheme.orange),
-                          SizedBox(width: 6),
-                          Text(
-                            'إجراءات المطالبات والتعويضات والعزل:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Material(type: MaterialType.transparency, child: CheckboxListTile(
-                              title: const Text('رفع مطالبة تأمين بحري/نقل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              value: _insuranceClaimFiled,
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (v) => setState(() => _insuranceClaimFiled = v ?? false),
-                            )),
-                          ),
-                          Expanded(
-                            child: Material(type: MaterialType.transparency, child: CheckboxListTile(
-                              title: const Text('طلب إشعار دائن (Credit Note) من المورد', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              value: _supplierClaimFiled,
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (v) => setState(() => _supplierClaimFiled = v ?? false),
-                            )),
-                          ),
-                          Expanded(
-                            child: Material(type: MaterialType.transparency, child: SwitchListTile(
-                              title: const Text('عزل الأصناف التالفة في منطقة الحجر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              value: _quarantineAssigned,
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (v) => setState(() => _quarantineAssigned = v),
-                            )),
-                          ),
-                        ],
-                      ),
-                      if (_insuranceClaimFiled || _supplierClaimFiled) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            if (_insuranceClaimFiled) ...[
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _insuranceRefCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'رقم مرجع مطالبة التأمين',
-                                    prefixIcon: Icon(Icons.tag, size: 16),
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            if (_supplierClaimFiled) ...[
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _supplierRefCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'رقم إشعار خصم/مطالبة المورد',
-                                    prefixIcon: Icon(Icons.receipt_long, size: 16),
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: TextFormField(
-                                      controller: _claimAmountCtrl,
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      decoration: const InputDecoration(
-                                        labelText: 'قيمة التعويض التقديرية',
-                                        prefixIcon: Icon(Icons.attach_money, size: 16),
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    flex: 2,
-                                    child: DropdownButtonFormField<String>(
-                                      value: _claimCurrency,
-                                      decoration: const InputDecoration(
-                                        labelText: 'العملة',
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      items: const [
-                                        DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                                        DropdownMenuItem(value: 'USD', child: Text('USD')),
-                                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                                      ],
-                                      onChanged: (v) {
-                                        if (v != null) setState(() => _claimCurrency = v);
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                _buildClaimsPanel(l10n, isDark, currencies.map((c) => c.currencyCode).toList()),
               ],
             ),
           ),
         ),
       ),
       actions: [
-        TextButton(
+        AppButton(
+          label: l10n.cancel,
+          variant: AppButtonVariant.secondary,
           onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: Text(context.l10n.cancel),
         ),
-        ElevatedButton.icon(
+        AppButton(
           key: const Key('certifyInspectionProtocolBtn'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.cobalt,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          icon: _isLoading
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Icon(Icons.verified, size: 18),
-          label: const Text('اعتماد محضر الفحص الفني (TR-04)', style: TextStyle(fontWeight: FontWeight.bold)),
+          label: l10n.wrInspCertifyBtn,
+          icon: Icons.verified,
+          isLoading: _isLoading,
           onPressed: _isLoading ? null : _submitProtocol,
         ),
       ],
+    );
+  }
+
+  Widget _buildMetricStrip(AppLocalizations l10n, bool isDark, WarehouseReceivingModel rec, int totalDiscrepancy, String rate) {
+    return Container(
+      key: const Key('inspectionMetricStrip'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceAltOf(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.borderOf(context)),
+      ),
+      child: Row(
+        children: [
+          _buildMetricTile(l10n.warehouseReceivingMetricInvoiced, '${rec.totalInvoicedQty}', AppTheme.charcoal),
+          _buildMetricTile(l10n.warehouseReceivingMetricAccepted, '${rec.totalAcceptedQty}', AppTheme.emerald),
+          _buildMetricTile(l10n.warehouseReceivingMetricShortage, '${rec.totalShortageQty}',
+              totalDiscrepancy > 0 ? AppTheme.orange : AppTheme.charcoal),
+          _buildMetricTile(l10n.warehouseReceivingMetricDamaged, '${rec.totalDamagedQty}',
+              rec.totalDamagedQty > 0 ? AppTheme.crimson : AppTheme.charcoal),
+          _buildMetricTile(l10n.wrInspMetricRate, '$rate%', totalDiscrepancy > 0 ? AppTheme.crimson : AppTheme.emerald),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsTable(AppLocalizations l10n, bool isDark, WarehouseReceivingModel rec) {
+    const headStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.bold);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.wrInspItemsHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderOf(context)),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          ),
+          constraints: const BoxConstraints(maxHeight: 140),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 32,
+              dataRowMaxHeight: 34,
+              headingRowColor: OpsTableStyle.headingColor(context),
+              columnSpacing: 18,
+              columns: [
+                DataColumn(label: Text(l10n.wrItemCodeLabel, style: headStyle)),
+                DataColumn(label: Text(l10n.wrColItemName, style: headStyle)),
+                DataColumn(label: Text(l10n.wrColInvoiced, style: headStyle), numeric: true),
+                DataColumn(label: Text(l10n.wrColAccepted, style: headStyle), numeric: true),
+                DataColumn(label: Text(l10n.wrColShortage, style: headStyle), numeric: true),
+                DataColumn(label: Text(l10n.wrColDamaged, style: headStyle), numeric: true),
+              ],
+              rows: rec.grnItems.map((item) {
+                return DataRow(cells: [
+                  DataCell(LtrText(item.itemCode, style: const TextStyle(fontSize: 11))),
+                  DataCell(Text(item.itemName, style: const TextStyle(fontSize: 11))),
+                  DataCell(Text('${item.invoicedQty}', style: const TextStyle(fontSize: 11))),
+                  DataCell(Text('${item.acceptedQty}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                  DataCell(Text('${item.shortageQty}',
+                      style: TextStyle(fontSize: 11, color: item.shortageQty > 0 ? AppTheme.orange : null))),
+                  DataCell(Text('${item.damagedQty}',
+                      style: TextStyle(fontSize: 11, color: item.damagedQty > 0 ? AppTheme.crimson : null))),
+                ]);
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerdictRow(AppLocalizations l10n) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: _committeeCtrl,
+            decoration: InputDecoration(
+              labelText: l10n.wrInspCommitteeLabel,
+              helperText: l10n.wrInspCommitteeHint,
+              prefixIcon: const Icon(Icons.people_alt_outlined, size: 18),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: SearchableDropdownField<String>(
+            key: const Key('inspectionVerdictField'),
+            value: _selectedVerdict,
+            labelText: l10n.wrInspVerdictLabel,
+            decoration: InputDecoration(
+              labelText: l10n.wrInspVerdictLabel,
+              helperText: _fullAllowed ? null : l10n.wrInspFullBlockedHint,
+              isDense: true,
+            ),
+            items: [
+              // FE-05: full acceptance is not offered while shortage or damage is recorded.
+              if (_fullAllowed)
+                SearchableDropdownItem(value: InspectionVerdict.acceptedFull, label: l10n.wrInspVerdictFull),
+              SearchableDropdownItem(value: InspectionVerdict.acceptedWithDiscrepancy, label: l10n.wrInspVerdictDiscrepancy),
+              SearchableDropdownItem(value: InspectionVerdict.rejectedQuarantined, label: l10n.wrInspVerdictRejected),
+            ],
+            validator: (v) => (v == null || v.isEmpty) ? l10n.wrInspVerdictRequired : null,
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  _selectedVerdict = v;
+                  if (v == InspectionVerdict.rejectedQuarantined) {
+                    _quarantineAssigned = true;
+                  }
+                });
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRootCauseRow(AppLocalizations l10n) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: SearchableDropdownField<String>(
+            value: _selectedRootCause,
+            labelText: l10n.wrInspRootCauseLabel,
+            items: [
+              SearchableDropdownItem(value: 'None - Clean Delivery', label: l10n.wrRootCauseNone),
+              SearchableDropdownItem(value: 'Port Handling & Rough Unloading', label: l10n.wrRootCausePort),
+              SearchableDropdownItem(value: 'Inland Transit Vibration & Shock', label: l10n.wrRootCauseInland),
+              SearchableDropdownItem(value: 'Supplier Packaging Defect', label: l10n.wrRootCausePackaging),
+              SearchableDropdownItem(value: 'Container Water Ingress & Humidity', label: l10n.wrRootCauseWater),
+              SearchableDropdownItem(value: 'Supplier Factory Shortage', label: l10n.wrRootCauseFactory),
+              SearchableDropdownItem(value: 'Other / Under Investigation', label: l10n.wrRootCauseOther),
+            ],
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedRootCause = v);
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: _notesCtrl,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: l10n.wrInspNotesLabel,
+              border: const OutlineInputBorder(),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty) ? l10n.wrInspNotesRequired : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClaimsPanel(AppLocalizations l10n, bool isDark, List<String> currencyCodes) {
+    final codes = {...currencyCodes, if (_claimCurrency.isNotEmpty) _claimCurrency}.toList();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.orange.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, size: 18, color: AppTheme.orange),
+              const SizedBox(width: 6),
+              Text(
+                l10n.wrInspClaimsHeader,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: CheckboxListTile(
+                    title: Text(l10n.wrInspInsuranceClaim, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _insuranceClaimFiled,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _insuranceClaimFiled = v ?? false),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: CheckboxListTile(
+                    title: Text(l10n.wrInspSupplierCredit, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _supplierClaimFiled,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _supplierClaimFiled = v ?? false),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: SwitchListTile(
+                    title: Text(l10n.wrInspQuarantine, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _quarantineAssigned,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _quarantineAssigned = v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_insuranceClaimFiled || _supplierClaimFiled) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (_insuranceClaimFiled) ...[
+                  Expanded(
+                    child: TextFormField(
+                      controller: _insuranceRefCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.wrInspInsuranceRef,
+                        prefixIcon: const Icon(Icons.tag, size: 16),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                if (_supplierClaimFiled) ...[
+                  Expanded(
+                    child: TextFormField(
+                      controller: _supplierRefCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.wrInspSupplierRef,
+                        prefixIcon: const Icon(Icons.receipt_long, size: 16),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: _claimAmountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: l10n.wrInspClaimAmount,
+                            prefixIcon: const Icon(Icons.attach_money, size: 16),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          validator: (v) {
+                            final t = (v ?? '').trim();
+                            if (t.isEmpty) return null;
+                            final n = double.tryParse(t);
+                            return (n == null || n < 0) ? l10n.wrQtyInvalid : null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        flex: 2,
+                        child: SearchableDropdownField<String>(
+                          key: const Key('inspectionClaimCurrencyField'),
+                          value: _claimCurrency,
+                          labelText: l10n.wrInspClaimCurrency,
+                          searchHintText: l10n.wrInspCurrencySearch,
+                          items: codes.map((c) => SearchableDropdownItem(value: c, label: c)).toList(),
+                          onChanged: (v) {
+                            if (v != null) setState(() => _claimCurrency = v);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -548,11 +621,11 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
     return Expanded(
       child: Column(
         children: [
-          Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(title, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context))),
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color),
           ),
         ],
       ),

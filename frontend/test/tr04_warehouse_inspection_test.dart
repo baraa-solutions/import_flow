@@ -162,11 +162,16 @@ void main() {
       expect(find.byKey(const Key('certifyInspectionProtocolBtn')), findsOneWidget);
 
       // Check KPI Metric Strip
-      expect(find.text('الكمية بالفاتورة'), findsOneWidget);
-      expect(find.text('الكمية المقبولة'), findsOneWidget);
-      expect(find.text('كمية العجز'), findsOneWidget);
-      expect(find.text('كمية التالف'), findsOneWidget);
-      expect(find.text('نسبة الفروقات'), findsOneWidget);
+      // l10n migration: the strip uses the shared warehouseReceivingMetric* keys
+      // (short labels that also appear elsewhere, so scope to the strip).
+      final strip = find.byKey(const Key('inspectionMetricStrip'));
+      Finder inStrip(String text) => find.descendant(of: strip, matching: find.text(text));
+      expect(strip, findsOneWidget);
+      expect(inStrip('الفاتورة'), findsOneWidget); // warehouseReceivingMetricInvoiced
+      expect(inStrip('المقبول'), findsOneWidget); // warehouseReceivingMetricAccepted
+      expect(inStrip('العجز'), findsOneWidget); // warehouseReceivingMetricShortage
+      expect(inStrip('التلف'), findsOneWidget); // warehouseReceivingMetricDamaged
+      expect(inStrip('نسبة الفروقات'), findsOneWidget); // wrInspMetricRate
 
       // Check Item In Table
       expect(find.text('SRV-01'), findsOneWidget);

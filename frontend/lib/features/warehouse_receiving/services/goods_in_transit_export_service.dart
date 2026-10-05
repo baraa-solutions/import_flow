@@ -445,9 +445,14 @@ class GoodsInTransitExportService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
-      name: 'Goods_In_Transit_Ledger_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    final bytes = await doc.save();
+    if (!context.mounted) return;
+    await FileSaveHelper.exportAndSaveFile(
+      context: context,
+      bytes: bytes,
+      stageName: 'Goods In Transit Ledger',
+      importFileNameOrCode: 'Ledger',
+      extension: 'pdf',
     );
   }
 

@@ -1,3 +1,6 @@
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/system_messages/system_message_renderer.dart';
+
 class ClosureChecklistModel {
   final bool docsVerified;
   final bool customsCleared;
@@ -8,11 +11,11 @@ class ClosureChecklistModel {
   final bool? emptyContainersReturned;
 
   ClosureChecklistModel({
-    this.docsVerified = true,
-    this.customsCleared = true,
-    this.warehouseReceived = true,
-    this.landedCostSettled = true,
-    this.tasksClosed = true,
+    this.docsVerified = false,
+    this.customsCleared = false,
+    this.warehouseReceived = false,
+    this.landedCostSettled = false,
+    this.tasksClosed = false,
     this.dossierExported,
     this.emptyContainersReturned,
   });
@@ -28,13 +31,29 @@ class ClosureChecklistModel {
 
   factory ClosureChecklistModel.fromJson(Map<String, dynamic> json) {
     return ClosureChecklistModel(
-      docsVerified: json['docs_verified'] ?? true,
-      customsCleared: json['customs_cleared'] ?? true,
-      warehouseReceived: json['warehouse_received'] ?? true,
-      landedCostSettled: json['landed_cost_settled'] ?? true,
-      tasksClosed: json['tasks_closed'] ?? true,
-      dossierExported: json['dossier_exported'],
-      emptyContainersReturned: json['empty_containers_returned'],
+      // A key the server did not send is NOT passed (plan FE-07).
+      docsVerified: json['docs_verified'] == true,
+      customsCleared: json['customs_cleared'] == true,
+      warehouseReceived: json['warehouse_received'] == true,
+      landedCostSettled: json['landed_cost_settled'] == true,
+      tasksClosed: json['tasks_closed'] == true,
+      dossierExported: json['dossier_exported'] as bool?,
+      // `closure_readiness` used `eir_returned` before the server added this key.
+      emptyContainersReturned: (json['empty_containers_returned'] ?? json['eir_returned']) as bool?,
+    );
+  }
+
+  /// The checklist as evaluated by the server (precheck `checklist_status`).
+  /// Missing keys count as not passed.
+  factory ClosureChecklistModel.fromStatusMap(Map<String, bool> status) {
+    return ClosureChecklistModel(
+      docsVerified: status['docs_verified'] ?? false,
+      customsCleared: status['customs_cleared'] ?? false,
+      warehouseReceived: status['warehouse_received'] ?? false,
+      landedCostSettled: status['landed_cost_settled'] ?? false,
+      tasksClosed: status['tasks_closed'] ?? false,
+      dossierExported: status['dossier_exported'],
+      emptyContainersReturned: status['empty_containers_returned'],
     );
   }
 
@@ -75,8 +94,8 @@ class ImportFileClosureModel {
     required this.closureCode,
     required this.importFileId,
     required this.closureChecklist,
-    this.auditorName = 'Internal Auditor',
-    this.archiveLocation = 'Digital Archive Vault - 2026',
+    this.auditorName = '',
+    this.archiveLocation = '',
     this.archivalNotes,
     this.status = 'Closed',
     this.isActive = true,
@@ -93,8 +112,8 @@ class ImportFileClosureModel {
       closureCode: json['closure_code'] ?? '',
       importFileId: json['import_file_id'],
       closureChecklist: ClosureChecklistModel.fromJson(json['closure_checklist'] ?? {}),
-      auditorName: json['auditor_name'] ?? 'Internal Auditor',
-      archiveLocation: json['archive_location'] ?? 'Digital Archive Vault - 2026',
+      auditorName: json['auditor_name'] ?? '',
+      archiveLocation: json['archive_location'] ?? '',
       archivalNotes: json['archival_notes'],
       status: json['status'] ?? 'Closed',
       isActive: json['is_active'] ?? true,
@@ -118,6 +137,35 @@ class ImportFileClosureModel {
   }
 }
 
+/// A coded closure message (`blocking_messages` / `warning_messages` item). The text is
+/// rendered in the user's language from the code; [fallback] is the server's own text.
+class ClosureMessage {
+  final String? code;
+  final Map<String, dynamic>? params;
+  final String fallback;
+
+  const ClosureMessage({this.code, this.params, this.fallback = ''});
+
+  factory ClosureMessage.fromJson(Object? raw) {
+    if (raw is Map) {
+      return ClosureMessage(
+        code: (raw['msg_code'] ?? raw['code'])?.toString(),
+        params: SystemMessageRenderer.parseParams(raw['msg_params'] ?? raw['params']),
+        fallback: (raw['text'] ?? raw['message'] ?? '').toString(),
+      );
+    }
+    return ClosureMessage(fallback: raw?.toString() ?? '');
+  }
+
+  String render(AppLocalizations l10n) {
+    for (final part in const [SystemMessagePart.body, SystemMessagePart.note]) {
+      final text = SystemMessageRenderer.tryRender(code: code, params: params, part: part, l10n: l10n);
+      if (text != null) return text;
+    }
+    return fallback;
+  }
+}
+
 class ClosurePrecheckResponseModel {
   final int importFileId;
   final String importFileCode;
@@ -126,6 +174,8 @@ class ClosurePrecheckResponseModel {
   final bool canClose;
   final List<String> blockingReasons;
   final List<String> warnings;
+  final List<ClosureMessage> blockingMessages;
+  final List<ClosureMessage> warningMessages;
   final Map<String, bool> checklistStatus;
   final double actualLandedCostEgp;
   final double actualMarkupFactor;
@@ -142,6 +192,8 @@ class ClosurePrecheckResponseModel {
     required this.canClose,
     this.blockingReasons = const [],
     this.warnings = const [],
+    this.blockingMessages = const [],
+    this.warningMessages = const [],
     this.checklistStatus = const {},
     this.actualLandedCostEgp = 0.0,
     this.actualMarkupFactor = 1.0,
@@ -150,6 +202,13 @@ class ClosurePrecheckResponseModel {
     this.emptyContainersReturnedAt,
     required this.certificateCodePreview,
   });
+
+  /// Blocking reasons for display: coded messages when the server sent them, else the legacy text.
+  List<String> blockingTexts(AppLocalizations l10n) =>
+      blockingMessages.isNotEmpty ? blockingMessages.map((m) => m.render(l10n)).toList() : blockingReasons;
+
+  List<String> warningTexts(AppLocalizations l10n) =>
+      warningMessages.isNotEmpty ? warningMessages.map((m) => m.render(l10n)).toList() : warnings;
 
   factory ClosurePrecheckResponseModel.fromJson(Map<String, dynamic> json) {
     return ClosurePrecheckResponseModel(
@@ -166,6 +225,8 @@ class ClosurePrecheckResponseModel {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      blockingMessages: (json['blocking_messages'] as List<dynamic>?)?.map(ClosureMessage.fromJson).toList() ?? const [],
+      warningMessages: (json['warning_messages'] as List<dynamic>?)?.map(ClosureMessage.fromJson).toList() ?? const [],
       checklistStatus: (json['checklist_status'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, v == true)) ??
           const {},

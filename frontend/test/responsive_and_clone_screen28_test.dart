@@ -373,7 +373,8 @@ void main() {
 
       // Verify reset invariants are highlighted
       expect(find.textContaining('معرف الاستلام'), findsWidgets);
-      expect(find.textContaining('GRN-DRAFT-'), findsWidgets);
+      // No client-made code is suggested: the server issues the GRN code.
+      expect(find.textContaining('GRN-DRAFT-'), findsNothing);
 
       // Confirm cloning into draft
       final confirmBtn = find.byKey(const Key('confirmCloneBtn'));

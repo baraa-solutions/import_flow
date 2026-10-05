@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/warehouse_receiving_model.dart';
+import 'grn_record_card.dart';
+import 'ops_ui_kit.dart';
 
 /// Modal dialog that allows searching and selecting a previous Goods Receiving Note (GRN)
 /// to clone into a new draft following the 5-Task Enterprise Protocol.
@@ -39,7 +42,6 @@ class _SearchAndCloneWarehouseReceivingDialogState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final dialogWidth = (screenWidth - 32).clamp(360.0, 920.0);
@@ -77,60 +79,26 @@ class _SearchAndCloneWarehouseReceivingDialogState
     }).toList();
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
+      backgroundColor: AppTheme.surfaceOf(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
         width: dialogWidth,
         height: dialogHeight,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsetsDirectional.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Dialog Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.inventory_outlined, color: AppTheme.cobalt, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.cloneWarehouseReceivingDialogTitle,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l.cloneWarehouseReceivingDialogSubtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            OpsSectionHeader(
+              title: l.cloneWarehouseReceivingDialogTitle,
+              subtitle: l.cloneWarehouseReceivingDialogSubtitle,
+              icon: Icons.inventory_outlined,
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
             const SizedBox(height: 14),
-
-            // Search Bar
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -150,15 +118,13 @@ class _SearchAndCloneWarehouseReceivingDialogState
                         : const SizedBox.shrink();
                   },
                 ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
                 isDense: true,
               ),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 10),
-
-            // Filter Chips (Status & Quarantine)
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -166,35 +132,32 @@ class _SearchAndCloneWarehouseReceivingDialogState
               children: [
                 _buildFilterChip('All', l.warehouseReceivingStatusAll, _statusFilter, (v) {
                   setState(() => _statusFilter = v);
-                }, isDark),
+                }),
                 _buildFilterChip('Draft / Pending Warehouse Count', l.warehouseReceivingStatusDraft, _statusFilter, (v) {
                   setState(() => _statusFilter = v);
-                }, isDark),
+                }),
                 _buildFilterChip('Goods Received', l.warehouseReceivingStatusGoodsReceived, _statusFilter, (v) {
                   setState(() => _statusFilter = v);
-                }, isDark),
+                }),
                 _buildFilterChip('Discrepancy Reported', l.warehouseReceivingStatusDiscrepancy, _statusFilter, (v) {
                   setState(() => _statusFilter = v);
-                }, isDark),
+                }),
                 const SizedBox(width: 8),
-                _buildFilterChip('All', 'الكل', _quarantineFilter, (v) {
+                _buildFilterChip('All', l.warehouseReceivingStatusAll, _quarantineFilter, (v) {
                   setState(() => _quarantineFilter = v);
-                }, isDark, isSecondary: true),
-                _buildFilterChip('Quarantine Only', 'حجر مخزني فقط', _quarantineFilter, (v) {
+                }, isSecondary: true),
+                _buildFilterChip('Quarantine Only', l.wrFilterQuarantineOnly, _quarantineFilter, (v) {
                   setState(() => _quarantineFilter = v);
-                }, isDark, isSecondary: true),
+                }, isSecondary: true),
               ],
             ),
-            const Divider(height: 20),
-
-            // Results List
+            Divider(height: 20, color: AppTheme.borderOf(context)),
             Expanded(
               child: filteredRecords.isEmpty
-                  ? Center(
-                      child: Text(
-                        l.warehouseReceivingEmptyRecords,
-                        style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
-                      ),
+                  ? OpsStateView.empty(
+                      compact: true,
+                      icon: Icons.search_off,
+                      message: l.warehouseReceivingEmptyRecords,
                     )
                   : ListView.separated(
                       itemCount: filteredRecords.length,
@@ -204,28 +167,15 @@ class _SearchAndCloneWarehouseReceivingDialogState
                         final rawFileCode = 'IMP-${rec.importFileId}';
                         final matchedFile = allFiles.where((f) => f.importFileId == rec.importFileId).firstOrNull;
                         final displayFileName = matchedFile?.primaryNameWithCode ?? rawFileCode;
-
-                        Color statusColor = AppTheme.cobalt;
-                        String statusLabel = rec.status;
-                        if (rec.status.contains('Draft') || rec.status.contains('Pending')) {
-                          statusColor = AppTheme.orange;
-                          statusLabel = l.warehouseReceivingStatusDraft;
-                        } else if (rec.status == 'Goods Received') {
-                          statusColor = AppTheme.emerald;
-                          statusLabel = l.warehouseReceivingStatusGoodsReceived;
-                        } else if (rec.status == 'Discrepancy Reported') {
-                          statusColor = AppTheme.crimson;
-                          statusLabel = l.warehouseReceivingStatusDiscrepancy;
-                        }
+                        final status = GrnStatusView.of(l, rec.status);
+                        final hasVariance = rec.totalShortageQty > 0 || rec.totalDamagedQty > 0;
 
                         return Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsetsDirectional.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                            ),
+                            color: AppTheme.surfaceAltOf(context),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                            border: Border.all(color: AppTheme.borderOf(context)),
                           ),
                           child: Row(
                             children: [
@@ -239,68 +189,41 @@ class _SearchAndCloneWarehouseReceivingDialogState
                                       crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: AppTheme.cobalt.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                                           ),
                                           child: CopyableText(
                                             rec.grnCode,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.cobalt),
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: statusColor.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            statusLabel,
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: statusColor),
-                                          ),
-                                        ),
+                                        OpsStatusChip(label: status.label, severity: status.severity, icon: status.icon, dense: true),
                                         if (rec.quarantineZoneAssigned)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.crimson.withOpacity(0.12),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: const Text(
-                                              '⚠️ منطقة حجر',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.crimson),
-                                            ),
+                                          OpsStatusChip(
+                                            label: l.wrQuarantineZoneBadge,
+                                            severity: AppSeverity.danger,
+                                            icon: Icons.warning_amber_rounded,
+                                            dense: true,
                                           ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 8),
                                     Wrap(
-                                      spacing: 12,
+                                      spacing: 14,
                                       runSpacing: 4,
                                       children: [
-                                        Text(
-                                          '🏢 ${rec.warehouseName}',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal),
-                                        ),
-                                        Text(
-                                          '📦 $displayFileName',
-                                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : Colors.black87),
-                                        ),
+                                        _meta(context, Icons.warehouse_outlined, rec.warehouseName, strong: true),
+                                        _meta(context, Icons.folder_open_outlined, displayFileName),
                                         if (rec.driverName != null && rec.driverName!.isNotEmpty)
-                                          Text(
-                                            '🚚 ${rec.driverName} (${rec.truckPlateNumber ?? "-"})',
-                                            style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
-                                          ),
-                                        Text(
-                                          '📊 أصناف: ${rec.totalAcceptedQty} مقبول / ${rec.totalShortageQty} عجز / ${rec.totalDamagedQty} تلف',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: (rec.totalShortageQty > 0 || rec.totalDamagedQty > 0)
-                                                ? AppTheme.crimson
-                                                : AppTheme.emerald,
-                                          ),
+                                          _meta(context, Icons.local_shipping_outlined, '${rec.driverName} (${rec.truckPlateNumber ?? "-"})'),
+                                        _meta(
+                                          context,
+                                          Icons.fact_check_outlined,
+                                          l.wrCloneRecordSummary(rec.totalAcceptedQty, rec.totalShortageQty, rec.totalDamagedQty),
+                                          color: hasVariance ? AppTheme.crimson : AppTheme.emerald,
+                                          strong: true,
                                         ),
                                       ],
                                     ),
@@ -308,16 +231,11 @@ class _SearchAndCloneWarehouseReceivingDialogState
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              ElevatedButton.icon(
+                              AppButton(
                                 key: Key('selectRecordToCloneBtn_${rec.grnCode}'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.cobalt,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.difference_outlined, size: 15),
-                                label: Text(l.cloneWarehouseReceivingTooltip, style: const TextStyle(fontSize: 11)),
+                                label: l.cloneWarehouseReceivingTooltip,
+                                icon: Icons.difference_outlined,
+                                size: AppButtonSize.small,
                                 onPressed: () => widget.onSelectRecord(rec),
                               ),
                             ],
@@ -332,12 +250,32 @@ class _SearchAndCloneWarehouseReceivingDialogState
     );
   }
 
+  Widget _meta(BuildContext context, IconData icon, String text, {Color? color, bool strong = false}) {
+    final c = color ?? AppTheme.textSecondaryOf(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: c),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
+              color: color ?? (strong ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFilterChip(
     String value,
     String label,
     String selectedValue,
-    ValueChanged<String> onSelected,
-    bool isDark, {
+    ValueChanged<String> onSelected, {
     bool isSecondary = false,
   }) {
     final isSelected = selectedValue == value;
@@ -348,13 +286,14 @@ class _SearchAndCloneWarehouseReceivingDialogState
       selected: isSelected,
       onSelected: (_) => onSelected(value),
       selectedColor: activeColor.withOpacity(0.2),
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+      backgroundColor: AppTheme.surfaceAltOf(context),
+      side: BorderSide(color: isSelected ? activeColor : AppTheme.borderOf(context)),
       labelStyle: TextStyle(
         fontSize: 11.5,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? activeColor : (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade800),
+        color: isSelected ? activeColor : AppTheme.textSecondaryOf(context),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 6, vertical: 2),
     );
   }
 }
