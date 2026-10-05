@@ -12,7 +12,10 @@ Zero Data Loss Guarantee:
 - Never deletes or overwrites operational client records.
 - Uses entity existence checking on unique business keys.
 """
-from typing import Dict, Any
+import logging
+from typing import Dict, Any, Optional, Tuple
+from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -20,6 +23,8 @@ from decimal import Decimal
 from modules.users.model import User
 import settings
 from modules.auth.security import hash_password, verify_password
+from modules.auth.permissions import is_admin_user
+from modules.audit_logs.service import AuditLogService
 from settings import ADMIN_INITIAL_PASSWORD
 from utils.db_safety import is_frozen_build
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
@@ -52,6 +57,16 @@ ACOUSTIC_GUIDE_SEED_CONTENT = (
 )
 LEGACY_ACOUSTIC_GUIDE_SEED_TITLE = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
 
+logger = logging.getLogger(__name__)
+
+INITIAL_ADMIN_USERNAME = "admin"
+INITIAL_ADMIN_EMAIL_DOMAIN = "sorourlogistics.com"
+# Break-glass admin: created when users exist but none of them is an active admin (old installs that
+# never got the seeded admin). A taken "admin" username is never elevated or reactivated.
+BREAK_GLASS_USERNAME = "admin_recovery"
+BREAK_GLASS_AUDIT_ACTION = "BREAK_GLASS_ADMIN_CREATED"
+BREAK_GLASS_MAX_SUFFIX = 1000
+
 
 class MasterDataSyncService:
     def __init__(self, db: Session):
@@ -61,25 +76,93 @@ class MasterDataSyncService:
         """Seed ONLY the initial admin, and only when the users table is empty. Existing users are
         never touched. The admin gets the known ADMIN_INITIAL_PASSWORD (settings.DEFAULT_ADMIN_PASSWORD
         unless overridden by env) and must_change_password=True, so it has to pick its own password on
-        first login before anything else works. No other accounts are ever created."""
+        first login before anything else works.
+
+        Break-glass: when users exist but none is an ACTIVE admin (is_admin_user: legacy role "ADMIN" in any
+        case, or the ADMIN RBAC role), a new admin is created the same way ("admin", or "admin_recovery[N]"
+        when "admin" is taken), so somebody can manage users and install updates again. Existing users are
+        never modified. Returns the number of users created (0 or 1)."""
         added = 0
         if self.db.query(User).count() == 0:
-            self.db.add(
-                User(
-                    username="admin",
-                    email="admin@sorourlogistics.com",
-                    full_name="System Admin",
-                    hashed_password=hash_password(ADMIN_INITIAL_PASSWORD),
-                    role="ADMIN",
-                    is_active=True,
-                    must_change_password=True,
-                )
-            )
+            self.db.add(self._new_initial_admin(INITIAL_ADMIN_USERNAME, f"{INITIAL_ADMIN_USERNAME}@{INITIAL_ADMIN_EMAIL_DOMAIN}"))
             self.db.commit()
             added = 1
         else:
+            added = self._ensure_break_glass_admin()
             self._forget_used_admin_initial_password()
         return added
+
+    @staticmethod
+    def _new_initial_admin(username: str, email: str) -> User:
+        return User(
+            username=username,
+            email=email,
+            full_name="System Admin",
+            hashed_password=hash_password(ADMIN_INITIAL_PASSWORD),
+            role="ADMIN",
+            is_active=True,
+            must_change_password=True,
+        )
+
+    def _has_active_admin(self) -> bool:
+        active_users = self.db.query(User).filter(User.is_active == True).all()  # noqa: E712
+        return any(is_admin_user(user) for user in active_users)
+
+    def _identity_taken(self, username: str, email: str) -> bool:
+        """Usernames / emails compared case-insensitively: "Admin" counts as a taken "admin"."""
+        return (
+            self.db.query(User.user_id)
+            .filter(
+                (func.lower(User.username) == username.lower()) | (func.lower(User.email) == email.lower())
+            )
+            .first()
+            is not None
+        )
+
+    def _break_glass_identity(self) -> Optional[Tuple[str, str]]:
+        candidates = [INITIAL_ADMIN_USERNAME, BREAK_GLASS_USERNAME] + [
+            f"{BREAK_GLASS_USERNAME}{n}" for n in range(2, BREAK_GLASS_MAX_SUFFIX)
+        ]
+        for username in candidates:
+            email = f"{username}@{INITIAL_ADMIN_EMAIL_DOMAIN}"
+            if not self._identity_taken(username, email):
+                return username, email
+        return None
+
+    def _ensure_break_glass_admin(self) -> int:
+        if self._has_active_admin():
+            return 0
+        identity = self._break_glass_identity()
+        if identity is None:
+            logger.error("No active admin user and no free break-glass username: no admin was created.")
+            return 0
+        username, email = identity
+        admin = self._new_initial_admin(username, email)
+        self.db.add(admin)
+        self.db.commit()
+        logger.warning(
+            "No active admin user found: created break-glass admin '%s' with the initial admin password "
+            "(password change required on first login). Existing users were not modified.",
+            username,
+        )
+        self._audit_break_glass_admin(admin)
+        return 1
+
+    def _audit_break_glass_admin(self, admin: User) -> None:
+        """Audit row after the admin is committed: a failing audit write must not cost the admin account."""
+        try:
+            AuditLogService(self.db).log_activity(
+                entity_type="User",
+                entity_id=admin.user_id,
+                entity_code=admin.username,
+                action=BREAK_GLASS_AUDIT_ACTION,
+                new_data={"username": admin.username, "role": admin.role, "must_change_password": True},
+                performed_by="system",
+                changes_summary="No active admin user existed: break-glass admin created at startup.",
+            )
+        except SQLAlchemyError as exc:
+            self.db.rollback()
+            logger.warning("Break-glass admin '%s' created but its audit row was not written: %s", admin.username, exc)
 
     def _forget_used_admin_initial_password(self) -> bool:
         """Frozen build only: once the admin no longer logs in with the ADMIN_INITIAL_PASSWORD an old 2.1.x

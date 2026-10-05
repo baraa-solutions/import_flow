@@ -11,7 +11,7 @@ from utils.cache_manager import memory_cache
 
 import time
 import threading
-from sqlalchemy import event
+from sqlalchemy import event, func
 
 _PERMISSION_CACHE: Dict[Tuple[int, int], tuple] = {}
 _CACHE_LOCK = threading.Lock()
@@ -96,12 +96,8 @@ def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
     if not user or not user.is_active:
         return set()
 
-    # Admin superuser check
-    is_admin = (user.role == "ADMIN")
-    if user.assigned_role and user.assigned_role.role_code == "ADMIN":
-        is_admin = True
-
-    if is_admin:
+    # Admin superuser check (legacy role string compared case-insensitively, same rule as require_admin)
+    if is_admin_user(user):
         all_perms = {p.permission_code for p in db.query(Permission).all()}
         all_perms.add("*")
         with _CACHE_LOCK:
@@ -164,10 +160,7 @@ def has_user_permission(db: Session, user: User, permission_code: str) -> bool:
     if not user or not user.is_active:
         return False
 
-    if user.role == "ADMIN":
-        return True
-
-    if user.assigned_role and user.assigned_role.role_code == "ADMIN":
+    if is_admin_user(user):
         return True
 
     effective = get_user_effective_permissions(db, user.user_id)
@@ -214,11 +207,11 @@ def _dev_bypass_fallback_user(
             return user
 
     if x_user_role:
-        user = db.query(User).filter(User.role == x_user_role.upper(), User.is_active == True).first()
+        user = db.query(User).filter(func.upper(User.role) == x_user_role.upper(), User.is_active == True).first()
         if user:
             return user
 
-    admin = db.query(User).filter(User.is_active == True, User.role == "ADMIN").first()
+    admin = db.query(User).filter(User.is_active == True, func.upper(User.role) == "ADMIN").first()
     if admin:
         return admin
 

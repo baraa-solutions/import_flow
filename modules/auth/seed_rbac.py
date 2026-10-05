@@ -132,7 +132,7 @@ ROLES_CONFIG = [
         "permissions": [
             "import_files.view", "import_files.close",
             "lifecycle_board.view", "lifecycle_board.advance",
-            "purchase_orders.view",
+            "purchase_orders.view", "purchase_orders.create", "purchase_orders.edit",
             "purchase_orders.delete", "cbm.manage", "shipping_scenarios.manage",
             "customs_consultation.manage", "import_requirements.manage",
             "freight_booking.view", "freight_booking.confirm",
@@ -165,7 +165,7 @@ ROLES_CONFIG = [
             "purchase_orders.view", "purchase_orders.create", "purchase_orders.edit",
             "cbm.manage", "shipping_scenarios.manage", "import_requirements.manage",
             "customs_clearance.view",  # requirements / shipment-update screens read GET /customs-consultations
-            "financial_approval.manage",  # advance / duty payment requests raised from operational screens
+            "financial_approval.view", "financial_approval.manage",  # advance / duty payment requests raised from operational screens
             "freight_booking.view", "freight_booking.create", "freight_booking.confirm",
             "cargo_insurance.view", "cargo_insurance.manage",
             "cargo_shipping.view", "cargo_shipping.update", "cargo_shipping.approve",
@@ -188,8 +188,8 @@ ROLES_CONFIG = [
             "lifecycle_board.view", "lifecycle_board.advance",
             "customs_clearance.view", "customs_clearance.update", "customs_clearance.release",
             "customs_consultation.manage",
-            "financial_approval.manage",  # customs duty payment requests
-            "quotations.view",  # consultation screen reads GET /shipping-scenarios
+            "financial_approval.view", "financial_approval.manage",  # customs duty payment requests
+            "quotations.view", "quotations.manage",  # consultation screen: shipping scenarios + broker RFQs / price lists
             "customs_tariff.view", "customs_tariff.edit",
             "cargox_nafeza.view", "cargox_nafeza.manage",
             "import_documentation.view", "import_documentation.upload", "import_documentation.approve",
@@ -276,6 +276,19 @@ ONE_TIME_ROLE_GRANTS: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "2026-10-05-phase1-read-grants": {
         "CUSTOMS_OFFICER": ("quotations.view",),
         "LOGISTICS_OPERATOR": ("customs_clearance.view",),
+    },
+    # Phase 2 review: operational roles raise payment requests and need the prefill / list reads
+    "2026-10-05-phase2-financial-read-grants": {
+        "LOGISTICS_OPERATOR": ("financial_approval.view",),
+        "CUSTOMS_OFFICER": ("financial_approval.view",),
+    },
+    # Phase 6-7 review: the consultation screen embeds the broker RFQ / price-list tab (quotations.manage writes)
+    "2026-10-05-phase67-customs-quotation-grants": {
+        "CUSTOMS_OFFICER": ("quotations.manage",),
+    },
+    # Field report 2026-10-05: the General Logistics Manager raises purchase orders (403 on create since Phase 1)
+    "2026-10-05-gm-purchase-order-grants": {
+        "GENERAL_MANAGER": ("purchase_orders.create", "purchase_orders.edit"),
     },
 }
 
@@ -435,7 +448,7 @@ def seed_rbac(db: Session) -> Dict[str, Any]:
     users = db.query(User).all()
     for u in users:
         if u.role_id is None:
-            if u.role == "ADMIN" and admin_role:
+            if (u.role or "").upper() == "ADMIN" and admin_role:  # same case-insensitive rule as is_admin_user
                 u.role_id = admin_role.role_id
                 users_migrated += 1
             elif u.role == "MANAGER" and manager_role:

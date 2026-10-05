@@ -63,8 +63,10 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 def require_manager_or_admin(current_user: User = Depends(get_current_user)) -> User:
     """MANAGER or ADMIN role required."""
-    allowed = ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
-    user_role = current_user.role
+    if is_admin_user(current_user):
+        return current_user
+    allowed = ["MANAGER", "GENERAL_MANAGER"]
+    user_role = (current_user.role or "").strip().upper()  # legacy role string: case-insensitive, like is_admin_user
     assigned_role_code = getattr(current_user.assigned_role, "role_code", None)
     if user_role not in allowed and assigned_role_code not in allowed:
         raise HTTPException(
