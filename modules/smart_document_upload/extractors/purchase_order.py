@@ -11,6 +11,22 @@ from typing import Any, Dict, List, Optional
 
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 
+_CURRENCY_TOKEN = r"(USD|EUR|GBP|EGP|CNY|JPY|AED|SAR|CHF|€|\$|£|¥)"
+_AMOUNT_TOKEN = r"(\d[\d.,]*\d|\d)"
+_CURRENCY_SYMBOLS = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
+# Lines whose amounts are not the invoice amount (company capital, stamp duty, bank coordinates).
+_CURRENCY_NOISE = ("capital", "cap. soc", "share", "bollo", "stamp", "iban", "swift", "bank", "conai", "cciaa")
+_TOTAL_LABEL_RE = re.compile(r"total|amount\s+due|net\s+to\s+pay|importo", re.IGNORECASE)
+# Footer / column header words that end an item description (G.I. layouts print them between rows).
+_DESC_STOP_RE = re.compile(
+    r"(?<!\w)(?:net\s+weight|weight\s+kg|gross\s+weight|volume\s+mc|packages\b|peso\s+netto|peso\s+lordo|colli\b|"
+    r"total\s+goods|total\s+invoice|totale\s+(?:merce|fattura|documento)|v\.a\.t\.\s+exemption|due\s+date|"
+    r"commodity\s+code|unit\s+price|total\s+price)",
+    re.IGNORECASE,
+)
+_ORDER_REF_LABEL_RE = re.compile(r"^(?:your\s+order|our\s+order(?:\s+confirmation)?|vs\.?\s+ordine|ns\.?\s+conferma)$", re.IGNORECASE)
+_ORDER_REF_LINE_RE = re.compile(r"^(?:bolla|ddt|r\d{2}\s+\d+\s+date|\d+\s+date\s+\d)", re.IGNORECASE)
+
 
 class PurchaseOrderExtractor(BaseExtractor):
 
@@ -19,10 +35,13 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def extract(self, raw_text: str, spatial_boxes: dict) -> Dict[str, Any]:
         text = raw_text or ""
+        self._european_numbers = self._uses_european_numbers(text)
 
         top_hs = self._extract_hs_code(text)
         top_cty = self._extract_country(text)
         extracted_items = self._extract_line_items(text, default_hs=top_hs, default_cty=top_cty)
+        total_amount = self._extract_total_amount(text)
+        packing_items = self._finalize_packing_items(self._extract_packing_list_items(text), extracted_items, top_hs)
 
         # Evaluate if any line item has missing or unregistered HS codes
         unregistered_hs_items_count = sum(
@@ -52,13 +71,13 @@ class PurchaseOrderExtractor(BaseExtractor):
                 r"Acid\s+Number[:\s]*([0-9]{19})",
                 r"\b([0-9]{19})\b",
             ], text),
-            "currency": self.normalize_currency(text),
+            "currency": self._extract_currency(text, total_amount),
             "incoterms": self.normalize_incoterms(text),
             "country_of_origin": top_cty,
             "hs_code": top_hs,
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
-            "total_amount": self._extract_total_amount(text),
+            "total_amount": total_amount,
             "container_number": self.find_first([
                 r"Container\s+ID[:\s]*([A-Z]{3,4}\s*\d{6,8})",
                 r"N°\s*of\s*container\s*[:\s]*([A-Z]{3,4}\s*\d{6,8})",
@@ -76,7 +95,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             ], text),
             "total_gross_weight_kg": self.find_float([
                 r"Gross\s+weight\s*[:\s]*([0-9.,]+)\s*(?:KG|kg)",
-            ], text),
+            ], text) or next((p.get("total_gross_weight_kg") for p in packing_items if p.get("total_gross_weight_kg")), None),
             "items": extracted_items,
             "unregistered_hs_items_count": unregistered_hs_items_count,
             "hs_code_compliance_warning": (
@@ -86,9 +105,71 @@ class PurchaseOrderExtractor(BaseExtractor):
             "pallet_count": self._extract_pallet_count(text),
             "pallet_type": "Euro Pallet (120x80)",
             "is_pallet_stackable": False,
-            "packing_list_items": self._finalize_packing_items(self._extract_packing_list_items(text), extracted_items, top_hs),
+            "packing_list_items": packing_items,
         }
         return result
+
+    # ─── Number format & currency ────────────────────────────────────────────
+
+    @staticmethod
+    def _uses_european_numbers(text: str) -> bool:
+        """True when the document writes amounts as 15.100,00 (comma decimal) rather than 15,100.00."""
+        euro = len(re.findall(r"\b\d{1,3}(?:\.\d{3})+,\d{2,5}\b|\b\d+,\d{2}\b(?![.,]?\d)", text))
+        us = len(re.findall(r"\b\d{1,3}(?:,\d{3})+\.\d{2,5}\b|\b\d+\.\d{2}\b(?![.,]?\d)", text))
+        return euro > us
+
+    def _parse_num(self, raw: str) -> float:
+        """Like ``parse_numeric_str`` but a lone comma is the decimal mark in European documents
+        (``820,600`` kg / ``2,000`` NR are 820.6 and 2, not 820600 and 2000)."""
+        clean = re.sub(r"[^\d.,\-]", "", raw or "")
+        if getattr(self, "_european_numbers", False) and "," in clean and "." not in clean and clean.count(",") == 1:
+            return float(clean.replace(",", "."))
+        return BaseExtractor.parse_numeric_str(raw)
+
+    def _extract_currency(self, text: str, total_amount: Optional[float]) -> Optional[str]:
+        """Currency of the invoice amount: the code printed next to the total wins over codes in legal / bank text,
+        incoterm suffixes ("EXW EXTRA UE") or IBANs. Order: amount equal to the total, a code on a total line, the
+        most frequent amount-attached code, a "Currency:" / "(USD)" label, then the generic base heuristic."""
+        pairs: List[tuple] = []
+        total_line_codes: List[str] = []
+        clean_lines: List[str] = []
+        attached = re.compile(
+            rf"(?<![A-Za-z0-9]){_CURRENCY_TOKEN}\s*{_AMOUNT_TOKEN}|{_AMOUNT_TOKEN}\s*{_CURRENCY_TOKEN}(?![A-Za-z])"
+        )
+        standalone = re.compile(rf"(?<![A-Za-z0-9]){_CURRENCY_TOKEN}(?![A-Za-z])")
+        for line in text.splitlines():
+            if any(n in line.lower() for n in _CURRENCY_NOISE):
+                continue
+            clean_lines.append(line)
+            for m in attached.finditer(line):
+                code = m.group(1) or m.group(4)
+                raw = m.group(2) or m.group(3)
+                try:
+                    value = self._parse_num(raw)
+                except ValueError:
+                    continue
+                pairs.append((_CURRENCY_SYMBOLS.get(code, code), value))
+            if _TOTAL_LABEL_RE.search(line):
+                total_line_codes += [_CURRENCY_SYMBOLS.get(c, c) for c in standalone.findall(line)]
+
+        if total_amount:
+            for code, value in pairs:
+                if abs(value - total_amount) < 0.01:
+                    return code
+        if total_line_codes:
+            return total_line_codes[0]
+        if pairs:
+            counts: Dict[str, int] = {}
+            for code, _ in pairs:
+                counts[code] = counts.get(code, 0) + 1
+            return max(counts, key=counts.get)
+        labeled = re.search(
+            rf"(?:Currency|Valuta|Divisa)\s*[:\-]?\s*{_CURRENCY_TOKEN}|\({_CURRENCY_TOKEN}\)", "\n".join(clean_lines), re.IGNORECASE
+        )
+        if labeled:
+            code = (labeled.group(1) or labeled.group(2)).upper()
+            return _CURRENCY_SYMBOLS.get(code, code)
+        return self.normalize_currency("\n".join(clean_lines))
 
     def _finalize_packing_items(self, packing_items: List[Dict[str, Any]], line_items: List[Dict[str, Any]], default_hs: Optional[str]) -> List[Dict[str, Any]]:
         for idx, p in enumerate(packing_items):
@@ -129,7 +210,10 @@ class PurchaseOrderExtractor(BaseExtractor):
                 return val
 
         # 2. Total goods / Total invoice amount (exact Italian / European headers)
-        tot_goods = re.search(r"(?:Total\s+goods|Total\s+merchandise|Total\s+net\s+amount)[:\s]*([0-9.,]+)", text, re.I)
+        tot_goods = re.search(
+            r"(?:Total\s+goods|Total\s+merchandise|Total\s+net\s+amount|Totale\s+(?:fattura|documento|merce))[:\s]*(?:[A-Z]{3}\s*|€\s*)?([0-9.,]+)",
+            text, re.I,
+        )
         if tot_goods:
             val = BaseExtractor.parse_numeric_str(tot_goods.group(1))
             if val > 0:
@@ -330,7 +414,7 @@ class PurchaseOrderExtractor(BaseExtractor):
         return None
 
     def _extract_importer_address(self, text: str) -> Optional[str]:
-        match = re.search(r"(?:42,\s*RD\s*17[^\n]*|7\s+HOSNI\s+OSMAN[^\n]*|Maadi,\s*Street\s*18[^\n]*|Maadi[^\n]*Cairo[^\n]*|44\s+Street|42,\s*RD|7\s+HOSNI)[^\n]{5,80}", text, re.IGNORECASE)
+        match = re.search(r"(?:42,\s*RD\s*17[^\n]*|7\s+HOSN[IY]\s+OSMAN[^\n]*|Maadi,\s*Street\s*18[^\n]*|Maadi[^\n]*Cairo[^\n]*|44\s+Street|42,\s*RD|7\s+HOSN[IY])[^\n]{5,80}", text, re.IGNORECASE)
         if match:
             clean = match.group(0).strip()
             clean = re.sub(r"\s+Maadi\s*$", "", clean, flags=re.IGNORECASE)
@@ -584,6 +668,10 @@ class PurchaseOrderExtractor(BaseExtractor):
                         desc = first_cell
                         data_start_idx = start_idx + 1
 
+                    # A row without any word in its description is a numbers row (weights / totals), not an item.
+                    if not re.search(r"[A-Za-z؀-ۿ]", desc):
+                        continue
+
                     num_cells = []
                     for c in cells[data_start_idx:]:
                         c_clean = re.sub(r"\b(USD|EUR|GBP|EGP|SAR|AED|CNY|CHF|CAD|AUD)\b|\$|€|%|\s", "", c, flags=re.IGNORECASE).strip()
@@ -597,12 +685,15 @@ class PurchaseOrderExtractor(BaseExtractor):
                             continue
 
                         u = c.upper().rstrip('.')
+                        if u in ('NR', 'PZ'):
+                            unit = 'PCS'
+                            continue
                         if u in ('PCS', 'VNT', 'UNT', 'BOX', 'CTN', 'SET', 'KGM', 'KG', 'MTR', 'TON', 'PCE', 'PACK', 'SQM', 'SQYD', 'SQFT', 'LTR', 'DRUM', 'ROLL', 'BAG', 'PAIR', 'LOT'):
                             unit = u
                             continue
 
                         try:
-                            val = BaseExtractor.parse_numeric_str(c_clean)
+                            val = self._parse_num(c_clean)
                             if val > 0:
                                 num_cells.append(val)
                         except ValueError:
@@ -783,10 +874,30 @@ class PurchaseOrderExtractor(BaseExtractor):
             "v.a.t.", "commodity code", "due date", "ex works", "area manager",
             "messers", "direct sale", "client id", "page 1", "agent"
         ]
+        skip_next = False
         for line in lines:
             line_clean = line.strip().strip('*').strip('-').strip()
             if not line_clean:
                 continue
+            # Order references (customer PO / confirmation / delivery note) are not part of the goods description.
+            if _ORDER_REF_LABEL_RE.match(line_clean):
+                skip_next = True
+                continue
+            if skip_next:
+                skip_next = False
+                continue
+            if _ORDER_REF_LINE_RE.match(line_clean):
+                continue
+            # The description ends at the next column / footer header ("Net weight kg Gross weight kg Volume mc
+            # Packages" is printed between the description and the numbers row); a lone "Net" is its wrapped head.
+            stop = _DESC_STOP_RE.search(line_clean)
+            if stop or line_clean.lower() == "net":
+                if not cleaned:
+                    continue  # remnant of the table header above the description
+                head = line_clean[:stop.start()].strip() if stop else ""
+                if head and head.lower() != "net":
+                    cleaned.append(head.replace('""', '"'))
+                break
             lower = line_clean.lower()
             if any(dis in lower for dis in disallowed):
                 continue
@@ -906,6 +1017,14 @@ class PurchaseOrderExtractor(BaseExtractor):
                                 continue
                             if l in codes:
                                 continue
+                            stop = _DESC_STOP_RE.search(l)
+                            if stop or l.lower() == "net":
+                                if not valid_lines:
+                                    continue  # remnant of the table header above the description
+                                head = l[:stop.start()].strip() if stop else ""
+                                if head and head.lower() != "net":
+                                    valid_lines.append(head)
+                                break
                             valid_lines.append(l)
                         desc = " ".join(valid_lines).strip()
                         descriptions.append(desc if desc else "Industrial Component")
@@ -1098,6 +1217,66 @@ class PurchaseOrderExtractor(BaseExtractor):
                                 pass
             i += 1
         return packing
+
+    def _extract_invoice_footer_weights(self, text: str) -> Optional[Dict[str, Any]]:
+        """Net / gross weight, volume and package count from an invoice footer. Returns None unless net, gross and
+        a positive package count are all printed."""
+        values: Dict[str, Optional[float]] = {"net": None, "gross": None, "volume": None, "packages": None}
+        label_res = {
+            "net": r"net\s+weight|peso\s+netto",
+            "gross": r"gross\s+weight|peso\s+lordo",
+            "volume": r"volume",
+            "packages": r"packages|colli",
+        }
+
+        # a) Header row ("Net weight kg Gross weight kg Volume mc Packages") followed by a numbers-only row.
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        for i, line in enumerate(lines[:-1]):
+            low = line.lower()
+            if not re.search(label_res["gross"], low):
+                continue
+            nxt = lines[i + 1]
+            if re.search(r"[A-Za-z]", nxt):
+                continue
+            keys = sorted(
+                ((m.start(), key) for key, pat in label_res.items() for m in [re.search(pat, low)] if m),
+            )
+            order = [k for _, k in keys]
+            if "net" not in order and low.startswith("weight"):
+                order.insert(0, "net")  # "Net" wrapped onto the previous line
+            cells = [c.strip() for c in nxt.strip("|").split("|")] if "|" in nxt else nxt.split()
+            if len(cells) != len(order):
+                # Whitespace rows drop empty cells: keep net / gross positional and the package count last.
+                if len(cells) < 2 or "|" in nxt:
+                    continue
+                mapped = {"net": cells[0], "gross": cells[1]}
+                if "packages" in order and len(cells) > 2 and re.fullmatch(r"\d{1,4}", cells[-1]):
+                    mapped["packages"] = cells[-1]
+            else:
+                mapped = dict(zip(order, cells))
+            for key, raw in mapped.items():
+                if raw and values.get(key) is None:
+                    try:
+                        values[key] = self._parse_num(raw)
+                    except ValueError:
+                        continue
+            break
+
+        # b) Label followed by its value on the same or the next line.
+        value_after = r"[ \t]*(?:kg|mc|m3)?[ \t:]*(?:\n[ \t]*)?(\d[\d.,]*)[ \t]*(?:kg|mc|m3)?[ \t]*$"
+        for key in ("net", "gross", "volume"):
+            if values[key] is None:
+                m = re.search(rf"(?:{label_res[key]}){value_after}", text, re.IGNORECASE | re.MULTILINE)
+                if m:
+                    values[key] = self._parse_num(m.group(1))
+        if values["packages"] is None:
+            m = re.search(r"(?:packages|colli)[ \t:]*(?:\n[ \t]*)?(\d{1,4})[ \t]*$", text, re.IGNORECASE | re.MULTILINE)
+            if m:
+                values["packages"] = float(m.group(1))
+
+        if not values["net"] or not values["gross"] or not values["packages"]:
+            return None
+        return values
 
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
         # 0. Steelcase 2-Line Multi-Page Packing List format
@@ -1449,34 +1628,28 @@ class PurchaseOrderExtractor(BaseExtractor):
             except (ValueError, IndexError):
                 pass
 
-        # 3. Italian G.I. Industrial format (Net weight kg 2.254,000, Gross weight kg 2.274,000, Packages 4)
-        it_net = re.search(r"Net\s+weight\s+kg\s*([0-9.,]+)", text, re.IGNORECASE)
-        it_gross = re.search(r"Gross\s+weight\s+kg\s*([0-9.,]+)", text, re.IGNORECASE)
-        it_pkg = re.search(r"Packages\s*(\d+)", text, re.IGNORECASE)
-        if it_gross and it_net and it_pkg:
-            try:
-                gw = BaseExtractor.parse_numeric_str(it_gross.group(1))
-                nw = BaseExtractor.parse_numeric_str(it_net.group(1))
-                pkgs = float(it_pkg.group(1))
-                cbm_match = re.search(r"(?:Volume|CBM|m3)[:\s]*([0-9.,]+)", text, re.IGNORECASE)
-                cbm_val = BaseExtractor.parse_numeric_str(cbm_match.group(1)) if cbm_match else 40.017
-                packing.append({
-                    "package_type": "Package",
-                    "qty_pkg": pkgs,
-                    "qty_pcs": pkgs,
-                    "length_cm": 240.0,
-                    "width_cm": 180.0,
-                    "height_cm": 160.0,
-                    "gross_weight_unit_kg": (gw / pkgs) if pkgs > 0 else gw,
-                    "net_weight_unit_kg": (nw / pkgs) if pkgs > 0 else nw,
-                    "total_gross_weight_kg": gw,
-                    "total_net_weight_kg": nw,
-                    "total_cbm": cbm_val if cbm_val > 0 else 40.017,
-                    "is_stackable": False,
-                })
-                return packing
-            except (ValueError, IndexError):
-                pass
+        # 3. Invoice footer totals (G.I. Industrial / Italian): "Net weight kg 2.254,000 ... Packages 4", the stacked
+        # "Net weight kg\n820,600\nGross weight kg\n848,600\nVolume mc Packages\n2", or a header row followed by a
+        # numbers row. Totals keep their decimals; per-package weights are total / packages. Dimensions and volume
+        # are only returned when printed.
+        footer = self._extract_invoice_footer_weights(text)
+        if footer:
+            gw, nw, pkgs, vol = footer["gross"], footer["net"], footer["packages"], footer.get("volume")
+            row: Dict[str, Any] = {
+                "package_type": "Package",
+                "qty_pkg": pkgs,
+                "qty_pcs": pkgs,
+                "weight_unit": "KGM",
+                "gross_weight_unit_kg": round(gw / pkgs, 3),
+                "net_weight_unit_kg": round(nw / pkgs, 3),
+                "total_gross_weight_kg": gw,
+                "total_net_weight_kg": nw,
+                "is_stackable": False,
+            }
+            if vol:
+                row["total_cbm"] = vol
+            packing.append(row)
+            return packing
 
         # 4. Lithuanian Narbutas format
         vol_m = re.search(r"Volume\s*([0-9.,]+)", text, re.IGNORECASE)
