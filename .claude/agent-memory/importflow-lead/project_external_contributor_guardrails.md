@@ -17,6 +17,12 @@ are unavailable (API 403). A Write collaborator could push to main or push a `v*
 checks the triggering actor (kamalsroor1) and that the tag is on main, but Write = push to main still bypasses
 everything.
 
-**How to apply:** the contractor gets Read + fork PRs (or the org upgrades to Team). Review his PRs with
+**Decision 2026-10-06:** the CTO chose to give the contractor **Write on the same repo (branches + PRs) on GitHub
+Free, with no branch protection**, against advice. Private forking + fork-PR approval settings were already applied
+and left on. Exposure: a Write user can push to main or tags and dispatch workflows, which reaches the
+`production-updates` env secrets (UPDATE_SIGNING_KEY_ED25519, HOSTINGER_SSH_KEY, HOSTINGER_KNOWN_HOSTS).
+
+**How to apply:** recommend that the CTO keeps those env secrets out of GitHub between releases (set before Publish,
+delete after), and only after he confirms he has an offline copy. Watch main for direct pushes. Review his PRs with
 /review-branch and read every diff under `.github/`, `scripts/ci/`, `.githooks/` and the guard tests. Don't enable
 `.githooks` on the release machine before reviewing contractor hook changes. Related: [[project-repo-home]].
