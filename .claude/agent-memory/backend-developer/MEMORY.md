@@ -5,6 +5,10 @@
   `SECRET_KEY` (32+ chars); a missing folder makes create_all fail -> the app boots in maintenance mode.
 - `settings.py` appends a generated `SECRET_KEY` to `.env` when none is set; conftest sets temp `DATABASE_PATH` + dev bypass.
 
+- Backend port: `utils.runtime_port.resolve_port()` (env PORT, default 28080, invalid -> InvalidPortError). Prod
+  backend.exe owns 28080 on the same laptop: dev .bat launchers must never taskkill the port. Smoke-testing .bat files
+  from Git Bash: `cmd //c "$(cygpath -w file.bat)"` (`"$W\\$b"` gets mangled); `findstr ":X "` = OR of words, use `/c:`.
+
 ## Auth (since 2026-09-24)
 - Every route except `/`, `/health`, `/api/v1/health`, `/api/v1/system/{version,version-check,download-installer}`,
   POST `/api/v1/auth/{login,refresh}` must carry an auth dependency. `tests/unit/test_route_auth_coverage.py`

@@ -276,3 +276,16 @@ Contract note: `BudgetPrefillResponse.exchange_rate` is nullable (null for an em
 | Code | HTTP / where | Params | English template |
 |---|---|---|---|
 | `SDU_NO_SHIPPING_RECORD` | 409 POST /smart-upload/apply/bill-of-lading | `import_file_id`, `import_file_code` | File {import_file_code} has no active shipping record; create it before applying B/L data. |
+
+### Dev backend port (PORT env var, 2026-10-06)
+
+Backend dev launchers now honour `PORT` (default 28080, `utils/runtime_port.resolve_port`) and never kill the
+process on the port. Needs outside backend-developer ownership:
+- Flutter: `frontend/lib/core/constants/api_constants.dart` `defaultServerPort = 28080` - a dev frontend must be
+  able to target the dev port (e.g. `--dart-define`), otherwise it talks to the production backend.
+- `build_backend_exe.py` (optional): add `utils.runtime_port` to `hidden_imports` next to `utils.db_safety`
+  (PyInstaller already finds it through the static `backend_runner` import).
+- Legacy scripts still bound to 28080: `scripts/service_manager.py` (`PORT = 28080`, `stop_service` taskkills the
+  PID found by `findstr ":28080"`, which also matches :280800 and non-LISTENING rows), `scripts/start_backend_service.vbs`
+  (hard-coded `--port 28080`, unanchored findstr), `scripts/validate_clean_machine.py` (`DEFAULT_PORT = 28080`,
+  read-only check), `package_production.py` (generated launchers taskkill `:28080`; Track 2 only).

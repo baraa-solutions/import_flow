@@ -1160,14 +1160,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.circle, color: AppTheme.emerald, size: 5),
-                          SizedBox(width: 3.5),
+                          const Icon(Icons.circle, color: AppTheme.emerald, size: 5),
+                          const SizedBox(width: 3.5),
                           Text(
-                            'Port: 28080',
-                            style: TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.bold),
+                            'Port: ${ApiConstants.serverPort}',
+                            style: const TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -1455,7 +1455,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const Divider(height: 14),
                   _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build $version+$buildNum'),
                   const Divider(height: 14),
-                  _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
+                  _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port ${ApiConstants.serverPort})'),
                   const Divider(height: 14),
                   _buildInfoRow(Icons.storage_outlined, l.database, 'SQLite (sorour_logistics.db)'),
                   const Divider(height: 14),
