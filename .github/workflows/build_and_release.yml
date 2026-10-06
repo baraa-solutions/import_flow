@@ -46,11 +46,13 @@ jobs:
           pip install "pydantic[email]" email-validator pyinstaller
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: 'stable'
-          flutter-version: '3.44.6'
-          cache: false  # flutter-action's internal actions/cache@v5 is not SHA-pinned; org allow-list rejects it
+        # Installed with git, not subosito/flutter-action: that action calls actions/cache@v5 by tag,
+        # which the org allow-list (full-SHA pinning) rejects even with cache disabled.
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch 3.44.6 https://github.com/flutter/flutter.git "$env:RUNNER_TEMP\flutter"
+          "$env:RUNNER_TEMP\flutter\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & "$env:RUNNER_TEMP\flutter\bin\flutter.bat" --version
 
       - name: Enable Windows Desktop Support
         run: |
