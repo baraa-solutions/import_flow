@@ -5,6 +5,9 @@
   (old 1.0.58 → Setup wizard → in-app update from staging https://kamal-sroor.online/importflow/rehearsal/, rehearsal key only).
 - Phase 1 review committed (ff2f522..06d4ead, version bump 2.3.0 in be74861) but not released; phases 2-10 review wave
   (2026-10-05) is uncommitted except 4d22473. Tracker: docs/plans/review-coverage.md; next: master data, settings, reports.
+- 2026-10-06 review wave (plans only, on main aa6ca14): docs/plans/frontend-review + backend-review TASKS.md are the backlog;
+  external agents (Antigravity) must pass .agents/rules/TASK_INTAKE.md (/run-task <id>). customs-rules-reviewer has maxTurns 40 and
+  no Write: do not use it for broad audits in workflows.
 - Auth: router-level get_current_user + per-route require_permission; tests use the conftest seam
   (`_dev_bypass_fallback_user`); `test_route_auth_coverage.py` + `test_permission_codes_in_catalog.py` guard routes.
 - Old installs may have no admin: break-glass admin in sync_system_users; support tool scripts/support/promote_user_to_admin.bat.
@@ -15,6 +18,7 @@
 - [Single-laptop deployment](project_deployment_single_laptop.md) — prod = one standalone laptop; external backup needed
 - [Production laptop layout](project_production_laptop_layout.md) — per-user install path, DB/backups location, leftover dev scripts
 - [Repo home](project_repo_home.md) — source of truth is private baraa-solutions/import_flow; origin is legacy
+- [External contributor guardrails](project_external_contributor_guardrails.md) — Antigravity vibe coder; GitHub Free = no branch protection
 
 ## Working conventions
 - User: CTO, Egyptian Arabic, stays on the current branch; agents at medium effort.

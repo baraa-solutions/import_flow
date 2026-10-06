@@ -70,6 +70,7 @@ jobs:
       - name: Guard Ref And Tag
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_OWNER: kamalsroor1
         run: |
           set -euo pipefail
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "::error::run this workflow from main, not $GITHUB_REF"; exit 1; }
@@ -82,6 +83,14 @@ jobs:
           tag_version=$(gh api -H 'Accept: application/vnd.github.raw' \
             "repos/$GITHUB_REPOSITORY/contents/version.json?ref=refs/tags/$RELEASE_TAG" | jq -r '.version')
           [[ "v$tag_version" == "$RELEASE_TAG" ]] || { echo "::error::version.json at $RELEASE_TAG says $tag_version"; exit 1; }
+          # Only the release owner publishes, and only a tag whose commit is already on main (a collaborator's own
+          # tag on an unmerged commit must never reach the signing key).
+          [[ "$GITHUB_TRIGGERING_ACTOR" == "$RELEASE_OWNER" ]] \
+            || { echo "::error::only $RELEASE_OWNER may publish updates (run started by $GITHUB_TRIGGERING_ACTOR)"; exit 1; }
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$RELEASE_TAG" --jq '.sha')
+          on_main=$(gh api "repos/$GITHUB_REPOSITORY/compare/$tag_sha...$GITHUB_SHA" --jq '.status')
+          [[ "$on_main" == "ahead" || "$on_main" == "identical" ]] \
+            || { echo "::error::tag $RELEASE_TAG ($tag_sha) is not on main (compare status: $on_main)"; exit 1; }
           echo "Publishing $RELEASE_TAG from $GITHUB_REF."
 
       # Latest SUCCESSFUL tag-push build_and_release.yml run for the tag's commit (its update-payload is the input).

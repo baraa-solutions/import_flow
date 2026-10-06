@@ -1003,6 +1003,16 @@ def test_publish_guard_runs_first_main_only_and_checks_the_tag(publish_workflow)
     assert publish_workflow["env"]["RELEASE_TAG"] == "${{ inputs.tag }}"
 
 
+def test_publish_guard_owner_only_and_tag_on_main(publish_workflow):
+    """A collaborator with write access must not sign their own tag (security review 2026-10-05)."""
+    step = _jobs(publish_workflow)["sign"]["steps"][0]
+    guard = _run(step)
+    assert step["env"]["RELEASE_OWNER"] == "kamalsroor1"
+    assert '[[ "$GITHUB_TRIGGERING_ACTOR" == "$RELEASE_OWNER" ]]' in guard
+    assert "compare/$tag_sha...$GITHUB_SHA" in guard, "tag commit must be an ancestor of main"
+    assert '"$on_main" == "ahead" || "$on_main" == "identical"' in guard
+
+
 def test_publish_downloads_the_payload_of_the_green_tag_push_build(publish_workflow):
     steps = _jobs(publish_workflow)["sign"]["steps"]
     find = _step_index(steps, lambda s: "actions/workflows/build_and_release.yml/runs" in _run(s), "finds the build run")
