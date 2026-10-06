@@ -76,7 +76,7 @@ jobs:
         with:
           channel: 'stable'
           flutter-version: '3.44.6'
-          cache: true
+          cache: false  # flutter-action's internal actions/cache@v5 is not SHA-pinned; org allow-list rejects it
 
       - name: Flutter test
         working-directory: ./frontend
