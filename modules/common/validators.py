@@ -3,7 +3,7 @@ modules/common/validators.py
 Shared domain validation utilities for ImportFlow ERP.
 Reusable FK existence checks to avoid duplication across modules.
 """
-from typing import Any, FrozenSet, Optional, Type
+from typing import Any, FrozenSet, Mapping, Optional, Type
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect as sa_inspect
@@ -97,3 +97,51 @@ def get_or_404(db: Session, model: Type, entity_id: Any, label_ar: str, *, activ
 def not_null_columns(model: Type) -> FrozenSet[str]:
     """Attribute keys of the NOT NULL, non primary-key columns of ``model`` (fields an update may never clear)."""
     return frozenset(c.key for c in sa_inspect(model).columns if not c.nullable and not c.primary_key)
+
+
+CLOSED_FILE_STATUSES: FrozenSet[str] = frozenset({"Closed", "Archived"})
+
+
+def ensure_file_open(imp: Any) -> None:
+    """Validate that the import file is not Closed or Archived.
+
+    Args:
+        imp: An ImportFile instance, mapping, or any object with status and import_file_code.
+
+    Raises:
+        CodedHTTPException (409): with code IMPORT_FILE_CLOSED when the file status is
+        'Closed' or 'Archived'.
+    """
+    if imp is None:
+        return
+
+    if isinstance(imp, Mapping):
+        status_val = str(imp.get("status") or "").strip()
+        code = str(imp.get("import_file_code") or imp.get("code") or "")
+        if not code:
+            raw_id = imp.get("import_file_id") or imp.get("id")
+            if raw_id:
+                code = f"#{raw_id}"
+    else:
+        status_val = str(getattr(imp, "status", None) or "").strip()
+        code = str(getattr(imp, "import_file_code", None) or getattr(imp, "code", None) or "")
+        if not code:
+            raw_id = getattr(imp, "import_file_id", getattr(imp, "id", None))
+            if raw_id:
+                code = f"#{raw_id}"
+
+    if status_val in CLOSED_FILE_STATUSES or status_val.capitalize() in CLOSED_FILE_STATUSES:
+        from modules.common.errors import CodedHTTPException
+
+        msg_ar = (
+            f"ملف الشحنة {code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً."
+            if code
+            else "ملف الشحنة مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً."
+        )
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="IMPORT_FILE_CLOSED",
+            message_ar=msg_ar,
+            import_file_code=code,
+        )
+

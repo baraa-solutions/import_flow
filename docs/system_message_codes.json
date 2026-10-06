@@ -2018,6 +2018,14 @@
       "reason"
     ]
   },
+  "IMPORT_FILE_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "INVOICES_ALREADY_SETTLED": {
     "params": [
       "import_file_code",
