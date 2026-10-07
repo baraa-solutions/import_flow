@@ -3765,5 +3765,13 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
+  },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }

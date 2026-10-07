@@ -1343,6 +1343,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "RECALC_RATE_MISSING": {
         "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
     },
+    "CT_AGREEMENT_DATA_INVALID": {
+        "note": "Invalid preferential trade agreement data ({reason}).",
+    },
 }
 
 

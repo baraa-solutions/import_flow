@@ -214,16 +214,30 @@ def create_preferential_agreement(db: Session, data: dict) -> PreferentialAgreem
 def get_agreements_by_hs_code(
     db: Session, hs_code: str, origin_country: Optional[str] = None, on_date: Optional[date] = None
 ) -> List[PreferentialAgreement]:
-    query = db.query(PreferentialAgreement).filter(PreferentialAgreement.hs_code == hs_code)
+    from sqlalchemy import func
+    nodots = hs_code.strip().replace(".", "")
+    query = db.query(PreferentialAgreement).filter(
+        func.replace(PreferentialAgreement.hs_code, ".", "") == nodots
+    )
     if on_date:
         query = query.filter(
             PreferentialAgreement.effective_from <= on_date,
-            or_(PreferentialAgreement.effective_to == None, PreferentialAgreement.effective_to >= on_date)
+            or_(PreferentialAgreement.effective_to == None, PreferentialAgreement.effective_to >= on_date),
         )
+    query = query.order_by(
+        PreferentialAgreement.effective_from.desc(),
+        PreferentialAgreement.agreement_id.desc(),
+    )
+    results = query.all()
     if origin_country:
-        pattern = f"%{origin_country.strip().upper()}%"
-        query = query.filter(PreferentialAgreement.origin_countries.ilike(pattern))
-    return query.all()
+        target_origin = origin_country.strip().upper()
+        results = [
+            ag
+            for ag in results
+            if target_origin
+            in [c.strip().upper() for c in (ag.origin_countries or "").split(",") if c.strip()]
+        ]
+    return results
 
 
 def get_all_tariff_versions_by_hs_code(db: Session, hs_code: str) -> List[CustomsTariff]:
