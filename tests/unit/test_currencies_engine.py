@@ -33,6 +33,14 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def db_session():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
+    c_usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_base_currency=False, is_active=True)
+    c_eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_base_currency=False, is_active=True)
+    db.add_all([c_usd, c_eur])
+    db.commit()
+    r_usd = ExchangeRate(currency_id=c_usd.currency_id, commercial_rate=48.50, customs_rate=48.50, effective_date=date(2026, 1, 1), is_active=True)
+    r_eur = ExchangeRate(currency_id=c_eur.currency_id, commercial_rate=52.80, customs_rate=52.80, effective_date=date(2026, 1, 1), is_active=True)
+    db.add_all([r_usd, r_eur])
+    db.commit()
     yield db
     db.close()
 
