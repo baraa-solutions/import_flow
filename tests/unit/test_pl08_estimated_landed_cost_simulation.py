@@ -285,6 +285,7 @@ def test_estimated_landed_cost_with_awarded_rfq(db_session, base_test_data):
         rfq_id=rfq.rfq_id,
         provider_id=1,
         provider_name="Maersk Line",
+        ocean_freight_cost=2500.0,
         total_cost=2500.0,
         currency_code="USD",
         sailing_date=date.today(),

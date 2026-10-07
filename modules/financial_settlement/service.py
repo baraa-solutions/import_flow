@@ -998,29 +998,32 @@ def simulate_estimated_landed_cost_service(
     else:
         awarded_rfq = (
             db.query(FreightRFQRequest)
-            .filter(FreightRFQRequest.import_file_id == import_file_id)
+            .filter(
+                FreightRFQRequest.import_file_id == import_file_id,
+                FreightRFQRequest.is_active == True,
+            )
             .order_by(FreightRFQRequest.rfq_id.desc())
             .first()
         )
+        winning_q = None
         if awarded_rfq and awarded_rfq.selected_quotation_id:
             winning_q = db.query(FreightQuotationItem).filter(
-                FreightQuotationItem.quotation_id == awarded_rfq.selected_quotation_id
+                FreightQuotationItem.quotation_id == awarded_rfq.selected_quotation_id,
+                FreightQuotationItem.rfq_id == awarded_rfq.rfq_id,
             ).first()
-            if winning_q and winning_q.total_cost:
-                q_cost = float(winning_q.total_cost)
-                q_curr = winning_q.currency_code or currency
-                if q_curr.upper() == "EGP":
-                    freight_egp = q_cost
-                elif q_curr.upper() == (currency or "").upper():
-                    freight_egp = q_cost * fx_rate
-                else:  # quote in another currency than the goods: its own customs rate (review 2 #1)
-                    freight_egp = q_cost * SettlementFx(db, "customs").rate(q_curr, calc_date)
-                p_name = getattr(winning_q, "provider_name", None) or getattr(winning_q, "carrier_name", "RFQ Winner")
-                freight_src = f"العرض الفائز في مناقصة النولون ({p_name})"
-                has_freight_doc = True
-            else:
-                freight_egp = total_fob_egp * (deemed_freight_pct / 100.0)
-                freight_src = deemed_freight_src
+
+        q_cost = float(winning_q.ocean_freight_cost or 0.0) if winning_q else 0.0
+        if winning_q and q_cost > 0:
+            q_curr = winning_q.currency_code or currency
+            if q_curr.upper() == "EGP":
+                freight_egp = q_cost
+            elif q_curr.upper() == (currency or "").upper():
+                freight_egp = q_cost * fx_rate
+            else:  # quote in another currency than the goods: its own customs rate (review 2 #1)
+                freight_egp = q_cost * SettlementFx(db, "customs").rate(q_curr, calc_date)
+            p_name = getattr(winning_q, "provider_name", None) or getattr(winning_q, "carrier_name", "RFQ Winner")
+            freight_src = f"نولون الشحن البحري للعرض الفائز في المناقصة ({p_name})"
+            has_freight_doc = True
         else:
             freight_egp = total_fob_egp * (deemed_freight_pct / 100.0)
             freight_src = deemed_freight_src

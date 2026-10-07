@@ -533,7 +533,7 @@ def test_rfq_quote_in_another_currency_uses_its_own_customs_rate(db):
     rfq = _fill_required(FreightRFQRequest(import_file_id=imp.import_file_id))
     db.add(rfq)
     db.flush()
-    q = _fill_required(FreightQuotationItem(rfq_id=rfq.rfq_id, currency_code="EUR", total_cost=2000.0))
+    q = _fill_required(FreightQuotationItem(rfq_id=rfq.rfq_id, currency_code="EUR", ocean_freight_cost=2000.0, total_cost=2000.0))
     db.add(q)
     db.flush()
     rfq.selected_quotation_id = q.quotation_id
