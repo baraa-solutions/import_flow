@@ -315,3 +315,44 @@ def test_create_and_update_booking_validates_currency(db_session):
     with pytest.raises(HTTPException) as exc_info:
         update_booking_service(db_session, booking.booking_id, update_payload, user="test_user")
     assert exc_info.value.status_code == 422
+
+
+def test_inactive_currency_raises_422(db_session):
+    """An inactive currency used on a charge raises 422."""
+    inactive_curr = Currency(
+        currency_code="GBP",
+        currency_name="British Pound",
+        currency_symbol="£",
+        is_active=False,
+    )
+    db_session.add(inactive_curr)
+    db_session.commit()
+
+    booking = ShipmentBooking(
+        booking_code="BKG-TEST-INACTIVE",
+        shipment_type="Ocean FCL",
+        containers_data=[{"container_type": "40HC", "quantity": 1}],
+        cost_charges_data=[
+            {"charge_type": "Sea Freight", "unit": "Per Container", "rate": 1000.0, "currency": "GBP"},
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        calculate_transit_time_and_costs(booking, db=db_session)
+    assert exc_info.value.status_code == 422
+    assert "عملة البند غير معروفة: GBP" in str(exc_info.value.detail)
+
+
+def test_db_none_with_non_usd_currency_raises_422():
+    """Non-USD charge with db=None raises 422 instead of fallback 1.0."""
+    booking = ShipmentBooking(
+        booking_code="BKG-TEST-NO-DB",
+        shipment_type="Ocean FCL",
+        containers_data=[{"container_type": "40HC", "quantity": 1}],
+        cost_charges_data=[
+            {"charge_type": "Sea Freight", "unit": "Per Container", "rate": 1000.0, "currency": "EUR"},
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        calculate_transit_time_and_costs(booking, db=None)
+    assert exc_info.value.status_code == 422
+    assert "يتطلب تحويل عملة البند EUR جلسة قاعدة بيانات صالحة" in str(exc_info.value.detail)

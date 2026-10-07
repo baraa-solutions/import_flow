@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_locales.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/widgets/searchable_dropdown_field.dart';
 import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
 import 'package:frontend/features/freight_booking/models/freight_booking_model.dart';
@@ -252,6 +253,129 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(Switch), findsNWidgets(17));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('changing container type from 40HC to 40GP keeps line tagged as 40GP and allows save', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final notifier = _RecordingBookingNotifier();
+      final source = ShipmentBookingModel(
+        bookingId: 1,
+        bookingCode: 'BK-2026-0001',
+        bookingConfirmationNo: 'CONF-1',
+        importFileId: 5,
+        shippingLineName: 'Test Line',
+        polName: 'Port A',
+        podName: 'Port B',
+        etd: '2026-10-01T00:00:00Z',
+        eta: '2026-10-20T00:00:00Z',
+        status: 'Draft',
+        freeDemurrageDays: 14,
+        isActive: true,
+        quotationDetailsData: {
+          'container_40ft_app': true,
+          'container_40ft_price': 2000.0,
+          'container_40ft_qty': 2,
+          'container_40ft_cur': 'USD',
+          'original_quote_total_usd': 4000.0,
+        },
+        containersData: [
+          ContainerAllocationModel(containerType: '40HC', quantity: 2),
+        ],
+        costChargesData: [
+          BookingChargeModel(
+            chargeType: 'Sea Freight 40ft',
+            quantity: 2,
+            rate: 2000,
+            total: 4000,
+            containerType: '40HC',
+          ),
+        ],
+        createdAt: '2026-09-01T00:00:00Z',
+        updatedAt: '2026-09-01T00:00:00Z',
+      );
+
+      await tester.pumpWidget(host(FreightBookingFormDialog(bookingToEdit: source), notifier: notifier));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final dropdownFinder = find.byWidgetPredicate(
+        (w) => w is SearchableDropdownField<String> && w.items.any((item) => item.value == '40GP'),
+      );
+      expect(dropdownFinder, findsOneWidget);
+      final dd = tester.widget<SearchableDropdownField<String>>(dropdownFinder);
+      dd.onChanged!('40GP');
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byKey(const Key('fbkQuoteEquipmentMismatchNotice')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('fbkFormSaveBtn')));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(notifier.created, hasLength(1));
+      final payload = notifier.created.single;
+      final charges = (payload['cost_charges_data'] as List).cast<Map<String, dynamic>>();
+      final c40 = charges.firstWhere((c) => c['charge_type'] == 'Sea Freight 40ft');
+      expect(c40['container_type'], '40GP');
+      expect(c40['total'], 4000.0);
+    });
+
+    testWidgets('changing container type from 40HC to 20GP blocks save with mismatch notice', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final notifier = _RecordingBookingNotifier();
+      final source = ShipmentBookingModel(
+        bookingId: 1,
+        bookingCode: 'BK-2026-0001',
+        bookingConfirmationNo: 'CONF-1',
+        importFileId: 5,
+        shippingLineName: 'Test Line',
+        polName: 'Port A',
+        podName: 'Port B',
+        etd: '2026-10-01T00:00:00Z',
+        eta: '2026-10-20T00:00:00Z',
+        status: 'Draft',
+        freeDemurrageDays: 14,
+        isActive: true,
+        quotationDetailsData: {
+          'container_40ft_app': true,
+          'container_40ft_price': 2000.0,
+          'container_40ft_qty': 2,
+          'container_40ft_cur': 'USD',
+          'original_quote_total_usd': 4000.0,
+        },
+        containersData: [
+          ContainerAllocationModel(containerType: '40HC', quantity: 2),
+        ],
+        costChargesData: [
+          BookingChargeModel(
+            chargeType: 'Sea Freight 40ft',
+            quantity: 2,
+            rate: 2000,
+            total: 4000,
+            containerType: '40HC',
+          ),
+        ],
+        createdAt: '2026-09-01T00:00:00Z',
+        updatedAt: '2026-09-01T00:00:00Z',
+      );
+
+      await tester.pumpWidget(host(FreightBookingFormDialog(bookingToEdit: source), notifier: notifier));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final dropdownFinder = find.byWidgetPredicate(
+        (w) => w is SearchableDropdownField<String> && w.items.any((item) => item.value == '20GP'),
+      );
+      expect(dropdownFinder, findsOneWidget);
+      final dd = tester.widget<SearchableDropdownField<String>>(dropdownFinder);
+      dd.onChanged!('20GP');
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byKey(const Key('fbkQuoteEquipmentMismatchNotice')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('fbkFormSaveBtn')));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(notifier.created, isEmpty, reason: 'save must be blocked when equipment does not match quoted sizes');
     });
   });
 
