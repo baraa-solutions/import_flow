@@ -206,7 +206,9 @@ def validate_lab_result_open(record) -> None:
         )
 
 
-SETTLEMENT_LOCKED_STATUSES = ("Approved", "Closed")
+from modules.financial_settlement.validators import LOCKED_SETTLEMENT_STATUSES
+
+SETTLEMENT_LOCKED_STATUSES = LOCKED_SETTLEMENT_STATUSES
 
 
 def validate_settlement_open(db: Any, import_file_id: int) -> None:
@@ -221,7 +223,7 @@ def validate_settlement_open(db: Any, import_file_id: int) -> None:
         )
         .first()
     )
-    if settlement and settlement.status in SETTLEMENT_LOCKED_STATUSES:
+    if settlement and settlement.status in LOCKED_SETTLEMENT_STATUSES:
         raise coded_error(
             status.HTTP_409_CONFLICT,
             "CC_SETTLEMENT_LOCKED",

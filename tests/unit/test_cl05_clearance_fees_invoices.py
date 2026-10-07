@@ -173,26 +173,46 @@ def test_clearance_invoices_landed_cost_settlement_sync(db_session, sample_clear
 
 
 def test_clearance_invoices_sync_recalculates_calculated_settlement(db_session, sample_clearance_setup):
-    """When settlement is Calculated, adding a clearance invoice recalculates settlement totals via engine."""
+    """When settlement is Calculated, adding a clearance invoice recalculates settlement totals via engine,
+    preserving existing non-clearance expense rows (e.g., Freight, Customs Duty)."""
     imp_file, clearance = sample_clearance_setup
     suffix = datetime.now().strftime("%f")
     settlement = LandedCostSettlementRecord(
         settlement_code=f"LCS-CALC-{suffix}",
         import_file_id=imp_file.import_file_id,
         incoterm_code="FOB",
-        expense_invoices=[],
+        expense_invoices=[
+            {
+                "invoice_no": "FR-50000",
+                "category": "Freight",
+                "amount_egp": 50000.0,
+                "amount_fx": 50000.0,
+                "exchange_rate": 1.0,
+                "currency": "EGP",
+                "allocation_rule": "Value-Based",
+            },
+            {
+                "invoice_no": "DUTY-100000",
+                "category": "Customs Duty",
+                "amount_egp": 100000.0,
+                "amount_fx": 100000.0,
+                "exchange_rate": 1.0,
+                "currency": "EGP",
+                "allocation_rule": "Value-Based",
+            },
+        ],
         item_landed_costs=[{
             "line_no": 1,
             "item_code": "ITM-001",
             "item_name": "Test Machinery",
-            "qty": 5,
-            "fob_unit_egp": 10000.0,
+            "qty": 1,
+            "fob_unit_egp": 500000.0,
             "gross_weight_kg": 500.0,
             "cbm": 2.5,
         }],
-        total_fob_egp=50000.0,
-        total_expenses_egp=0.0,
-        total_landed_cost_egp=50000.0,
+        total_fob_egp=500000.0,
+        total_expenses_egp=150000.0,
+        total_landed_cost_egp=650000.0,
         status="Calculated",
     )
     db_session.add(settlement)
@@ -212,10 +232,64 @@ def test_clearance_invoices_sync_recalculates_calculated_settlement(db_session, 
 
     db_session.refresh(settlement)
     assert settlement.status == "Calculated"
-    assert settlement.total_expenses_egp == 5000.0
-    assert settlement.total_landed_cost_egp == 55000.0
+    assert settlement.total_expenses_egp == 155000.0
+    assert settlement.total_landed_cost_egp == 655000.0
     assert len(settlement.item_landed_costs) == 1
-    assert settlement.item_landed_costs[0]["total_landed_cost_egp"] == 55000.0
+    assert settlement.item_landed_costs[0]["total_landed_cost_egp"] == 655000.0
+
+    cats = [row["category"] for row in settlement.expense_invoices]
+    assert "Freight" in cats
+    assert "Customs Duty" in cats
+    freight_row = next(r for r in settlement.expense_invoices if r["category"] == "Freight")
+    assert freight_row["amount_egp"] == 50000.0
+    duty_row = next(r for r in settlement.expense_invoices if r["category"] == "Customs Duty")
+    assert duty_row["amount_egp"] == 100000.0
+
+
+def test_cl05_http_post_against_locked_settlement_returns_409(db_session, sample_clearance_setup):
+    """HTTP contract: POSTing a clearance invoice against an Approved settlement returns 409 CC_SETTLEMENT_LOCKED."""
+    from modules.customs_clearance.router import can_update
+    from modules.users.model import User
+
+    imp_file, clearance = sample_clearance_setup
+    suffix = datetime.now().strftime("%f")
+    settlement = LandedCostSettlementRecord(
+        settlement_code=f"LCS-LOCKED-{suffix}",
+        import_file_id=imp_file.import_file_id,
+        incoterm_code="FOB",
+        expense_invoices=[{"invoice_no": "ORIG-1", "amount_egp": 2000.0}],
+        total_fob_egp=100000.0,
+        total_expenses_egp=2000.0,
+        total_landed_cost_egp=102000.0,
+        status="Approved",
+    )
+    db_session.add(settlement)
+    db_session.commit()
+
+    post_data = {
+        "import_file_id": imp_file.import_file_id,
+        "customs_clearance_id": clearance.customs_clearance_id,
+        "invoice_number": f"INV-LOCKED-HTTP-{suffix}",
+        "provider_name": "مكتب الصفا للتخليص الجمركي",
+        "expense_category": "Customs Broker Fees (أتعاب التخليص الجمركي)",
+        "currency": "EGP",
+        "amount_egp": 3000.0,
+    }
+
+    dummy_user = User(user_id=999, username="test_admin", role="ADMIN", is_active=True)
+    app.dependency_overrides[can_update] = lambda: dummy_user
+    try:
+        res = client.post("/api/v1/customs-clearance/invoices", json=post_data)
+        assert res.status_code == 409, res.text
+        data = res.json()
+        assert data["detail"]["code"] == "CC_SETTLEMENT_LOCKED"
+        assert data["detail"]["settlement_status"] == "Approved"
+
+        db_session.refresh(settlement)
+        assert settlement.total_expenses_egp == 2000.0
+        assert settlement.total_landed_cost_egp == 102000.0
+    finally:
+        app.dependency_overrides.pop(can_update, None)
 
 
 def test_clearance_invoice_locked_settlement_blocks_record_and_delete(db_session, sample_clearance_setup):

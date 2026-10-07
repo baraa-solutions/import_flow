@@ -1378,7 +1378,7 @@ def _recalculate_clearance_expenses_aggregates(db: Session, import_file_id: int,
         imp_file.updated_at = _now()
 
 
-def _sync_settlement_snapshot(db: Session, import_file_id: int) -> None:
+def _sync_settlement_snapshot(db: Session, import_file_id: int, actor: str = SYSTEM_USER) -> None:
     """Landed-cost settlement snapshot: ``Clearance / <label_en>`` rows replace the earlier clearance rows."""
     from modules.financial_settlement.model import LandedCostSettlementRecord
     from modules.financial_settlement.service import recalculate_settlement_totals
@@ -1414,7 +1414,7 @@ def _sync_settlement_snapshot(db: Session, import_file_id: int) -> None:
             "allocation_rule": inv.allocation_rule or "Equal",
         })
     settlement.expense_invoices = rows
-    recalculate_settlement_totals(settlement, actor=SYSTEM_USER)
+    recalculate_settlement_totals(settlement, actor=actor)
     settlement.updated_at = _now()
 
 
@@ -1512,7 +1512,7 @@ def record_clearance_invoice_service(
         provider_name=invoice.provider_name or "-",
         import_file_code=file_label,
     )
-    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, payload.import_file_id)
+    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, payload.import_file_id, actor=current_user)
     _follow_up(db, "CL-05 task completion", _complete_tasks, db, payload.import_file_id,
                ("CLEARANCE_INVOICES", "CL-05"), invoice_msg, current_user,
                note_part="body", task_codes=("CL-05", "TSK-0205"), open_statuses=("Pending", "In Progress"))
@@ -1568,5 +1568,5 @@ def delete_clearance_invoice_service(
     _touch(inv, current_user)
     _recalculate_clearance_expenses_aggregates(db, import_file_id, clearance_id)
     db.commit()
-    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, import_file_id)
+    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, import_file_id, actor=current_user)
     return True
