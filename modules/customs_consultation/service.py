@@ -875,7 +875,7 @@ def _resolve_customs_rate(db: Session, currency: Optional[str], on_date: date) -
         try:
             rate, _, rate_id = CurrencyService(db)._get_rate_to_egp(code, rate_type="customs", as_of_date=on_date)
         except HTTPException as exc:
-            if exc.status_code != status.HTTP_404_NOT_FOUND:  # unregistered currency -> coded 409 below
+            if exc.status_code not in (status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT):  # unregistered currency / missing rate -> coded 409 below
                 raise
     if rate_id is None or not rate or rate <= 0:
         raise CodedHTTPException(

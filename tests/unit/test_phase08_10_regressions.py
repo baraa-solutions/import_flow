@@ -624,7 +624,12 @@ def test_put_lock_follows_file_status(db):
     assert exc.value.status_code == 409
     imp.status = "Active"  # reopened
     db.commit()
-    out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
+    out = fc_service.update_closure_service(
+        db,
+        rec.closure_id,
+        FileClosureUpdate(auditor_name="Spoofed In Body"),
+        user="Reviewer",
+    )
     assert out.auditor_name == "Reviewer"
 
 
@@ -743,3 +748,83 @@ def test_closed_file_blocks_inland_transport_writes(db):
     bookings = it_service.list_transport_bookings_service(db, import_file_id=imp.import_file_id)
     assert len(bookings) == 1
 
+
+def test_be810_t04_legacy_tolerant_schemas(db, strict_client, rbac):
+    from sqlalchemy import text
+    file = _file(db, code="IMP-LEGACY-01")
+    now_dt = datetime.now(timezone.utc)
+
+    # 1. Insert an InlandTransportBooking row with driver_phone="123", created_by=NULL, is_active=NULL, transport_fare_egp=NULL
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-001', :file_id, 'WB-LEG-01', :now,
+            'Carrier', 'ABC 123', 'FLATBED', 'Driver Ali',
+            '123', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 500.0,
+            'Booking Confirmed', 1, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # Row with is_active=NULL (listed via include_inactive=True)
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-002', :file_id, 'WB-LEG-02', :now,
+            'Carrier', 'ABC 124', 'FLATBED', 'Driver Hassan',
+            '456', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 600.0,
+            'Booking Confirmed', NULL, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # 2. Insert a FileClosureRecord row with status=NULL, created_by=NULL, closed_at=NULL, closure_checklist with nulls
+    db.execute(text("""
+        INSERT INTO file_closure_records (
+            closure_code, import_file_id, closure_checklist, auditor_name,
+            archive_location, status, is_active, closed_at,
+            created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'CLR-LEG-001', :file_id, '{"docs_verified": null, "customs_cleared": true}', 'Old Auditor',
+            'Old Archive', NULL, 1, NULL,
+            :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+    db.commit()
+
+    # Query GET /api/v1/inland-transport/bookings
+    res_it = strict_client.get("/api/v1/inland-transport/bookings", headers=_bearer(rbac["operator"]))
+    assert res_it.status_code == 200, res_it.text
+    bookings = res_it.json()
+    leg_booking = next(b for b in bookings if b["transport_code"] == "TR-LEG-001")
+    assert leg_booking["driver_phone"] == "123"
+    assert leg_booking["created_by"] is None or leg_booking["created_by"] == "System"
+    assert leg_booking["transport_fare_egp"] == 500.0
+
+    # Query GET /api/v1/inland-transport/bookings?include_inactive=true
+    res_it_all = strict_client.get("/api/v1/inland-transport/bookings?include_inactive=true", headers=_bearer(rbac["operator"]))
+    assert res_it_all.status_code == 200, res_it_all.text
+    all_bookings = res_it_all.json()
+    leg_booking_2 = next(b for b in all_bookings if b["transport_code"] == "TR-LEG-002")
+    assert leg_booking_2["driver_phone"] == "456"
+    assert leg_booking_2["is_active"] is True  # LegacyRowTolerantModel normalized None -> True
+
+    # Query GET /api/v1/file-closure
+    res_fc = strict_client.get("/api/v1/file-closure", headers=_bearer(rbac["operator"]))
+    assert res_fc.status_code == 200, res_fc.text
+    closures = res_fc.json()
+    leg_closure = next(c for c in closures if c["closure_code"] == "CLR-LEG-001")
+    assert leg_closure["status"] is None or leg_closure["status"] == "Closed"
+    assert leg_closure["closed_at"] is None
+    assert leg_closure["closure_checklist"]["docs_verified"] is None
+    assert leg_closure["closure_checklist"]["customs_cleared"] is True

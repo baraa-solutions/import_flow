@@ -221,5 +221,50 @@ class TestWarehouseReceivingModule(unittest.TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.detail["code"], "WR_VERDICT_INCONSISTENT")
+
+    def test_soft_delete_blocked_when_protocol_exists(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+        record.inspection_protocol_number = "INSP-2026-0001"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_insurance_claim_filed(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+        record.insurance_claim_filed = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_supplier_claim_filed(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+        record.supplier_claim_filed = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_quarantine_lock_active(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+        record.quarantine_lock_active = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 if __name__ == "__main__":
     unittest.main()
+

@@ -1418,6 +1418,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_STATUS_CHANGE_NOT_ALLOWED': {
     'note': 'لا يمكن تغيير حالة إذن الاستلام من \'{current_status}\' إلى \'{target_status}\'.',
   },
+  'WR_GRN_LOCKED': {
+    'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
@@ -1429,6 +1432,15 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
+  },
+  'CURRENCY_NOT_FOUND': {
+    'note': 'العملة الكود \'{currency}\' غير مسجلة في النظام.',
+  },
+  'CURRENCY_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف مسجل للعملة \'{currency}\' من نوع \'{rate_type}\' بتاريخ {as_of_date}.',
+  },
+  'CT_CUSTOMS_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
@@ -1444,6 +1456,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_STATUS_INVALID': {
     'note': 'يمكن إعادة سجل الإغلاق إلى حالة مسودة فقط.',
+  },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'رمز العملة غير معروف أو غير نشط \'{currency_code}\'.',
   },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف للعملة {currency} بتاريخ {on_date}. سجّل السعر قبل احتساب التسوية.',
