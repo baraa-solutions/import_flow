@@ -75,10 +75,11 @@ class ComprehensiveShipmentDossierModel {
   final int targetFreeDays;
 
   final List<Map<String, dynamic>> purchaseOrders;
-  final double totalFobFc;
+  final Map<String, double> fobByCurrency;
+  final double? totalFobFc;
   /// Null when the backend has no customs rate for the FOB currency (no fabricated conversion).
   final double? totalFobEgp;
-  final String fobCurrency;
+  final String? fobCurrency;
   final int itemsCount;
   final List<Map<String, dynamic>> itemsDetail;
 
@@ -162,9 +163,10 @@ class ComprehensiveShipmentDossierModel {
     this.totalCbm = 0.0,
     this.targetFreeDays = 21,
     this.purchaseOrders = const [],
-    this.totalFobFc = 0.0,
+    this.fobByCurrency = const {},
+    this.totalFobFc,
     this.totalFobEgp,
-    this.fobCurrency = 'USD',
+    this.fobCurrency,
     this.itemsCount = 0,
     this.itemsDetail = const [],
     this.acidNumber,
@@ -216,6 +218,10 @@ class ComprehensiveShipmentDossierModel {
     var rawReadiness = json['closure_readiness'] as Map<String, dynamic>? ?? {};
     var rawPos = json['purchase_orders'] as List<dynamic>? ?? [];
     var rawItems = json['items_detail'] as List<dynamic>? ?? [];
+    var rawFobByCurrency = json['fob_by_currency'] as Map<String, dynamic>? ?? {};
+    Map<String, double> parsedFobByCurrency = rawFobByCurrency.map(
+      (k, v) => MapEntry(k, (v as num?)?.toDouble() ?? 0.0),
+    );
 
     return ComprehensiveShipmentDossierModel(
       importFileId: json['import_file_id'] ?? 0,
@@ -250,9 +256,10 @@ class ComprehensiveShipmentDossierModel {
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       targetFreeDays: json['target_free_days'] as int? ?? 21,
       purchaseOrders: rawPos.map((p) => p as Map<String, dynamic>).toList(),
-      totalFobFc: (json['total_fob_fc'] as num?)?.toDouble() ?? 0.0,
+      fobByCurrency: parsedFobByCurrency,
+      totalFobFc: (json['total_fob_fc'] as num?)?.toDouble(),
       totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble(),
-      fobCurrency: json['fob_currency'] ?? 'USD',
+      fobCurrency: json['fob_currency'] as String?,
       itemsCount: json['items_count'] as int? ?? 0,
       itemsDetail: rawItems.map((i) => i as Map<String, dynamic>).toList(),
       acidNumber: json['acid_number'],
@@ -334,9 +341,10 @@ class ComprehensiveShipmentDossierModel {
       'total_cbm': totalCbm,
       'target_free_days': targetFreeDays,
       'purchase_orders': purchaseOrders,
-      'total_fob_fc': totalFobFc,
-      'total_fob_egp': totalFobEgp,
-      'fob_currency': fobCurrency,
+      'fob_by_currency': fobByCurrency,
+      if (totalFobFc != null) 'total_fob_fc': totalFobFc,
+      if (totalFobEgp != null) 'total_fob_egp': totalFobEgp,
+      if (fobCurrency != null) 'fob_currency': fobCurrency,
       'items_count': itemsCount,
       'items_detail': itemsDetail,
       if (acidNumber != null) 'acid_number': acidNumber,

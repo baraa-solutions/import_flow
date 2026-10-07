@@ -425,16 +425,17 @@ def get_comprehensive_shipment_dossier_service(
 
     po_summaries = []
     items_detail = []
-    total_fob_fc = 0.0
-    fob_currency = "USD"
     fob_by_currency: Dict[str, float] = {}
+    unknown_currency = False
 
     for po in pos:
-        curr = po.currency.currency_code if getattr(po, "currency", None) else "USD"
-        fob_currency = curr
+        curr = po.currency.currency_code if getattr(po, "currency", None) else None
         amt = float(po.total_amount_fob or 0.0)
-        total_fob_fc += amt
-        fob_by_currency[curr] = fob_by_currency.get(curr, 0.0) + amt
+        if not curr:
+            unknown_currency = True
+        else:
+            fob_by_currency[curr] = round(fob_by_currency.get(curr, 0.0) + amt, 2)
+
         po_summaries.append({
             "po_id": po.po_id,
             "po_number": po.po_number,
@@ -467,10 +468,18 @@ def get_comprehensive_shipment_dossier_service(
             })
 
     # Fallback to estimated cost if no PO items found
-    if total_fob_fc == 0.0 and getattr(imp, "estimated_cost", 0.0):
-        total_fob_fc = float(imp.estimated_cost or 0.0)
-        fob_currency = imp.estimated_cost_currency or "USD"
-        fob_by_currency = {fob_currency: total_fob_fc}
+    if not pos and getattr(imp, "estimated_cost", 0.0):
+        est_val = float(imp.estimated_cost or 0.0)
+        est_curr = imp.estimated_cost_currency or "USD"
+        fob_by_currency = {est_curr: est_val}
+
+    if not unknown_currency and len(fob_by_currency) == 1:
+        single_curr, single_amt = next(iter(fob_by_currency.items()))
+        total_fob_fc = single_amt
+        fob_currency = single_curr
+    else:
+        total_fob_fc = None
+        fob_currency = None
 
     # 3. Customs Clearance Record
     clearance = repo.latest_active_clearance(db, import_file_id)
@@ -537,6 +546,8 @@ def get_comprehensive_shipment_dossier_service(
     calc_at = imp.actual_landed_cost_calculated_at or (settlement.updated_at if settlement else None)
     if settlement is not None and settlement.total_fob_egp:
         total_fob_egp: Optional[float] = float(settlement.total_fob_egp)
+    elif unknown_currency or not fob_by_currency:
+        total_fob_egp = None
     else:
         total_fob_egp = _stored_clearance_fob_egp(clearance, fob_by_currency)
         if total_fob_egp is None:
@@ -558,12 +569,13 @@ def get_comprehensive_shipment_dossier_service(
             section_code="SEC-01",
             section_name_en="Phase 1 & 2: Commercial Contract & PO",
             section_name_ar="أمر الشراء والتوريد والتعاقد الخارجي",
-            status="COMPLETED" if pos or total_fob_fc > 0 else "PENDING",
-            status_ar="مكتمل" if pos or total_fob_fc > 0 else "قيد الانتظار",
+            status="COMPLETED" if pos or bool(fob_by_currency) else "PENDING",
+            status_ar="مكتمل" if pos or bool(fob_by_currency) else "قيد الانتظار",
             details={
                 "po_count": len(pos),
                 "total_fob_fc": total_fob_fc,
                 "currency": fob_currency,
+                "fob_by_currency": fob_by_currency,
                 "items_count": len(items_detail),
                 "incoterm": imp.incoterm_code or "",
             },
@@ -697,9 +709,16 @@ def get_comprehensive_shipment_dossier_service(
         "tasks_closed": True,
     }
 
+    if total_fob_fc is not None and fob_currency:
+        fob_text = f"{total_fob_fc:,.2f} {fob_currency}"
+    elif fob_by_currency:
+        fob_text = " / ".join(f"{amt:,.2f} {c}" for c, amt in sorted(fob_by_currency.items()))
+    else:
+        fob_text = "—"
+
     summary_notes = (
         f"ملف الشحنة {imp.import_file_code} مستوفي لكافة مراحل الاستيراد العشر. "
-        f"قيمة البضاعة FOB تبلغ {total_fob_fc:,.2f} {fob_currency}، "
+        f"قيمة البضاعة FOB تبلغ {fob_text}، "
         f"وتكلفة الوصول الفعلية الشاملة تبلغ {actual_landed_egp:,.2f} جنيه مصري بمعامل زيادة {markup_fac:.3f}x. "
         f"الملف جاهز للأرشفة الرقمية والاعتماد النهائي."
     )
@@ -737,6 +756,7 @@ def get_comprehensive_shipment_dossier_service(
         total_cbm=float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0),
         target_free_days=int(imp.target_free_days or 0),
         purchase_orders=po_summaries,
+        fob_by_currency=fob_by_currency,
         total_fob_fc=total_fob_fc,
         total_fob_egp=total_fob_egp,
         fob_currency=fob_currency,
