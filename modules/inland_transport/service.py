@@ -3,6 +3,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+from modules.common.errors import best_effort
+
 from .model import InlandTransportBooking
 from .schemas import (
     InlandTransportBookingCreate,
@@ -202,6 +204,22 @@ def create_transport_booking_service(
 
     db.commit()
     db.refresh(booking)
+
+    booking_id = booking.transport_id
+    code = booking.transport_code
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking_id,
+            entity_code=code,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "IT create audit log")
     return booking
 
 
@@ -237,6 +255,19 @@ def record_port_gate_out_service(
 
     db.commit()
     db.refresh(booking)
+
+    def _audit_gate_out() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="GATE_OUT",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_gate_out, "IT gate out audit log")
     return booking
 
 
@@ -274,6 +305,19 @@ def record_warehouse_arrival_service(
 
     db.commit()
     db.refresh(booking)
+
+    def _audit_arrival() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="ARRIVAL",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_arrival, "IT arrival audit log")
     return booking
 
 
@@ -339,6 +383,7 @@ def update_transport_booking_service(
                 waybill_number=other.waybill_number,
             )
 
+    old_data = {k: getattr(booking, k, None) for k in data.keys()}
     apply_changes(booking, data, user)
     db.flush()
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
@@ -346,6 +391,20 @@ def update_transport_booking_service(
         sync_file_inland_fields(db, imp_file)
     db.commit()
     db.refresh(booking)
+
+    def _audit_update() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=data,
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_update, "IT update audit log")
     return booking
 
 
@@ -361,6 +420,18 @@ def soft_delete_transport_booking_service(
     if imp_file:
         sync_file_inland_fields(db, imp_file)
     db.commit()
+
+    def _audit_delete() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_delete, "IT delete audit log")
 
 
 def _require_open_file_for_booking(db: Session, import_file_id: int) -> None:
@@ -401,5 +472,17 @@ def restore_transport_booking_service(
             sync_file_inland_fields(db, imp_file)
         db.commit()
         db.refresh(booking)
+
+        def _audit_restore() -> None:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="InlandTransportBooking",
+                entity_id=booking.transport_id,
+                entity_code=booking.transport_code,
+                action="RESTORE",
+                performed_by=user,
+            )
+
+        best_effort(db, _audit_restore, "IT restore audit log")
 
     return booking
