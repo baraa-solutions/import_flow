@@ -1,4 +1,4 @@
-﻿"""
+"""
 Expense Catalog Model (AI-EXPENSE-CATALOG-002)
 Canonical reference catalog for Egyptian customs clearance, transport, port handling, and logistics expenses.
 """
@@ -47,3 +47,5 @@ class ExpenseCatalog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
