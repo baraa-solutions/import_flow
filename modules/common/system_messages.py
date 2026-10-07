@@ -1322,6 +1322,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "JOURNAL_UNBALANCED": {"note": "The journal entry is unbalanced by {difference} EGP and cannot be exported."},
     "SETTLEMENT_LINE_NO_HS": {"note": "Line {item_code} has no HS code: it is left out of the customs estimate."},
     "SETTLEMENT_LINE_ZERO_VALUE": {"note": "Line {item_code} has no value: it is left out of the customs estimate."},
+    "SETTLEMENT_PO_NOT_ALLOCATED": {
+        "note": "Purchase order {po_number} is allocated to other shipments and has no share for this file.",
+    },
     "PAYMENT_STATUS_UNKNOWN": {
         "note": "Invoice {invoice_no} is partially paid but the paid amount is unknown: counted as unpaid.",
     },

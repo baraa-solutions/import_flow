@@ -17,7 +17,7 @@ SoD, hard block) commits its audit log row and then raises.
 """
 
 from datetime import datetime, date, timezone
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Tuple
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -174,6 +174,7 @@ def _fetch_from_purchase_orders(
     Fetches live value from PurchaseOrder.
     total_amount_fob is in the PO currency → converted to EGP at the PO rate (EGP = 1, the stored rate when set,
     else the commercial rate on the order date; a missing rate skips the dependency, RC-03).
+    For total_amount_fob, partial PO shipments use file_po_line_shares (ACC2-T01).
     The budgeted field is invoice_amount_egp.
     """
     from modules.financial_settlement.service import SettlementFx, purchase_order_rate_to_egp
@@ -195,6 +196,44 @@ def _fetch_from_purchase_orders(
         return 0.0
 
     fx = SettlementFx(db, "commercial")
+
+    if source_field == "total_amount_fob" and imp is not None:
+        from modules.financial_settlement.service import file_po_line_shares
+        from modules.purchase_orders.model import POShipmentAllocation
+
+        line_shares = file_po_line_shares(db, imp)
+        po_lines_map: Dict[int, List[Tuple[Any, float, float]]] = {}
+        for li, share_qty, ratio in line_shares:
+            po_lines_map.setdefault(li.po_id, []).append((li, share_qty, ratio))
+
+        values = []
+        for po in pos:
+            try:
+                rate = purchase_order_rate_to_egp(po, fx)
+            except HTTPException as exc:
+                if isinstance(exc.detail, dict) and exc.detail.get("code") == SETTLEMENT_FX_RATE_MISSING:
+                    raise SourceRateMissing(exc.detail.get("currency"), exc.detail.get("on_date")) from exc
+                raise
+
+            if po.po_id in po_lines_map:
+                po_fob_foreign = sum(
+                    float(li.unit_price or 0.0) * share_qty
+                    for li, share_qty, _ in po_lines_map[po.po_id]
+                )
+                values.append(round(po_fob_foreign * rate, 2))
+            else:
+                has_allocs = (
+                    db.query(POShipmentAllocation.allocation_id)
+                    .filter(POShipmentAllocation.po_id == po.po_id)
+                    .first()
+                    is not None
+                )
+                if not has_allocs:
+                    header_fob = float(getattr(po, "total_amount_fob", 0.0) or 0.0)
+                    values.append(round(header_fob * rate, 2))
+
+        return _aggregate(values, aggregation) if values else 0.0
+
     values = []
     for po in pos:
         raw = float(getattr(po, source_field, 0.0) or 0.0)

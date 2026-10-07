@@ -3765,5 +3765,13 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
+  },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }
