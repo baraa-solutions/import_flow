@@ -137,6 +137,7 @@ def test_record_port_gate_out_and_arrival(db_session):
         waybill_number="WB-2026-DKH-002",
         carrier_name="شركة الصفا للنقل",
         truck_plate_number="ق ن د 9912",
+        truck_type="FLATBED",
         driver_name="عادل سالم الشاذلي",
         driver_phone="01198765432",
         pickup_port_location="ميناء الإسكندرية باب 27",
@@ -191,12 +192,14 @@ def test_transport_validation_rules(db_session):
                 waybill_number="WB-001",
                 carrier_name="Carrier",
                 truck_plate_number="",
+                truck_type="FLATBED",
                 driver_name="Driver",
                 driver_phone="01012345678",
                 pickup_port_location="Port",
                 destination_warehouse="WH",
                 planned_departure_at=now,
                 expected_arrival_at=now + timedelta(hours=2),
+                transport_fare_egp=5000.0,
             ),
         )
     assert "truck_plate_number" in str(exc_plate.value) or "لوحة الشاحنة" in str(exc_plate.value)
@@ -210,12 +213,14 @@ def test_transport_validation_rules(db_session):
                 waybill_number="WB-001",
                 carrier_name="Carrier",
                 truck_plate_number="ط ر س 1234",
+                truck_type="FLATBED",
                 driver_name="Driver",
                 driver_phone="01012345678",
                 pickup_port_location="Port",
                 destination_warehouse="WH",
                 planned_departure_at=now + timedelta(hours=4),
                 expected_arrival_at=now, # Before departure!
+                transport_fare_egp=5000.0,
             ),
         )
     assert "الوصول المتوقع" in str(exc_date.value)
@@ -234,6 +239,7 @@ def test_inland_transport_rest_api(client, db_session):
             "waybill_number": "WB-API-001",
             "carrier_name": "شركة الهلال للنقل",
             "truck_plate_number": "أ ب ج 7711",
+            "truck_type": "FLATBED",
             "driver_name": "سيد متولي الدسوقي",
             "driver_phone": "01234567890",
             "pickup_port_location": "ميناء بورسعيد",
@@ -455,3 +461,204 @@ def test_settlement_aggregation_after_booking_fare_zeroed(db_session):
     # Specifically assert no 5000.0 transport invoice
     assert not any(inv.amount_egp == 5000.0 for inv in transport_invoices)
 
+
+# ─── BE810-T13: IT Create Validation & Defaults Hardening ─────────────────────
+
+
+def test_create_booking_status_delivered_raises_400(client, db_session):
+    """BE810-T13: create with status 'Delivered' -> 400 IT_STATUS_INVALID."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-STATUS-DELIV",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "transport_fare_egp": 5000.0,
+        "status": "Delivered",
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_STATUS_INVALID"
+
+
+def test_create_booking_in_transit_without_departure_date_raises_400(client, db_session):
+    """BE810-T13: 'In Transit' on create requires actual_departure_at."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-IN-TRANSIT-NO-DEP",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "transport_fare_egp": 5000.0,
+        "status": "In Transit",
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 400
+    assert "actual_departure_at" in str(resp.json()) or "موعد المغادرة الفعلي" in str(resp.json())
+
+
+def test_create_booking_actual_arrival_at_rejected(client, db_session):
+    """BE810-T13: actual_arrival_at on create -> 400."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-ARRIVAL-ON-CREATE",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "actual_arrival_at": (now + timedelta(hours=5)).isoformat(),
+        "transport_fare_egp": 5000.0,
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 400
+    assert "لا يمكن تسجيل موعد الوصول الفعلي" in str(resp.json())
+
+
+def test_create_booking_unknown_carrier_id_raises_400(client, db_session):
+    """BE810-T13: unknown carrier_id 999999 -> 400 IT_CARRIER_INVALID."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-UNKNOWN-CARRIER",
+        "carrier_id": 999999,
+        "carrier_name": "Any Name",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "transport_fare_egp": 5000.0,
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_CARRIER_INVALID"
+
+
+def test_create_booking_valid_carrier_id_sets_carrier_name(db_session):
+    """BE810-T13: valid carrier_id loads partner_name into carrier_name."""
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    provider = ExternalServiceProvider(
+        partner_code="PRV-IT-TEST-01",
+        partner_name="Al-Ahram Transport Logistics",
+        partner_type="Inland Transport",
+        is_active=True,
+    )
+    db_session.add(provider)
+    db_session.commit()
+    db_session.refresh(provider)
+
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-CARRIER-SET")
+    payload.carrier_id = provider.provider_id
+    payload.carrier_name = None
+
+    booking = create_transport_booking_service(db_session, payload, user="Officer")
+    assert booking.carrier_name == "Al-Ahram Transport Logistics"
+    assert booking.carrier_id == provider.provider_id
+
+
+def test_create_booking_invalid_truck_type_spaceship_raises_400(client, db_session):
+    """BE810-T13: truck type 'Spaceship' -> 400 IT_TRUCK_TYPE_INVALID."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-SPACESHIP",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "Spaceship",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "transport_fare_egp": 5000.0,
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_TRUCK_TYPE_INVALID"
+
+
+def test_update_booking_invalid_truck_type_spaceship_raises_400(client, db_session):
+    """BE810-T13: updating truck type to 'Spaceship' via PUT -> 400 IT_TRUCK_TYPE_INVALID."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-PUT-SPACESHIP")
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+
+    resp = client.put(
+        f"/api/v1/inland-transport/bookings/{bk.transport_id}",
+        json={"truck_type": "Spaceship"},
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_TRUCK_TYPE_INVALID"
+
+
+def test_create_booking_missing_required_fields_raises_422(client, db_session):
+    """BE810-T13: missing fare, destination_warehouse or truck_type -> 422."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    base_payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-MISSING-FIELDS",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 111",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver A",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "transport_fare_egp": 5000.0,
+    }
+
+    # Missing fare -> 422
+    payload_no_fare = dict(base_payload)
+    del payload_no_fare["transport_fare_egp"]
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload_no_fare)
+    assert resp.status_code == 422
+
+    # Missing destination_warehouse -> 422
+    payload_no_wh = dict(base_payload)
+    del payload_no_wh["destination_warehouse"]
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload_no_wh)
+    assert resp.status_code == 422
+
+    # Missing truck_type -> 422
+    payload_no_tt = dict(base_payload)
+    del payload_no_tt["truck_type"]
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload_no_tt)
+    assert resp.status_code == 422

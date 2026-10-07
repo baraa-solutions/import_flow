@@ -35,6 +35,8 @@ from .validators import (
     validate_transition,
     validate_transport_booking_input,
     validate_import_file_for_transport,
+    validate_truck_type,
+    validate_carrier,
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
@@ -93,7 +95,19 @@ def create_transport_booking_service(
 ) -> InlandTransportBooking:
     validate_transport_booking_input(schema)
     validate_import_file_for_transport(db, schema.import_file_id)
-    schema = schema.model_copy(update={"truck_type": enum_codes.normalize(enum_codes.TRUCK_TYPE, schema.truck_type)})
+    norm_truck_type = validate_truck_type(schema.truck_type)
+    updates = {"truck_type": norm_truck_type}
+
+    if schema.carrier_id is not None:
+        carrier = validate_carrier(db, schema.carrier_id)
+        updates["carrier_name"] = carrier.partner_name
+    elif not schema.carrier_name or len(schema.carrier_name.strip()) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="اسم شركة النقل مطلوب عند عدم تحديد معرّف الشركة.",
+        )
+
+    schema = schema.model_copy(update=updates)
 
     # IT-02: a retried request (double click, timeout) must not create a second booking for the same waybill.
     duplicate = find_active_booking_by_waybill(db, schema.import_file_id, normalize_waybill(schema.waybill_number))
@@ -306,8 +320,11 @@ def update_transport_booking_service(
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
     data = schema.model_dump(exclude_unset=True)
-    if data.get("truck_type") is not None:
-        data["truck_type"] = enum_codes.normalize(enum_codes.TRUCK_TYPE, data["truck_type"])
+    if "truck_type" in data and data["truck_type"] is not None:
+        data["truck_type"] = validate_truck_type(data["truck_type"])
+    if "carrier_id" in data and data["carrier_id"] is not None:
+        carrier = validate_carrier(db, data["carrier_id"])
+        data["carrier_name"] = carrier.partner_name
     # NOT NULL columns: an explicit null would only fail at commit (500).
     for field in ("waybill_number", "carrier_name", "truck_plate_number", "truck_type", "driver_name", "driver_phone",
                   "pickup_port_location", "destination_warehouse", "planned_departure_at", "expected_arrival_at",

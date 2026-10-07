@@ -2044,6 +2044,14 @@
       "note"
     ]
   },
+  "IT_CARRIER_INVALID": {
+    "params": [
+      "carrier_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -2056,6 +2064,14 @@
     "params": [
       "action",
       "current_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_TRUCK_TYPE_INVALID": {
+    "params": [
+      "truck_type"
     ],
     "parts": [
       "note"

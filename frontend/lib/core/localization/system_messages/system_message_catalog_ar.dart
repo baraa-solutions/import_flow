@@ -1415,6 +1415,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
+  'IT_CARRIER_INVALID': {
+    'note': 'شركة النقل رقم {carrier_id} غير موجودة أو غير نشطة.',
+  },
+  'IT_TRUCK_TYPE_INVALID': {
+    'note': 'نوع الشاحنة \'{truck_type}\' غير صالح.',
+  },
   'IT_STATUS_INVALID': {
     'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
   },

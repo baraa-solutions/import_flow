@@ -585,6 +585,7 @@ _LEGACY: Dict[str, Dict[str, str]] = {
     },
     TRUCK_TYPE: {
         "Flatbed Trailer (تريلا مسطح)": "FLATBED",
+        "Flatbed Trailer 40ft (تريلا مسطح)": "FLATBED",
         "Side-Drop Trailer (تريلا جوانب)": "SIDE_DROP",
         "Curtainsider (تريلا ستارة)": "CURTAINSIDER",
         "Container Chassis (شاسية حاوية 40/20 قدم)": "CONTAINER_CHASSIS",

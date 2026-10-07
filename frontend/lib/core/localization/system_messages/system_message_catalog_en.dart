@@ -1415,6 +1415,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
   },
+  'IT_CARRIER_INVALID': {
+    'note': 'Carrier with ID {carrier_id} is unknown or inactive.',
+  },
+  'IT_TRUCK_TYPE_INVALID': {
+    'note': 'Truck type \'{truck_type}\' is invalid.',
+  },
   'IT_STATUS_INVALID': {
     'note': 'Unknown inland transport status \'{status}\'.',
   },
