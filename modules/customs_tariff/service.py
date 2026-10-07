@@ -1004,7 +1004,7 @@ def compare_tariff_versions_service(
     old_ag_by_notice = {}
     for ag in old_agreements:
         key = ag.publication_notice or ag.agreement_name
-        old_ag_by_notice[key] = ag
+        old_ag_by_notice.setdefault(key, ag)
 
     new_ag_by_notice = {}
     for ag in new_agreements:
