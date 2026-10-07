@@ -1424,6 +1424,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_ALREADY_CLOSED': {
     'note': 'Import file {import_file_code} is already closed. Reopen it first.',
   },
+  'IMPORT_FILE_CLOSED': {
+    'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
   },
@@ -1435,6 +1438,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'FC_STATUS_INVALID': {
     'note': 'A closure record can only be set back to Draft.',
+  },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'Unknown or inactive currency code \'{currency_code}\'.',
   },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'No exchange rate for {currency} on {on_date}. Register the rate before calculating the settlement.',

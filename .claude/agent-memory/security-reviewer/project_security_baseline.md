@@ -227,3 +227,39 @@ triggering_actor); CODEOWNERS + required checks unenforceable on Free; HIGH same
 guardrails.py / guard tests so "Backend gate" passes trivially; MEDIUM repo-tracked .githooks run branch code on the
 owner's machine at commit/push; MEDIUM Windows-minute burn (2x) via push/label spam; LOW scratch_env inherits
 DATABASE_URL; LOW enable SHA-pinning policy + allowed-actions list.
+
+## PR #17 BE810-T10 (acting user from token) 2026-10-07
+Clean on the security side: auditor_name / exported_by / inspector_name in request bodies are now ignored on the
+service side (closure create/official-close/update, dossier export, GRN create/update, inspection protocol). Routers
+unchanged, and every route keeps require_permission. Leftovers (MINOR): dead `_resolve_user_name` + LEGACY_*_DEFAULTS
+in file_closure/service.py; no tests for the WR or export paths. CI 401s in test_clo04 hit unchanged tests in that file
+too, so the cause is shared test isolation (the dev-bypass seam is lost), not this diff. The same 401 failure appears in
+other PRs on 2026-10-07. Pre-existing and not new: POST /file-closure and /confirm-dossier-export use the VIEW route
+guard and rely on the service-side `_require_any_permission`.
+
+## PR #15 BEW0-04 paging helper review 2026-10-07 (security lens)
+OK: /import-files/paginated keeps require_permission("import_files.view"); sort is a dict allow-list (no injection);
+page>=1, page_size 1..200, sort<=200, q<=100; LIKE wildcards escaped with escape="\\".
+CI pattern to remember: scripts/ci/guardrails.py scratch_env forces ALLOW_DEV_AUTH_BYPASS=false, so any test that
+relies on the conftest dev-bypass seam, or overrides modules.auth.router.get_current_user on a route guarded by
+require_permission(...) (closure calls resolve_user directly; override is ignored), gets 401 in CI but passes locally.
+test_import_files_hold_codes::test_hold_endpoint_contract has this bug on main (surfaces whenever import_files changes).
+
+## PR #24 BE810-T18 GRN/IT paging 2026-10-07 (security lens): clean
+New /warehouse-receiving/paginated, /inland-transport/bookings/paginated and /inland-transport/paginated keep the router-level
+get_current_user plus require_permission(VIEW). Sort uses dict allow-lists, LIKE is escaped, and PageParams bounds apply. Pre-existing
+and not new: inland_transport/router.py VIEW = "warehouse_receiving.view" (IT has no own view code); include_inactive
+is exposed to VIEW holders on both legacy and paginated lists. MINOR: legacy list `limit` is optional, so it stays
+unbounded by default, and the legacy `search` has no max_length. Tests do not cover 401/403 or invalid sort.
+
+## PR #32 BE810-T15 IT restore 2026-10-07 (security lens)
+OK: PATCH /inland-transport/bookings/{id}/restore has router-level get_current_user + require_permission("warehouse_receiving.receive")
+(in catalog, same as delete); user from token. MAJOR: `_require_open_file_for_booking` wraps
+`from modules.common.validators import ensure_file_open` in try/except ImportError -> silent no-op. ensure_file_open does not
+exist at PR #32 head (only in T02 PRs #14/#22/...), so restore on a Closed file is allowed and resyncs inland cost (settlement input).
+Pattern to watch: fail-open guards via optional import in stacked PRs. MINOR: no 403 test for VIEW-only user.
+
+## PR #38 BE810-T20 (2026-10-07) clean
+file_closure `_require_any_permission` now fail-closed (actor=None -> 403) unless `trusted=True`; only official-close passes
+trusted=True (route already requires import_files.close). MINOR: `trusted` kwarg on confirm_dossier_export_service is a
+test-only bypass knob with no production caller. No route/dependency changes; TR-03 assigned_user from token username.
