@@ -677,3 +677,248 @@ def test_dossier_fob_unknown_currency(db_session):
     assert res.fob_currency is None
     assert res.total_fob_egp is None
 
+
+def test_dossier_stops_inventing_markup_factor(db_session):
+    """BE810-T07: File without settlement and without markup -> actual_landed_cost_markup_factor is None."""
+    supplier = _create_test_supplier(db_session, "SUP-NOMARKUP-01")
+    imp = ImportFile(
+        import_file_code="IMP-2026-NOMARKUP-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Under Settlement",
+        current_stage="Stage 9: Landed Cost & File Closure",
+        current_module="CLO-02",
+        actual_landed_cost_total_egp=0.0,
+        actual_landed_cost_markup_factor=None,
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.commit()
+
+    res = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    assert res.actual_landed_cost_markup_factor is None
+
+
+def test_closure_precheck_stops_inventing_markup_factor(db_session):
+    """BE810-T07: Closure precheck without settlement and without markup -> actual_markup_factor is None."""
+    supplier = _create_test_supplier(db_session, "SUP-NOMARKUP-PRE-01")
+    imp = ImportFile(
+        import_file_code="IMP-2026-NOMARKUP-PRE-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Under Settlement",
+        current_stage="Stage 9: Landed Cost & File Closure",
+        current_module="CLO-02",
+        actual_landed_cost_total_egp=0.0,
+        actual_landed_cost_markup_factor=None,
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.commit()
+
+    from modules.file_closure.service import get_closure_precheck_service
+    res = get_closure_precheck_service(db_session, imp.import_file_id)
+    assert res.actual_markup_factor is None
+
+
+def test_dossier_stops_inventing_exchange_rate(db_session, monkeypatch):
+    """BE810-T07: PO without exchange_rate -> exchange_rate in po_summaries is None."""
+    supplier = _create_test_supplier(db_session, "SUP-NOXRATE-01")
+    incoterm = db_session.query(Incoterm).first() or Incoterm(incoterm_code="FOB", incoterm_name="FOB", is_active=True)
+    db_session.add(incoterm)
+    db_session.flush()
+
+    project = _create_test_project(db_session, supplier, incoterm, "PRJ-NOXRATE")
+    usd = db_session.query(Currency).filter(Currency.currency_code == "USD").first()
+    if not usd:
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        db_session.add(usd)
+        db_session.flush()
+
+    imp = ImportFile(
+        import_file_code="IMP-2026-NOXRATE-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Under Settlement",
+        current_stage="Stage 9: Landed Cost & File Closure",
+        current_module="CLO-02",
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.commit()
+
+    po = PurchaseOrder(
+        po_number="PO-NOXRATE-01",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=incoterm.incoterm_id,
+        currency_id=usd.currency_id,
+        currency=usd,
+        total_amount_fob=15000.0,
+        exchange_rate=None,
+        status="Received",
+        is_active=True,
+    )
+    from modules.file_closure import service as fc_service
+    monkeypatch.setattr(fc_service.repo, "active_purchase_orders", lambda db, fid: [po])
+
+    res = fc_service.get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    assert len(res.purchase_orders) == 1
+    assert res.purchase_orders[0]["exchange_rate"] is None
+    assert res.fob_source == "PO"
+
+
+def test_dossier_stops_inventing_item_code(db_session):
+    """BE810-T07: PO line item without item_code -> item_code is None (never 'ITM-001')."""
+    supplier = _create_test_supplier(db_session, "SUP-NOITMCODE-01")
+    incoterm = db_session.query(Incoterm).first() or Incoterm(incoterm_code="FOB", incoterm_name="FOB", is_active=True)
+    db_session.add(incoterm)
+    db_session.flush()
+
+    project = _create_test_project(db_session, supplier, incoterm, "PRJ-NOITMCODE")
+    usd = db_session.query(Currency).filter(Currency.currency_code == "USD").first()
+    if not usd:
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        db_session.add(usd)
+        db_session.flush()
+
+    imp = ImportFile(
+        import_file_code="IMP-2026-NOITMCODE-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Under Settlement",
+        current_stage="Stage 9: Landed Cost & File Closure",
+        current_module="CLO-02",
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.flush()
+
+    po = PurchaseOrder(
+        po_number="PO-NOITMCODE-01",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=incoterm.incoterm_id,
+        currency_id=usd.currency_id,
+        total_amount_fob=2000.0,
+        status="Received",
+        is_active=True,
+    )
+    db_session.add(po)
+    db_session.flush()
+
+    line = POLineItem(
+        po_id=po.po_id,
+        item_code=None,
+        description_ar="صنف بدون كود",
+        quantity=10,
+        unit_price=200.0,
+        total_price=2000.0,
+        gross_weight_kg=50.0,
+    )
+    db_session.add(line)
+    db_session.commit()
+
+    res = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    assert len(res.items_detail) == 1
+    assert res.items_detail[0]["item_code"] is None
+
+
+def test_dossier_stops_inventing_net_weight(db_session):
+    """BE810-T07: File and PO lines without net weight -> net_weight_kg is None (never falls back to gross)."""
+    supplier = _create_test_supplier(db_session, "SUP-NONETWT-01")
+    incoterm = db_session.query(Incoterm).first() or Incoterm(incoterm_code="FOB", incoterm_name="FOB", is_active=True)
+    db_session.add(incoterm)
+    db_session.flush()
+
+    project = _create_test_project(db_session, supplier, incoterm, "PRJ-NONETWT")
+    usd = db_session.query(Currency).filter(Currency.currency_code == "USD").first()
+    if not usd:
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        db_session.add(usd)
+        db_session.flush()
+
+    imp = ImportFile(
+        import_file_code="IMP-2026-NONETWT-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Under Settlement",
+        current_stage="Stage 9: Landed Cost & File Closure",
+        current_module="CLO-02",
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.flush()
+
+    po = PurchaseOrder(
+        po_number="PO-NONETWT-01",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=incoterm.incoterm_id,
+        currency_id=usd.currency_id,
+        total_amount_fob=3000.0,
+        total_gross_weight_kg=500.0,
+        status="Received",
+        is_active=True,
+    )
+    db_session.add(po)
+    db_session.flush()
+
+    line = POLineItem(
+        po_id=po.po_id,
+        item_code="ITM-A1",
+        description_ar="صنف بوزن إجمالي فقط",
+        quantity=5,
+        unit_price=600.0,
+        total_price=3000.0,
+        gross_weight_kg=500.0,
+    )
+    db_session.add(line)
+    db_session.commit()
+
+    res = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    assert res.gross_weight_kg == 500.0
+    assert res.net_weight_kg is None
+
+
+def test_dossier_estimated_cost_sets_fob_source(db_session):
+    """BE810-T07: File with estimated cost and no POs -> fob_source == 'ESTIMATE'."""
+    supplier = _create_test_supplier(db_session, "SUP-ESTCOST-01")
+    imp = ImportFile(
+        import_file_code="IMP-2026-ESTCOST-01",
+        company_id=1,
+        company_name="Sorour Logistics Co.",
+        supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name,
+        status="Draft",
+        current_stage="Stage 1: Order Confirmation",
+        current_module="PO-01",
+        estimated_cost=20000.0,
+        estimated_cost_currency="USD",
+        is_active=True,
+    )
+    db_session.add(imp)
+    db_session.commit()
+
+    res = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    assert res.fob_source == "ESTIMATE"
+    assert res.total_fob_fc == 20000.0
+    assert res.fob_currency == "USD"
+
+

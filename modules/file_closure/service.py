@@ -442,10 +442,11 @@ def get_comprehensive_shipment_dossier_service(
             "po_reference": po.po_reference,
             "proforma_invoice_number": po.proforma_invoice_number,
             "currency": curr,
-            "exchange_rate": float(po.exchange_rate or 1.0),
+            "exchange_rate": float(po.exchange_rate) if po.exchange_rate is not None else None,
             "total_amount_fob": amt,
             "total_packages": int(po.total_packages_count or 0),
             "total_gross_weight_kg": float(po.total_gross_weight_kg or 0.0),
+            "total_net_weight_kg": float(po.total_net_weight_kg) if getattr(po, "total_net_weight_kg", None) is not None and float(po.total_net_weight_kg) > 0 else None,
             "total_cbm": float(po.total_cbm or 0.0),
             "status": po.status,
         })
@@ -455,8 +456,9 @@ def get_comprehensive_shipment_dossier_service(
             qty = float(itm.quantity or 0.0)
             u_price = float(itm.unit_price or 0.0)
             tot_price = float(itm.total_price or (qty * u_price))
+            itm_nw = float(itm.net_weight_kg) if getattr(itm, "net_weight_kg", None) is not None and float(itm.net_weight_kg) > 0 else None
             items_detail.append({
-                "item_code": itm.item_code or f"ITM-{len(items_detail)+1:03d}",
+                "item_code": itm.item_code or None,
                 "description": itm.description_ar or itm.description_en or itm.main_description or "",
                 "quantity": qty,
                 "unit_of_measure": itm.unit_of_measure or "",
@@ -465,10 +467,15 @@ def get_comprehensive_shipment_dossier_service(
                 "hs_code": hs,
                 "cbm": float(itm.total_cbm or 0.0),
                 "weight_kg": float(itm.gross_weight_kg or 0.0),
+                "net_weight_kg": itm_nw,
             })
 
-    # Fallback to estimated cost if no PO items found
-    if not pos and getattr(imp, "estimated_cost", 0.0):
+    # Track FOB source: PO vs ESTIMATE vs None (FC-07 / BE810-T07)
+    fob_source: Optional[str] = None
+    if pos:
+        fob_source = "PO"
+    elif getattr(imp, "estimated_cost", None) and float(imp.estimated_cost or 0.0) > 0:
+        fob_source = "ESTIMATE"
         est_val = float(imp.estimated_cost or 0.0)
         est_curr = imp.estimated_cost_currency or "USD"
         fob_by_currency = {est_curr: est_val}
@@ -536,17 +543,18 @@ def get_comprehensive_shipment_dossier_service(
         or imp.actual_landed_cost_total_egp
         or 0.0
     )
-    markup_fac = float(
+    raw_markup = (
         (settlement.average_markup_factor if settlement else None)
-        or imp.actual_landed_cost_markup_factor
-        or 1.0
+        if (settlement and settlement.average_markup_factor is not None)
+        else getattr(imp, "actual_landed_cost_markup_factor", None)
     )
+    markup_fac: Optional[float] = float(raw_markup) if raw_markup is not None else None
     var_egp = float(imp.actual_landed_cost_variance_egp or 0.0)
     var_pct = float(imp.actual_landed_cost_variance_pct or 0.0)
     calc_at = imp.actual_landed_cost_calculated_at or (settlement.updated_at if settlement else None)
     if settlement is not None and settlement.total_fob_egp:
         total_fob_egp: Optional[float] = float(settlement.total_fob_egp)
-    elif unknown_currency or not fob_by_currency:
+    elif unknown_currency or not fob_by_currency or fob_source is None:
         total_fob_egp = None
     else:
         total_fob_egp = _stored_clearance_fob_egp(clearance, fob_by_currency)
@@ -716,12 +724,41 @@ def get_comprehensive_shipment_dossier_service(
     else:
         fob_text = "—"
 
-    summary_notes = (
-        f"ملف الشحنة {imp.import_file_code} مستوفي لكافة مراحل الاستيراد العشر. "
-        f"قيمة البضاعة FOB تبلغ {fob_text}، "
-        f"وتكلفة الوصول الفعلية الشاملة تبلغ {actual_landed_egp:,.2f} جنيه مصري بمعامل زيادة {markup_fac:.3f}x. "
-        f"الملف جاهز للأرشفة الرقمية والاعتماد النهائي."
-    )
+    markup_str = f" بمعامل زيادة {markup_fac:.3f}x" if markup_fac is not None else ""
+    is_ready = all(closure_readiness.values())
+    if is_ready:
+        summary_notes = (
+            f"ملف الشحنة {imp.import_file_code} مستوفي لكافة مراحل الاستيراد العشر. "
+            f"قيمة البضاعة FOB تبلغ {fob_text}، "
+            f"وتكلفة الوصول الفعلية الشاملة تبلغ {actual_landed_egp:,.2f} جنيه مصري{markup_str}. "
+            f"الملف جاهز للأرشفة الرقمية والاعتماد النهائي."
+        )
+    else:
+        summary_notes = (
+            f"ملف الشحنة {imp.import_file_code} قيد المتابعة ولم يستوفِ شروط الإغلاق بعد. "
+            f"قيمة البضاعة FOB تبلغ {fob_text}، "
+            f"وتكلفة الوصول الحالية تبلغ {actual_landed_egp:,.2f} جنيه مصري{markup_str}."
+        )
+
+    dossier_net_weight: Optional[float] = None
+    if getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
+        dossier_net_weight = float(imp.net_weight_kg)
+    else:
+        po_items_nw = sum(
+            float(itm["net_weight_kg"])
+            for itm in items_detail
+            if itm.get("net_weight_kg") is not None
+        )
+        if po_items_nw > 0:
+            dossier_net_weight = round(po_items_nw, 2)
+        else:
+            po_nw = sum(
+                float(p["total_net_weight_kg"])
+                for p in po_summaries
+                if p.get("total_net_weight_kg") is not None
+            )
+            if po_nw > 0:
+                dossier_net_weight = round(po_nw, 2)
 
     return ComprehensiveShipmentDossierResponse(
         import_file_id=imp.import_file_id,
@@ -752,7 +789,7 @@ def get_comprehensive_shipment_dossier_service(
         port_of_discharge=imp.port_of_discharge,
         total_packages=int(getattr(imp, "total_packages_count", 0) or sum(p.get("total_packages", 0) for p in po_summaries) or 0),
         gross_weight_kg=float(getattr(imp, "gross_weight_kg", 0.0) or sum(p.get("total_gross_weight_kg", 0.0) for p in po_summaries) or 0.0),
-        net_weight_kg=float(getattr(imp, "net_weight_kg", 0.0) or sum(float(itm.get("weight_kg", 0.0) or 0.0) for itm in items_detail) or 0.0),
+        net_weight_kg=dossier_net_weight,
         total_cbm=float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0),
         target_free_days=int(imp.target_free_days or 0),
         purchase_orders=po_summaries,
@@ -760,6 +797,7 @@ def get_comprehensive_shipment_dossier_service(
         total_fob_fc=total_fob_fc,
         total_fob_egp=total_fob_egp,
         fob_currency=fob_currency,
+        fob_source=fob_source,
         items_count=len(items_detail),
         items_detail=items_detail,
         acid_number=imp.acid_number,
@@ -950,10 +988,12 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
     existing = repo.get_closure_by_import_file_id(db, import_file_id)
 
     actual_landed = float(imp.actual_landed_cost_total_egp or 0.0)
-    markup = float(imp.actual_landed_cost_markup_factor or 1.0)
+    raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
     if settlement is not None:
         actual_landed = float(settlement.total_landed_cost_egp or actual_landed)
-        markup = float(settlement.average_markup_factor or markup)
+        if settlement.average_markup_factor is not None:
+            raw_markup = settlement.average_markup_factor
+    markup: Optional[float] = float(raw_markup) if raw_markup is not None else None
 
     return ClosurePrecheckResponse(
         import_file_id=imp.import_file_id,
