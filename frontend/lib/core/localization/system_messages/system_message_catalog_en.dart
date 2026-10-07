@@ -1418,6 +1418,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_STATUS_CHANGE_NOT_ALLOWED': {
     'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
   },
+  'WR_DATE_IN_FUTURE': {
+    'note': 'The inspection date cannot be more than 24 hours in the future.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
   },

@@ -37,6 +37,7 @@ from .validators import (
     validate_discrepancy_type,
     validate_grn_status_transition,
     validate_grn_put_fields,
+    validate_inspection_date,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -310,6 +311,13 @@ def report_receiving_discrepancy_service(
 ) -> WarehouseReceivingRecord:
     """BP-035 Report Receiving Discrepancies & Damage Claims."""
     validate_discrepancy_type(payload.discrepancy_type)
+    if payload.discrepancy_type == "None":
+        raise coded_error(
+            400,
+            "WR_DISCREPANCY_TYPE_INVALID",
+            "لا يمكن الإبلاغ عن فروق مع اختيار نوع 'None'. يلزم تحديد نوع الفرق (عجز، تلف، زيادة، صنف خطأ).",
+            discrepancy_type="None",
+        )
     validate_discrepancy_claim(payload.discrepancy_type, payload.discrepancy_notes)
 
     record = get_warehouse_receiving_service(db, record_id)
@@ -459,6 +467,7 @@ def submit_warehouse_inspection_protocol_service(
     """
     record = get_warehouse_receiving_service(db, record_id)
     _require_open_file_for_grn(db, record.import_file_id)
+    validate_inspection_date(schema.inspection_date)
     verdict = normalize_verdict(schema.inspection_verdict)
     if schema.discrepancy_type is not None:
         validate_discrepancy_type(schema.discrepancy_type)

@@ -15,6 +15,8 @@ class ApiErrorCode {
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
   static const wrFieldNotEditable = 'WR_FIELD_NOT_EDITABLE';
   static const wrStatusChangeNotAllowed = 'WR_STATUS_CHANGE_NOT_ALLOWED';
+  static const wrDateInFuture = 'WR_DATE_IN_FUTURE';
+  static const wrVerdictInconsistentExpected = 'WR_VERDICT_INCONSISTENT_EXPECTED';
 }
 
 /// User-facing, localized text for a failed API call.

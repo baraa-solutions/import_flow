@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Iterable, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -137,11 +138,25 @@ def validate_verdict_matches(verdict: Optional[str], expected: frozenset, derive
     if verdict is not None and verdict not in expected:
         raise coded_error(
             400,
-            "WR_VERDICT_INCONSISTENT",
+            "WR_VERDICT_INCONSISTENT_EXPECTED",
             f"قرار الفحص {verdict} لا يتفق مع نتيجة الفحص (المتوقع: {derived}).",
             verdict=verdict,
             expected_verdict=derived,
         )
+
+
+def validate_inspection_date(inspection_date: Optional[datetime]) -> None:
+    """Inspection date cannot be > now + 24 hours (BE810-T19 / F36)."""
+    if inspection_date is not None:
+        target = inspection_date if inspection_date.tzinfo else inspection_date.replace(tzinfo=timezone.utc)
+        limit = datetime.now(timezone.utc) + timedelta(hours=24)
+        if target > limit:
+            raise coded_error(
+                400,
+                "WR_DATE_IN_FUTURE",
+                "تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).",
+                field_name="inspection_date",
+            )
 
 
 def validate_status_label(status: Optional[str]) -> None:

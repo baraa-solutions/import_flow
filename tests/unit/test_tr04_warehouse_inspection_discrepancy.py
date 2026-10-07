@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -295,3 +295,104 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert summary_data["supplier_claim_filed"] is True
         assert summary_data["total_shortage_qty"] == 1
         assert summary_data["is_ready_for_landed_cost"] is True
+
+    def test_be810_t19_clean_quantities_with_inconsistent_verdict_raises_expected_code(self, db_session, client):
+        """BE810-T19: Clean quantities + inconsistent verdict -> 400 WR_VERDICT_INCONSISTENT_EXPECTED with expected_verdict."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0106", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0106",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot E",
+            grn_items=[{"item_code": "E", "item_name": "E", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"inspection_verdict": "DAMAGE_CLAIM_PENDING"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_VERDICT_INCONSISTENT_EXPECTED"
+        assert detail["verdict"] == "DAMAGE_CLAIM_PENDING"
+        assert detail["expected_verdict"] == "ACCEPTED_FULL"
+
+    def test_be810_t19_report_discrepancy_rejects_none_type(self, db_session, client):
+        """BE810-T19: Report discrepancy with type 'None' is rejected with 400 WR_DISCREPANCY_TYPE_INVALID."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0107", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0107",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot F",
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/report-discrepancy",
+            json={"discrepancy_type": "None", "discrepancy_notes": "All good no discrepancy"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_DISCREPANCY_TYPE_INVALID"
+
+    def test_be810_t19_report_discrepancy_defaults_quarantine_false(self, db_session, client):
+        """BE810-T19: Report discrepancy defaults quarantine_zone_assigned to False."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0108", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0108",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot G",
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/report-discrepancy",
+            json={"discrepancy_type": "Shortage", "discrepancy_notes": "Missing 2 boxes"},
+        )
+        assert res.status_code == 200
+        db_session.refresh(rec)
+        assert rec.quarantine_zone_assigned is False
+
+    def test_be810_t19_inspection_date_in_future_raises_400(self, db_session, client):
+        """BE810-T19: Inspection date > now + 24 hours raises 400 WR_DATE_IN_FUTURE."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0109", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0109",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot H",
+            grn_items=[{"item_code": "H", "item_name": "H", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        future_dt = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"inspection_date": future_dt},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_DATE_IN_FUTURE"

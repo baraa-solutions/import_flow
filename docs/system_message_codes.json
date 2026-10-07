@@ -3603,6 +3603,12 @@
       "body"
     ]
   },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"
