@@ -137,5 +137,46 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(restored.receiving_id, rec_id)
         self.assertTrue(restored.is_active)
 
+    def test_soft_delete_blocked_when_protocol_exists(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_insurance_claim_filed(self):
+        record = self._create_valid_grn()
+        record.insurance_claim_filed = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_supplier_claim_filed(self):
+        record = self._create_valid_grn()
+        record.supplier_claim_filed = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
+    def test_soft_delete_blocked_when_quarantine_lock_active(self):
+        record = self._create_valid_grn()
+        record.quarantine_lock_active = True
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
+
 if __name__ == "__main__":
     unittest.main()
+
