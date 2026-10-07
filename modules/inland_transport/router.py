@@ -41,7 +41,7 @@ def list_paginated_transport_bookings(
     params: PageParams = Depends(),
     import_file_id: Optional[int] = Query(None, description="Filter by import file ID"),
     status: Optional[str] = Query(None, description="Filter by status"),
-    search: Optional[str] = Query(None, description="Legacy alias for q"),
+    search: Optional[str] = Query(None, max_length=100, description="Legacy alias for q"),
     db: Session = Depends(get_db),
     _user: User = Depends(require_permission(VIEW)),
 ):
@@ -74,9 +74,9 @@ def list_transport_bookings(
     include_inactive: bool = Query(False, description="Include soft-deleted records"),
     import_file_id: Optional[int] = Query(None, description="Filter by import file ID"),
     status: Optional[str] = Query(None, description="Filter by status"),
-    search: Optional[str] = Query(None, description="Search term"),
+    search: Optional[str] = Query(None, max_length=100, description="Search term"),
     skip: int = Query(0, ge=0, description="Offset rows"),
-    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max rows limit"),
+    limit: int = Query(200, ge=1, le=1000, description="Max rows limit"),
     db: Session = Depends(get_db),
     _user: User = Depends(require_permission(VIEW)),
 ):

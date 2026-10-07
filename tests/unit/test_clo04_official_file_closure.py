@@ -270,7 +270,7 @@ def test_official_close_success(db_session, client):
     assert res["status"] == "Closed"
     assert res["progress_percent"] == 100.0
     assert res["closure_code"].startswith("CLR-")
-    assert res["auditor_name"] == "Dr. Ahmed Sorour (Auditor)"
+    assert res["auditor_name"] == "test-admin"  # BE810-T10: acting user from token
     assert res["archive_location"] == "Central Secure Cloud Vault - Volume A/2026"
     assert res["next_action"] == "File archived - read-only historical state"
 
@@ -334,3 +334,29 @@ def test_closure_precheck_not_found(client):
     """Verify 404 is returned when checking non-existent import file."""
     response = client.get("/api/v1/file-closure/closure-precheck/999999")
     assert response.status_code == 404
+
+
+def test_auditor_name_from_token_not_payload(db_session, client):
+    """BE810-T10: auditor_name in request body is ignored; value is taken from current_user."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-AUDITOR-TOKEN")
+    payload = {
+        "import_file_id": imp.import_file_id,
+        "auditor_name": "Spoofed Auditor Name",
+        "archive_location": "Central Secure Cloud Vault - Volume A/2026",
+        "archival_notes": "All verified.",
+        "closure_checklist": {
+            "docs_verified": True,
+            "customs_cleared": True,
+            "warehouse_received": True,
+            "landed_cost_settled": True,
+            "dossier_exported": True,
+            "empty_containers_returned": True,
+            "tasks_closed": True,
+        },
+        "is_draft": False,
+    }
+    response = client.post("/api/v1/file-closure/official-close", json=payload)
+    assert response.status_code == 201
+    res = response.json()
+    assert res["auditor_name"] == "test-admin"
+    assert res["auditor_name"] != "Spoofed Auditor Name"

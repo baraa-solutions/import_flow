@@ -39,6 +39,7 @@ from modules.notifications.model import SystemNotification
 from modules.users.model import Role, User
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 from modules.warehouse_receiving.schemas import (
+    DiscrepancyReportSubmit,
     GrnItemSchema,
     WarehouseInspectionSubmit,
     WarehouseReceivingCreate,
@@ -628,7 +629,12 @@ def test_put_lock_follows_file_status(db):
     assert exc.value.status_code == 409
     imp.status = "Active"  # reopened
     db.commit()
-    out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
+    out = fc_service.update_closure_service(
+        db,
+        rec.closure_id,
+        FileClosureUpdate(auditor_name="Spoofed In Body"),
+        user="Reviewer",
+    )
     assert out.auditor_name == "Reviewer"
 def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
     """BE810-T18: /paginated contract and skip/limit + X-Total-Count on WR and IT lists."""
@@ -638,11 +644,11 @@ def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
 
     now = datetime.now(timezone.utc)
     # Seed 3 GRNs
-    db.add_all([
-        WarehouseReceivingRecord(grn_code="GRN-PAG-001", import_file_id=file1.import_file_id, warehouse_name="WH-1", created_at=now, is_active=True),
-        WarehouseReceivingRecord(grn_code="GRN-PAG-002", import_file_id=file2.import_file_id, warehouse_name="WH-2", created_at=now, is_active=True),
-        WarehouseReceivingRecord(grn_code="GRN-PAG-003", import_file_id=file3.import_file_id, warehouse_name="WH-3", created_at=now, is_active=True),
-    ])
+    rec1 = WarehouseReceivingRecord(grn_code="GRN-PAG-001", import_file_id=file1.import_file_id, warehouse_name="WH-1", created_at=now, is_active=True)
+    rec2 = WarehouseReceivingRecord(grn_code="GRN-PAG-002", import_file_id=file2.import_file_id, warehouse_name="WH-2", created_at=now, is_active=True)
+    rec3 = WarehouseReceivingRecord(grn_code="GRN-PAG-003", import_file_id=file3.import_file_id, warehouse_name="WH-3", created_at=now, is_active=True)
+    db.add_all([rec1, rec2, rec3])
+
     # Seed 3 IT Bookings
     db.add_all([
         InlandTransportBooking(transport_code="TR-PAG-001", import_file_id=file1.import_file_id, waybill_number="WB-001",
@@ -667,6 +673,33 @@ def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
     assert resp_wr_list.status_code == 200, resp_wr_list.text
     assert len(resp_wr_list.json()) == 2
     assert resp_wr_list.headers.get("X-Total-Count") == "3"
+
+    # WR skip=2 & limit=2 returns 1 item with X-Total-Count 3
+    resp_wr_skip = strict_client.get("/api/v1/warehouse-receiving?skip=2&limit=2", headers=headers)
+    assert resp_wr_skip.status_code == 200
+    assert len(resp_wr_skip.json()) == 1
+    assert resp_wr_skip.headers.get("X-Total-Count") == "3"
+
+    # WR search=PAG-002 returns 1 row
+    resp_wr_search = strict_client.get("/api/v1/warehouse-receiving?search=PAG-002", headers=headers)
+    assert resp_wr_search.status_code == 200
+    assert len(resp_wr_search.json()) == 1
+    assert resp_wr_search.json()[0]["grn_code"] == "GRN-PAG-002"
+
+    # Soft-delete one GRN: active total is 2, include_inactive=true gives 3
+    rec3.is_active = False
+    db.commit()
+    resp_wr_active = strict_client.get("/api/v1/warehouse-receiving", headers=headers)
+    assert resp_wr_active.status_code == 200
+    assert len(resp_wr_active.json()) == 2
+    assert resp_wr_active.headers.get("X-Total-Count") == "2"
+
+    resp_wr_all = strict_client.get("/api/v1/warehouse-receiving?include_inactive=true", headers=headers)
+    assert resp_wr_all.status_code == 200
+    assert len(resp_wr_all.json()) == 3
+    assert resp_wr_all.headers.get("X-Total-Count") == "3"
+    rec3.is_active = True
+    db.commit()
 
     # 2. WR /paginated endpoint
     resp_wr_page = strict_client.get("/api/v1/warehouse-receiving/paginated?page=1&page_size=2", headers=headers)
@@ -705,3 +738,210 @@ def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
     resp_it_alias = strict_client.get("/api/v1/inland-transport/paginated?page=1&page_size=10", headers=headers)
     assert resp_it_alias.status_code == 200, resp_it_alias.text
     assert resp_it_alias.json()["total"] == 3
+
+    # Negative security tests:
+    # No auth header -> 401
+    assert strict_client.get("/api/v1/warehouse-receiving/paginated").status_code == 401
+    assert strict_client.get("/api/v1/inland-transport/paginated").status_code == 401
+
+    # Invalid sort field -> 400
+    resp_bad_sort = strict_client.get("/api/v1/warehouse-receiving/paginated?sort=driver_phone", headers=headers)
+    assert resp_bad_sort.status_code == 400
+    assert resp_bad_sort.json()["detail"]["code"] == "LIST_SORT_FIELD_INVALID"
+
+
+def test_closed_file_blocks_warehouse_receiving_writes(db):
+    imp = _file(db, code="IMP-WR-CLOSED")
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.update_warehouse_receiving_service(db, rec.receiving_id, WarehouseReceivingUpdate(notes="updated"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    assert exc.value.detail.get("import_file_code") == "IMP-WR-CLOSED"
+
+    # 2. Report Discrepancy -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.report_receiving_discrepancy_service(
+            db, rec.receiving_id,
+            DiscrepancyReportSubmit(discrepancy_type="Shortage", discrepancy_notes="Shortage notes"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Inspection -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.submit_warehouse_inspection_protocol_service(
+            db, rec.receiving_id,
+            WarehouseInspectionSubmit(inspection_verdict="ACCEPTED_FULL"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.soft_delete_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Restore -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.restore_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 6. Create on closed file -> 409 IMPORT_FILE_CLOSED
+    imp2 = _file(db, code="IMP-WR-CLOSED-2")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        wr_service.create_warehouse_receiving_service(db, _grn(imp2.import_file_id))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    loaded = wr_service.get_warehouse_receiving_service(db, rec.receiving_id)
+    assert loaded.receiving_id == rec.receiving_id
+
+
+def test_closed_file_blocks_inland_transport_writes(db):
+    imp = _file(db, code="IMP-IT-CLOSED", current_module="Phase 7 - Customs Clearance")
+    b = it_service.create_transport_booking_service(db, _booking(imp.import_file_id, waybill="WB-IT-1"))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Create on closed file -> 409 IMPORT_FILE_CLOSED and current_module unchanged
+    imp2 = _file(db, code="IMP-IT-CLOSED-2", current_module="Phase 10 - File Closure")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        it_service.create_transport_booking_service(db, _booking(imp2.import_file_id, waybill="WB-IT-2"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    db.refresh(imp2)
+    assert imp2.current_module == "Phase 10 - File Closure"
+
+    # 2. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.update_transport_booking_service(
+            db, b.transport_id,
+            InlandTransportBookingUpdate(carrier_name="New Carrier"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Gate Out -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_port_gate_out_service(
+            db, b.transport_id,
+            InlandTransportGateOutSubmit(actual_departure_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Warehouse Arrival -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_warehouse_arrival_service(
+            db, b.transport_id,
+            InlandTransportArrivalSubmit(actual_arrival_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.soft_delete_transport_booking_service(db, b.transport_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    bookings = it_service.list_transport_bookings_service(db, import_file_id=imp.import_file_id)
+    assert len(bookings) == 1
+
+
+def test_be810_t04_legacy_tolerant_schemas(db, strict_client, rbac):
+    from sqlalchemy import text
+    file = _file(db, code="IMP-LEGACY-01")
+    now_dt = datetime.now(timezone.utc)
+
+    # 1. Insert an InlandTransportBooking row with driver_phone="123", created_by=NULL, is_active=NULL, transport_fare_egp=NULL
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-001', :file_id, 'WB-LEG-01', :now,
+            'Carrier', 'ABC 123', 'FLATBED', 'Driver Ali',
+            '123', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 500.0,
+            'Booking Confirmed', 1, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # Row with is_active=NULL (listed via include_inactive=True)
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-002', :file_id, 'WB-LEG-02', :now,
+            'Carrier', 'ABC 124', 'FLATBED', 'Driver Hassan',
+            '456', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 600.0,
+            'Booking Confirmed', NULL, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # 2. Insert a FileClosureRecord row with status=NULL, created_by=NULL, closed_at=NULL, closure_checklist with nulls
+    db.execute(text("""
+        INSERT INTO file_closure_records (
+            closure_code, import_file_id, closure_checklist, auditor_name,
+            archive_location, status, is_active, closed_at,
+            created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'CLR-LEG-001', :file_id, '{"docs_verified": null, "customs_cleared": true}', 'Old Auditor',
+            'Old Archive', NULL, 1, NULL,
+            :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+    db.commit()
+
+    # Query GET /api/v1/inland-transport/bookings
+    res_it = strict_client.get("/api/v1/inland-transport/bookings", headers=_bearer(rbac["operator"]))
+    assert res_it.status_code == 200, res_it.text
+    bookings = res_it.json()
+    leg_booking = next(b for b in bookings if b["transport_code"] == "TR-LEG-001")
+    assert leg_booking["driver_phone"] == "123"
+    assert leg_booking["created_by"] is None or leg_booking["created_by"] == "System"
+    assert leg_booking["transport_fare_egp"] == 500.0
+
+    # Query GET /api/v1/inland-transport/bookings?include_inactive=true
+    res_it_all = strict_client.get("/api/v1/inland-transport/bookings?include_inactive=true", headers=_bearer(rbac["operator"]))
+    assert res_it_all.status_code == 200, res_it_all.text
+    all_bookings = res_it_all.json()
+    leg_booking_2 = next(b for b in all_bookings if b["transport_code"] == "TR-LEG-002")
+    assert leg_booking_2["driver_phone"] == "456"
+    assert leg_booking_2["is_active"] is True  # LegacyRowTolerantModel normalized None -> True
+
+    # Query GET /api/v1/file-closure
+    res_fc = strict_client.get("/api/v1/file-closure", headers=_bearer(rbac["operator"]))
+    assert res_fc.status_code == 200, res_fc.text
+    closures = res_fc.json()
+    leg_closure = next(c for c in closures if c["closure_code"] == "CLR-LEG-001")
+    assert leg_closure["status"] is None or leg_closure["status"] == "Closed"
+    assert leg_closure["closed_at"] is None
+    assert leg_closure["closure_checklist"]["docs_verified"] is None
+    assert leg_closure["closure_checklist"]["customs_cleared"] is True

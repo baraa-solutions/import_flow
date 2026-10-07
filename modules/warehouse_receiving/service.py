@@ -29,6 +29,7 @@ from .repository import (
 )
 from .validators import (
     coded_error,
+    ensure_file_open,
     validate_seal_integrity,
     validate_discrepancy_claim,
     validate_grn_lines,
@@ -96,6 +97,12 @@ def _insert_grn(db: Session, values: Dict[str, Any]) -> WarehouseReceivingRecord
         return add_warehouse_receiving(db, {**values, "grn_code": generate_grn_code(db)})
 
 
+def _require_open_file_for_grn(db: Session, import_file_id: int) -> None:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if imp_file:
+        ensure_file_open(imp_file)
+
+
 def create_warehouse_receiving_service(
     db: Session,
     schema: WarehouseReceivingCreate,
@@ -104,6 +111,7 @@ def create_warehouse_receiving_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
+    ensure_file_open(imp_file)
 
     existing = get_active_grn_for_file(db, schema.import_file_id)
     if existing:
@@ -114,7 +122,7 @@ def create_warehouse_receiving_service(
 
     items_list = [item.model_dump() for item in schema.grn_items]
     totals = _line_totals(items_list)
-    inspector = (schema.inspector_name or "").strip() or user
+    inspector = user
     arrival_dt = schema.arrival_datetime or datetime.now(timezone.utc)
 
     record = _insert_grn(db, {
@@ -279,7 +287,7 @@ def list_warehouse_receivings_service(
     status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: Optional[int] = None,
+    limit: int = 200,
     return_total: bool = False,
 ):
     items, total = get_warehouse_receiving_list(
@@ -330,6 +338,7 @@ def report_receiving_discrepancy_service(
     validate_discrepancy_claim(payload.discrepancy_type, payload.discrepancy_notes)
 
     record = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, record.import_file_id)
     apply_changes(record, {
         "discrepancy_type": payload.discrepancy_type,
         "discrepancy_notes": payload.discrepancy_notes,
@@ -351,6 +360,7 @@ def update_warehouse_receiving_service(
     user: str = "System",
 ) -> WarehouseReceivingRecord:
     existing = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, existing.import_file_id)
     update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
 
     validate_status_label(update_data.get("status"))
@@ -359,6 +369,8 @@ def update_warehouse_receiving_service(
         update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
+    if "inspector_name" in values:
+        values["inspector_name"] = user
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
@@ -395,6 +407,7 @@ def update_warehouse_receiving_service(
 
 def soft_delete_warehouse_receiving_service(db: Session, record_id: int, user: str = "System") -> bool:
     record = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, record.import_file_id)
     set_active(record, False, user)
     db.commit()
     return True
@@ -404,6 +417,7 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     record = get_warehouse_receiving_by_id(db, record_id, include_inactive=True)
     if not record:
         raise HTTPException(status_code=404, detail=f"سجل استلام المخزن رقم {record_id} غير موجود.")
+    _require_open_file_for_grn(db, record.import_file_id)
     if not record.is_active:
         other = get_active_grn_for_file(db, record.import_file_id, exclude_id=record.receiving_id)
         if other:
@@ -459,6 +473,7 @@ def submit_warehouse_inspection_protocol_service(
     - Dispatches system notification to QC, Operations, and Financial Accounting.
     """
     record = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, record.import_file_id)
     verdict = normalize_verdict(schema.inspection_verdict)
     if schema.discrepancy_type is not None:
         validate_discrepancy_type(schema.discrepancy_type)
@@ -497,8 +512,7 @@ def submit_warehouse_inspection_protocol_service(
     record.supplier_claim_ref = schema.supplier_claim_ref
     record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
     record.claim_currency = schema.claim_currency or "EGP"
-    if schema.inspector_name and schema.inspector_name.strip():
-        record.inspector_name = schema.inspector_name.strip()
+    record.inspector_name = user_name
     if schema.notes:
         record.notes = schema.notes
 

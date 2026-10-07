@@ -105,7 +105,7 @@ def get_warehouse_receiving_list(
     status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: Optional[int] = None,
+    limit: int = 200,
 ) -> Tuple[List[WarehouseReceivingRecord], int]:
     query = db.query(WarehouseReceivingRecord)
     query = _apply_receiving_filters(

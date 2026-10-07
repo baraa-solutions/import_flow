@@ -1299,6 +1299,21 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LIST_SORT_FIELD_INVALID": {
         "note": "Unknown sort field '{field}'. Allowed fields: {allowed}.",
     },
+    "CURRENCY_NOT_FOUND": {
+        "note": "Currency code '{currency}' is not registered in the system.",
+    },
+    "CURRENCY_RATE_MISSING": {
+        "note": "No exchange rate registered for currency '{currency}' (rate type '{rate_type}') as of {as_of_date}.",
+    },
+    "CT_CUSTOMS_RATE_MISSING": {
+        "note": "No customs exchange rate registered for currency '{currency}' on date {on_date}.",
+    },
+    "IMPORT_FILE_CLOSED": {
+        "note": "Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.",
+    },
+    "CURRENCY_CODE_UNKNOWN": {
+        "note": "Unknown or inactive currency code '{currency_code}'.",
+    },
     "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
     "FC_CLOSED_RECORD_LOCKED": {
         "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",
@@ -1345,6 +1360,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "RECALC_APPLIED": {"note": "Recalculation applied ({action_taken})."},
     "RECALC_RATE_MISSING": {
         "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
+    },
+    "CT_AGREEMENT_DATA_INVALID": {
+        "note": "Invalid preferential trade agreement data ({reason}).",
     },
 }
 

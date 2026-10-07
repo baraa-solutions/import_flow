@@ -357,12 +357,16 @@ def test_confirm_dossier_export_service(db_session):
 
     payload = DossierExportConfirmRequest(
         import_file_id=imp.import_file_id,
-        exported_by="Eng. Ahmed Sorour - Managing Director",
+        exported_by="Spoofed Exporter in Body",
         export_format="PDF & Excel Full Bundle",
         notes="تم تدقيق كافة بنود الملف الشامل ومطابقتها مع الحسابات.",
     )
 
-    resp = confirm_dossier_export_service(db_session, payload)
+    resp = confirm_dossier_export_service(
+        db_session,
+        payload,
+        user="Eng. Ahmed Sorour - Managing Director",
+    )
 
     assert isinstance(resp, DossierExportConfirmResponse)
     assert resp.success is True

@@ -568,9 +568,8 @@ def get_all_import_files_service(
 
 def get_paginated_import_files_service(
     db: Session,
-    page: int = 1,
-    page_size: int = 50,
-    include_inactive: bool = False,
+    params: PageParams,
+    *,
     search: Optional[str] = None,
     company_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
@@ -584,13 +583,10 @@ def get_paginated_import_files_service(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    sort: Optional[str] = None,
-    response: Optional[Any] = None,
-    params: Optional[Any] = None,
-):
+) -> dict:
     return repo.get_paginated_import_files(
         db,
-        include_inactive=include_inactive,
+        params,
         search=search,
         company_id=company_id,
         supplier_id=supplier_id,
@@ -604,11 +600,6 @@ def get_paginated_import_files_service(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
-        page=page,
-        page_size=page_size,
-        sort=sort,
-        response=response,
-        params=params,
     )
 
 def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = None, priority: Optional[str] = None, broker_id: Optional[int] = None, broker_name: Optional[str] = None, search: Optional[str] = None):

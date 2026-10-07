@@ -3,6 +3,7 @@ Import Documentation & Regulatory Compliance Models (Phase 3 - BP-014 to BP-019)
 """
 
 from datetime import datetime, date, timezone
+from typing import Optional
 from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
@@ -107,6 +108,8 @@ class AcidRegistrationSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class BankingDocumentSession(Base):
@@ -164,6 +167,8 @@ class BankingDocumentSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class ShipmentDocumentItem(Base):
@@ -215,6 +220,8 @@ class ShipmentDocumentItem(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class CustomsDeclarationDraft(Base):
@@ -258,6 +265,8 @@ class CustomsDeclarationDraft(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class DraftBLReviewSession(Base):
@@ -361,6 +370,8 @@ class DraftBLReviewSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class CertificateOfOriginReviewSession(Base):
@@ -423,6 +434,8 @@ class CertificateOfOriginReviewSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class InspectionCertificateReviewSession(Base):
@@ -483,6 +496,8 @@ class InspectionCertificateReviewSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class POPackingReconciliationSession(Base):
@@ -541,6 +556,8 @@ class POPackingReconciliationSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class InvoiceBLMatchSession(Base):
@@ -594,5 +611,7 @@ class InvoiceBLMatchSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 

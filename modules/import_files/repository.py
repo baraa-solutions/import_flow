@@ -11,7 +11,6 @@ from sqlalchemy import and_, or_
 from modules.import_files.model import ImportFile
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.common.pagination import PageParams, like_term, paginate
-from fastapi import Response
 
 
 IMPORT_FILE_SORT_MAP = {
@@ -196,7 +195,8 @@ def count_import_files(
 
 def get_paginated_import_files(
     db: Session,
-    include_inactive: bool = False,
+    params: PageParams,
+    *,
     search: Optional[str] = None,
     company_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
@@ -210,20 +210,13 @@ def get_paginated_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    page: int = 1,
-    page_size: int = 50,
-    sort: Optional[str] = None,
-    response: Optional[Response] = None,
-    params: Optional[PageParams] = None,
 ) -> dict:
-    if params is None:
-        params = PageParams(page=page, page_size=page_size, sort=sort, q=search)
     effective_search = params.q if params.q is not None else search
 
     query = db.query(ImportFile)
     query = _apply_import_file_filters(
         query,
-        include_inactive=include_inactive,
+        include_inactive=params.include_inactive,
         search=effective_search,
         company_id=company_id,
         supplier_id=supplier_id,
@@ -245,7 +238,6 @@ def get_paginated_import_files(
         sort_map=IMPORT_FILE_SORT_MAP,
         default_sort=[ImportFile.import_file_id.desc()],
         pk=ImportFile.import_file_id,
-        response=response,
     )
 
 
