@@ -467,8 +467,48 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(shares_zero_fob[0][1], 400.0)
         self.assertEqual(shares_zero_fob[0][2], 0.4)
 
-        # 3. PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED
+        # 2c. Mixed PO-level allocations: one with FOB (200 qty, 2000 FOB), one with FOB 0 (200 qty, 0 FOB)
+        # Fallback to quantity ratio: (200+200)/1000 = 0.4 -> 400 qty, 0.4 ratio
         self.db.delete(alloc_po_zero_fob)
+        self.db.commit()
+
+        alloc_mixed_1 = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=200.0,
+            shipped_amount_fob=2000.0,
+            shipment_ref="BL-A-MIXED-1",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        alloc_mixed_2 = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=200.0,
+            shipped_amount_fob=0.0,
+            shipment_ref="BL-A-MIXED-2",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add_all([alloc_mixed_1, alloc_mixed_2])
+        self.db.commit()
+
+        shares_mixed = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_mixed), 1)
+        self.assertEqual(shares_mixed[0][1], 400.0)
+        self.assertEqual(shares_mixed[0][2], 0.4)
+        items_a_mixed = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a_mixed), 1)
+        self.assertEqual(items_a_mixed[0]["qty"], 400.0)
+        self.assertEqual(items_a_mixed[0]["fob_unit_egp"], 500.0)
+
+        self.db.delete(alloc_mixed_1)
+        self.db.delete(alloc_mixed_2)
+        self.db.commit()
+
+        # 3. PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED
         alloc_po_b = POShipmentAllocation(
             po_id=po.po_id,
             po_item_id=line.item_id,

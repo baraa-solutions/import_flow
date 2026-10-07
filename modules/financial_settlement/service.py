@@ -505,11 +505,12 @@ def file_po_line_shares(
                     float(li.total_price or (float(li.quantity or 0.0) * float(li.unit_price or 0.0)))
                     for li in lines
                 )
+            value_known = all(float(a.shipped_amount_fob or 0.0) > 0.0 for a in po_allocs)
             shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in po_allocs)
-            if shipped_fob > 0.0 and po_total_fob > 0.0:
+            if value_known and shipped_fob > 0.0 and po_total_fob > 0.0:
                 po_ratio = shipped_fob / po_total_fob
             else:
-                # Fallback when shipped_amount_fob is 0: use quantity ratio
+                # Fallback when any shipped_amount_fob is <= 0: use quantity ratio
                 total_ord_qty = sum(float(li.quantity or 0.0) for li in lines)
                 shipped_qty = sum(float(a.shipped_quantity or 0.0) for a in po_allocs)
                 po_ratio = (shipped_qty / total_ord_qty) if total_ord_qty > 0.0 else 0.0
