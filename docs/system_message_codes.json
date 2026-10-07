@@ -3647,6 +3647,14 @@
       "body"
     ]
   },
+  "WR_CUSTOMS_NOT_RELEASED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"
@@ -3670,6 +3678,14 @@
       "invoiced_qty",
       "item_code",
       "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_LOCKED": {
+    "params": [
+      "grn_code"
     ],
     "parts": [
       "note"
