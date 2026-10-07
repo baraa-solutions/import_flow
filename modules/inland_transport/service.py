@@ -277,8 +277,10 @@ def record_warehouse_arrival_service(
     return booking
 
 
-def get_transport_booking_service(db: Session, transport_id: int) -> InlandTransportBooking:
-    booking = get_transport_booking_by_id(db, transport_id)
+def get_transport_booking_service(
+    db: Session, transport_id: int, include_inactive: bool = False
+) -> InlandTransportBooking:
+    booking = get_transport_booking_by_id(db, transport_id, include_inactive=include_inactive)
     if not booking:
         raise HTTPException(status_code=404, detail="سجل النقل الداخلي غير موجود.")
     return booking
@@ -359,3 +361,45 @@ def soft_delete_transport_booking_service(
     if imp_file:
         sync_file_inland_fields(db, imp_file)
     db.commit()
+
+
+def _require_open_file_for_booking(db: Session, import_file_id: int) -> None:
+    try:
+        from modules.common.validators import ensure_file_open
+    except ImportError:
+        return
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if imp_file:
+        ensure_file_open(imp_file)
+
+
+def restore_transport_booking_service(
+    db: Session,
+    transport_id: int,
+    user: str = "System",
+) -> InlandTransportBooking:
+    """Restore a soft-deleted transport booking (BE810-T15)."""
+    booking = get_transport_booking_service(db, transport_id, include_inactive=True)
+    _require_open_file_for_booking(db, booking.import_file_id)
+
+    if not booking.is_active:
+        duplicate = find_active_booking_by_waybill(
+            db, booking.import_file_id, normalize_waybill(booking.waybill_number)
+        )
+        if duplicate is not None:
+            raise coded_error(
+                409,
+                "IT_BOOKING_EXISTS",
+                f"يوجد بالفعل حجز نقل نشط لنفس بوليصة النقل على هذا الملف (رقم الحجز: {duplicate.transport_code}).",
+                transport_code=duplicate.transport_code,
+                waybill_number=duplicate.waybill_number,
+            )
+        apply_changes(booking, {"is_active": True}, user)
+        db.flush()
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
+        if imp_file:
+            sync_file_inland_fields(db, imp_file)
+        db.commit()
+        db.refresh(booking)
+
+    return booking

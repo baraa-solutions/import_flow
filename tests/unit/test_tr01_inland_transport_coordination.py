@@ -20,6 +20,7 @@ from modules.inland_transport.service import (
     create_transport_booking_service,
     update_transport_booking_service,
     soft_delete_transport_booking_service,
+    restore_transport_booking_service,
     record_port_gate_out_service,
     record_warehouse_arrival_service,
     get_transport_booking_by_file_service,
@@ -454,4 +455,69 @@ def test_settlement_aggregation_after_booking_fare_zeroed(db_session):
         assert inv.amount_egp == 0.0
     # Specifically assert no 5000.0 transport invoice
     assert not any(inv.amount_egp == 5000.0 for inv in transport_invoices)
+
+
+def test_restore_transport_booking_success(db_session):
+    """BE810-T15: Delete then restore reactivates booking and resyncs file cost and fields."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-RESTORE-01")
+    payload.transport_fare_egp = 4200.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 4200.0
+
+    # Delete
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="Officer")
+    db_session.refresh(bk)
+    db_session.refresh(imp_file)
+    assert bk.is_active is False
+    assert imp_file.inland_transport_cost_egp == 0.0
+
+    # Restore
+    restored = restore_transport_booking_service(db_session, bk.transport_id, user="Officer")
+    db_session.refresh(imp_file)
+    assert restored.is_active is True
+    assert imp_file.inland_transport_cost_egp == 4200.0
+    assert imp_file.inland_transport_booking_no == "WB-RESTORE-01"
+
+
+def test_restore_transport_booking_duplicate_waybill_raises_409(db_session):
+    """BE810-T15: Restoring when an active booking exists with same waybill raises 409 IT_BOOKING_EXISTS."""
+    from fastapi import HTTPException
+
+    imp_file = _create_sample_file(db_session)
+    payload1 = _booking_payload(imp_file, "WB-DUP-WAYBILL")
+    bk1 = create_transport_booking_service(db_session, payload1, user="Officer")
+
+    # Soft delete booking 1
+    soft_delete_transport_booking_service(db_session, bk1.transport_id, user="Officer")
+
+    # Create new active booking 2 with the same waybill
+    payload2 = _booking_payload(imp_file, "WB-DUP-WAYBILL")
+    bk2 = create_transport_booking_service(db_session, payload2, user="Officer")
+
+    # Attempting to restore booking 1 must raise 409
+    with pytest.raises(HTTPException) as exc:
+        restore_transport_booking_service(db_session, bk1.transport_id, user="Officer")
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == "IT_BOOKING_EXISTS"
+
+
+def test_restore_transport_booking_api(client, db_session):
+    """BE810-T15: PATCH /api/v1/inland-transport/bookings/{id}/restore reactivates booking via API."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-RESTORE-API")
+    payload.transport_fare_egp = 3500.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="Officer")
+
+    resp = client.patch(f"/api/v1/inland-transport/bookings/{bk.transport_id}/restore")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["transport_id"] == bk.transport_id
+    assert data["is_active"] is True
+    assert data["transport_fare_egp"] == 3500.0
+
 
