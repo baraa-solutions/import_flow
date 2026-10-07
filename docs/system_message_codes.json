@@ -365,6 +365,14 @@
       "note"
     ]
   },
+  "CC_SETTLEMENT_LOCKED": {
+    "params": [
+      "settlement_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_TASK_DECLARATION_46": {
     "params": [
       "do_number",

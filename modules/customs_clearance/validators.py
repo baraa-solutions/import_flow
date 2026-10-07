@@ -204,3 +204,29 @@ def validate_lab_result_open(record) -> None:
             "تم تسجيل نتيجة الفحص المعملي وفك التحفظ أو الإفراج النهائي بالفعل لهذه الشحنة.",
             clearance_status=record.status,
         )
+
+
+SETTLEMENT_LOCKED_STATUSES = ("Approved", "Closed")
+
+
+def validate_settlement_open(db: Any, import_file_id: int) -> None:
+    """CL-05 / BEW0-06: clearance invoices cannot be recorded or deleted after the landed-cost settlement is approved."""
+    from modules.financial_settlement.model import LandedCostSettlementRecord
+
+    settlement = (
+        db.query(LandedCostSettlementRecord)
+        .filter(
+            LandedCostSettlementRecord.import_file_id == import_file_id,
+            LandedCostSettlementRecord.is_active == True,  # noqa: E712
+        )
+        .first()
+    )
+    if settlement and settlement.status in SETTLEMENT_LOCKED_STATUSES:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            "CC_SETTLEMENT_LOCKED",
+            "لا يمكن تعديل فواتير التخليص بعد اعتماد تسوية تكلفة الوصول.",
+            settlement_code=settlement.settlement_code,
+            settlement_status=settlement.status,
+        )
+

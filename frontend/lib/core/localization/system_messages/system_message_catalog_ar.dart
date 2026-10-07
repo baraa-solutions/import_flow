@@ -1376,6 +1376,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CC_ASSESSED_COMPONENTS_LOCKED': {
     'note': 'لا يمكن تعديل مكونات الرسوم بعد التقدير ({fields})؛ أعد تقدير الرسوم النهائية (CL-02).',
   },
+  'CC_SETTLEMENT_LOCKED': {
+    'note': 'لا يمكن تعديل فواتير التخليص بعد اعتماد تسوية تكلفة الوصول ({settlement_code}).',
+  },
   'CCQ_RFQ_STATUS_INVALID': {
     'note': 'حالة طلب عروض الأسعار \'{status}\' غير مسموحة؛ الترسية تتم من خلال إجراء الترسية فقط.',
   },
