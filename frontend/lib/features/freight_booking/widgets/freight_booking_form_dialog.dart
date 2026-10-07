@@ -495,6 +495,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     if (_container40ftApp && _container40ftPrice > 0) {
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 40ft',
+        chargeCategory: 'FREIGHT',
         unit: 'Per Container',
         quantity: (_container40ftQty > 0 ? _container40ftQty : 1).toDouble(),
         containerType: '40HC',
@@ -506,6 +507,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     if (_container20ftApp && _container20ftPrice > 0) {
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 20ft',
+        chargeCategory: 'FREIGHT',
         unit: 'Per Container',
         quantity: (_container20ftQty > 0 ? _container20ftQty : 1).toDouble(),
         containerType: '20GP',
@@ -517,6 +519,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     if (_lclCbmApp && _lclCbmPrice > 0) {
       newCharges.add(BookingChargeModel(
         chargeType: 'LCL CBM Freight',
+        chargeCategory: 'FREIGHT',
         unit: 'Per CBM',
         quantity: _lclCbmQty > 0 ? _lclCbmQty : 1.0,
         currency: _lclCbmCur,
@@ -525,47 +528,142 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       ));
     }
     if (_dthcApp && _dthcPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'DTHC (Destination THC)', unit: 'Per Shipment', quantity: 1, currency: _dthcCur, rate: _dthcPrice, total: _dthcPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'DTHC (Destination THC)',
+        chargeCategory: 'DESTINATION_LOCAL',
+        unit: 'Per Shipment',
+        quantity: 1,
+        currency: _dthcCur,
+        rate: _dthcPrice,
+        total: _dthcPrice,
+      ));
     }
     if (_storagePerWeekApp && _storagePerWeekPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Storage per one week', unit: 'Per Week', quantity: 1, currency: _storagePerWeekCur, rate: _storagePerWeekPrice, total: _storagePerWeekPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Storage per one week',
+        chargeCategory: 'STORAGE',
+        unit: 'Per Week',
+        quantity: 1,
+        currency: _storagePerWeekCur,
+        rate: _storagePerWeekPrice,
+        total: _storagePerWeekPrice,
+      ));
     }
     if (_extraDayStorageApp && _extraDayStoragePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Extra day storage', unit: 'Per Day', quantity: 1, currency: _extraDayStorageCur, rate: _extraDayStoragePrice, total: _extraDayStoragePrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Extra day storage',
+        chargeCategory: 'STORAGE',
+        unit: 'Per Day',
+        quantity: 1,
+        currency: _extraDayStorageCur,
+        rate: _extraDayStoragePrice,
+        total: _extraDayStoragePrice,
+      ));
     }
     if (_solasVgmApp && _solasVgmPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'SOLAS/VGM Fees', unit: 'Per Container', quantity: 1, currency: _solasVgmCur, rate: _solasVgmPrice, total: _solasVgmPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'SOLAS/VGM Fees',
+        chargeCategory: 'ORIGIN_LOCAL',
+        unit: 'Per Container',
+        quantity: 1,
+        currency: _solasVgmCur,
+        rate: _solasVgmPrice,
+        total: _solasVgmPrice,
+      ));
     }
     if (_vgmNotifApp && _vgmNotifPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'VGM Notification Fee', unit: 'Per Container', quantity: 1, currency: _vgmNotifCur, rate: _vgmNotifPrice, total: _vgmNotifPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'VGM Notification Fee',
+        chargeCategory: 'OTHER',
+        unit: 'Per Container',
+        quantity: 1,
+        currency: _vgmNotifCur,
+        rate: _vgmNotifPrice,
+        total: _vgmNotifPrice,
+      ));
     }
     if (_telexReleaseApp && _telexReleasePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Telex Release', unit: 'Per Shipment', quantity: 1, currency: _telexReleaseCur, rate: _telexReleasePrice, total: _telexReleasePrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Telex Release',
+        chargeCategory: 'OTHER',
+        unit: 'Per Shipment',
+        quantity: 1,
+        currency: _telexReleaseCur,
+        rate: _telexReleasePrice,
+        total: _telexReleasePrice,
+      ));
     }
     if (_expressCourierApp && _expressCourierPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Express Courier', unit: 'Per Shipment', quantity: 1, currency: _expressCourierCur, rate: _expressCourierPrice, total: _expressCourierPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Express Courier',
+        chargeCategory: 'OTHER',
+        unit: 'Per Shipment',
+        quantity: 1,
+        currency: _expressCourierCur,
+        rate: _expressCourierPrice,
+        total: _expressCourierPrice,
+      ));
     }
     if (_eurAtrApp && _eurAtrPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'EUR.1 / ATR Certificate', unit: 'Per Certificate', quantity: 1, currency: _eurAtrCur, rate: _eurAtrPrice, total: _eurAtrPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'EUR.1 / ATR Certificate',
+        chargeCategory: 'OTHER',
+        unit: 'Per Certificate',
+        quantity: 1,
+        currency: _eurAtrCur,
+        rate: _eurAtrPrice,
+        total: _eurAtrPrice,
+      ));
     }
-    if (_insuranceApp && _insurancePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Marine Insurance', unit: 'Per Policy', quantity: 1, currency: _insuranceCur, rate: _insurancePrice, total: _insurancePrice));
-    }
+    // Marine Insurance is kept out of booking charges: must be recorded in Cargo Insurance module.
     if (_docFeesApp && _docFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Document Fees', unit: 'Per Shipment', quantity: 1, currency: _docFeesCur, rate: _docFeesPrice, total: _docFeesPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Document Fees',
+        chargeCategory: 'OTHER',
+        unit: 'Per Shipment',
+        quantity: 1,
+        currency: _docFeesCur,
+        rate: _docFeesPrice,
+        total: _docFeesPrice,
+      ));
     }
     if (_waiverApp && _waiverPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Waiver Letter Fee', unit: 'Per Letter', quantity: 1, currency: _waiverCur, rate: _waiverPrice, total: _waiverPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Waiver Letter Fee',
+        chargeCategory: 'OTHER',
+        unit: 'Per Letter',
+        quantity: 1,
+        currency: _waiverCur,
+        rate: _waiverPrice,
+        total: _waiverPrice,
+      ));
     }
     if (_ics2App && _ics2Price > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'ICS2 Filing Fee', unit: 'Per Filing', quantity: 1, currency: _ics2Cur, rate: _ics2Price, total: _ics2Price));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'ICS2 Filing Fee',
+        chargeCategory: 'OTHER',
+        unit: 'Per Filing',
+        quantity: 1,
+        currency: _ics2Cur,
+        rate: _ics2Price,
+        total: _ics2Price,
+      ));
     }
     if (_otherFeesApp && _otherFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Other Fees', unit: 'Per Shipment', quantity: 1, currency: _otherFeesCur, rate: _otherFeesPrice, total: _otherFeesPrice));
+      newCharges.add(BookingChargeModel(
+        chargeType: 'Other Fees',
+        chargeCategory: 'OTHER',
+        unit: 'Per Shipment',
+        quantity: 1,
+        currency: _otherFeesCur,
+        rate: _otherFeesPrice,
+        total: _otherFeesPrice,
+      ));
     }
 
     _charges = newCharges;
   }
+
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
     if (!_formKey.currentState!.validate()) {
@@ -709,7 +807,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     if (_solasVgmApp) total += _solasVgmPrice;
     if (_vgmNotifApp) total += _vgmNotifPrice;
     if (_telexReleaseApp) total += _telexReleasePrice;
-    if (_insuranceApp) total += _insurancePrice;
+    // Marine Insurance kept out of booking freight total (ACC3-T02)
     if (_cancellationApp) total += _cancellationPrice;
     if (_ics2App) total += _ics2Price;
     if (_otherFeesApp) total += _otherFeesPrice;
@@ -810,8 +908,30 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
             (v) => _vgmNotifPrice = v, _vgmNotifCur, (v) => _vgmNotifCur = v),
         _costRow(l.freightBookingItemTelex, _telexReleaseApp, (v) => _telexReleaseApp = v, _telexReleasePrice,
             (v) => _telexReleasePrice = v, _telexReleaseCur, (v) => _telexReleaseCur = v),
-        _costRow(l.freightBookingItemInsurance, _insuranceApp, (v) => _insuranceApp = v, _insurancePrice,
-            (v) => _insurancePrice = v, _insuranceCur, (v) => _insuranceCur = v),
+        if (_insuranceApp || _insurancePrice > 0)
+          Container(
+            key: const ValueKey('fbkInsuranceHint'),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'سجل التأمين في شاشة التأمين',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         _costRow(l.freightBookingItemCancellation, _cancellationApp, (v) => _cancellationApp = v, _cancellationPrice,
             (v) => _cancellationPrice = v, _cancellationCur, (v) => _cancellationCur = v),
         _costRow(l.freightBookingItemIcs2, _ics2App, (v) => _ics2App = v, _ics2Price, (v) => _ics2Price = v,

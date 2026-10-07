@@ -121,3 +121,59 @@ def validate_charge_currencies(db: Session, charges: list) -> None:
                 detail=f"عملة البند غير معروفة: {ccy}",
             )
 
+
+CHARGE_CATEGORIES = (
+    "FREIGHT",
+    "ORIGIN_LOCAL",
+    "DESTINATION_LOCAL",
+    "INSURANCE",
+    "STORAGE",
+    "OTHER",
+)
+
+
+def infer_charge_category(charge_type: Optional[str]) -> str:
+    """Infer the category code for legacy charge rows or free-text charge types."""
+    if not charge_type:
+        return "OTHER"
+    ct = str(charge_type).strip().lower()
+    if "insurance" in ct or "تأمين" in ct:
+        return "INSURANCE"
+    if "storage" in ct or "أرضيات" in ct or "تخزين" in ct:
+        return "STORAGE"
+    if "dthc" in ct or "thc" in ct:
+        return "DESTINATION_LOCAL"
+    if "freight" in ct or "نولون" in ct:
+        return "FREIGHT"
+    return "OTHER"
+
+
+def validate_charges(charges: list) -> None:
+    """Validate booking charge lines.
+    Rejects any charge with category INSURANCE (or charge_type indicating insurance);
+    insurance must be managed in the cargo insurance module to avoid double counting.
+    """
+    if not charges:
+        return
+    for c in charges:
+        c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else getattr(c, "__dict__", {}))
+        cat = c_dict.get("charge_category")
+        c_type = c_dict.get("charge_type", "")
+        if cat:
+            cat_upper = str(cat).strip().upper()
+            if cat_upper not in CHARGE_CATEGORIES:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"فئة التكلفة غير صحيحة: {cat}. الفئات المسموحة: {', '.join(CHARGE_CATEGORIES)}",
+                )
+            resolved_cat = cat_upper
+        else:
+            resolved_cat = infer_charge_category(c_type)
+
+        if resolved_cat == "INSURANCE" or infer_charge_category(c_type) == "INSURANCE":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="التأمين البحري يُسجل في شاشة وثائق التأمين وليس ضمن تكاليف الحجز.",
+            )
+
+

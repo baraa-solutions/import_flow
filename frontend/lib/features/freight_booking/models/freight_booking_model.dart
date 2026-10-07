@@ -103,6 +103,7 @@ class BookingChargeModel {
   final double total;
   final double? fxRateToUsd;
   final double? amountUsd;
+  final String? chargeCategory;
 
   BookingChargeModel({
     required this.chargeType,
@@ -114,6 +115,7 @@ class BookingChargeModel {
     this.total = 0.0,
     this.fxRateToUsd,
     this.amountUsd,
+    this.chargeCategory,
   });
 
   factory BookingChargeModel.fromJson(Map<String, dynamic> json) {
@@ -127,6 +129,7 @@ class BookingChargeModel {
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
       fxRateToUsd: (json['fx_rate_to_usd'] as num?)?.toDouble(),
       amountUsd: (json['amount_usd'] as num?)?.toDouble(),
+      chargeCategory: json['charge_category'],
     );
   }
 
@@ -148,9 +151,13 @@ class BookingChargeModel {
     if (amountUsd != null) {
       map['amount_usd'] = amountUsd;
     }
+    if (chargeCategory != null) {
+      map['charge_category'] = chargeCategory;
+    }
     return map;
   }
 }
+
 
 class ShipmentBookingModel {
   final int bookingId;

@@ -146,6 +146,17 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
 
                 amount_usd = round(item_total * fx_rate_to_usd, 2)
 
+            # Charge category
+            raw_cat = c_dict.get("charge_category")
+            if raw_cat:
+                cat_upper = str(raw_cat).strip().upper()
+                c_dict["charge_category"] = (
+                    cat_upper if cat_upper in validators.CHARGE_CATEGORIES
+                    else validators.infer_charge_category(c_dict.get("charge_type", ""))
+                )
+            else:
+                c_dict["charge_category"] = validators.infer_charge_category(c_dict.get("charge_type", ""))
+
             c_dict["fx_rate_to_usd"] = round(fx_rate_to_usd, 6)
             c_dict["amount_usd"] = amount_usd
             total_cost += amount_usd
@@ -465,6 +476,7 @@ def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: st
     validators.validate_container_allocation(payload.shipment_type, payload.containers_data)
     validators.validate_manual_status(payload.status)
     validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
+    validators.validate_charges(payload.cost_charges_data)
     validators.validate_charge_currencies(db, payload.cost_charges_data)
     owner = payload.owner if "owner" in payload.model_fields_set and payload.owner else user
 
@@ -509,6 +521,7 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
     if payload.import_file_id is not None:
         validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id, current_booking_id=booking_id)
     if payload.cost_charges_data is not None:
+        validators.validate_charges(payload.cost_charges_data)
         validators.validate_charge_currencies(db, payload.cost_charges_data)
 
     update_data = payload.model_dump(mode="json", exclude_unset=True, exclude_none=True)
