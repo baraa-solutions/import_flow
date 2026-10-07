@@ -127,7 +127,7 @@ def create_warehouse_receiving_service(
 
     items_list = [item.model_dump() for item in schema.grn_items]
     totals = _line_totals(items_list)
-    inspector = (schema.inspector_name or "").strip() or user
+    inspector = user
     arrival_dt = schema.arrival_datetime or datetime.now(timezone.utc)
 
     record = _insert_grn(db, {
@@ -337,6 +337,8 @@ def update_warehouse_receiving_service(
         update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
+    if "inspector_name" in values:
+        values["inspector_name"] = user
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
@@ -478,8 +480,7 @@ def submit_warehouse_inspection_protocol_service(
     record.supplier_claim_ref = schema.supplier_claim_ref
     record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
     record.claim_currency = schema.claim_currency or "EGP"
-    if schema.inspector_name and schema.inspector_name.strip():
-        record.inspector_name = schema.inspector_name.strip()
+    record.inspector_name = user_name
     if schema.notes:
         record.notes = schema.notes
 
