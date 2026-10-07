@@ -533,6 +533,14 @@
       "note"
     ]
   },
+  "CURRENCY_CODE_UNKNOWN": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CUSTOMS_FX_RATE_MISSING": {
     "params": [
       "currency",

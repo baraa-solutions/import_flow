@@ -97,3 +97,39 @@ def get_or_404(db: Session, model: Type, entity_id: Any, label_ar: str, *, activ
 def not_null_columns(model: Type) -> FrozenSet[str]:
     """Attribute keys of the NOT NULL, non primary-key columns of ``model`` (fields an update may never clear)."""
     return frozenset(c.key for c in sa_inspect(model).columns if not c.nullable and not c.primary_key)
+
+
+def require_currency_code(
+    db: Session,
+    code: Optional[str],
+    label_ar: str = "العملة",
+) -> Optional[str]:
+    """Validate that code is an active currency code in the currencies master table.
+
+    Normalizes by stripping whitespace and uppercasing. If code is None or empty, returns None.
+    Raises CodedHTTPException (400) with code CURRENCY_CODE_UNKNOWN if the currency is not
+    found or is inactive.
+    """
+    if code is None:
+        return None
+    clean = str(code).strip().upper()
+    if not clean:
+        return None
+
+    from modules.currencies.model import Currency
+    currency = (
+        db.query(Currency)
+        .filter(Currency.currency_code == clean, Currency.is_active.is_(True))
+        .first()
+    )
+    if not currency:
+        from modules.common.errors import CodedHTTPException
+
+        raise CodedHTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="CURRENCY_CODE_UNKNOWN",
+            message_ar=f"رمز {label_ar} غير معروف أو غير نشط: {clean}.",
+            currency_code=clean,
+        )
+    return clean
+

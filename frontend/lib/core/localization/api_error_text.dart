@@ -12,6 +12,7 @@ class ApiErrorCode {
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
+  static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
 }
 
 /// User-facing, localized text for a failed API call.
