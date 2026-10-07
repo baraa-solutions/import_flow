@@ -45,7 +45,10 @@ def db_session():
         Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session, monkeypatch):
+    import modules.auth.permissions as auth_permissions
+    monkeypatch.setattr(auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
+
     def override_get_db():
         try:
             yield db_session
