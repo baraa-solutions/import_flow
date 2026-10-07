@@ -363,7 +363,7 @@ def test_confirm_dossier_export_service(db_session):
         notes="تم تدقيق كافة بنود الملف الشامل ومطابقتها مع الحسابات.",
     )
 
-    resp = confirm_dossier_export_service(db_session, payload, user="Eng. Ahmed Sorour - Managing Director")
+    resp = confirm_dossier_export_service(db_session, payload, user="Eng. Ahmed Sorour - Managing Director", trusted=True)
 
     assert isinstance(resp, DossierExportConfirmResponse)
     assert resp.success is True
@@ -1029,7 +1029,7 @@ def test_confirm_dossier_export_blocked_without_grn(db_session):
         export_format="PDF & Excel Full Bundle",
     )
     with pytest.raises(Exception) as exc:
-        confirm_dossier_export_service(db_session, payload)
+        confirm_dossier_export_service(db_session, payload, trusted=True)
 
     assert getattr(exc.value, "status_code", None) == 400
     detail = exc.value.detail
@@ -1059,7 +1059,7 @@ def test_confirm_dossier_export_blocked_without_customs(db_session):
         export_format="PDF & Excel Full Bundle",
     )
     with pytest.raises(Exception) as exc:
-        confirm_dossier_export_service(db_session, payload)
+        confirm_dossier_export_service(db_session, payload, trusted=True)
 
     assert getattr(exc.value, "status_code", None) == 400
     detail = exc.value.detail

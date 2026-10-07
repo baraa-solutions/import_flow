@@ -108,5 +108,6 @@ def dev_bypass_test_admin_seam():
         return user if user is not None else _transient_test_admin()
 
     with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
         mp.setattr(_auth_permissions, "_dev_bypass_fallback_user", _wrapped)
         yield

@@ -57,8 +57,9 @@ def list_closures(
 def add_closure(db: Session, values: Dict[str, Any]) -> ImportFileClosureRecord:
     """Insert + flush (the service commits once). ``values`` carries the final status (BE810-F30)."""
     now = datetime.now(timezone.utc)
+    values = dict(values)
     status = values.get("status")
-    closed_at = values.get("closed_at")
+    closed_at = values.pop("closed_at", None)
     if closed_at is None and status == "Closed":
         closed_at = now
     elif status != "Closed":

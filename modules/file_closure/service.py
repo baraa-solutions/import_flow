@@ -210,8 +210,11 @@ def close_import_file_service(
         "status": target_status,
     }
     if existing_record:
-        # closed_at moves only when the record becomes Closed (a draft re-save keeps it)
-        extra = {} if schema.is_draft else {"closed_at": datetime.now(timezone.utc)}
+        # closed_at moves only when the record becomes Closed (a draft re-save clears it if not Closed)
+        if schema.is_draft:
+            extra = {"closed_at": None} if target_status != "Closed" else {}
+        else:
+            extra = {"closed_at": datetime.now(timezone.utc)}
         record = repo.apply_changes(existing_record, {**values, **extra}, user)
     else:
         record = _insert_closure(db, {**values, "import_file_id": import_file_id, "created_by": user, "updated_by": user})
@@ -1056,7 +1059,7 @@ def official_close_import_file_service(
     Issues digital certificate, locks file at 100%, and advances lifecycle board to terminal STEP_21.
     """
     final_schema = schema.model_copy(update={"is_draft": False})
-    record = close_import_file_service(db, final_schema, user=user, actor=actor, trusted=True)
+    record = close_import_file_service(db, final_schema, user=user, actor=actor, trusted=actor is None)
 
     imp = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
     company_name, supplier_name = _party_names(imp)
