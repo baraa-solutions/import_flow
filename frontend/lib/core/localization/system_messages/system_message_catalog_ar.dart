@@ -1439,6 +1439,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_STATUS_INVALID': {
     'note': 'يمكن إعادة سجل الإغلاق إلى حالة مسودة فقط.',
   },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'رمز العملة غير معروف أو غير نشط \'{currency_code}\'.',
+  },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف للعملة {currency} بتاريخ {on_date}. سجّل السعر قبل احتساب التسوية.',
   },
