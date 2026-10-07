@@ -1436,6 +1436,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_STATUS_INVALID': {
     'note': 'A closure record can only be set back to Draft.',
   },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'Unknown or inactive currency code \'{currency_code}\'.',
+  },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'No exchange rate for {currency} on {on_date}. Register the rate before calculating the settlement.',
   },
