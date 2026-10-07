@@ -1424,6 +1424,15 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
   },
+  'CURRENCY_NOT_FOUND': {
+    'note': 'العملة الكود \'{currency}\' غير مسجلة في النظام.',
+  },
+  'CURRENCY_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف مسجل للعملة \'{currency}\' من نوع \'{rate_type}\' بتاريخ {as_of_date}.',
+  },
+  'CT_CUSTOMS_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },
