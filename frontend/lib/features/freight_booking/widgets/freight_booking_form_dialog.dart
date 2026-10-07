@@ -496,7 +496,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 40ft',
         unit: 'Per Container',
-        quantity: _container40ftQty > 0 ? _container40ftQty : 1,
+        quantity: (_container40ftQty > 0 ? _container40ftQty : 1).toDouble(),
+        containerType: '40HC',
         currency: _container40ftCur,
         rate: _container40ftPrice,
         total: _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1),
@@ -506,7 +507,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 20ft',
         unit: 'Per Container',
-        quantity: _container20ftQty > 0 ? _container20ftQty : 1,
+        quantity: (_container20ftQty > 0 ? _container20ftQty : 1).toDouble(),
+        containerType: '20GP',
         currency: _container20ftCur,
         rate: _container20ftPrice,
         total: _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1),
@@ -516,7 +518,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       newCharges.add(BookingChargeModel(
         chargeType: 'LCL CBM Freight',
         unit: 'Per CBM',
-        quantity: _lclCbmQty.ceil() > 0 ? _lclCbmQty.ceil() : 1,
+        quantity: _lclCbmQty > 0 ? _lclCbmQty : 1.0,
         currency: _lclCbmCur,
         rate: _lclCbmPrice,
         total: _lclCbmPrice * _lclCbmQty,

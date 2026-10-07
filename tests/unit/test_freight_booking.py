@@ -47,7 +47,9 @@ def db_session():
     proj1 = Project(project_id=1, project_code="PRJ-01", project_name="Textile Expansion", project_owner="Kamal", company_id=1, supplier_id=1, incoterm_id=1, import_type="Direct Commercial")
     file1 = ImportFile(import_file_id=1, import_file_code="IMP-2026-0001", custom_file_number="6701068100", company_name="Egyptian Import Co", supplier_name="ABC China", owner="Kamal")
     
-    db.add_all([comp1, sup1, inco1, proj1, file1])
+    curr1 = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    curr2 = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+    db.add_all([comp1, sup1, inco1, proj1, file1, curr1, curr2])
     db.commit()
 
     try:

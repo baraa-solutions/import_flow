@@ -103,3 +103,21 @@ def validate_no_duplicate_booking_for_file(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"يوجد بالفعل حجز شحن مسجل لهذا الملف الاستيرادي (كود الحجز: {existing.booking_code}). يرجى الذهاب لتعديل الحجز الحالي بدلاً من إنشاء حجز جديد.",
         )
+
+
+def validate_charge_currencies(db: Session, charges: list) -> None:
+    if not charges:
+        return
+    from modules.currencies.repository import CurrencyRepository
+
+    repo = CurrencyRepository(db)
+    for c in charges:
+        c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else getattr(c, "__dict__", {}))
+        raw_cur = c_dict.get("currency")
+        ccy = str(raw_cur or "USD").strip().upper()
+        if not repo.get_currency_by_code(ccy):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"عملة البند غير معروفة: {ccy}",
+            )
+
