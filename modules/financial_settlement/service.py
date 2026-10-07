@@ -364,7 +364,7 @@ class SettlementFx:
             try:
                 rate_val, _, rate_id = CurrencyService(self.db)._get_rate_to_egp(code, rate_type=rtype, as_of_date=day)
             except HTTPException as exc:
-                if exc.status_code not in (404, 409):  # unregistered currency or missing rate -> coded 409 below
+                if exc.status_code != 404:  # unregistered currency or missing rate -> coded 409 below
                     raise
         if rate_id is None or not rate_val or float(rate_val) <= 0:
             raise fx_rate_missing_error(code or None, day)
@@ -479,12 +479,19 @@ def file_po_line_shares(
             continue
 
         file_allocs = [a for a in allocs if a.import_file_id == imp_file.import_file_id]
+        other_allocs = [a for a in allocs if a.import_file_id is not None and a.import_file_id != imp_file.import_file_id]
         if not file_allocs:
-            # Case 2: Allocation rows exist for the PO, but none for this import file
-            if messages is not None:
-                po_num = po.po_number or f"PO-{po.po_id}"
-                messages.append(_message("SETTLEMENT_PO_NOT_ALLOCATED", po_number=po_num))
-            continue
+            if other_allocs:
+                # Case 2: Allocation rows exist for other import files
+                if messages is not None:
+                    po_num = po.po_number or f"PO-{po.po_id}"
+                    messages.append(_message("SETTLEMENT_PO_NOT_ALLOCATED", po_number=po_num))
+                continue
+            else:
+                # Only unlinked rows (import_file_id is None) exist -> keep full-PO behavior
+                for line in lines:
+                    shares.append((line, float(line.quantity or 0.0), 1.0))
+                continue
 
         # Case 3: Allocation rows exist for this file
         item_allocs = [a for a in file_allocs if a.po_item_id is not None]
@@ -499,7 +506,13 @@ def file_po_line_shares(
                     for li in lines
                 )
             shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in po_allocs)
-            po_ratio = (shipped_fob / po_total_fob) if po_total_fob > 0.0 else 0.0
+            if shipped_fob > 0.0 and po_total_fob > 0.0:
+                po_ratio = shipped_fob / po_total_fob
+            else:
+                # Fallback when shipped_amount_fob is 0: use quantity ratio
+                total_ord_qty = sum(float(li.quantity or 0.0) for li in lines)
+                shipped_qty = sum(float(a.shipped_quantity or 0.0) for a in po_allocs)
+                po_ratio = (shipped_qty / total_ord_qty) if total_ord_qty > 0.0 else 0.0
 
         for line in lines:
             line_item_allocs = [a for a in item_allocs if a.po_item_id == line.item_id]
@@ -625,17 +638,6 @@ def _recalculate_in_place(record: LandedCostSettlementRecord, actor: str) -> Non
     record.status = "Calculated"
     record.updated_at = datetime.now(timezone.utc)
     record.updated_by = actor
-
-
-def recalculate_settlement_totals(record: LandedCostSettlementRecord, actor: Optional[str] = None) -> None:
-    """External-write recomputation (BEW0-06): recalculates totals via the engine.
-    If the settlement was in Draft status, it remains in Draft (not promoted to Calculated).
-    """
-    prior_status = record.status
-    _recalculate_in_place(record, actor=actor or "System")
-    if prior_status == "Draft":
-        record.status = "Draft"
-
 
 
 def _audit(db: Session, record: LandedCostSettlementRecord, action: str, actor: str,

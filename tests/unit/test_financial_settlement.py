@@ -17,6 +17,7 @@ from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.financial_settlement.model import LandedCostSettlementRecord
+import main  # registers all models with Base.metadata
 from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
@@ -367,6 +368,21 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(items_a[0]["cbm"], 8.0)
         self.assertEqual(items_a[0]["gross_weight_kg"], 2000.0)
 
+        # Test CLO-02 and PL-08 share paths for file A (400 units)
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            simulate_estimated_landed_cost_service,
+        )
+        res_clo02 = calculate_actual_landed_cost_service(self.db, file_a.import_file_id)
+        self.assertEqual(len(res_clo02.items_breakdown), 1)
+        self.assertEqual(res_clo02.items_breakdown[0].qty, 400.0)
+        self.assertEqual(res_clo02.items_breakdown[0].fob_total_egp, 200000.0)
+
+        res_pl08 = simulate_estimated_landed_cost_service(self.db, file_a.import_file_id)
+        self.assertEqual(len(res_pl08.items_breakdown), 1)
+        self.assertEqual(res_pl08.items_breakdown[0].qty, 400.0)
+        self.assertEqual(res_pl08.items_breakdown[0].fob_total_fc, 4000.0)
+
         # Settlement B items: qty 600, FOB 300,000.00
         items_b = _items_from_purchase_orders(self.db, file_b, fx)
         self.assertEqual(len(items_b), 1)
@@ -425,8 +441,34 @@ class TestFinancialSettlementModule(unittest.TestCase):
         res_a_po = calculate_landed_cost_engine(expenses_a, items_a_po)
         self.assertEqual(res_a_po["total_fob_egp"], 200000.0)
 
-        # 3. PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED
+        # 2b. PO-level allocation with FOB 0 falls back to quantity ratio (400/1000 = 0.4)
         self.db.delete(alloc_po_a)
+        self.db.commit()
+
+        alloc_po_zero_fob = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=400.0,
+            shipped_amount_fob=0.0,
+            shipment_ref="BL-A-ZERO-FOB",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_po_zero_fob)
+        self.db.commit()
+
+        items_a_zero_fob = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a_zero_fob), 1)
+        self.assertEqual(items_a_zero_fob[0]["qty"], 400.0)
+        self.assertEqual(items_a_zero_fob[0]["fob_unit_egp"], 500.0)
+        shares_zero_fob = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_zero_fob), 1)
+        self.assertEqual(shares_zero_fob[0][1], 400.0)
+        self.assertEqual(shares_zero_fob[0][2], 0.4)
+
+        # 3. PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED
+        self.db.delete(alloc_po_zero_fob)
         alloc_po_b = POShipmentAllocation(
             po_id=po.po_id,
             po_item_id=line.item_id,
@@ -446,6 +488,33 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(len(messages_a), 1)
         self.assertEqual(messages_a[0].code, "SETTLEMENT_PO_NOT_ALLOCATED")
         self.assertEqual(messages_a[0].params.get("po_number"), po.po_number)
+
+        # 4. Allocations with no import file (import_file_id is None) do NOT cause PO to vanish
+        self.db.delete(alloc_po_b)
+        self.db.commit()
+
+        alloc_unlinked = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=line.item_id,
+            import_file_id=None,
+            shipped_quantity=400.0,
+            shipped_amount_fob=4000.0,
+            shipment_ref="BL-UNLINKED",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_unlinked)
+        self.db.commit()
+
+        # Should keep full-PO behavior (1000 units, not skipped)
+        shares_unlinked = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_unlinked), 1)
+        self.assertEqual(shares_unlinked[0][1], 1000.0)
+        self.assertEqual(shares_unlinked[0][2], 1.0)
+
+        # Recalculation should also contribute full PO FOB when allocations are unlinked
+        recalc_unlinked = _fetch_from_purchase_orders(self.db, file_a.import_file_id, "total_amount_fob", "sum")
+        self.assertEqual(recalc_unlinked, 500000.0)
 
 
 

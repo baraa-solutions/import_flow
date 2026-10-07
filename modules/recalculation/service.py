@@ -224,7 +224,10 @@ def _fetch_from_purchase_orders(
             else:
                 has_allocs = (
                     db.query(POShipmentAllocation.allocation_id)
-                    .filter(POShipmentAllocation.po_id == po.po_id)
+                    .filter(
+                        POShipmentAllocation.po_id == po.po_id,
+                        POShipmentAllocation.import_file_id.isnot(None),
+                    )
                     .first()
                     is not None
                 )
