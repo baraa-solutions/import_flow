@@ -122,7 +122,11 @@ def _closure_facts(db: Session, imp: ImportFile) -> Tuple[ClosureFacts, Optional
         customs_release_permit_no=imp.customs_release_permit_no,
         customs_released_at=imp.customs_released_at,
         active_grn_count=len(grns),
-        locked_grn_count=sum(1 for g in grns if g.quarantine_lock_active),
+        locked_grn_count=sum(
+            1 for g in grns
+            if g.quarantine_lock_active
+            and getattr(repo.latest_active_clearance(db, imp.import_file_id), "quarantine_lock", True) is not False
+        ),
         has_settled_settlement=settlement is not None,
         actual_landed_cost_egp=float(imp.actual_landed_cost_total_egp or 0.0),
         financial_settlement_status=imp.financial_settlement_status,

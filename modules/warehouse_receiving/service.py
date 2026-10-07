@@ -391,12 +391,54 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     return record
 
 
-def validate_warehouse_dispatch_authorization(db: Session, record_id: int) -> bool:
+def release_quarantine_lock_for_file(
+    db: Session, import_file_id: int, user: str = "System"
+) -> List[WarehouseReceivingRecord]:
+    """Release quarantine and dispatch lock on all active GRNs of the file when customs lifts the lock."""
+    grns = db.query(WarehouseReceivingRecord).filter(
+        WarehouseReceivingRecord.import_file_id == import_file_id,
+        WarehouseReceivingRecord.is_active == True,
+        WarehouseReceivingRecord.quarantine_lock_active == True,
+    ).all()
+    released = []
+    for record in grns:
+        record.quarantine_lock_active = False
+        record.dispatch_blocked = False
+        if record.status == "Under Bond Quarantine":
+            record.status = "Goods Received"
+        note = record.discrepancy_notes or ""
+        if "Quarantine lock lifted after lab approval" not in note:
+            record.discrepancy_notes = (note + " | Quarantine lock lifted after lab approval").lstrip(" | ")
+        record.updated_by = user
+        record.updated_at = datetime.now(timezone.utc)
+        released.append(record)
+    return released
+
+
+def refresh_quarantine_lock(
+    db: Session, record: WarehouseReceivingRecord, user: str = "System"
+) -> WarehouseReceivingRecord:
+    """If a GRN is still marked quarantine_lock_active but its customs clearance lifted the lock, sync & commit."""
+    if record.quarantine_lock_active:
+        from modules.customs_clearance.model import CustomsClearanceRecord
+        clearance = db.query(CustomsClearanceRecord).filter(
+            CustomsClearanceRecord.import_file_id == record.import_file_id,
+            CustomsClearanceRecord.is_active == True,
+        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+        if clearance is not None and clearance.quarantine_lock is False:
+            release_quarantine_lock_for_file(db, record.import_file_id, user=user)
+            db.commit()
+            db.refresh(record)
+    return record
+
+
+def validate_warehouse_dispatch_authorization(db: Session, record_id: int, user: str = "System") -> bool:
     """
     LOG-BOND-003: Strict Quarantine Dispatch Lock Validator.
     Raises HTTP 400 if cargo is under laboratory quarantine lock.
     """
     record = get_warehouse_receiving_service(db, record_id)
+    refresh_quarantine_lock(db, record, user=user)
     if record.quarantine_lock_active or record.dispatch_blocked:
         raise HTTPException(
             status_code=400,
@@ -405,8 +447,8 @@ def validate_warehouse_dispatch_authorization(db: Session, record_id: int) -> bo
     return True
 
 
-def validate_dispatch_service(db: Session, record_id: int) -> WarehouseDispatchValidationResponse:
-    validate_warehouse_dispatch_authorization(db, record_id)
+def validate_dispatch_service(db: Session, record_id: int, user: str = "System") -> WarehouseDispatchValidationResponse:
+    validate_warehouse_dispatch_authorization(db, record_id, user=user)
     record = get_warehouse_receiving_service(db, record_id)
     return WarehouseDispatchValidationResponse(
         receiving_id=record.receiving_id,
@@ -436,6 +478,7 @@ def submit_warehouse_inspection_protocol_service(
     - Dispatches system notification to QC, Operations, and Financial Accounting.
     """
     record = get_warehouse_receiving_service(db, record_id)
+    refresh_quarantine_lock(db, record, user=user_name)
     _require_open_file_for_grn(db, record.import_file_id)
     verdict = normalize_verdict(schema.inspection_verdict)
     if schema.discrepancy_type is not None:

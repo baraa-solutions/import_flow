@@ -8,7 +8,7 @@ import pytest
 # Set required environment variables BEFORE any module imports
 # SECRET_KEY must be at least 32 chars (enforced by settings.py)
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars")
-os.environ.setdefault("ALLOW_DEV_AUTH_BYPASS", "true")
+os.environ["ALLOW_DEV_AUTH_BYPASS"] = "true"
 os.environ.setdefault("ENABLE_API_DOCS", "false")
 
 # The session database lives in its own temporary folder: startup snapshots and pre_migration backups
