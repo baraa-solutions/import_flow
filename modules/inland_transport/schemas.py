@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 class InlandTransportBookingBase(BaseModel):
     import_file_id: int
@@ -58,13 +59,16 @@ class InlandTransportArrivalSubmit(BaseModel):
     seal_number: Optional[str] = None
     notes: Optional[str] = None
 
-class InlandTransportBookingResponse(InlandTransportBookingBase):
+@read_model
+class InlandTransportBookingResponse(LegacyRowTolerantModel, InlandTransportBookingBase):
     transport_id: int
     transport_code: str
-    is_active: bool
+    transport_fare_egp: Optional[float] = 0.0
+    status: Optional[str] = "Booking Confirmed"
+    is_active: bool = True
     created_at: datetime
-    created_by: str
+    created_by: Optional[str] = "System"
     updated_at: datetime
-    updated_by: str
+    updated_by: Optional[str] = "System"
 
     model_config = ConfigDict(from_attributes=True)

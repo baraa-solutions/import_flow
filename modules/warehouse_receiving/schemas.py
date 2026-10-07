@@ -24,7 +24,7 @@ class WarehouseReceivingCreate(BaseModel):
     seal_intact: bool = True
     grn_items: List[GrnItemSchema] = []
     discrepancy_notes: Optional[str] = None
-    inspector_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
 class DiscrepancyReportSubmit(BaseModel):
@@ -52,7 +52,7 @@ class WarehouseInspectionSubmit(BaseModel):
     supplier_claim_ref: Optional[str] = None
     claim_amount_estimated: float = 0.0
     claim_currency: str = "EGP"
-    inspector_name: Optional[str] = None
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
 class WarehouseReceivingUpdate(BaseModel):
@@ -64,7 +64,7 @@ class WarehouseReceivingUpdate(BaseModel):
     discrepancy_type: Optional[str] = None
     discrepancy_notes: Optional[str] = None
     status: Optional[str] = None
-    inspector_name: Optional[str] = None
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
     inspection_committee: Optional[str] = None
     inspection_verdict: Optional[str] = None

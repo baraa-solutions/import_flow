@@ -21,7 +21,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "f6a7b8c9d0e1"  # current head (CBM shipment_mode + planning audit-by, on top of e5f6 system_parameters)
+HEAD = "a0b1c2d3e4f5"  # current head (audit & soft-delete columns on models)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],

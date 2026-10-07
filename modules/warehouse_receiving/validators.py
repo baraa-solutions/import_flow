@@ -3,6 +3,7 @@ from typing import Any, Iterable, Optional
 from fastapi import HTTPException
 
 from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 
 # Legacy labels stored today (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
 WR_STATUS_LABELS = frozenset({
@@ -146,3 +147,36 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             f"نوع الفرق '{discrepancy_type}' غير معروف.",
             discrepancy_type=discrepancy_type,
         )
+
+
+def validate_grn_deletable(record: Any) -> None:
+    """GRN delete guard (plan WR-F14 / BE810-T16).
+    Raises 409 WR_GRN_LOCKED when inspection protocol exists, claims are filed, or quarantine lock is active.
+    """
+    if (
+        getattr(record, "inspection_protocol_number", None)
+        or getattr(record, "insurance_claim_filed", False)
+        or getattr(record, "supplier_claim_filed", False)
+        or getattr(record, "quarantine_lock_active", False)
+    ):
+        grn_code = getattr(record, "grn_code", "")
+        reasons = []
+        if getattr(record, "inspection_protocol_number", None):
+            reasons.append("محضر الفحص معتمد")
+        if getattr(record, "insurance_claim_filed", False) or getattr(record, "supplier_claim_filed", False):
+            reasons.append("توجد مطالبات مسجلة")
+        if getattr(record, "quarantine_lock_active", False):
+            reasons.append("حظر التحفظ الجمركي نشط")
+        reason_text = "، ".join(reasons)
+        msg_ar = (
+            f"لا يمكن حذف إذن الاستلام {grn_code}: {reason_text}."
+            if grn_code
+            else f"لا يمكن حذف إذن الاستلام: {reason_text}."
+        )
+        raise coded_error(
+            409,
+            "WR_GRN_LOCKED",
+            msg_ar,
+            grn_code=grn_code,
+        )
+
