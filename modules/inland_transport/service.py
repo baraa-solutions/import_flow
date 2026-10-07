@@ -15,6 +15,7 @@ from .repository import (
     create_transport_booking,
     get_transport_booking_by_id,
     get_transport_booking_by_file,
+    list_active_bookings_for_file,
     find_active_booking_by_waybill,
     list_transport_bookings,
     apply_changes,
@@ -39,6 +40,40 @@ from modules.import_files.model import ImportFile
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+
+
+def sync_file_inland_fields(db: Session, imp_file: ImportFile) -> None:
+    """Resync the import file's inland transport fields from all active bookings (BE810-T01).
+
+    Total cost = sum of active fares.
+    Header / driver / truck fields = newest active booking, or None when no active booking exists.
+    Status and stage are NOT altered here.
+    """
+    bookings = list_active_bookings_for_file(db, imp_file.import_file_id)
+    if not bookings:
+        imp_file.inland_transport_cost_egp = 0.0
+        imp_file.inland_transport_booking_no = None
+        imp_file.inland_carrier_name = None
+        imp_file.inland_truck_plate_no = None
+        imp_file.inland_driver_name = None
+        imp_file.inland_driver_phone = None
+        imp_file.inland_departure_date = None
+        imp_file.inland_expected_arrival_date = None
+    else:
+        imp_file.inland_transport_cost_egp = round(
+            sum(float(b.transport_fare_egp or 0.0) for b in bookings), 2
+        )
+        newest = bookings[0]
+        imp_file.inland_transport_booking_no = newest.waybill_number
+        imp_file.inland_carrier_name = newest.carrier_name
+        imp_file.inland_truck_plate_no = newest.truck_plate_number
+        imp_file.inland_driver_name = newest.driver_name
+        imp_file.inland_driver_phone = newest.driver_phone
+        imp_file.inland_departure_date = newest.actual_departure_at or newest.planned_departure_at
+        imp_file.inland_expected_arrival_date = newest.expected_arrival_at
+
+
+_sync_file_inland_fields = sync_file_inland_fields
 
 
 def _insert_booking(db: Session, schema: InlandTransportBookingCreate, user: str) -> InlandTransportBooking:
@@ -80,16 +115,7 @@ def create_transport_booking_service(
     # Synchronize ImportFile
     status_str = "IN_TRANSIT" if schema.actual_departure_at else "BOOKED"
     imp_file.inland_transport_status = status_str
-    imp_file.inland_transport_booking_no = schema.waybill_number
-    imp_file.inland_carrier_name = schema.carrier_name
-    imp_file.inland_truck_plate_no = schema.truck_plate_number
-    imp_file.inland_driver_name = schema.driver_name
-    imp_file.inland_driver_phone = schema.driver_phone
-    imp_file.inland_transport_cost_egp = schema.transport_fare_egp
-    imp_file.inland_departure_date = schema.planned_departure_at
-    imp_file.inland_expected_arrival_date = schema.expected_arrival_at
-    if schema.actual_departure_at:
-        imp_file.inland_departure_date = schema.actual_departure_at
+    sync_file_inland_fields(db, imp_file)
 
     imp_file.current_module = "Phase 8 - Inland Transport & Warehouse Delivery"
     set_file_tracking(
@@ -196,12 +222,13 @@ def record_port_gate_out_service(
         "status": STATUS_IN_TRANSIT,
         "tracking_notes": notes,
     }, user)
+    db.flush()
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
     if imp_file:
         imp_file.inland_transport_status = "IN_TRANSIT"
-        imp_file.inland_departure_date = payload.actual_departure_at
+        sync_file_inland_fields(db, imp_file)
         set_file_tracking(
             imp_file,
             stage_code="IN_TRANSIT_TO_WAREHOUSE",
@@ -231,12 +258,14 @@ def record_warehouse_arrival_service(
         "status": STATUS_ARRIVED,
         "tracking_notes": notes,
     }, user)
+    db.flush()
 
     # Sync ImportFile
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
     if imp_file:
         imp_file.inland_transport_status = "ARRIVED"
         imp_file.inland_actual_arrival_date = payload.actual_arrival_at
+        sync_file_inland_fields(db, imp_file)
         set_file_tracking(
             imp_file,
             stage_code="ARRIVED_AT_WAREHOUSE",
@@ -309,6 +338,10 @@ def update_transport_booking_service(
             )
 
     apply_changes(booking, data, user)
+    db.flush()
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
+    if imp_file:
+        sync_file_inland_fields(db, imp_file)
     db.commit()
     db.refresh(booking)
     return booking
@@ -321,4 +354,8 @@ def soft_delete_transport_booking_service(
 ) -> None:
     booking = get_transport_booking_service(db, transport_id)
     apply_changes(booking, {"is_active": False}, user)
+    db.flush()
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
+    if imp_file:
+        sync_file_inland_fields(db, imp_file)
     db.commit()

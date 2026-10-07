@@ -12,11 +12,14 @@ from modules.import_files.model import ImportFile
 from modules.inland_transport.model import InlandTransportBooking
 from modules.inland_transport.schemas import (
     InlandTransportBookingCreate,
+    InlandTransportBookingUpdate,
     InlandTransportGateOutSubmit,
     InlandTransportArrivalSubmit,
 )
 from modules.inland_transport.service import (
     create_transport_booking_service,
+    update_transport_booking_service,
+    soft_delete_transport_booking_service,
     record_port_gate_out_service,
     record_warehouse_arrival_service,
     get_transport_booking_by_file_service,
@@ -371,3 +374,84 @@ def test_failure_after_task_step_leaves_no_booking_and_no_task(db_session, monke
     assert db_session.query(SmartTask).filter(
         SmartTask.import_file_id == file_id, SmartTask.msg_code == "TR_TASK_TRACK_ARRIVAL_GRN"
     ).count() == 0
+
+
+def test_inland_transport_cost_resync_multiple_bookings(db_session):
+    """BE810-T01: File inland_transport_cost_egp equals sum of active booking fares."""
+    imp_file = _create_sample_file(db_session)
+    payload_a = _booking_payload(imp_file, "WB-RESYNC-A")
+    payload_a.transport_fare_egp = 3000.0
+    payload_b = _booking_payload(imp_file, "WB-RESYNC-B")
+    payload_b.transport_fare_egp = 2000.0
+
+    create_transport_booking_service(db_session, payload_a, user="OfficerA")
+    create_transport_booking_service(db_session, payload_b, user="OfficerB")
+
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 5000.0
+    assert imp_file.inland_transport_booking_no == "WB-RESYNC-B"
+
+
+def test_inland_transport_cost_resync_update_and_delete(db_session):
+    """BE810-T01: PUT fare 0 resyncs cost; soft delete resyncs cost and header fields."""
+    imp_file = _create_sample_file(db_session)
+    payload_a = _booking_payload(imp_file, "WB-UPD-A")
+    payload_a.transport_fare_egp = 3000.0
+    payload_b = _booking_payload(imp_file, "WB-UPD-B")
+    payload_b.transport_fare_egp = 2000.0
+
+    bk_a = create_transport_booking_service(db_session, payload_a, user="OfficerA")
+    bk_b = create_transport_booking_service(db_session, payload_b, user="OfficerB")
+
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 5000.0
+
+    # PUT B fare to 0 -> cost becomes 3000.0
+    update_transport_booking_service(
+        db_session, bk_b.transport_id, InlandTransportBookingUpdate(transport_fare_egp=0.0), user="OfficerB"
+    )
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 3000.0
+
+    # Delete A -> cost becomes 0.0, header fields fallback to active booking B
+    soft_delete_transport_booking_service(db_session, bk_a.transport_id, user="OfficerA")
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 0.0
+    assert imp_file.inland_transport_booking_no == "WB-UPD-B"
+
+    # Delete B -> cost becomes 0.0, header fields become None
+    soft_delete_transport_booking_service(db_session, bk_b.transport_id, user="OfficerB")
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 0.0
+    assert imp_file.inland_transport_booking_no is None
+    assert imp_file.inland_carrier_name is None
+    assert imp_file.inland_truck_plate_no is None
+
+
+def test_settlement_aggregation_after_booking_fare_zeroed(db_session):
+    """BE810-T01: Financial settlement aggregation does not charge corrected 0 fare."""
+    from modules.financial_settlement.service import aggregate_shipment_invoices_service
+
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-SETTLE-01")
+    payload.transport_fare_egp = 5000.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 5000.0
+
+    # Correct fare to 0
+    update_transport_booking_service(
+        db_session, bk.transport_id, InlandTransportBookingUpdate(transport_fare_egp=0.0), user="Officer"
+    )
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 0.0
+
+    # Aggregate settlement invoices
+    resp = aggregate_shipment_invoices_service(db_session, imp_file.import_file_id)
+    transport_invoices = [inv for inv in resp.invoices if inv.party_type == "TRANSPORT" or inv.category == "Inland Trucking"]
+    for inv in transport_invoices:
+        assert inv.amount_egp == 0.0
+    # Specifically assert no 5000.0 transport invoice
+    assert not any(inv.amount_egp == 5000.0 for inv in transport_invoices)
+
