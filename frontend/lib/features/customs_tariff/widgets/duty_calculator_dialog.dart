@@ -89,6 +89,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         final deemedFrt = fobEgp * 0.020;
         deemedFreightCtrl.text = deemedFrt.toStringAsFixed(3);
         multiFreightCtrl.text = '0.00';
+      } else {
         final fAmt = double.tryParse(freightForeignCtrl.text.trim()) ?? 0;
         final customRate = double.tryParse(freightExchangeRateCtrl.text.trim());
         final fRate = selectedFreightCurrency == 'EGP'
@@ -100,6 +101,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         } else {
           multiFreightCtrl.text = '';
         }
+      }
 
       final actualIns = double.tryParse(insuranceCtrl.text.trim()) ?? 0;
       final deemedIns = double.tryParse(deemedInsuranceCtrl.text.trim()) ?? 0;
@@ -766,6 +768,8 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                       hintText: isArabic
                                           ? 'اتركه فارغاً لاستخدام سعر الجمارك'
                                           : 'Leave blank for customs rate',
+                                      isDense: true,
+                                    ),
                                   ),
                                 ),
                               ],
