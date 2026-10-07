@@ -35,6 +35,7 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_grn_deletable,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -371,6 +372,7 @@ def update_warehouse_receiving_service(
 def soft_delete_warehouse_receiving_service(db: Session, record_id: int, user: str = "System") -> bool:
     record = get_warehouse_receiving_service(db, record_id)
     _require_open_file_for_grn(db, record.import_file_id)
+    validate_grn_deletable(record)
     set_active(record, False, user)
     db.commit()
     return True
