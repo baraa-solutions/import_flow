@@ -28,7 +28,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
     final insuranceCtrl = TextEditingController(text: '14902.793');
     final deemedInsuranceCtrl = TextEditingController(text: '0.00');
     final freightForeignCtrl = TextEditingController(text: '234.72');
-    final freightExchangeRateCtrl = TextEditingController(text: '50.7917');
+    final freightExchangeRateCtrl = TextEditingController();
     final multiFreightCtrl = TextEditingController(text: '11922.234');
     final deemedFreightCtrl = TextEditingController(text: '0.00');
     final additionalFeesCtrl = TextEditingController(text: '1329.50');
@@ -91,9 +91,10 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         multiFreightCtrl.text = '0.00';
       } else {
         final fAmt = double.tryParse(freightForeignCtrl.text.trim()) ?? 0;
+        final customRate = double.tryParse(freightExchangeRateCtrl.text.trim());
         final fRate = selectedFreightCurrency == 'EGP'
             ? 1.0
-            : (double.tryParse(freightExchangeRateCtrl.text.trim()) ?? rate);
+            : (customRate ?? (selectedFreightCurrency == selectedCurrency ? rate : 1.0));
         final calcFrtEgp = fAmt * fRate;
         multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
       }
@@ -1332,10 +1333,9 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   'freight_foreign_amount': double.tryParse(
                                           freightForeignCtrl.text.trim()) ??
                                       0,
-                                  'freight_exchange_rate': double.tryParse(
-                                          freightExchangeRateCtrl.text
-                                              .trim()) ??
-                                      rate,
+                                  if (double.tryParse(freightExchangeRateCtrl.text.trim()) != null &&
+                                      double.parse(freightExchangeRateCtrl.text.trim()) > 0)
+                                    'freight_exchange_rate': double.parse(freightExchangeRateCtrl.text.trim()),
                                   'has_insurance_document': !isDeemedInsurance,
                                   'has_freight_document': !isDeemedFreight,
                                   'additional_fees_egp': add,

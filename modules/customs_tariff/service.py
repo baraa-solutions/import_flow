@@ -520,7 +520,7 @@ def resolve_insurance_freight(
     # Resolution of Freight (support foreign currency freight & specific freight exchange rate)
     effective_actual_freight_egp = actual_freight_egp
     if freight_currency and freight_currency.upper() != "EGP" and freight_foreign_amount > Decimal("0.00"):
-        frt_rate = freight_exchange_rate if (freight_exchange_rate and freight_exchange_rate > Decimal("0.00")) else exchange_rate
+        frt_rate = freight_exchange_rate if (freight_exchange_rate and freight_exchange_rate > Decimal("0.00")) else Decimal("0.00")
         effective_actual_freight_egp = _round(freight_foreign_amount * frt_rate)
 
     if has_freight_document and effective_actual_freight_egp > Decimal("0.00"):
@@ -681,6 +681,23 @@ def estimate_multi_item_customs_duty_service(
     else:
         effective_exchange_rate, rate_date, rate_id = _customs_rate(db, request.currency, on_date)
 
+    # Step 0: Resolve Freight Rate & Source (ACC1-T01)
+    freight_curr = (request.freight_currency or "EGP").strip().upper()
+    freight_foreign_amt = request.freight_foreign_amount or Decimal("0.00")
+    freight_rate_used: Optional[Decimal] = None
+    freight_rate_source: Optional[str] = None
+
+    if freight_curr != "EGP" and freight_foreign_amt > Decimal("0.00"):
+        if freight_curr == (request.currency or "").strip().upper():
+            freight_rate_used = effective_exchange_rate
+            freight_rate_source = "invoice_currency"
+        elif request.freight_exchange_rate is not None and request.freight_exchange_rate > Decimal("0.00"):
+            freight_rate_used = request.freight_exchange_rate
+            freight_rate_source = "manual"
+        else:
+            freight_rate_used, _, _ = _customs_rate(db, freight_curr, on_date)
+            freight_rate_source = "table"
+
     # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
     (
         resolved_insurance_egp,
@@ -697,11 +714,15 @@ def estimate_multi_item_customs_duty_service(
         has_freight_document=request.has_freight_document,
         deemed_insurance_rate=request.deemed_insurance_rate,
         deemed_freight_rate=request.deemed_freight_rate,
-        freight_currency=request.freight_currency or "EGP",
-        freight_foreign_amount=request.freight_foreign_amount or Decimal("0.00"),
-        freight_exchange_rate=request.freight_exchange_rate,
+        freight_currency=freight_curr,
+        freight_foreign_amount=freight_foreign_amt,
+        freight_exchange_rate=freight_rate_used,
         packaging_egp=request.packaging_egp or Decimal("0.00"),
     )
+
+    if freight_source == "deemed" or freight_curr == "EGP" or freight_foreign_amt <= Decimal("0.00"):
+        freight_rate_source = None
+        freight_rate_used = None
 
     total_insurance_freight_packaging_egp = resolved_insurance_egp + resolved_freight_egp + request.packaging_egp
 
@@ -903,6 +924,8 @@ def estimate_multi_item_customs_duty_service(
         packaging_egp=request.packaging_egp,
         insurance_source=insurance_source,
         freight_source=freight_source,
+        freight_exchange_rate_used=freight_rate_used,
+        freight_rate_source=freight_rate_source,
         additional_fees_egp=additional_fees_total_egp,
         estimate_date=on_date,
         lines=line_breakdowns,
