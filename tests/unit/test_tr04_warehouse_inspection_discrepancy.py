@@ -425,7 +425,7 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert rec.claim_currency is None
 
         # Check inspection summary returns None for both fields (BE810-T12)
-        summary_res = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-summary")
+        summary_res = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol")
         assert summary_res.status_code == 200
         summary_data = summary_res.json()
         assert summary_data["claim_amount_estimated"] is None
@@ -451,7 +451,7 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert rec.claim_amount_estimated is None
         assert rec.claim_currency is None
 
-        summary_clear = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-summary")
+        summary_clear = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol")
         assert summary_clear.status_code == 200
         assert summary_clear.json()["claim_amount_estimated"] is None
         assert summary_clear.json()["claim_currency"] is None
