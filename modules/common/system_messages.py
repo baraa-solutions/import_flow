@@ -1305,6 +1305,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CT_CUSTOMS_RATE_MISSING": {
         "note": "No customs exchange rate registered for currency '{currency}' on date {on_date}.",
     },
+    "IMPORT_FILE_CLOSED": {
+        "note": "Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.",
+    },
+    "CURRENCY_CODE_UNKNOWN": {
+        "note": "Unknown or inactive currency code '{currency_code}'.",
+    },
     "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
     "FC_CLOSED_RECORD_LOCKED": {
         "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",

@@ -3,6 +3,7 @@ from typing import Any, Iterable, Optional
 from fastapi import HTTPException
 
 from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 
 # Legacy labels stored today (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
 WR_STATUS_LABELS = frozenset({
