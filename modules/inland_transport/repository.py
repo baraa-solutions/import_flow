@@ -72,6 +72,19 @@ def get_transport_booking_by_file(db: Session, import_file_id: int) -> Optional[
     )
 
 
+def list_active_bookings_for_file(db: Session, import_file_id: int) -> List[InlandTransportBooking]:
+    """All active bookings for the file ordered newest first (by transport_id desc)."""
+    return (
+        db.query(InlandTransportBooking)
+        .filter(
+            InlandTransportBooking.import_file_id == import_file_id,
+            InlandTransportBooking.is_active == True,
+        )
+        .order_by(desc(InlandTransportBooking.transport_id))
+        .all()
+    )
+
+
 def find_active_booking_by_waybill(
     db: Session, import_file_id: int, waybill_key: str
 ) -> Optional[InlandTransportBooking]:

@@ -18,6 +18,8 @@
 - conftest seam: `_dev_bypass_fallback_user` is wrapped to return a transient `User(username="test-admin", role="ADMIN")`
   (user_id None) when the test DB has no user. Tests that need a real 401 must
   `monkeypatch.setattr(modules.auth.permissions, "ALLOW_DEV_AUTH_BYPASS", False)` (the seam sits behind that flag).
+  The seam also pins that module flag to True (2026-10-07): CI (guardrails scratch_env, full_tests.yml) exports
+  ALLOW_DEV_AUTH_BYPASS=false, which beats conftest's setdefault. Reproduce CI locally with that env var set.
 - Auth caches leak across tests using separate in-memory DBs: `memory_cache["auth_user:{id}"]` and
   `_PERMISSION_CACHE[(id(bind), user_id)]`. Call `invalidate_permission_cache()` in fixtures.
 - `AuthService.register_user/update_user/toggle_user_status/update_user_permissions` require `actor=`; non-ADMIN

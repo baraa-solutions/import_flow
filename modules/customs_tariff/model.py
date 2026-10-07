@@ -121,6 +121,10 @@ class CustomsTariff(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("hs_code", "effective_from", name="uq_customs_tariff_hs_code_eff_from"),
@@ -168,6 +172,8 @@ class PreferentialAgreement(Base):
     effective_from = Column(Date, nullable=False, default=date.today)
     effective_to = Column(Date, nullable=True, default=None)
     source_url = Column(String(500), nullable=True)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     tariff = relationship(
@@ -216,4 +222,6 @@ class FeeCode(Base):
     source_url = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
