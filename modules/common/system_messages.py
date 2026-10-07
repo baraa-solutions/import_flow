@@ -1296,6 +1296,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_STATUS_CHANGE_NOT_ALLOWED": {
         "note": "Cannot change goods receipt status from '{current_status}' to '{target_status}'.",
     },
+    "WR_CUSTOMS_NOT_RELEASED": {
+        "note": "Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.",
+    },
     "WR_GRN_LOCKED": {
         "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
     },

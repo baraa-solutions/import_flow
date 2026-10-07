@@ -198,6 +198,34 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             discrepancy_type=discrepancy_type,
         )
 
+def validate_customs_release(imp: Any, clearance: Any) -> None:
+    """GRN create precondition (plan WR-F08 / BE810-T11).
+    Shipment must have customs release or under-bond authorization, or customs clearance was skipped (STEP_17).
+    """
+    is_released = bool(getattr(imp, "is_customs_released", False))
+    permit_no = bool(getattr(imp, "customs_release_permit_no", None))
+    clearance_status = getattr(clearance, "status", None) if clearance else None
+    clearance_released = (clearance_status == "Final Release Granted")
+    under_bond = bool(getattr(clearance, "is_under_bond_release", False)) if clearance else False
+    skipped = getattr(imp, "skipped_stages", None) or []
+    step_17_skipped = "STEP_17" in skipped
+
+    if is_released or permit_no or clearance_released or under_bond or step_17_skipped:
+        return
+
+    import_file_code = getattr(imp, "import_file_code", "")
+    msg_ar = (
+        f"لا يمكن إنشاء إذن استلام للملف {import_file_code}: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ."
+        if import_file_code
+        else "لا يمكن إنشاء إذن استلام: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ."
+    )
+    raise coded_error(
+        400,
+        "WR_CUSTOMS_NOT_RELEASED",
+        msg_ar,
+        import_file_code=import_file_code,
+    )
+
 
 def validate_grn_deletable(record: Any) -> None:
     """GRN delete guard (plan WR-F14 / BE810-T16).

@@ -1418,6 +1418,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_STATUS_CHANGE_NOT_ALLOWED': {
     'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
   },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
+  },
   'WR_GRN_LOCKED': {
     'note': 'Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.',
   },
@@ -1441,6 +1444,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'Invalid preferential trade agreement data ({reason}).',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
