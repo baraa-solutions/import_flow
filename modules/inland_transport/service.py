@@ -374,14 +374,6 @@ def soft_delete_transport_booking_service(
     db.commit()
 
 
-def _require_open_file_for_booking(db: Session, import_file_id: int) -> None:
-    try:
-        from modules.common.validators import ensure_file_open
-    except ImportError:
-        return
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if imp_file:
-        ensure_file_open(imp_file)
 
 
 def restore_transport_booking_service(
