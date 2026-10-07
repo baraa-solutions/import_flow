@@ -62,6 +62,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
             company_name=company.importer_name,
             supplier_name="Global Tech Inc",
             po_number="PO-2026-100",
+            is_customs_released=True,
         )
         self.db.add(imp_file)
         self.db.commit()
@@ -70,6 +71,16 @@ class TestWarehouseReceivingModule(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+
+    def _create_valid_grn(self):
+        schema = WarehouseReceivingCreate(
+            import_file_id=self.import_file_id,
+            warehouse_name="Cairo Logistics Depot",
+            grn_items=[
+                GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=100),
+            ],
+        )
+        return create_warehouse_receiving_service(self.db, schema)
 
     def test_create_warehouse_receiving_and_grn_totals(self):
         schema = WarehouseReceivingCreate(
@@ -95,8 +106,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(record.discrepancy_type, "Shortage")
 
     def test_discrepancy_reporting_and_quarantine(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
 
         payload = DiscrepancyReportSubmit(
             discrepancy_type="Damage",
@@ -114,8 +124,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(record.status, "Discrepancy Reported")
 
     def test_soft_delete_and_restore(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         rec_id = record.receiving_id
 
         # Delete
@@ -129,8 +138,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertTrue(restored.is_active)
 
     def test_soft_delete_blocked_when_protocol_exists(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.inspection_protocol_number = "INSP-2026-0001"
         self.db.commit()
 
@@ -140,8 +148,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_insurance_claim_filed(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.insurance_claim_filed = True
         self.db.commit()
 
@@ -151,8 +158,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_supplier_claim_filed(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.supplier_claim_filed = True
         self.db.commit()
 
@@ -162,8 +168,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_quarantine_lock_active(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.quarantine_lock_active = True
         self.db.commit()
 
