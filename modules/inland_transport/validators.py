@@ -4,6 +4,7 @@ from typing import Any, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from modules.import_files.model import ImportFile
+from modules.common.validators import ensure_file_open
 from .schemas import InlandTransportBookingCreate
 
 # Legacy booking status labels (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
@@ -135,4 +136,5 @@ def validate_import_file_for_transport(db: Session, import_file_id: int) -> Impo
             status_code=404,
             detail=f"ملف الشحنة رقم {import_file_id} غير موجود أو غير نشط.",
         )
+    ensure_file_open(imp_file)
     return imp_file

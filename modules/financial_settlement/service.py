@@ -364,7 +364,7 @@ class SettlementFx:
             try:
                 rate_val, _, rate_id = CurrencyService(self.db)._get_rate_to_egp(code, rate_type=rtype, as_of_date=day)
             except HTTPException as exc:
-                if exc.status_code != 404:  # unregistered currency -> coded 409 below
+                if exc.status_code not in (404, 409):  # unregistered currency or missing rate -> coded 409 below
                     raise
         if rate_id is None or not rate_val or float(rate_val) <= 0:
             raise fx_rate_missing_error(code or None, day)

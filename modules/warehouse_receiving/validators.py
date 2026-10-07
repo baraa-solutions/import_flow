@@ -3,6 +3,7 @@ from typing import Any, Iterable, Optional, Tuple
 from fastapi import HTTPException
 
 from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 
 # Legacy labels stored today (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
 WR_STATUS_LABELS = frozenset({
@@ -162,7 +163,8 @@ def validate_claim_amount_and_currency(
     if amount is None or amount == 0:
         return None, None
 
-    clean_currency = str(currency or "").strip().upper()
+    norm = enum_codes.normalize_currency(currency)
+    clean_currency = str(norm or "").strip().upper()
     if not clean_currency:
         raise coded_error(
             400,

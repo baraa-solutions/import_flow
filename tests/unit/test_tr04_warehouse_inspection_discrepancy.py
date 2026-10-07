@@ -424,6 +424,13 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert rec.claim_amount_estimated is None
         assert rec.claim_currency is None
 
+        # Check inspection summary returns None for both fields (BE810-T12)
+        summary_res = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-summary")
+        assert summary_res.status_code == 200
+        summary_data = summary_res.json()
+        assert summary_data["claim_amount_estimated"] is None
+        assert summary_data["claim_currency"] is None
+
         # PUT update to set claim, then PUT to clear
         put_res = client.put(
             f"/api/v1/warehouse-receiving/{rec.receiving_id}",
@@ -443,3 +450,8 @@ class TestWarehouseInspectionDiscrepancyTR04:
         db_session.refresh(rec)
         assert rec.claim_amount_estimated is None
         assert rec.claim_currency is None
+
+        summary_clear = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-summary")
+        assert summary_clear.status_code == 200
+        assert summary_clear.json()["claim_amount_estimated"] is None
+        assert summary_clear.json()["claim_currency"] is None

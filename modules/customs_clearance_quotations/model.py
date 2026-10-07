@@ -78,6 +78,8 @@ class CustomsClearanceRFQ(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Relationships
     quotations: Mapped[List[CustomsClearanceQuotationItem]] = relationship(
@@ -134,6 +136,8 @@ class CustomsClearanceQuotationItem(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     rfq: Mapped[CustomsClearanceRFQ] = relationship("CustomsClearanceRFQ", back_populates="quotations")
 
@@ -172,3 +176,5 @@ class ClearanceServicePriceListItem(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
