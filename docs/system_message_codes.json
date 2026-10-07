@@ -3603,6 +3603,14 @@
       "body"
     ]
   },
+  "WR_CUSTOMS_NOT_RELEASED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"

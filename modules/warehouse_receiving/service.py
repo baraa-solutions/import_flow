@@ -35,6 +35,7 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_customs_release,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -110,6 +111,13 @@ def create_warehouse_receiving_service(
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
     ensure_file_open(imp_file)
 
+    clearance = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == schema.import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+
+    validate_customs_release(imp_file, clearance)
+
     existing = get_active_grn_for_file(db, schema.import_file_id)
     if existing:
         raise _grn_exists_error(existing.grn_code)
@@ -145,11 +153,6 @@ def create_warehouse_receiving_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
 
     # LOG-BOND-003: Check if shipment is Under-Bond Released (Quarantine Lock Active)
-    clearance = db.query(CustomsClearanceRecord).filter(
-        CustomsClearanceRecord.import_file_id == schema.import_file_id,
-        CustomsClearanceRecord.is_active == True,
-    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
-
     if clearance and clearance.is_under_bond_release and clearance.quarantine_lock:
         record.is_under_bond_quarantine = True
         record.quarantine_lock_active = True

@@ -1290,6 +1290,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_CUSTOMS_NOT_RELEASED": {
+        "note": "Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
