@@ -49,6 +49,8 @@ class LandedCostSettlementRecord(Base):
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), default="System")
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
