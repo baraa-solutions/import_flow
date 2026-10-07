@@ -1436,6 +1436,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
   },
+  'FC_EXPORT_BLOCKED': {
+    'note': 'The comprehensive dossier export cannot proceed: {blocking} not met.',
+  },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'Closure record {closure_code} belongs to a closed file: reopen the file first.',
   },

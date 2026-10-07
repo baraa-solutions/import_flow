@@ -546,7 +546,9 @@ def test_fc02_default_clearance_rate_ignored_and_form46_date_preferred(db):
 # ─── Diff-review follow-ups ──────────────────────────────────────────────────
 
 def test_confirm_dossier_export_accepts_edit_or_close(strict_client, rbac, db):
-    imp = _file(db, "IMP-REG-DOSSIER")
+    imp = _ready_file(db, "IMP-REG-DOSSIER")
+    imp.dossier_exported_at = None
+    db.commit()
     body = {"import_file_id": imp.import_file_id}
     assert strict_client.post("/api/v1/file-closure/confirm-dossier-export", json=body,
                               headers=_bearer(rbac["viewer"])).status_code == 403

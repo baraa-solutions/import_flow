@@ -191,6 +191,21 @@ def closure_blocked_error(gate: ClosureGate) -> HTTPException:
     )
 
 
+def export_blocking_keys(gate: ClosureGate) -> List[str]:
+    return [k for k in gate.blocking_keys if k != "dossier_exported"]
+
+
+def export_blocked_error(gate: ClosureGate) -> HTTPException:
+    keys = export_blocking_keys(gate)
+    reasons = [BLOCKING_MESSAGES_AR[k] for k in keys if k in BLOCKING_MESSAGES_AR]
+    return coded_error(
+        400,
+        "FC_EXPORT_BLOCKED",
+        "لا يمكن تصدير واعتماد الملف الشامل — المتطلبات التالية غير مستوفاة:\n" + "\n".join(f"• {r}" for r in reasons),
+        blocking=keys,
+    )
+
+
 def already_closed_error(import_file_code: Optional[str]) -> HTTPException:
     return coded_error(
         409,

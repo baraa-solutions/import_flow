@@ -1899,6 +1899,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [

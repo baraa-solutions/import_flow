@@ -15,6 +15,8 @@ class ApiErrorCode {
   static const currencyNotFound = 'CURRENCY_NOT_FOUND';
   static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
   static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
+  static const fcExportBlocked = 'FC_EXPORT_BLOCKED';
+  static const fcClosureBlocked = 'FC_CLOSURE_BLOCKED';
 }
 
 /// User-facing, localized text for a failed API call.

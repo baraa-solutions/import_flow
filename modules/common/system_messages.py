@@ -1306,6 +1306,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "No customs exchange rate registered for currency '{currency}' on date {on_date}.",
     },
     "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
+    "FC_EXPORT_BLOCKED": {"note": "The comprehensive dossier export cannot proceed: {blocking} not met."},
     "FC_CLOSED_RECORD_LOCKED": {
         "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",
     },
