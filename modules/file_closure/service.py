@@ -436,13 +436,24 @@ def get_comprehensive_shipment_dossier_service(
         else:
             fob_by_currency[curr] = round(fob_by_currency.get(curr, 0.0) + amt, 2)
 
+        po_rate_raw = float(po.exchange_rate) if po.exchange_rate is not None else None
+        if po_rate_raw is not None:
+            if po_rate_raw <= 0:
+                po_rate = None
+            elif (curr or "").strip().upper() != "EGP" and po_rate_raw == 1.0:
+                po_rate = None
+            else:
+                po_rate = po_rate_raw
+        else:
+            po_rate = None
+
         po_summaries.append({
             "po_id": po.po_id,
             "po_number": po.po_number,
             "po_reference": po.po_reference,
             "proforma_invoice_number": po.proforma_invoice_number,
             "currency": curr,
-            "exchange_rate": float(po.exchange_rate) if po.exchange_rate is not None else None,
+            "exchange_rate": po_rate,
             "total_amount_fob": amt,
             "total_packages": int(po.total_packages_count or 0),
             "total_gross_weight_kg": float(po.total_gross_weight_kg or 0.0),
@@ -543,11 +554,11 @@ def get_comprehensive_shipment_dossier_service(
         or imp.actual_landed_cost_total_egp
         or 0.0
     )
-    raw_markup = (
-        (settlement.average_markup_factor if settlement else None)
-        if (settlement and settlement.average_markup_factor is not None)
-        else getattr(imp, "actual_landed_cost_markup_factor", None)
-    )
+    raw_markup = None
+    if settlement and settlement.average_markup_factor is not None:
+        raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
     markup_fac: Optional[float] = float(raw_markup) if raw_markup is not None else None
     var_egp = float(imp.actual_landed_cost_variance_egp or 0.0)
     var_pct = float(imp.actual_landed_cost_variance_pct or 0.0)
@@ -988,11 +999,13 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
     existing = repo.get_closure_by_import_file_id(db, import_file_id)
 
     actual_landed = float(imp.actual_landed_cost_total_egp or 0.0)
-    raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
+    raw_markup = None
     if settlement is not None:
         actual_landed = float(settlement.total_landed_cost_egp or actual_landed)
         if settlement.average_markup_factor is not None:
             raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
     markup: Optional[float] = float(raw_markup) if raw_markup is not None else None
 
     return ClosurePrecheckResponse(
