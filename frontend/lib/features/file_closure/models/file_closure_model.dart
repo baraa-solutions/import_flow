@@ -117,7 +117,7 @@ class ImportFileClosureModel {
       archivalNotes: json['archival_notes'],
       status: json['status'] ?? 'Closed',
       isActive: json['is_active'] ?? true,
-      closedAt: json['closed_at'] ?? '',
+      closedAt: json['closed_at']?.toString() ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );

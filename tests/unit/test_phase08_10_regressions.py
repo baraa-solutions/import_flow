@@ -38,6 +38,7 @@ from modules.notifications.model import SystemNotification
 from modules.users.model import Role, User
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 from modules.warehouse_receiving.schemas import (
+    DiscrepancyReportSubmit,
     GrnItemSchema,
     WarehouseInspectionSubmit,
     WarehouseReceivingCreate,
@@ -76,6 +77,10 @@ def _file(db, code="IMP-REG-0001", **extra) -> ImportFile:
     db.commit()
     db.refresh(imp)
     return imp
+
+
+def _wr_file(db, code="IMP-REG-0001", **extra) -> ImportFile:
+    return _file(db, code, is_customs_released=True, **extra)
 
 
 def _items(*rows):
@@ -202,8 +207,8 @@ def test_closure_post_permission_depends_on_draft_flag(strict_client, rbac, db):
 
 
 def test_wr_create_records_signed_in_user(strict_client, rbac, db):
-    imp = _file(db, "IMP-REG-WRUSER")
-    body = {"import_file_id": imp.import_file_id, "grn_items": [
+    imp = _wr_file(db, "IMP-REG-WRUSER")
+    body = {"import_file_id": imp.import_file_id, "warehouse_name": "WH", "grn_items": [
         {"item_code": "A", "item_name": "A", "invoiced_qty": 5, "accepted_qty": 5}]}
     res = strict_client.post("/api/v1/warehouse-receiving", json=body, headers=_bearer(rbac["operator"]))
     assert res.status_code == 201, res.text
@@ -215,7 +220,7 @@ def test_wr_create_records_signed_in_user(strict_client, rbac, db):
 # ─── Warehouse receiving ─────────────────────────────────────────────────────
 
 def test_wr02_second_grn_is_409_with_code(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     first = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="u")
     with pytest.raises(HTTPException) as exc:
         wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="u")
@@ -226,7 +231,7 @@ def test_wr02_second_grn_is_409_with_code(db):
 
 def test_wr02_create_writes_audit_row(db):
     from modules.audit_logs.model import AuditLog
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="auditor-u")
     log = db.query(AuditLog).filter(AuditLog.entity_type == "WarehouseReceivingRecord",
                                     AuditLog.entity_id == rec.receiving_id).one()
@@ -235,7 +240,7 @@ def test_wr02_create_writes_audit_row(db):
 
 
 def test_wr03_accepted_full_with_shortage_is_400(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 8, 2, 0))))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -245,7 +250,7 @@ def test_wr03_accepted_full_with_shortage_is_400(db):
 
 
 def test_wr03_unknown_verdict_is_400_and_default_committee_english(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -257,7 +262,7 @@ def test_wr03_unknown_verdict_is_400_and_default_committee_english(db):
 
 
 def test_wr04_unbalanced_line_is_400_and_excess_allowed(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     with pytest.raises(HTTPException) as exc:
         wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 10, 2, 0))))
     assert exc.value.status_code == 400
@@ -271,7 +276,7 @@ def test_wr04_unbalanced_line_is_400_and_excess_allowed(db):
 
 
 def test_wr07_put_rejects_unknown_status(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     with pytest.raises(HTTPException) as exc:
         wr_service.update_warehouse_receiving_service(db, rec.receiving_id, WarehouseReceivingUpdate(status="Whatever"))
@@ -281,7 +286,7 @@ def test_wr07_put_rejects_unknown_status(db):
 
 
 def test_wr09_restore_with_other_active_grn_is_409(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     first = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     wr_service.soft_delete_warehouse_receiving_service(db, first.receiving_id)
     second = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
@@ -561,7 +566,7 @@ def test_confirm_dossier_export_accepts_edit_or_close(strict_client, rbac, db):
     ((10, 10, 0, 0), True, "ACCEPTED_WITH_DISCREPANCY"),  # quarantine branch
 ])
 def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items(rows)))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -572,7 +577,7 @@ def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
 
 
 def test_wr_damage_claim_pending_allowed_with_discrepancy(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 8, 0, 2))))
     out = wr_service.submit_warehouse_inspection_protocol_service(
         db, rec.receiving_id, WarehouseInspectionSubmit(inspection_verdict="DAMAGE_CLAIM_PENDING"))
@@ -623,5 +628,207 @@ def test_put_lock_follows_file_status(db):
     assert exc.value.status_code == 409
     imp.status = "Active"  # reopened
     db.commit()
-    out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
+    out = fc_service.update_closure_service(
+        db,
+        rec.closure_id,
+        FileClosureUpdate(auditor_name="Spoofed In Body"),
+        user="Reviewer",
+    )
     assert out.auditor_name == "Reviewer"
+
+
+def test_closed_file_blocks_warehouse_receiving_writes(db):
+    imp = _wr_file(db, code="IMP-WR-CLOSED")
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.update_warehouse_receiving_service(db, rec.receiving_id, WarehouseReceivingUpdate(notes="updated"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    assert exc.value.detail.get("import_file_code") == "IMP-WR-CLOSED"
+
+    # 2. Report Discrepancy -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.report_receiving_discrepancy_service(
+            db, rec.receiving_id,
+            DiscrepancyReportSubmit(discrepancy_type="Shortage", discrepancy_notes="Shortage notes"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Inspection -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.submit_warehouse_inspection_protocol_service(
+            db, rec.receiving_id,
+            WarehouseInspectionSubmit(inspection_verdict="ACCEPTED_FULL"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.soft_delete_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Restore -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.restore_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 6. Create on closed file -> 409 IMPORT_FILE_CLOSED
+    imp2 = _file(db, code="IMP-WR-CLOSED-2")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        wr_service.create_warehouse_receiving_service(db, _grn(imp2.import_file_id))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    loaded = wr_service.get_warehouse_receiving_service(db, rec.receiving_id)
+    assert loaded.receiving_id == rec.receiving_id
+
+
+def test_closed_file_blocks_inland_transport_writes(db):
+    imp = _file(db, code="IMP-IT-CLOSED", current_module="Phase 7 - Customs Clearance")
+    b = it_service.create_transport_booking_service(db, _booking(imp.import_file_id, waybill="WB-IT-1"))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Create on closed file -> 409 IMPORT_FILE_CLOSED and current_module unchanged
+    imp2 = _file(db, code="IMP-IT-CLOSED-2", current_module="Phase 10 - File Closure")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        it_service.create_transport_booking_service(db, _booking(imp2.import_file_id, waybill="WB-IT-2"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    db.refresh(imp2)
+    assert imp2.current_module == "Phase 10 - File Closure"
+
+    # 2. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.update_transport_booking_service(
+            db, b.transport_id,
+            InlandTransportBookingUpdate(carrier_name="New Carrier"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Gate Out -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_port_gate_out_service(
+            db, b.transport_id,
+            InlandTransportGateOutSubmit(actual_departure_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Warehouse Arrival -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_warehouse_arrival_service(
+            db, b.transport_id,
+            InlandTransportArrivalSubmit(actual_arrival_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.soft_delete_transport_booking_service(db, b.transport_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    bookings = it_service.list_transport_bookings_service(db, import_file_id=imp.import_file_id)
+    assert len(bookings) == 1
+
+
+def test_be810_t04_legacy_tolerant_schemas(db, strict_client, rbac):
+    from sqlalchemy import text
+    file = _file(db, code="IMP-LEGACY-01")
+    now_dt = datetime.now(timezone.utc)
+
+    # 1. Insert an InlandTransportBooking row with driver_phone="123", created_by=NULL, is_active=NULL, transport_fare_egp=NULL
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-001', :file_id, 'WB-LEG-01', :now,
+            'Carrier', 'ABC 123', 'FLATBED', 'Driver Ali',
+            '123', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 500.0,
+            'Booking Confirmed', 1, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # Row with is_active=NULL (listed via include_inactive=True)
+    db.execute(text("""
+        INSERT INTO inland_transport_bookings (
+            transport_code, import_file_id, waybill_number, booking_date,
+            carrier_name, truck_plate_number, truck_type, driver_name,
+            driver_phone, pickup_port_location, destination_warehouse,
+            planned_departure_at, expected_arrival_at, transport_fare_egp,
+            status, is_active, created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'TR-LEG-002', :file_id, 'WB-LEG-02', :now,
+            'Carrier', 'ABC 124', 'FLATBED', 'Driver Hassan',
+            '456', 'Alexandria Port', 'Cairo Warehouse',
+            :now, :now, 600.0,
+            'Booking Confirmed', NULL, :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+
+    # 2. Insert a FileClosureRecord row with status=NULL, created_by=NULL, closed_at=NULL, closure_checklist with nulls
+    db.execute(text("""
+        INSERT INTO file_closure_records (
+            closure_code, import_file_id, closure_checklist, auditor_name,
+            archive_location, status, is_active, closed_at,
+            created_at, created_by, updated_at, updated_by
+        ) VALUES (
+            'CLR-LEG-001', :file_id, '{"docs_verified": null, "customs_cleared": true}', 'Old Auditor',
+            'Old Archive', NULL, 1, NULL,
+            :now, NULL, :now, NULL
+        )
+    """), {"file_id": file.import_file_id, "now": now_dt})
+    db.commit()
+
+    # Query GET /api/v1/inland-transport/bookings
+    res_it = strict_client.get("/api/v1/inland-transport/bookings", headers=_bearer(rbac["operator"]))
+    assert res_it.status_code == 200, res_it.text
+    bookings = res_it.json()
+    leg_booking = next(b for b in bookings if b["transport_code"] == "TR-LEG-001")
+    assert leg_booking["driver_phone"] == "123"
+    assert leg_booking["created_by"] is None or leg_booking["created_by"] == "System"
+    assert leg_booking["transport_fare_egp"] == 500.0
+
+    # Query GET /api/v1/inland-transport/bookings?include_inactive=true
+    res_it_all = strict_client.get("/api/v1/inland-transport/bookings?include_inactive=true", headers=_bearer(rbac["operator"]))
+    assert res_it_all.status_code == 200, res_it_all.text
+    all_bookings = res_it_all.json()
+    leg_booking_2 = next(b for b in all_bookings if b["transport_code"] == "TR-LEG-002")
+    assert leg_booking_2["driver_phone"] == "456"
+    assert leg_booking_2["is_active"] is True  # LegacyRowTolerantModel normalized None -> True
+
+    # Query GET /api/v1/file-closure
+    res_fc = strict_client.get("/api/v1/file-closure", headers=_bearer(rbac["operator"]))
+    assert res_fc.status_code == 200, res_fc.text
+    closures = res_fc.json()
+    leg_closure = next(c for c in closures if c["closure_code"] == "CLR-LEG-001")
+    assert leg_closure["status"] is None or leg_closure["status"] == "Closed"
+    assert leg_closure["closed_at"] is None
+    assert leg_closure["closure_checklist"]["docs_verified"] is None
+    assert leg_closure["closure_checklist"]["customs_cleared"] is True

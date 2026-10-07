@@ -3,6 +3,7 @@ Freight Quotations Engine Models (BP-008)
 """
 
 from datetime import datetime, date, timezone
+from typing import Optional
 from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
@@ -72,6 +73,8 @@ class FreightRFQRequest(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Relationship to Quotation Items
     quotations: Mapped[list["FreightQuotationItem"]] = relationship(
