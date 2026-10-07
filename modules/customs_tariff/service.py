@@ -687,7 +687,7 @@ def estimate_multi_item_customs_duty_service(
     freight_rate_used: Optional[Decimal] = None
     freight_rate_source: Optional[str] = None
 
-    if freight_curr != "EGP" and freight_foreign_amt > Decimal("0.00"):
+    if request.has_freight_document and freight_curr != "EGP" and freight_foreign_amt > Decimal("0.00"):
         if freight_curr == (request.currency or "").strip().upper():
             freight_rate_used = effective_exchange_rate
             freight_rate_source = "invoice_currency"

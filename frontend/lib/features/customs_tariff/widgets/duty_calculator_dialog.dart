@@ -89,15 +89,17 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         final deemedFrt = fobEgp * 0.020;
         deemedFreightCtrl.text = deemedFrt.toStringAsFixed(3);
         multiFreightCtrl.text = '0.00';
-      } else {
         final fAmt = double.tryParse(freightForeignCtrl.text.trim()) ?? 0;
         final customRate = double.tryParse(freightExchangeRateCtrl.text.trim());
         final fRate = selectedFreightCurrency == 'EGP'
             ? 1.0
-            : (customRate ?? (selectedFreightCurrency == selectedCurrency ? rate : 1.0));
-        final calcFrtEgp = fAmt * fRate;
-        multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
-      }
+            : (customRate ?? (selectedFreightCurrency == selectedCurrency ? rate : null));
+        if (fRate != null) {
+          final calcFrtEgp = fAmt * fRate;
+          multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
+        } else {
+          multiFreightCtrl.text = '';
+        }
 
       final actualIns = double.tryParse(insuranceCtrl.text.trim()) ?? 0;
       final deemedIns = double.tryParse(deemedInsuranceCtrl.text.trim()) ?? 0;
@@ -724,9 +726,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                     if (val == null) return;
                                     setCalcState(() {
                                       selectedFreightCurrency = val;
-                                      freightExchangeRateCtrl.text =
-                                          (defaultExchangeRates[val] ?? 50.7917)
-                                              .toStringAsFixed(4);
+                                      freightExchangeRateCtrl.text = '';
                                       syncCalculatedFields(
                                           setCalcState, multiLines);
                                     });
@@ -761,11 +761,11 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                         setCalcState, multiLines),
                                     decoration: InputDecoration(
                                       labelText: isArabic
-                                          ? 'معامل تحويل عملة النولون *'
-                                          : 'Freight Conversion Rate *',
-                                      hintText: '50.7917',
-                                      isDense: true,
-                                    ),
+                                          ? 'معامل تحويل عملة النولون (اختياري)'
+                                          : 'Freight FX Override (Optional)',
+                                      hintText: isArabic
+                                          ? 'اتركه فارغاً لاستخدام سعر الجمارك'
+                                          : 'Leave blank for customs rate',
                                   ),
                                 ),
                               ],

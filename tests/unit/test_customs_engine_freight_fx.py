@@ -242,3 +242,35 @@ def test_freight_egp_or_deemed_source_is_none(db_session):
     assert res_deemed.freight_source == "deemed"
     assert res_deemed.freight_rate_source is None
     assert res_deemed.freight_exchange_rate_used is None
+
+
+def test_deemed_freight_does_not_fail_when_unused_freight_currency_has_no_rate(db_session):
+    """Test 6: EUR invoice, USD freight, has_freight_document=False, no USD rate -> 200 deemed."""
+    # Ensure no ExchangeRate exists for USD
+    usd = db_session.query(Currency).filter(Currency.currency_code == "USD").one()
+    db_session.query(ExchangeRate).filter(ExchangeRate.currency_id == usd.currency_id).delete()
+    db_session.commit()
+
+    req = MultiItemCustomsEstimateRequest(
+        currency="EUR",
+        exchange_rate=Decimal("55.00"),
+        estimate_date=date(2026, 6, 1),
+        insurance_egp=Decimal("25000.00"),
+        has_insurance_document=True,
+        freight_currency="USD",
+        freight_foreign_amount=Decimal("234.72"),
+        has_freight_document=False,  # Deemed freight
+        lines=[
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                item_description="Laptops",
+                hs_code="8471.30.00",
+                value_fc=Decimal("20000.00"),
+            )
+        ],
+    )
+    res = estimate_multi_item_customs_duty_service(db_session, req)
+    assert res.freight_source == "deemed"
+    assert res.freight_rate_source is None
+    assert res.freight_exchange_rate_used is None
+
