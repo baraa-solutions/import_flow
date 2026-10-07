@@ -216,8 +216,13 @@ def get_agreements_by_hs_code(
 ) -> List[PreferentialAgreement]:
     from sqlalchemy import func
     nodots = hs_code.strip().replace(".", "")
+    candidates = {nodots}
+    if len(nodots) == 10:
+        candidates.add(nodots[:8])
+    elif len(nodots) == 8:
+        candidates.add(nodots + "00")
     query = db.query(PreferentialAgreement).filter(
-        func.replace(PreferentialAgreement.hs_code, ".", "") == nodots
+        func.replace(PreferentialAgreement.hs_code, ".", "").in_(list(candidates))
     )
     if on_date:
         query = query.filter(

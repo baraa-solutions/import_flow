@@ -613,46 +613,6 @@ def calc_collection_fees(
     }
 
 
-def _customs_rate(
-    db: Session, currency: str, on_date: Optional[date] = None
-) -> Tuple[Decimal, Optional[date], Optional[int]]:
-    """Resolves the official Egyptian customs exchange rate for a given currency on a target date.
-
-    Returns (rate as Decimal, effective_date, rate_id).
-    Raises HTTPException 422 with code CT_CUSTOMS_RATE_MISSING if no rate is registered or currency is unknown.
-    """
-    code = (currency or "").upper().strip()
-    ref_date = on_date or date.today()
-    if code == "EGP":
-        return Decimal("1.0"), ref_date, None
-
-    from modules.currencies.service import CurrencyService
-
-    c_service = CurrencyService(db)
-    try:
-        r_val, r_date, r_id = c_service._get_rate_to_egp(code, rate_type="customs", as_of_date=ref_date)
-    except HTTPException:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={
-                "code": "CT_CUSTOMS_RATE_MISSING",
-                "message": f"لا يوجد سعر صرف جمركي مسجل للعملة {code} بتاريخ {ref_date}.",
-                "currency": code,
-                "on_date": ref_date.isoformat() if isinstance(ref_date, (date, datetime)) else str(ref_date),
-            },
-        )
-    if r_id is None or r_val is None or r_val <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={
-                "code": "CT_CUSTOMS_RATE_MISSING",
-                "message": f"لا يوجد سعر صرف جمركي مسجل للعملة {code} بتاريخ {ref_date}.",
-                "currency": code,
-                "on_date": ref_date.isoformat() if isinstance(ref_date, (date, datetime)) else str(ref_date),
-            },
-        )
-    return Decimal(str(r_val)), r_date, r_id
-
 
 # ==================================================
 # Multi-Item Egyptian Customs Engine (Nafeza Statement Engine)
@@ -679,7 +639,12 @@ def estimate_multi_item_customs_duty_service(
     if request.exchange_rate is not None and request.exchange_rate > Decimal("0.00"):
         effective_exchange_rate = request.exchange_rate
     else:
-        effective_exchange_rate, rate_date, rate_id = _customs_rate(db, request.currency, on_date)
+        from modules.currencies.service import CurrencyService
+        c_service = CurrencyService(db)
+        r_val, r_date, r_id = c_service._get_rate_to_egp(request.currency, rate_type="customs", as_of_date=on_date)
+        effective_exchange_rate = Decimal(str(r_val))
+        rate_date = r_date
+        rate_id = r_id
 
     # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
     (
@@ -982,7 +947,7 @@ def compare_tariff_versions_service(
     old_ag_by_notice = {}
     for ag in old_agreements:
         key = ag.publication_notice or ag.agreement_name
-        old_ag_by_notice[key] = ag
+        old_ag_by_notice.setdefault(key, ag)
 
     new_ag_by_notice = {}
     for ag in new_agreements:
@@ -1465,7 +1430,10 @@ def simulate_import_file_customs_duty_service(
     if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
         fx_rate = req.exchange_rate
     else:
-        fx_rate, _, _ = _customs_rate(db, currency, calc_date)
+        from modules.currencies.service import CurrencyService
+        c_service = CurrencyService(db)
+        r_val, _, _ = c_service._get_rate_to_egp(currency, rate_type="customs", as_of_date=calc_date)
+        fx_rate = Decimal(str(r_val))
 
     # 3. Resolve Freight & Insurance
     has_freight_doc = req.freight_egp is not None and req.freight_egp > Decimal("0.00")

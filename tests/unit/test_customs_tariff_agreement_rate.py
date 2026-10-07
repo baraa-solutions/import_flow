@@ -371,3 +371,87 @@ def test_dotless_hs_code_lookup(db_session):
 
     assert res.customs_duty_rate == Decimal("3.00")
     assert res.trade_agreement_applied == "Dotted Mercosur"
+
+
+def test_10digit_hs_code_matches_8digit_dotted_agreement(db_session):
+    """Test 9: 10-digit HS code (8536410000) finds agreement and tariff stored as 8536.41.00."""
+    tariff = CustomsTariff(
+        hs_code="8536.41.00",
+        hs_description="Relays",
+        customs_duty_rate=Decimal("30.00"),
+        vat_rate=Decimal("14.00"),
+        effective_from=date(2025, 1, 1),
+        is_active=True,
+    )
+    db_session.add(tariff)
+
+    ag = PreferentialAgreement(
+        hs_code="8536.41.00",
+        agreement_name="Mercosur 10-digit Match",
+        reduction_type="fixed_rate",
+        preferential_duty_rate=Decimal("3.00"),
+        origin_countries="BR",
+        effective_from=date(2025, 1, 1),
+    )
+    db_session.add(ag)
+    db_session.commit()
+
+    req = CustomsDutyEstimateRequest(
+        hs_code="8536410000",
+        cif_value=Decimal("100000.00"),
+        origin_country="BR",
+        estimate_date=date(2026, 5, 1),
+    )
+    res = estimate_customs_duty_service(db_session, req)
+
+    assert res.customs_duty_rate == Decimal("3.00")
+    assert res.import_duty_amount == Decimal("3000.00")
+    assert res.trade_agreement_applied == "Mercosur 10-digit Match"
+
+
+def test_expired_agreement_multi_item(db_session):
+    """Test 10: Multi-item estimate does not apply expired agreement."""
+    tariff = CustomsTariff(
+        hs_code="8536.41.00",
+        hs_description="Relays",
+        customs_duty_rate=Decimal("30.00"),
+        vat_rate=Decimal("14.00"),
+        effective_from=date(2020, 1, 1),
+        is_active=True,
+    )
+    db_session.add(tariff)
+
+    # Expired yesterday
+    calc_date = date(2026, 6, 1)
+    ag = PreferentialAgreement(
+        hs_code="8536.41.00",
+        agreement_name="Expired Mercosur Multi",
+        reduction_type="fixed_rate",
+        preferential_duty_rate=Decimal("3.00"),
+        origin_countries="BR",
+        effective_from=date(2020, 1, 1),
+        effective_to=calc_date - timedelta(days=1),
+    )
+    db_session.add(ag)
+    db_session.commit()
+
+    req = MultiItemCustomsEstimateRequest(
+        currency="USD",
+        exchange_rate=Decimal("50.00"),
+        estimate_date=calc_date,
+        cif_declared_total_egp=Decimal("50000.00"),
+        lines=[
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                item_description="Relays",
+                hs_code="8536.41.00",
+                value_fc=Decimal("1000.00"),
+                origin_country="BR",
+            )
+        ],
+    )
+    res = estimate_multi_item_customs_duty_service(db_session, req)
+    assert len(res.lines) == 1
+    assert res.lines[0].customs_duty_rate == Decimal("30.00")
+    assert res.lines[0].preferential_agreement_applied is None
+
