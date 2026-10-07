@@ -533,6 +533,14 @@
       "note"
     ]
   },
+  "CURRENCY_CODE_UNKNOWN": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CUSTOMS_FX_RATE_MISSING": {
     "params": [
       "currency",
@@ -2016,6 +2024,14 @@
       "body",
       "evidence",
       "reason"
+    ]
+  },
+  "IMPORT_FILE_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "INVOICES_ALREADY_SETTLED": {
