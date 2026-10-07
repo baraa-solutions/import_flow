@@ -3,6 +3,7 @@ from typing import Any, Iterable, Optional
 from fastapi import HTTPException
 
 from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 
 # Legacy labels stored today (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
 WR_STATUS_LABELS = frozenset({
@@ -146,3 +147,64 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             f"نوع الفرق '{discrepancy_type}' غير معروف.",
             discrepancy_type=discrepancy_type,
         )
+
+def validate_customs_release(imp: Any, clearance: Any) -> None:
+    """GRN create precondition (plan WR-F08 / BE810-T11).
+    Shipment must have customs release or under-bond authorization, or customs clearance was skipped (STEP_17).
+    """
+    is_released = bool(getattr(imp, "is_customs_released", False))
+    permit_no = bool(getattr(imp, "customs_release_permit_no", None))
+    clearance_status = getattr(clearance, "status", None) if clearance else None
+    clearance_released = (clearance_status == "Final Release Granted")
+    under_bond = bool(getattr(clearance, "is_under_bond_release", False)) if clearance else False
+    skipped = getattr(imp, "skipped_stages", None) or []
+    step_17_skipped = "STEP_17" in skipped
+
+    if is_released or permit_no or clearance_released or under_bond or step_17_skipped:
+        return
+
+    import_file_code = getattr(imp, "import_file_code", "")
+    msg_ar = (
+        f"لا يمكن إنشاء إذن استلام للملف {import_file_code}: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ."
+        if import_file_code
+        else "لا يمكن إنشاء إذن استلام: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ."
+    )
+    raise coded_error(
+        400,
+        "WR_CUSTOMS_NOT_RELEASED",
+        msg_ar,
+        import_file_code=import_file_code,
+    )
+
+
+def validate_grn_deletable(record: Any) -> None:
+    """GRN delete guard (plan WR-F14 / BE810-T16).
+    Raises 409 WR_GRN_LOCKED when inspection protocol exists, claims are filed, or quarantine lock is active.
+    """
+    if (
+        getattr(record, "inspection_protocol_number", None)
+        or getattr(record, "insurance_claim_filed", False)
+        or getattr(record, "supplier_claim_filed", False)
+        or getattr(record, "quarantine_lock_active", False)
+    ):
+        grn_code = getattr(record, "grn_code", "")
+        reasons = []
+        if getattr(record, "inspection_protocol_number", None):
+            reasons.append("محضر الفحص معتمد")
+        if getattr(record, "insurance_claim_filed", False) or getattr(record, "supplier_claim_filed", False):
+            reasons.append("توجد مطالبات مسجلة")
+        if getattr(record, "quarantine_lock_active", False):
+            reasons.append("حظر التحفظ الجمركي نشط")
+        reason_text = "، ".join(reasons)
+        msg_ar = (
+            f"لا يمكن حذف إذن الاستلام {grn_code}: {reason_text}."
+            if grn_code
+            else f"لا يمكن حذف إذن الاستلام: {reason_text}."
+        )
+        raise coded_error(
+            409,
+            "WR_GRN_LOCKED",
+            msg_ar,
+            grn_code=grn_code,
+        )
+

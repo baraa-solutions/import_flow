@@ -1412,6 +1412,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'لا يمكن إنشاء إذن استلام للملف {import_file_code}: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ.',
+  },
+  'WR_GRN_LOCKED': {
+    'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
@@ -1423,6 +1429,18 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
+  },
+  'CURRENCY_NOT_FOUND': {
+    'note': 'العملة الكود \'{currency}\' غير مسجلة في النظام.',
+  },
+  'CURRENCY_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف مسجل للعملة \'{currency}\' من نوع \'{rate_type}\' بتاريخ {as_of_date}.',
+  },
+  'CT_CUSTOMS_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'بيانات اتفاقية التجارة التفضيلية غير صحيحة ({reason}).',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
@@ -1465,6 +1483,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'SETTLEMENT_LINE_ZERO_VALUE': {
     'note': 'البند {item_code} ليس له قيمة: تم استبعاده من التقدير الجمركي.',
+  },
+  'SETTLEMENT_PO_NOT_ALLOCATED': {
+    'note': 'أمر الشراء {po_number} مخصص لشحنات أخرى وليس له حصة في هذا الملف.',
   },
   'PAYMENT_STATUS_UNKNOWN': {
     'note': 'الفاتورة {invoice_no} مسددة جزئياً لكن المبلغ المسدد غير معروف: تم احتسابها كغير مسددة.',

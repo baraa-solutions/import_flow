@@ -12,7 +12,12 @@ class ApiErrorCode {
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
+  static const currencyNotFound = 'CURRENCY_NOT_FOUND';
+  static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
+  static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const wrCustomsNotReleased = 'WR_CUSTOMS_NOT_RELEASED';
+  static const wrGrnLocked = 'WR_GRN_LOCKED';
   static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
 }
 
