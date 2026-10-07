@@ -899,11 +899,6 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'متابعة وصول الشاحنة للمستودع وإصدار إذن الإضافة GRN (TR-03)',
   },
-  'TR_SEAL_BROKEN': {
-    'title': 'إبلاغ عن كسر الختم الجمركي للشاحنة {truck_plate_number}',
-    'body': 'وصلت الشاحنة {truck_plate_number} بختم جمركي مكسور/تالف ({seal_number}).',
-    'note': 'تم الإبلاغ عن كسر الختم الجمركي {seal_number} عند الوصول.',
-  },
 
   'WH_GRN_ISSUED': {
     'title': 'تم إصدار إذن الإضافة المخزني ({grn_code})',
@@ -1381,9 +1376,6 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CC_ASSESSED_COMPONENTS_LOCKED': {
     'note': 'لا يمكن تعديل مكونات الرسوم بعد التقدير ({fields})؛ أعد تقدير الرسوم النهائية (CL-02).',
   },
-  'CC_SETTLEMENT_LOCKED': {
-    'note': 'لا يمكن تعديل فواتير التخليص بعد اعتماد تسوية تكلفة الوصول ({settlement_code}).',
-  },
   'CCQ_RFQ_STATUS_INVALID': {
     'note': 'حالة طلب عروض الأسعار \'{status}\' غير مسموحة؛ الترسية تتم من خلال إجراء الترسية فقط.',
   },
@@ -1420,38 +1412,8 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
-  'WR_GRN_LOCKED': {
-    'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
-  },
-  'WR_CUSTOMS_NOT_RELEASED': {
-    'note': 'لا يمكن إنشاء إذن استلام للملف {import_file_code}: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ.',
-  },
-  'WR_FIELD_NOT_EDITABLE': {
-    'note': 'لا يمكن تعديل الحقل \'{field_name}\' مباشرة.',
-  },
-  'WR_STATUS_CHANGE_NOT_ALLOWED': {
-    'note': 'لا يمكن تغيير حالة إذن الاستلام من \'{current_status}\' إلى \'{target_status}\'.',
-  },
-  'WR_CLAIM_CURRENCY_INVALID': {
-    'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
-  },
-  'WR_DATE_IN_FUTURE': {
-    'note': 'تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).',
-  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
-  },
-  'IT_CARRIER_INVALID': {
-    'note': 'شركة النقل رقم {carrier_id} غير موجودة أو غير نشطة.',
-  },
-  'IT_TRUCK_TYPE_INVALID': {
-    'note': 'نوع الشاحنة \'{truck_type}\' غير صالح.',
-  },
-  'IT_SEAL_REQUIRED': {
-    'note': 'رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم.',
-  },
-  'IT_DATE_IN_FUTURE': {
-    'note': 'موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.',
   },
   'IT_STATUS_INVALID': {
     'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
@@ -1462,35 +1424,8 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
   },
-  'IMPORT_FILE_CLOSED': {
-    'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
-  },
-  'CURRENCY_CODE_UNKNOWN': {
-    'note': 'رمز العملة غير معروف أو غير نشط \'{currency_code}\'.',
-  },
-  'CURRENCY_NOT_FOUND': {
-    'note': 'العملة الكود \'{currency}\' غير مسجلة في النظام.',
-  },
-  'CURRENCY_RATE_MISSING': {
-    'note': 'لا يوجد سعر صرف مسجل للعملة \'{currency}\' من نوع \'{rate_type}\' بتاريخ {as_of_date}.',
-  },
-  'CT_CUSTOMS_RATE_MISSING': {
-    'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
-  },
-  'CT_SIMULATION_NO_LINES': {
-    'note': 'لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.',
-  },
-  'CT_SIMULATION_NO_BROKER': {
-    'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
-  },
-  'LIST_SORT_FIELD_INVALID': {
-    'note': 'حقل الترتيب \'{field}\' غير معروف. الحقول المسموح بها: {allowed}.',
-  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
-  },
-  'FC_EXPORT_BLOCKED': {
-    'note': 'لا يمكن تصدير واعتماد الملف الشامل: الشروط التالية غير مستوفاة: {blocking}.',
   },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'سجل الإغلاق {closure_code} يتبع ملفاً مغلقاً: أعد فتح الملف أولاً.',
@@ -1554,5 +1489,14 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'RECALC_RATE_MISSING': {
     'note': 'تعذرت مقارنة بعض البنود: لا يوجد سعر صرف لعملتها ({fields}).',
+  },
+  'CT_SIMULATION_NO_LINES': {
+    'note': 'لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.',
+  },
+  'CT_SIMULATION_NO_BROKER': {
+    'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'بيانات اتفاقية التجارة التفضيلية غير صالحة ({reason}).',
   },
 };

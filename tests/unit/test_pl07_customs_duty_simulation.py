@@ -21,6 +21,7 @@ from modules.currencies.service import clear_currency_cache
 from modules.projects.model import Project
 from modules.import_files.model import ImportFile
 from modules.purchase_orders.model import PurchaseOrder, POLineItem
+from modules.external_service_providers.model import ExternalServiceProvider
 from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement, FeeCode
 from modules.customs_tariff.schemas import (
     CustomsDutyEstimateRequest,
@@ -126,7 +127,14 @@ def db_session():
         is_active=True,
     )
     inco = Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True)
-    db.add_all([comp, sup, inco])
+    broker = ExternalServiceProvider(
+        provider_id=1,
+        partner_code="BROKER-001",
+        partner_name="Approved Customs Broker",
+        partner_type="Customs Broker",
+        is_active=True,
+    )
+    db.add_all([comp, sup, inco, broker])
     db.commit()
 
     try:
@@ -878,4 +886,320 @@ class TestPL07CustomsDutySimulation:
 
         assert res.consultation_id is None
         assert "CT_SIMULATION_NO_BROKER" in res.warnings
+
+    def test_simulation_multi_currency_pos_ignores_override_and_warns(self, db_session):
+        c_eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True)
+        db_session.add(c_eur)
+        db_session.flush()
+        rate_eur = ExchangeRate(
+            currency_id=c_eur.currency_id,
+            effective_date=date.today(),
+            customs_rate=Decimal("55.0000"),
+            commercial_rate=Decimal("55.0000"),
+            is_active=True,
+        )
+        db_session.add(rate_eur)
+        db_session.commit()
+
+        tariff = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-MULTI-CURR",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po_eur = PurchaseOrder(
+            po_number="PO-EUR",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=c_eur.currency_id,
+            status="Approved",
+            is_active=True,
+        )
+        po_usd = PurchaseOrder(
+            po_number="PO-USD",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add_all([po_eur, po_usd])
+        db_session.flush()
+
+        item_eur = POLineItem(
+            po_id=po_eur.po_id,
+            item_code="ITEM-EUR",
+            description_ar="أجهزة كمبيوتر",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("1000.00"),
+            total_price=Decimal("1000.00"),
+        )
+        item_usd = POLineItem(
+            po_id=po_usd.po_id,
+            item_code="ITEM-USD",
+            description_ar="أجهزة كمبيوتر",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("1000.00"),
+            total_price=Decimal("1000.00"),
+        )
+        db_session.add_all([item_eur, item_usd])
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest(
+            exchange_rate=Decimal("40.00"),
+            freight_egp=Decimal("0.00"),
+            insurance_egp=Decimal("0.00"),
+        )
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+        assert "EXCHANGE_RATE_OVERRIDE_AMBIGUOUS" in res.warnings
+        assert res.breakdown.fob_value_egp == Decimal("105000.00")
+
+    def test_simulation_po_with_no_currency_is_skipped(self, db_session):
+        tariff = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+        c_blank = Currency(
+            currency_code="",
+            currency_name="No Code",
+            currency_symbol="",
+            is_active=True,
+        )
+        db_session.add(c_blank)
+        db_session.flush()
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-NO-CURR",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po_no_curr = PurchaseOrder(
+            po_number="PO-NOCURR",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=c_blank.currency_id,
+            status="Approved",
+            is_active=True,
+        )
+        po_valid = PurchaseOrder(
+            po_number="PO-VALID",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add_all([po_no_curr, po_valid])
+        db_session.flush()
+
+        item_skip = POLineItem(
+            po_id=po_no_curr.po_id,
+            item_code="ITEM-NOCURR",
+            description_ar="صنف بدون عملة",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("10.00"),
+            unit_price=Decimal("100.00"),
+            total_price=Decimal("1000.00"),
+        )
+        item_ok = POLineItem(
+            po_id=po_valid.po_id,
+            item_code="ITEM-OK",
+            description_ar="صنف سليم",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("500.00"),
+            total_price=Decimal("500.00"),
+        )
+        db_session.add_all([item_skip, item_ok])
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest()
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert any(s["po_number"] == "PO-NOCURR" and s["reason"] == "NO_CURRENCY" for s in res.skipped_lines)
+        assert len(res.breakdown.lines) == 1
+        assert res.breakdown.lines[0].hs_code == "8471.30.00"
+
+    def test_simulation_invoices_multi_currency_override_and_no_currency(self, db_session):
+        c_eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True)
+        db_session.add(c_eur)
+        db_session.flush()
+        rate_eur = ExchangeRate(
+            currency_id=c_eur.currency_id,
+            effective_date=date.today(),
+            customs_rate=Decimal("55.0000"),
+            commercial_rate=Decimal("55.0000"),
+            is_active=True,
+        )
+        db_session.add(rate_eur)
+        db_session.commit()
+
+        create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-INV-TEST",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens",
+            hs_code="8471.30.00",
+            status="In Progress",
+            is_active=True,
+            invoices_data=[
+                {"invoice_number": "INV-EUR", "currency": "EUR", "amount": 1000.0},
+                {"invoice_number": "INV-USD", "currency": "USD", "amount": 1000.0},
+                {"invoice_number": "INV-NOCURR", "currency": "", "amount": 500.0},
+            ],
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest(
+            exchange_rate=Decimal("40.00"),
+            freight_egp=Decimal("0.00"),
+            insurance_egp=Decimal("0.00"),
+        )
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert "EXCHANGE_RATE_OVERRIDE_AMBIGUOUS" in res.warnings
+        assert any(s["po_number"] == "INV-NOCURR" and s["reason"] == "NO_CURRENCY" for s in res.skipped_lines)
+        # EUR rate 55 -> 55000, USD rate 50 -> 50000 = 105000
+        assert res.breakdown.fob_value_egp == Decimal("105000.00")
+
+    def test_simulation_freight_quote_no_currency_warns_and_deemed(self, db_session):
+        from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+
+        tariff = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-FRT-TEST",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-FRT",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add(po)
+        db_session.flush()
+
+        item = POLineItem(
+            po_id=po.po_id,
+            item_code="ITEM-FRT",
+            description_ar="أجهزة كمبيوتر",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("1000.00"),
+            total_price=Decimal("1000.00"),
+        )
+        db_session.add(item)
+        db_session.flush()
+
+        # Add RFQ and Quotation with empty currency
+        rfq = FreightRFQRequest(
+            rfq_code="RFQ-2026-01",
+            title="Ocean freight RFQ",
+            crd_date=date.today(),
+            pol_name="Shanghai",
+            pod_name="Alexandria",
+            import_file_id=imp_file.import_file_id,
+            status="Awarded",
+            selected_quotation_id=999,
+            is_active=True,
+        )
+        db_session.add(rfq)
+        db_session.flush()
+
+        quote = FreightQuotationItem(
+            quotation_id=999,
+            rfq_id=rfq.rfq_id,
+            provider_id=1,
+            provider_name="Test Forwarder",
+            currency_code="",  # empty currency!
+            total_cost=2000.0,
+            sailing_date=date.today(),
+            estimated_arrival_date=date.today() + timedelta(days=10),
+        )
+        db_session.add(quote)
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest()
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert "CT_SIMULATION_FREIGHT_NO_CURRENCY" in res.warnings
+        # Since quote currency is blank, deemed freight (2% of FOB for default deemed rate) is used
+        # FOB is 1000 USD * 50 = 50000 EGP. 2% is 1000 EGP.
+        assert res.breakdown.freight_egp == Decimal("1000.00")
+
 
