@@ -55,9 +55,15 @@ def list_closures(
 
 
 def add_closure(db: Session, values: Dict[str, Any]) -> ImportFileClosureRecord:
-    """Insert + flush (the service commits once). ``values`` carries the final status."""
+    """Insert + flush (the service commits once). ``values`` carries the final status (BE810-F30)."""
     now = datetime.now(timezone.utc)
-    db_obj = ImportFileClosureRecord(created_at=now, updated_at=now, closed_at=now, **values)
+    status = values.get("status")
+    closed_at = values.get("closed_at")
+    if closed_at is None and status == "Closed":
+        closed_at = now
+    elif status != "Closed":
+        closed_at = None
+    db_obj = ImportFileClosureRecord(created_at=now, updated_at=now, closed_at=closed_at, **values)
     db.add(db_obj)
     db.flush()
     return db_obj
@@ -126,11 +132,21 @@ def latest_active_inland_booking(db: Session, import_file_id: int):
 
 
 def active_purchase_orders(db: Session, import_file_id: int) -> list:
-    from modules.purchase_orders.model import PurchaseOrder
-    return db.query(PurchaseOrder).filter(
-        PurchaseOrder.import_file_id == import_file_id,
-        PurchaseOrder.is_active == True,
-    ).all()
+    from sqlalchemy.orm import selectinload
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem
+
+    return (
+        db.query(PurchaseOrder)
+        .options(
+            selectinload(PurchaseOrder.currency),
+            selectinload(PurchaseOrder.line_items).selectinload(POLineItem.tariff),
+        )
+        .filter(
+            PurchaseOrder.import_file_id == import_file_id,
+            PurchaseOrder.is_active == True,
+        )
+        .all()
+    )
 
 
 def open_tasks(db: Session, import_file_id: int, statuses: tuple) -> list:

@@ -38,7 +38,7 @@ class FileClosureResponse(BaseModel):
     archival_notes: Optional[str] = None
     status: str
     is_active: bool
-    closed_at: datetime
+    closed_at: Optional[datetime] = None
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -194,6 +194,7 @@ class ClosurePrecheckResponse(BaseModel):
     supplier_name: str
     can_close: bool
     blocking_reasons: List[str] = Field(default_factory=list)
+    blocking_keys: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     checklist_status: Dict[str, bool] = Field(default_factory=dict)
     actual_landed_cost_egp: float = 0.0

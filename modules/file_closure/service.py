@@ -18,6 +18,7 @@ from .schemas import (
 )
 from . import repository as repo
 from .validators import (
+    BLOCKING_MESSAGES_AR,
     CLOSURE_STATUS_CLOSED,
     CLOSURE_STATUS_DRAFT,
     FILE_STATUS_CLOSED,
@@ -90,10 +91,15 @@ def _resolve_user_name(value: Optional[str], legacy_defaults: frozenset, user: s
     return user if not text or text in legacy_defaults else text
 
 
-def _require_any_permission(db: Session, actor: Optional[User], *codes: str) -> None:
-    """Route-level auth only proves the user may read closures; the write permission depends on the payload."""
-    if actor is None:
+def _require_any_permission(db: Session, actor: Optional[User], *codes: str, trusted: bool = False) -> None:
+    """Route-level auth only proves the user may read closures; the write permission depends on the payload (BE810-F31)."""
+    if trusted:
         return
+    if actor is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied. Permission '{codes[-1]}' required.",
+        )
     if not any(has_user_permission(db, actor, code) for code in codes):
         raise HTTPException(
             status_code=403,
@@ -104,11 +110,10 @@ def _require_any_permission(db: Session, actor: Optional[User], *codes: str) -> 
 def _is_closure_task(task: SmartTask) -> bool:
     return (
         task.msg_code == "CLO_TASK_OFFICIAL_CLOSURE"
+        or task.task_type == "CLO-04"
         or "0904" in (task.task_code or "")
-        # legacy rows created before msg codes existed
+        # legacy rows created before msg codes existed: exact CLO-04 match in title only (BE810-F27)
         or "CLO-04" in (task.title or "")
-        or "إغلاق" in (task.title or "")
-        or "أرشفة" in (task.title or "")
     )
 
 
@@ -167,15 +172,16 @@ def close_import_file_service(
     schema: FileClosureCreate,
     user: str = "System",
     actor: Optional[User] = None,
+    trusted: bool = False,
 ) -> ImportFileClosureRecord:
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
     if schema.is_draft:
-        _require_any_permission(db, actor, "import_files.edit", "import_files.close")
+        _require_any_permission(db, actor, "import_files.edit", "import_files.close", trusted=trusted)
     else:
-        _require_any_permission(db, actor, "import_files.close")
+        _require_any_permission(db, actor, "import_files.close", trusted=trusted)
 
     # FC-04: a closed file is never closed again (nor moved back to a draft closure) until it is reopened.
     if imp_file.status == FILE_STATUS_CLOSED:
@@ -853,13 +859,14 @@ def confirm_dossier_export_service(
     payload: DossierExportConfirmRequest,
     user: str = "System",
     actor: Optional[User] = None,
+    trusted: bool = False,
 ) -> DossierExportConfirmResponse:
     """
     CLO-03: Confirms the export of the comprehensive shipment dossier, records export metadata,
     advances progress to >=99.5%, resolves SmartTask TSK-0903, dispatches TSK-0904, and posts system notification.
     """
     imp = _get_active_file(db, payload.import_file_id)
-    _require_any_permission(db, actor, "import_files.edit", "import_files.close")
+    _require_any_permission(db, actor, "import_files.edit", "import_files.close", trusted=trusted)
     if imp.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp.import_file_code)
 
@@ -871,6 +878,7 @@ def confirm_dossier_export_service(
     exported_by = _resolve_user_name(payload.exported_by, LEGACY_EXPORTER_DEFAULTS, user)
     now_utc = datetime.now(timezone.utc)
     today_str = datetime.now().strftime("%Y-%m-%d")
+    was_already_exported = imp.dossier_exported_at is not None
 
     # 1. Update ImportFile metadata & progress
     imp.dossier_exported_at = now_utc
@@ -880,10 +888,11 @@ def confirm_dossier_export_service(
     imp.current_module = "Phase 10 - Comprehensive Dossier Export & Digital Archiving"
     set_file_tracking(imp, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
 
-    # 2. Resolve SmartTask TSK-0903
+    # 2. Resolve SmartTask TSK-0903 (open tasks only, BE810-F35)
     tasks_903 = db.query(SmartTask).filter(
         SmartTask.import_file_id == imp.import_file_id,
         SmartTask.is_active == True,
+        SmartTask.status.in_(["Pending", "In Progress"]),
         (SmartTask.task_code.ilike("%0903%") | SmartTask.title.ilike("%الملف الشامل%") | SmartTask.title.ilike("%CLO-03%"))
     ).all()
     for t in tasks_903:
@@ -920,24 +929,25 @@ def confirm_dossier_export_service(
             updated_by=user,
         ))
 
-    # 4. Dispatch central SystemNotification
-    notif_msg = msg(
-        "CLO_DOSSIER_EXPORTED",
-        import_file_code=imp.import_file_code,
-        exported_by=exported_by,
-        export_format=payload.export_format,
-    )
-    db.add(SystemNotification(
-        title=render_en(notif_msg.code, notif_msg.params, "title"),
-        message=render_en(notif_msg.code, notif_msg.params, "body"),
-        msg_code=notif_msg.code,
-        msg_params=notif_msg.params,
-        severity="INFO",
-        category="FILE_CLOSURE",
-        entity_type="ImportFile",
-        entity_id=imp.import_file_id,
-        target_role="ALL",
-    ))
+    # 4. Dispatch central SystemNotification (only on the first export, BE810-F35)
+    if not was_already_exported:
+        notif_msg = msg(
+            "CLO_DOSSIER_EXPORTED",
+            import_file_code=imp.import_file_code,
+            exported_by=exported_by,
+            export_format=payload.export_format,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
+            severity="INFO",
+            category="FILE_CLOSURE",
+            entity_type="ImportFile",
+            entity_id=imp.import_file_id,
+            target_role="ALL",
+        ))
     db.commit()
 
     # 5. Lifecycle advance STEP_20 -> STEP_21 (follow-up: never undoes the saved export)
@@ -1003,13 +1013,25 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
             raw_markup = settlement.average_markup_factor
     markup: Optional[float] = float(raw_markup) if raw_markup is not None else None
 
+    blocking_keys = list(gate.blocking_keys)
+    blocking_reasons = list(gate.blocking_reasons)
+    can_close = gate.can_close
+    if imp.status == FILE_STATUS_CLOSED:
+        can_close = False
+        if "already_closed" not in blocking_keys:
+            blocking_keys.append("already_closed")
+        already_closed_msg = BLOCKING_MESSAGES_AR.get("already_closed", "ملف الشحنة مغلق رسمياً بالفعل ولا يمكن إعادة إغلاقه.")
+        if already_closed_msg not in blocking_reasons:
+            blocking_reasons.append(already_closed_msg)
+
     return ClosurePrecheckResponse(
         import_file_id=imp.import_file_id,
         import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
         company_name=company_name,
         supplier_name=supplier_name,
-        can_close=gate.can_close and imp.status != FILE_STATUS_CLOSED,
-        blocking_reasons=gate.blocking_reasons,
+        can_close=can_close,
+        blocking_reasons=blocking_reasons,
+        blocking_keys=blocking_keys,
         warnings=gate.warnings,
         checklist_status=gate.checklist,
         actual_landed_cost_egp=actual_landed,
@@ -1027,13 +1049,14 @@ def official_close_import_file_service(
     db: Session,
     schema: FileClosureCreate,
     user: str = "System",
+    actor: Optional[User] = None,
 ) -> OfficialClosureCertificateResponse:
     """
     CLO-04: Formal closure & digital archival.
     Issues digital certificate, locks file at 100%, and advances lifecycle board to terminal STEP_21.
     """
     final_schema = schema.model_copy(update={"is_draft": False})
-    record = close_import_file_service(db, final_schema, user=user)
+    record = close_import_file_service(db, final_schema, user=user, actor=actor, trusted=True)
 
     imp = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
     company_name, supplier_name = _party_names(imp)
