@@ -3611,6 +3611,14 @@
       "note"
     ]
   },
+  "WR_FIELD_NOT_EDITABLE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_GRN_EXISTS": {
     "params": [
       "grn_code"
@@ -3626,6 +3634,15 @@
       "invoiced_qty",
       "item_code",
       "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_STATUS_CHANGE_NOT_ALLOWED": {
+    "params": [
+      "current_status",
+      "target_status"
     ],
     "parts": [
       "note"

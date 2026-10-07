@@ -1412,6 +1412,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_FIELD_NOT_EDITABLE': {
+    'note': 'Field \'{field_name}\' cannot be edited directly.',
+  },
+  'WR_STATUS_CHANGE_NOT_ALLOWED': {
+    'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
   },

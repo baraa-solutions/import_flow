@@ -1412,6 +1412,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_FIELD_NOT_EDITABLE': {
+    'note': 'لا يمكن تعديل الحقل \'{field_name}\' مباشرة.',
+  },
+  'WR_STATUS_CHANGE_NOT_ALLOWED': {
+    'note': 'لا يمكن تغيير حالة إذن الاستلام من \'{current_status}\' إلى \'{target_status}\'.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },

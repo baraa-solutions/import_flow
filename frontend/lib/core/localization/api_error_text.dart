@@ -13,6 +13,8 @@ class ApiErrorCode {
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const wrFieldNotEditable = 'WR_FIELD_NOT_EDITABLE';
+  static const wrStatusChangeNotAllowed = 'WR_STATUS_CHANGE_NOT_ALLOWED';
 }
 
 /// User-facing, localized text for a failed API call.

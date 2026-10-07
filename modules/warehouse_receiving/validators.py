@@ -109,12 +109,22 @@ def normalize_verdict(verdict: Optional[str], allowed: frozenset = WR_SUBMIT_VER
 
 
 def validate_verdict_consistency(verdict: Optional[str], shortage_qty: int, damaged_qty: int) -> None:
-    """ACCEPTED_FULL cannot be recorded while the quantities show a shortage or damage (plan WR-03)."""
+    """ACCEPTED_FULL cannot be recorded while the quantities show a shortage or damage, and
+    ACCEPTED_WITH_DISCREPANCY cannot remain when quantities have no discrepancy (plan WR-03 / BE810-T05)."""
     if verdict == "ACCEPTED_FULL" and (shortage_qty or 0) + (damaged_qty or 0) > 0:
         raise coded_error(
             400,
             "WR_VERDICT_INCONSISTENT",
             "لا يمكن اعتماد قرار القبول الكامل مع وجود عجز أو تالف في الكميات.",
+            verdict=verdict,
+            shortage_qty=int(shortage_qty or 0),
+            damaged_qty=int(damaged_qty or 0),
+        )
+    if verdict == "ACCEPTED_WITH_DISCREPANCY" and (shortage_qty or 0) + (damaged_qty or 0) == 0:
+        raise coded_error(
+            400,
+            "WR_VERDICT_INCONSISTENT",
+            "قرار الفحص معتمد بوجود فروق (ACCEPTED_WITH_DISCREPANCY) بينما الكميات الحالية لا يوجد بها عجز أو تالف. يلزم إعادة اعتماد محضر الفحص.",
             verdict=verdict,
             shortage_qty=int(shortage_qty or 0),
             damaged_qty=int(damaged_qty or 0),
@@ -137,6 +147,37 @@ def validate_verdict_matches(verdict: Optional[str], expected: frozenset, derive
 def validate_status_label(status: Optional[str]) -> None:
     if status is not None and status not in WR_STATUS_LABELS:
         raise coded_error(400, "WR_STATUS_INVALID", f"حالة إذن الاستلام '{status}' غير معروفة.", status=status)
+
+
+WR_ALLOWED_PUT_STATUS_TRANSITIONS = frozenset({
+    ("Draft / Pending Warehouse Count", "Goods Received"),
+    ("Goods Received", "GRN Audited"),
+    ("GRN Audited", "Closed"),
+})
+
+
+def validate_grn_status_transition(current_status: str, target_status: Optional[str]) -> None:
+    if target_status is None or target_status == current_status:
+        return
+    validate_status_label(target_status)
+    if (current_status, target_status) not in WR_ALLOWED_PUT_STATUS_TRANSITIONS:
+        raise coded_error(
+            409,
+            "WR_STATUS_CHANGE_NOT_ALLOWED",
+            f"لا يمكن تغيير حالة إذن الاستلام من '{current_status}' إلى '{target_status}'.",
+            current_status=current_status,
+            target_status=target_status,
+        )
+
+
+def validate_grn_put_fields(schema: Any) -> None:
+    if getattr(schema, "inspection_verdict", None) is not None:
+        raise coded_error(
+            400,
+            "WR_FIELD_NOT_EDITABLE",
+            "لا يمكن تعديل قرار الفحص مباشرة؛ يتم تحديد القرار من خلال محضر الفحص فقط.",
+            field_name="inspection_verdict",
+        )
 
 
 def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
