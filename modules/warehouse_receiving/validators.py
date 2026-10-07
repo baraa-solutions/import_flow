@@ -120,11 +120,11 @@ def validate_verdict_consistency(verdict: Optional[str], shortage_qty: int, dama
             shortage_qty=int(shortage_qty or 0),
             damaged_qty=int(damaged_qty or 0),
         )
-    if verdict == "ACCEPTED_WITH_DISCREPANCY" and (shortage_qty or 0) + (damaged_qty or 0) == 0:
+    if verdict in ("ACCEPTED_WITH_DISCREPANCY", "DAMAGE_CLAIM_PENDING") and (shortage_qty or 0) + (damaged_qty or 0) == 0:
         raise coded_error(
             400,
             "WR_VERDICT_INCONSISTENT",
-            "قرار الفحص معتمد بوجود فروق (ACCEPTED_WITH_DISCREPANCY) بينما الكميات الحالية لا يوجد بها عجز أو تالف. يلزم إعادة اعتماد محضر الفحص.",
+            f"قرار الفحص معتمد بوجود فروق ({verdict}) بينما الكميات الحالية لا يوجد بها عجز أو تالف. يلزم إعادة اعتماد محضر الفحص.",
             verdict=verdict,
             shortage_qty=int(shortage_qty or 0),
             damaged_qty=int(damaged_qty or 0),
@@ -171,7 +171,16 @@ def validate_grn_status_transition(current_status: str, target_status: Optional[
 
 
 def validate_grn_put_fields(schema: Any) -> None:
-    if getattr(schema, "inspection_verdict", None) is not None:
+    fields_set = getattr(schema, "model_fields_set", None)
+    if fields_set is not None:
+        if "inspection_verdict" in fields_set:
+            raise coded_error(
+                400,
+                "WR_FIELD_NOT_EDITABLE",
+                "لا يمكن تعديل قرار الفحص مباشرة؛ يتم تحديد القرار من خلال محضر الفحص فقط.",
+                field_name="inspection_verdict",
+            )
+    elif getattr(schema, "inspection_verdict", None) is not None:
         raise coded_error(
             400,
             "WR_FIELD_NOT_EDITABLE",

@@ -340,7 +340,7 @@ def update_warehouse_receiving_service(
 
     validate_grn_put_fields(schema)
 
-    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type"}
+    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type", "inspection_verdict"}
     update_data = {
         k: v for k, v in schema.model_dump(exclude_unset=True).items()
         if not (v is None and k in NOT_NULL_COLUMNS)

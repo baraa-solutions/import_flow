@@ -150,6 +150,75 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.detail["code"], "WR_FIELD_NOT_EDITABLE")
 
+    def test_put_inspection_verdict_none_blocked_400_leaves_verdict_unchanged(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "ACCEPTED_FULL"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(inspection_verdict=None),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_FIELD_NOT_EDITABLE")
+
+        self.db.refresh(record)
+        self.assertEqual(record.inspection_verdict, "ACCEPTED_FULL")
+
+    def test_put_status_transitions_allowed_and_forbidden(self):
+        record = self._create_valid_grn()
+        record.status = "Draft / Pending Warehouse Count"
+        self.db.commit()
+
+        # Same status returns 200 unchanged
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Draft / Pending Warehouse Count"),
+        )
+        self.assertEqual(updated.status, "Draft / Pending Warehouse Count")
+
+        # Draft -> Goods Received returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Goods Received"),
+        )
+        self.assertEqual(updated.status, "Goods Received")
+
+        # Goods Received -> GRN Audited returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="GRN Audited"),
+        )
+        self.assertEqual(updated.status, "GRN Audited")
+
+        # GRN Audited -> Closed returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Closed"),
+        )
+        self.assertEqual(updated.status, "Closed")
+
+    def test_put_status_discrepancy_reported_to_closed_409(self):
+        record = self._create_valid_grn()
+        record.status = "Discrepancy Reported"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(status="Closed"),
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_STATUS_CHANGE_NOT_ALLOWED")
+
     def test_put_status_change_not_allowed_409(self):
         record = self._create_valid_grn()
         with self.assertRaises(HTTPException) as ctx:
@@ -208,6 +277,24 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         record = self._create_valid_grn()
         record.inspection_protocol_number = "INSP-2026-0001"
         record.inspection_verdict = "ACCEPTED_WITH_DISCREPANCY"
+        self.db.commit()
+
+        new_items = [
+            GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=100, shortage_qty=0, damaged_qty=0),
+        ]
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(grn_items=new_items),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_VERDICT_INCONSISTENT")
+
+    def test_put_items_with_protocol_damage_claim_pending_and_clean_is_400(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "DAMAGE_CLAIM_PENDING"
         self.db.commit()
 
         new_items = [
