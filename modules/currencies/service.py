@@ -1,6 +1,6 @@
 import time
 import threading
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Dict, Tuple
 
 from fastapi import HTTPException, status
@@ -167,26 +167,30 @@ class CurrencyService:
                 if now - cached_time < _CURRENCY_CACHE_TTL:
                     return rate_val, eff_date, rate_id
 
-        fallback_rates = {"USD": 48.50, "EUR": 52.80, "GBP": 61.50, "CNY": 6.75, "SAR": 12.93, "AED": 13.20}
-
         currency = self.repo.get_currency_by_code(code)
         if not currency:
-            if code in fallback_rates:
-                val = fallback_rates[code]
-                with _CURRENCY_CACHE_LOCK:
-                    _RATE_CACHE[cache_key] = (now, val, ref_date, None)
-                return val, ref_date, None
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"العملة الكود '{code}' غير مسجلة في النظام.",
+                detail={
+                    "code": "CURRENCY_NOT_FOUND",
+                    "message": f"العملة الكود '{code}' غير مسجلة في النظام.",
+                    "currency": code,
+                },
             )
 
         rate_obj = self.repo.get_latest_rate(currency.currency_id, target_date=ref_date)
         if not rate_obj:
-            rate_val = fallback_rates.get(code, 1.0)
-            with _CURRENCY_CACHE_LOCK:
-                _RATE_CACHE[cache_key] = (now, rate_val, ref_date, None)
-            return rate_val, ref_date, None
+            as_of_str = ref_date.isoformat() if isinstance(ref_date, (date, datetime)) else str(ref_date)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "CURRENCY_RATE_MISSING",
+                    "message": f"لا يوجد سعر صرف مسجل للعملة '{code}' من نوع '{rate_type}' بتاريخ {ref_date}.",
+                    "currency": code,
+                    "rate_type": rate_type,
+                    "as_of_date": as_of_str,
+                },
+            )
 
         rate_val = float(rate_obj.commercial_rate) if rate_type == "commercial" else float(rate_obj.customs_rate)
         with _CURRENCY_CACHE_LOCK:
