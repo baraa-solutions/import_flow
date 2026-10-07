@@ -7,9 +7,12 @@ echo                 ImportFlow ERP - Enterprise Launcher
 echo ===============================================================================
 echo.
 
-:: 1. Free ports 28080 and 3000
-echo [1/3] Checking and freeing ports 28080 and 3000...
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":28080"') do taskkill /f /pid %%p >nul 2>&1
+:: Backend port. The installed production app uses 28080: on a machine that also runs it,
+:: set PORT to another value first, e.g.  set PORT=28090
+if not defined PORT set PORT=28080
+
+:: 1. Free web port 3000 (the backend port is never killed: it may be the production app)
+echo [1/3] Backend port: %PORT%. Freeing web port 3000...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000"') do taskkill /f /pid %%p >nul 2>&1
 
 :: 2. Check Python
@@ -27,7 +30,7 @@ echo   Select Launch Mode:
 echo ===============================================================================
 echo   [1] Desktop Application (Native Windows Release EXE) - [Default]
 echo   [2] Web Application (Chrome / Browser at http://localhost:3000)
-echo   [3] Backend API Only (FastAPI + Swagger Docs at http://localhost:28080/docs)
+echo   [3] Backend API Only (FastAPI + Swagger Docs at http://localhost:%PORT%/docs)
 echo   [4] Run Backend Unit Tests
 echo ===============================================================================
 echo.
@@ -40,32 +43,53 @@ if errorlevel 1 goto launch_desktop
 
 :launch_desktop
 echo.
-echo [2/3] Starting FastAPI Backend on http://127.0.0.1:28080...
-start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080"
-
-echo [3/3] Launching ImportFlow Desktop...
+set "CLIENT_EXE=%~dp0frontend\build\windows\x64\runner\Release\frontend.exe"
+call "%~dp0scripts\check_backend_port.bat" "%CLIENT_EXE%"
+if errorlevel 2 exit /b 1
+if errorlevel 1 goto launch_desktop_client
+echo [2/3] Starting FastAPI Backend on http://127.0.0.1:%PORT%...
+start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port %PORT%"
 ping 127.0.0.1 -n 3 >nul 2>&1
 
-if exist "%~dp0frontend\build\windows\x64\runner\Release\frontend.exe" (
-    start "" "%~dp0frontend\build\windows\x64\runner\Release\frontend.exe"
+:launch_desktop_client
+
+echo [3/3] Launching ImportFlow Desktop...
+:: USE_RELEASE_EXE comes from check_backend_port.bat (1 only on PORT 28080: the prebuilt exe always talks to 28080)
+if "%USE_RELEASE_EXE%"=="1" (
+    start "" "%CLIENT_EXE%"
     echo.
     echo ===============================================================================
     echo [SUCCESS] ImportFlow ERP Desktop is running!
-    echo    - Backend API: http://127.0.0.1:28080
-    echo    - API Docs:    http://127.0.0.1:28080/docs
+    echo    - Backend API: http://127.0.0.1:%PORT%
+    echo    - API Docs:    http://127.0.0.1:%PORT%/docs
     echo ===============================================================================
     ping 127.0.0.1 -n 3 >nul 2>&1
     exit /b 0
 ) else (
-    echo [INFO] Release binary not found. Launching via Flutter Desktop Debug...
-    start "ImportFlow Desktop" cmd /k "cd /d %~dp0frontend && flutter run -d windows"
+    echo [INFO] Launching via Flutter Desktop Debug against http://127.0.0.1:%PORT%...
+    start "ImportFlow Desktop" cmd /k "cd /d %~dp0frontend && flutter run -d windows --dart-define=IMPORTFLOW_SERVER_URL=http://127.0.0.1:%PORT%"
     exit /b 0
 )
 
 :launch_web
 echo.
-echo [2/3] Starting FastAPI Backend on http://0.0.0.0:28080...
-start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 0.0.0.0 --port 28080"
+:: The LAN web client always talks to <host>:28080 (no per-port define here): on another PORT it would
+:: pair a dev backend with the production backend. Refuse before starting anything.
+if "%PORT%"=="28080" goto launch_web_backend
+echo [ERROR] Web / LAN mode only supports the default backend port 28080, but PORT is %PORT%.
+echo         The browser client would talk to port 28080 = the installed production app on the production laptop.
+echo         For development on that laptop use Desktop mode [1] or Backend API Only [3] with PORT=%PORT%.
+pause
+exit /b 1
+
+:launch_web_backend
+call "%~dp0scripts\check_backend_port.bat"
+if errorlevel 2 exit /b 1
+if errorlevel 1 goto launch_web_client
+echo [2/3] Starting FastAPI Backend on http://0.0.0.0:%PORT%...
+start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 0.0.0.0 --port %PORT%"
+
+:launch_web_client
 
 echo [3/3] Starting Flutter Web on http://localhost:3000...
 start "ImportFlow Frontend" cmd /k "cd /d %~dp0frontend && flutter run -d web-server --web-port 3000 --web-hostname 0.0.0.0"
@@ -83,10 +107,15 @@ exit /b 0
 
 :launch_backend_only
 echo.
-echo Starting FastAPI Backend on http://127.0.0.1:28080...
-start "ImportFlow Backend" cmd /k "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080 --reload"
+call "%~dp0scripts\check_backend_port.bat"
+if errorlevel 2 exit /b 1
+if errorlevel 1 goto launch_backend_docs
+echo Starting FastAPI Backend on http://127.0.0.1:%PORT%...
+start "ImportFlow Backend" cmd /k "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port %PORT% --reload"
 ping 127.0.0.1 -n 3 >nul 2>&1
-start http://127.0.0.1:28080/docs
+
+:launch_backend_docs
+start http://127.0.0.1:%PORT%/docs
 exit /b 0
 
 :launch_tests

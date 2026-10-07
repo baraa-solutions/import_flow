@@ -560,4 +560,7 @@ def shutdown_system(current_user: User = Depends(require_admin)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=28080, log_config=None, access_log=False)
+
+    from utils.runtime_port import resolve_port
+
+    uvicorn.run("main:app", host="127.0.0.1", port=resolve_port(), log_config=None, access_log=False)

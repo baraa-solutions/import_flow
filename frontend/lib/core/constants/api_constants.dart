@@ -8,21 +8,64 @@ class ApiConstants {
   static String customServerUrl = '';
 
   static void setCustomServerUrl(String url) {
-    customServerUrl = url.trim();
-    if (customServerUrl.endsWith('/')) {
-      customServerUrl = customServerUrl.substring(0, customServerUrl.length - 1);
-    }
+    customServerUrl = _normalizeUrl(url);
   }
 
-  static String get serverUrl {
-    if (customServerUrl.isNotEmpty) {
-      return customServerUrl;
+  /// Default backend port used when nothing overrides the server URL.
+  static const int defaultServerPort = 28080;
+
+  /// Build/run-time override, e.g.
+  /// `flutter run -d windows --dart-define=IMPORTFLOW_SERVER_URL=http://127.0.0.1:28090`.
+  /// Empty in normal release builds.
+  static const String compileTimeServerUrl =
+      String.fromEnvironment('IMPORTFLOW_SERVER_URL');
+
+  static String _normalizeUrl(String url) {
+    var value = url.trim();
+    if (value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
     }
-    if (kIsWeb) {
-      final host = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
-      return 'http://$host:28080';
+    return value;
+  }
+
+  /// Priority: compile-time define > saved custom URL > default.
+  @visibleForTesting
+  static String resolveServerUrl({
+    required String compileTimeUrl,
+    required String customUrl,
+    required bool isWeb,
+    required String webHost,
+  }) {
+    final override = _normalizeUrl(compileTimeUrl);
+    if (override.isNotEmpty) {
+      return override;
     }
-    return 'http://127.0.0.1:28080';
+    final custom = _normalizeUrl(customUrl);
+    if (custom.isNotEmpty) {
+      return custom;
+    }
+    final host = isWeb && webHost.isNotEmpty ? webHost : '127.0.0.1';
+    return 'http://$host:$defaultServerPort';
+  }
+
+  static String get serverUrl => resolveServerUrl(
+        compileTimeUrl: compileTimeServerUrl,
+        customUrl: customServerUrl,
+        isWeb: kIsWeb,
+        // Uri.base reads the working directory on desktop; only the web build needs the page host.
+        webHost: kIsWeb ? Uri.base.host : '',
+      );
+
+  /// Port of the effective backend URL (falls back to the default port).
+  static int get serverPort => portOf(serverUrl);
+
+  @visibleForTesting
+  static int portOf(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasPort || uri.port == 0) {
+      return defaultServerPort;
+    }
+    return uri.port;
   }
 
   static String get baseUrl => '$serverUrl/api/v1';

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/performance/client_diagnostics_service.dart';
@@ -355,7 +356,7 @@ class _SystemObservabilityScreenState
                     child: _buildKpiCard(
                       title: 'خادم النظام والذاكرة (Server)',
                       value: '${metrics.processMemoryMb} MB',
-                      subtitle: 'Uptime: ${metrics.uptimeHuman} • Port: 28080',
+                      subtitle: 'Uptime: ${metrics.uptimeHuman} • Port: ${ApiConstants.serverPort}',
                       icon: Icons.memory_rounded,
                       color: AppTheme.cobalt,
                     ),

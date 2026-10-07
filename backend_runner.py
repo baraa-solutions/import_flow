@@ -22,6 +22,7 @@ DB safety (frontend.exe now starts backend.exe itself):
 import sys
 import os
 import asyncio
+import functools
 import hashlib
 import tempfile
 import threading
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 
 from utils.db_safety import app_base_dir, is_frozen_build, reset_pyinstaller_environment
+from utils.runtime_port import InvalidPortError, resolve_port
 
 # Suppress deprecation warnings on Windows
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -40,7 +42,6 @@ LOCK_FILE_NAME = "backend.lock"
 ERROR_ALREADY_EXISTS = 183
 WATCHDOG_POLL_SECONDS = 3.0
 WATCHDOG_GRACE_SECONDS = 120.0
-DEFAULT_PORT = int(os.getenv("PORT", "28080"))
 FRONTEND_IMAGE_NAME = "frontend.exe"
 TASKLIST_FRONTEND = ["tasklist", "/FI", f"IMAGENAME eq {FRONTEND_IMAGE_NAME}"]
 FRONTEND_ANCESTOR_MAX_DEPTH = 4
@@ -388,14 +389,14 @@ def _import_app():
     return app
 
 
-def _serve(app) -> None:
+def _serve(app, port: int) -> None:
     import uvicorn
 
     # log_config=None prevents the isatty crash in windowed mode
     uvicorn.run(
         app,
         host="127.0.0.1",
-        port=DEFAULT_PORT,
+        port=port,
         log_config=None,
         use_colors=False,
         access_log=False,
@@ -418,9 +419,10 @@ def run(frozen: Optional[bool] = None,
         app_dir: Optional[Path] = None,
         lock_factory: Callable[..., Optional[InstanceLock]] = acquire_single_instance_lock,
         import_app: Callable[[], object] = _import_app,
-        serve: Callable[[object], None] = _serve,
+        serve: Optional[Callable[[object], None]] = None,
         start_watchdog: Optional[Callable[[threading.Event], None]] = None) -> int:
-    """`start_watchdog` defaults to `start_watchdog_thread` when frozen and to none in dev."""
+    """`start_watchdog` defaults to `start_watchdog_thread` when frozen and to none in dev.
+    `serve` defaults to uvicorn on 127.0.0.1 and the port resolved from PORT (default 28080)."""
     if frozen is None:
         frozen = is_frozen_build()
     if app_dir is None:
@@ -438,6 +440,15 @@ def run(frozen: Optional[bool] = None,
         _prepare_frozen_process(app_dir)
     elif str(app_dir) not in sys.path:
         sys.path.insert(0, str(app_dir))
+
+    # Fail fast on an invalid PORT (never fall back to 28080: that is the production backend's port).
+    try:
+        port = resolve_port()
+    except InvalidPortError as exc:
+        print(f"[backend_runner] {exc}")
+        return 2
+    if serve is None:
+        serve = functools.partial(_serve, port=port)
 
     # S1: the lock comes BEFORE `from main import app` (which runs the startup upgrade).
     lock = lock_factory(app_dir, frozen)

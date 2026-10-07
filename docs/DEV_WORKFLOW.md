@@ -44,10 +44,38 @@ python -m uvicorn main:app --host 127.0.0.1 --port 28080 --reload
 ```
 
 - **زمن البدء/إعادة التشغيل:** ~2–4 ثوانٍ فقط.
-- **في حال كان المنفذ 28080 مشغولاً بتطبيق سابق:**
-  ```cmd
-  taskkill /f /im backend.exe
-  ```
+- **في حال كان المنفذ 28080 مشغولاً:** لا تقتل أي عملية عليه (`taskkill`) — قد يكون هو نسخة الإنتاج المثبتة.
+  شغّل نسخة التطوير على منفذ آخر (انظر القسم التالي).
+
+### 1.1 التطوير على نفس جهاز الإنتاج (Dev beside the installed app)
+النسخة المثبتة تعمل دائماً على `127.0.0.1:28080` بقاعدة بياناتها داخل مجلد التثبيت. نسخة التطوير يجب أن تنفصل عنها تماماً:
+
+| البند | الإنتاج (لا يتغير) | التطوير |
+|---|---|---|
+| المجلد | `%LOCALAPPDATA%\Programs\Sorour Logistics\` | clone منفصل (مثال `D:\dev\import_flow`) |
+| قاعدة البيانات | `sorour_logistics.db` في مجلد التثبيت | `DATABASE_PATH` في `.env` = مسار كامل داخل مجلد التطوير (أو نسخة من الباك أب) |
+| منفذ الباك إند | `28080` | `PORT` (مثال `28090`) |
+| الواجهة | تتصل بـ `28080` | `--dart-define=IMPORTFLOW_SERVER_URL=http://127.0.0.1:28090` |
+
+```cmd
+set PORT=28090
+python main.py
+```
+```cmd
+cd frontend
+flutter run -d windows --dart-define=IMPORTFLOW_SERVER_URL=http://127.0.0.1:28090
+```
+- اضبط `PORT` في الطرفية (`set PORT=...`) وليس في `.env`: السكريبتات و `backend_runner` يقرؤونه من الطرفية فقط.
+- القيمة غير الصحيحة لـ `PORT` (ليست رقماً بين 1 و 65535) توقف التشغيل برسالة واضحة بدلاً من الرجوع لـ 28080.
+- سكريبتات `Launch_Track1_Dev.bat` و `run.bat` و `Launch_ImportFlow_Desktop.bat` و `Launch_SorourLogistics_Live.bat` تقرأ `PORT`
+  (الفحص المشترك في `scripts\check_backend_port.bat`) وتمرره لـ `flutter run` كـ `IMPORTFLOW_SERVER_URL`، ولا تقتل أي عملية
+  على المنفذ: إذا كان المنفذ يرد كباك إند النظام تعيد استخدامه (وعلى جهاز الإنتاج مع `PORT` غير محدد = باك إند الإنتاج نفسه،
+  لذلك اضبط `set PORT=28090` أولاً)، وإذا كان مشغولاً بشيء لا يرد تتوقف وتطلب منفذاً آخر.
+- مع `PORT` غير 28080 تتجاهل السكريبتات ملف `frontend.exe` المبني (Release) لأنه يتصل دائماً بـ 28080، وتستخدم `flutter run`.
+- وضع الويب / LAN في `run.bat` يعمل على 28080 فقط ويرفض التشغيل مع أي `PORT` آخر؛ للتطوير على جهاز الإنتاج استخدم وضع سطح المكتب.
+- واجهة التطوير بدون `IMPORTFLOW_SERVER_URL` تتصل بـ 28080، وعند إغلاقها ترسل `/shutdown` إليه — أي تُغلق باك إند الإنتاج. لا تشغّلها بدون الـ define على جهاز الإنتاج.
+- النسخة المثبتة ونسخة التطوير تتشاركان إعدادات Windows (SharedPreferences و secure storage) لنفس مستخدم Windows؛ يُفضَّل التطوير من مستخدم Windows منفصل.
+- ممنوع على جهاز الإنتاج: شاشة / endpoints الـ `production_sync`، تشغيل `seed.py` / `reset_clean_production_db.py` / `clean_and_isolate_databases.py` من مجلد التثبيت، تثبيت أي Setup مبني محلياً، وأي تعديل داخل مجلد التثبيت.
 
 ---
 
