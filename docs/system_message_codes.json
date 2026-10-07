@@ -3603,6 +3603,14 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"

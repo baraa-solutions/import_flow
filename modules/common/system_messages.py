@@ -1290,6 +1290,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_CLAIM_CURRENCY_INVALID": {
+        "note": "Claim currency code '{currency_code}' is invalid or inactive.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },

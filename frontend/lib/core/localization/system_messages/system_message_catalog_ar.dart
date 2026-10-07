@@ -1412,6 +1412,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },

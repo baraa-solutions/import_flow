@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -146,3 +146,43 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             f"نوع الفرق '{discrepancy_type}' غير معروف.",
             discrepancy_type=discrepancy_type,
         )
+
+def validate_claim_amount_and_currency(
+    db: Any,
+    amount: Optional[float],
+    currency: Optional[str],
+) -> Tuple[Optional[float], Optional[str]]:
+    """Validate claim amount and currency for inspection and receiving updates (plan WR-F11 / BE810-T12).
+
+    - If amount is None or == 0: returns (None, None).
+    - If amount > 0: currency is required and must match an active currency in the currencies master.
+      Raises 400 WR_CLAIM_CURRENCY_INVALID if currency is missing, unknown, or inactive.
+      Returns (amount, normalized_currency_code).
+    """
+    if amount is None or amount == 0:
+        return None, None
+
+    clean_currency = str(currency or "").strip().upper()
+    if not clean_currency:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            "يلزم تحديد عملة المطالبة عند تسجيل قيمة تقديرية للمطالبة.",
+            currency_code="",
+        )
+
+    from modules.currencies.model import Currency
+    row = (
+        db.query(Currency)
+        .filter(Currency.currency_code == clean_currency, Currency.is_active.is_(True))
+        .first()
+    )
+    if not row:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            f"عملة المطالبة '{clean_currency}' غير معروفة أو غير نشطة.",
+            currency_code=clean_currency,
+        )
+
+    return float(amount), clean_currency

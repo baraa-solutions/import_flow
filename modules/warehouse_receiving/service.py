@@ -34,6 +34,7 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_claim_amount_and_currency,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -316,7 +317,11 @@ def update_warehouse_receiving_service(
     user: str = "System",
 ) -> WarehouseReceivingRecord:
     existing = get_warehouse_receiving_service(db, record_id)
-    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type"}
+    update_data = {
+        k: v for k, v in schema.model_dump(exclude_unset=True).items()
+        if not (v is None and k in NOT_NULL_COLUMNS)
+    }
 
     validate_status_label(update_data.get("status"))
     validate_discrepancy_type(update_data.get("discrepancy_type"))
@@ -324,6 +329,12 @@ def update_warehouse_receiving_service(
         update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
+    if "claim_amount_estimated" in update_data or "claim_currency" in update_data:
+        req_amount = update_data["claim_amount_estimated"] if "claim_amount_estimated" in update_data else existing.claim_amount_estimated
+        req_currency = update_data["claim_currency"] if "claim_currency" in update_data else existing.claim_currency
+        amount, currency = validate_claim_amount_and_currency(db, req_amount, req_currency)
+        values["claim_amount_estimated"] = amount
+        values["claim_currency"] = currency
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
@@ -460,8 +471,11 @@ def submit_warehouse_inspection_protocol_service(
     record.insurance_claim_ref = schema.insurance_claim_ref
     record.supplier_claim_filed = schema.supplier_claim_filed
     record.supplier_claim_ref = schema.supplier_claim_ref
-    record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
-    record.claim_currency = schema.claim_currency or "EGP"
+    amount, currency = validate_claim_amount_and_currency(
+        db, schema.claim_amount_estimated, schema.claim_currency
+    )
+    record.claim_amount_estimated = amount
+    record.claim_currency = currency
     if schema.inspector_name and schema.inspector_name.strip():
         record.inspector_name = schema.inspector_name.strip()
     if schema.notes:

@@ -12,6 +12,7 @@ class ApiErrorCode {
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
+  static const wrClaimCurrencyInvalid = 'WR_CLAIM_CURRENCY_INVALID';
   static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
 }
 
