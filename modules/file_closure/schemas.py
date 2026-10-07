@@ -17,7 +17,7 @@ class ClosureChecklistSchema(BaseModel):
 class FileClosureCreate(BaseModel):
     import_file_id: int
     closure_checklist: ClosureChecklistSchema = Field(default_factory=ClosureChecklistSchema)
-    auditor_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    auditor_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     archive_location: str = "Digital Archive Vault - 2026"
     archival_notes: Optional[str] = None
     is_draft: bool = False
@@ -164,7 +164,7 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
 
 class DossierExportConfirmRequest(BaseModel):
     import_file_id: int
-    exported_by: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    exported_by: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     export_format: str = Field("PDF & Excel Full Bundle", description="Exported format e.g. PDF, Excel, Full Bundle")
     notes: Optional[str] = None
 

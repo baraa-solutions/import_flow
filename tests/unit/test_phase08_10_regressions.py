@@ -624,7 +624,12 @@ def test_put_lock_follows_file_status(db):
     assert exc.value.status_code == 409
     imp.status = "Active"  # reopened
     db.commit()
-    out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
+    out = fc_service.update_closure_service(
+        db,
+        rec.closure_id,
+        FileClosureUpdate(auditor_name="Spoofed In Body"),
+        user="Reviewer",
+    )
     assert out.auditor_name == "Reviewer"
 
 
