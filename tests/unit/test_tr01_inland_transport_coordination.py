@@ -45,7 +45,10 @@ def db_session():
         Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session, monkeypatch):
+    import modules.auth.permissions as auth_permissions
+    monkeypatch.setattr(auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
+
     def override_get_db():
         try:
             yield db_session
@@ -93,7 +96,7 @@ def test_create_transport_booking_success(db_session):
         booking_date=now,
         carrier_name="شركة النصر لخدمات النقل البري",
         truck_plate_number="ط ر س 4821",
-        truck_type="Flatbed Trailer 40ft (تريلا مسطح)",
+        truck_type="Flatbed Trailer (تريلا مسطح)",
         driver_name="محمود عبد المنعم عطية",
         driver_phone="01012345678",
         driver_national_id="28801011234567",
@@ -662,3 +665,42 @@ def test_create_booking_missing_required_fields_raises_422(client, db_session):
     del payload_no_tt["truck_type"]
     resp = client.post("/api/v1/inland-transport/bookings", json=payload_no_tt)
     assert resp.status_code == 422
+
+
+def test_create_booking_in_transit_with_departure_allowed(client, db_session):
+    """BE810-T13: In Transit status is allowed on create when actual_departure_at is provided."""
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "waybill_number": "WB-IN-TRANSIT-OK",
+        "carrier_name": "Carrier A",
+        "truck_plate_number": "TRK 222",
+        "truck_type": "FLATBED",
+        "driver_name": "Driver B",
+        "driver_phone": "01012345678",
+        "pickup_port_location": "Port",
+        "destination_warehouse": "WH",
+        "planned_departure_at": now.isoformat(),
+        "expected_arrival_at": (now + timedelta(hours=4)).isoformat(),
+        "actual_departure_at": now.isoformat(),
+        "transport_fare_egp": 5000.0,
+        "status": "In Transit",
+    }
+    resp = client.post("/api/v1/inland-transport/bookings", json=payload)
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "In Transit"
+
+
+def test_update_booking_unknown_carrier_id_raises_400(client, db_session):
+    """BE810-T13: PUT with unknown carrier_id returns 400 IT_CARRIER_INVALID."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-PUT-CARRIER-INVALID")
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+
+    resp = client.put(
+        f"/api/v1/inland-transport/bookings/{bk.transport_id}",
+        json={"carrier_id": 999999},
+    )
+    assert resp.status_code == 400
+    assert resp.json().get("detail", {}).get("code") == "IT_CARRIER_INVALID"

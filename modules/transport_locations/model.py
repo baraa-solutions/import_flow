@@ -26,6 +26,8 @@ class TransportLocation(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
 
 # ==================================================
