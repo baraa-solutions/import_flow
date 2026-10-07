@@ -1290,6 +1290,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_GRN_LOCKED": {
+        "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },

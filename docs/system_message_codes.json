@@ -3666,6 +3666,14 @@
       "note"
     ]
   },
+  "WR_GRN_LOCKED": {
+    "params": [
+      "grn_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_STATUS_INVALID": {
     "params": [
       "status"
