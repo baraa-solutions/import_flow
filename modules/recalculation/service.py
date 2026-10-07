@@ -417,6 +417,7 @@ def _apply_in_place_to_entity(
     target_entity_type: str,
     performed_by: str,
     justification: Optional[str],
+    current_status: Optional[str] = None,
 ) -> str:
     """
     Applies changes directly to the entity (for Draft / Pending Review status).
@@ -442,8 +443,8 @@ def _apply_in_place_to_entity(
             entity.variance_override_reason = justification
             entity.variance_overridden_by = performed_by
 
-        current_status = entity.budget_status
-        if current_status == "Draft":
+        budget_status = entity.budget_status
+        if budget_status == "Draft":
             action_taken = "auto_updated"
         else:
             # Needs Revalidation or Pending Review: keep in revalidation
@@ -463,7 +464,8 @@ def _apply_in_place_to_entity(
         entity.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
         entity.average_markup_factor = calc_res["average_markup_factor"]
         entity.item_landed_costs = calc_res["item_landed_costs"]
-        entity.status = "Calculated"
+        if current_status != "Approved":
+            entity.status = "Calculated"
         entity.updated_by = performed_by
         entity.updated_at = now
         action_taken = "recalculated"
@@ -656,7 +658,14 @@ def _refresh_file_landed_cost(db: Session, settlement: Any) -> None:
     imp = db.query(ImportFile).filter(ImportFile.import_file_id == settlement.import_file_id).first()
     if imp is None:
         return
-    imp.actual_landed_cost_total_egp = settlement.total_landed_cost_egp
+    old_total = imp.actual_landed_cost_total_egp
+    old_var = imp.actual_landed_cost_variance_egp
+    new_total = settlement.total_landed_cost_egp
+    if old_total is not None and old_var is not None:
+        estimated = old_total - old_var
+        imp.actual_landed_cost_variance_egp = round(new_total - estimated, 2)
+        imp.actual_landed_cost_variance_pct = round((new_total - estimated) / estimated * 100, 2) if estimated > 0 else 0.0
+    imp.actual_landed_cost_total_egp = new_total
     imp.actual_landed_cost_markup_factor = settlement.average_markup_factor
     imp.actual_landed_cost_calculated_at = datetime.now(timezone.utc)
 
@@ -841,7 +850,8 @@ def apply(
     else:
         # Draft / Pending / Needs Revalidation: update in-place
         action_taken = _apply_in_place_to_entity(
-            db, entity, applied_changes, target_entity_type, performed_by, justification
+            db, entity, applied_changes, target_entity_type, performed_by, justification,
+            current_status=current_status,
         )
         if target_entity_type == "financial_settlement":
             if current_status == "Approved":
