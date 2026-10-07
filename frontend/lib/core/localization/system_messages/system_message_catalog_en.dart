@@ -1415,6 +1415,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_CLAIM_CURRENCY_INVALID': {
     'note': 'Claim currency code \'{currency_code}\' is invalid or inactive.',
   },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
+  },
+  'WR_GRN_LOCKED': {
+    'note': 'Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
   },
@@ -1435,6 +1441,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'Invalid preferential trade agreement data ({reason}).',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',

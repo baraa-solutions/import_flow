@@ -1415,6 +1415,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_CLAIM_CURRENCY_INVALID': {
     'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
   },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'لا يمكن إنشاء إذن استلام للملف {import_file_code}: يلزم وجود إفراج جمركي أو إذن إفراج تحت التحفظ.',
+  },
+  'WR_GRN_LOCKED': {
+    'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
@@ -1435,6 +1441,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'بيانات اتفاقية التجارة التفضيلية غير صحيحة ({reason}).',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',

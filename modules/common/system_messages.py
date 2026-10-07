@@ -1293,6 +1293,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_CLAIM_CURRENCY_INVALID": {
         "note": "Claim currency code '{currency_code}' is invalid or inactive.",
     },
+    "WR_CUSTOMS_NOT_RELEASED": {
+        "note": "Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.",
+    },
+    "WR_GRN_LOCKED": {
+        "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
