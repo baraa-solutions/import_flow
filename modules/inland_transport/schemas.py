@@ -68,3 +68,12 @@ class InlandTransportBookingResponse(InlandTransportBookingBase):
     updated_by: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedInlandTransportBookingResponse(BaseModel):
+    items: List[InlandTransportBookingResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
