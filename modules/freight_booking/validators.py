@@ -115,7 +115,8 @@ def validate_charge_currencies(db: Session, charges: list) -> None:
         c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else getattr(c, "__dict__", {}))
         raw_cur = c_dict.get("currency")
         ccy = str(raw_cur or "USD").strip().upper()
-        if not repo.get_currency_by_code(ccy):
+        curr_obj = repo.get_currency_by_code(ccy)
+        if not curr_obj or not getattr(curr_obj, "is_active", True):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"عملة البند غير معروفة: {ccy}",

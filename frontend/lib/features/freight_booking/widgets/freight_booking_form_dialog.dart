@@ -492,27 +492,39 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
 
   void _rebuildChargesFromQuoteBreakdown() {
     final List<BookingChargeModel> newCharges = [];
-    if (_container40ftApp && _container40ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 40ft',
-        unit: 'Per Container',
-        quantity: (_container40ftQty > 0 ? _container40ftQty : 1).toDouble(),
-        containerType: '40HC',
-        currency: _container40ftCur,
-        rate: _container40ftPrice,
-        total: _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1),
-      ));
+    if (_container40ftApp && _container40ftPrice > 0 && _container40ftQty > 0) {
+      final c40 = _containers.cast<ContainerAllocationModel?>().firstWhere(
+        (c) => c != null && (c.containerType.startsWith('40') || c.containerType.startsWith('45')),
+        orElse: () => null,
+      );
+      if (c40 != null) {
+        newCharges.add(BookingChargeModel(
+          chargeType: 'Sea Freight 40ft',
+          unit: 'Per Container',
+          quantity: _container40ftQty.toDouble(),
+          containerType: c40.containerType,
+          currency: _container40ftCur,
+          rate: _container40ftPrice,
+          total: _container40ftPrice * _container40ftQty,
+        ));
+      }
     }
-    if (_container20ftApp && _container20ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 20ft',
-        unit: 'Per Container',
-        quantity: (_container20ftQty > 0 ? _container20ftQty : 1).toDouble(),
-        containerType: '20GP',
-        currency: _container20ftCur,
-        rate: _container20ftPrice,
-        total: _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1),
-      ));
+    if (_container20ftApp && _container20ftPrice > 0 && _container20ftQty > 0) {
+      final c20 = _containers.cast<ContainerAllocationModel?>().firstWhere(
+        (c) => c != null && c.containerType.startsWith('20'),
+        orElse: () => null,
+      );
+      if (c20 != null) {
+        newCharges.add(BookingChargeModel(
+          chargeType: 'Sea Freight 20ft',
+          unit: 'Per Container',
+          quantity: _container20ftQty.toDouble(),
+          containerType: c20.containerType,
+          currency: _container20ftCur,
+          rate: _container20ftPrice,
+          total: _container20ftPrice * _container20ftQty,
+        ));
+      }
     }
     if (_lclCbmApp && _lclCbmPrice > 0) {
       newCharges.add(BookingChargeModel(
@@ -1236,6 +1248,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                                 vgmWeightKg: _containers[0].vgmWeightKg,
                               );
                             }
+                            _rebuildChargesFromQuoteBreakdown();
                           });
                         }
                       },

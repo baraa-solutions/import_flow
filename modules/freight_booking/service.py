@@ -122,7 +122,8 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                     from modules.currencies.service import CurrencyService
 
                     repo_c = CurrencyRepository(db)
-                    if not repo_c.get_currency_by_code(ccy):
+                    curr_obj = repo_c.get_currency_by_code(ccy)
+                    if not curr_obj or not getattr(curr_obj, "is_active", True):
                         raise HTTPException(
                             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                             detail=f"عملة البند غير معروفة: {ccy}",
@@ -142,7 +143,10 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                         )
                     fx_rate_to_usd = rate_to_egp / usd_rate_to_egp
                 else:
-                    fx_rate_to_usd = 1.0
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=f"يتطلب تحويل عملة البند {ccy} جلسة قاعدة بيانات صالحة.",
+                    )
 
                 amount_usd = round(item_total * fx_rate_to_usd, 2)
 
