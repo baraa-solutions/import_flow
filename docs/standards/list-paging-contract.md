@@ -45,7 +45,7 @@ Legacy alias `search` may be accepted and mapped to `q` when `q` is not supplied
 }
 ```
 
-- When total = 0, `total_pages = 0` and `items = []`.
+- When total = 0, `total_pages = 1` and `items = []`.
 - When requesting a page past the end, `items = []`, while `total` and `total_pages` reflect the true count.
 
 ### Response Headers
@@ -64,10 +64,9 @@ Each module defines a `SORT_MAP: Dict[str, InstrumentedAttribute]` mapping allow
 {
   "detail": {
     "code": "LIST_SORT_FIELD_INVALID",
-    "params": {
-      "field": "invalid_column",
-      "allowed": "created_at, code, status, ..."
-    }
+    "message": "حقل الترتيب 'invalid_column' غير مسموح به. الحقول المسموح بها: ...",
+    "field": "invalid_column",
+    "allowed": "created_at, code, status, ..."
   }
 }
 ```
@@ -79,6 +78,11 @@ Each module defines a `SORT_MAP: Dict[str, InstrumentedAttribute]` mapping allow
 All modules should utilize `modules.common.pagination`:
 ```python
 from fastapi import APIRouter, Depends, Response
+from sqlalchemy.orm import Session
+
+from database.database import get_db
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from modules.common.pagination import PageParams, paginate
 
 @router.get("/paginated", response_model=PaginatedEntityResponse)
@@ -86,14 +90,16 @@ def list_paginated_entities(
     response: Response,
     params: PageParams = Depends(),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("<module>.view")),
 ):
     query = db.query(MyModel).filter(...)
-    return paginate(
+    result = paginate(
         query,
         params,
         sort_map=ENTITY_SORT_MAP,
         default_sort=[MyModel.id.desc()],
         pk=MyModel.id,
-        response=response,
     )
+    response.headers["X-Total-Count"] = str(result["total"])
+    return result
 ```

@@ -114,9 +114,9 @@ def list_paginated_import_files(
     current_user: User = Depends(require_permission("import_files.view")),
 ):
     effective_q = params.q if params.q is not None else search
-    return service.get_paginated_import_files_service(
+    result = service.get_paginated_import_files_service(
         db,
-        include_inactive=params.include_inactive,
+        params,
         search=effective_q,
         company_id=company_id,
         supplier_id=supplier_id,
@@ -130,12 +130,9 @@ def list_paginated_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
-        page=params.page,
-        page_size=params.page_size,
-        sort=params.sort,
-        response=response,
-        params=params,
     )
+    response.headers["X-Total-Count"] = str(result["total"])
+    return result
 
 
 @router.get(
