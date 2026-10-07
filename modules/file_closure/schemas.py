@@ -99,9 +99,10 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
 
     # Purchase Orders & FOB values
     purchase_orders: List[Dict[str, Any]] = Field(default_factory=list)
-    total_fob_fc: float = 0.0
-    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured")
-    fob_currency: str = "USD"
+    fob_by_currency: Dict[str, float] = Field(default_factory=dict, description="FOB sums grouped by currency code")
+    total_fob_fc: Optional[float] = Field(None, description="null when multi-currency or unknown currency")
+    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured or unknown currency")
+    fob_currency: Optional[str] = Field(None, description="null when multi-currency or unknown currency")
     items_count: int = 0
     items_detail: List[Dict[str, Any]] = Field(default_factory=list)
 

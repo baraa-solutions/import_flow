@@ -285,7 +285,7 @@ class _ComprehensiveDossierExportDialogState
         Expanded(
           child: _kpiCard(
             title: 'قيمة البضاعة FOB',
-            value: '${dossier.totalFobFc.toStringAsFixed(2)} ${dossier.fobCurrency}',
+            value: _formatFob(dossier),
             subtitle: dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP',
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
@@ -323,6 +323,18 @@ class _ComprehensiveDossierExportDialogState
         ),
       ],
     );
+  }
+
+  String _formatFob(ComprehensiveShipmentDossierModel dossier) {
+    if (dossier.totalFobFc != null && dossier.fobCurrency != null) {
+      return '${dossier.totalFobFc!.toStringAsFixed(2)} ${dossier.fobCurrency}';
+    }
+    if (dossier.fobByCurrency.isNotEmpty) {
+      return dossier.fobByCurrency.entries
+          .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+          .join(' / ');
+    }
+    return '—';
   }
 
   Widget _kpiCard({
