@@ -22,6 +22,17 @@ Free, with no branch protection**, against advice. Private forking + fork-PR app
 and left on. Exposure: a Write user can push to main or tags and dispatch workflows, which reaches the
 `production-updates` env secrets (UPDATE_SIGNING_KEY_ED25519, HOSTINGER_SSH_KEY, HOSTINGER_KNOWN_HOSTS).
 
+Applied 2026-10-07: ahmedsalahsorour88 = `write` (was `read`). His legacy repo `ahmedsalahsorour88/import_flow` is
+PUBLIC and is his `fork` remote: he must never push there. He tends to batch many stacked tasks overnight (23 on
+2026-10-06, incl. review-required BE810-T01/T06/T07, and started BEW0-01/05/06) — enforce one-PR-at-a-time and the
+review-required stop explicitly in every brief.
+
+Stacked PRs: before `gh pr merge --delete-branch` on a base PR, retarget its dependents with
+`gh pr edit <n> --base main` — deleting the base branch via API CLOSES dependents instead of retargeting them
+(happened to #23 on 2026-10-07; fixed by recreating the branch ref, reopen, retarget, delete).
+CI gate selects tests by changed files and runs with ALLOW_DEV_AUTH_BYPASS=false: contractor "all tests pass" claims
+from pr-gate miss callers in other test files — ask for the named tests.
+
 **How to apply:** recommend that the CTO keeps those env secrets out of GitHub between releases (set before Publish,
 delete after), and only after he confirms he has an offline copy. Watch main for direct pushes. Review his PRs with
 /review-branch and read every diff under `.github/`, `scripts/ci/`, `.githooks/` and the guard tests. Don't enable
