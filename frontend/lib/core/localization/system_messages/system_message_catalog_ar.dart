@@ -1427,6 +1427,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LIST_SORT_FIELD_INVALID': {
     'note': 'حقل الترتيب \'{field}\' غير معروف. الحقول المسموح بها: {allowed}.',
   },
+  'IMPORT_FILE_CLOSED': {
+    'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },
@@ -1438,6 +1441,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_STATUS_INVALID': {
     'note': 'يمكن إعادة سجل الإغلاق إلى حالة مسودة فقط.',
+  },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'رمز العملة غير معروف أو غير نشط \'{currency_code}\'.',
   },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف للعملة {currency} بتاريخ {on_date}. سجّل السعر قبل احتساب التسوية.',

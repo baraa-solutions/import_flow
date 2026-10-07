@@ -13,6 +13,8 @@ class ApiErrorCode {
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
   static const listSortFieldInvalid = 'LIST_SORT_FIELD_INVALID';
+  static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
 }
 
 /// User-facing, localized text for a failed API call.
