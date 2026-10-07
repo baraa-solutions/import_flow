@@ -21,6 +21,7 @@ from modules.audit_logs.service import AuditLogService
 from modules.common import cargo_math, enum_codes
 from modules.common.system_parameters import air_volumetric_kg_per_cbm
 from modules.common.system_messages import SysMsg, msg, render_en
+from modules.common.pagination import PageParams
 
 logger = logging.getLogger(__name__)
 

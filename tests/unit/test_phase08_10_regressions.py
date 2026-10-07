@@ -208,8 +208,8 @@ def test_closure_post_permission_depends_on_draft_flag(strict_client, rbac, db):
 
 
 def test_wr_create_records_signed_in_user(strict_client, rbac, db):
-    imp = _file(db, "IMP-REG-WRUSER")
-    body = {"import_file_id": imp.import_file_id, "grn_items": [
+    imp = _wr_file(db, "IMP-REG-WRUSER")
+    body = {"import_file_id": imp.import_file_id, "warehouse_name": "WH", "grn_items": [
         {"item_code": "A", "item_name": "A", "invoiced_qty": 5, "accepted_qty": 5}]}
     res = strict_client.post("/api/v1/warehouse-receiving", json=body, headers=_bearer(rbac["operator"]))
     assert res.status_code == 201, res.text
@@ -221,7 +221,7 @@ def test_wr_create_records_signed_in_user(strict_client, rbac, db):
 # ─── Warehouse receiving ─────────────────────────────────────────────────────
 
 def test_wr02_second_grn_is_409_with_code(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     first = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="u")
     with pytest.raises(HTTPException) as exc:
         wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="u")
@@ -232,7 +232,7 @@ def test_wr02_second_grn_is_409_with_code(db):
 
 def test_wr02_create_writes_audit_row(db):
     from modules.audit_logs.model import AuditLog
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="auditor-u")
     log = db.query(AuditLog).filter(AuditLog.entity_type == "WarehouseReceivingRecord",
                                     AuditLog.entity_id == rec.receiving_id).one()
@@ -241,7 +241,7 @@ def test_wr02_create_writes_audit_row(db):
 
 
 def test_wr03_accepted_full_with_shortage_is_400(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 8, 2, 0))))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -251,7 +251,7 @@ def test_wr03_accepted_full_with_shortage_is_400(db):
 
 
 def test_wr03_unknown_verdict_is_400_and_default_committee_english(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -263,7 +263,7 @@ def test_wr03_unknown_verdict_is_400_and_default_committee_english(db):
 
 
 def test_wr04_unbalanced_line_is_400_and_excess_allowed(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     with pytest.raises(HTTPException) as exc:
         wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 10, 2, 0))))
     assert exc.value.status_code == 400
@@ -277,7 +277,7 @@ def test_wr04_unbalanced_line_is_400_and_excess_allowed(db):
 
 
 def test_wr07_put_rejects_unknown_status(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     with pytest.raises(HTTPException) as exc:
         wr_service.update_warehouse_receiving_service(db, rec.receiving_id, WarehouseReceivingUpdate(status="Whatever"))
@@ -287,7 +287,7 @@ def test_wr07_put_rejects_unknown_status(db):
 
 
 def test_wr09_restore_with_other_active_grn_is_409(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     first = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
     wr_service.soft_delete_warehouse_receiving_service(db, first.receiving_id)
     second = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
@@ -567,7 +567,7 @@ def test_confirm_dossier_export_accepts_edit_or_close(strict_client, rbac, db):
     ((10, 10, 0, 0), True, "ACCEPTED_WITH_DISCREPANCY"),  # quarantine branch
 ])
 def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items(rows)))
     with pytest.raises(HTTPException) as exc:
         wr_service.submit_warehouse_inspection_protocol_service(
@@ -578,7 +578,7 @@ def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
 
 
 def test_wr_damage_claim_pending_allowed_with_discrepancy(db):
-    imp = _file(db)
+    imp = _wr_file(db)
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id, _items((10, 8, 0, 2))))
     out = wr_service.submit_warehouse_inspection_protocol_service(
         db, rec.receiving_id, WarehouseInspectionSubmit(inspection_verdict="DAMAGE_CLAIM_PENDING"))
@@ -751,7 +751,7 @@ def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
 
 
 def test_closed_file_blocks_warehouse_receiving_writes(db):
-    imp = _file(db, code="IMP-WR-CLOSED")
+    imp = _wr_file(db, code="IMP-WR-CLOSED")
     rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
 
     # Close the file
