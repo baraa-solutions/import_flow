@@ -56,6 +56,8 @@ class Project(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     company = relationship("ImportCompany", foreign_keys=[company_id])

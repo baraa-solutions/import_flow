@@ -680,7 +680,6 @@ def estimate_multi_item_customs_duty_service(
         effective_exchange_rate = request.exchange_rate
     else:
         effective_exchange_rate, rate_date, rate_id = _customs_rate(db, request.currency, on_date)
-
     # Step 0: Resolve Freight Rate & Source (ACC1-T01)
     freight_curr = (request.freight_currency or "EGP").strip().upper()
     freight_foreign_amt = request.freight_foreign_amount or Decimal("0.00")
