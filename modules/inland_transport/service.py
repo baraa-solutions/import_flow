@@ -34,11 +34,18 @@ from .validators import (
     validate_transition,
     validate_transport_booking_input,
     validate_import_file_for_transport,
+    ensure_file_open,
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+
+
+def _require_open_file_for_booking(db: Session, import_file_id: int) -> None:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if imp_file:
+        ensure_file_open(imp_file)
 
 
 def _insert_booking(db: Session, schema: InlandTransportBookingCreate, user: str) -> InlandTransportBooking:
@@ -186,6 +193,7 @@ def record_port_gate_out_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
+    _require_open_file_for_booking(db, booking.import_file_id)
     validate_transition(booking.status, ACTION_GATE_OUT)
 
     notes = booking.tracking_notes
@@ -220,6 +228,7 @@ def record_warehouse_arrival_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
+    _require_open_file_for_booking(db, booking.import_file_id)
     validate_transition(booking.status, ACTION_WAREHOUSE_ARRIVAL)
     validate_actual_times(booking.actual_departure_at, payload.actual_arrival_at)
 
@@ -276,6 +285,7 @@ def update_transport_booking_service(
     user: str = "System",
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
+    _require_open_file_for_booking(db, booking.import_file_id)
     data = schema.model_dump(exclude_unset=True)
     if data.get("truck_type") is not None:
         data["truck_type"] = enum_codes.normalize(enum_codes.TRUCK_TYPE, data["truck_type"])
@@ -320,5 +330,6 @@ def soft_delete_transport_booking_service(
     user: str = "System",
 ) -> None:
     booking = get_transport_booking_service(db, transport_id)
+    _require_open_file_for_booking(db, booking.import_file_id)
     apply_changes(booking, {"is_active": False}, user)
     db.commit()

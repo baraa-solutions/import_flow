@@ -38,6 +38,7 @@ from modules.notifications.model import SystemNotification
 from modules.users.model import Role, User
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 from modules.warehouse_receiving.schemas import (
+    DiscrepancyReportSubmit,
     GrnItemSchema,
     WarehouseInspectionSubmit,
     WarehouseReceivingCreate,
@@ -625,3 +626,120 @@ def test_put_lock_follows_file_status(db):
     db.commit()
     out = fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="Reviewer"))
     assert out.auditor_name == "Reviewer"
+
+
+def test_closed_file_blocks_warehouse_receiving_writes(db):
+    imp = _file(db, code="IMP-WR-CLOSED")
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.update_warehouse_receiving_service(db, rec.receiving_id, WarehouseReceivingUpdate(notes="updated"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    assert exc.value.detail.get("import_file_code") == "IMP-WR-CLOSED"
+
+    # 2. Report Discrepancy -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.report_receiving_discrepancy_service(
+            db, rec.receiving_id,
+            DiscrepancyReportSubmit(discrepancy_type="Shortage", discrepancy_notes="Shortage notes"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Inspection -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.submit_warehouse_inspection_protocol_service(
+            db, rec.receiving_id,
+            WarehouseInspectionSubmit(inspection_verdict="ACCEPTED_FULL"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.soft_delete_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Restore -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        wr_service.restore_warehouse_receiving_service(db, rec.receiving_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 6. Create on closed file -> 409 IMPORT_FILE_CLOSED
+    imp2 = _file(db, code="IMP-WR-CLOSED-2")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        wr_service.create_warehouse_receiving_service(db, _grn(imp2.import_file_id))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    loaded = wr_service.get_warehouse_receiving_service(db, rec.receiving_id)
+    assert loaded.receiving_id == rec.receiving_id
+
+
+def test_closed_file_blocks_inland_transport_writes(db):
+    imp = _file(db, code="IMP-IT-CLOSED", current_module="Phase 7 - Customs Clearance")
+    b = it_service.create_transport_booking_service(db, _booking(imp.import_file_id, waybill="WB-IT-1"))
+
+    # Close the file
+    imp.status = "Closed"
+    db.commit()
+
+    # 1. Create on closed file -> 409 IMPORT_FILE_CLOSED and current_module unchanged
+    imp2 = _file(db, code="IMP-IT-CLOSED-2", current_module="Phase 10 - File Closure")
+    imp2.status = "Closed"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        it_service.create_transport_booking_service(db, _booking(imp2.import_file_id, waybill="WB-IT-2"))
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    db.refresh(imp2)
+    assert imp2.current_module == "Phase 10 - File Closure"
+
+    # 2. Update (PUT) -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.update_transport_booking_service(
+            db, b.transport_id,
+            InlandTransportBookingUpdate(carrier_name="New Carrier"),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 3. Gate Out -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_port_gate_out_service(
+            db, b.transport_id,
+            InlandTransportGateOutSubmit(actual_departure_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 4. Warehouse Arrival -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.record_warehouse_arrival_service(
+            db, b.transport_id,
+            InlandTransportArrivalSubmit(actual_arrival_at=datetime.now(timezone.utc)),
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # 5. Soft Delete -> 409 IMPORT_FILE_CLOSED
+    with pytest.raises(HTTPException) as exc:
+        it_service.soft_delete_transport_booking_service(db, b.transport_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "IMPORT_FILE_CLOSED"
+
+    # Reads still work
+    bookings = it_service.list_transport_bookings_service(db, import_file_id=imp.import_file_id)
+    assert len(bookings) == 1
+
