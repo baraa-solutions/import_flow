@@ -70,7 +70,7 @@ class ShipmentBooking(Base):
     cost_variance_usd = Column(Float, nullable=False, default=0.0)
     savings_notes = Column(String(255), nullable=True)
     status = Column(String(50), nullable=False, default="Draft")  # Draft, Booking Requested, Confirmed, Amended, Cancelled, Sailed
-    owner = Column(String(100), nullable=False, default="Kamal")
+    owner = Column(String(100), nullable=False, default="system")
     notes = Column(Text, nullable=True)
 
     # Soft Delete
@@ -79,6 +79,8 @@ class ShipmentBooking(Base):
     # Audit Trail
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     import_file = relationship("ImportFile", backref="bookings")
