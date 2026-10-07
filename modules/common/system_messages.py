@@ -1296,6 +1296,15 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
     "FC_ALREADY_CLOSED": {"note": "Import file {import_file_code} is already closed. Reopen it first."},
+    "CURRENCY_NOT_FOUND": {
+        "note": "Currency code '{currency}' is not registered in the system.",
+    },
+    "CURRENCY_RATE_MISSING": {
+        "note": "No exchange rate registered for currency '{currency}' (rate type '{rate_type}') as of {as_of_date}.",
+    },
+    "CT_CUSTOMS_RATE_MISSING": {
+        "note": "No customs exchange rate registered for currency '{currency}' on date {on_date}.",
+    },
     "IMPORT_FILE_CLOSED": {
         "note": "Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.",
     },

@@ -12,6 +12,9 @@ class ApiErrorCode {
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
+  static const currencyNotFound = 'CURRENCY_NOT_FOUND';
+  static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
+  static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
   static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
 }

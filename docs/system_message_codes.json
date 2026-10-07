@@ -533,9 +533,36 @@
       "note"
     ]
   },
+  "CT_CUSTOMS_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_CODE_UNKNOWN": {
     "params": [
       "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_NOT_FOUND": {
+    "params": [
+      "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_RATE_MISSING": {
+    "params": [
+      "as_of_date",
+      "currency",
+      "rate_type"
     ],
     "parts": [
       "note"
