@@ -17,6 +17,7 @@ from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.incoterms.model import Incoterm
 from modules.currencies.model import Currency, ExchangeRate
+from modules.currencies.service import clear_currency_cache
 from modules.projects.model import Project
 from modules.import_files.model import ImportFile
 from modules.purchase_orders.model import PurchaseOrder, POLineItem
@@ -43,6 +44,7 @@ from modules.customs_consultation.model import CustomsConsultationSession
 
 @pytest.fixture
 def db_session():
+    clear_currency_cache()
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=test_engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
@@ -130,6 +132,7 @@ def db_session():
     try:
         yield db
     finally:
+        clear_currency_cache()
         db.close()
         Base.metadata.drop_all(bind=test_engine)
 
@@ -437,6 +440,8 @@ class TestPL07CustomsDutySimulation:
             company_name="شركة سرور اللوجستية",
             supplier_id=1,
             supplier_name="Siemens Industrial Automation GmbH",
+            broker_id=1,
+            broker_name="Approved Customs Broker",
             status="In Progress",
             is_active=True,
         )
@@ -532,3 +537,345 @@ class TestPL07CustomsDutySimulation:
 
         assert exc_info.value.status_code == 422
         assert "لا يوجد بند تعريفة فعّال" in exc_info.value.detail
+
+    def test_simulation_multi_currency_per_po_deemed_additions(self, db_session):
+        """
+        Test 7: Money & multi-currency PO simulation:
+        Customs rates USD 50, EUR 55 on estimate date; both HS codes duty 10%, VAT 14%, service fee 1%;
+        request freight_egp=0, insurance_egp=0 (deemed path: insurance 2.5%, freight 2% of FOB EGP 105,000 -> 2,625 + 2,100 = 4,725).
+        Line 1 (USD 1,000 -> 50,000 EGP, share 50/105): cif_value_egp == 52,250.00, duty_egp == 5,225.00.
+        Line 2 (EUR 1,000 -> 55,000 EGP, share 55/105): cif_value_egp == 57,475.00, duty_egp == 5,747.50.
+        """
+        sim_date = date(2026, 6, 1)
+
+        # Seed EUR currency
+        c_eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True)
+        db_session.add(c_eur)
+        db_session.flush()
+
+        # Seed exchange rates for USD (50) and EUR (55)
+        c_usd = db_session.query(Currency).filter(Currency.currency_code == "USD").one()
+        usd_rate = ExchangeRate(
+            currency_id=c_usd.currency_id,
+            effective_date=sim_date,
+            customs_rate=Decimal("50.0000"),
+            commercial_rate=Decimal("50.0000"),
+            is_active=True,
+        )
+        eur_rate = ExchangeRate(
+            currency_id=c_eur.currency_id,
+            effective_date=sim_date,
+            customs_rate=Decimal("55.0000"),
+            commercial_rate=Decimal("55.0000"),
+            is_active=True,
+        )
+        db_session.add_all([usd_rate, eur_rate])
+
+        # Seed two tariffs (both 10% duty, 14% VAT, 1% service fee)
+        t1 = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("10.00"),
+                vat_rate=Decimal("14.00"),
+                customs_service_fee_rate=Decimal("1.00"),
+                effective_from=date(2025, 1, 1),
+            ),
+        )
+        t2 = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8504.40.90",
+                hs_description="Power supplies",
+                customs_duty_rate=Decimal("10.00"),
+                vat_rate=Decimal("14.00"),
+                customs_service_fee_rate=Decimal("1.00"),
+                effective_from=date(2025, 1, 1),
+            ),
+        )
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-MULTI",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens Industrial Automation GmbH",
+            broker_id=1,
+            broker_name="Approved Broker",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po_usd = PurchaseOrder(
+            po_number="PO-2026-USD",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=c_usd.currency_id,
+            status="Approved",
+            is_active=True,
+        )
+        po_eur = PurchaseOrder(
+            po_number="PO-2026-EUR",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=c_eur.currency_id,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add_all([po_usd, po_eur])
+        db_session.flush()
+
+        item_usd = POLineItem(
+            po_id=po_usd.po_id,
+            item_code="LAP-01",
+            description_ar="Laptops",
+            tariff_id=t1.tariff_id,
+            quantity=Decimal("100.00"),
+            unit_price=Decimal("10.00"),
+            total_price=Decimal("1000.00"),  # 1,000 USD -> 50,000 EGP
+        )
+        item_eur = POLineItem(
+            po_id=po_eur.po_id,
+            item_code="PWR-01",
+            description_ar="Power supplies",
+            tariff_id=t2.tariff_id,
+            quantity=Decimal("50.00"),
+            unit_price=Decimal("20.00"),
+            total_price=Decimal("1000.00"),  # 1,000 EUR -> 55,000 EGP
+        )
+        db_session.add_all([item_usd, item_eur])
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest(
+            freight_egp=Decimal("0.00"),
+            insurance_egp=Decimal("0.00"),
+            estimate_date=sim_date,
+        )
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert res.breakdown.fob_value_egp == Decimal("105000.00")
+        assert res.breakdown.insurance_egp == Decimal("2625.00")
+        assert res.breakdown.freight_egp == Decimal("2100.00")
+        assert res.breakdown.insurance_source == "deemed"
+        assert res.breakdown.freight_source == "deemed"
+
+        # Line 1 (USD 1,000 -> 50,000 EGP)
+        l1 = res.breakdown.lines[0]
+        assert l1.cif_value_egp == Decimal("52250.00")
+        assert l1.duty_egp == Decimal("5225.00")
+
+        # Line 2 (EUR 1,000 -> 55,000 EGP)
+        l2 = res.breakdown.lines[1]
+        assert l2.cif_value_egp == Decimal("57475.00")
+        assert l2.duty_egp == Decimal("5747.50")
+        assert res.currency == "EGP"
+
+    def test_simulation_line_without_hs_appended_to_skipped_lines(self, db_session):
+        """
+        Test 8: Line without HS is not priced at 8479.89.90; listed in skipped_lines.
+        """
+        tariff = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-SKIPPED",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens Industrial Automation GmbH",
+            broker_id=1,
+            broker_name="Approved Broker",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-2026-SKIPPED",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add(po)
+        db_session.flush()
+
+        # Item 1 with valid tariff
+        item1 = POLineItem(
+            po_id=po.po_id,
+            item_code="GOOD-ITEM",
+            description_ar="Laptops",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("5.00"),
+            unit_price=Decimal("100.00"),
+            total_price=Decimal("500.00"),
+        )
+        # Item 2 with NO tariff and NO hs_code
+        item2 = POLineItem(
+            po_id=po.po_id,
+            item_code="NO-HS-ITEM",
+            description_ar="Mystery goods",
+            tariff_id=None,
+            quantity=Decimal("5.00"),
+            unit_price=Decimal("100.00"),
+            total_price=Decimal("500.00"),
+        )
+        db_session.add_all([item1, item2])
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest(
+            exchange_rate=Decimal("50.00"),
+            freight_egp=Decimal("1000.00"),
+            insurance_egp=Decimal("500.00"),
+        )
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        # Only item 1 is estimated
+        assert len(res.breakdown.lines) == 1
+        assert res.breakdown.lines[0].hs_code == "8471.30.00"
+        # Item 2 is in skipped_lines with reason NO_HS
+        assert len(res.skipped_lines) == 1
+        assert res.skipped_lines[0]["po_number"] == "PO-2026-SKIPPED"
+        assert res.skipped_lines[0]["item_code"] == "NO-HS-ITEM"
+        assert res.skipped_lines[0]["reason"] == "NO_HS"
+
+    def test_simulation_no_usable_lines_raises_422(self, db_session):
+        """
+        Test 9: When no lines have HS and positive value -> raises 422 CT_SIMULATION_NO_LINES.
+        """
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-EMPTY",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens Industrial Automation GmbH",
+            broker_id=1,
+            broker_name="Approved Broker",
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-2026-EMPTY",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add(po)
+        db_session.flush()
+
+        # Item with no HS and 0 price
+        item = POLineItem(
+            po_id=po.po_id,
+            item_code="NO-HS",
+            description_ar="Empty item",
+            tariff_id=None,
+            quantity=Decimal("0.00"),
+            unit_price=Decimal("0.00"),
+            total_price=Decimal("0.00"),
+        )
+        db_session.add(item)
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest()
+        with pytest.raises(HTTPException) as exc_info:
+            simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["code"] == "CT_SIMULATION_NO_LINES"
+        assert "لا توجد أصناف بها بند جمركي وقيمة" in exc_info.value.detail["message"]
+
+    def test_simulation_no_broker_leaves_consultation_none_and_warns(self, db_session):
+        """
+        Test 10: When no consultation exists and import_file has no broker_id,
+        consultation_id is None and warning CT_SIMULATION_NO_BROKER is returned.
+        """
+        tariff = create_tariff_service(
+            db_session,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-NO-BROKER",
+            company_id=1,
+            company_name="شركة سرور اللوجستية",
+            supplier_id=1,
+            supplier_name="Siemens Industrial Automation GmbH",
+            broker_id=None,  # No broker!
+            broker_name=None,
+            status="In Progress",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-2026-NO-BROKER",
+            project_id=1,
+            import_file_id=imp_file.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            status="Approved",
+            is_active=True,
+        )
+        db_session.add(po)
+        db_session.flush()
+
+        item = POLineItem(
+            po_id=po.po_id,
+            item_code="LAP-01",
+            description_ar="Laptops",
+            tariff_id=tariff.tariff_id,
+            quantity=Decimal("10.00"),
+            unit_price=Decimal("100.00"),
+            total_price=Decimal("1000.00"),
+        )
+        db_session.add(item)
+        db_session.commit()
+
+        req = ImportFileCustomsSimulationRequest(
+            exchange_rate=Decimal("50.00"),
+            freight_egp=Decimal("2000.00"),
+            insurance_egp=Decimal("1000.00"),
+            save_to_consultation=True,
+        )
+        res = simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id, req)
+
+        assert res.consultation_id is None
+        assert "CT_SIMULATION_NO_BROKER" in res.warnings
+

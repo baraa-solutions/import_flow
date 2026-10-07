@@ -12,6 +12,24 @@ class ApiErrorCode {
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
+  static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const wrGrnLocked = 'WR_GRN_LOCKED';
+  static const wrCustomsNotReleased = 'WR_CUSTOMS_NOT_RELEASED';
+  static const wrFieldNotEditable = 'WR_FIELD_NOT_EDITABLE';
+  static const wrStatusChangeNotAllowed = 'WR_STATUS_CHANGE_NOT_ALLOWED';
+  static const wrClaimCurrencyInvalid = 'WR_CLAIM_CURRENCY_INVALID';
+  static const wrDateInFuture = 'WR_DATE_IN_FUTURE';
+  static const wrVerdictInconsistentExpected = 'WR_VERDICT_INCONSISTENT_EXPECTED';
+  static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
+  static const currencyNotFound = 'CURRENCY_NOT_FOUND';
+  static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
+  static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
+  static const ctSimulationNoLines = 'CT_SIMULATION_NO_LINES';
+  static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
+  static const listSortFieldInvalid = 'LIST_SORT_FIELD_INVALID';
+  static const fcExportBlocked = 'FC_EXPORT_BLOCKED';
+  static const fcClosureBlocked = 'FC_CLOSURE_BLOCKED';
+  static const ccSettlementLocked = 'CC_SETTLEMENT_LOCKED';
 }
 
 /// User-facing, localized text for a failed API call.

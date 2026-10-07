@@ -3773,5 +3773,17 @@
     "parts": [
       "note"
     ]
+  },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
   }
 }

@@ -1374,6 +1374,39 @@ def evaluate_duty_by_origin_and_document_service(
         )
 
 
+def _resolve_origin_iso2(
+    db: Session,
+    origin_val: Optional[str] = None,
+    country_id: Optional[int] = None,
+) -> Optional[str]:
+    from modules.transport_locations.model import Country
+    if country_id:
+        c = db.query(Country).filter(Country.country_id == country_id, Country.is_active == True).first()
+        if c and c.country_code and len(c.country_code.strip()) == 2:
+            return c.country_code.strip().upper()
+    if not origin_val:
+        return None
+    val = str(origin_val).strip()
+    if not val:
+        return None
+    token = val.split(" - ")[0].strip() if " - " in val else val
+    # Master Country table lookup by token (e.g. ISO-2 code)
+    c = db.query(Country).filter(Country.country_code.ilike(token), Country.is_active == True).first()
+    if c and c.country_code and len(c.country_code.strip()) == 2:
+        return c.country_code.strip().upper()
+    # Master Country table lookup by full name or Arabic name
+    c = db.query(Country).filter(
+        (Country.country_name.ilike(val)) | (Country.country_name_ar == val),
+        Country.is_active == True,
+    ).first()
+    if c and c.country_code and len(c.country_code.strip()) == 2:
+        return c.country_code.strip().upper()
+    # If not found in Country table, check if token itself is an ISO-2 alphabetic code
+    if len(token) == 2 and token.isalpha():
+        return token.upper()
+    return None
+
+
 def simulate_import_file_customs_duty_service(
     db: Session,
     import_file_id: int,
@@ -1381,14 +1414,15 @@ def simulate_import_file_customs_duty_service(
 ) -> ImportFileCustomsSimulationResponse:
     """
     محاكاة واحتساب الرسوم والضرائب التقديرية لملف الشحنة الاستيرادية (PL-07: Customs Duty Simulation).
-    1. استخراج بنود أمر الشراء أو الفواتير المرتبطة بالملف.
-    2. استرجاع سعر الصرف الجمركي الرسمي للعملة في تاريخ التقدير.
-    3. استرجاع أو احتساب النولون والتأمين (فعلي أو حكمي).
-    4. تشغيل محرك الحساب الجمركي المصري المتعدد الأصناف (Nafeza Statement Engine).
-    5. حفظ وتحديث قيمة الرسوم التقديرية ومستندات الفحص والموافقات في دراسة الاستشارة وميزانية الملف.
+    1. استخراج بنود أمر الشراء أو الفواتير المرتبطة بالملف دون أي قيم أو بنود مخترعة.
+    2. استرجاع سعر الصرف الجمركي الرسمي لكل عملة لأوامر الشراء في تاريخ التقدير.
+    3. تحويل البنود إلى الجنيه المصري وتمريرها لمحرك الضرائب الموحد.
+    4. استرجاع أو احتساب النولون والتأمين (فعلي أو حكمي).
+    5. تحديث جلسة الاستشارة الجمركية القائمة، أو إنشاء واحدة جديدة فقط في حال تعيين مخلص جمركي.
     """
     from modules.import_files.model import ImportFile
     from modules.purchase_orders.model import PurchaseOrder
+    from modules.currencies.model import Currency
     from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 
     req = request or ImportFileCustomsSimulationRequest()
@@ -1409,88 +1443,140 @@ def simulate_import_file_customs_duty_service(
     )
     po_numbers = [po.po_number for po in pos if po.po_number]
 
-    # Collect lines
     estimate_lines: List[MultiItemCustomsEstimateLine] = []
-    currency = "USD"
+    skipped_lines: List[dict] = []
+    warnings: List[str] = []
+    unique_currencies: Set[str] = set()
     line_idx = 1
 
     for po in pos:
-        if po.currency and po.currency.currency_code:
-            currency = po.currency.currency_code
+        po_curr = (po.currency.currency_code if po.currency and po.currency.currency_code else getattr(po, "currency_code", None) or "").upper().strip()
+        if not po_curr and getattr(po, "currency_id", None):
+            c_obj = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
+            if c_obj and c_obj.currency_code:
+                po_curr = c_obj.currency_code.upper().strip()
+        if not po_curr:
+            po_curr = "EGP"
+
+        unique_currencies.add(po_curr)
+
+        # Resolve exchange rate for this PO currency
+        if po_curr == "EGP":
+            po_rate = Decimal("1.0000")
+        elif req.exchange_rate is not None and req.exchange_rate > Decimal("0.00") and (len(pos) == 1 or len(unique_currencies) <= 1):
+            po_rate = req.exchange_rate
+        else:
+            po_rate, _, _ = _customs_rate(db, po_curr, calc_date)
+
         for item in (po.line_items or []):
             hs = (item.tariff.hs_code if getattr(item, "tariff", None) else getattr(item, "hs_code", "")) or ""
             hs = hs.strip()
             if not hs and import_file.hs_code:
                 hs = import_file.hs_code.strip()
-            if not hs:
-                hs = "8479.89.90"
 
-            qty = Decimal(str(item.quantity or 1.0))
+            item_code_val = (
+                getattr(item, "item_code", "")
+                or getattr(item, "description_ar", "")
+                or getattr(item, "description_en", "")
+                or ""
+            )
+
+            if not hs:
+                skipped_lines.append({
+                    "po_number": po.po_number or "",
+                    "item_code": item_code_val,
+                    "reason": "NO_HS",
+                })
+                continue
+
+            qty = Decimal(str(item.quantity or 0.0))
             u_price = Decimal(str(item.unit_price or 0.0))
             val_fc = Decimal(str(item.total_price or (qty * u_price)))
             if val_fc <= Decimal("0.00"):
-                val_fc = Decimal("1000.00")
+                skipped_lines.append({
+                    "po_number": po.po_number or "",
+                    "item_code": item_code_val,
+                    "reason": "NO_VALUE",
+                })
+                continue
 
-            origin = (getattr(item, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
-            if origin and " - " in origin:
-                origin = origin.split(" - ")[0].strip()
-            if origin and len(origin) > 2:
-                origin = origin[:2]
+            origin_raw = (getattr(item, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
+            country_id = getattr(item, "country_id", None) or getattr(po, "country_id", None)
+            origin_iso = _resolve_origin_iso2(db, origin_val=origin_raw, country_id=country_id)
+
+            val_egp = _round(val_fc * po_rate)
 
             estimate_lines.append(
                 MultiItemCustomsEstimateLine(
                     line_no=line_idx,
                     hs_code=hs,
-                    value_fc=val_fc,
+                    value_fc=val_egp,
                     weight_kg=Decimal(str(getattr(item, "gross_weight_kg", 0.0) or 0.0)),
-                    qty=qty,
-                    origin_country=origin.upper() if origin else None,
+                    qty=qty if qty > Decimal("0.00") else Decimal("1.00"),
+                    origin_country=origin_iso,
                 )
             )
             line_idx += 1
 
     # Fallback to invoices_data if no PO items exist
-    if not estimate_lines and import_file.invoices_data:
+    if not estimate_lines and not pos and import_file.invoices_data:
         for inv in import_file.invoices_data:
-            inv_amt = Decimal(str(inv.get("amount") or 0.0))
-            if inv_amt > Decimal("0.00"):
-                inv_curr = inv.get("currency") or "USD"
-                currency = inv_curr
-                hs = (import_file.hs_code or "8479.89.90").strip()
-                estimate_lines.append(
-                    MultiItemCustomsEstimateLine(
-                        line_no=line_idx,
-                        hs_code=hs,
-                        value_fc=inv_amt,
-                        weight_kg=Decimal("0.00"),
-                        qty=Decimal("1.00"),
-                        origin_country=None,
-                    )
-                )
-                line_idx += 1
+            inv_curr = (inv.get("currency") or "").upper().strip()
+            if not inv_curr:
+                # Skip invoices without currency
+                continue
 
-    # If still no items, provide a baseline estimate line
-    if not estimate_lines:
-        cost = Decimal(str(import_file.estimated_cost or 10000.0))
-        currency = import_file.estimated_cost_currency or "USD"
-        estimate_lines.append(
-            MultiItemCustomsEstimateLine(
-                line_no=1,
-                hs_code=(import_file.hs_code or "8479.89.90").strip(),
-                value_fc=cost if cost > Decimal("0.00") else Decimal("10000.00"),
-                weight_kg=Decimal("0.00"),
-                qty=Decimal("1.00"),
-                origin_country=None,
+            unique_currencies.add(inv_curr)
+            if inv_curr == "EGP":
+                inv_rate = Decimal("1.0000")
+            elif req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
+                inv_rate = req.exchange_rate
+            else:
+                inv_rate, _, _ = _customs_rate(db, inv_curr, calc_date)
+
+            hs = (import_file.hs_code or "").strip()
+            inv_num = inv.get("invoice_number", "") or "INVOICE"
+            if not hs:
+                skipped_lines.append({
+                    "po_number": inv_num,
+                    "item_code": "INVOICE",
+                    "reason": "NO_HS",
+                })
+                continue
+
+            inv_amt = Decimal(str(inv.get("amount") or 0.0))
+            if inv_amt <= Decimal("0.00"):
+                skipped_lines.append({
+                    "po_number": inv_num,
+                    "item_code": "INVOICE",
+                    "reason": "NO_VALUE",
+                })
+                continue
+
+            val_egp = _round(inv_amt * inv_rate)
+            estimate_lines.append(
+                MultiItemCustomsEstimateLine(
+                    line_no=line_idx,
+                    hs_code=hs,
+                    value_fc=val_egp,
+                    weight_kg=Decimal("0.00"),
+                    qty=Decimal("1.00"),
+                    origin_country=None,
+                )
             )
+            line_idx += 1
+
+    # If no lines exist, fail with 422 CT_SIMULATION_NO_LINES
+    if not estimate_lines:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "CT_SIMULATION_NO_LINES",
+                "message": "لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.",
+            },
         )
 
-    # 2. Resolve Currency & Customs Exchange Rate
-    if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
-        fx_rate = req.exchange_rate
-    else:
-        fx_rate, _, _ = _customs_rate(db, currency, calc_date)
-
-    # 3. Resolve Freight & Insurance
+    # 2. Resolve Freight & Insurance
     has_freight_doc = req.freight_egp is not None and req.freight_egp > Decimal("0.00")
     freight_val_egp = req.freight_egp or Decimal("0.00")
     if not has_freight_doc:
@@ -1507,20 +1593,24 @@ def simulate_import_file_customs_duty_service(
             ).first()
             if winning_q and winning_q.total_cost:
                 q_cost = Decimal(str(winning_q.total_cost))
-                q_curr = winning_q.currency_code or currency
-                if q_curr.upper() == "EGP":
+                q_curr = (winning_q.currency_code or "").upper().strip()
+                if not q_curr:
+                    q_curr = list(unique_currencies)[0] if unique_currencies else "USD"
+                if q_curr == "EGP":
                     freight_val_egp = q_cost
                 else:
-                    freight_val_egp = _round(q_cost * fx_rate)
+                    q_rate, _, _ = _customs_rate(db, q_curr, calc_date)
+                    freight_val_egp = _round(q_cost * q_rate)
                 has_freight_doc = True
 
     has_ins_doc = req.insurance_egp is not None and req.insurance_egp > Decimal("0.00")
     ins_val_egp = req.insurance_egp or Decimal("0.00")
 
-    # 4. Build Multi-Item Calculation Request and execute
+    # 3. Build Multi-Item Calculation Request and execute
+    # Lines have already been converted to EGP per their PO customs exchange rates
     calc_request = MultiItemCustomsEstimateRequest(
-        currency=currency,
-        exchange_rate=fx_rate,
+        currency="EGP",
+        exchange_rate=Decimal("1.0000"),
         insurance_egp=ins_val_egp,
         freight_egp=freight_val_egp,
         packaging_egp=req.packaging_egp or Decimal("0.00"),
@@ -1532,7 +1622,7 @@ def simulate_import_file_customs_duty_service(
 
     breakdown = estimate_multi_item_customs_duty_service(db, calc_request)
 
-    # 5. Persist to Consultation Session if requested
+    # 4. Persist to Consultation Session if requested
     consultation_id = None
     if req.save_to_consultation:
         consultation = (
@@ -1546,20 +1636,24 @@ def simulate_import_file_customs_duty_service(
 
         grand_duties_egp = float(breakdown.grand_total_payable_egp)
 
-        if not consultation:
+        if consultation:
+            consultation.estimated_duties_egp = grand_duties_egp
+            db.commit()
+            db.refresh(consultation)
+            consultation_id = consultation.consultation_id
+        elif import_file.broker_id:
             from modules.external_service_providers.model import ExternalServiceProvider
             broker = (
                 db.query(ExternalServiceProvider)
-                .filter(ExternalServiceProvider.partner_type.ilike("%Broker%"), ExternalServiceProvider.is_active == True)
+                .filter(ExternalServiceProvider.provider_id == import_file.broker_id, ExternalServiceProvider.is_active == True)
                 .first()
             )
-            broker_id = broker.provider_id if broker else (import_file.broker_id or 1)
-            broker_name = broker.partner_name if broker else (import_file.broker_name or "Approved Customs Broker")
+            broker_name = broker.partner_name if broker else (import_file.broker_name or f"Broker #{import_file.broker_id}")
 
             consultation = CustomsConsultationSession(
                 consultation_code=f"CONS-{import_file.import_file_code}",
                 title=f"Customs consultation study - {import_file.import_file_code}",
-                broker_id=broker_id,
+                broker_id=import_file.broker_id,
                 broker_name=broker_name,
                 import_file_id=import_file_id,
                 overall_status="Pending Review",
@@ -1617,12 +1711,14 @@ def simulate_import_file_customs_duty_service(
 
             if checklist_items:
                 db.add_all(checklist_items)
-        else:
-            consultation.estimated_duties_egp = grand_duties_egp
 
-        db.commit()
-        db.refresh(consultation)
-        consultation_id = consultation.consultation_id
+            db.commit()
+            db.refresh(consultation)
+            consultation_id = consultation.consultation_id
+        else:
+            warnings.append("CT_SIMULATION_NO_BROKER")
+
+    resp_currency = list(unique_currencies)[0] if len(unique_currencies) == 1 else "EGP"
 
     summary = (
         f"تمت المحاكاة الجمركية لملف {import_file.import_file_code}: "
@@ -1636,10 +1732,12 @@ def simulate_import_file_customs_duty_service(
         import_file_id=import_file_id,
         import_file_code=import_file.import_file_code,
         po_numbers=po_numbers,
-        currency=currency,
+        currency=resp_currency,
         breakdown=breakdown,
         consultation_id=consultation_id,
         summary_ar=summary,
+        warnings=warnings,
+        skipped_lines=skipped_lines,
     )
 
 

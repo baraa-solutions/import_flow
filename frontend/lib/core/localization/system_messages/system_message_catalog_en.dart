@@ -899,6 +899,11 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'Follow up the truck arrival at the warehouse and issue the GRN (TR-03)',
   },
+  'TR_SEAL_BROKEN': {
+    'title': 'Broken customs seal reported for truck {truck_plate_number}',
+    'body': 'Truck {truck_plate_number} arrived with a broken customs seal ({seal_number}).',
+    'note': 'Broken customs seal {seal_number} reported upon arrival.',
+  },
 
   'WH_GRN_ISSUED': {
     'title': 'Goods receiving note issued ({grn_code})',
@@ -1376,6 +1381,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CC_ASSESSED_COMPONENTS_LOCKED': {
     'note': 'Duty components cannot be edited after the assessment ({fields}); re-assess the final duties (CL-02).',
   },
+  'CC_SETTLEMENT_LOCKED': {
+    'note': 'Clearance invoices cannot be modified after the landed-cost settlement is approved ({settlement_code}).',
+  },
   'CCQ_RFQ_STATUS_INVALID': {
     'note': 'RFQ status \'{status}\' is not allowed; awarding is done through the award action only.',
   },
@@ -1412,8 +1420,38 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_GRN_LOCKED': {
+    'note': 'Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.',
+  },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
+  },
+  'WR_FIELD_NOT_EDITABLE': {
+    'note': 'Field \'{field_name}\' cannot be edited directly.',
+  },
+  'WR_STATUS_CHANGE_NOT_ALLOWED': {
+    'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
+  },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'Claim currency code \'{currency_code}\' is invalid or inactive.',
+  },
+  'WR_DATE_IN_FUTURE': {
+    'note': 'The inspection date cannot be more than 24 hours in the future.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
+  },
+  'IT_CARRIER_INVALID': {
+    'note': 'Carrier with ID {carrier_id} is unknown or inactive.',
+  },
+  'IT_TRUCK_TYPE_INVALID': {
+    'note': 'Truck type \'{truck_type}\' is invalid.',
+  },
+  'IT_SEAL_REQUIRED': {
+    'note': 'Seal number is required when seal is broken.',
+  },
+  'IT_DATE_IN_FUTURE': {
+    'note': '{field_name} cannot be more than 24 hours in the future.',
   },
   'IT_STATUS_INVALID': {
     'note': 'Unknown inland transport status \'{status}\'.',
@@ -1424,8 +1462,35 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_ALREADY_CLOSED': {
     'note': 'Import file {import_file_code} is already closed. Reopen it first.',
   },
+  'IMPORT_FILE_CLOSED': {
+    'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
+  },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'Unknown or inactive currency code \'{currency_code}\'.',
+  },
+  'CURRENCY_NOT_FOUND': {
+    'note': 'Currency code \'{currency}\' is not registered in the system.',
+  },
+  'CURRENCY_RATE_MISSING': {
+    'note': 'No exchange rate registered for currency \'{currency}\' (rate type \'{rate_type}\') as of {as_of_date}.',
+  },
+  'CT_CUSTOMS_RATE_MISSING': {
+    'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
+  },
+  'CT_SIMULATION_NO_LINES': {
+    'note': 'No items with HS code and value available to calculate estimated customs duties.',
+  },
+  'CT_SIMULATION_NO_BROKER': {
+    'note': 'No customs broker assigned to the import file; customs consultation session was not created.',
+  },
+  'LIST_SORT_FIELD_INVALID': {
+    'note': 'Unknown sort field \'{field}\'. Allowed fields: {allowed}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
+  },
+  'FC_EXPORT_BLOCKED': {
+    'note': 'The comprehensive dossier export cannot proceed: {blocking} not met.',
   },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'Closure record {closure_code} belongs to a closed file: reopen the file first.',
