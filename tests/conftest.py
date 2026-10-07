@@ -86,6 +86,12 @@ def setup_test_database():
 # no users table), returns a transient ADMIN user that is never persisted.
 # Tests that need the strict behaviour patch modules.auth.permissions.ALLOW_DEV_AUTH_BYPASS to False, which
 # short-circuits before this seam is reached.
+# The seam also pins modules.auth.permissions.ALLOW_DEV_AUTH_BYPASS to True for the session, so the suite
+# behaves the same whatever the environment says: the CI gates (scripts/ci/guardrails.py scratch_env,
+# .github/workflows/full_tests.yml) export ALLOW_DEV_AUTH_BYPASS=false, which beats the setdefault above and
+# would turn every token-less TestClient call into 401 "Missing Authorization header". Only the module
+# attribute is pinned: settings.ALLOW_DEV_AUTH_BYPASS / resolve_dev_auth_bypass and subprocess tests still see
+# the real environment, and a test's own monkeypatch to False still wins (and is undone after that test).
 import modules.auth.permissions as _auth_permissions  # noqa: E402
 from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 from modules.users.model import User as _User  # noqa: E402
@@ -108,5 +114,6 @@ def dev_bypass_test_admin_seam():
         return user if user is not None else _transient_test_admin()
 
     with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
         mp.setattr(_auth_permissions, "_dev_bypass_fallback_user", _wrapped)
         yield
