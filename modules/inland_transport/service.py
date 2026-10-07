@@ -37,6 +37,8 @@ from .validators import (
     validate_import_file_for_transport,
     validate_truck_type,
     validate_carrier,
+    validate_not_future,
+    validate_seal_evidence,
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
@@ -227,10 +229,19 @@ def record_port_gate_out_service(
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
     validate_transition(booking.status, ACTION_GATE_OUT)
+    validate_not_future(payload.actual_departure_at, "الخروج الفعلي")
+
+    evidence_parts = []
+    if payload.gate_pass_no and payload.gate_pass_no.strip():
+        evidence_parts.append(f"Gate pass: {payload.gate_pass_no.strip()}")
+    if payload.notes and payload.notes.strip():
+        evidence_parts.append(f"Gate-out: {payload.notes.strip()}")
 
     notes = booking.tracking_notes
-    if payload.notes:
-        notes = (notes or "") + f" | Gate-out: {payload.notes}"
+    if evidence_parts:
+        evidence_str = " | ".join(evidence_parts)
+        notes = f"{notes} | {evidence_str}" if notes else evidence_str
+
     apply_changes(booking, {
         "actual_departure_at": payload.actual_departure_at,
         "status": STATUS_IN_TRANSIT,
@@ -262,11 +273,25 @@ def record_warehouse_arrival_service(
 ) -> InlandTransportBooking:
     booking = get_transport_booking_service(db, transport_id)
     validate_transition(booking.status, ACTION_WAREHOUSE_ARRIVAL)
+    validate_not_future(payload.actual_arrival_at, "الوصول الفعلي")
     validate_actual_times(booking.actual_departure_at, payload.actual_arrival_at)
+    validate_seal_evidence(payload.seal_intact, payload.seal_number)
+
+    seal_tag = "intact" if payload.seal_intact else "BROKEN"
+    if payload.seal_number and payload.seal_number.strip():
+        seal_str = f"Seal: {seal_tag} {payload.seal_number.strip()}"
+    else:
+        seal_str = f"Seal: {seal_tag}"
+
+    evidence_parts = [seal_str]
+    if payload.notes and payload.notes.strip():
+        evidence_parts.append(f"Warehouse arrival: {payload.notes.strip()}")
 
     notes = booking.tracking_notes
-    if payload.notes:
-        notes = (notes or "") + f" | Warehouse arrival: {payload.notes}"
+    if evidence_parts:
+        evidence_str = " | ".join(evidence_parts)
+        notes = f"{notes} | {evidence_str}" if notes else evidence_str
+
     apply_changes(booking, {
         "actual_arrival_at": payload.actual_arrival_at,
         "status": STATUS_ARRIVED,
@@ -285,6 +310,28 @@ def record_warehouse_arrival_service(
             stage_code="ARRIVED_AT_WAREHOUSE",
             next_action=msg("NA_TR_CHECK_SEALS_ISSUE_GRN"),
         )
+
+    # Broken seal notification
+    if not payload.seal_intact:
+        from modules.notifications.model import SystemNotification
+        seal_no = payload.seal_number.strip() if payload.seal_number else ""
+        notif_msg = msg(
+            "TR_SEAL_BROKEN",
+            truck_plate_number=booking.truck_plate_number,
+            seal_number=seal_no,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
+            category="STAGE_PROGRESSION",
+            severity="WARNING",
+            target_role="ALL",
+            entity_type="ImportFile",
+            entity_id=imp_file.import_file_id if imp_file else booking.import_file_id,
+            is_read=False,
+        ))
 
     db.commit()
     db.refresh(booking)

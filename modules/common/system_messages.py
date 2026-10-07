@@ -560,6 +560,11 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "body": "Truck {truck_plate_number} booked to move {import_file_code} from {pickup_location} to "
         "{destination_warehouse}. Driver: {driver_name} ({driver_phone}).",
     },
+    "TR_SEAL_BROKEN": {
+        "title": "Broken customs seal reported for truck {truck_plate_number}",
+        "body": "Truck {truck_plate_number} arrived with a broken customs seal ({seal_number}).",
+        "note": "Broken customs seal {seal_number} reported upon arrival.",
+    },
     "DD_FREE_DAYS_RECORDED": {
         "title": "Free days recorded ({demurrage_free_days} days) (BK-02)",
         "body": "Free days recorded for {import_file_code}. Demurrage free days: {demurrage_free_days}, "
@@ -1298,6 +1303,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "IT_TRUCK_TYPE_INVALID": {
         "note": "Truck type '{truck_type}' is invalid.",
+    },
+    "IT_SEAL_REQUIRED": {
+        "note": "Seal number is required when seal is broken.",
+    },
+    "IT_DATE_IN_FUTURE": {
+        "note": "{field_name} cannot be more than 24 hours in the future.",
     },
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},

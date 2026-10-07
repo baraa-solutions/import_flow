@@ -2052,6 +2052,20 @@
       "note"
     ]
   },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -3529,6 +3543,17 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
     ]
   },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
