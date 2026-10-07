@@ -1424,6 +1424,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_ALREADY_CLOSED': {
     'note': 'Import file {import_file_code} is already closed. Reopen it first.',
   },
+  'LIST_SORT_FIELD_INVALID': {
+    'note': 'Unknown sort field \'{field}\'. Allowed fields: {allowed}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
   },

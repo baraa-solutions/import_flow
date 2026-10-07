@@ -584,6 +584,9 @@ def get_paginated_import_files_service(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    sort: Optional[str] = None,
+    response: Optional[Any] = None,
+    params: Optional[Any] = None,
 ):
     return repo.get_paginated_import_files(
         db,
@@ -603,6 +606,9 @@ def get_paginated_import_files_service(
         date_to=date_to,
         page=page,
         page_size=page_size,
+        sort=sort,
+        response=response,
+        params=params,
     )
 
 def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = None, priority: Optional[str] = None, broker_id: Optional[int] = None, broker_name: Optional[str] = None, search: Optional[str] = None):

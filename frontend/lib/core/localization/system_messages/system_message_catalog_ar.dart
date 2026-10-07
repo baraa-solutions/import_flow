@@ -1424,6 +1424,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
   },
+  'LIST_SORT_FIELD_INVALID': {
+    'note': 'حقل الترتيب \'{field}\' غير معروف. الحقول المسموح بها: {allowed}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },
