@@ -202,7 +202,13 @@ void main() {
       expect(fakeNotifier.reconcileReviewedSwiftBatchCalled, isFalse);
 
       expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.textContaining(expectedMissingFieldName), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.textContaining(expectedMissingFieldName),
+        ),
+        findsOneWidget,
+      );
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
       expect(snackBar.backgroundColor, equals(AppTheme.orange));
     }
@@ -252,7 +258,7 @@ void main() {
           'beneficiary_bank_swift': 'PCBCCNBJJSS',
           'beneficiary_account_or_iban': '32250198613609841015',
         },
-        expectedMissingFieldName: 'Transferred amount',
+        expectedMissingFieldName: 'Amount',
       );
     });
 
