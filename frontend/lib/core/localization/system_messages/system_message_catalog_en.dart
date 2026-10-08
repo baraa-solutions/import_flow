@@ -1412,6 +1412,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
+  },
+  'WR_GRN_LOCKED': {
+    'note': 'Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
   },
@@ -1424,6 +1430,21 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_ALREADY_CLOSED': {
     'note': 'Import file {import_file_code} is already closed. Reopen it first.',
   },
+  'CURRENCY_NOT_FOUND': {
+    'note': 'Currency code \'{currency}\' is not registered in the system.',
+  },
+  'CURRENCY_RATE_MISSING': {
+    'note': 'No exchange rate registered for currency \'{currency}\' (rate type \'{rate_type}\') as of {as_of_date}.',
+  },
+  'CT_CUSTOMS_RATE_MISSING': {
+    'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'Invalid preferential trade agreement data ({reason}).',
+  },
+  'IMPORT_FILE_CLOSED': {
+    'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
   },
@@ -1435,6 +1456,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'FC_STATUS_INVALID': {
     'note': 'A closure record can only be set back to Draft.',
+  },
+  'CURRENCY_CODE_UNKNOWN': {
+    'note': 'Unknown or inactive currency code \'{currency_code}\'.',
   },
   'SETTLEMENT_FX_RATE_MISSING': {
     'note': 'No exchange rate for {currency} on {on_date}. Register the rate before calculating the settlement.',

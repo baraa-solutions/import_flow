@@ -7,6 +7,11 @@ from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.container_loader.model import ContainerLoaderSessionModel, ContainerSpecModel
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.customs_clearance_quotations.model import (
+    ClearanceServicePriceListItem,
+    CustomsClearanceQuotationItem,
+    CustomsClearanceRFQ,
+)
 from modules.customs_consultation.model import (
     BrokerPriceList,
     BrokerPriceListItem,
@@ -17,6 +22,7 @@ from modules.customs_consultation.model import (
 )
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
 from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
+from modules.expense_catalog.model import ExpenseCatalog
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.financial_approval.model import ImportBudgetApproval, PaymentRequestSession
@@ -31,6 +37,7 @@ from modules.import_documentation.model import (
     CustomsDeclarationDraft,
     DraftBLReviewSession,
     InspectionCertificateReviewSession,
+    InvoiceBLMatchSession,
     POPackingReconciliationSession,
     ShipmentDocumentItem,
 )
