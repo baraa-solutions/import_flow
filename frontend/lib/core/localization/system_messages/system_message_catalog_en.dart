@@ -899,6 +899,11 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'Follow up the truck arrival at the warehouse and issue the GRN (TR-03)',
   },
+  'TR_SEAL_BROKEN': {
+    'title': 'Broken customs seal reported for truck {truck_plate_number}',
+    'body': 'Truck {truck_plate_number} arrived with a broken customs seal ({seal_number}).',
+    'note': 'Broken customs seal {seal_number} reported upon arrival.',
+  },
 
   'WH_GRN_ISSUED': {
     'title': 'Goods receiving note issued ({grn_code})',
@@ -1438,6 +1443,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'IT_TRUCK_TYPE_INVALID': {
     'note': 'Truck type \'{truck_type}\' is invalid.',
+  },
+  'IT_SEAL_REQUIRED': {
+    'note': 'Seal number is required when seal is broken.',
+  },
+  'IT_DATE_IN_FUTURE': {
+    'note': '{field_name} cannot be more than 24 hours in the future.',
   },
   'IT_STATUS_INVALID': {
     'note': 'Unknown inland transport status \'{status}\'.',

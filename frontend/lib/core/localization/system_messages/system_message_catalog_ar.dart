@@ -899,6 +899,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'متابعة وصول الشاحنة للمستودع وإصدار إذن الإضافة GRN (TR-03)',
   },
+  'TR_SEAL_BROKEN': {
+    'title': 'إبلاغ عن كسر الختم الجمركي للشاحنة {truck_plate_number}',
+    'body': 'وصلت الشاحنة {truck_plate_number} بختم جمركي مكسور/تالف ({seal_number}).',
+    'note': 'تم الإبلاغ عن كسر الختم الجمركي {seal_number} عند الوصول.',
+  },
 
   'WH_GRN_ISSUED': {
     'title': 'تم إصدار إذن الإضافة المخزني ({grn_code})',
@@ -1438,6 +1443,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'IT_TRUCK_TYPE_INVALID': {
     'note': 'نوع الشاحنة \'{truck_type}\' غير صالح.',
+  },
+  'IT_SEAL_REQUIRED': {
+    'note': 'رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم.',
+  },
+  'IT_DATE_IN_FUTURE': {
+    'note': 'موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.',
   },
   'IT_STATUS_INVALID': {
     'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
