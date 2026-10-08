@@ -184,6 +184,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get recordNotFoundOrDeleted => 'Record not found or deleted';
   @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
   @override String get entityDetailsTitle => 'Record Details';
+  @override String get importFilePickerSelectFile => 'Select Import File';
+  @override String get importFilePickerNoFilesFound => 'No import files available';
+  @override String get importFilePickerFileRequired => 'Please select an import file to continue';
+  @override String get importFilePickerContinue => 'Continue';
+  @override String get importFilePickerSearchHint => 'Search by file code, supplier, company...';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';

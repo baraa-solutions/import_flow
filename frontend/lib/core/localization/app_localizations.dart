@@ -191,6 +191,11 @@ abstract class AppLocalizations {
   String get recordNotFoundOrDeleted;
   String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
   String get entityDetailsTitle;
+  String get importFilePickerSelectFile;
+  String get importFilePickerNoFilesFound;
+  String get importFilePickerFileRequired;
+  String get importFilePickerContinue;
+  String get importFilePickerSearchHint;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;

@@ -15,7 +15,7 @@ Legend: Sev `CRITICAL*` = report said MAJOR, lead raised it because it fixes a C
 | 3 | FEX-T08 | X | MAJOR | RowAction model, RowActionsBar and shared confirm (replaces RowActionsPill internals) | FEX-T13 (optional) | no | [cross-cutting-tables-and-view.md#fex-t08](cross-cutting-tables-and-view.md#fex-t08-rowaction-model-rowactionsbar-and-shared-confirm-replaces-rowactionspill-internals) | done (PR #69) |
 | 4 | FEX-T02 | X | MAJOR | `PagedDataTable<T>` widget (virtualized, sticky header, pinned start columns) | FEX-T01, FEX-T08 | no | [cross-cutting-tables-and-view.md#fex-t02](cross-cutting-tables-and-view.md#fex-t02-pageddatatablet-widget-virtualized-sticky-header-pinned-start-columns) | done (PR #70) |
 | 5 | FEX-T09 | X | MAJOR | EntityDetailsDialog + by-id providers + EntityRef registry | FEX-T08 | no | [cross-cutting-tables-and-view.md#fex-t09](cross-cutting-tables-and-view.md#fex-t09-entitydetailsdialog--by-id-providers--entityref-registry) | done (PR #72) |
-| 6 | FEX-T21 | X | MAJOR | Shared import-file picker dialog (lead-added) | none | no | [README.md#fex-t21](README.md#fex-t21-shared-import-file-picker-dialog) | todo |
+| 6 | FEX-T21 | X | MAJOR | Shared import-file picker dialog (lead-added) | none | no | [README.md#fex-t21](README.md#fex-t21-shared-import-file-picker-dialog) | done |
 | 7 | FEX-T03 | X | MINOR | Backend contract doc for list paging and lookups | none | no | [cross-cutting-tables-and-view.md#fex-t03](cross-cutting-tables-and-view.md#fex-t03-backend-contract-doc-for-list-paging-and-lookups) | todo |
 
 ## Wave 1: BLOCKER / CRITICAL (57 tasks)
