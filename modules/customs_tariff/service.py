@@ -1,8 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from modules.common import enum_codes
@@ -36,6 +36,57 @@ def _round(value: Any) -> Decimal:
     if not isinstance(value, Decimal):
         value = Decimal(str(value))
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _agreement_duty_rate(standard_rate: Decimal, ag: Any) -> Decimal:
+    """Calculate effective preferential customs duty rate.
+
+    ag can be a PreferentialAgreement model instance or schema.
+    reduction_type can be:
+    - 'full_duty_exemption': 0.00%
+    - 'fixed_rate': uses preferential_duty_rate (must not be None)
+    - 'percentage_of_duty': standard_rate * (1 - reduction_percentage),
+      reduction_percentage is in range 0..1 (default 1.00 if None)
+    Raises HTTPException(422, CT_AGREEMENT_DATA_INVALID) on invalid agreement data.
+    """
+    red_type = getattr(ag, "reduction_type", None)
+    if red_type == "full_duty_exemption":
+        return Decimal("0.00")
+    elif red_type == "fixed_rate":
+        pref_rate = getattr(ag, "preferential_duty_rate", None)
+        if pref_rate is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "CT_AGREEMENT_DATA_INVALID",
+                    "message": "نسبة الضريبة التفضيلية المحددة غير مسجلة للاتفاقية ذات الفئة الثابتة.",
+                    "reason": "missing preferential_duty_rate for fixed_rate agreement",
+                },
+            )
+        return _round(Decimal(str(pref_rate)))
+    elif red_type == "percentage_of_duty":
+        raw_pct = getattr(ag, "reduction_percentage", None)
+        pct = Decimal(str(raw_pct if raw_pct is not None else "1.00"))
+        if pct > Decimal("1.00") or pct < Decimal("0.00"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "CT_AGREEMENT_DATA_INVALID",
+                    "message": f"نسبة التخفيض يجب أن تكون بين 0 و 1 (القيمة الحالية: {pct}).",
+                    "reason": f"reduction_percentage out of range (0..1): {pct}",
+                },
+            )
+        eff = _round(standard_rate * (Decimal("1.00") - pct))
+        return max(Decimal("0.00"), eff)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "CT_AGREEMENT_DATA_INVALID",
+                "message": f"نوع التخفيض غير معروف: {red_type}.",
+                "reason": f"unknown reduction_type: {red_type}",
+            },
+        )
 
 
 # ==================================================
@@ -215,13 +266,7 @@ def estimate_customs_duty_service(
             ag_db = db_agreements[0]
             trade_agreement_name = ag_db.agreement_name
             conditions_note = ag_db.conditions_note
-            red_pct = Decimal(str(ag_db.reduction_percentage))
-            if ag_db.reduction_type == "full_duty_exemption":
-                effective_duty_rate = Decimal("0.00")
-            elif ag_db.reduction_type == "percentage_of_duty":
-                effective_duty_rate = _round(standard_duty_rate * (Decimal("1.00") - red_pct))
-            elif ag_db.reduction_type == "fixed_rate":
-                effective_duty_rate = red_pct
+            effective_duty_rate = _agreement_duty_rate(standard_duty_rate, ag_db)
 
     # Calculation Steps
     import_duty_amount = _round(cif * (effective_duty_rate / Decimal("100")))
@@ -568,6 +613,47 @@ def calc_collection_fees(
     }
 
 
+def _customs_rate(
+    db: Session, currency: str, on_date: Optional[date] = None
+) -> Tuple[Decimal, Optional[date], Optional[int]]:
+    """Resolves the official Egyptian customs exchange rate for a given currency on a target date.
+
+    Returns (rate as Decimal, effective_date, rate_id).
+    Raises HTTPException 422 with code CT_CUSTOMS_RATE_MISSING if no rate is registered or currency is unknown.
+    """
+    code = (currency or "").upper().strip()
+    ref_date = on_date or date.today()
+    if code == "EGP":
+        return Decimal("1.0"), ref_date, None
+
+    from modules.currencies.service import CurrencyService
+
+    c_service = CurrencyService(db)
+    try:
+        r_val, r_date, r_id = c_service._get_rate_to_egp(code, rate_type="customs", as_of_date=ref_date)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "CT_CUSTOMS_RATE_MISSING",
+                "message": f"لا يوجد سعر صرف جمركي مسجل للعملة {code} بتاريخ {ref_date}.",
+                "currency": code,
+                "on_date": ref_date.isoformat() if isinstance(ref_date, (date, datetime)) else str(ref_date),
+            },
+        )
+    if r_id is None or r_val is None or r_val <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "CT_CUSTOMS_RATE_MISSING",
+                "message": f"لا يوجد سعر صرف جمركي مسجل للعملة {code} بتاريخ {ref_date}.",
+                "currency": code,
+                "on_date": ref_date.isoformat() if isinstance(ref_date, (date, datetime)) else str(ref_date),
+            },
+        )
+    return Decimal(str(r_val)), r_date, r_id
+
+
 # ==================================================
 # Multi-Item Egyptian Customs Engine (Nafeza Statement Engine)
 # ==================================================
@@ -593,12 +679,7 @@ def estimate_multi_item_customs_duty_service(
     if request.exchange_rate is not None and request.exchange_rate > Decimal("0.00"):
         effective_exchange_rate = request.exchange_rate
     else:
-        from modules.currencies.service import CurrencyService
-        c_service = CurrencyService(db)
-        r_val, r_date, r_id = c_service._get_rate_to_egp(request.currency, rate_type="customs", as_of_date=on_date)
-        effective_exchange_rate = Decimal(str(r_val))
-        rate_date = r_date
-        rate_id = r_id
+        effective_exchange_rate, rate_date, rate_id = _customs_rate(db, request.currency, on_date)
 
     # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
     (
@@ -670,21 +751,13 @@ def estimate_multi_item_customs_duty_service(
             trade_agreement_name = "خاضع للفئة القياسية (لم يتم استيفاء شروط الإعفاء)"
         elif line.origin_country:
             origin_clean = line.origin_country.upper()
-            db_agreements = repository.get_agreements_by_hs_code(db, line.hs_code, origin_clean)
+            db_agreements = repository.get_agreements_by_hs_code(db, line.hs_code, origin_clean, on_date=on_date)
             if db_agreements:
                 ag_db = db_agreements[0]
                 trade_agreement_name = ag_db.agreement_name
                 conditions_note = ag_db.conditions_note
-                red_pct = Decimal(str(ag_db.reduction_percentage))
-                if ag_db.reduction_type == "full_duty_exemption":
-                    duty_rate = Decimal("0.00")
-                    is_exemption_applied = True
-                elif ag_db.reduction_type == "percentage_of_duty":
-                    duty_rate = _round(standard_duty_rate * (Decimal("1.00") - red_pct))
-                    is_exemption_applied = (duty_rate == Decimal("0.00"))
-                elif ag_db.reduction_type == "fixed_rate":
-                    duty_rate = red_pct
-                    is_exemption_applied = (duty_rate == Decimal("0.00"))
+                duty_rate = _agreement_duty_rate(standard_duty_rate, ag_db)
+                is_exemption_applied = (duty_rate == Decimal("0.00"))
 
         schedule_tax_base = "cif"
 
@@ -909,7 +982,7 @@ def compare_tariff_versions_service(
     old_ag_by_notice = {}
     for ag in old_agreements:
         key = ag.publication_notice or ag.agreement_name
-        old_ag_by_notice[key] = ag
+        old_ag_by_notice.setdefault(key, ag)
 
     new_ag_by_notice = {}
     for ag in new_agreements:
@@ -1218,13 +1291,10 @@ def evaluate_duty_by_origin_and_document_service(
     base_duty = Decimal(str(tariff.customs_duty_rate))
     origin_code = req.origin_country.strip().upper()
 
-    all_agreements = repository.get_agreements_by_hs_code(db, req.hs_code, on_date=target_date)
-    matching_agreement = None
-    for ag in all_agreements:
-        countries = [c.strip().upper() for c in ag.origin_countries.split(",") if c.strip()]
-        if origin_code in countries:
-            matching_agreement = ag
-            break
+    all_agreements = repository.get_agreements_by_hs_code(
+        db, req.hs_code, origin_country=origin_code, on_date=target_date
+    )
+    matching_agreement = all_agreements[0] if all_agreements else None
 
     if not matching_agreement:
         return OriginDutyCheckResponse(
@@ -1246,13 +1316,7 @@ def evaluate_duty_by_origin_and_document_service(
     pub_notice = matching_agreement.publication_notice or "منشور جمركي"
     req_doc = matching_agreement.required_document or "شهادة منشأ تفضيلية (EUR.1)"
 
-    if matching_agreement.preferential_duty_rate is not None:
-        pref_duty = Decimal(str(matching_agreement.preferential_duty_rate))
-    elif matching_agreement.reduction_type == "full_duty_exemption":
-        pref_duty = Decimal("0.00")
-    else:
-        discount = Decimal(str(matching_agreement.reduction_percentage))
-        pref_duty = max(Decimal("0.00"), base_duty * (Decimal("1.00") - discount))
+    pref_duty = _agreement_duty_rate(base_duty, matching_agreement)
 
     if req.has_preferential_document:
         return OriginDutyCheckResponse(
@@ -1401,10 +1465,7 @@ def simulate_import_file_customs_duty_service(
     if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
         fx_rate = req.exchange_rate
     else:
-        from modules.currencies.service import CurrencyService
-        c_service = CurrencyService(db)
-        r_val, _, _ = c_service._get_rate_to_egp(currency, rate_type="customs", as_of_date=calc_date)
-        fx_rate = Decimal(str(r_val))
+        fx_rate, _, _ = _customs_rate(db, currency, calc_date)
 
     # 3. Resolve Freight & Insurance
     has_freight_doc = req.freight_egp is not None and req.freight_egp > Decimal("0.00")

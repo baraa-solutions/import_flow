@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 class ClosureChecklistSchema(BaseModel):
     """Client checklist: stored on drafts for the record only. It never gates the final close (the server
@@ -16,7 +17,7 @@ class ClosureChecklistSchema(BaseModel):
 class FileClosureCreate(BaseModel):
     import_file_id: int
     closure_checklist: ClosureChecklistSchema = Field(default_factory=ClosureChecklistSchema)
-    auditor_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    auditor_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     archive_location: str = "Digital Archive Vault - 2026"
     archival_notes: Optional[str] = None
     is_draft: bool = False
@@ -28,21 +29,22 @@ class FileClosureUpdate(BaseModel):
     archival_notes: Optional[str] = None
     status: Optional[str] = None
 
-class FileClosureResponse(BaseModel):
+@read_model
+class FileClosureResponse(LegacyRowTolerantModel):
     closure_id: int
     closure_code: str
     import_file_id: int
-    closure_checklist: Dict[str, bool]
-    auditor_name: str
-    archive_location: str
+    closure_checklist: Optional[Dict[str, Optional[bool]]] = Field(default_factory=dict)
+    auditor_name: Optional[str] = "Internal Auditor"
+    archive_location: Optional[str] = "Digital Archive Vault - 2026"
     archival_notes: Optional[str] = None
-    status: str
-    is_active: bool
-    closed_at: datetime
-    created_at: datetime
-    created_by: str
-    updated_at: datetime
-    updated_by: str
+    status: Optional[str] = "Closed"
+    is_active: bool = True
+    closed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = "System"
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = "System"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,15 +95,17 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     port_of_discharge: Optional[str] = None
     total_packages: int = 0
     gross_weight_kg: float = 0.0
-    net_weight_kg: float = 0.0
+    net_weight_kg: Optional[float] = None
     total_cbm: float = 0.0
     target_free_days: int = 0
 
     # Purchase Orders & FOB values
     purchase_orders: List[Dict[str, Any]] = Field(default_factory=list)
-    total_fob_fc: float = 0.0
-    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured")
-    fob_currency: str = "USD"
+    fob_by_currency: Dict[str, float] = Field(default_factory=dict, description="FOB sums grouped by currency code")
+    total_fob_fc: Optional[float] = Field(None, description="null when multi-currency or unknown currency")
+    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured or unknown currency")
+    fob_currency: Optional[str] = Field(None, description="null when multi-currency or unknown currency")
+    fob_source: Optional[str] = Field(None, description="'PO' when from purchase orders, 'ESTIMATE' when from estimated cost, null when missing")
     items_count: int = 0
     items_detail: List[Dict[str, Any]] = Field(default_factory=list)
 
@@ -147,7 +151,7 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     financial_settlement_invoices_count: int = 0
     financial_settlement_total_egp: float = 0.0
     actual_landed_cost_total_egp: float = 0.0
-    actual_landed_cost_markup_factor: float = 1.0
+    actual_landed_cost_markup_factor: Optional[float] = None
     actual_landed_cost_variance_egp: float = 0.0
     actual_landed_cost_variance_pct: float = 0.0
     actual_landed_cost_calculated_at: Optional[datetime] = None
@@ -162,7 +166,7 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
 
 class DossierExportConfirmRequest(BaseModel):
     import_file_id: int
-    exported_by: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    exported_by: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     export_format: str = Field("PDF & Excel Full Bundle", description="Exported format e.g. PDF, Excel, Full Bundle")
     notes: Optional[str] = None
 
@@ -195,7 +199,7 @@ class ClosurePrecheckResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     checklist_status: Dict[str, bool] = Field(default_factory=dict)
     actual_landed_cost_egp: float = 0.0
-    actual_markup_factor: float = 1.0
+    actual_markup_factor: Optional[float] = None
     dossier_exported_at: Optional[datetime] = None
     dossier_exported_by: Optional[str] = None
     empty_containers_returned_at: Optional[datetime] = None

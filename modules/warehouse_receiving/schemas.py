@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from modules.common.legacy_rows import LegacyRowTolerantModel
 
 class GrnItemSchema(BaseModel):
-    item_code: str
-    item_name: str
+    item_code: str = Field(..., min_length=1)
+    item_name: str = Field(..., min_length=1)
     invoiced_qty: int = Field(0, ge=0)
     accepted_qty: int = Field(0, ge=0)
     shortage_qty: int = Field(0, ge=0)
@@ -15,16 +15,16 @@ class GrnItemSchema(BaseModel):
 
 class WarehouseReceivingCreate(BaseModel):
     import_file_id: int
-    warehouse_name: str = "Main Warehouse - Cairo"
+    warehouse_name: str = Field(..., min_length=2)
     arrival_datetime: Optional[datetime] = None
     truck_plate_number: Optional[str] = None
     driver_name: Optional[str] = None
     driver_phone: Optional[str] = None
     seal_number: Optional[str] = None
     seal_intact: bool = True
-    grn_items: List[GrnItemSchema] = []
+    grn_items: List[GrnItemSchema] = Field(..., min_length=1)
     discrepancy_notes: Optional[str] = None
-    inspector_name: Optional[str] = Field(None, description="Defaults to the signed-in user")
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
 class DiscrepancyReportSubmit(BaseModel):
@@ -52,7 +52,7 @@ class WarehouseInspectionSubmit(BaseModel):
     supplier_claim_ref: Optional[str] = None
     claim_amount_estimated: float = 0.0
     claim_currency: str = "EGP"
-    inspector_name: Optional[str] = None
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
 class WarehouseReceivingUpdate(BaseModel):
@@ -64,7 +64,7 @@ class WarehouseReceivingUpdate(BaseModel):
     discrepancy_type: Optional[str] = None
     discrepancy_notes: Optional[str] = None
     status: Optional[str] = None
-    inspector_name: Optional[str] = None
+    inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
     inspection_committee: Optional[str] = None
     inspection_verdict: Optional[str] = None

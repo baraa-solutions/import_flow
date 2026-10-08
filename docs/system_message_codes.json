@@ -533,6 +533,41 @@
       "note"
     ]
   },
+  "CT_CUSTOMS_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_CODE_UNKNOWN": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_NOT_FOUND": {
+    "params": [
+      "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_RATE_MISSING": {
+    "params": [
+      "as_of_date",
+      "currency",
+      "rate_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CUSTOMS_FX_RATE_MISSING": {
     "params": [
       "currency",
@@ -2016,6 +2051,14 @@
       "body",
       "evidence",
       "reason"
+    ]
+  },
+  "IMPORT_FILE_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "INVOICES_ALREADY_SETTLED": {
@@ -3595,6 +3638,14 @@
       "body"
     ]
   },
+  "WR_CUSTOMS_NOT_RELEASED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"
@@ -3618,6 +3669,14 @@
       "invoiced_qty",
       "item_code",
       "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_LOCKED": {
+    "params": [
+      "grn_code"
     ],
     "parts": [
       "note"
@@ -3765,5 +3824,13 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
+  },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }
