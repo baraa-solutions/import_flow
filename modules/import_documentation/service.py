@@ -4867,11 +4867,12 @@ def _validate_incoterm_code(db: Session, value: Any) -> str:
 
 def _apply_invoice_bl_sync(
     db: Session, imp_file: ImportFile, inv: Dict[str, Any], bl: Dict[str, Any], sync_to_shipping: bool, actor: str
-) -> None:
+) -> bool:
     """Validated invoice / B/L values onto the import file and the cargo shipping record. No commit: the caller
-    commits them together with its own entity (DOC-13). Every value is checked before anything is written."""
+    commits them together with its own entity (DOC-13). Every value is checked before anything is written.
+    Returns True when invoice currency differs from the file's estimated_cost_currency."""
     # ImportFile has no amount column: the invoice amount stays in the session's invoice_data (deferred: column +
-    # migration). Currency -> estimated_cost_currency, incoterm -> incoterm_code.
+    # migration). Incoterm -> incoterm_code. Currency is validated; estimated_cost_currency is NEVER overwritten (BE03-T02).
     incoterm = _validate_incoterm_code(db, inv["incoterm"]) if inv.get("incoterm") else None
     currency = _validate_currency_code(db, inv["currency"]) if inv.get("currency") else None
     if bl.get("total_gross_weight_kg"):
@@ -4882,8 +4883,6 @@ def _apply_invoice_bl_sync(
         imp_file.pi_number = str(inv["invoice_number"])
     if incoterm:
         imp_file.incoterm_code = incoterm
-    if currency:
-        imp_file.estimated_cost_currency = currency
 
     # Sync B/L fields
     if bl.get("draft_bl_number"):
@@ -4904,6 +4903,9 @@ def _apply_invoice_bl_sync(
         # (deferred: schema change) and are kept on the import file / session data.
         if cargo_shp and bl.get("containers"):
             cargo_shp.containers_loading_data = bl["containers"]
+
+    currency_mismatch = currency is not None and currency != imp_file.estimated_cost_currency
+    return currency_mismatch
 
 
 def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], bl: Dict[str, Any], actor: str) -> None:
@@ -4963,6 +4965,17 @@ def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], 
     _commit_follow_up(db, _track, "Invoice/B-L file tracking")
 
 
+def _attach_session_currency_mismatch(
+    db: Session, session: InvoiceBLMatchSession, file_currency: Optional[str] = None
+) -> None:
+    if session and session.import_file_id:
+        if file_currency is None:
+            f = db.query(ImportFile.estimated_cost_currency).filter(ImportFile.import_file_id == session.import_file_id).first()
+            file_currency = f[0] if f else None
+        inv_c = (session.invoice_data or {}).get("currency") if isinstance(session.invoice_data, dict) else None
+        session.currency_mismatch = inv_c is not None and inv_c != file_currency
+
+
 def sync_certified_invoice_bl_to_file_service(
     db: Session, request: InvoiceBLSyncRequest, user: Optional[str] = None
 ) -> dict:
@@ -4971,13 +4984,14 @@ def sync_certified_invoice_bl_to_file_service(
     inv = request.invoice_data or {}
     bl = request.bl_data or {}
 
-    _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
+    currency_mismatch = _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
     db.commit()
     _invoice_bl_sync_follow_ups(db, imp_file.import_file_id, inv, bl, actor)
     imp_file = _get_active_import_file(db, request.import_file_id) or imp_file
 
     invoice_number = inv.get('invoice_number', 'N/A')
     draft_bl_number = bl.get('draft_bl_number', 'N/A')
+    inv_currency = inv.get("currency")
     return {
         "status": "success",
         "message": f"تمت مطابقة واعتماد الفاتورة ({invoice_number}) والبوليصة ({draft_bl_number}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
@@ -4989,9 +5003,10 @@ def sync_certified_invoice_bl_to_file_service(
         "synced_invoice_number": imp_file.pi_number,
         "synced_bl_number": imp_file.bl_number,
         "synced_incoterm_code": imp_file.incoterm_code,
-        # Kept for old clients: the file has no amount column (deferred), the currency is estimated_cost_currency.
+        # Kept for old clients: the file has no amount column (deferred), the currency is the invoice currency as sent.
         "total_amount": None,
-        "currency": imp_file.estimated_cost_currency,
+        "currency": inv_currency or imp_file.estimated_cost_currency,
+        "currency_mismatch": currency_mismatch,
     }
 
 
@@ -5011,6 +5026,7 @@ def create_invoice_bl_match_session_service(
             f"يوجد بالفعل جلسة مطابقة معتمدة للفاتورة والبوليصة لهذا الملف ({existing_certified.session_code}): "
             f"لا يمكن حفظ مسودة فوقها."
         )
+    currency_mismatch: Optional[bool] = None
     if certify:
         if existing_certified:
             raise _conflict(
@@ -5022,7 +5038,7 @@ def create_invoice_bl_match_session_service(
         payload.certified_by = actor
         if payload.invoice_data and payload.bl_data:
             # Validated and applied before the session save: one commit for session + file sync (DOC-13).
-            _apply_invoice_bl_sync(db, imp_file, payload.invoice_data, payload.bl_data, True, actor)
+            currency_mismatch = _apply_invoice_bl_sync(db, imp_file, payload.invoice_data, payload.bl_data, True, actor)
 
     if existing and (existing.is_draft or payload.is_draft):
         update_schema = InvoiceBLMatchSessionUpdate(**payload.model_dump())
@@ -5033,6 +5049,11 @@ def create_invoice_bl_match_session_service(
     if certify and payload.invoice_data and payload.bl_data:
         _invoice_bl_sync_follow_ups(db, payload.import_file_id, payload.invoice_data, payload.bl_data, actor)
         db.refresh(session_res)
+
+    if currency_mismatch is not None:
+        session_res.currency_mismatch = currency_mismatch
+    else:
+        _attach_session_currency_mismatch(db, session_res, file_currency=imp_file.estimated_cost_currency)
     return session_res
 
 
@@ -5042,7 +5063,10 @@ def list_invoice_bl_match_sessions_service(
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
 ) -> List[InvoiceBLMatchSession]:
-    return repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    sessions = repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    for s in sessions:
+        _attach_session_currency_mismatch(db, s)
+    return sessions
 
 
 def get_invoice_bl_match_session_service(
@@ -5051,6 +5075,7 @@ def get_invoice_bl_match_session_service(
     session = repo.get_invoice_bl_match_session_by_id(db, session_id)
     if not session:
         raise not_found(LABEL_INVOICE_BL_SESSION, session_id)
+    _attach_session_currency_mismatch(db, session)
     return session
 
 
