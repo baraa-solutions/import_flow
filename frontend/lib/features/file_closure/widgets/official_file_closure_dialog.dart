@@ -155,7 +155,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     if (pre != null) {
       text
         ..writeln('   - ${l10n.closureCertTotalCost}: ${pre.actualLandedCostEgp.toStringAsFixed(2)} EGP')
-        ..writeln('   - ${l10n.closureCertMarkup}: ${pre.actualMarkupFactor.toStringAsFixed(3)}x');
+        ..writeln('   - ${l10n.closureCertMarkup}: ${pre.actualMarkupFactor != null ? "${pre.actualMarkupFactor!.toStringAsFixed(3)}x" : "—"}');
     }
     text
       ..writeln('4. ${l10n.closurePillarDossier}: ${yn(pillars.dossier, l10n.closureCertOk, l10n.closureCertNotOk)}')
@@ -541,8 +541,10 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
           Text(
             l10n.closureLandedCostLine(
               precheck.actualLandedCostEgp.toStringAsFixed(2),
-              precheck.actualMarkupFactor.toStringAsFixed(3),
-            ),
+              precheck.actualMarkupFactor != null
+                  ? precheck.actualMarkupFactor!.toStringAsFixed(3)
+                  : '—',
+            ).replaceAll('—x', '—'),
             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),

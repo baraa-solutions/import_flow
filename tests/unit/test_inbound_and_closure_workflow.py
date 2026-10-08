@@ -33,6 +33,7 @@ def db_session():
         import_file_code="IMP-2026-0888",
         company_name="Archi Brands for Trading",
         supplier_name="Narbutas Furniture Corp",
+        is_customs_released=True,
         is_active=True,
     )
     session.add(imp_file)

@@ -122,7 +122,7 @@ class ImportFileBase(BaseModel):
     financial_settlement_invoices_count: Optional[int] = 0
     financial_settlement_total_egp: Optional[float] = 0.0
     actual_landed_cost_total_egp: Optional[float] = 0.0
-    actual_landed_cost_markup_factor: Optional[float] = 1.0
+    actual_landed_cost_markup_factor: Optional[float] = None
     actual_landed_cost_variance_egp: Optional[float] = 0.0
     actual_landed_cost_variance_pct: Optional[float] = 0.0
     actual_landed_cost_calculated_at: Optional[datetime] = None

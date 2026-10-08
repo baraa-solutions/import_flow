@@ -27,6 +27,7 @@ from modules.warehouse_receiving.service import (
     create_warehouse_receiving_service,
     get_warehouse_receiving_service,
     list_warehouse_receivings_service,
+    update_warehouse_receiving_service,
     report_receiving_discrepancy_service,
     soft_delete_warehouse_receiving_service,
     restore_warehouse_receiving_service,
@@ -62,6 +63,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
             company_name=company.importer_name,
             supplier_name="Global Tech Inc",
             po_number="PO-2026-100",
+            is_customs_released=True,
         )
         self.db.add(imp_file)
         self.db.commit()
@@ -70,6 +72,16 @@ class TestWarehouseReceivingModule(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+
+    def _create_valid_grn(self):
+        schema = WarehouseReceivingCreate(
+            import_file_id=self.import_file_id,
+            warehouse_name="Cairo Logistics Depot",
+            grn_items=[
+                GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=100),
+            ],
+        )
+        return create_warehouse_receiving_service(self.db, schema)
 
     def test_create_warehouse_receiving_and_grn_totals(self):
         schema = WarehouseReceivingCreate(
@@ -95,8 +107,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(record.discrepancy_type, "Shortage")
 
     def test_discrepancy_reporting_and_quarantine(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
 
         payload = DiscrepancyReportSubmit(
             discrepancy_type="Damage",
@@ -114,8 +125,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(record.status, "Discrepancy Reported")
 
     def test_soft_delete_and_restore(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         rec_id = record.receiving_id
 
         # Delete
@@ -128,9 +138,178 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(restored.receiving_id, rec_id)
         self.assertTrue(restored.is_active)
 
+    def test_put_inspection_verdict_blocked_400_field_not_editable(self):
+        record = self._create_valid_grn()
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(inspection_verdict="ACCEPTED_FULL"),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_FIELD_NOT_EDITABLE")
+
+    def test_put_inspection_verdict_none_blocked_400_leaves_verdict_unchanged(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "ACCEPTED_FULL"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(inspection_verdict=None),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_FIELD_NOT_EDITABLE")
+
+        self.db.refresh(record)
+        self.assertEqual(record.inspection_verdict, "ACCEPTED_FULL")
+
+    def test_put_status_transitions_allowed_and_forbidden(self):
+        record = self._create_valid_grn()
+        record.status = "Draft / Pending Warehouse Count"
+        self.db.commit()
+
+        # Same status returns 200 unchanged
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Draft / Pending Warehouse Count"),
+        )
+        self.assertEqual(updated.status, "Draft / Pending Warehouse Count")
+
+        # Draft -> Goods Received returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Goods Received"),
+        )
+        self.assertEqual(updated.status, "Goods Received")
+
+        # Goods Received -> GRN Audited returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="GRN Audited"),
+        )
+        self.assertEqual(updated.status, "GRN Audited")
+
+        # GRN Audited -> Closed returns 200
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(status="Closed"),
+        )
+        self.assertEqual(updated.status, "Closed")
+
+    def test_put_status_discrepancy_reported_to_closed_409(self):
+        record = self._create_valid_grn()
+        record.status = "Discrepancy Reported"
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(status="Closed"),
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_STATUS_CHANGE_NOT_ALLOWED")
+
+    def test_put_status_change_not_allowed_409(self):
+        record = self._create_valid_grn()
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(status="Inspection Passed / Clean Receipt"),
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "WR_STATUS_CHANGE_NOT_ALLOWED")
+
+    def test_put_clears_notes_when_null(self):
+        record = self._create_valid_grn()
+        record.notes = "Initial notes"
+        self.db.commit()
+
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(notes=None),
+        )
+        self.assertIsNone(updated.notes)
+
+    def test_put_items_without_protocol_recomputes_rate_and_type(self):
+        record = self._create_valid_grn()
+        new_items = [
+            GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=95, shortage_qty=3, damaged_qty=2),
+        ]
+        updated = update_warehouse_receiving_service(
+            self.db,
+            record.receiving_id,
+            WarehouseReceivingUpdate(grn_items=new_items),
+        )
+        self.assertEqual(updated.discrepancy_rate_percent, 5.0)
+        self.assertEqual(updated.discrepancy_type, "Shortage")
+
+    def test_put_items_with_protocol_accepted_full_and_discrepancy_is_400(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "ACCEPTED_FULL"
+        self.db.commit()
+
+        new_items = [
+            GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=95, shortage_qty=3, damaged_qty=2),
+        ]
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(grn_items=new_items),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_VERDICT_INCONSISTENT")
+
+    def test_put_items_with_protocol_accepted_with_discrepancy_and_clean_is_400(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "ACCEPTED_WITH_DISCREPANCY"
+        self.db.commit()
+
+        new_items = [
+            GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=100, shortage_qty=0, damaged_qty=0),
+        ]
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(grn_items=new_items),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_VERDICT_INCONSISTENT")
+
+    def test_put_items_with_protocol_damage_claim_pending_and_clean_is_400(self):
+        record = self._create_valid_grn()
+        record.inspection_protocol_number = "INSP-2026-0001"
+        record.inspection_verdict = "DAMAGE_CLAIM_PENDING"
+        self.db.commit()
+
+        new_items = [
+            GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=100, shortage_qty=0, damaged_qty=0),
+        ]
+        with self.assertRaises(HTTPException) as ctx:
+            update_warehouse_receiving_service(
+                self.db,
+                record.receiving_id,
+                WarehouseReceivingUpdate(grn_items=new_items),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "WR_VERDICT_INCONSISTENT")
+
     def test_soft_delete_blocked_when_protocol_exists(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.inspection_protocol_number = "INSP-2026-0001"
         self.db.commit()
 
@@ -140,8 +319,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_insurance_claim_filed(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.insurance_claim_filed = True
         self.db.commit()
 
@@ -151,8 +329,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_supplier_claim_filed(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.supplier_claim_filed = True
         self.db.commit()
 
@@ -162,8 +339,7 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
 
     def test_soft_delete_blocked_when_quarantine_lock_active(self):
-        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
-        record = create_warehouse_receiving_service(self.db, schema)
+        record = self._create_valid_grn()
         record.quarantine_lock_active = True
         self.db.commit()
 
@@ -171,7 +347,6 @@ class TestWarehouseReceivingModule(unittest.TestCase):
             soft_delete_warehouse_receiving_service(self.db, record.receiving_id)
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail["code"], "WR_GRN_LOCKED")
-
 if __name__ == "__main__":
     unittest.main()
 
