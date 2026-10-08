@@ -3874,5 +3874,13 @@
     "parts": [
       "note"
     ]
+  },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }

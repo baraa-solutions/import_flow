@@ -431,28 +431,134 @@ def _line_item_name(line: Any, fallback: str) -> str:
     return line.description_en or line.main_description or line.description_ar or fallback
 
 
-def _items_from_purchase_orders(db: Session, imp_file: ImportFile, fx: SettlementFx) -> List[Dict[str, Any]]:
-    """Settlement items from the PO lines of the file (FS-05): FOB unit in EGP at the PO rate, real weight / CBM /
-    HS code (missing values stay 0 / empty)."""
-    items: List[Dict[str, Any]] = []
+def file_po_line_shares(
+    db: Session,
+    imp_file: ImportFile,
+    messages: Optional[List[SettlementMessage]] = None,
+) -> List[Tuple[Any, float, float]]:
+    """
+    Computes per-line shares for the import file across its purchase orders (ACC2-T01 / FS-05).
+    Returns a list of tuples: (line, qty_share, ratio) where:
+      - line: POLineItem instance
+      - qty_share: quantity allocated to this import file
+      - ratio: fraction of the line quantity (qty_share / line.quantity), or PO-level ratio.
+
+    Rules:
+      1. For each active PO of the file:
+         - Load POShipmentAllocation rows for the PO.
+         - If NO allocation rows exist for the PO:
+           every line gets (line, float(line.quantity or 0.0), 1.0).
+         - If allocation rows exist for the PO across any file:
+           - If NO allocation rows exist for THIS file:
+             skip the PO entirely, and if messages is provided, add SETTLEMENT_PO_NOT_ALLOCATED.
+           - If allocation rows exist for THIS file:
+             * Item-level allocations (po_item_id is not None and import_file_id == imp_file.import_file_id):
+               qty_share = sum(shipped_quantity), ratio = qty_share / line.quantity (0 if line.quantity == 0).
+             * PO-level allocations (po_item_id is None and import_file_id == imp_file.import_file_id):
+               po_ratio = sum(shipped_amount_fob) / po.total_amount_fob (0 if total_amount_fob == 0).
+               For any line not covered by item-level allocations, qty_share = round(line.quantity * po_ratio, 4), ratio = po_ratio.
+             * Only lines with qty_share > 0 are included.
+    """
+    from modules.purchase_orders.model import POShipmentAllocation
+
+    shares: List[Tuple[Any, float, float]] = []
     for po in _purchase_orders_of_file(db, imp_file):
+        allocs = (
+            db.query(POShipmentAllocation)
+            .filter(POShipmentAllocation.po_id == po.po_id)
+            .all()
+        )
         lines = sorted(po.line_items or [], key=lambda li: li.item_id or 0)
         if not lines:
             continue
-        rate = purchase_order_rate_to_egp(po, fx)
-        for li in lines:
-            code = li.item_code or f"ITEM-{li.item_id}"
-            items.append({
-                "item_code": code,
-                "item_name": _line_item_name(li, code),
-                # A missing / zero quantity stays 0 on purpose: FOB 0, never an invented 1 (review 3 #8).
-                "qty": float(li.quantity or 0.0),
-                "fob_unit_egp": float(li.unit_price or 0.0) * rate,
-                "gross_weight_kg": float(li.gross_weight_kg or 0.0),
-                "cbm": float(li.total_cbm or 0.0),
-                "hs_code": (li.tariff.hs_code if li.tariff else "") or "",
-                "note": "Auto-fetched from the purchase order lines",
-            })
+
+        if not allocs:
+            # Case 1: No allocation rows exist for the PO at all
+            for line in lines:
+                shares.append((line, float(line.quantity or 0.0), 1.0))
+            continue
+
+        file_allocs = [a for a in allocs if a.import_file_id == imp_file.import_file_id]
+        other_allocs = [a for a in allocs if a.import_file_id is not None and a.import_file_id != imp_file.import_file_id]
+        if not file_allocs:
+            if other_allocs:
+                # Case 2: Allocation rows exist for other import files
+                if messages is not None:
+                    po_num = po.po_number or f"PO-{po.po_id}"
+                    messages.append(_message("SETTLEMENT_PO_NOT_ALLOCATED", po_number=po_num))
+                continue
+            else:
+                # Only unlinked rows (import_file_id is None) exist -> keep full-PO behavior
+                for line in lines:
+                    shares.append((line, float(line.quantity or 0.0), 1.0))
+                continue
+
+        # Case 3: Allocation rows exist for this file
+        item_allocs = [a for a in file_allocs if a.po_item_id is not None]
+        po_allocs = [a for a in file_allocs if a.po_item_id is None]
+
+        po_ratio = 0.0
+        if po_allocs:
+            po_total_fob = float(po.total_amount_fob or 0.0)
+            if po_total_fob <= 0.0:
+                po_total_fob = sum(
+                    float(li.total_price or (float(li.quantity or 0.0) * float(li.unit_price or 0.0)))
+                    for li in lines
+                )
+            value_known = all(float(a.shipped_amount_fob or 0.0) > 0.0 for a in po_allocs)
+            shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in po_allocs)
+            if value_known and shipped_fob > 0.0 and po_total_fob > 0.0:
+                po_ratio = shipped_fob / po_total_fob
+            else:
+                # Fallback when any shipped_amount_fob is <= 0: use quantity ratio
+                total_ord_qty = sum(float(li.quantity or 0.0) for li in lines)
+                shipped_qty = sum(float(a.shipped_quantity or 0.0) for a in po_allocs)
+                po_ratio = (shipped_qty / total_ord_qty) if total_ord_qty > 0.0 else 0.0
+
+        for line in lines:
+            line_item_allocs = [a for a in item_allocs if a.po_item_id == line.item_id]
+            if line_item_allocs:
+                shipped_qty = sum(float(a.shipped_quantity or 0.0) for a in line_item_allocs)
+                line_qty = float(line.quantity or 0.0)
+                ratio = (shipped_qty / line_qty) if line_qty > 0.0 else 0.0
+                if shipped_qty > 0.0:
+                    shares.append((line, shipped_qty, ratio))
+            elif po_allocs:
+                line_qty = float(line.quantity or 0.0)
+                shipped_qty = round(line_qty * po_ratio, 4)
+                if shipped_qty > 0.0:
+                    shares.append((line, shipped_qty, po_ratio))
+
+    return shares
+
+
+def _items_from_purchase_orders(
+    db: Session,
+    imp_file: ImportFile,
+    fx: SettlementFx,
+    messages: Optional[List[SettlementMessage]] = None,
+) -> List[Dict[str, Any]]:
+    """Settlement items from the PO lines of the file (FS-05): FOB unit in EGP at the PO rate, real weight / CBM /
+    HS code (missing values stay 0 / empty). Uses file_po_line_shares for partial shipments (ACC2-T01)."""
+    items: List[Dict[str, Any]] = []
+    line_shares = file_po_line_shares(db, imp_file, messages=messages)
+    po_rates: Dict[int, float] = {}
+    for li, share_qty, ratio in line_shares:
+        if li.po_id not in po_rates:
+            po_rates[li.po_id] = purchase_order_rate_to_egp(li.purchase_order, fx)
+        rate = po_rates[li.po_id]
+        code = li.item_code or f"ITEM-{li.item_id}"
+        items.append({
+            "item_code": code,
+            "item_name": _line_item_name(li, code),
+            # A missing / zero quantity stays 0 on purpose: FOB 0, never an invented 1 (review 3 #8).
+            "qty": share_qty,
+            "fob_unit_egp": float(li.unit_price or 0.0) * rate,
+            "gross_weight_kg": round(float(li.gross_weight_kg or 0.0) * ratio, 4),
+            "cbm": round(float(li.total_cbm or 0.0) * ratio, 4),
+            "hs_code": (li.tariff.hs_code if li.tariff else "") or "",
+            "note": "Auto-fetched from the purchase order lines",
+        })
     return items
 
 
@@ -587,9 +693,12 @@ def create_settlement_service(
             expenses_in.append(_duty_row(clearance, "Clearance", float(clearance.lab_service_fees), "lab_service_fees"))
 
     # ── Auto-populate: item_landed_costs from PO Line Items (FS-05) ─────────
+    messages_settlement: List[SettlementMessage] = []
     items_in = [i if isinstance(i, dict) else i.model_dump() for i in (schema.item_landed_costs or [])]
     if not items_in:
-        items_in = _items_from_purchase_orders(db, imp_file, SettlementFx(db, "commercial"))
+        items_in = _items_from_purchase_orders(
+            db, imp_file, SettlementFx(db, "commercial"), messages=messages_settlement
+        )
 
     record = build_settlement(
         schema.import_file_id, expenses_in, items_in, accountant_name=actor, notes=schema.notes, actor=actor
@@ -617,6 +726,7 @@ def create_settlement_service(
     )
     db.commit()
     db.refresh(record)
+    record.messages = messages_settlement
     code = record.settlement_code
     audit_data = {
         "import_file_id": schema.import_file_id,
@@ -764,51 +874,49 @@ def simulate_estimated_landed_cost_service(
 
     imp_file = require_active(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
 
-    # 1. Fetch Purchase Orders and Items
-    pos = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True)
-        .order_by(PurchaseOrder.po_id)
-        .all()
-    )
+    # 1. Fetch Purchase Orders and Items (FS-05, ACC2-T01: partial shipments supported)
+    line_shares = file_po_line_shares(db, imp_file, messages=messages)
 
     currency = "USD"
     items_raw = []
     line_no = 1
 
-    for po in pos:
-        if po.currency and getattr(po.currency, "currency_code", None):
+    for itm, share_qty, ratio in line_shares:
+        if share_qty <= 0.0:
+            continue
+        po = itm.purchase_order
+        if po and po.currency and getattr(po.currency, "currency_code", None):
             currency = po.currency.currency_code
-        po_currency = (getattr(po.currency, "currency_code", None) or "") if po.currency else ""
-        for itm in (po.line_items or []):
-            hs = (itm.tariff.hs_code if itm.tariff else "") or ""
-            hs = hs.strip() if hs.strip() else (imp_file.hs_code or "").strip()
-            qty = float(itm.quantity or 1.0)
-            u_price = float(itm.unit_price or 0.0)
-            tot_price = float(itm.total_price or (qty * u_price))
+        po_currency = (getattr(po.currency, "currency_code", None) or "") if (po and po.currency) else ""
 
-            w_kg = float(itm.gross_weight_kg or 0.0)
-            cbm_val = float(itm.total_cbm or 0.0)
-            origin = (getattr(itm, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
-            if origin and " - " in origin:
-                origin = origin.split(" - ")[0].strip()
-            if origin and len(origin) > 2:
-                origin = origin[:2]
+        hs = (itm.tariff.hs_code if itm.tariff else "") or ""
+        hs = hs.strip() if hs.strip() else (imp_file.hs_code or "").strip()
+        qty = share_qty
+        u_price = float(itm.unit_price or 0.0)
+        tot_price = round(qty * u_price, 2)
 
-            items_raw.append({
-                "line_no": line_no,
-                "item_code": itm.item_code or f"ITM-{line_no:03d}",
-                "item_name": _line_item_name(itm, f"Item #{line_no}"),
-                "hs_code": hs,
-                "qty": qty,
-                "unit_price_fc": u_price,
-                "fob_total_fc": tot_price,
-                "weight_kg": w_kg,
-                "cbm": cbm_val,
-                "origin_country": origin.upper() if origin else None,
-                "currency": po_currency,
-            })
-            line_no += 1
+        w_kg = round(float(itm.gross_weight_kg or 0.0) * ratio, 4)
+        cbm_val = round(float(itm.total_cbm or 0.0) * ratio, 4)
+        origin = (getattr(itm, "country_of_origin", "") or (getattr(po, "country_of_origin", "") if po else "") or "").strip()
+        if origin and " - " in origin:
+            origin = origin.split(" - ")[0].strip()
+        if origin and len(origin) > 2:
+            origin = origin[:2]
+
+        items_raw.append({
+            "line_no": line_no,
+            "item_code": itm.item_code or f"ITM-{line_no:03d}",
+            "item_name": _line_item_name(itm, f"Item #{line_no}"),
+            "hs_code": hs,
+            "qty": qty,
+            "unit_price_fc": u_price,
+            "fob_total_fc": tot_price,
+            "weight_kg": w_kg,
+            "cbm": cbm_val,
+            "origin_country": origin.upper() if origin else None,
+            "currency": po_currency,
+        })
+        line_no += 1
 
     # Fallback to invoices or estimated_cost if no items (Q4: no invented value or HS code)
     if not items_raw and imp_file.invoices_data:
@@ -2136,28 +2244,24 @@ def _calculate_actual_landed_cost(
         "Other & Admin": est_other,
     }
 
-    # 3. Extract items to allocate across: Prefer POLineItem directly if available
+    # 3. Extract items to allocate across: Prefer POLineItem directly if available (ACC2-T01)
     items_raw = []
-    # Same PO set as settlement create (import_file_id or po_ids, review 2 #14), POs by po_id, lines by item_id
-    po_lines = [
-        line
-        for po in _purchase_orders_of_file(db, imp)
-        for line in sorted(po.line_items or [], key=lambda li: li.item_id or 0)
-    ]
+    line_shares = file_po_line_shares(db, imp, messages=messages)
 
     sim_map = {}
     if sim and sim.items_breakdown:
         sim_map = {s.item_code: s for s in sim.items_breakdown}
 
-    if po_lines:
+    if line_shares:
         po_rates: Dict[int, float] = {}
-        for idx, pl in enumerate(po_lines):
+        for idx, (pl, share_qty, ratio) in enumerate(line_shares):
+            if share_qty <= 0.0:
+                continue
             if pl.po_id not in po_rates:
                 po_rates[pl.po_id] = purchase_order_rate_to_egp(pl.purchase_order, fx)
-            qty = float(pl.quantity or 1.0)
+            qty = share_qty
             u_p = float(pl.unit_price or 0.0)
-            tot_p = float(pl.total_price or (qty * u_p))
-            fob_tot_egp = tot_p * po_rates[pl.po_id]  # the PO's own rate (EGP = 1), FS-08
+            fob_tot_egp = round(u_p * qty * po_rates[pl.po_id], 2)  # unit_price x qty_share x rate (ACC2-T01)
             fob_u_egp = fob_tot_egp / qty if qty > 0 else 0.0
 
             s_match = sim_map.get(pl.item_code)
@@ -2171,8 +2275,8 @@ def _calculate_actual_landed_cost(
                 "qty": qty,
                 "fob_unit_egp": fob_u_egp,
                 "fob_total_egp": fob_tot_egp,
-                "gross_weight_kg": float(pl.gross_weight_kg or 0.0),
-                "cbm": float(pl.total_cbm or 0.0),
+                "gross_weight_kg": round(float(pl.gross_weight_kg or 0.0) * ratio, 4),
+                "cbm": round(float(pl.total_cbm or 0.0) * ratio, 4),
                 "estimated_unit_landed_cost_egp": est_u,
             })
     elif sim and sim.items_breakdown and len(sim.items_breakdown) > 0:

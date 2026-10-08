@@ -1499,6 +1499,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SETTLEMENT_LINE_ZERO_VALUE': {
     'note': 'البند {item_code} ليس له قيمة: تم استبعاده من التقدير الجمركي.',
   },
+  'SETTLEMENT_PO_NOT_ALLOCATED': {
+    'note': 'أمر الشراء {po_number} مخصص لشحنات أخرى وليس له حصة في هذا الملف.',
+  },
   'PAYMENT_STATUS_UNKNOWN': {
     'note': 'الفاتورة {invoice_no} مسددة جزئياً لكن المبلغ المسدد غير معروف: تم احتسابها كغير مسددة.',
   },
