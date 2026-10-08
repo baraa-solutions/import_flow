@@ -11315,6 +11315,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poProjectCostCenter => 'المشروع ومركز التكلفة';
   @override String get poIncoterms => 'الشرط التجاري';
   @override String get poFXRate => 'سعر الصرف';
+  @override String get poExchangeRateRequired => 'سعر الصرف مطلوب ويجب أن يكون أكبر من الصفر';
+  @override String get poExchangeRateHelper => '⚡ يستدعى آلياً حسب تاريخ الفاتورة والعملة';
+  @override String poNoExchangeRateForDate(String code, String date) => 'لا يوجد سعر صرف للعملة $code بتاريخ $date';
   @override String get poPaymentTerms => 'شروط الدفع';
   @override String get poTotalCBM => 'إجمالي الحجم CBM';
   @override String get poGrossNetWeight => 'الوزن القائم / الصافي';
