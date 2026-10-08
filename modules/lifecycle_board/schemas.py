@@ -90,11 +90,11 @@ class ShipmentStageCard(BaseModel):
     company_name: str
     supplier_name: str
     po_number: Optional[str] = None
-    shipment_mode: str = "Sea FCL"
-    incoterm_code: str = "FOB"
-    priority: str = "High"
-    estimated_cost: Optional[float] = 0.0
-    estimated_cost_currency: Optional[str] = "USD"
+    shipment_mode: Optional[str] = None
+    incoterm_code: Optional[str] = None
+    priority: Optional[str] = None
+    estimated_cost: Optional[float] = None
+    estimated_cost_currency: Optional[str] = None
     step_code: str
     step_name_en: str
     step_name_ar: str
@@ -133,9 +133,9 @@ class LiveLogisticsTrackingItem(BaseModel):
     company_name: str
     supplier_name: str
     po_number: Optional[str] = None
-    shipment_mode: str = "Sea FCL"
-    incoterm_code: str = "FOB"
-    priority: str = "High"
+    shipment_mode: Optional[str] = None
+    incoterm_code: Optional[str] = None
+    priority: Optional[str] = None
 
     # Voyage & Vessel Logistics
     bl_number: Optional[str] = None
@@ -151,10 +151,10 @@ class LiveLogisticsTrackingItem(BaseModel):
     # Demurrage & Detention Free Time Radar
     demurrage_tracking_code: Optional[str] = None
     demurrage_status: str = "No Active Session" # Safe, Warning, Critical, Overdue, No Active Session
-    free_days_total: int = 14
-    free_days_remaining: int = 14
+    free_days_total: Optional[int] = None
+    free_days_remaining: Optional[int] = None
     used_free_days: int = 0
-    demurrage_risk_level: str = "Low" # Low, Medium, High, Critical
+    demurrage_risk_level: str = "Unknown" # Low, Medium, High, Critical, Unknown
     accumulated_demurrage_fx: float = 0.0
     accumulated_demurrage_egp: float = 0.0
 

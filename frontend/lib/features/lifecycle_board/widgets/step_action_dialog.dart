@@ -60,7 +60,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
         _param3Controller.text = '14.0%';
         break;
       case 'STEP_04':
-        _param1Controller.text = '${widget.shipment.estimatedCost.toStringAsFixed(0)} ${widget.shipment.estimatedCostCurrency}';
+        _param1Controller.text = '${widget.shipment.estimatedCost != null ? widget.shipment.estimatedCost!.toStringAsFixed(0) : "0"} ${widget.shipment.estimatedCostCurrency ?? "USD"}';
         _param2Controller.text = 'National Bank of Egypt (NBE)';
         _param3Controller.text = 'SWIFT-NBE-2026-9811';
         break;
@@ -77,7 +77,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
       case 'STEP_12':
         _param1Controller.text = 'F4-2026-88192';
         _param2Controller.text = 'CIB Egypt';
-        _param3Controller.text = '${widget.shipment.estimatedCost.toStringAsFixed(0)} USD';
+        _param3Controller.text = '${widget.shipment.estimatedCost != null ? widget.shipment.estimatedCost!.toStringAsFixed(0) : "0"} USD';
         break;
       case 'STEP_13':
         _param1Controller.text = '46-ALX-2026-7781';
@@ -476,7 +476,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                               _buildInfoCol(l10n.importingCompanyLabel, widget.shipment.companyName),
                               _buildInfoCol(l10n.foreignSupplierLabel, widget.shipment.supplierName),
                               _buildInfoCol(l10n.purchaseOrderLabel, widget.shipment.poNumber ?? 'N/A'),
-                              _buildInfoCol(l10n.estimatedValueLabel, '${widget.shipment.estimatedCost.toStringAsFixed(0)} ${widget.shipment.estimatedCostCurrency}', isBold: true, color: AppTheme.emerald),
+                              _buildInfoCol(l10n.estimatedValueLabel, '${widget.shipment.estimatedCost != null ? widget.shipment.estimatedCost!.toStringAsFixed(0) : "-"} ${widget.shipment.estimatedCostCurrency ?? ""}', isBold: true, color: AppTheme.emerald),
                             ],
                           ),
                         ),

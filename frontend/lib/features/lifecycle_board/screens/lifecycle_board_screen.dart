@@ -821,6 +821,8 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         riskColor = AppTheme.crimson;
                       } else if (item.demurrageRiskLevel == 'High' || item.demurrageRiskLevel == 'Medium') {
                         riskColor = AppTheme.orange;
+                      } else if (item.demurrageRiskLevel == 'Unknown') {
+                        riskColor = Colors.grey.shade500;
                       }
 
                       Color sampleColor = Colors.grey.shade600;
@@ -843,7 +845,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr);
                       final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
 
-                      final rowSummary = '$shipmentTitle | ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | ${item.accumulatedDemurrageFx > 0 ? l10n.demurrageIncurredBadge : l10n.freeDaysRemainingBadge(item.freeDaysRemaining)} | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
+                      final demurrageSummary = item.accumulatedDemurrageFx > 0
+                          ? l10n.demurrageIncurredBadge
+                          : (item.freeDaysRemaining != null ? l10n.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
+                      final rowSummary = '$shipmentTitle | ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | $demurrageSummary | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
 
                       return DataRow(
                         // CL-005: الضغط على الصف ينتقل لشاشة ملف الاستيراد المقابل
@@ -1017,7 +1022,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             CopyableTableCell(
                               value: item.accumulatedDemurrageFx > 0
                                   ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
-                                  : l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal),
+                                  : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
                               rowSummary: rowSummary,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1035,13 +1040,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         child: Text(
                                           item.accumulatedDemurrageFx > 0
                                               ? l10n.demurrageIncurredBadge
-                                              : l10n.freeDaysRemainingBadge(item.freeDaysRemaining),
+                                              : (item.freeDaysRemaining != null ? l10n.freeDaysRemainingBadge(item.freeDaysRemaining) : '-'),
                                           style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: riskColor),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
                                       Icon(
-                                        item.demurrageRiskLevel == 'Critical' ? Icons.error : (item.demurrageRiskLevel == 'Low' ? Icons.check_circle : Icons.warning_amber),
+                                        item.demurrageRiskLevel == 'Critical'
+                                            ? Icons.error
+                                            : (item.demurrageRiskLevel == 'Low'
+                                                ? Icons.check_circle
+                                                : (item.demurrageRiskLevel == 'Unknown' ? Icons.help_outline : Icons.warning_amber)),
                                         size: 13,
                                         color: riskColor,
                                       ),
@@ -1051,7 +1060,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   Text(
                                     item.accumulatedDemurrageFx > 0
                                         ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
-                                        : l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal),
+                                        : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
                                     style: TextStyle(
                                       fontSize: 11.0,
                                       fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
@@ -1595,8 +1604,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
                       final cleanPrevStep = s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-';
                       final cleanNextStep = s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-';
-
-                      final rowSummary = '$shipmentTitle | ${s.companyName} | ${s.supplierName} | $cleanCurStep | ${s.shipmentMode} - ${s.incotermCode} | ${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
+                      final estCostStr = s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : '-';
+                      final estCurrStr = s.estimatedCostCurrency ?? '';
+                      final rowSummary = '$shipmentTitle | ${s.companyName} | ${s.supplierName} | $cleanCurStep | ${s.shipmentMode ?? "-"} - ${s.incotermCode ?? "-"} | $estCostStr $estCurrStr${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
 
                       return DataRow(
                         cells: [
@@ -1740,7 +1750,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: '${s.shipmentMode} | ${s.incotermCode}',
+                              value: '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
                               rowSummary: rowSummary,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -1749,7 +1759,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '${s.shipmentMode} | ${s.incotermCode}',
+                                  '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
                                   style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
                                 ),
                               ),
@@ -1757,10 +1767,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                              value: '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
                               rowSummary: rowSummary,
                               child: Text(
-                                '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                                '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
                               ),
                             ),

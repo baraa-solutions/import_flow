@@ -166,13 +166,10 @@ def get_step_neighbors(step_code: str):
 
 
 def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
-    # 1. Ensure any unseeded active import files have at least 1 stage
-    _ensure_initial_stages(db)
-
-    # 2. Get step counts
+    # 1. Get step counts
     counts = repo.get_step_counts(db)
 
-    # 3. Build phase summaries
+    # 2. Build phase summaries
     phases_res: List[PhaseSummary] = []
     for p in PHASES_DEFINITION:
         total_p = sum(counts.get(c, 0) for c in p["step_codes"])
@@ -188,7 +185,7 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
             )
         )
 
-    # 4. Fetch all active shipment stage cards
+    # 3. Fetch all active shipment stage cards
     records = repo.get_active_shipments_with_details(db)
     all_shipment_cards: List[ShipmentStageCard] = []
     unique_files = set()
@@ -220,11 +217,11 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
                 company_name=file_rec.company_name or "N/A",
                 supplier_name=file_rec.supplier_name or "N/A",
                 po_number=file_rec.po_number,
-                shipment_mode=file_rec.shipment_mode or "Sea FCL",
-                incoterm_code=file_rec.incoterm_code or "FOB",
-                priority=file_rec.priority or "High",
-                estimated_cost=file_rec.estimated_cost or 0.0,
-                estimated_cost_currency=file_rec.estimated_cost_currency or "USD",
+                shipment_mode=file_rec.shipment_mode,
+                incoterm_code=file_rec.incoterm_code,
+                priority=file_rec.priority,
+                estimated_cost=file_rec.estimated_cost,
+                estimated_cost_currency=file_rec.estimated_cost_currency,
                 step_code=act.step_code,
                 step_name_en=names[0],
                 step_name_ar=names[1],
@@ -1521,26 +1518,6 @@ def resume_shipment_activities_service(db: Session, import_file_code: str, resum
     db.commit()
 
 
-def _ensure_initial_stages(db: Session):
-    # If no stage activities exist for open import files, seed default stages
-    count = db.query(repo.ShipmentStageActivity).count()
-    if count == 0:
-        files = db.query(ImportFile).filter(ImportFile.is_active == True).limit(5).all()
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        for i, f in enumerate(files):
-            step_code = getattr(f, 'initial_starting_step', None) or f"STEP_{str((i % 6) + 1).zfill(2)}"
-            repo.save_or_update_activity(
-                db,
-                import_file_code=f.import_file_code,
-                step_code=step_code,
-                status="In-Progress",
-                started_at=now_str,
-                notes=render_en("LC_INITIAL_ACTIVITY", {}, "note"),
-                msg_code="LC_INITIAL_ACTIVITY",
-                msg_params={},
-            )
-
-
 def get_all_activities_service(db: Session, import_file_code: str):
     return repo.get_all_activities(db, import_file_code=import_file_code)
 
@@ -1562,22 +1539,37 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
 
     today = date.today()
     active_files = db.query(ImportFile).filter(ImportFile.is_active == True).all()
+    active_ids = [f.import_file_id for f in active_files if f.import_file_id is not None]
+    active_codes = [f.import_file_code for f in active_files if f.import_file_code]
 
-    # Pre-fetch demurrage sessions
-    demurrage_records = db.query(DemurrageTracking).filter(DemurrageTracking.is_active == True).all()
+    # Pre-fetch demurrage sessions (bounded to active files)
+    if active_ids:
+        demurrage_records = (
+            db.query(DemurrageTracking)
+            .filter(
+                DemurrageTracking.is_active == True,
+                or_(
+                    DemurrageTracking.import_file_id.in_(active_ids),
+                    DemurrageTracking.import_file_code.in_(active_codes),
+                ),
+            )
+            .all()
+        )
+    else:
+        demurrage_records = []
     dem_by_file_id = {d.import_file_id: d for d in demurrage_records if d.import_file_id}
     dem_by_file_code = {d.import_file_code: d for d in demurrage_records if d.import_file_code}
 
-    # Pre-fetch bookings
-    bookings = db.query(ShipmentBooking).all()
+    # Pre-fetch bookings (bounded to active files)
+    bookings = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id.in_(active_ids)).all() if active_ids else []
     booking_by_file_id = {b.import_file_id: b for b in bookings if b.import_file_id}
 
-    # Pre-fetch shipping records
-    cargos = db.query(CargoShippingRecord).all()
+    # Pre-fetch shipping records (bounded to active files)
+    cargos = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id.in_(active_ids)).all() if active_ids else []
     cargo_by_file_id = {c.import_file_id: c for c in cargos if c.import_file_id}
 
-    # Pre-fetch customs clearance records
-    customs_decs = db.query(CustomsClearanceRecord).all()
+    # Pre-fetch customs clearance records (bounded to active files)
+    customs_decs = db.query(CustomsClearanceRecord).filter(CustomsClearanceRecord.import_file_id.in_(active_ids)).all() if active_ids else []
     customs_by_file_id = {cd.import_file_id: cd for cd in customs_decs if cd.import_file_id}
 
     items: List[LiveLogisticsTrackingItem] = []
@@ -1594,12 +1586,22 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         cargo = cargo_by_file_id.get(f.import_file_id)
         customs = customs_by_file_id.get(f.import_file_id)
 
-        # 1. B/L, Carrier, Vessel, and Ports
-        bl_no = getattr(f, 'custom_file_number', None) or (dem.bill_of_lading_no if dem else None) or (booking.booking_confirmation_no if booking else None)
-        carrier_name = (dem.carrier_name if dem else None) or (booking.shipping_line_name if booking else None) or f.selected_scenario or "MSC Line"
-        vessel_name = (booking.vessel_name if booking else None) or "Ever Given / Vessel"
-        pol_name = f.port_of_loading or (booking.pol_name if booking else None) or "Shanghai Port"
-        pod_name = f.port_of_discharge or (booking.pod_name if booking else None) or (dem.port_name if dem else None) or "El Dekheila Port"
+        # 1. B/L, Carrier, Vessel, and Ports (No invented data)
+        bl_no = (
+            getattr(f, 'bl_number', None)
+            or getattr(f, 'custom_file_number', None)
+            or (dem.bill_of_lading_no if dem else None)
+            or (booking.bill_of_lading_no if booking and booking.bill_of_lading_no else None)
+            or (booking.booking_confirmation_no if booking else None)
+        )
+        carrier_name = (
+            (dem.carrier_name if dem and dem.carrier_name else None)
+            or (booking.shipping_line_name if booking and booking.shipping_line_name else None)
+            or (f.selected_scenario if f.selected_scenario else None)
+        )
+        vessel_name = (booking.vessel_name if booking and booking.vessel_name else None) or getattr(f, 'vessel_name', None)
+        pol_name = f.port_of_loading or (booking.pol_name if booking and booking.pol_name else None)
+        pod_name = f.port_of_discharge or (booking.pod_name if booking and booking.pod_name else None) or (dem.port_name if dem and dem.port_name else None)
 
         # 2. ETA & Arrival Status
         eta_obj = None
@@ -1629,12 +1631,15 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         else:
             arrival_status = "Pre-Shipment"
 
-        # 3. Demurrage & Free Time Radar
-        free_days_total = f.target_free_days or (booking.free_demurrage_days if booking else 14) or 14
-        free_days_rem = free_days_total
+        # 3. Demurrage & Free Time Radar (Bounded and no invented free time)
+        free_days_total = f.target_free_days or (booking.free_demurrage_days if booking and booking.free_demurrage_days else None)
+        if free_days_total is None and dem and getattr(dem, 'policy', None):
+            free_days_total = getattr(dem.policy, 'demurrage_free_days', None)
+
+        free_days_rem = None
         used_free = 0
         dem_status = "No Active Session"
-        risk_level = "Low"
+        risk_level = "Unknown"
         acc_fx = 0.0
         acc_egp = 0.0
         dem_code = None
@@ -1645,47 +1650,67 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
             acc_fx = (dem.total_demurrage_fx or 0.0) + (dem.total_detention_fx or 0.0)
             acc_egp = dem.total_cost_egp or 0.0
 
-            if dem.discharge_date:
-                days_since_disc = (today - dem.discharge_date).days
-                used_free = max(0, days_since_disc)
+            if free_days_total is not None:
+                if dem.discharge_date:
+                    days_since_disc = (today - dem.discharge_date).days
+                    used_free = max(0, days_since_disc)
+                    free_days_rem = max(0, free_days_total - used_free)
+                else:
+                    used_free = 0
+                    free_days_rem = free_days_total
+
+                if acc_fx > 0 or free_days_rem == 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 3:
+                    risk_level = "High"
+                    dem_status = "Warning"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 7:
+                    risk_level = "Medium"
+                    dem_status = "Warning"
+                else:
+                    risk_level = "Low"
+                    dem_status = "Safe"
+            else:
+                if acc_fx > 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                else:
+                    risk_level = "Unknown"
+        elif free_days_total is not None:
+            if arrival_status == "In Port / Clearing":
+                days_in_port = abs(eta_countdown) if (eta_countdown is not None and eta_countdown < 0) else 0
+                used_free = days_in_port
                 free_days_rem = max(0, free_days_total - used_free)
+
+                if free_days_rem == 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 3:
+                    risk_level = "High"
+                    dem_status = "Warning"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 7:
+                    risk_level = "Medium"
+                    dem_status = "Warning"
+                else:
+                    risk_level = "Low"
+                    dem_status = "Safe"
             else:
                 used_free = 0
                 free_days_rem = free_days_total
-
-            if acc_fx > 0 or free_days_rem == 0:
-                risk_level = "Critical"
-                dem_status = "Demurrage Incurred"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 3:
-                risk_level = "High"
-                dem_status = "Warning"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 7:
-                risk_level = "Medium"
-                dem_status = "Warning"
-            else:
+                dem_status = "No Active Session"
                 risk_level = "Low"
-                dem_status = "Safe"
-        elif arrival_status == "In Port / Clearing":
-            days_in_port = abs(eta_countdown) if (eta_countdown is not None and eta_countdown < 0) else 0
-            used_free = days_in_port
-            free_days_rem = max(0, free_days_total - used_free)
-
-            if free_days_rem == 0:
-                risk_level = "Critical"
-                dem_status = "Demurrage Incurred"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 3:
-                risk_level = "High"
-                dem_status = "Warning"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 7:
-                risk_level = "Medium"
-                dem_status = "Warning"
-            else:
-                risk_level = "Low"
-                dem_status = "Safe"
+        else:
+            # free_days_total is None and no demurrage record exists
+            free_days_rem = None
+            used_free = 0
+            dem_status = "No Active Session"
+            risk_level = "Unknown"
 
         # 4. Regulatory Testing & Samples
         sample_status = "Not Applicable"
@@ -1782,9 +1807,9 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
                 company_name=f.company_name or "N/A",
                 supplier_name=f.supplier_name or "N/A",
                 po_number=f.po_number,
-                shipment_mode=f.shipment_mode or "Sea FCL",
-                incoterm_code=f.incoterm_code or "FOB",
-                priority=f.priority or "High",
+                shipment_mode=f.shipment_mode,
+                incoterm_code=f.incoterm_code,
+                priority=f.priority,
                 bl_number=bl_no,
                 carrier_name=carrier_name,
                 vessel_name=vessel_name,
