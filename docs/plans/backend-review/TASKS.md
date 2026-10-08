@@ -198,7 +198,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 174 | BE810-T18 | warehouse_receiving, inland_transport | MAJOR | `/paginated` for GRN and IT lists | BEW0-04 | no | additive | yes | [be-08-10](be-08-10-review.md) | todo |
 | 175 | BE09-T08 | financial_settlement | MAJOR | Audit rows and task closure for every settlement transition | none | no | no | yes | [be-09](be-09-review.md) | todo |
 | 176 | BE09-T12 | financial_settlement | MAJOR | Response tolerance, coded duplicate, `/paginated` | BEW0-04 | no | yes: 409 `SETTLEMENT_DUPLICATE_ACTIVE`, nullable fields | yes | [be-09](be-09-review.md) | todo |
-| 177 | BEX-T03 | lifecycle_board | MAJOR | No invented data, bounded live tracking | none | no | yes: nullable card fields, risk "Unknown" | yes | [be-cross](be-cross-review.md) | todo |
+| 177 | BEX-T03 | lifecycle_board | MAJOR | No invented data, bounded live tracking | none | no | yes: nullable card fields, risk "Unknown" | yes | [be-cross](be-cross-review.md) | done (PR #66) |
 
 ## Wave 3: MINOR
 
