@@ -10,6 +10,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../services/financial_export_service.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../widgets/swift_extraction_review_widget.dart';
@@ -81,6 +82,9 @@ class _SwiftReconciliationScreenState
       }
       if (!ref.read(importFilesProvider).isLoading) {
         ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(currenciesProvider).isLoading) {
+        ref.read(currenciesProvider.notifier).fetchCurrencies();
       }
     });
   }
@@ -414,17 +418,61 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     if (_extractedSwift == null) return;
     final l10n = context.l10n;
 
-    final swiftRef = _extractedSwift!['transaction_reference'] ??
-        'SWIFT-${DateTime.now().millisecondsSinceEpoch}';
-    final rawDate = _extractedSwift!['value_date'] ??
-        DateTime.now().toString().substring(0, 10);
-    final amt =
-        (_extractedSwift!['amount'] as num?)?.toDouble() ?? pay.requestedAmount;
-    final curr = _extractedSwift!['currency'] ?? pay.currencyCode;
+    final rawRef = _extractedSwift!['transaction_reference']?.toString().trim();
+    final swiftRef = (rawRef != null && rawRef.isNotEmpty) ? rawRef : null;
+
+    final rawDateStr = _extractedSwift!['value_date']?.toString().trim();
+    DateTime? parsedDate;
+    if (rawDateStr != null && rawDateStr.isNotEmpty) {
+      parsedDate = DateTime.tryParse(rawDateStr);
+    }
+
+    final amtVal = _extractedSwift!['amount'];
+    final double? amt = (amtVal is num)
+        ? amtVal.toDouble()
+        : (amtVal != null ? double.tryParse(amtVal.toString().trim()) : null);
+
+    final rawCurr = _extractedSwift!['currency']?.toString().trim();
+    final curr = (rawCurr != null && rawCurr.isNotEmpty) ? rawCurr : null;
+
     final swiftCode =
-        _extractedSwift!['beneficiary_bank_swift'] ?? pay.swiftCode;
+        _extractedSwift!['beneficiary_bank_swift']?.toString() ?? pay.swiftCode;
     final iban =
-        _extractedSwift!['beneficiary_account_or_iban'] ?? pay.ibanAccountNo;
+        _extractedSwift!['beneficiary_account_or_iban']?.toString() ?? pay.ibanAccountNo;
+
+    final missingFields = <String>[];
+    if (swiftRef == null) missingFields.add(l10n.swiftFieldRef);
+    if (parsedDate == null) missingFields.add(l10n.swiftFieldValueDate);
+    if (amt == null || amt <= 0) missingFields.add(l10n.swiftFieldAmount);
+    if (curr == null) missingFields.add(l10n.swiftFieldCurrency);
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (missingFields.isNotEmpty) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.swiftReconcileMissingFields(missingFields.join(', ')),
+          ),
+          backgroundColor: AppTheme.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_currentBatch != null &&
+        _currentBatch!.status != 'REVIEWED_CONFIRMED' &&
+        !(_currentBatch!.status == 'RECONCILED' &&
+            _currentBatch!.matchedPaymentId == pay.paymentId)) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.swiftBatchNotConfirmed),
+          backgroundColor: AppTheme.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSmartReconciling = true);
     try {
@@ -435,21 +483,23 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             .reconcileReviewedSwiftBatch(
               batchId: _currentBatch!.batchId,
               paymentId: pay.paymentId,
-              notes: storedText.swiftScreenSubtitle,
+              notes: null,
             );
       } else {
+        final receiptDateStr =
+            '${parsedDate!.year.toString().padLeft(4, '0')}-${parsedDate.month.toString().padLeft(2, '0')}-${parsedDate.day.toString().padLeft(2, '0')}';
         updated = await ref
             .read(paymentRequestsProvider.notifier)
             .smartReconcileSwift(
               paymentId: pay.paymentId,
               rawText: _rawSwiftTextController.text.trim(),
-              swiftReferenceNo: swiftRef,
-              swiftReceiptDate: rawDate.toString().substring(0, 10),
-              swiftTransferredAmount: amt,
-              swiftTransferredCurrency: curr,
+              swiftReferenceNo: swiftRef!,
+              swiftReceiptDate: receiptDateStr,
+              swiftTransferredAmount: amt!,
+              swiftTransferredCurrency: curr!,
               swiftCode: swiftCode,
               ibanAccountNo: iban,
-              swiftReconciliationNotes: l10n.swiftScreenSubtitle,
+              swiftReconciliationNotes: null,
               autoExecute: true,
             );
       }
@@ -460,7 +510,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              l10n.swiftReconcileSuccessSnack(swiftRef, updated.paymentCode),
+              l10n.swiftReconcileSuccessSnack(swiftRef!, updated.paymentCode),
             ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 4),
@@ -491,9 +541,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
           ? pay.swiftTransferredAmount!.toStringAsFixed(2)
           : pay.requestedAmount.toStringAsFixed(2),
     );
-    final currencyController = TextEditingController(
-      text: pay.swiftTransferredCurrency ?? pay.currencyCode,
-    );
+    String? selectedCurrency = pay.swiftTransferredCurrency ??
+        (pay.currencyCode.isNotEmpty ? pay.currencyCode : null);
     final notesController =
         TextEditingController(text: pay.swiftReconciliationNotes ?? '');
 
@@ -710,8 +759,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                           transferredAmountController.text =
                                               p['amount'].toString();
                                         if (p['currency'] != null)
-                                          currencyController.text =
-                                              p['currency'];
+                                          selectedCurrency =
+                                              p['currency'].toString();
                                         if (p['value_date'] != null) {
                                           receiptDate = DateTime.tryParse(
                                                   p['value_date']) ??
@@ -753,8 +802,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                             transferredAmountController.text =
                                                 p['amount'].toString();
                                           if (p['currency'] != null)
-                                            currencyController.text =
-                                                p['currency'];
+                                            selectedCurrency =
+                                                p['currency'].toString();
                                           if (p['value_date'] != null) {
                                             receiptDate = DateTime.tryParse(
                                                     p['value_date']) ??
@@ -815,8 +864,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                               transferredAmountController.text =
                                                   p['amount'].toString();
                                             if (p['currency'] != null)
-                                              currencyController.text =
-                                                  p['currency'];
+                                              selectedCurrency =
+                                                  p['currency'].toString();
                                             if (p['value_date'] != null) {
                                               receiptDate = DateTime.tryParse(
                                                       p['value_date']) ??
@@ -935,19 +984,42 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                               // Currency
                               Expanded(
                                 flex: 1,
-                                child: TextFormField(
-                                  controller: currencyController,
-                                  decoration: InputDecoration(
-                                    labelText: l10n.swiftCurrencyLabel,
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy_rounded,
-                                          size: 18),
-                                      tooltip: l10n.swiftCopyFieldTooltip,
-                                      onPressed: () => CopyHelper.copy(
-                                          context, currencyController.text),
-                                    ),
-                                  ),
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final currs = ref.watch(currenciesProvider).valueOrNull ?? [];
+                                    final items = currs
+                                        .map((c) => SearchableDropdownItem<String>(
+                                              value: c.currencyCode,
+                                              label: '${c.currencyCode} (${c.currencyName})',
+                                              searchValue: '${c.currencyCode} ${c.currencyName}',
+                                            ))
+                                        .toList();
+                                    if (selectedCurrency != null &&
+                                        selectedCurrency!.isNotEmpty &&
+                                        !items.any((i) => i.value == selectedCurrency)) {
+                                      items.insert(
+                                        0,
+                                        SearchableDropdownItem<String>(
+                                          value: selectedCurrency!,
+                                          label: selectedCurrency!,
+                                        ),
+                                      );
+                                    }
+                                    return SearchableDropdownField<String>(
+                                      value: selectedCurrency,
+                                      labelText: '${l10n.swiftCurrencyLabel} *',
+                                      isRequired: true,
+                                      items: items,
+                                      validator: (v) => (v == null || v.trim().isEmpty)
+                                          ? l10n.swiftCurrencyRequiredError
+                                          : null,
+                                      onChanged: (val) {
+                                        setDialogState(() {
+                                          selectedCurrency = val;
+                                        });
+                                      },
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -1136,10 +1208,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                               swiftReceiptDate:
                                   receiptDate.toString().substring(0, 10),
                               swiftTransferredAmount: transferredAmt,
-                              swiftTransferredCurrency:
-                                  currencyController.text.trim().isNotEmpty
-                                      ? currencyController.text.trim()
-                                      : 'USD',
+                              swiftTransferredCurrency: selectedCurrency!,
                               swiftReconciliationNotes:
                                   notesController.text.trim(),
                             );
@@ -1185,7 +1254,6 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     ).then((_) {
       swiftRefController.dispose();
       transferredAmountController.dispose();
-      currencyController.dispose();
       notesController.dispose();
     });
   }
@@ -1565,13 +1633,15 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     if (matchedPay == null) {
       return Center(child: Text(l10n.swiftNoMatchingRecords));
     }
-    final targetPay = matchedPay;
-
     final score = _matchedPayment?['confidence_score'] ?? 100;
     final amtInfo =
         _matchedPayment?['amount_matching'] as Map<String, dynamic>?;
-    final isAmtMatched = amtInfo?['is_matched'] ?? true;
-    final variance = (amtInfo?['variance'] as num?)?.toDouble() ?? 0.0;
+    final isAmtMatched = amtInfo?['is_matched'] ?? false;
+    final variance = (amtInfo?['variance'] as num?)?.toDouble() ??
+        ((_extractedSwift?['amount'] is num)
+            ? ((_extractedSwift!['amount'] as num).toDouble() -
+                matchedPay.requestedAmount)
+            : 0.0);
 
     final benInfo =
         _matchedPayment?['beneficiary_matching'] as Map<String, dynamic>?;
@@ -1588,7 +1658,6 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         _matchedPayment?['account_iban_matching'] as Map<String, dynamic>?;
     final isAccMatched = accInfo?['is_matched'] ?? true;
 
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final mismatchLabel = context.l10n.faMismatch;
 
     return Column(
@@ -1690,7 +1759,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
               _buildCompareRow(
                 '${l10n.swiftRequestedAmountLabel}:',
                 '${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
-                '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
+                '${_extractedSwift!['amount'] ?? '-'} ${_extractedSwift!['currency'] ?? '-'}',
                 isAmtMatched,
                 isAmtMatched
                     ? (variance == 0.0

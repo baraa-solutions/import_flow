@@ -8286,6 +8286,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get swiftEnterAmountError => 'يرجى إدخال المبلغ';
   @override
   String get swiftAmountGreaterThanZeroError => 'المبلغ يجب أن يكون أكبر من 0';
+  @override
+  String get swiftCurrencyRequiredError => 'العملة مطلوبة';
 
   @override
   String get swiftFileReadErrorSnack => 'تعذر قراءة بيانات الملف المحدد';
@@ -8305,6 +8307,20 @@ class AppLocalizationsAr extends AppLocalizations {
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'تم تأكيد مطابقة السويفت ($swiftRef) واعتماد سداد الطلب ($paymentCode) وتحديث ملف الاستيراد بنجاح!';
   @override
   String swiftReconcileErrorSnack(String error) => 'خطأ أثناء تأكيد المطابقة: $error';
+  @override
+  String swiftReconcileMissingFields(String fields) =>
+      'الحقول التالية مطلوبة لإتمام المطابقة الذكية للسويفت: $fields';
+  @override
+  String get swiftBatchNotConfirmed =>
+      'لا يمكن مطابقة حزمة السويفت قبل مراجعتها وتأكيدها';
+  @override
+  String get swiftFieldRef => 'الرقم المرجعي للسويفت (SWIFT reference)';
+  @override
+  String get swiftFieldValueDate => 'تاريخ الاستحقاق (Value date)';
+  @override
+  String get swiftFieldAmount => 'المبلغ (Amount)';
+  @override
+  String get swiftFieldCurrency => 'العملة (Currency)';
 
   @override
   String get swiftExportTsvBtn => 'تصدير جدول نصوص';
