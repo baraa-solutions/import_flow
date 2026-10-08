@@ -2370,6 +2370,15 @@
       "note"
     ]
   },
+  "LIST_SORT_FIELD_INVALID": {
+    "params": [
+      "allowed",
+      "field"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "NA_ARCHIVE_IMPORT_FILE": {
     "params": [],
     "parts": [

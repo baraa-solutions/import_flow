@@ -1430,6 +1430,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_ALREADY_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} مغلق بالفعل. أعد فتحه أولاً.',
   },
+  'LIST_SORT_FIELD_INVALID': {
+    'note': 'حقل الترتيب \'{field}\' غير معروف. الحقول المسموح بها: {allowed}.',
+  },
   'CURRENCY_NOT_FOUND': {
     'note': 'العملة الكود \'{currency}\' غير مسجلة في النظام.',
   },

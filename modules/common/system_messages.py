@@ -1302,6 +1302,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
     "FC_ALREADY_CLOSED": {"note": "Import file {import_file_code} is already closed. Reopen it first."},
+    "LIST_SORT_FIELD_INVALID": {
+        "note": "Unknown sort field '{field}'. Allowed fields: {allowed}.",
+    },
     "CURRENCY_NOT_FOUND": {
         "note": "Currency code '{currency}' is not registered in the system.",
     },
