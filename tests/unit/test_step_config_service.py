@@ -122,7 +122,7 @@ def test_rule_change_audit_trail_logging(db):
     payload = StepConfigUpdateRequest(
         skip_policy="dual_approval",
         supports_pending_reference=True,
-        approver_roles=["Manager", "ComplianceOfficer"],
+        approver_roles=["Manager", "ADMIN"],
         justification="Board approved new compliance exception matrix 2026",
     )
     service.update_step_config_service(

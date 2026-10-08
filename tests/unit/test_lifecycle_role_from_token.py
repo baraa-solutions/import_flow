@@ -129,7 +129,18 @@ def test_manager_token_can_skip(client, db):
 
 
 def test_manager_token_can_update_step_config(client, db):
-    manager = _user(db, "mgr_user", "MANAGER")
+    from modules.users.model import Permission, UserPermission
+    manager = _user(db, "mgr_user", "GENERAL_MANAGER")
+    # Without users.manage permission (BEX-T02) -> 403 Forbidden
+    response = client.put(f"/api/v1/lifecycle-board/step-configs/{STEP}", json=_config_body(), headers=_headers(manager))
+    assert response.status_code == 403, response.text
+
+    # With users.manage permission granted -> 200 OK
+    perm = db.query(Permission).filter(Permission.permission_code == "users.manage").one()
+    db.add(UserPermission(user_id=manager.user_id, permission_id=perm.permission_id))
+    db.commit()
+    invalidate_permission_cache()
+
     response = client.put(f"/api/v1/lifecycle-board/step-configs/{STEP}", json=_config_body(), headers=_headers(manager))
     assert response.status_code == 200, response.text
 

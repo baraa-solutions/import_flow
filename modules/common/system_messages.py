@@ -126,6 +126,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_CLOSURE_STEP_RESERVED": {
         "note": "Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.",
     },
+    # ── Lifecycle board transactions & config authorisation (BEX-T02) ───────────
+    "LC_SKIP_DUAL_APPROVAL_REQUIRED": {
+        "note": "Step {step_code} requires dual approval and cannot be skipped by non-admin users.",
+    },
+    "LC_APPROVER_ROLE_UNKNOWN": {
+        "note": "Approver role {role_code} does not match any known system role.",
+    },
     # ── Lifecycle board: smart tasks for the next step ──────────────────────────
     "LC_TASK_NEXT_STEP": {
         "title": "[{import_file_code}] - {step_code}",
