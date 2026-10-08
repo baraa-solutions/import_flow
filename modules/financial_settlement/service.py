@@ -641,6 +641,17 @@ def _recalculate_in_place(record: LandedCostSettlementRecord, actor: str) -> Non
     record.updated_by = actor
 
 
+def recalculate_settlement_totals(record: LandedCostSettlementRecord, actor: Optional[str] = None) -> None:
+    """External-write recomputation (BEW0-06): recalculates totals via the engine.
+    If the settlement was in Draft status, it remains in Draft (not promoted to Calculated).
+    """
+    prior_status = record.status
+    _recalculate_in_place(record, actor=actor or "System")
+    if prior_status == "Draft":
+        record.status = "Draft"
+
+
+
 def _audit(db: Session, record: LandedCostSettlementRecord, action: str, actor: str,
            new_data: Optional[Dict[str, Any]] = None, old_data: Optional[Dict[str, Any]] = None) -> None:
     from modules.audit_logs.service import AuditLogService

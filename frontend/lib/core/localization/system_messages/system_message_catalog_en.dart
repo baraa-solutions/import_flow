@@ -1376,6 +1376,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CC_ASSESSED_COMPONENTS_LOCKED': {
     'note': 'Duty components cannot be edited after the assessment ({fields}); re-assess the final duties (CL-02).',
   },
+  'CC_SETTLEMENT_LOCKED': {
+    'note': 'Clearance invoices cannot be modified after the landed-cost settlement is approved ({settlement_code}).',
+  },
   'CCQ_RFQ_STATUS_INVALID': {
     'note': 'RFQ status \'{status}\' is not allowed; awarding is done through the award action only.',
   },
