@@ -1085,7 +1085,7 @@ def test_be810_t17_audit_trail_file_closure(db):
 
     # DOSSIER_EXPORT
     fc_service.confirm_dossier_export_service(
-        db, DossierExportConfirmRequest(import_file_id=imp.import_file_id, export_format="PDF"), user="user-fc-export"
+        db, DossierExportConfirmRequest(import_file_id=imp.import_file_id, export_format="PDF"), user="user-fc-export", trusted=True
     )
     exp_log = db.query(AuditLog).filter(
         AuditLog.entity_type == "ImportFile",
@@ -1097,7 +1097,7 @@ def test_be810_t17_audit_trail_file_closure(db):
 
     # DRAFT CREATE
     draft = fc_service.close_import_file_service(
-        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), user="user-fc-1"
+        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), user="user-fc-1", trusted=True
     )
     cr_log = db.query(AuditLog).filter(
         AuditLog.entity_type == "ImportFileClosureRecord",
@@ -1141,7 +1141,7 @@ def test_be810_t17_audit_trail_file_closure(db):
 
     # OFFICIAL CLOSE
     closed = fc_service.close_import_file_service(
-        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=False), user="user-fc-final"
+        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=False), user="user-fc-final", trusted=True
     )
     close_log = db.query(AuditLog).filter(
         AuditLog.entity_type == "ImportFileClosureRecord",

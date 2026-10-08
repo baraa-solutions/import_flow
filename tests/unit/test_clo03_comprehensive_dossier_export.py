@@ -363,13 +363,6 @@ def test_confirm_dossier_export_service(db_session):
         notes="تم تدقيق كافة بنود الملف الشامل ومطابقتها مع الحسابات.",
     )
 
-    resp = confirm_dossier_export_service(
-        db_session,
-        payload,
-        user="Eng. Ahmed Sorour - Managing Director",
-    )
-
-
     resp = confirm_dossier_export_service(db_session, payload, user="Eng. Ahmed Sorour - Managing Director", trusted=True)
 
     assert isinstance(resp, DossierExportConfirmResponse)
