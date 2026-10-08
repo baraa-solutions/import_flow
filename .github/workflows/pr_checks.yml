@@ -73,3 +73,9 @@ jobs:
       - name: Analyze
         working-directory: ./frontend
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      # Backend <-> Flutter contract: every message / enum code in docs/*.json must exist in the Dart
+      # catalogs. A backend-only code addition passes analyze but breaks these on main (seen with BE67-T02).
+      - name: Contract parity tests
+        working-directory: ./frontend
+        run: flutter test test/system_message_catalog_parity_test.dart test/enum_codes_parity_test.dart
