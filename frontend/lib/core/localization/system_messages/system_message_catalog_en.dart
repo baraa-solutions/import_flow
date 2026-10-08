@@ -1561,7 +1561,4 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CT_SIMULATION_NO_BROKER': {
     'note': 'No customs broker assigned to the import file; customs consultation session was not created.',
   },
-  'CT_AGREEMENT_DATA_INVALID': {
-    'note': 'Invalid preferential trade agreement data ({reason}).',
-  },
 };

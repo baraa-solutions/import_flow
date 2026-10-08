@@ -22,6 +22,16 @@ from modules.file_closure.schemas import (
     ClosureChecklistSchema,
     ClosurePrecheckResponse,
     OfficialClosureCertificateResponse,
+)
+from modules.file_closure.service import (
+    get_closure_precheck_service,
+    official_close_import_file_service,
+)
+from modules.file_closure.schemas import (
+    FileClosureCreate,
+    ClosureChecklistSchema,
+    ClosurePrecheckResponse,
+    OfficialClosureCertificateResponse,
     DossierExportConfirmRequest,
 )
 from modules.file_closure.service import (
@@ -356,6 +366,22 @@ def test_auditor_name_from_token_not_payload(db_session, client):
         "auditor_name": "Spoofed Auditor Name",
         "archive_location": "Central Secure Cloud Vault - Volume A/2026",
         "archival_notes": "All verified.",
+        "closure_checklist": {
+            "docs_verified": True,
+            "customs_cleared": True,
+            "warehouse_received": True,
+            "landed_cost_settled": True,
+            "dossier_exported": True,
+            "empty_containers_returned": True,
+            "tasks_closed": True,
+        },
+        "is_draft": False,
+    }
+    response = client.post("/api/v1/file-closure/official-close", json=payload)
+    assert response.status_code == 201
+    res = response.json()
+    assert res["auditor_name"] == "test-admin"
+    assert res["auditor_name"] != "Spoofed Auditor Name"
 
 
 def test_closure_task_tight_match_unrelated_tasks_stay_open(db_session, client):
@@ -398,11 +424,6 @@ def test_closure_task_tight_match_unrelated_tasks_stay_open(db_session, client):
     }
     response = client.post("/api/v1/file-closure/official-close", json=payload)
     assert response.status_code == 201
-    res = response.json()
-    assert res["auditor_name"] == "test-admin"
-    assert res["auditor_name"] != "Spoofed Auditor Name"
-
-
 
     db_session.refresh(task_lc)
     db_session.refresh(task_transport)
@@ -612,4 +633,3 @@ def test_active_purchase_orders_eager_loads_relationships(db_session):
     assert len(loaded_po.line_items) == 1
     assert loaded_po.line_items[0].tariff is not None
     assert loaded_po.line_items[0].tariff.hs_code == "8418.10.00"
-
