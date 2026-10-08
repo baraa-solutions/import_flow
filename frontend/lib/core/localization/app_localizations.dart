@@ -164,6 +164,16 @@ abstract class AppLocalizations {
   String get systemInfoTooltip;
   String get backToDashboardTooltip;
   String get languageToggleTooltip;
+  String get confirmDeleteTitle;
+  String confirmDeleteMessage(String code);
+  String get deletedSuccessfully;
+  String get copyCode;
+  String get moreActionsTooltip;
+  String get deactivateRecord;
+  String get restoreRecord;
+  String get viewActivityLog;
+  String get editRecord;
+  String get genericErrorMessage;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;

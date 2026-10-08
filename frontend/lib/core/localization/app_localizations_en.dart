@@ -157,6 +157,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get systemInfoTooltip => 'System Version & Info';
   @override String get backToDashboardTooltip => 'Back to Dashboard';
   @override String get languageToggleTooltip => 'Switch Language (AR / EN)';
+  @override String get confirmDeleteTitle => 'Confirm Deletion';
+  @override String confirmDeleteMessage(String code) => code.isNotEmpty ? 'Are you sure you want to delete "$code"? This action cannot be undone.' : 'Are you sure you want to delete this record? This action cannot be undone.';
+  @override String get deletedSuccessfully => 'Deleted successfully';
+  @override String get copyCode => 'Copy Code';
+  @override String get moreActionsTooltip => 'More Actions';
+  @override String get deactivateRecord => 'Deactivate Record';
+  @override String get restoreRecord => 'Restore Record';
+  @override String get viewActivityLog => 'View Activity Log';
+  @override String get editRecord => 'Edit Record';
+  @override String get genericErrorMessage => 'An unexpected error occurred. Please try again.';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';

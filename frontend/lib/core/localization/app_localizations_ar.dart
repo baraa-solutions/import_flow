@@ -157,6 +157,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get systemInfoTooltip => 'معلومات الإصدار والنظام';
   @override String get backToDashboardTooltip => 'العودة إلى لوحة التحكم';
   @override String get languageToggleTooltip => 'تغيير اللغة (عربي / إنجليزي)';
+  @override String get confirmDeleteTitle => 'تأكيد الحذف';
+  @override String confirmDeleteMessage(String code) => code.isNotEmpty ? 'هل أنت متأكد من حذف "$code"؟ لا يمكن التراجع عن هذا الإجراء.' : 'هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذا الإجراء.';
+  @override String get deletedSuccessfully => 'تم الحذف بنجاح';
+  @override String get copyCode => 'نسخ الكود';
+  @override String get moreActionsTooltip => 'إجراءات إضافية';
+  @override String get deactivateRecord => 'تعطيل السجل';
+  @override String get restoreRecord => 'استعادة السجل';
+  @override String get viewActivityLog => 'سجل النشاطات';
+  @override String get editRecord => 'تعديل السجل';
+  @override String get genericErrorMessage => 'حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى.';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'تبديل كـ: مدير النظام 🔴';

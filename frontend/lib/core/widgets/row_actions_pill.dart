@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
-import '../localization/app_localizations.dart';
-import '../theme/app_theme.dart';
-import 'buttons/icon_action_button.dart';
+import 'paged_data_table/row_action.dart';
 
 /// Standard 4-Action Row Pill Widget for Sorour Logistics ERP data tables.
 ///
-/// Uses [IconActionButton] factory subclasses for consistent styling.
-/// Labels pulled from [AppLocalizations] (context.l10n).
-///
-/// Actions:
-///   1. 👁️ View Details
-///   2. ✏️ Edit
-///   3. 🖨️ Print / Export
-///   4. 🗑️ Delete
+/// Thin adapter wrapping [RowActionsBar] with backward-compatible callbacks.
+/// Automatically hides actions where the corresponding callback is null (no more grey disabled icons).
 class RowActionsPill extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onEdit;
@@ -29,6 +21,10 @@ class RowActionsPill extends StatelessWidget {
 
   final double iconSize;
 
+  /// Whether delete action triggers the shared confirmation dialog.
+  /// Defaults to false for backward compatibility with callers that display their own dialog.
+  final bool confirmDelete;
+
   const RowActionsPill({
     super.key,
     this.onView,
@@ -42,69 +38,68 @@ class RowActionsPill extends StatelessWidget {
     this.printTooltip,
     this.deleteTooltip,
     this.iconSize = 16.0,
+    this.confirmDelete = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final l = context.l10n;
+    final actions = <RowAction<void>>[];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: AppTheme.pillDecorationOf(context),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 1. View
-          ViewActionButton(
-            tooltip: viewTooltip ?? l.viewDetailsTooltip,
-            onTap: onView,
-            iconSize: iconSize,
-          ),
-          const SizedBox(width: 4),
+    if (onView != null) {
+      actions.add(
+        RowAction.view(
+          run: (_) => onView!(),
+          label: viewTooltip != null ? (_) => viewTooltip! : null,
+        ),
+      );
+    }
 
-          // 2. Edit
-          EditActionButton(
-            tooltip: editTooltip ?? l.editTooltip,
-            onTap: onEdit,
-            iconSize: iconSize,
-          ),
-          const SizedBox(width: 4),
+    if (onEdit != null) {
+      actions.add(
+        RowAction.edit(
+          run: (_) => onEdit!(),
+          label: editTooltip != null ? (_) => editTooltip! : null,
+        ),
+      );
+    }
 
-          // 3. Clone / Duplicate
-          if (onClone != null) ...[
-            CloneActionButton(
-              tooltip: cloneTooltip ?? l.cloneRowTooltip,
-              onTap: onClone,
-              iconSize: iconSize,
-            ),
-            const SizedBox(width: 4),
-          ],
+    if (onClone != null) {
+      actions.add(
+        RowAction.clone(
+          run: (_) => onClone!(),
+          label: cloneTooltip != null ? (_) => cloneTooltip! : null,
+        ),
+      );
+    }
 
-          // 4. Print / Export
-          PrintActionButton(
-            tooltip: printTooltip ?? l.printTooltip,
-            onTap: onPrint ??
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l.preparingExport),
-                      backgroundColor: AppTheme.charcoal,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-            iconSize: iconSize,
-          ),
-          const SizedBox(width: 4),
+    if (onPrint != null) {
+      actions.add(
+        RowAction.print(
+          run: (_) => onPrint!(),
+          label: printTooltip != null ? (_) => printTooltip! : null,
+        ),
+      );
+    }
 
-          // 5. Delete
-          DeleteActionButton(
-            tooltip: deleteTooltip ?? l.deleteTooltip,
-            onTap: onDelete,
-            iconSize: iconSize,
-          ),
-        ],
-      ),
+    if (onDelete != null) {
+      actions.add(
+        RowAction.delete(
+          run: (_) => onDelete!(),
+          confirm: confirmDelete,
+          label: deleteTooltip != null ? (_) => deleteTooltip! : null,
+        ),
+      );
+    }
+
+    if (actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return RowActionsBar<void>(
+      row: null,
+      actions: actions,
+      iconSize: iconSize,
+      showAsPill: true,
     );
   }
 }
