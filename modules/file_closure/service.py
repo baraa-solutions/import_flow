@@ -84,8 +84,8 @@ def _party_names(imp: ImportFile) -> Tuple[str, str]:
 
 
 def _resolve_user_name(value: Optional[str], legacy_defaults: frozenset, user: str) -> str:
-    text = (value or "").strip()
-    return user if not text or text in legacy_defaults else text
+    # BE810-T10: Client values in request bodies are ignored; acting user is taken from token.
+    return user
 
 
 def _require_any_permission(db: Session, actor: Optional[User], *codes: str) -> None:
@@ -122,7 +122,11 @@ def _closure_facts(db: Session, imp: ImportFile) -> Tuple[ClosureFacts, Optional
         customs_release_permit_no=imp.customs_release_permit_no,
         customs_released_at=imp.customs_released_at,
         active_grn_count=len(grns),
-        locked_grn_count=sum(1 for g in grns if g.quarantine_lock_active),
+        locked_grn_count=sum(
+            1 for g in grns
+            if g.quarantine_lock_active
+            and getattr(repo.latest_active_clearance(db, imp.import_file_id), "quarantine_lock", True) is not False
+        ),
         has_settled_settlement=settlement is not None,
         actual_landed_cost_egp=float(imp.actual_landed_cost_total_egp or 0.0),
         financial_settlement_status=imp.financial_settlement_status,
@@ -179,7 +183,7 @@ def close_import_file_service(
     if imp_file.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp_file.import_file_code)
 
-    auditor = _resolve_user_name(schema.auditor_name, LEGACY_AUDITOR_DEFAULTS, user)
+    auditor = user
     target_status = CLOSURE_STATUS_DRAFT if schema.is_draft else CLOSURE_STATUS_CLOSED
 
     if schema.is_draft:
@@ -336,7 +340,7 @@ def update_closure_service(
         elif value is not None:
             values[key] = value
     if "auditor_name" in values:
-        values["auditor_name"] = _resolve_user_name(values["auditor_name"], LEGACY_AUDITOR_DEFAULTS, user)
+        values["auditor_name"] = user
 
     repo.apply_changes(record, values, user)
     db.commit()
@@ -436,13 +440,24 @@ def get_comprehensive_shipment_dossier_service(
         else:
             fob_by_currency[curr] = round(fob_by_currency.get(curr, 0.0) + amt, 2)
 
+        po_rate_raw = float(po.exchange_rate) if po.exchange_rate is not None else None
+        if po_rate_raw is not None:
+            if po_rate_raw <= 0:
+                po_rate = None
+            elif (curr or "").strip().upper() != "EGP" and po_rate_raw == 1.0:
+                po_rate = None
+            else:
+                po_rate = po_rate_raw
+        else:
+            po_rate = None
+
         po_summaries.append({
             "po_id": po.po_id,
             "po_number": po.po_number,
             "po_reference": po.po_reference,
             "proforma_invoice_number": po.proforma_invoice_number,
             "currency": curr,
-            "exchange_rate": float(po.exchange_rate) if po.exchange_rate is not None else None,
+            "exchange_rate": po_rate,
             "total_amount_fob": amt,
             "total_packages": int(po.total_packages_count or 0),
             "total_gross_weight_kg": float(po.total_gross_weight_kg or 0.0),
@@ -543,11 +558,11 @@ def get_comprehensive_shipment_dossier_service(
         or imp.actual_landed_cost_total_egp
         or 0.0
     )
-    raw_markup = (
-        (settlement.average_markup_factor if settlement else None)
-        if (settlement and settlement.average_markup_factor is not None)
-        else getattr(imp, "actual_landed_cost_markup_factor", None)
-    )
+    raw_markup = None
+    if settlement and settlement.average_markup_factor is not None:
+        raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
     markup_fac: Optional[float] = float(raw_markup) if raw_markup is not None else None
     var_egp = float(imp.actual_landed_cost_variance_egp or 0.0)
     var_pct = float(imp.actual_landed_cost_variance_pct or 0.0)
@@ -856,7 +871,7 @@ def confirm_dossier_export_service(
     if imp.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp.import_file_code)
 
-    exported_by = _resolve_user_name(payload.exported_by, LEGACY_EXPORTER_DEFAULTS, user)
+    exported_by = user
     now_utc = datetime.now(timezone.utc)
     today_str = datetime.now().strftime("%Y-%m-%d")
 
@@ -984,11 +999,13 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
     existing = repo.get_closure_by_import_file_id(db, import_file_id)
 
     actual_landed = float(imp.actual_landed_cost_total_egp or 0.0)
-    raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
+    raw_markup = None
     if settlement is not None:
         actual_landed = float(settlement.total_landed_cost_egp or actual_landed)
         if settlement.average_markup_factor is not None:
             raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
     markup: Optional[float] = float(raw_markup) if raw_markup is not None else None
 
     return ClosurePrecheckResponse(

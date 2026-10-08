@@ -358,12 +358,16 @@ def test_confirm_dossier_export_service(db_session):
 
     payload = DossierExportConfirmRequest(
         import_file_id=imp.import_file_id,
-        exported_by="Eng. Ahmed Sorour - Managing Director",
+        exported_by="Spoofed Exporter in Body",
         export_format="PDF & Excel Full Bundle",
         notes="تم تدقيق كافة بنود الملف الشامل ومطابقتها مع الحسابات.",
     )
 
-    resp = confirm_dossier_export_service(db_session, payload, user="Eng. Ahmed Sorour - Managing Director")
+    resp = confirm_dossier_export_service(
+        db_session,
+        payload,
+        user="Eng. Ahmed Sorour - Managing Director",
+    )
 
     assert isinstance(resp, DossierExportConfirmResponse)
     assert resp.success is True
@@ -680,7 +684,7 @@ def test_dossier_fob_unknown_currency(db_session):
 
 
 def test_dossier_stops_inventing_markup_factor(db_session):
-    """BE810-T07: File without settlement and without markup -> actual_landed_cost_markup_factor is None."""
+    """BE810-T07: File with stored default markup 1.0 and calculated_at None -> actual_landed_cost_markup_factor is None."""
     supplier = _create_test_supplier(db_session, "SUP-NOMARKUP-01")
     imp = ImportFile(
         import_file_code="IMP-2026-NOMARKUP-01",
@@ -692,7 +696,8 @@ def test_dossier_stops_inventing_markup_factor(db_session):
         current_stage="Stage 9: Landed Cost & File Closure",
         current_module="CLO-02",
         actual_landed_cost_total_egp=0.0,
-        actual_landed_cost_markup_factor=None,
+        actual_landed_cost_markup_factor=1.0,
+        actual_landed_cost_calculated_at=None,
         is_active=True,
     )
     db_session.add(imp)
@@ -703,7 +708,7 @@ def test_dossier_stops_inventing_markup_factor(db_session):
 
 
 def test_closure_precheck_stops_inventing_markup_factor(db_session):
-    """BE810-T07: Closure precheck without settlement and without markup -> actual_markup_factor is None."""
+    """BE810-T07: Closure precheck with stored default markup 1.0 and calculated_at None -> actual_markup_factor is None."""
     supplier = _create_test_supplier(db_session, "SUP-NOMARKUP-PRE-01")
     imp = ImportFile(
         import_file_code="IMP-2026-NOMARKUP-PRE-01",
@@ -715,7 +720,8 @@ def test_closure_precheck_stops_inventing_markup_factor(db_session):
         current_stage="Stage 9: Landed Cost & File Closure",
         current_module="CLO-02",
         actual_landed_cost_total_egp=0.0,
-        actual_landed_cost_markup_factor=None,
+        actual_landed_cost_markup_factor=1.0,
+        actual_landed_cost_calculated_at=None,
         is_active=True,
     )
     db_session.add(imp)
@@ -726,8 +732,10 @@ def test_closure_precheck_stops_inventing_markup_factor(db_session):
     assert res.actual_markup_factor is None
 
 
-def test_dossier_stops_inventing_exchange_rate(db_session, monkeypatch):
-    """BE810-T07: PO without exchange_rate -> exchange_rate in po_summaries is None."""
+def test_dossier_stops_inventing_exchange_rate(db_session):
+    """BE810-T07: Saved PO with column default 1.0:
+    - Non-EGP PO (USD) -> exchange_rate in po_summaries is None.
+    - EGP PO with rate 1.0 -> exchange_rate in po_summaries remains 1.0."""
     supplier = _create_test_supplier(db_session, "SUP-NOXRATE-01")
     incoterm = db_session.query(Incoterm).first() or Incoterm(incoterm_code="FOB", incoterm_name="FOB", is_active=True)
     db_session.add(incoterm)
@@ -738,6 +746,12 @@ def test_dossier_stops_inventing_exchange_rate(db_session, monkeypatch):
     if not usd:
         usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
         db_session.add(usd)
+        db_session.flush()
+
+    egp = db_session.query(Currency).filter(Currency.currency_code == "EGP").first()
+    if not egp:
+        egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True)
+        db_session.add(egp)
         db_session.flush()
 
     imp = ImportFile(
@@ -752,29 +766,42 @@ def test_dossier_stops_inventing_exchange_rate(db_session, monkeypatch):
         is_active=True,
     )
     db_session.add(imp)
-    db_session.commit()
+    db_session.flush()
 
-    po = PurchaseOrder(
-        po_number="PO-NOXRATE-01",
+    po_usd = PurchaseOrder(
+        po_number="PO-NOXRATE-USD",
         import_file_id=imp.import_file_id,
         project_id=project.project_id,
         company_id=1,
         supplier_id=supplier.supplier_id,
         incoterm_id=incoterm.incoterm_id,
         currency_id=usd.currency_id,
-        currency=usd,
         total_amount_fob=15000.0,
-        exchange_rate=None,
-        status="Received",
+        status="Approved",
         is_active=True,
     )
-    from modules.file_closure import service as fc_service
-    monkeypatch.setattr(fc_service.repo, "active_purchase_orders", lambda db, fid: [po])
+    po_egp = PurchaseOrder(
+        po_number="PO-NOXRATE-EGP",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=incoterm.incoterm_id,
+        currency_id=egp.currency_id,
+        total_amount_fob=50000.0,
+        exchange_rate=1.0,
+        status="Approved",
+        is_active=True,
+    )
+    db_session.add_all([po_usd, po_egp])
+    db_session.commit()
 
-    res = fc_service.get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
-    assert len(res.purchase_orders) == 1
-    assert res.purchase_orders[0]["exchange_rate"] is None
-    assert res.fob_source == "PO"
+    from modules.file_closure.service import get_comprehensive_shipment_dossier_service
+    res = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+
+    po_dict = {p["po_number"]: p for p in res.purchase_orders}
+    assert po_dict["PO-NOXRATE-USD"]["exchange_rate"] is None
+    assert po_dict["PO-NOXRATE-EGP"]["exchange_rate"] == 1.0
 
 
 def test_dossier_stops_inventing_item_code(db_session):

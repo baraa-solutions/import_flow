@@ -3,6 +3,7 @@ Customs Consultation Engine & Broker Price Lists Models (BP-009)
 """
 
 from datetime import datetime, date, timezone
+from typing import Optional
 from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
@@ -42,6 +43,8 @@ class ClearanceExpenseType(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class BrokerPriceList(Base):
@@ -82,6 +85,8 @@ class BrokerPriceList(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     items: Mapped[list["BrokerPriceListItem"]] = relationship(
         "BrokerPriceListItem",

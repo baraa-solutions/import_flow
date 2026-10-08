@@ -190,7 +190,7 @@ class PreferentialAgreementCreate(BaseModel):
     hs_code: str = Field(..., min_length=4, max_length=20)
     agreement_name: str = Field(..., max_length=200)
     reduction_type: str = Field(default="percentage_of_duty", description="percentage_of_duty, full_duty_exemption, fixed_rate")
-    reduction_percentage: Decimal = Field(default=Decimal("1.00"), ge=0, le=100)
+    reduction_percentage: Decimal = Field(default=Decimal("1.00"), ge=0, le=1)
     preferential_duty_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="سعر الضريبة التفضيلية المباشرة (مثل 3% للميركسور)")
     publication_notice: Optional[str] = Field(None, max_length=100, description="رقم المنشور الجمركي (مثل ر6722)")
     required_document: Optional[str] = Field(None, max_length=250, description="المستند أو الشهادة المطلوبة (مثل شهادة EUR.1)")
@@ -492,6 +492,8 @@ class MultiItemCustomsBreakdown(BaseModel):
     packaging_egp: Decimal = Decimal("0.00")
     insurance_source: str = Field("actual", description="مصدر التأمين الكلي: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر النولون الكلي: actual أو deemed")
+    freight_exchange_rate_used: Optional[Decimal] = None
+    freight_rate_source: Optional[str] = Field(None, description="مصدر سعر صرف النولون: invoice_currency أو table أو manual")
     additional_fees_egp: Decimal
     estimate_date: date
 
