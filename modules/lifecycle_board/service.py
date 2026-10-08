@@ -33,8 +33,11 @@ from modules.lifecycle_board.schemas import (
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
+from modules.common.errors import CodedHTTPException
 from modules.common.system_messages import SysMsg, msg, render_en
 from modules.common.file_tracking import phase_title_en, set_file_tracking
+from modules.auth.permissions import is_admin_user
+from modules.users.model import User
 
 logger = logging.getLogger(__name__)
 
@@ -327,8 +330,24 @@ def advance_lifecycle_step_service(
     elif import_file_code:
         file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == import_file_code).first()
 
+    if not import_file_code and not import_file_id:
+        raise CodedHTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="LC_FILE_REF_REQUIRED",
+            message_ar="يلزم تحديد معرف ملف الشحنة أو كود الشحنة.",
+        )
+
+    code_label = import_file_code or (f"#{import_file_id}" if import_file_id else "")
+    if file_rec is None or not getattr(file_rec, "is_active", True):
+        raise CodedHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="LC_FILE_NOT_FOUND",
+            message_ar=f"ملف الشحنة {code_label} غير موجود أو غير نشط.",
+            import_file_code=code_label,
+        )
+
     if not import_file_code:
-        raise ValueError("Either import_file_code or a valid import_file_id must be provided for lifecycle sync.")
+        import_file_code = file_rec.import_file_code
 
     # 2. Validate completed step
     validators.validate_step_code(completed_step_code)
@@ -813,7 +832,128 @@ def _sync_import_file_and_tasks_on_advance(
     db.commit()
 
 
-def advance_step_service(db: Session, payload: StepAdvancePayload) -> Dict[str, Any]:
+def _resolve_and_validate_file(
+    db: Session,
+    import_file_code: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+) -> ImportFile:
+    """Resolve ImportFile by id or exact code; enforce active file and open/in-progress status.
+
+    Raises:
+        CodedHTTPException (422): LC_FILE_REF_REQUIRED when neither code nor id is given.
+        CodedHTTPException (404): LC_FILE_NOT_FOUND when file does not exist or is_active=False.
+        CodedHTTPException (409): LC_FILE_NOT_ACTIVE when file status in (Closed, Archived, On Hold).
+    """
+    if not import_file_code and not import_file_id:
+        raise CodedHTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="LC_FILE_REF_REQUIRED",
+            message_ar="يلزم تحديد معرف ملف الشحنة أو كود الشحنة.",
+        )
+
+    file_rec: Optional[ImportFile] = None
+    if import_file_id:
+        file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if file_rec and not import_file_code:
+            import_file_code = file_rec.import_file_code
+    elif import_file_code:
+        file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == import_file_code).first()
+
+    code_label = import_file_code or (f"#{import_file_id}" if import_file_id else "")
+    if file_rec is None or not getattr(file_rec, "is_active", True):
+        raise CodedHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="LC_FILE_NOT_FOUND",
+            message_ar=f"ملف الشحنة {code_label} غير موجود أو غير نشط.",
+            import_file_code=code_label,
+        )
+
+    if file_rec.status in ("Closed", "Archived", "On Hold"):
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_FILE_NOT_ACTIVE",
+            message_ar=f"ملف الشحنة {file_rec.import_file_code} في حالة '{file_rec.status}' ولا يمكن تحريك مراحله على اللوحة.",
+            import_file_code=file_rec.import_file_code,
+            status=file_rec.status,
+        )
+
+    return file_rec
+
+
+def http_advance_step_service(
+    db: Session,
+    *,
+    completed_step_code: str,
+    import_file_code: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    target_step_codes: Optional[List[str]] = None,
+    auto_complete_prior: bool = True,
+    action_data: Optional[Any] = None,
+    notes: Optional[str] = None,
+    actor: User,
+) -> Dict[str, Any]:
+    """HTTP entry point for advancing lifecycle steps (BEX-T01).
+
+    Enforces:
+    - File exists, is active, not Closed/Archived/On Hold.
+    - STEP_21 cannot be completed from HTTP (reserved for file_closure).
+    - completed_step_code must currently be In-Progress or Reference recorded on that file.
+    - auto_complete_prior is honoured only for ADMIN users.
+    - assigned_user is taken strictly from actor.username (token).
+    """
+    file_rec = _resolve_and_validate_file(db, import_file_code=import_file_code, import_file_id=import_file_id)
+
+    if completed_step_code == "STEP_21":
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_CLOSURE_STEP_RESERVED",
+            message_ar="خطوة إغلاق الملف STEP_21 مخصصة لمنظومة إغلاق الملفات الرسمية ولا يمكن إكمالها من اللوحة.",
+        )
+
+    act = repo.get_activity(db, file_rec.import_file_code, completed_step_code)
+    valid_statuses = {"In-Progress", "Reference recorded – pending full documentation"}
+    if not act or act.status not in valid_statuses:
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_STEP_NOT_ACTIVE",
+            message_ar=f"الخطوة {completed_step_code} ليست قيد التنفيذ حالياً على ملف الشحنة {file_rec.import_file_code}.",
+            step_code=completed_step_code,
+            import_file_code=file_rec.import_file_code,
+        )
+
+    effective_auto_complete = bool(auto_complete_prior) and is_admin_user(actor)
+
+    return advance_lifecycle_step_service(
+        db=db,
+        completed_step_code=completed_step_code,
+        import_file_code=file_rec.import_file_code,
+        import_file_id=file_rec.import_file_id,
+        target_step_codes=target_step_codes,
+        auto_complete_prior=effective_auto_complete,
+        assigned_user=actor.username,
+        action_data=action_data,
+        notes=notes,
+        source_module="Lifecycle Operations Board",
+    )
+
+
+def advance_step_service(
+    db: Session,
+    payload: StepAdvancePayload,
+    actor: Optional[User] = None,
+) -> Dict[str, Any]:
+    if actor is not None:
+        return http_advance_step_service(
+            db=db,
+            completed_step_code=payload.current_step_code,
+            import_file_code=payload.import_file_code,
+            import_file_id=None,
+            target_step_codes=payload.next_step_codes if payload.next_step_codes else None,
+            auto_complete_prior=getattr(payload, "auto_complete_prior", True),
+            action_data=payload.action_data,
+            notes=payload.notes,
+            actor=actor,
+        )
     return advance_lifecycle_step_service(
         db=db,
         completed_step_code=payload.current_step_code,
@@ -826,13 +966,14 @@ def advance_step_service(db: Session, payload: StepAdvancePayload) -> Dict[str, 
 
 
 def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) -> Dict[str, Any]:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_multi_step_codes(payload.active_step_codes)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     for step_code in payload.active_step_codes:
         repo.save_or_update_activity(
             db,
-            import_file_code=payload.import_file_code,
+            import_file_code=file_rec.import_file_code,
             step_code=step_code,
             status="In-Progress",
             started_at=now_str,
@@ -842,7 +983,7 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
         )
 
     return {
-        "message": f"تم تفعيل {len(payload.active_step_codes)} مرحلة بالتوازي للشحنة {payload.import_file_code}.",
+        "message": f"تم تفعيل {len(payload.active_step_codes)} مرحلة بالتوازي للشحنة {file_rec.import_file_code}.",
         "active_steps": payload.active_step_codes,
     }
 
@@ -1004,6 +1145,7 @@ def register_pending_reference_service(
     payload: RegisterPendingReferenceRequest,
     current_username: Optional[str] = None,
 ) -> RegisterPendingReferenceResponse:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_step_code(payload.step_code)
 
     # 1. Live Step Config Eligibility Check (Section 10.4)
@@ -1021,7 +1163,7 @@ def register_pending_reference_service(
 
     # 2. Record in PendingReferenceRecord table
     pending_rec = PendingReferenceRecord(
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         reference_number=payload.reference_number.strip(),
         reason_text=payload.reason_text.strip(),
@@ -1050,7 +1192,7 @@ def register_pending_reference_service(
     )
     repo.save_or_update_activity(
         db,
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         status="Reference recorded – pending full documentation",
         assigned_user=username,
@@ -1062,11 +1204,10 @@ def register_pending_reference_service(
 
     # 4. Central Audit Log
     try:
-        file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
         audit_log = AuditLog(
             entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id if file_rec else 0,
-            entity_code=payload.import_file_code,
+            entity_id=file_rec.import_file_id,
+            entity_code=file_rec.import_file_code,
             action="REGISTER_PENDING_REFERENCE",
             changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
             old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
@@ -1085,7 +1226,7 @@ def register_pending_reference_service(
 
     return RegisterPendingReferenceResponse(
         message=f"تم تسجيل المرجع المعلق '{payload.reference_number}' للمرحلة {payload.step_code} بنجاح. تظل المرحلة غير مكتملة امتثالياً حتى استيفاء المستندات.",
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         reference_number=payload.reference_number,
         reason_text=payload.reason_text,
@@ -1101,6 +1242,7 @@ def skip_step_service(
     current_user_role: Optional[str] = None,
     current_username: Optional[str] = None,
 ) -> Dict[str, Any]:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_step_code(payload.current_step_code)
 
     # Mandatory Reason Check (Section 9.3 & 10.1)
@@ -1150,7 +1292,7 @@ def skip_step_service(
     skipped_msg = msg("LC_STEP_SKIPPED", reason=payload.skip_reason)
     repo.save_or_update_activity(
         db,
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.current_step_code,
         status="Skipped",
         completed_at=now_str,
@@ -1164,7 +1306,7 @@ def skip_step_service(
     for next_code in payload.next_step_codes:
         repo.save_or_update_activity(
             db,
-            import_file_code=payload.import_file_code,
+            import_file_code=file_rec.import_file_code,
             step_code=next_code,
             status="In-Progress",
             started_at=now_str,
@@ -1174,18 +1316,16 @@ def skip_step_service(
         )
 
     # Update ImportFile record's skipped_stages list
-    file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
-    if file_rec:
-        current_skipped = list(file_rec.skipped_stages or [])
-        if payload.current_step_code not in current_skipped:
-            current_skipped.append(payload.current_step_code)
-            file_rec.skipped_stages = current_skipped
-            db.commit()
+    current_skipped = list(file_rec.skipped_stages or [])
+    if payload.current_step_code not in current_skipped:
+        current_skipped.append(payload.current_step_code)
+        file_rec.skipped_stages = current_skipped
+        db.commit()
 
     # Sync ImportFile stage, module, progress, and Smart Tasks
     _sync_import_file_and_tasks_on_advance(
         db,
-        file_code=payload.import_file_code,
+        file_code=file_rec.import_file_code,
         completed_step_code=payload.current_step_code,
         activated_step_codes=payload.next_step_codes,
         is_skipped=True,
@@ -1196,8 +1336,8 @@ def skip_step_service(
     try:
         audit_log = AuditLog(
             entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id if file_rec else 0,
-            entity_code=payload.import_file_code,
+            entity_id=file_rec.import_file_id,
+            entity_code=file_rec.import_file_code,
             action="SKIP_STAGE",
             changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
             old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),

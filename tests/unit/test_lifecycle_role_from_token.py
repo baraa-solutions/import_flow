@@ -16,9 +16,10 @@ import modules.lifecycle_board.service as service
 from database.database import Base, get_db
 from modules.auth.permissions import invalidate_permission_cache
 from modules.auth.security import create_access_token, hash_password
+from modules.auth.seed_rbac import seed_rbac
 from modules.import_files.model import ImportFile
 from modules.lifecycle_board.schemas import SkipStepPayload, StepConfigUpdateRequest
-from modules.users.model import User
+from modules.users.model import Role, User
 
 FILE_CODE = "IMP-2026-0777"
 STEP = "STEP_06"
@@ -33,6 +34,7 @@ def db():
     )
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(bind=engine)()
+    seed_rbac(session)
     session.add(ImportFile(import_file_code=FILE_CODE, company_name="Co", supplier_name="Sup", status="Draft", is_active=True))
     session.commit()
     # Make STEP_06 skippable with Manager approval.
@@ -56,12 +58,14 @@ def db():
 
 
 def _user(db, username: str, role: str) -> User:
+    role_rec = db.query(Role).filter(Role.role_code == role).first()
     user = User(
         username=username,
         email=f"{username}@test.com",
         full_name=username,
         hashed_password=hash_password("Password123"),
         role=role,
+        role_id=role_rec.role_id if role_rec else None,
         is_active=True,
     )
     db.add(user)
