@@ -75,3 +75,12 @@ class InlandTransportBookingResponse(LegacyRowTolerantModel, InlandTransportBook
     updated_by: Optional[str] = "System"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedInlandTransportBookingResponse(BaseModel):
+    items: List[InlandTransportBookingResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+

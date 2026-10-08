@@ -2,9 +2,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams
 
 from .model import WarehouseReceivingRecord
 from .schemas import (
@@ -20,6 +22,7 @@ from .repository import (
     get_warehouse_receiving_by_id,
     get_active_grn_for_file,
     get_warehouse_receiving_list,
+    paginate_warehouse_receivings as repo_paginate_warehouse_receivings,
     add_warehouse_receiving,
     apply_changes,
     set_active,
@@ -297,8 +300,40 @@ def list_warehouse_receivings_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[WarehouseReceivingRecord]:
-    return get_warehouse_receiving_list(db, include_inactive, import_file_id, status, search)
+    skip: int = 0,
+    limit: int = 200,
+    return_total: bool = False,
+):
+    items, total = get_warehouse_receiving_list(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+    if return_total:
+        return items, total
+    return items
+
+
+def paginate_warehouse_receivings_service(
+    db: Session,
+    params: PageParams,
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    response: Optional[Response] = None,
+) -> Dict[str, Any]:
+    return repo_paginate_warehouse_receivings(
+        db,
+        params=params,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        response=response,
+    )
 
 
 def get_warehouse_receiving_by_file_service(db: Session, import_file_id: int) -> Optional[WarehouseReceivingRecord]:

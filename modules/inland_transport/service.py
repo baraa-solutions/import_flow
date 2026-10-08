@@ -1,7 +1,9 @@
 from typing import List, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
+
+from modules.common.pagination import PageParams
 
 from .model import InlandTransportBooking
 from .schemas import (
@@ -18,6 +20,7 @@ from .repository import (
     list_active_bookings_for_file,
     find_active_booking_by_waybill,
     list_transport_bookings,
+    paginate_transport_bookings as repo_paginate_transport_bookings,
     apply_changes,
 )
 from .validators import (
@@ -319,8 +322,40 @@ def list_transport_bookings_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[InlandTransportBooking]:
-    return list_transport_bookings(db, include_inactive, import_file_id, status, search)
+    skip: int = 0,
+    limit: int = 200,
+    return_total: bool = False,
+):
+    items, total = list_transport_bookings(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+    if return_total:
+        return items, total
+    return items
+
+
+def paginate_transport_bookings_service(
+    db: Session,
+    params: PageParams,
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    response: Optional[Response] = None,
+):
+    return repo_paginate_transport_bookings(
+        db,
+        params=params,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        response=response,
+    )
 
 
 def update_transport_booking_service(

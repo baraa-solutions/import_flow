@@ -27,6 +27,7 @@ from modules.file_closure.schemas import FileClosureCreate, FileClosureUpdate
 from modules.file_closure.validators import ClosureFacts, evaluate_closure_gate
 from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.import_files.model import ImportFile
+from modules.inland_transport.model import InlandTransportBooking
 from modules.inland_transport.schemas import (
     InlandTransportArrivalSubmit,
     InlandTransportBookingCreate,
@@ -637,6 +638,118 @@ def test_put_lock_follows_file_status(db):
         user="Reviewer",
     )
     assert out.auditor_name == "Reviewer"
+def test_be810_t18_pagination_grn_and_it(strict_client, db, rbac):
+    """BE810-T18: /paginated contract and skip/limit + X-Total-Count on WR and IT lists."""
+    file1 = _wr_file(db, code="IMP-PAG-0001")
+    file2 = _wr_file(db, code="IMP-PAG-0002")
+    file3 = _wr_file(db, code="IMP-PAG-0003")
+
+    now = datetime.now(timezone.utc)
+    # Seed 3 GRNs
+    rec1 = WarehouseReceivingRecord(grn_code="GRN-PAG-001", import_file_id=file1.import_file_id, warehouse_name="WH-1", created_at=now, is_active=True)
+    rec2 = WarehouseReceivingRecord(grn_code="GRN-PAG-002", import_file_id=file2.import_file_id, warehouse_name="WH-2", created_at=now, is_active=True)
+    rec3 = WarehouseReceivingRecord(grn_code="GRN-PAG-003", import_file_id=file3.import_file_id, warehouse_name="WH-3", created_at=now, is_active=True)
+    db.add_all([rec1, rec2, rec3])
+
+    # Seed 3 IT Bookings
+    db.add_all([
+        InlandTransportBooking(transport_code="TR-PAG-001", import_file_id=file1.import_file_id, waybill_number="WB-001",
+                               carrier_name="Carrier", truck_plate_number="A1", truck_type="Trailer", driver_name="D1", driver_phone="010111",
+                               pickup_port_location="Port", destination_warehouse="WH-1", planned_departure_at=now, expected_arrival_at=now,
+                               status="Booking Confirmed", created_at=now, is_active=True),
+        InlandTransportBooking(transport_code="TR-PAG-002", import_file_id=file2.import_file_id, waybill_number="WB-002",
+                               carrier_name="Carrier", truck_plate_number="A2", truck_type="Trailer", driver_name="D2", driver_phone="010222",
+                               pickup_port_location="Port", destination_warehouse="WH-2", planned_departure_at=now, expected_arrival_at=now,
+                               status="Booking Confirmed", created_at=now, is_active=True),
+        InlandTransportBooking(transport_code="TR-PAG-003", import_file_id=file3.import_file_id, waybill_number="WB-003",
+                               carrier_name="Carrier", truck_plate_number="A3", truck_type="Trailer", driver_name="D3", driver_phone="010333",
+                               pickup_port_location="Port", destination_warehouse="WH-3", planned_departure_at=now, expected_arrival_at=now,
+                               status="Booking Confirmed", created_at=now, is_active=True),
+    ])
+    db.commit()
+
+    headers = _bearer(rbac["operator"])
+
+    # 1. WR skip/limit and X-Total-Count
+    resp_wr_list = strict_client.get("/api/v1/warehouse-receiving?limit=2", headers=headers)
+    assert resp_wr_list.status_code == 200, resp_wr_list.text
+    assert len(resp_wr_list.json()) == 2
+    assert resp_wr_list.headers.get("X-Total-Count") == "3"
+
+    # WR skip=2 & limit=2 returns 1 item with X-Total-Count 3
+    resp_wr_skip = strict_client.get("/api/v1/warehouse-receiving?skip=2&limit=2", headers=headers)
+    assert resp_wr_skip.status_code == 200
+    assert len(resp_wr_skip.json()) == 1
+    assert resp_wr_skip.headers.get("X-Total-Count") == "3"
+
+    # WR search=PAG-002 returns 1 row
+    resp_wr_search = strict_client.get("/api/v1/warehouse-receiving?search=PAG-002", headers=headers)
+    assert resp_wr_search.status_code == 200
+    assert len(resp_wr_search.json()) == 1
+    assert resp_wr_search.json()[0]["grn_code"] == "GRN-PAG-002"
+
+    # Soft-delete one GRN: active total is 2, include_inactive=true gives 3
+    rec3.is_active = False
+    db.commit()
+    resp_wr_active = strict_client.get("/api/v1/warehouse-receiving", headers=headers)
+    assert resp_wr_active.status_code == 200
+    assert len(resp_wr_active.json()) == 2
+    assert resp_wr_active.headers.get("X-Total-Count") == "2"
+
+    resp_wr_all = strict_client.get("/api/v1/warehouse-receiving?include_inactive=true", headers=headers)
+    assert resp_wr_all.status_code == 200
+    assert len(resp_wr_all.json()) == 3
+    assert resp_wr_all.headers.get("X-Total-Count") == "3"
+    rec3.is_active = True
+    db.commit()
+
+    # 2. WR /paginated endpoint
+    resp_wr_page = strict_client.get("/api/v1/warehouse-receiving/paginated?page=1&page_size=2", headers=headers)
+    assert resp_wr_page.status_code == 200, resp_wr_page.text
+    wr_body = resp_wr_page.json()
+    assert wr_body["total"] == 3
+    assert wr_body["page"] == 1
+    assert wr_body["page_size"] == 2
+    assert wr_body["total_pages"] == 2
+    assert len(wr_body["items"]) == 2
+    assert resp_wr_page.headers.get("X-Total-Count") == "3"
+
+    # WR /paginated sorting
+    resp_wr_sort = strict_client.get("/api/v1/warehouse-receiving/paginated?sort=grn_code", headers=headers)
+    assert resp_wr_sort.status_code == 200, resp_wr_sort.text
+    assert resp_wr_sort.json()["items"][0]["grn_code"] == "GRN-PAG-001"
+
+    # 3. IT skip/limit and X-Total-Count
+    resp_it_list = strict_client.get("/api/v1/inland-transport/bookings?limit=2", headers=headers)
+    assert resp_it_list.status_code == 200, resp_it_list.text
+    assert len(resp_it_list.json()) == 2
+    assert resp_it_list.headers.get("X-Total-Count") == "3"
+
+    # 4. IT /bookings/paginated and /paginated endpoints
+    resp_it_page = strict_client.get("/api/v1/inland-transport/bookings/paginated?page=2&page_size=2", headers=headers)
+    assert resp_it_page.status_code == 200, resp_it_page.text
+    it_body = resp_it_page.json()
+    assert it_body["total"] == 3
+    assert it_body["page"] == 2
+    assert it_body["page_size"] == 2
+    assert it_body["total_pages"] == 2
+    assert len(it_body["items"]) == 1
+    assert resp_it_page.headers.get("X-Total-Count") == "3"
+
+    # IT alias endpoint /api/v1/inland-transport/paginated
+    resp_it_alias = strict_client.get("/api/v1/inland-transport/paginated?page=1&page_size=10", headers=headers)
+    assert resp_it_alias.status_code == 200, resp_it_alias.text
+    assert resp_it_alias.json()["total"] == 3
+
+    # Negative security tests:
+    # No auth header -> 401
+    assert strict_client.get("/api/v1/warehouse-receiving/paginated").status_code == 401
+    assert strict_client.get("/api/v1/inland-transport/paginated").status_code == 401
+
+    # Invalid sort field -> 400
+    resp_bad_sort = strict_client.get("/api/v1/warehouse-receiving/paginated?sort=driver_phone", headers=headers)
+    assert resp_bad_sort.status_code == 400
+    assert resp_bad_sort.json()["detail"]["code"] == "LIST_SORT_FIELD_INVALID"
 
 
 def test_closed_file_blocks_warehouse_receiving_writes(db):
