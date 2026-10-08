@@ -9588,6 +9588,7 @@ abstract class AppLocalizations {
   String fbkDepSuccess(String bl);
   String fbkDepError(String error);
   String get fbkStatusCancelled;
+  String get fbkMixedCurrencyError;
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===

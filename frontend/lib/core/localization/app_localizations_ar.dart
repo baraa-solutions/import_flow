@@ -12307,6 +12307,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم ($bl) وانتقال الشحنة لحالة In-Transit';
   @override String fbkDepError(String error) => 'تعذر تأكيد الإبحار: $error';
   @override String get fbkStatusCancelled => 'ملغي';
+  @override String get fbkMixedCurrencyError => 'يجب أن تستخدم كافة بنود التكلفة عملة واحدة حتى تتوفر ميزة تحويل العملات';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
