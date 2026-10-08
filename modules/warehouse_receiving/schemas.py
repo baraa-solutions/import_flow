@@ -30,7 +30,7 @@ class WarehouseReceivingCreate(BaseModel):
 class DiscrepancyReportSubmit(BaseModel):
     discrepancy_type: str = Field(..., description="Shortage, Damage, Excess, Wrong Item")
     discrepancy_notes: str
-    quarantine_zone_assigned: bool = True
+    quarantine_zone_assigned: bool = False
     insurance_claim_filed: bool = False
     insurance_claim_ref: Optional[str] = None
 

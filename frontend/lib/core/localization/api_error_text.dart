@@ -24,6 +24,8 @@ class ApiErrorCode {
   static const wrCustomsNotReleased = 'WR_CUSTOMS_NOT_RELEASED';
   static const wrGrnLocked = 'WR_GRN_LOCKED';
   static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
+  static const wrDateInFuture = 'WR_DATE_IN_FUTURE';
+  static const wrVerdictInconsistentExpected = 'WR_VERDICT_INCONSISTENT_EXPECTED';
 }
 
 /// User-facing, localized text for a failed API call.

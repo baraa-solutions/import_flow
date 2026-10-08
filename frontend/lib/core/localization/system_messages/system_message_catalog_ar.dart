@@ -1435,6 +1435,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_GRN_LOCKED': {
     'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
   },
+  'WR_DATE_IN_FUTURE': {
+    'note': 'تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },

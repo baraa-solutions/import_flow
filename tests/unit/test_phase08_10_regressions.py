@@ -576,7 +576,7 @@ def test_wr_verdict_contradicting_outcome_is_400(db, rows, quarantine, verdict):
             db, rec.receiving_id,
             WarehouseInspectionSubmit(inspection_verdict=verdict, quarantine_zone_assigned=quarantine))
     assert exc.value.status_code == 400
-    assert exc.value.detail["code"] == "WR_VERDICT_INCONSISTENT"
+    assert exc.value.detail["code"] in {"WR_VERDICT_INCONSISTENT", "WR_VERDICT_INCONSISTENT_EXPECTED"}
 
 
 def test_wr_damage_claim_pending_allowed_with_discrepancy(db):

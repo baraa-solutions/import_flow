@@ -1313,6 +1313,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_GRN_LOCKED": {
         "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
     },
+    "WR_DATE_IN_FUTURE": {
+        "note": "The inspection date cannot be more than 24 hours in the future.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
