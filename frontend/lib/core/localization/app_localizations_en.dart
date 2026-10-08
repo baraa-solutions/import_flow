@@ -13158,6 +13158,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'Reconciliation difference between the total and the item sum: $amount';
   @override String get settlementEstKpiDuty => 'Customs Duty';
   @override String get settlementEstKpiVatFees => 'VAT & Fees';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'The allocated equipment does not match the quoted container sizes (quoted 40ft, but no 40ft/45ft container is allocated). Please adjust equipment or re-apply quote.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
   // === end review phase08_10 keys ===
 }
 

@@ -74,7 +74,21 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   final bool _isStackable = true;
   List<ContainerAllocationModel> _containers = [];
   List<BookingChargeModel> _charges = [];
-  String? _quoteMismatchError;
+  bool _has40ftMismatch = false;
+  bool _has20ftMismatch = false;
+  bool get _hasQuoteMismatch => _has40ftMismatch || _has20ftMismatch;
+
+  String? _getQuoteMismatchError(BuildContext context) {
+    if (!_hasQuoteMismatch) return null;
+    final l = AppLocalizations.of(context);
+    if (_has40ftMismatch && _has20ftMismatch) {
+      return l.fbkQuoteEquipmentMismatchBoth;
+    } else if (_has40ftMismatch) {
+      return l.fbkQuoteEquipmentMismatch40ft;
+    } else {
+      return l.fbkQuoteEquipmentMismatch20ft;
+    }
+  }
 
   // Full 17 quote items state matching Phase 1
   String _mainQuoteCurrency = 'USD';
@@ -549,7 +563,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     );
 
     _charges = result.charges;
-    _quoteMismatchError = result.mismatchError;
+    _has40ftMismatch = result.has40ftMismatch;
+    _has20ftMismatch = result.has20ftMismatch;
   }
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
@@ -559,10 +574,10 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       return;
     }
 
-    _rebuildChargesFromQuoteBreakdown();
-    if (_quoteMismatchError != null) {
+    setState(() => _rebuildChargesFromQuoteBreakdown());
+    if (_hasQuoteMismatch) {
       if (_tab != 0) setState(() => _tab = 0);
-      FbkUi.snack(context, _quoteMismatchError!, severity: AppSeverity.danger);
+      FbkUi.snack(context, _getQuoteMismatchError(context)!, severity: AppSeverity.danger);
       return;
     }
 
@@ -594,10 +609,10 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   }
 
   Future<void> _doSave() async {
-    _rebuildChargesFromQuoteBreakdown();
-    if (_quoteMismatchError != null) {
+    setState(() => _rebuildChargesFromQuoteBreakdown());
+    if (_hasQuoteMismatch) {
       if (_tab != 0) setState(() => _tab = 0);
-      FbkUi.snack(context, _quoteMismatchError!, severity: AppSeverity.danger);
+      FbkUi.snack(context, _getQuoteMismatchError(context)!, severity: AppSeverity.danger);
       return;
     }
 
@@ -1268,10 +1283,10 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                 ],
               ),
               const SizedBox(height: 10),
-              if (_quoteMismatchError != null) ...[
+              if (_hasQuoteMismatch) ...[
                 FbkNotice(
                   key: const Key('fbkQuoteEquipmentMismatchNotice'),
-                  message: _quoteMismatchError!,
+                  message: _getQuoteMismatchError(context)!,
                   severity: AppSeverity.danger,
                   icon: Icons.error_outline,
                 ),

@@ -27,6 +27,7 @@ class _RecordingBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBo
     implements FreightBookingNotifier {
   _RecordingBookingNotifier() : super(const AsyncValue.data([]));
   final List<Map<String, dynamic>> created = [];
+  final List<Map<String, dynamic>> updated = [];
 
   @override
   Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {}
@@ -34,6 +35,12 @@ class _RecordingBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBo
   @override
   Future<ShipmentBookingModel?> createBooking(Map<String, dynamic> payload) async {
     created.add(payload);
+    return null;
+  }
+
+  @override
+  Future<ShipmentBookingModel?> updateBooking(int id, Map<String, dynamic> payload) async {
+    updated.add(payload);
     return null;
   }
 
@@ -311,8 +318,8 @@ void main() {
       await tester.tap(find.byKey(const Key('fbkFormSaveBtn')));
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(notifier.created, hasLength(1));
-      final payload = notifier.created.single;
+      expect(notifier.updated, hasLength(1));
+      final payload = notifier.updated.single;
       final charges = (payload['cost_charges_data'] as List).cast<Map<String, dynamic>>();
       final c40 = charges.firstWhere((c) => c['charge_type'] == 'Sea Freight 40ft');
       expect(c40['container_type'], '40GP');
@@ -376,6 +383,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(notifier.created, isEmpty, reason: 'save must be blocked when equipment does not match quoted sizes');
+      expect(notifier.updated, isEmpty, reason: 'update must be blocked when equipment does not match quoted sizes');
     });
   });
 

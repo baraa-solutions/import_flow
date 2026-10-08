@@ -3,18 +3,16 @@ import '../models/freight_booking_model.dart';
 /// Result of building charges from quotation breakdown and allocated equipment.
 class BookingChargeBuildResult {
   final List<BookingChargeModel> charges;
-  final String? mismatchError;
   final bool has40ftMismatch;
   final bool has20ftMismatch;
 
   const BookingChargeBuildResult({
     required this.charges,
-    this.mismatchError,
     this.has40ftMismatch = false,
     this.has20ftMismatch = false,
   });
 
-  bool get hasError => mismatchError != null;
+  bool get hasError => has40ftMismatch || has20ftMismatch;
 }
 
 /// Pure helper that synchronizes and builds booking charges from quotation
@@ -197,18 +195,8 @@ class BookingChargeBuilder {
       newCharges.add(BookingChargeModel(chargeType: 'Other Fees', unit: 'Per Shipment', quantity: 1, currency: otherFeesCur, rate: otherFeesPrice, total: otherFeesPrice));
     }
 
-    String? mismatchError;
-    if (has40ftMismatch && has20ftMismatch) {
-      mismatchError = 'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
-    } else if (has40ftMismatch) {
-      mismatchError = 'The allocated equipment does not match the quoted container sizes (quoted 40ft, but no 40ft/45ft container is allocated). Please adjust equipment or re-apply quote.';
-    } else if (has20ftMismatch) {
-      mismatchError = 'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
-    }
-
     return BookingChargeBuildResult(
       charges: newCharges,
-      mismatchError: mismatchError,
       has40ftMismatch: has40ftMismatch,
       has20ftMismatch: has20ftMismatch,
     );

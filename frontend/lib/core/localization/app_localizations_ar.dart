@@ -13159,6 +13159,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'فرق التسوية بين الإجمالي ومجموع الأصناف: $amount';
   @override String get settlementEstKpiDuty => 'ضريبة الوارد';
   @override String get settlementEstKpiVatFees => 'القيمة المضافة والرسوم';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 قدم، ولكن لم يتم تخصيص أي حاوية 40/45 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 20 قدم، ولكن لم يتم تخصيص أي حاوية 20 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
   // === end review phase08_10 keys ===
 }
 

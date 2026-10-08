@@ -18,8 +18,8 @@ void main() {
       );
 
       expect(result.hasError, isFalse);
-      expect(result.mismatchError, isNull);
       expect(result.has40ftMismatch, isFalse);
+      expect(result.has20ftMismatch, isFalse);
       expect(result.charges.length, 1);
 
       final charge = result.charges.first;
@@ -106,8 +106,7 @@ void main() {
       // Must report mismatch error so the save can be blocked
       expect(result.hasError, isTrue);
       expect(result.has40ftMismatch, isTrue);
-      expect(result.mismatchError, isNotNull);
-      expect(result.mismatchError, contains('40ft'));
+      expect(result.has20ftMismatch, isFalse);
     });
 
     test('Mixed quote size-class change (Example B from review) flags missing 40ft container and tags 20ft strictly', () {
@@ -157,8 +156,8 @@ void main() {
 
       expect(result.hasError, isTrue);
       expect(result.has20ftMismatch, isTrue);
+      expect(result.has40ftMismatch, isFalse);
       expect(result.charges.any((c) => c.chargeType == 'Sea Freight 20ft'), isTrue);
-      expect(result.mismatchError, contains('20ft'));
     });
   });
 }
