@@ -1041,4 +1041,80 @@ def test_dossier_closure_readiness_parametrized_facts(db_session, fact_variant, 
         assert dossier.closure_readiness[key] == val
 
 
+def test_confirm_dossier_export_blocked_without_grn(db_session):
+    """BE810-T09: Export on a file without GRN raises 400 with blocking == ['warehouse_received']."""
+    imp = _seed_sample_full_shipment(db_session, "IMP-2026-T09-NOGRN-01")
+
+    # Delete the GRN
+    db_session.query(WarehouseReceivingRecord).filter(
+        WarehouseReceivingRecord.import_file_id == imp.import_file_id
+    ).delete()
+    db_session.commit()
+
+    payload = DossierExportConfirmRequest(
+        import_file_id=imp.import_file_id,
+        export_format="PDF & Excel Full Bundle",
+    )
+    with pytest.raises(Exception) as exc:
+        confirm_dossier_export_service(db_session, payload)
+
+    assert getattr(exc.value, "status_code", None) == 400
+    detail = exc.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("code") == "FC_EXPORT_BLOCKED"
+    assert detail.get("blocking") == ["warehouse_received"]
+
+
+def test_confirm_dossier_export_blocked_without_customs(db_session):
+    """BE810-T09: Export on a file without customs release raises 400 with customs_cleared in blocking."""
+    imp = _seed_sample_full_shipment(db_session, "IMP-2026-T09-NOCUS-01")
+
+    imp.is_customs_released = False
+    imp.customs_release_permit_no = None
+    imp.customs_released_at = None
+    clr = db_session.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == imp.import_file_id
+    ).first()
+    if clr:
+        clr.status = "Under Review"
+        clr.release_permit_no = None
+        clr.release_date = None
+    db_session.commit()
+
+    payload = DossierExportConfirmRequest(
+        import_file_id=imp.import_file_id,
+        export_format="PDF & Excel Full Bundle",
+    )
+    with pytest.raises(Exception) as exc:
+        confirm_dossier_export_service(db_session, payload)
+
+    assert getattr(exc.value, "status_code", None) == 400
+    detail = exc.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("code") == "FC_EXPORT_BLOCKED"
+    assert "customs_cleared" in detail.get("blocking", [])
+
+
+def test_api_confirm_dossier_export_blocked_returns_400(client, db_session):
+    """BE810-T09: API confirm-dossier-export returns 400 FC_EXPORT_BLOCKED when prerequisites not met."""
+    imp = _seed_sample_full_shipment(db_session, "IMP-2026-API-T09-BLOCKED")
+
+    # Delete GRN to trigger precondition failure
+    db_session.query(WarehouseReceivingRecord).filter(
+        WarehouseReceivingRecord.import_file_id == imp.import_file_id
+    ).delete()
+    db_session.commit()
+
+    body = {
+        "import_file_id": imp.import_file_id,
+        "exported_by": "Audit Lead",
+        "export_format": "PDF Full Dossier",
+    }
+    res = client.post("/api/v1/file-closure/confirm-dossier-export", json=body)
+    assert res.status_code == 400
+    data = res.json()
+    assert data["detail"]["code"] == "FC_EXPORT_BLOCKED"
+    assert data["detail"]["blocking"] == ["warehouse_received"]
+
+
 

@@ -29,6 +29,8 @@ from .validators import (
     closure_blocked_error,
     closure_exists_error,
     evaluate_closure_gate,
+    export_blocked_error,
+    export_blocking_keys,
     validate_update_status,
 )
 from modules.auth.permissions import has_user_permission
@@ -214,8 +216,10 @@ def close_import_file_service(
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
 
     if schema.is_draft:
-        imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
-        set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
+        # BE810-T09 / F19: Draft changes current_module / stage only when dossier is already exported.
+        if imp_file.dossier_exported_at:
+            imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
+            set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
         db.commit()
         db.refresh(record)
 
@@ -233,8 +237,11 @@ def close_import_file_service(
         best_effort(db, _audit_draft, "Closure draft create audit log")
         return record
 
-    # FC-05: remember where the file was so a reopen restores that phase.
-    imp_file.closed_at_phase = imp_file.current_module
+    # FC-05 / BE810-T09: remember where the file was so a reopen restores that phase (strip any trailing " (Draft)").
+    curr_mod = imp_file.current_module or ""
+    if curr_mod.endswith(" (Draft)"):
+        curr_mod = curr_mod[:-len(" (Draft)")]
+    imp_file.closed_at_phase = curr_mod
     imp_file.status = FILE_STATUS_CLOSED
     imp_file.current_module = CLOSURE_MODULE
     imp_file.progress_percent = 100.0
@@ -934,6 +941,11 @@ def confirm_dossier_export_service(
     _require_any_permission(db, actor, "import_files.edit", "import_files.close")
     if imp.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp.import_file_code)
+
+    # BE810-T09 / F18: Check gate preconditions (customs, warehouse, landed cost).
+    gate = evaluate_file_closure_gate(db, imp)
+    if export_blocking_keys(gate):
+        raise export_blocked_error(gate)
 
     exported_by = user
     now_utc = datetime.now(timezone.utc)

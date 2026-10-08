@@ -1483,6 +1483,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },
+  'FC_EXPORT_BLOCKED': {
+    'note': 'لا يمكن تصدير واعتماد الملف الشامل: الشروط التالية غير مستوفاة: {blocking}.',
+  },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'سجل الإغلاق {closure_code} يتبع ملفاً مغلقاً: أعد فتح الملف أولاً.',
   },

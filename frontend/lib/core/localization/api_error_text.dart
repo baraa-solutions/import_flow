@@ -26,6 +26,8 @@ class ApiErrorCode {
   static const currencyCodeUnknown = 'CURRENCY_CODE_UNKNOWN';
   static const wrDateInFuture = 'WR_DATE_IN_FUTURE';
   static const wrVerdictInconsistentExpected = 'WR_VERDICT_INCONSISTENT_EXPECTED';
+  static const fcExportBlocked = 'FC_EXPORT_BLOCKED';
+  static const fcClosureBlocked = 'FC_CLOSURE_BLOCKED';
 }
 
 /// User-facing, localized text for a failed API call.
