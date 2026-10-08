@@ -35,6 +35,7 @@ BLOCKING_MESSAGES_AR = {
     "warehouse_quarantine": "إذن الاستلام المخزني ما زال تحت قفل التحفظ / الحجر (Quarantine Lock) ولا يمكن إغلاق الملف قبل فكه.",
     "landed_cost_settled": "لم يتم احتساب واعتماد تسوية التكلفة الاستيرادية الشاملة (Actual Landed Cost Settled).",
     "dossier_exported": "لم يتم تصدير واعتماد الملف الشامل للرسالة (Comprehensive Shipment Dossier Export - CLO-03).",
+    "already_closed": "ملف الشحنة مغلق رسمياً بالفعل ولا يمكن إعادة إغلاقه.",
 }
 WARNING_CONTAINERS_AR = "يوجد حاويات لم يتم تسجيل إيصال تسليمها الفارغ (EIR Return) — يرجى التأكد لتجنب غرامات التأخير."
 WARNING_DOCS_AR = "مستندات الشحن الأصلية غير مكتملة أو لم يتم التحقق منها بالكامل."

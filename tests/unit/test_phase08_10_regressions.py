@@ -362,7 +362,7 @@ def test_it05_put_validates_status_and_merged_dates(db):
 def test_fc01_empty_checklist_without_prerequisites_is_400(db):
     imp = _file(db)
     with pytest.raises(HTTPException) as exc:
-        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     assert exc.value.status_code == 400
     blocking = exc.value.detail["blocking"]
     assert {"customs_cleared", "warehouse_received", "landed_cost_settled", "dossier_exported"} <= set(blocking)
@@ -378,7 +378,7 @@ def test_fc01_db_error_fails_the_close(db, monkeypatch):
 
     monkeypatch.setattr(fc_repo, "has_final_release_clearance", broken)
     with pytest.raises(RuntimeError):
-        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     db.rollback()
     db.refresh(imp)
     assert imp.status == "Active"
@@ -390,7 +390,7 @@ def test_fc01_quarantined_grn_blocks(db):
         {"quarantine_lock_active": True})
     db.commit()
     with pytest.raises(HTTPException) as exc:
-        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     assert exc.value.detail["blocking"] == ["warehouse_quarantine"]
 
 
@@ -409,7 +409,7 @@ def test_fc03_precheck_and_close_agree(db, customs, grn, landed, dossier, skippe
         db.commit()
     pre = fc_service.get_closure_precheck_service(db, imp.import_file_id)
     try:
-        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+        fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
         closed = True
     except HTTPException as exc:
         assert exc.status_code == 400
@@ -419,10 +419,10 @@ def test_fc03_precheck_and_close_agree(db, customs, grn, landed, dossier, skippe
 
 def test_fc04_second_close_is_409_and_draft_on_closed_is_409(db):
     imp = _ready_file(db)
-    fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     for draft in (False, True):
         with pytest.raises(HTTPException) as exc:
-            fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=draft))
+            fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=draft), trusted=True)
         assert exc.value.status_code == 409
         assert exc.value.detail["code"] == "FC_ALREADY_CLOSED"
     assert db.query(SystemNotification).filter(SystemNotification.msg_code == "CLO_FILE_CLOSED").count() == 1
@@ -430,7 +430,7 @@ def test_fc04_second_close_is_409_and_draft_on_closed_is_409(db):
 
 def test_fc05_closed_at_phase_is_set(db):
     imp = _ready_file(db)
-    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), user="closer")
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), user="closer", trusted=True)
     db.refresh(imp)
     assert imp.closed_at_phase == "Phase 10 - Comprehensive Dossier Export & Digital Archiving"
     assert rec.closed_at is not None
@@ -439,9 +439,9 @@ def test_fc05_closed_at_phase_is_set(db):
 
 def test_fc09_restore_with_other_active_closure_is_409_and_put_locks_closed(db):
     imp = _file(db)
-    first = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True))
+    first = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), trusted=True)
     fc_service.soft_delete_closure_service(db, first.closure_id)
-    second = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True))
+    second = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), trusted=True)
     with pytest.raises(HTTPException) as exc:
         fc_service.restore_closure_service(db, first.closure_id)
     assert exc.value.status_code == 409 and exc.value.detail["closure_code"] == second.closure_code
@@ -461,7 +461,7 @@ def test_fc09_restore_with_other_active_closure_is_409_and_put_locks_closed(db):
 def test_fc12_precheck_preview_matches_issued_code(db):
     imp = _ready_file(db)
     preview = fc_service.get_closure_precheck_service(db, imp.import_file_id).certificate_code_preview
-    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     assert rec.closure_code == preview
 
 
@@ -618,16 +618,16 @@ def test_it_tr01_autocomplete_does_not_close_coded_unrelated_task(db):
 
 def test_precheck_preview_shows_existing_draft_code(db):
     imp = _ready_file(db)
-    draft = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True))
+    draft = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), trusted=True)
     pre = fc_service.get_closure_precheck_service(db, imp.import_file_id)
     assert pre.certificate_code_preview == draft.closure_code
-    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     assert rec.closure_code == draft.closure_code
 
 
 def test_put_lock_follows_file_status(db):
     imp = _ready_file(db)
-    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id))
+    rec = fc_service.close_import_file_service(db, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
     with pytest.raises(HTTPException) as exc:
         fc_service.update_closure_service(db, rec.closure_id, FileClosureUpdate(auditor_name="x"))
     assert exc.value.status_code == 409

@@ -134,7 +134,7 @@ class TestFileClosureModule(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as ctx:
-            close_import_file_service(self.db, schema)
+            close_import_file_service(self.db, schema, trusted=True)
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_close_import_file_success(self):
@@ -155,7 +155,7 @@ class TestFileClosureModule(unittest.TestCase):
             archival_notes="All customs duties paid, landed cost calculated, GRN received.",
         )
 
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertTrue(record.closure_code.startswith("CLR-"))
         self.assertEqual(record.status, "Closed")
@@ -180,7 +180,7 @@ class TestFileClosureModule(unittest.TestCase):
                 tasks_closed=True,
             ),
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         c_id = record.closure_id
 
         # FC-09 / Q5: the closure of a Closed file cannot be deleted (reopen first)
@@ -219,7 +219,7 @@ class TestFileClosureModule(unittest.TestCase):
                 tasks_closed=True,
             ),
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Closed")
 
@@ -240,7 +240,7 @@ class TestFileClosureModule(unittest.TestCase):
             is_draft=True,
         )
 
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Draft")
         self.assertEqual(record.closure_checklist["docs_verified"], True)
@@ -254,7 +254,7 @@ class TestFileClosureModule(unittest.TestCase):
         # When dossier_exported_at is set, draft update moves tracking to CLOSURE_IN_PROGRESS
         imp_file.dossier_exported_at = datetime.now()
         self.db.commit()
-        record_after_export = close_import_file_service(self.db, schema)
+        record_after_export = close_import_file_service(self.db, schema, trusted=True)
         self.db.refresh(imp_file)
         self.assertEqual("Closure In-Progress", imp_file.current_stage)
         self.assertEqual("CLOSURE_IN_PROGRESS", imp_file.current_stage_code)
@@ -273,7 +273,7 @@ class TestFileClosureModule(unittest.TestCase):
             import_file_id=self.import_file_id,
             is_draft=True,
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertEqual(record.status, "Draft")
 
         self.db.refresh(imp_file)
@@ -291,7 +291,7 @@ class TestFileClosureModule(unittest.TestCase):
             import_file_id=self.import_file_id,
             is_draft=False,
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertEqual(record.status, "Closed")
 
         self.db.refresh(imp_file)

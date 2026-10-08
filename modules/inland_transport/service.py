@@ -165,8 +165,8 @@ def create_transport_booking_service(
         SmartTask.status.in_(["Pending", "In Progress"]),
         (SmartTask.msg_code == "CC_TASK_INLAND_TRANSPORT")
         | (SmartTask.task_type == "TR-01")
-        # legacy rows without a code: title match only
-        | (SmartTask.msg_code.is_(None) & (SmartTask.title.ilike("%TR-01%") | SmartTask.title.ilike("%نقل%"))),
+        # legacy rows without a code: exact legacy code match in title only (BE810-F27)
+        | (SmartTask.msg_code.is_(None) & SmartTask.title.ilike("%TR-01%")),
     ).all()
     for t in pending_tasks:
         t.status = "Completed"
@@ -189,8 +189,8 @@ def create_transport_booking_service(
                 task_type="System Generated",
                 import_file_id=imp_file.import_file_id,
                 import_file_code=imp_file.import_file_code,
-                phase_name="Phase 6: Inbound & Final Closure",
-                assigned_user="Warehouse Manager",
+                phase_name="Phase 8: Inland Transport & Warehouse Receiving",
+                assigned_user=user,
                 priority="High",
                 reminder_type="Warehouse Receiving",
                 due_date=schema.expected_arrival_at.date().isoformat() if schema.expected_arrival_at else None,
