@@ -1555,4 +1555,13 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'RECALC_RATE_MISSING': {
     'note': 'تعذرت مقارنة بعض البنود: لا يوجد سعر صرف لعملتها ({fields}).',
   },
+  'CT_SIMULATION_NO_LINES': {
+    'note': 'لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.',
+  },
+  'CT_SIMULATION_NO_BROKER': {
+    'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'بيانات اتفاقية التجارة التفضيلية غير صالحة ({reason}).',
+  },
 };

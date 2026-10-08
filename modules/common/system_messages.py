@@ -1403,6 +1403,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "RECALC_RATE_MISSING": {
         "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
     },
+    "CT_SIMULATION_NO_LINES": {
+        "note": "No items with HS code and value available to calculate estimated customs duties.",
+    },
+    "CT_SIMULATION_NO_BROKER": {
+        "note": "No customs broker assigned to the import file; customs consultation session was not created.",
+    },
     "CT_AGREEMENT_DATA_INVALID": {
         "note": "Invalid preferential trade agreement data ({reason}).",
     },

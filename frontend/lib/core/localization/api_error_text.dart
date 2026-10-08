@@ -28,6 +28,8 @@ class ApiErrorCode {
   static const wrVerdictInconsistentExpected = 'WR_VERDICT_INCONSISTENT_EXPECTED';
   static const fcExportBlocked = 'FC_EXPORT_BLOCKED';
   static const fcClosureBlocked = 'FC_CLOSURE_BLOCKED';
+  static const ctSimulationNoLines = 'CT_SIMULATION_NO_LINES';
+  static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
 }
 
 /// User-facing, localized text for a failed API call.
