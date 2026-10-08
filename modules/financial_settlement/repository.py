@@ -102,7 +102,7 @@ def build_settlement(
     )
 
 
-def apply_settlement_update(db_obj: LandedCostSettlementRecord, update_data: Dict[str, Any], actor: str) -> LandedCostSettlementRecord:
+def apply_settlement_update(db: Session, db_obj: LandedCostSettlementRecord, update_data: Dict[str, Any], actor: str) -> LandedCostSettlementRecord:
     """Copy validated update fields onto the record (no commit)."""
     data = dict(update_data)
     if data.get("expense_invoices") is not None:
