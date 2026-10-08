@@ -218,6 +218,19 @@ def close_import_file_service(
         set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
         db.commit()
         db.refresh(record)
+
+        def _audit_draft() -> None:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="ImportFileClosureRecord",
+                entity_id=record.closure_id,
+                entity_code=record.closure_code,
+                action="CREATE",
+                new_data=schema.model_dump(exclude_unset=True),
+                performed_by=user,
+            )
+
+        best_effort(db, _audit_draft, "Closure draft create audit log")
         return record
 
     # FC-05: remember where the file was so a reopen restores that phase.
@@ -258,6 +271,17 @@ def close_import_file_service(
     closure_code = record.closure_code
     record_id = record.closure_id
 
+    def _audit_close() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record_id,
+            entity_code=closure_code,
+            action="CLOSE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
     def _lifecycle() -> None:
         from modules.lifecycle_board.service import advance_lifecycle_step_service
         advance_lifecycle_step_service(
@@ -284,6 +308,7 @@ def close_import_file_service(
         from modules.experience_guide.service import ExperienceGuideService
         ExperienceGuideService.run_autonomous_learning(db=db, trigger_import_file_id=import_file_id)
 
+    best_effort(db, _audit_close, "Closure official close audit log")
     best_effort(db, _lifecycle, "Closure lifecycle advance STEP_21")
     best_effort(db, _enforce_terminal_state, "Closure terminal state after lifecycle advance")
     best_effort(db, _learning, "Closure autonomous learning trigger")
@@ -342,9 +367,24 @@ def update_closure_service(
     if "auditor_name" in values:
         values["auditor_name"] = user
 
+    old_data = {k: getattr(record, k, None) for k in values.keys()}
     repo.apply_changes(record, values, user)
     db.commit()
     db.refresh(record)
+
+    def _audit_update() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=values,
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_update, "Closure update audit log")
     return record
 
 
@@ -355,6 +395,18 @@ def soft_delete_closure_service(db: Session, closure_id: int, user: str = "Syste
         raise closed_record_locked_error(record.closure_code)
     repo.apply_changes(record, {"is_active": False}, user)
     db.commit()
+
+    def _audit_delete() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_delete, "Closure delete audit log")
     return True
 
 
@@ -369,6 +421,18 @@ def restore_closure_service(db: Session, closure_id: int, user: str = "System") 
     repo.apply_changes(record, {"is_active": True}, user)
     db.commit()
     db.refresh(record)
+
+    def _audit_restore() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="RESTORE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_restore, "Closure restore audit log")
     return record
 
 
@@ -943,6 +1007,17 @@ def confirm_dossier_export_service(
     ))
     db.commit()
 
+    def _audit_export() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFile",
+            entity_id=imp.import_file_id,
+            entity_code=imp.import_file_code,
+            action="DOSSIER_EXPORT",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
     # 5. Lifecycle advance STEP_20 -> STEP_21 (follow-up: never undoes the saved export)
     import_file_id = imp.import_file_id
 
@@ -963,6 +1038,7 @@ def confirm_dossier_export_service(
         set_file_tracking(target, next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
         db.commit()
 
+    best_effort(db, _audit_export, "Dossier export audit log")
     best_effort(db, _lifecycle, "Dossier export lifecycle advance STEP_20 -> STEP_21")
     best_effort(db, _enforce_next_action, "Dossier export next action")
 

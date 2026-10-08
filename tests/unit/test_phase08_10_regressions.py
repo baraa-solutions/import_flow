@@ -947,3 +947,205 @@ def test_be810_t04_legacy_tolerant_schemas(db, strict_client, rbac):
     assert leg_closure["closed_at"] is None
     assert leg_closure["closure_checklist"]["docs_verified"] is None
     assert leg_closure["closure_checklist"]["customs_cleared"] is True
+
+
+
+
+# ─── Audit Trail Tests (BE810-T17) ───────────────────────────────────────────
+
+def test_be810_t17_audit_trail_warehouse_receiving(db):
+    from modules.audit_logs.model import AuditLog
+    imp = _wr_file(db, "IMP-REG-AUDIT-WR")
+    rec = wr_service.create_warehouse_receiving_service(db, _grn(imp.import_file_id), user="user-wr-1")
+
+    # UPDATE
+    wr_service.update_warehouse_receiving_service(
+        db, rec.receiving_id, WarehouseReceivingUpdate(notes="Updated notes"), user="user-wr-2"
+    )
+    upd_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "WarehouseReceivingRecord",
+        AuditLog.entity_id == rec.receiving_id,
+        AuditLog.action == "UPDATE",
+    ).first()
+    assert upd_log is not None
+    assert upd_log.performed_by == "user-wr-2"
+
+    # INSPECTION_PROTOCOL
+    wr_service.submit_warehouse_inspection_protocol_service(
+        db, rec.receiving_id, WarehouseInspectionSubmit(inspection_verdict="ACCEPTED_FULL"), user_name="user-wr-3"
+    )
+    insp_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "WarehouseReceivingRecord",
+        AuditLog.entity_id == rec.receiving_id,
+        AuditLog.action == "INSPECTION_PROTOCOL",
+    ).first()
+    assert insp_log is not None
+    assert insp_log.performed_by == "user-wr-3"
+
+    # DELETE & RESTORE on clean GRN
+    imp2 = _wr_file(db, "IMP-REG-AUDIT-WR-2")
+    rec2 = wr_service.create_warehouse_receiving_service(db, _grn(imp2.import_file_id), user="user-wr-4")
+    wr_service.soft_delete_warehouse_receiving_service(db, rec2.receiving_id, user="user-wr-5")
+    del_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "WarehouseReceivingRecord",
+        AuditLog.entity_id == rec2.receiving_id,
+        AuditLog.action == "DELETE",
+    ).first()
+    assert del_log is not None
+    assert del_log.performed_by == "user-wr-5"
+
+    wr_service.restore_warehouse_receiving_service(db, rec2.receiving_id, user="user-wr-6")
+    res_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "WarehouseReceivingRecord",
+        AuditLog.entity_id == rec2.receiving_id,
+        AuditLog.action == "RESTORE",
+    ).first()
+    assert res_log is not None
+    assert res_log.performed_by == "user-wr-6"
+
+
+def test_be810_t17_audit_trail_inland_transport(db):
+    from modules.audit_logs.model import AuditLog
+    imp = _file(db, "IMP-REG-AUDIT-IT")
+    now = datetime.now(timezone.utc)
+
+    # CREATE
+    booking = it_service.create_transport_booking_service(db, _booking(imp.import_file_id, "WB-AUD-1"), user="user-it-1")
+    cr_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "CREATE",
+    ).first()
+    assert cr_log is not None
+    assert cr_log.performed_by == "user-it-1"
+
+    # GATE_OUT
+    it_service.record_port_gate_out_service(
+        db, booking.transport_id, InlandTransportGateOutSubmit(actual_departure_at=now, gate_pass_no="GP-01"), user="user-it-2"
+    )
+    go_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "GATE_OUT",
+    ).first()
+    assert go_log is not None
+    assert go_log.performed_by == "user-it-2"
+
+    # ARRIVAL
+    it_service.record_warehouse_arrival_service(
+        db, booking.transport_id, InlandTransportArrivalSubmit(actual_arrival_at=now + timedelta(minutes=5), seal_intact=True), user="user-it-3"
+    )
+    arr_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "ARRIVAL",
+    ).first()
+    assert arr_log is not None
+    assert arr_log.performed_by == "user-it-3"
+
+    # UPDATE
+    it_service.update_transport_booking_service(
+        db, booking.transport_id, InlandTransportBookingUpdate(driver_phone="0109999999"), user="user-it-4"
+    )
+    upd_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "UPDATE",
+    ).first()
+    assert upd_log is not None
+    assert upd_log.performed_by == "user-it-4"
+
+    # DELETE
+    it_service.soft_delete_transport_booking_service(db, booking.transport_id, user="user-it-5")
+    del_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "DELETE",
+    ).first()
+    assert del_log is not None
+    assert del_log.performed_by == "user-it-5"
+
+    # RESTORE
+    it_service.restore_transport_booking_service(db, booking.transport_id, user="user-it-6")
+    res_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "InlandTransportBooking",
+        AuditLog.entity_id == booking.transport_id,
+        AuditLog.action == "RESTORE",
+    ).first()
+    assert res_log is not None
+    assert res_log.performed_by == "user-it-6"
+
+
+def test_be810_t17_audit_trail_file_closure(db):
+    from modules.audit_logs.model import AuditLog
+    from modules.file_closure.schemas import DossierExportConfirmRequest
+    imp = _ready_file(db, "IMP-REG-AUDIT-FC")
+
+    # DOSSIER_EXPORT
+    fc_service.confirm_dossier_export_service(
+        db, DossierExportConfirmRequest(import_file_id=imp.import_file_id, export_format="PDF"), user="user-fc-export"
+    )
+    exp_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFile",
+        AuditLog.entity_id == imp.import_file_id,
+        AuditLog.action == "DOSSIER_EXPORT",
+    ).first()
+    assert exp_log is not None
+    assert exp_log.performed_by == "user-fc-export"
+
+    # DRAFT CREATE
+    draft = fc_service.close_import_file_service(
+        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True), user="user-fc-1"
+    )
+    cr_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFileClosureRecord",
+        AuditLog.entity_id == draft.closure_id,
+        AuditLog.action == "CREATE",
+    ).first()
+    assert cr_log is not None
+    assert cr_log.performed_by == "user-fc-1"
+
+    # UPDATE
+    fc_service.update_closure_service(
+        db, draft.closure_id, FileClosureUpdate(archival_notes="Audit note"), user="user-fc-2"
+    )
+    upd_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFileClosureRecord",
+        AuditLog.entity_id == draft.closure_id,
+        AuditLog.action == "UPDATE",
+    ).first()
+    assert upd_log is not None
+    assert upd_log.performed_by == "user-fc-2"
+
+    # DELETE
+    fc_service.soft_delete_closure_service(db, draft.closure_id, user="user-fc-3")
+    del_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFileClosureRecord",
+        AuditLog.entity_id == draft.closure_id,
+        AuditLog.action == "DELETE",
+    ).first()
+    assert del_log is not None
+    assert del_log.performed_by == "user-fc-3"
+
+    # RESTORE
+    fc_service.restore_closure_service(db, draft.closure_id, user="user-fc-4")
+    res_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFileClosureRecord",
+        AuditLog.entity_id == draft.closure_id,
+        AuditLog.action == "RESTORE",
+    ).first()
+    assert res_log is not None
+    assert res_log.performed_by == "user-fc-4"
+
+    # OFFICIAL CLOSE
+    closed = fc_service.close_import_file_service(
+        db, FileClosureCreate(import_file_id=imp.import_file_id, is_draft=False), user="user-fc-final"
+    )
+    close_log = db.query(AuditLog).filter(
+        AuditLog.entity_type == "ImportFileClosureRecord",
+        AuditLog.entity_id == closed.closure_id,
+        AuditLog.action == "CLOSE",
+    ).first()
+    assert close_log is not None
+    assert close_log.performed_by == "user-fc-final"
+

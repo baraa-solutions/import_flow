@@ -373,6 +373,19 @@ def report_receiving_discrepancy_service(
 
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="REPORT_DISCREPANCY",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR report discrepancy audit log")
     return record
 
 
@@ -452,6 +465,18 @@ def soft_delete_warehouse_receiving_service(db: Session, record_id: int, user: s
     validate_grn_deletable(record)
     set_active(record, False, user)
     db.commit()
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR delete audit log")
     return True
 
 
@@ -467,6 +492,18 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     set_active(record, True, user)
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="RESTORE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR restore audit log")
     return record
 
 
@@ -724,6 +761,19 @@ def submit_warehouse_inspection_protocol_service(
         db.commit()
 
     best_effort(db, _notify, "WR inspection notification")
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="INSPECTION_PROTOCOL",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user_name,
+        )
+
+    best_effort(db, _audit, "WR inspection protocol audit log")
     return record
 
 
