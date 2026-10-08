@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from main import app
@@ -20,6 +21,7 @@ from modules.inland_transport.service import (
     create_transport_booking_service,
     update_transport_booking_service,
     soft_delete_transport_booking_service,
+    restore_transport_booking_service,
     record_port_gate_out_service,
     record_warehouse_arrival_service,
     get_transport_booking_by_file_service,
@@ -463,6 +465,132 @@ def test_settlement_aggregation_after_booking_fare_zeroed(db_session):
         assert inv.amount_egp == 0.0
     # Specifically assert no 5000.0 transport invoice
     assert not any(inv.amount_egp == 5000.0 for inv in transport_invoices)
+
+
+def test_restore_transport_booking_success(db_session):
+    """BE810-T15: Delete then restore reactivates booking and resyncs file cost and fields."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-RESTORE-01")
+    payload.transport_fare_egp = 4200.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 4200.0
+
+    # Delete
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="Officer")
+    db_session.refresh(bk)
+    db_session.refresh(imp_file)
+    assert bk.is_active is False
+    assert imp_file.inland_transport_cost_egp == 0.0
+
+    # Restore
+    restored = restore_transport_booking_service(db_session, bk.transport_id, user="Officer")
+    db_session.refresh(imp_file)
+    assert restored.is_active is True
+    assert imp_file.inland_transport_cost_egp == 4200.0
+    assert imp_file.inland_transport_booking_no == "WB-RESTORE-01"
+
+
+def test_restore_transport_booking_duplicate_waybill_raises_409(db_session):
+    """BE810-T15: Restoring when an active booking exists with same waybill raises 409 IT_BOOKING_EXISTS."""
+    from fastapi import HTTPException
+
+    imp_file = _create_sample_file(db_session)
+    payload1 = _booking_payload(imp_file, "WB-DUP-WAYBILL")
+    bk1 = create_transport_booking_service(db_session, payload1, user="Officer")
+
+    # Soft delete booking 1
+    soft_delete_transport_booking_service(db_session, bk1.transport_id, user="Officer")
+
+    # Create new active booking 2 with the same waybill
+    payload2 = _booking_payload(imp_file, "WB-DUP-WAYBILL")
+    bk2 = create_transport_booking_service(db_session, payload2, user="Officer")
+
+    # Attempting to restore booking 1 must raise 409
+    with pytest.raises(HTTPException) as exc:
+        restore_transport_booking_service(db_session, bk1.transport_id, user="Officer")
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == "IT_BOOKING_EXISTS"
+
+
+def test_restore_transport_booking_api(client, db_session):
+    """BE810-T15: PATCH /api/v1/inland-transport/bookings/{id}/restore reactivates booking via API."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-RESTORE-API")
+    payload.transport_fare_egp = 3500.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="Officer")
+
+    resp = client.patch(f"/api/v1/inland-transport/bookings/{bk.transport_id}/restore")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["transport_id"] == bk.transport_id
+    assert data["is_active"] is True
+    assert data["transport_fare_egp"] == 3500.0
+
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_cost_egp == 3500.0
+
+
+def test_restore_transport_booking_404(client):
+    resp = client.patch("/api/v1/inland-transport/bookings/999999/restore")
+    assert resp.status_code == 404
+
+
+def test_restore_transport_booking_closed_file_is_409(db_session):
+    """Restore on a Closed file returns 409 IMPORT_FILE_CLOSED and booking remains inactive."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-CLOSED-RESTORE")
+    payload.transport_fare_egp = 5000.0
+
+    bk = create_transport_booking_service(db_session, payload, user="Officer")
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="Officer")
+
+    imp_file.status = "Closed"
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        restore_transport_booking_service(db_session, bk.transport_id, user="Officer")
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == "IMPORT_FILE_CLOSED"
+
+    db_session.refresh(bk)
+    assert bk.is_active is False
+
+
+def test_restore_transport_booking_permissions(client, db_session, monkeypatch):
+    """View-only user receives 403; user with warehouse_receiving.receive succeeds."""
+    from modules.auth.security import create_access_token
+    from modules.users.model import User, Role
+    from modules.auth.seed_rbac import seed_rbac
+    import modules.auth.permissions as ap
+
+    seed_rbac(db_session)
+    viewer_role = db_session.query(Role).filter(Role.role_code == "AUDITOR_VIEWER").first()
+    operator_role = db_session.query(Role).filter(Role.role_code == "LOGISTICS_OPERATOR").first()
+
+    viewer = User(username="it_view_user", full_name="IT Viewer", email="it_viewer@test.com", hashed_password="x", role="AUDITOR_VIEWER", role_id=viewer_role.role_id, is_active=True)
+    operator = User(username="it_op_user", full_name="IT Operator", email="it_operator@test.com", hashed_password="x", role="LOGISTICS_OPERATOR", role_id=operator_role.role_id, is_active=True)
+    db_session.add_all([viewer, operator])
+    db_session.commit()
+
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-PERM-TEST")
+    bk = create_transport_booking_service(db_session, payload, user="it_op_user")
+    soft_delete_transport_booking_service(db_session, bk.transport_id, user="it_op_user")
+
+    monkeypatch.setattr(ap, "ALLOW_DEV_AUTH_BYPASS", False)
+
+    viewer_token = create_access_token({"sub": str(viewer.user_id), "role": viewer.role})
+    res = client.patch(f"/api/v1/inland-transport/bookings/{bk.transport_id}/restore", headers={"Authorization": f"Bearer {viewer_token}"})
+    assert res.status_code == 403
+
+    operator_token = create_access_token({"sub": str(operator.user_id), "role": operator.role})
+    res = client.patch(f"/api/v1/inland-transport/bookings/{bk.transport_id}/restore", headers={"Authorization": f"Bearer {operator_token}"})
+    assert res.status_code == 200
+    assert res.json()["is_active"] is True
 
 
 # ─── BE810-T13: IT Create Validation & Defaults Hardening ─────────────────────

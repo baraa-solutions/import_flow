@@ -20,6 +20,7 @@ from .service import (
     list_transport_bookings_service,
     update_transport_booking_service,
     soft_delete_transport_booking_service,
+    restore_transport_booking_service,
     record_port_gate_out_service,
     record_warehouse_arrival_service,
 )
@@ -108,3 +109,13 @@ def delete_transport_booking(
     """حذف حجز النقل الداخلي (حذف منطقي Soft Delete)."""
     soft_delete_transport_booking_service(db, transport_id, user=current_user.username)
     return None
+
+@router.patch("/bookings/{transport_id}/restore", response_model=InlandTransportBookingResponse)
+def restore_transport_booking(
+    transport_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MANAGE)),
+):
+    """استعادة حجز نقل داخلي محذوف (Restore Soft Deleted Booking)."""
+    return restore_transport_booking_service(db, transport_id, user=current_user.username)
+
