@@ -96,8 +96,10 @@ def _booking(file_id, waybill="WB-1"):
     now = datetime.now(timezone.utc)
     return InlandTransportBookingCreate(
         import_file_id=file_id, waybill_number=waybill, carrier_name="Carrier", truck_plate_number="ABC 1",
+        truck_type="FLATBED",
         driver_name="Driver", driver_phone="0101234567", pickup_port_location="Port", destination_warehouse="WH",
         planned_departure_at=now + timedelta(hours=1), expected_arrival_at=now + timedelta(hours=5),
+        transport_fare_egp=1000.0,
     )
 
 
