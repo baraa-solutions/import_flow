@@ -480,7 +480,7 @@ def test_fc02_no_rate_gives_null_never_48_5(db):
 
 
 def test_fc07_dossier_without_broker_or_master_data_invents_nothing(db):
-    imp = _file(db)
+    imp = _file(db, empty_containers_return_status="PENDING_RETURN")
     imp.company_name = ""
     imp.supplier_name = ""
     db.commit()

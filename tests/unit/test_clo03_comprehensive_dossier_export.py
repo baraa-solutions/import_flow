@@ -30,6 +30,7 @@ from modules.file_closure.schemas import (
 from modules.file_closure.service import (
     get_comprehensive_shipment_dossier_service,
     confirm_dossier_export_service,
+    get_closure_precheck_service,
 )
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -947,5 +948,97 @@ def test_dossier_estimated_cost_sets_fob_source(db_session):
     assert res.fob_source == "ESTIMATE"
     assert res.total_fob_fc == 20000.0
     assert res.fob_currency == "USD"
+
+
+def test_dossier_closure_readiness_matches_precheck_checklist_status(db_session):
+    """BE810-T08: Dossier closure_readiness equals precheck checklist_status for all gate keys."""
+    imp = _seed_sample_full_shipment(db_session, "IMP-2026-T08-MATCH-01")
+
+    precheck = get_closure_precheck_service(db_session, imp.import_file_id)
+    dossier = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+
+    # Every key in precheck.checklist_status must match dossier.closure_readiness exactly
+    assert precheck.checklist_status
+    for key, val in precheck.checklist_status.items():
+        assert dossier.closure_readiness[key] == val, f"Mismatch on key {key}: precheck={val}, dossier={dossier.closure_readiness[key]}"
+
+    # Legacy eir_returned alias must match empty_containers_returned
+    assert dossier.closure_readiness["eir_returned"] == precheck.checklist_status["empty_containers_returned"]
+
+
+def test_dossier_closure_readiness_open_operational_task(db_session):
+    """BE810-T08: With one open operational task tasks_closed is False; when resolved it is True."""
+    imp = _seed_sample_full_shipment(db_session, "IMP-2026-T08-TASK-01")
+
+    # Seed has task_903 with status "Pending" -> operational task open
+    dossier = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    precheck = get_closure_precheck_service(db_session, imp.import_file_id)
+
+    assert dossier.closure_readiness["tasks_closed"] is False
+    assert precheck.checklist_status["tasks_closed"] is False
+
+    # Resolve task_903
+    task_903 = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == imp.import_file_id,
+        SmartTask.task_code.ilike("%0903%"),
+    ).first()
+    task_903.status = "Completed"
+    db_session.commit()
+
+    dossier_resolved = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+    precheck_resolved = get_closure_precheck_service(db_session, imp.import_file_id)
+
+    assert dossier_resolved.closure_readiness["tasks_closed"] is True
+    assert precheck_resolved.checklist_status["tasks_closed"] is True
+
+
+@pytest.mark.parametrize(
+    "fact_variant,expected_key,expected_val",
+    [
+        ("no_customs_release", "customs_cleared", False),
+        ("no_grn", "warehouse_received", False),
+        ("quarantined_grn", "warehouse_received", False),
+        ("no_settlement", "landed_cost_settled", False),
+    ],
+)
+def test_dossier_closure_readiness_parametrized_facts(db_session, fact_variant, expected_key, expected_val):
+    """BE810-T08: Parametrized facts yield identical checklist in dossier and precheck."""
+    imp = _seed_sample_full_shipment(db_session, f"IMP-2026-T08-PARAM-{fact_variant[:8]}")
+
+    if fact_variant == "no_customs_release":
+        imp.is_customs_released = False
+        imp.customs_release_permit_no = None
+        imp.customs_released_at = None
+        clr = db_session.query(CustomsClearanceRecord).filter(CustomsClearanceRecord.import_file_id == imp.import_file_id).first()
+        if clr:
+            clr.status = "Under Review"
+            clr.release_permit_no = None
+            clr.release_date = None
+    elif fact_variant == "no_grn":
+        db_session.query(WarehouseReceivingRecord).filter(WarehouseReceivingRecord.import_file_id == imp.import_file_id).delete()
+    elif fact_variant == "quarantined_grn":
+        grn = db_session.query(WarehouseReceivingRecord).filter(WarehouseReceivingRecord.import_file_id == imp.import_file_id).first()
+        if grn:
+            grn.quarantine_lock_active = True
+        clr = db_session.query(CustomsClearanceRecord).filter(CustomsClearanceRecord.import_file_id == imp.import_file_id).first()
+        if clr:
+            clr.quarantine_lock = True
+    elif fact_variant == "no_settlement":
+        imp.actual_landed_cost_total_egp = 0.0
+        imp.financial_settlement_status = "PENDING"
+        db_session.query(LandedCostSettlementRecord).filter(LandedCostSettlementRecord.import_file_id == imp.import_file_id).delete()
+
+    db_session.commit()
+
+    precheck = get_closure_precheck_service(db_session, imp.import_file_id)
+    dossier = get_comprehensive_shipment_dossier_service(db_session, imp.import_file_id)
+
+    assert dossier.closure_readiness[expected_key] is expected_val
+    assert precheck.checklist_status[expected_key] is expected_val
+
+    # Full correspondence check
+    for key, val in precheck.checklist_status.items():
+        assert dossier.closure_readiness[key] == val
+
 
 

@@ -721,15 +721,11 @@ def get_comprehensive_shipment_dossier_service(
         ),
     ]
 
+    gate = evaluate_file_closure_gate(db, imp)
     closure_readiness = {
-        "docs_verified": bool(imp.acid_number and (imp.form4_no or imp.swift_no)),
-        "customs_cleared": customs_released,
-        "warehouse_received": bool(wh is not None),
-        "eir_returned": containers_returned,
-        # FC-13: same key as the precheck checklist (eir_returned kept for old clients)
-        "empty_containers_returned": containers_returned,
-        "landed_cost_settled": bool(actual_landed_egp > 0 and (imp.financial_settlement_status == "COST_ALLOCATED" or settlement_done)),
-        "tasks_closed": True,
+        **gate.checklist,
+        # FC-13 / BE810-T08: eir_returned alias kept for old clients
+        "eir_returned": gate.checklist["empty_containers_returned"],
     }
 
     if total_fob_fc is not None and fob_currency:
