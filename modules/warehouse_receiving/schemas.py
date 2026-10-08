@@ -50,8 +50,8 @@ class WarehouseInspectionSubmit(BaseModel):
     insurance_claim_ref: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float = 0.0
-    claim_currency: str = "EGP"
+    claim_amount_estimated: Optional[float] = Field(None, ge=0.0)
+    claim_currency: Optional[str] = None
     inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
@@ -71,7 +71,7 @@ class WarehouseReceivingUpdate(BaseModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: Optional[bool] = None
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: Optional[float] = None
+    claim_amount_estimated: Optional[float] = Field(None, ge=0.0)
     claim_currency: Optional[str] = None
 
 class WarehouseReceivingResponse(LegacyRowTolerantModel):
@@ -106,8 +106,8 @@ class WarehouseReceivingResponse(LegacyRowTolerantModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: Optional[float] = 0.0  # amounts / rates: a legacy NULL stays None
-    claim_currency: str = "EGP"
+    claim_amount_estimated: Optional[float] = None  # amounts / rates: a legacy NULL stays None
+    claim_currency: Optional[str] = None
     discrepancy_rate_percent: Optional[float] = 0.0
     status: str
     inspector_name: str
@@ -140,8 +140,8 @@ class InspectionSummaryResponse(BaseModel):
     insurance_claim_ref: Optional[str] = None
     supplier_claim_filed: bool
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float
-    claim_currency: str
+    claim_amount_estimated: Optional[float] = None
+    claim_currency: Optional[str] = None
     status: str
     is_ready_for_landed_cost: bool
 

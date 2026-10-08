@@ -1415,6 +1415,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
+  },
   'WR_FIELD_NOT_EDITABLE': {
     'note': 'لا يمكن تعديل الحقل \'{field_name}\' مباشرة.',
   },

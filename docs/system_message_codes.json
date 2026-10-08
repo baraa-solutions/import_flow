@@ -3671,6 +3671,14 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_CUSTOMS_NOT_RELEASED": {
     "params": [
       "import_file_code"

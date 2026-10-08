@@ -38,6 +38,7 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_claim_amount_and_currency,
     validate_grn_status_transition,
     validate_grn_put_fields,
     validate_customs_release,
@@ -392,6 +393,12 @@ def update_warehouse_receiving_service(
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
     if "inspector_name" in values:
         values["inspector_name"] = user
+    if "claim_amount_estimated" in update_data or "claim_currency" in update_data:
+        req_amount = update_data["claim_amount_estimated"] if "claim_amount_estimated" in update_data else existing.claim_amount_estimated
+        req_currency = update_data["claim_currency"] if "claim_currency" in update_data else existing.claim_currency
+        amount, currency = validate_claim_amount_and_currency(db, req_amount, req_currency)
+        values["claim_amount_estimated"] = amount
+        values["claim_currency"] = currency
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
@@ -580,8 +587,11 @@ def submit_warehouse_inspection_protocol_service(
     record.insurance_claim_ref = schema.insurance_claim_ref
     record.supplier_claim_filed = schema.supplier_claim_filed
     record.supplier_claim_ref = schema.supplier_claim_ref
-    record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
-    record.claim_currency = schema.claim_currency or "EGP"
+    amount, currency = validate_claim_amount_and_currency(
+        db, schema.claim_amount_estimated, schema.claim_currency
+    )
+    record.claim_amount_estimated = amount
+    record.claim_currency = currency
     record.inspector_name = user_name
     if schema.notes:
         record.notes = schema.notes
@@ -730,8 +740,8 @@ def get_inspection_summary_service(db: Session, record_id: int) -> InspectionSum
         insurance_claim_ref=record.insurance_claim_ref,
         supplier_claim_filed=record.supplier_claim_filed or False,
         supplier_claim_ref=record.supplier_claim_ref,
-        claim_amount_estimated=record.claim_amount_estimated or 0.0,
-        claim_currency=record.claim_currency or "EGP",
+        claim_amount_estimated=record.claim_amount_estimated,
+        claim_currency=record.claim_currency,
         status=record.status or "Goods Received",
         is_ready_for_landed_cost=(record.inspection_verdict != "REJECTED_QUARANTINED" and not record.quarantine_lock_active),
     )

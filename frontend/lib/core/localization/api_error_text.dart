@@ -13,6 +13,7 @@ class ApiErrorCode {
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
   static const consultationExists = 'CONSULTATION_EXISTS';
   static const ccSettlementLocked = 'CC_SETTLEMENT_LOCKED';
+  static const wrClaimCurrencyInvalid = 'WR_CLAIM_CURRENCY_INVALID';
   static const listSortFieldInvalid = 'LIST_SORT_FIELD_INVALID';
   static const currencyNotFound = 'CURRENCY_NOT_FOUND';
   static const currencyRateMissing = 'CURRENCY_RATE_MISSING';

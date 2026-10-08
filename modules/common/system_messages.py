@@ -1293,6 +1293,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_CLAIM_CURRENCY_INVALID": {
+        "note": "Claim currency code '{currency_code}' is invalid or inactive.",
+    },
     "WR_FIELD_NOT_EDITABLE": {
         "note": "Field '{field_name}' cannot be edited directly.",
     },

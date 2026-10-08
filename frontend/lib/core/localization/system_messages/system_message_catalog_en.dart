@@ -1415,6 +1415,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'Claim currency code \'{currency_code}\' is invalid or inactive.',
+  },
   'WR_FIELD_NOT_EDITABLE': {
     'note': 'Field \'{field_name}\' cannot be edited directly.',
   },
