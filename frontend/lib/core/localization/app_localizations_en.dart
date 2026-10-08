@@ -181,6 +181,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String tableSelectedCount(int count) => '$count selected';
   @override String get resetToDefaults => 'Reset to Defaults';
   @override String get apply => 'Apply';
+  @override String get recordNotFoundOrDeleted => 'Record not found or deleted';
+  @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  @override String get entityDetailsTitle => 'Record Details';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';

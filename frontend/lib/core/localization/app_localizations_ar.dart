@@ -181,6 +181,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String tableSelectedCount(int count) => 'تم تحديد $count';
   @override String get resetToDefaults => 'استعادة الافتراضي';
   @override String get apply => 'تطبيق';
+  @override String get recordNotFoundOrDeleted => 'السجل غير موجود أو تم حذفه';
+  @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  @override String get entityDetailsTitle => 'تفاصيل السجل';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'تبديل كـ: مدير النظام 🔴';
