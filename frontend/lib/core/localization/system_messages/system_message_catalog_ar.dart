@@ -405,6 +405,21 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'reason': 'تكرار تجاوز الخط الملاحي {carrier_name} لأزمنة الترانزيت المجدولة على ميناء {port_name}.',
   },
 
+  'LC_APPROVER_ROLE_UNKNOWN': {
+    'note': 'دور المعتمد {role_code} لا يطابق أي دور معروف في النظام.',
+  },
+  'LC_CLOSURE_STEP_RESERVED': {
+    'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملف ولا يمكن إكمالها مباشرة عبر HTTP.',
+  },
+  'LC_FILE_NOT_ACTIVE': {
+    'note': 'ملف الاستيراد {import_file_code} في حالة {status} ولا يمكن تحريكه على لوحة المراحل.',
+  },
+  'LC_FILE_NOT_FOUND': {
+    'note': 'ملف الاستيراد {import_file_code} غير موجود أو غير نشط.',
+  },
+  'LC_FILE_REF_REQUIRED': {
+    'note': 'معرّف أو كود ملف الاستيراد مطلوب.',
+  },
   'LC_FILE_ON_HOLD': {
     'note': 'تم إيقاف الشحنة عند مرحلة [{phase_id}]: {reason}',
   },
@@ -435,6 +450,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LC_STARTING_POINT_SET': {
     'note': 'نقطة البداية المحددة للشحنة: {step_code}',
   },
+  'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
+    'note': 'المرحلة {step_code} تتطلب اعتماداً مزدوجاً ولا يمكن تجاوزها لغير مديري النظام.',
+  },
   'LC_STEP_ACTIVATED': {
     'note': 'تم التفعيل بعد إكمال {completed_step_code}',
   },
@@ -452,6 +470,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'LC_STEP_COMPLETED': {
     'note': 'تم إنجاز {step_code} بنجاح',
+  },
+  'LC_STEP_NOT_ACTIVE': {
+    'note': 'المرحلة {step_code} ليست نشطة حالياً لملف الاستيراد {import_file_code}.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'معلقة مؤقتاً: {reason}',
