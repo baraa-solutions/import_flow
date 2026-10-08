@@ -4,11 +4,12 @@ FastAPI Router for Import Files Master & Tracking Module
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.common.pagination import PageParams
 from utils.export_import_helper import MasterDataExportImportHelper
 from modules.import_files.schemas import (
     ImportFileCreate,
@@ -94,10 +95,9 @@ def list_import_files(
     summary="List paginated import files with filters",
 )
 def list_paginated_import_files(
-    page: int = 1,
-    page_size: int = 50,
-    include_inactive: bool = False,
-    search: Optional[str] = None,
+    response: Response,
+    params: PageParams = Depends(),
+    search: Optional[str] = Query(None, description="Legacy alias for q"),
     company_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
@@ -113,10 +113,11 @@ def list_paginated_import_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
-    return service.get_paginated_import_files_service(
+    effective_q = params.q if params.q is not None else search
+    result = service.get_paginated_import_files_service(
         db,
-        include_inactive=include_inactive,
-        search=search,
+        params,
+        search=effective_q,
         company_id=company_id,
         supplier_id=supplier_id,
         status=status,
@@ -129,9 +130,9 @@ def list_paginated_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
-        page=page,
-        page_size=page_size,
     )
+    response.headers["X-Total-Count"] = str(result["total"])
+    return result
 
 
 @router.get(

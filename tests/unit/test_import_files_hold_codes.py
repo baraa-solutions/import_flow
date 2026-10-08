@@ -26,6 +26,8 @@ from modules.import_companies.model import ImportCompany
 from modules.import_files.schemas import ImportFileCreate
 from modules.lifecycle_board.model import ShipmentStageActivity
 from modules.lifecycle_board.service import resolve_hold_stage
+from modules.users.model import User
+from modules.auth.security import create_access_token, hash_password
 
 USER_NOTES = "ملاحظات المستخدم الأصلية - لا تُمسح"
 
@@ -39,6 +41,15 @@ def session_factory():
     db.add(ImportCompany(company_id=1, importer_name="Egyptian Import Co", vat_id="100-200-300", registration_number="12345",
                          address="Cairo", country="Egypt", importer_id="IMP-001", importer_id_expiry=date(2028, 1, 1),
                          vat_id_expiry=date(2028, 1, 1), registration_expiry=date(2028, 1, 1)))
+    db.add(User(
+        user_id=1,
+        username="admin",
+        full_name="Admin",
+        email="admin@test.com",
+        hashed_password=hash_password("admin_pass_12345"),
+        role="ADMIN",
+        is_active=True,
+    ))
     db.commit()
     db.close()
     yield factory
@@ -218,13 +229,15 @@ def test_hold_endpoint_requires_auth(client, session_factory, monkeypatch):
 
 
 def test_hold_endpoint_contract(client, session_factory):
+    token = create_access_token({"sub": "1", "role": "ADMIN"})
+    headers = {"Authorization": f"Bearer {token}"}
     path, file_id = _hold_path(client, session_factory)
-    bad = client.post(path, json={"hold_reason": "Temporary administrative hold", "hold_reason_code": "NOPE"})
+    bad = client.post(path, json={"hold_reason": "Temporary administrative hold", "hold_reason_code": "NOPE"}, headers=headers)
     assert bad.status_code == 422, bad.text
     assert bad.json()["detail"] == "رمز سبب الإيقاف غير معروف"
 
     ok = client.post(path, json={"hold_reason": "Temporary administrative hold", "hold_reason_code": "ADMIN_HOLD",
-                                 "stage_name": "Docs Customs Approval", "step_name": "STEP_09"})
+                                 "stage_name": "Docs Customs Approval", "step_name": "STEP_09"}, headers=headers)
     assert ok.status_code == 200, ok.text
     body = ok.json()
     assert body["hold_reason_code"] == "ADMIN_HOLD"

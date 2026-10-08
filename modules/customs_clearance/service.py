@@ -1295,6 +1295,11 @@ def record_lab_result_and_lift_quarantine_service(
             record.quarantine_lock = False
             record.quarantine_lifted_date = payload.test_completion_date or _now()
             record.quarantine_lifted_by = "Customs Laboratory Authority"
+            try:
+                from modules.warehouse_receiving.service import release_quarantine_lock_for_file
+                release_quarantine_lock_for_file(db, record.import_file_id, user=user)
+            except Exception:
+                pass
             if can_release and is_duty_fully_paid(record):
                 record.dispatch_authorized = True
                 record.status = FINAL_RELEASE_STATUS

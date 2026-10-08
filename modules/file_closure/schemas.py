@@ -95,15 +95,17 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     port_of_discharge: Optional[str] = None
     total_packages: int = 0
     gross_weight_kg: float = 0.0
-    net_weight_kg: float = 0.0
+    net_weight_kg: Optional[float] = None
     total_cbm: float = 0.0
     target_free_days: int = 0
 
     # Purchase Orders & FOB values
     purchase_orders: List[Dict[str, Any]] = Field(default_factory=list)
-    total_fob_fc: float = 0.0
-    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured")
-    fob_currency: str = "USD"
+    fob_by_currency: Dict[str, float] = Field(default_factory=dict, description="FOB sums grouped by currency code")
+    total_fob_fc: Optional[float] = Field(None, description="null when multi-currency or unknown currency")
+    total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured or unknown currency")
+    fob_currency: Optional[str] = Field(None, description="null when multi-currency or unknown currency")
+    fob_source: Optional[str] = Field(None, description="'PO' when from purchase orders, 'ESTIMATE' when from estimated cost, null when missing")
     items_count: int = 0
     items_detail: List[Dict[str, Any]] = Field(default_factory=list)
 
@@ -149,7 +151,7 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     financial_settlement_invoices_count: int = 0
     financial_settlement_total_egp: float = 0.0
     actual_landed_cost_total_egp: float = 0.0
-    actual_landed_cost_markup_factor: float = 1.0
+    actual_landed_cost_markup_factor: Optional[float] = None
     actual_landed_cost_variance_egp: float = 0.0
     actual_landed_cost_variance_pct: float = 0.0
     actual_landed_cost_calculated_at: Optional[datetime] = None
@@ -197,7 +199,7 @@ class ClosurePrecheckResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     checklist_status: Dict[str, bool] = Field(default_factory=dict)
     actual_landed_cost_egp: float = 0.0
-    actual_markup_factor: float = 1.0
+    actual_markup_factor: Optional[float] = None
     dossier_exported_at: Optional[datetime] = None
     dossier_exported_by: Optional[str] = None
     empty_containers_returned_at: Optional[datetime] = None

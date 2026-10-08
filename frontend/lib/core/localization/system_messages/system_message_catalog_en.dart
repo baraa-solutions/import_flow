@@ -1415,8 +1415,26 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_FIELD_NOT_EDITABLE': {
+    'note': 'Field \'{field_name}\' cannot be edited directly.',
+  },
+  'WR_STATUS_CHANGE_NOT_ALLOWED': {
+    'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
+  },
+  'WR_CUSTOMS_NOT_RELEASED': {
+    'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
+  },
+  'WR_GRN_LOCKED': {
+    'note': 'Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
+  },
+  'IT_CARRIER_INVALID': {
+    'note': 'Carrier with ID {carrier_id} is unknown or inactive.',
+  },
+  'IT_TRUCK_TYPE_INVALID': {
+    'note': 'Truck type \'{truck_type}\' is invalid.',
   },
   'IT_STATUS_INVALID': {
     'note': 'Unknown inland transport status \'{status}\'.',
@@ -1427,6 +1445,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FC_ALREADY_CLOSED': {
     'note': 'Import file {import_file_code} is already closed. Reopen it first.',
   },
+  'LIST_SORT_FIELD_INVALID': {
+    'note': 'Unknown sort field \'{field}\'. Allowed fields: {allowed}.',
+  },
   'CURRENCY_NOT_FOUND': {
     'note': 'Currency code \'{currency}\' is not registered in the system.',
   },
@@ -1435,6 +1456,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
+  },
+  'CT_AGREEMENT_DATA_INVALID': {
+    'note': 'Invalid preferential trade agreement data ({reason}).',
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
@@ -1477,6 +1501,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'SETTLEMENT_LINE_ZERO_VALUE': {
     'note': 'Line {item_code} has no value: it is left out of the customs estimate.',
+  },
+  'SETTLEMENT_PO_NOT_ALLOCATED': {
+    'note': 'Purchase order {po_number} is allocated to other shipments and has no share for this file.',
   },
   'PAYMENT_STATUS_UNKNOWN': {
     'note': 'Invoice {invoice_no} is partially paid but the paid amount is unknown: counted as unpaid.',

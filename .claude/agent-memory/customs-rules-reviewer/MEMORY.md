@@ -17,10 +17,11 @@
 - [BEW0-06 settlement gate](ruling_bew0_06_settlement_gate.md) — 2026-10-07 PR#20: CL-05 totals on amount_egp via engine; CI 401 not from diff
 - [BE810-T01 inland resync (PR #21)](ruling_be810_t01_inland_resync.md) — 2026-10-07: file cost = sum active fares; TR-IMP fallback safe; CI 401 not from diff
 - [BE810-T06 dossier FOB (PR #26)](ruling_be810_t06_dossier_fob.md) — 2026-10-07: per-currency FOB OK; estimate USD default left to T07
-- [BE810-T07 dossier no-invented (PR #33)](ruling_be810_t07_dossier_no_invented.md) — 2026-10-07: approve_with_minor; USD est. currency is column default; 1.0 markup leftovers
+- [BE810-T07 dossier no-invented (PR #33)](ruling_be810_t07_dossier_no_invented.md) — 2026-10-07: re-review 787ca4fa 3 MAJORs fixed; settlement 1.0 leftover
 - [ACC3-T02 booking insurance (PR #42)](ruling_acc3_t02_booking_insurance.md) — 2026-10-07: 422 OK; legacy INSURANCE still in freight total on recalc
-- [BE45-T01 booking FX (PR #41)](ruling_be45_t01_booking_fx.md) — 2026-10-07: math OK; db=None 1.0 leftover; FE 40HC tag 422 risk
-- [ACC2-T01 PO shares (PR #39)](ruling_acc2_t01_po_shares.md) — 2026-10-07: shares OK; qty-0 lines dropped silently; CI 401 consultation test not from diff
-- [BE67-T02 agreement rate (PR #40)](ruling_be67_t02_agreement_rate.md) — 2026-10-07: helper OK; 10-digit HS misses dotted agreement; _customs_rate untested
-- [BE67-T04 simulate-file (PR #44)](ruling_be67_t04_simulate_file.md) — 2026-10-07: per-PO FX OK; blank PO currency->EGP blocker; quote curr->USD
+- [BE45-T01 booking FX (PR #41)](ruling_be45_t01_booking_fx.md) — 2026-10-07: re-review e7437ae2 fixes OK; cross-size dropdown drops freight line
+- [ACC2-T01 PO shares (PR #39)](ruling_acc2_t01_po_shares.md) — 2026-10-07: re-review aecc1095 both MAJORs fixed; mixed-FOB PO-level allocs minor
+- [BE67-T02 agreement rate (PR #40)](ruling_be67_t02_agreement_rate.md) — 2026-10-07: re-review approve_with_minor; 10-digit fixed; _customs_rate dropped
+- [BE67-T04 simulate-file (PR #44)](ruling_be67_t04_simulate_file.md) — 2026-10-07: re-review 72f91d38 all fixed; new warning codes unregistered
 - [ACC1-T01 freight FX (PR #43)](ruling_acc1_t01_freight_fx.md) — 2026-10-07: card order OK; deemed freight still 422s on missing rate; Flutter 1.0 preview
+- [ACC3-T03 ocean freight CIF (PR #45)](ruling_acc3_t03_ocean_freight_cif.md) — 2026-10-07: ocean-only freight OK; history text claims total_cost fallback

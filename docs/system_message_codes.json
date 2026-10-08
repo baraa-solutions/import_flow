@@ -2095,6 +2095,14 @@
       "note"
     ]
   },
+  "IT_CARRIER_INVALID": {
+    "params": [
+      "carrier_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -2107,6 +2115,14 @@
     "params": [
       "action",
       "current_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_TRUCK_TYPE_INVALID": {
+    "params": [
+      "truck_type"
     ],
     "parts": [
       "note"
@@ -2375,6 +2391,15 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "LIST_SORT_FIELD_INVALID": {
+    "params": [
+      "allowed",
+      "field"
+    ],
+    "parts": [
       "note"
     ]
   },
@@ -3646,9 +3671,25 @@
       "body"
     ]
   },
+  "WR_CUSTOMS_NOT_RELEASED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_FIELD_NOT_EDITABLE": {
+    "params": [
+      "field_name"
     ],
     "parts": [
       "note"
@@ -3669,6 +3710,23 @@
       "invoiced_qty",
       "item_code",
       "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_LOCKED": {
+    "params": [
+      "grn_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_STATUS_CHANGE_NOT_ALLOWED": {
+    "params": [
+      "current_status",
+      "target_status"
     ],
     "parts": [
       "note"
@@ -3820,6 +3878,14 @@
   "CT_AGREEMENT_DATA_INVALID": {
     "params": [
       "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
     ],
     "parts": [
       "note"

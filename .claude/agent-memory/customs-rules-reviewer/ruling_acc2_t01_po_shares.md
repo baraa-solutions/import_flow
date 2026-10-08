@@ -14,3 +14,10 @@ PR #39 (ACC2-T01, head 64efaabb) reviewed 2026-10-07: approve_with_minor.
 
 **Why:** keeps rulings on partial-shipment shares consistent for ACC2-T06 / BE09-T03 reviews.
 **How to apply:** when reviewing ACC2-T06, check it reuses file_po_line_shares and handles qty-0 lump-sum lines with a message.
+
+Re-review 2026-10-07 at aecc1095 (fix 38084a9d): both MAJORs fixed (unlinked import_file_id=None allocs keep full PO in
+shares + recalc has_allocs; FOB-0 PO-level alloc falls back to shipped_qty / total ordered qty, like compute_po_balance's
+last resort). Scope leftovers removed. New MINORs: mixed PO-level allocs (some FOB>0, some FOB 0) use FOB ratio only and
+ignore the zero-FOB qty; qty 0 + FOB 0 alloc still drops silently. 65 tests green in related files.
+Process note: a stale non-git scratch dir made `git worktree add` fail silently -> always check rev-parse HEAD in the
+scratch tree before trusting a run, and remove worktrees only by the exact path you created (never by grep pattern).

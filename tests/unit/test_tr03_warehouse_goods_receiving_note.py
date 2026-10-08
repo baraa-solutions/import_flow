@@ -3,11 +3,14 @@ from datetime import datetime, date, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from fastapi import HTTPException
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 
 import main
 from database.database import Base, get_db
 from modules.import_files.model import ImportFile
+from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.inland_transport.model import InlandTransportBooking
 from modules.demurrage_detention.model import DemurrageTracking
 from modules.warehouse_receiving.schemas import (
@@ -41,7 +44,10 @@ def db_session():
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session, monkeypatch):
+    import modules.auth.permissions as auth_permissions
+    monkeypatch.setattr(auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
+
     def override_get_db():
         try:
             yield db_session
@@ -66,6 +72,7 @@ class TestWarehouseGoodsReceivingNoteTR03:
             current_stage="In Transit to Warehouse",
             inland_transport_status="IN_TRANSIT",
             progress_percent=90.0,
+            is_customs_released=True,
             is_active=True,
         )
         db_session.add(imp_file)
@@ -193,6 +200,7 @@ class TestWarehouseGoodsReceivingNoteTR03:
             company_name="Al-Amal Co",
             supplier_name="Global Tech",
             current_stage="Customs",
+            is_customs_released=True,
             is_active=True,
         )
         db_session.add(imp_file)
@@ -244,3 +252,97 @@ class TestWarehouseGoodsReceivingNoteTR03:
         )
         assert res.status_code == 200
         assert res.json()["discrepancy_type"] == "Damage"
+
+    def test_grn_create_requires_items_min_1(self):
+        with pytest.raises(ValidationError):
+            WarehouseReceivingCreate(
+                import_file_id=1,
+                warehouse_name="Main Warehouse",
+                grn_items=[],
+            )
+
+    def test_grn_create_requires_warehouse_name(self):
+        with pytest.raises(ValidationError):
+            WarehouseReceivingCreate(
+                import_file_id=1,
+                grn_items=[GrnItemSchema(item_code="A", item_name="Item A", invoiced_qty=10, accepted_qty=10)],
+            )
+
+    def test_grn_create_blocks_unreleased_customs(self, db_session):
+        imp_file = ImportFile(
+            import_file_code="IMP-NO-RELEASE",
+            company_name="Co",
+            supplier_name="Sup",
+            status="Active",
+            is_customs_released=False,
+            customs_release_permit_no=None,
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        schema = WarehouseReceivingCreate(
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Main Warehouse",
+            grn_items=[GrnItemSchema(item_code="A", item_name="Item A", invoiced_qty=10, accepted_qty=10)],
+        )
+        with pytest.raises(HTTPException) as ctx:
+            create_warehouse_receiving_service(db_session, schema)
+        assert ctx.value.status_code == 400
+        assert ctx.value.detail["code"] == "WR_CUSTOMS_NOT_RELEASED"
+
+    def test_grn_create_allows_under_bond_release_with_lock(self, db_session):
+        imp_file = ImportFile(
+            import_file_code="IMP-UNDER-BOND",
+            company_name="Co",
+            supplier_name="Sup",
+            status="Active",
+            is_customs_released=False,
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        clearance = CustomsClearanceRecord(
+            clearance_code="CLR-BOND-1",
+            import_file_id=imp_file.import_file_id,
+            is_under_bond_release=True,
+            quarantine_lock=True,
+            bond_guarantee_ref="BOND-99",
+            status="Under Bond Quarantine",
+            is_active=True,
+        )
+        db_session.add(clearance)
+        db_session.commit()
+
+        schema = WarehouseReceivingCreate(
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Main Warehouse",
+            grn_items=[GrnItemSchema(item_code="A", item_name="Item A", invoiced_qty=10, accepted_qty=10)],
+        )
+        rec = create_warehouse_receiving_service(db_session, schema)
+        assert rec.is_under_bond_quarantine is True
+        assert rec.quarantine_lock_active is True
+
+    def test_grn_create_allows_released_customs(self, db_session):
+        imp_file = ImportFile(
+            import_file_code="IMP-RELEASED",
+            company_name="Co",
+            supplier_name="Sup",
+            status="Active",
+            is_customs_released=True,
+            customs_release_permit_no="PERMIT-123",
+            is_active=True,
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        schema = WarehouseReceivingCreate(
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Main Warehouse",
+            grn_items=[GrnItemSchema(item_code="A", item_name="Item A", invoiced_qty=10, accepted_qty=10)],
+        )
+        rec = create_warehouse_receiving_service(db_session, schema)
+        assert rec.receiving_id is not None
+        assert rec.quarantine_lock_active is False
+

@@ -28,7 +28,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
     final insuranceCtrl = TextEditingController(text: '14902.793');
     final deemedInsuranceCtrl = TextEditingController(text: '0.00');
     final freightForeignCtrl = TextEditingController(text: '234.72');
-    final freightExchangeRateCtrl = TextEditingController(text: '50.7917');
+    final freightExchangeRateCtrl = TextEditingController();
     final multiFreightCtrl = TextEditingController(text: '11922.234');
     final deemedFreightCtrl = TextEditingController(text: '0.00');
     final additionalFeesCtrl = TextEditingController(text: '1329.50');
@@ -91,11 +91,16 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         multiFreightCtrl.text = '0.00';
       } else {
         final fAmt = double.tryParse(freightForeignCtrl.text.trim()) ?? 0;
+        final customRate = double.tryParse(freightExchangeRateCtrl.text.trim());
         final fRate = selectedFreightCurrency == 'EGP'
             ? 1.0
-            : (double.tryParse(freightExchangeRateCtrl.text.trim()) ?? rate);
-        final calcFrtEgp = fAmt * fRate;
-        multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
+            : (customRate ?? (selectedFreightCurrency == selectedCurrency ? rate : null));
+        if (fRate != null) {
+          final calcFrtEgp = fAmt * fRate;
+          multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
+        } else {
+          multiFreightCtrl.text = '';
+        }
       }
 
       final actualIns = double.tryParse(insuranceCtrl.text.trim()) ?? 0;
@@ -723,9 +728,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                     if (val == null) return;
                                     setCalcState(() {
                                       selectedFreightCurrency = val;
-                                      freightExchangeRateCtrl.text =
-                                          (defaultExchangeRates[val] ?? 50.7917)
-                                              .toStringAsFixed(4);
+                                      freightExchangeRateCtrl.text = '';
                                       syncCalculatedFields(
                                           setCalcState, multiLines);
                                     });
@@ -760,9 +763,11 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                         setCalcState, multiLines),
                                     decoration: InputDecoration(
                                       labelText: isArabic
-                                          ? 'معامل تحويل عملة النولون *'
-                                          : 'Freight Conversion Rate *',
-                                      hintText: '50.7917',
+                                          ? 'معامل تحويل عملة النولون (اختياري)'
+                                          : 'Freight FX Override (Optional)',
+                                      hintText: isArabic
+                                          ? 'اتركه فارغاً لاستخدام سعر الجمارك'
+                                          : 'Leave blank for customs rate',
                                       isDense: true,
                                     ),
                                   ),
@@ -1332,10 +1337,9 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   'freight_foreign_amount': double.tryParse(
                                           freightForeignCtrl.text.trim()) ??
                                       0,
-                                  'freight_exchange_rate': double.tryParse(
-                                          freightExchangeRateCtrl.text
-                                              .trim()) ??
-                                      rate,
+                                  if (double.tryParse(freightExchangeRateCtrl.text.trim()) != null &&
+                                      double.parse(freightExchangeRateCtrl.text.trim()) > 0)
+                                    'freight_exchange_rate': double.parse(freightExchangeRateCtrl.text.trim()),
                                   'has_insurance_document': !isDeemedInsurance,
                                   'has_freight_document': !isDeemedFreight,
                                   'additional_fees_egp': add,
