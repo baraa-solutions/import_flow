@@ -35,6 +35,8 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_grn_status_transition,
+    validate_grn_put_fields,
     validate_customs_release,
     validate_grn_deletable,
     WR_VERDICT_CODES,
@@ -73,6 +75,14 @@ def _line_totals(items: List[Dict[str, Any]]) -> Dict[str, int]:
         "total_shortage_qty": sum(int(i.get("shortage_qty", 0) or 0) for i in items),
         "total_damaged_qty": sum(int(i.get("damaged_qty", 0) or 0) for i in items),
     }
+
+
+def _discrepancy_rate(totals: Dict[str, int]) -> float:
+    invoiced = int(totals.get("total_invoiced_qty", 0) or 0)
+    if invoiced <= 0:
+        return 0.0
+    discrepancy = int(totals.get("total_shortage_qty", 0) or 0) + int(totals.get("total_damaged_qty", 0) or 0)
+    return round((discrepancy / invoiced) * 100.0, 2)
 
 
 def _create_discrepancy_type(totals: Dict[str, int]) -> str:
@@ -330,12 +340,19 @@ def update_warehouse_receiving_service(
 ) -> WarehouseReceivingRecord:
     existing = get_warehouse_receiving_service(db, record_id)
     _require_open_file_for_grn(db, existing.import_file_id)
-    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
 
-    validate_status_label(update_data.get("status"))
+    validate_grn_put_fields(schema)
+
+    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type", "inspection_verdict"}
+    update_data = {
+        k: v for k, v in schema.model_dump(exclude_unset=True).items()
+        if not (v is None and k in NOT_NULL_COLUMNS)
+    }
+
+    if "status" in update_data:
+        validate_grn_status_transition(existing.status, update_data["status"])
+
     validate_discrepancy_type(update_data.get("discrepancy_type"))
-    if "inspection_verdict" in update_data:
-        update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
     if "inspector_name" in values:
@@ -343,15 +360,20 @@ def update_warehouse_receiving_service(
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
+        totals = _line_totals(items)
         values["grn_items"] = items
-        values.update(_line_totals(items))
+        values.update(totals)
+        values["discrepancy_rate_percent"] = _discrepancy_rate(totals)
 
-    if "inspection_verdict" in values:
-        validate_verdict_consistency(
-            values["inspection_verdict"],
-            values.get("total_shortage_qty", existing.total_shortage_qty),
-            values.get("total_damaged_qty", existing.total_damaged_qty),
-        )
+        if existing.inspection_protocol_number:
+            validate_verdict_consistency(
+                existing.inspection_verdict,
+                totals["total_shortage_qty"],
+                totals["total_damaged_qty"],
+            )
+        else:
+            if "discrepancy_type" not in values:
+                values["discrepancy_type"] = _create_discrepancy_type(totals)
 
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
     apply_changes(existing, values, user)
@@ -503,11 +525,11 @@ def submit_warehouse_inspection_protocol_service(
 
     # 2. Discrepancy calculations
     total_discrepancy = (record.total_shortage_qty or 0) + (record.total_damaged_qty or 0)
-    invoiced = record.total_invoiced_qty or 0
-    if invoiced > 0:
-        record.discrepancy_rate_percent = round((total_discrepancy / invoiced) * 100.0, 2)
-    else:
-        record.discrepancy_rate_percent = 0.0
+    record.discrepancy_rate_percent = _discrepancy_rate({
+        "total_invoiced_qty": record.total_invoiced_qty,
+        "total_shortage_qty": record.total_shortage_qty,
+        "total_damaged_qty": record.total_damaged_qty,
+    })
 
     # 3. Protocol Number Generation
     if not record.inspection_protocol_number:

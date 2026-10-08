@@ -3679,6 +3679,14 @@
       "note"
     ]
   },
+  "WR_FIELD_NOT_EDITABLE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_GRN_EXISTS": {
     "params": [
       "grn_code"
@@ -3702,6 +3710,15 @@
   "WR_GRN_LOCKED": {
     "params": [
       "grn_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_STATUS_CHANGE_NOT_ALLOWED": {
+    "params": [
+      "current_status",
+      "target_status"
     ],
     "parts": [
       "note"
