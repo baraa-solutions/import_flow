@@ -12306,6 +12306,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'Actual sailing confirmed and B/L ($bl) recorded; the shipment is now In-Transit';
   @override String fbkDepError(String error) => 'Could not confirm the sailing: $error';
   @override String get fbkStatusCancelled => 'Cancelled';
+  @override String get demPushNeedsLinkedFile => 'Cannot push to financial settlement: link an import file first';
+  @override String get demPushConfirmTitle => 'Confirm Settlement Posting';
+  @override String get demPushConfirmMessage => 'Are you sure you want to push these demurrage charges to the financial settlement?';
+  @override String get demPushConfirmFileCode => 'Import File';
+  @override String get demPushConfirmDemurrageFx => 'Total Demurrage';
+  @override String get demPushConfirmDetentionFx => 'Total Detention';
+  @override String get demPushConfirmStorageEgp => 'Total Storage';
+  @override String get demPushConfirmRate => 'Exchange Rate';
+  @override String get demPushConfirmTotalEgp => 'Total Settlement Cost';
+  @override String get demPushConfirmBtn => 'Confirm & Push';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===

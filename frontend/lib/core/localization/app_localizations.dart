@@ -9588,6 +9588,16 @@ abstract class AppLocalizations {
   String fbkDepSuccess(String bl);
   String fbkDepError(String error);
   String get fbkStatusCancelled;
+  String get demPushNeedsLinkedFile;
+  String get demPushConfirmTitle;
+  String get demPushConfirmMessage;
+  String get demPushConfirmFileCode;
+  String get demPushConfirmDemurrageFx;
+  String get demPushConfirmDetentionFx;
+  String get demPushConfirmStorageEgp;
+  String get demPushConfirmRate;
+  String get demPushConfirmTotalEgp;
+  String get demPushConfirmBtn;
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
