@@ -10,6 +10,18 @@ from sqlalchemy import and_, or_
 
 from modules.import_files.model import ImportFile
 from modules.external_service_providers.model import ExternalServiceProvider
+from modules.common.pagination import PageParams, like_term, paginate
+
+
+IMPORT_FILE_SORT_MAP = {
+    "import_file_code": ImportFile.import_file_code,
+    "created_at": ImportFile.created_at,
+    "required_eta": ImportFile.required_eta,
+    "file_opening_date": ImportFile.file_opening_date,
+    "status": ImportFile.status,
+    "progress_percent": ImportFile.progress_percent,
+    "company_name": ImportFile.company_name,
+}
 
 
 def generate_import_file_code(db: Session) -> str:
@@ -83,22 +95,22 @@ def _apply_import_file_filters(
         )
 
     if search and search.strip():
-        term = f"%{search.strip()}%"
+        term = like_term(search)
         query = query.filter(
             or_(
-                ImportFile.import_file_code.ilike(term),
-                ImportFile.custom_file_number.ilike(term),
-                ImportFile.company_name.ilike(term),
-                ImportFile.supplier_name.ilike(term),
-                ImportFile.po_number.ilike(term),
-                ImportFile.pi_number.ilike(term),
-                ImportFile.owner.ilike(term),
-                ImportFile.hs_code.ilike(term),
-                ImportFile.product_category.ilike(term),
-                ImportFile.port_of_loading.ilike(term),
-                ImportFile.port_of_discharge.ilike(term),
-                ImportFile.selected_scenario.ilike(term),
-                ImportFile.notes.ilike(term),
+                ImportFile.import_file_code.ilike(term, escape="\\"),
+                ImportFile.custom_file_number.ilike(term, escape="\\"),
+                ImportFile.company_name.ilike(term, escape="\\"),
+                ImportFile.supplier_name.ilike(term, escape="\\"),
+                ImportFile.po_number.ilike(term, escape="\\"),
+                ImportFile.pi_number.ilike(term, escape="\\"),
+                ImportFile.owner.ilike(term, escape="\\"),
+                ImportFile.hs_code.ilike(term, escape="\\"),
+                ImportFile.product_category.ilike(term, escape="\\"),
+                ImportFile.port_of_loading.ilike(term, escape="\\"),
+                ImportFile.port_of_discharge.ilike(term, escape="\\"),
+                ImportFile.selected_scenario.ilike(term, escape="\\"),
+                ImportFile.notes.ilike(term, escape="\\"),
             )
         )
 
@@ -183,7 +195,8 @@ def count_import_files(
 
 def get_paginated_import_files(
     db: Session,
-    include_inactive: bool = False,
+    params: PageParams,
+    *,
     search: Optional[str] = None,
     company_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
@@ -197,32 +210,14 @@ def get_paginated_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    page: int = 1,
-    page_size: int = 50,
 ) -> dict:
-    total = count_import_files(
-        db,
-        include_inactive=include_inactive,
-        search=search,
-        company_id=company_id,
-        supplier_id=supplier_id,
-        status=status,
-        owner=owner,
-        hs_code=hs_code,
-        incoterm_code=incoterm_code,
-        port_of_loading=port_of_loading,
-        port_of_discharge=port_of_discharge,
-        shipment_mode=shipment_mode,
-        carrier=carrier,
-        date_from=date_from,
-        date_to=date_to,
-    )
+    effective_search = params.q if params.q is not None else search
 
     query = db.query(ImportFile)
     query = _apply_import_file_filters(
         query,
-        include_inactive=include_inactive,
-        search=search,
+        include_inactive=params.include_inactive,
+        search=effective_search,
         company_id=company_id,
         supplier_id=supplier_id,
         status=status,
@@ -237,17 +232,13 @@ def get_paginated_import_files(
         date_to=date_to,
     )
 
-    items = query.order_by(ImportFile.import_file_id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    
-    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
-
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-    }
+    return paginate(
+        query,
+        params,
+        sort_map=IMPORT_FILE_SORT_MAP,
+        default_sort=[ImportFile.import_file_id.desc()],
+        pk=ImportFile.import_file_id,
+    )
 
 
 

@@ -70,7 +70,7 @@ class ComprehensiveShipmentDossierModel {
   final String? portOfDischarge;
   final int totalPackages;
   final double grossWeightKg;
-  final double netWeightKg;
+  final double? netWeightKg;
   final double totalCbm;
   final int targetFreeDays;
 
@@ -80,6 +80,7 @@ class ComprehensiveShipmentDossierModel {
   /// Null when the backend has no customs rate for the FOB currency (no fabricated conversion).
   final double? totalFobEgp;
   final String? fobCurrency;
+  final String? fobSource;
   final int itemsCount;
   final List<Map<String, dynamic>> itemsDetail;
 
@@ -121,7 +122,7 @@ class ComprehensiveShipmentDossierModel {
   final int financialSettlementInvoicesCount;
   final double financialSettlementTotalEgp;
   final double actualLandedCostTotalEgp;
-  final double actualLandedCostMarkupFactor;
+  final double? actualLandedCostMarkupFactor;
   final double actualLandedCostVarianceEgp;
   final double actualLandedCostVariancePct;
   final String? actualLandedCostCalculatedAt;
@@ -159,7 +160,7 @@ class ComprehensiveShipmentDossierModel {
     this.portOfDischarge,
     this.totalPackages = 0,
     this.grossWeightKg = 0.0,
-    this.netWeightKg = 0.0,
+    this.netWeightKg,
     this.totalCbm = 0.0,
     this.targetFreeDays = 21,
     this.purchaseOrders = const [],
@@ -167,6 +168,7 @@ class ComprehensiveShipmentDossierModel {
     this.totalFobFc,
     this.totalFobEgp,
     this.fobCurrency,
+    this.fobSource,
     this.itemsCount = 0,
     this.itemsDetail = const [],
     this.acidNumber,
@@ -204,7 +206,7 @@ class ComprehensiveShipmentDossierModel {
     this.financialSettlementInvoicesCount = 0,
     this.financialSettlementTotalEgp = 0.0,
     this.actualLandedCostTotalEgp = 0.0,
-    this.actualLandedCostMarkupFactor = 1.0,
+    this.actualLandedCostMarkupFactor,
     this.actualLandedCostVarianceEgp = 0.0,
     this.actualLandedCostVariancePct = 0.0,
     this.actualLandedCostCalculatedAt,
@@ -252,7 +254,7 @@ class ComprehensiveShipmentDossierModel {
       portOfDischarge: json['port_of_discharge'],
       totalPackages: json['total_packages'] as int? ?? 0,
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble(),
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       targetFreeDays: json['target_free_days'] as int? ?? 21,
       purchaseOrders: rawPos.map((p) => p as Map<String, dynamic>).toList(),
@@ -260,6 +262,7 @@ class ComprehensiveShipmentDossierModel {
       totalFobFc: (json['total_fob_fc'] as num?)?.toDouble(),
       totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble(),
       fobCurrency: json['fob_currency'] as String?,
+      fobSource: json['fob_source'] as String?,
       itemsCount: json['items_count'] as int? ?? 0,
       itemsDetail: rawItems.map((i) => i as Map<String, dynamic>).toList(),
       acidNumber: json['acid_number'],
@@ -297,7 +300,7 @@ class ComprehensiveShipmentDossierModel {
       financialSettlementInvoicesCount: json['financial_settlement_invoices_count'] as int? ?? 0,
       financialSettlementTotalEgp: (json['financial_settlement_total_egp'] as num?)?.toDouble() ?? 0.0,
       actualLandedCostTotalEgp: (json['actual_landed_cost_total_egp'] as num?)?.toDouble() ?? 0.0,
-      actualLandedCostMarkupFactor: (json['actual_landed_cost_markup_factor'] as num?)?.toDouble() ?? 1.0,
+      actualLandedCostMarkupFactor: (json['actual_landed_cost_markup_factor'] as num?)?.toDouble(),
       actualLandedCostVarianceEgp: (json['actual_landed_cost_variance_egp'] as num?)?.toDouble() ?? 0.0,
       actualLandedCostVariancePct: (json['actual_landed_cost_variance_pct'] as num?)?.toDouble() ?? 0.0,
       actualLandedCostCalculatedAt: json['actual_landed_cost_calculated_at'],
@@ -337,7 +340,7 @@ class ComprehensiveShipmentDossierModel {
       if (portOfDischarge != null) 'port_of_discharge': portOfDischarge,
       'total_packages': totalPackages,
       'gross_weight_kg': grossWeightKg,
-      'net_weight_kg': netWeightKg,
+      if (netWeightKg != null) 'net_weight_kg': netWeightKg,
       'total_cbm': totalCbm,
       'target_free_days': targetFreeDays,
       'purchase_orders': purchaseOrders,
@@ -345,6 +348,7 @@ class ComprehensiveShipmentDossierModel {
       if (totalFobFc != null) 'total_fob_fc': totalFobFc,
       if (totalFobEgp != null) 'total_fob_egp': totalFobEgp,
       if (fobCurrency != null) 'fob_currency': fobCurrency,
+      if (fobSource != null) 'fob_source': fobSource,
       'items_count': itemsCount,
       'items_detail': itemsDetail,
       if (acidNumber != null) 'acid_number': acidNumber,
@@ -353,7 +357,7 @@ class ComprehensiveShipmentDossierModel {
       if (warehouseGrnCode != null) 'warehouse_grn_code': warehouseGrnCode,
       if (emptyContainersEirNumbers != null) 'empty_containers_eir_numbers': emptyContainersEirNumbers,
       'actual_landed_cost_total_egp': actualLandedCostTotalEgp,
-      'actual_landed_cost_markup_factor': actualLandedCostMarkupFactor,
+      if (actualLandedCostMarkupFactor != null) 'actual_landed_cost_markup_factor': actualLandedCostMarkupFactor,
       'actual_landed_cost_variance_egp': actualLandedCostVarianceEgp,
       'actual_landed_cost_variance_pct': actualLandedCostVariancePct,
       if (financialSettlementStatus != null) 'financial_settlement_status': financialSettlementStatus,

@@ -1293,6 +1293,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_CLAIM_CURRENCY_INVALID": {
         "note": "Claim currency code '{currency_code}' is invalid or inactive.",
     },
+    "WR_FIELD_NOT_EDITABLE": {
+        "note": "Field '{field_name}' cannot be edited directly.",
+    },
+    "WR_STATUS_CHANGE_NOT_ALLOWED": {
+        "note": "Cannot change goods receipt status from '{current_status}' to '{target_status}'.",
+    },
     "WR_CUSTOMS_NOT_RELEASED": {
         "note": "Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.",
     },
@@ -1302,9 +1308,18 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
+    "IT_CARRIER_INVALID": {
+        "note": "Carrier with ID {carrier_id} is unknown or inactive.",
+    },
+    "IT_TRUCK_TYPE_INVALID": {
+        "note": "Truck type '{truck_type}' is invalid.",
+    },
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
     "FC_ALREADY_CLOSED": {"note": "Import file {import_file_code} is already closed. Reopen it first."},
+    "LIST_SORT_FIELD_INVALID": {
+        "note": "Unknown sort field '{field}'. Allowed fields: {allowed}.",
+    },
     "CURRENCY_NOT_FOUND": {
         "note": "Currency code '{currency}' is not registered in the system.",
     },
@@ -1346,6 +1361,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "JOURNAL_UNBALANCED": {"note": "The journal entry is unbalanced by {difference} EGP and cannot be exported."},
     "SETTLEMENT_LINE_NO_HS": {"note": "Line {item_code} has no HS code: it is left out of the customs estimate."},
     "SETTLEMENT_LINE_ZERO_VALUE": {"note": "Line {item_code} has no value: it is left out of the customs estimate."},
+    "SETTLEMENT_PO_NOT_ALLOCATED": {
+        "note": "Purchase order {po_number} is allocated to other shipments and has no share for this file.",
+    },
     "PAYMENT_STATUS_UNKNOWN": {
         "note": "Invoice {invoice_no} is partially paid but the paid amount is unknown: counted as unpaid.",
     },
