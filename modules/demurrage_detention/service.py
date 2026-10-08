@@ -155,13 +155,13 @@ def _booking_free_days(db: Session, import_file_id: Optional[int]) -> Optional[i
 def _agreed_tariff(tariff: Tariff, booking_free_days: Optional[int], containers: Optional[List[Dict[str, Any]]]) -> Tariff:
     """The policy tariff with the free-days agreement on top: the booking's demurrage free days (as tracking
     create always applied them) and the detention / storage free days BK-02 recorded on the containers."""
-    if booking_free_days:
+    if booking_free_days is not None:
         tariff = replace(tariff, demurrage_free_days=booking_free_days)
     keys = (AGREED_DEMURRAGE_KEY, AGREED_DETENTION_KEY, AGREED_STORAGE_KEY)
     for c in containers or []:
         if all(c.get(k) is None for k in keys):
             continue
-        if not booking_free_days and c.get(AGREED_DEMURRAGE_KEY) is not None:
+        if booking_free_days is None and c.get(AGREED_DEMURRAGE_KEY) is not None:
             tariff = replace(tariff, demurrage_free_days=int(c[AGREED_DEMURRAGE_KEY]))
         if c.get(AGREED_DETENTION_KEY) is not None:
             tariff = replace(tariff, detention_free_days=int(c[AGREED_DETENTION_KEY]))

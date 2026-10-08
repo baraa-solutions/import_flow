@@ -37,7 +37,9 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
     _bookingNoController = TextEditingController(text: widget.booking.bookingConfirmationNo ?? '');
     _vesselNameController = TextEditingController(text: widget.booking.vesselName ?? '');
     _voyageNumberController = TextEditingController(text: widget.booking.voyageNumber ?? '');
-    _freeDaysController = TextEditingController(text: widget.booking.freeDemurrageDays.toString());
+    _freeDaysController = TextEditingController(
+      text: widget.booking.freeDemurrageDays != null ? widget.booking.freeDemurrageDays.toString() : '',
+    );
     _notesController = TextEditingController(text: widget.booking.notes ?? '');
 
     if (widget.booking.etd != null) {
@@ -89,7 +91,8 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
         'voyage_number': _voyageNumberController.text.trim().isNotEmpty ? _voyageNumberController.text.trim() : null,
         if (_selectedEtd != null) 'etd': _selectedEtd!.toIso8601String(),
         if (_selectedEta != null) 'eta': _selectedEta!.toIso8601String(),
-        'free_demurrage_days': int.tryParse(_freeDaysController.text.trim()) ?? 14,
+        if (_freeDaysController.text.trim().isNotEmpty)
+          'free_demurrage_days': int.tryParse(_freeDaysController.text.trim()),
         'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
       };
 

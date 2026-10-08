@@ -161,7 +161,7 @@ class ShipmentBookingModel {
   final int expectedWarehouseDays;
   final String? expectedWarehouseArrivalDate;
   final int transitTimeDays;
-  final int freeDemurrageDays;
+  final int? freeDemurrageDays;
   final String? cargoCutoffDate;
   final String? siCutoffDate;
   final String? vesselName;
@@ -217,7 +217,7 @@ class ShipmentBookingModel {
     this.expectedWarehouseDays = 7,
     this.expectedWarehouseArrivalDate,
     this.transitTimeDays = 0,
-    this.freeDemurrageDays = 14,
+    this.freeDemurrageDays,
     this.cargoCutoffDate,
     this.siCutoffDate,
     this.vesselName,
@@ -275,7 +275,7 @@ class ShipmentBookingModel {
       expectedWarehouseDays: json['expected_warehouse_days'] ?? 7,
       expectedWarehouseArrivalDate: json['expected_warehouse_arrival_date'],
       transitTimeDays: json['transit_time_days'] ?? 0,
-      freeDemurrageDays: json['free_demurrage_days'] ?? 14,
+      freeDemurrageDays: json['free_demurrage_days'],
       cargoCutoffDate: json['cargo_cutoff_date'],
       siCutoffDate: json['si_cutoff_date'],
       vesselName: json['vessel_name'],
