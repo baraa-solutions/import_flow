@@ -405,6 +405,19 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'reason': '{carrier_name} repeatedly exceeded the scheduled transit times to {port_name}.',
   },
 
+  'LC_CLOSURE_STEP_RESERVED': {
+    'note': 'Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.',
+  },
+  'LC_FILE_NOT_ACTIVE': {
+    'note': 'Import file {import_file_code} is {status} and cannot be transitioned on the lifecycle board.',
+  },
+  'LC_FILE_NOT_FOUND': {
+    'note': 'Import file {import_file_code} was not found or is inactive.',
+  },
+  'LC_FILE_REF_REQUIRED': {
+    'note': 'Import file id or code is required.',
+  },
+
   'LC_FILE_ON_HOLD': {
     'note': 'Shipment put on hold at [{phase_id}]: {reason}',
   },
@@ -452,6 +465,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'LC_STEP_COMPLETED': {
     'note': '{step_code} completed',
+  },
+  'LC_STEP_NOT_ACTIVE': {
+    'note': 'Step {step_code} is not currently active on import file {import_file_code}.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'On hold: {reason}',

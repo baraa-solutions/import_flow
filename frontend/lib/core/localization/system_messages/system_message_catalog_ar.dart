@@ -405,6 +405,19 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'reason': 'تكرار تجاوز الخط الملاحي {carrier_name} لأزمنة الترانزيت المجدولة على ميناء {port_name}.',
   },
 
+  'LC_CLOSURE_STEP_RESERVED': {
+    'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملفات ولا يمكن إكمالها مباشرة عبر HTTP.',
+  },
+  'LC_FILE_NOT_ACTIVE': {
+    'note': 'ملف الاستيراد {import_file_code} في حالة {status} ولا يمكن تحريك مراحله على اللوحة.',
+  },
+  'LC_FILE_NOT_FOUND': {
+    'note': 'ملف الاستيراد {import_file_code} غير موجود أو غير نشط.',
+  },
+  'LC_FILE_REF_REQUIRED': {
+    'note': 'يلزم تحديد معرف ملف الاستيراد أو كود الملف.',
+  },
+
   'LC_FILE_ON_HOLD': {
     'note': 'تم إيقاف الشحنة عند مرحلة [{phase_id}]: {reason}',
   },
@@ -452,6 +465,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'LC_STEP_COMPLETED': {
     'note': 'تم إنجاز {step_code} بنجاح',
+  },
+  'LC_STEP_NOT_ACTIVE': {
+    'note': 'المرحلة {step_code} ليست قيد التنفيذ حالياً على ملف الاستيراد {import_file_code}.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'معلقة مؤقتاً: {reason}',
