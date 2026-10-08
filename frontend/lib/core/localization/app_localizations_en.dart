@@ -12708,6 +12708,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccCloneYellow => 'Yellow';
   @override String get ccCloneDuties => 'Duties';
   @override String get ccCloneBtn => 'Clone';
+  @override String get customsDeclMinLength => 'Customs declaration number must be at least 3 characters';
+  @override String get customsDeclChannelLabel => 'Customs Channel';
+  @override String get customsDeclPickDateTooltip => 'Select declaration registration date';
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===

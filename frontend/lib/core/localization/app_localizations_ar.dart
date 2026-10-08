@@ -12709,6 +12709,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccCloneYellow => 'أصفر';
   @override String get ccCloneDuties => 'الرسوم';
   @override String get ccCloneBtn => 'استنساخ';
+  @override String get customsDeclMinLength => 'رقم الإقرار الجمركي يجب ألا يقل عن 3 أحرف أو أرقام';
+  @override String get customsDeclChannelLabel => 'المسار الجمركي';
+  @override String get customsDeclPickDateTooltip => 'اختيار تاريخ قيد الإقرار';
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===

@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/stored_text.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../customs_clearance/providers/customs_clearance_provider.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -131,7 +133,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   int? _selectedImportFileId;
 
   final _declarationFormKey = GlobalKey<FormState>();
-  final TextEditingController _declaration46NoCtrl = TextEditingController(text: '46-EG-2026-');
+  final TextEditingController _declaration46NoCtrl = TextEditingController();
   final TextEditingController _acidNumberCtrl = TextEditingController();
   final TextEditingController _form4NumberCtrl = TextEditingController();
   final TextEditingController _blNumberCtrl = TextEditingController();
@@ -142,6 +144,80 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   final TextEditingController _totalDutyAndTaxesCtrl = TextEditingController(text: '0.00');
   final TextEditingController _submissionDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   final TextEditingController _notesCtrl = TextEditingController();
+
+  DateTime _declarationDate = DateTime.now();
+  String _selectedOffice = 'Alexandria Port Customs';
+  String _selectedChannel = 'Red Channel';
+
+  static const List<String> _customsOffices = [
+    'Alexandria Port Customs',
+    'El Dekheila Port Customs',
+    'Port Said Customs',
+    'Damietta Port Customs',
+    'Sokhna Port Customs',
+    'Cairo Airport Cargo Customs',
+    '6th of October Dry Port Customs',
+    '10th of Ramadan Dry Port Customs',
+    'Adabiya Port Customs',
+  ];
+
+  static const List<String> _channelOptions = [
+    'Red Channel',
+    'Yellow Channel',
+    'Green Channel',
+  ];
+
+  static String _officeLabel(AppLocalizations l, int index) {
+    switch (index) {
+      case 0:
+        return l.ccDecOffice0;
+      case 1:
+        return l.ccDecOffice1;
+      case 2:
+        return l.ccDecOffice2;
+      case 3:
+        return l.ccDecOffice3;
+      case 4:
+        return l.ccDecOffice4;
+      case 5:
+        return l.ccDecOffice5;
+      case 6:
+        return l.ccDecOffice6;
+      case 7:
+        return l.ccDecOffice7;
+      default:
+        return l.ccDecOffice8;
+    }
+  }
+
+  static String _channelLabel(AppLocalizations l, String code) {
+    switch (code) {
+      case 'Red Channel':
+        return l.ccDecChRed;
+      case 'Yellow Channel':
+        return l.ccDecChYellow;
+      case 'Green Channel':
+        return l.ccDecChGreen;
+      default:
+        return code;
+    }
+  }
+
+  Future<void> _selectSubmissionDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _declarationDate,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 30)),
+    );
+    if (picked != null) {
+      setState(() {
+        _declarationDate = picked;
+        _submissionDateCtrl.text = picked.toIso8601String().substring(0, 10);
+      });
+    }
+  }
 
   // Compliance & HS Code Tariff States
   List<CustomsTariffModel> _matchedTariffs = [];
@@ -209,6 +285,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   void _onImportFileSelected(int? fileId) {
     setState(() => _selectedImportFileId = fileId);
     if (fileId == null) {
+      _declaration46NoCtrl.clear();
       _acidNumberCtrl.clear();
       _form4NumberCtrl.clear();
       _blNumberCtrl.clear();
@@ -278,7 +355,28 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     }
     _blNumberCtrl.text = blVal;
 
-    _declaration46NoCtrl.text = '46-ALX-${file.importFileCode}';
+    _declaration46NoCtrl.text = file.form46No ?? '';
+    if (file.form46Date != null && file.form46Date!.isNotEmpty) {
+      final parsedDate = DateTime.tryParse(file.form46Date!);
+      if (parsedDate != null) {
+        _declarationDate = parsedDate;
+        _submissionDateCtrl.text = parsedDate.toIso8601String().substring(0, 10);
+      }
+    }
+    if (file.portOfDischarge != null && file.portOfDischarge!.isNotEmpty) {
+      final pod = file.portOfDischarge!.toLowerCase();
+      if (pod.contains('dekheila') || pod.contains('دخيلة')) {
+        _selectedOffice = 'El Dekheila Port Customs';
+      } else if (pod.contains('alex') || pod.contains('إسكندرية')) {
+        _selectedOffice = 'Alexandria Port Customs';
+      } else if (pod.contains('said') || pod.contains('بورسعيد')) {
+        _selectedOffice = 'Port Said Customs';
+      } else if (pod.contains('damietta') || pod.contains('دمياط')) {
+        _selectedOffice = 'Damietta Port Customs';
+      } else if (pod.contains('sokhna') || pod.contains('سخنة')) {
+        _selectedOffice = 'Sokhna Port Customs';
+      }
+    }
 
     // 4. Extract HS codes and compute duties from backend tariff + customs FX only
     final allTariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
@@ -833,17 +931,76 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                           l,
                           bold: true,
                           accent: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
-                          validator: (val) => val == null || val.trim().isEmpty ? l.customsDeclRequiredField : null,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return l.customsDeclRequiredField;
+                            }
+                            if (val.trim().length < 3) {
+                              return l.customsDeclMinLength;
+                            }
+                            return null;
+                          },
                         ),
-                        _copyField(
-                          const Key('decl46DateField'),
-                          _submissionDateCtrl,
-                          l.customsDeclSubmissionDateLabel,
-                          Icons.calendar_today,
-                          l,
+                        TextFormField(
+                          key: const Key('decl46DateField'),
+                          controller: _submissionDateCtrl,
+                          readOnly: true,
+                          onTap: _selectSubmissionDate,
+                          validator: (val) => val == null || val.trim().isEmpty ? l.customsDeclRequiredField : null,
+                          decoration: InputDecoration(
+                            labelText: l.customsDeclSubmissionDateLabel,
+                            prefixIcon: const Icon(Icons.calendar_today),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month, size: 18),
+                              tooltip: l.customsDeclPickDateTooltip,
+                              onPressed: _selectSubmissionDate,
+                            ),
+                            border: const OutlineInputBorder(),
+                          ),
                         ),
                       ],
                       flex: const [2, 1],
+                    ),
+                    const SizedBox(height: 16),
+                    _fieldsRow(
+                      constraints.maxWidth,
+                      768,
+                      [
+                        SearchableDropdownField<String>(
+                          key: const Key('decl46OfficeDropdown'),
+                          labelText: l.ccDecOfficeLabel,
+                          hintText: l.ccDecOfficeHint,
+                          items: [
+                            for (var i = 0; i < _customsOffices.length; i++)
+                              SearchableDropdownItem<String>(
+                                value: _customsOffices[i],
+                                label: _officeLabel(l, i) == _customsOffices[i]
+                                    ? _customsOffices[i]
+                                    : '${_officeLabel(l, i)} (${_customsOffices[i]})',
+                              ),
+                          ],
+                          value: _selectedOffice,
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedOffice = val);
+                          },
+                        ),
+                        SearchableDropdownField<String>(
+                          key: const Key('decl46ChannelDropdown'),
+                          labelText: l.customsDeclChannelLabel,
+                          items: [
+                            for (final ch in _channelOptions)
+                              SearchableDropdownItem<String>(
+                                value: ch,
+                                label: '${_channelLabel(l, ch)} ($ch)',
+                              ),
+                          ],
+                          value: _selectedChannel,
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedChannel = val);
+                          },
+                        ),
+                      ],
+                      flex: const [1, 1],
                     ),
                     const SizedBox(height: 16),
                     _fieldsRow(
@@ -2058,8 +2215,8 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       a.primaryNameWithCode,
       a.supplierName,
       a.hsCode,
-      '${a.cifEgp.egpOrMissing(_miss)}',
-      '${a.totalDutiesEgp.egpOrMissing(_miss)}',
+      a.cifEgp.egpOrMissing(_miss),
+      a.totalDutiesEgp.egpOrMissing(_miss),
       a.status,
     ]).toList();
 
@@ -2084,19 +2241,44 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
     if (!_declarationFormKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.customsDeclSelectFileWarning), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, l.customsDeclSelectFileWarning, severity: AppSeverity.danger),
       );
       return;
     }
 
     setState(() => _isSavingDeclaration = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isSavingDeclaration = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.customsDeclSaveSuccess), backgroundColor: AppTheme.emerald),
-      );
-      setState(() => _selectedSubTab = 1);
+    try {
+      final payload = <String, dynamic>{
+        'import_file_id': _selectedImportFileId!,
+        'declaration_46_no': _declaration46NoCtrl.text.trim(),
+        'declaration_46_date': _declarationDate.toIso8601String(),
+        'customs_office_name': _selectedOffice,
+        'channel_type': _selectedChannel,
+        'regulatory_bodies': <String>[],
+        'mts_certificate_number': null,
+        'customs_tariff_items_count': _matchedTariffs.isNotEmpty ? _matchedTariffs.length : 1,
+        'inspection_notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+      };
+
+      await ref.read(customsClearanceProvider.notifier).registerDeclaration46(payload);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(context, l.customsDeclSaveSuccess, severity: AppSeverity.success),
+        );
+        ref.invalidate(importFilesProvider);
+        setState(() => _selectedSubTab = 1);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(context, l.ccDecError(ApiErrorText.of(l, e)), severity: AppSeverity.danger),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingDeclaration = false);
+      }
     }
   }
 }
