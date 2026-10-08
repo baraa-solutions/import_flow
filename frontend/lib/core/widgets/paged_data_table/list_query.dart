@@ -60,19 +60,25 @@ class ListQuery {
     return params;
   }
 
+  static const _unset = Object();
+
   /// Creates a copy of this query with modified properties.
   ListQuery copyWith({
     int? page,
     int? pageSize,
-    String? sort,
+    Object? sort = _unset,
+    bool clearSort = false,
     String? search,
     Map<String, Object?>? filters,
     bool? includeInactive,
   }) {
+    final effectiveSort = clearSort
+        ? null
+        : (identical(sort, _unset) ? this.sort : sort as String?);
     return ListQuery(
       page: page ?? this.page,
       pageSize: pageSize ?? this.pageSize,
-      sort: sort ?? this.sort,
+      sort: effectiveSort,
       search: search ?? this.search,
       filters: filters ?? this.filters,
       includeInactive: includeInactive ?? this.includeInactive,
