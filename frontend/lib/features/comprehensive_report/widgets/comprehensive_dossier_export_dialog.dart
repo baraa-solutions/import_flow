@@ -286,7 +286,9 @@ class _ComprehensiveDossierExportDialogState
           child: _kpiCard(
             title: 'قيمة البضاعة FOB',
             value: _formatFob(dossier),
-            subtitle: dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP',
+            subtitle: dossier.fobSource == 'ESTIMATE'
+                ? (dossier.totalFobEgp == null ? 'تقديري (— EGP)' : 'تقديري (${dossier.totalFobEgp!.toStringAsFixed(0)} EGP)')
+                : (dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP'),
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
           ),
@@ -296,7 +298,9 @@ class _ComprehensiveDossierExportDialogState
           child: _kpiCard(
             title: 'تكلفة الوصول الفعلية',
             value: '${dossier.actualLandedCostTotalEgp.toStringAsFixed(2)} EGP',
-            subtitle: 'معامل: ${dossier.actualLandedCostMarkupFactor.toStringAsFixed(3)}x',
+            subtitle: dossier.actualLandedCostMarkupFactor == null
+                ? '—'
+                : 'معامل: ${dossier.actualLandedCostMarkupFactor!.toStringAsFixed(3)}x',
             icon: Icons.account_balance_wallet_outlined,
             color: AppTheme.flatEmerald,
           ),

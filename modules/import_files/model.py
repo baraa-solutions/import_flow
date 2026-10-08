@@ -144,7 +144,7 @@ class ImportFile(Base):
     financial_settlement_invoices_count = Column(Integer, default=0, nullable=True)
     financial_settlement_total_egp = Column(Float, default=0.0, nullable=True)
     actual_landed_cost_total_egp = Column(Float, default=0.0, nullable=True)
-    actual_landed_cost_markup_factor = Column(Float, default=1.0, nullable=True)
+    actual_landed_cost_markup_factor = Column(Float, default=None, nullable=True)
     actual_landed_cost_variance_egp = Column(Float, default=0.0, nullable=True)
     actual_landed_cost_variance_pct = Column(Float, default=0.0, nullable=True)
     actual_landed_cost_calculated_at = Column(DateTime, nullable=True)
