@@ -1412,6 +1412,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'Unknown discrepancy type \'{discrepancy_type}\'.',
   },
+  'WR_FIELD_NOT_EDITABLE': {
+    'note': 'Field \'{field_name}\' cannot be edited directly.',
+  },
+  'WR_STATUS_CHANGE_NOT_ALLOWED': {
+    'note': 'Cannot change goods receipt status from \'{current_status}\' to \'{target_status}\'.',
+  },
   'WR_CUSTOMS_NOT_RELEASED': {
     'note': 'Cannot create warehouse receipt for file {import_file_code}: customs release or under-bond authorization required.',
   },
@@ -1420,6 +1426,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'IT_BOOKING_EXISTS': {
     'note': 'An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.',
+  },
+  'IT_CARRIER_INVALID': {
+    'note': 'Carrier with ID {carrier_id} is unknown or inactive.',
+  },
+  'IT_TRUCK_TYPE_INVALID': {
+    'note': 'Truck type \'{truck_type}\' is invalid.',
   },
   'IT_STATUS_INVALID': {
     'note': 'Unknown inland transport status \'{status}\'.',
@@ -1486,6 +1498,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'SETTLEMENT_LINE_ZERO_VALUE': {
     'note': 'Line {item_code} has no value: it is left out of the customs estimate.',
+  },
+  'SETTLEMENT_PO_NOT_ALLOCATED': {
+    'note': 'Purchase order {po_number} is allocated to other shipments and has no share for this file.',
   },
   'PAYMENT_STATUS_UNKNOWN': {
     'note': 'Invoice {invoice_no} is partially paid but the paid amount is unknown: counted as unpaid.',

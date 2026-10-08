@@ -113,13 +113,13 @@ class ComprehensiveReportExportService {
     // Section: Actual Landed Cost & Settlement (CLO-01 & CLO-02)
     final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
     if (actualLanded > 0) {
-      final markup = dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor;
+      final markup = dossier != null ? dossier.actualLandedCostMarkupFactor : (file.actualLandedCostMarkupFactor > 0 ? file.actualLandedCostMarkupFactor : null);
       final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
       final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
 
       sb.writeln('--- تكلفة الوصول الفعلية والتسوية المالية الشاملة (CLO-01 & CLO-02) ---');
       sb.writeln('إجمالي تكلفة الوصول الفعلية: ${actualLanded.toStringAsFixed(2)} EGP');
-      sb.writeln('معامل زيادة التكلفة (Markup Factor): ${markup.toStringAsFixed(3)}x');
+      sb.writeln('معامل زيادة التكلفة (Markup Factor): ${markup != null ? "${markup.toStringAsFixed(3)}x" : "—"}');
       sb.writeln('انحراف التكلفة الفعلية عن التقديرية: ${varianceEgp.toStringAsFixed(2)} EGP (${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(2)}%)');
       sb.writeln('حالة التسوية المالية: ${file.financialSettlementStatus ?? "COST_ALLOCATED"}');
       sb.writeln();
@@ -554,7 +554,14 @@ class ComprehensiveReportExportService {
                     _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
                     _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
                     if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) ...[
-                      _pdfTableRow('Actual Landed Cost', '${(dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP', 'Markup Factor', '${(dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor).toStringAsFixed(3)}x'),
+                      _pdfTableRow(
+                        'Actual Landed Cost',
+                        '${(dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP',
+                        'Markup Factor',
+                        ((dossier != null ? dossier.actualLandedCostMarkupFactor : file.actualLandedCostMarkupFactor) != null)
+                            ? '${(dossier != null ? dossier.actualLandedCostMarkupFactor! : file.actualLandedCostMarkupFactor).toStringAsFixed(3)}x'
+                            : '—',
+                      ),
                       _pdfTableRow('Variance', '${(dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp).toStringAsFixed(2)} EGP (${(dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct).toStringAsFixed(2)}%)', 'Settlement Status', file.financialSettlementStatus ?? 'COST_ALLOCATED'),
                     ],
                   ],
@@ -766,12 +773,12 @@ class ComprehensiveReportExportService {
     const sSettlement = 'التسوية وتكلفة الوصول الفعلية';
     if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) {
       final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
-      final markup = dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor;
+      final markup = dossier != null ? dossier.actualLandedCostMarkupFactor : (file.actualLandedCostMarkupFactor > 0 ? file.actualLandedCostMarkupFactor : null);
       final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
       final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
 
       addRow(sSettlement, 'إجمالي تكلفة الوصول الفعلية', '${actualLanded.toStringAsFixed(2)} EGP');
-      addRow(sSettlement, 'معامل الزيادة Markup Factor', '${markup.toStringAsFixed(3)}x');
+      addRow(sSettlement, 'معامل الزيادة Markup Factor', markup != null ? '${markup.toStringAsFixed(3)}x' : '—');
       addRow(sSettlement, 'انحراف التكلفة Variance', '${varianceEgp.toStringAsFixed(2)} EGP (${variancePct.toStringAsFixed(2)}%)');
       addRow(sSettlement, 'حالة التسوية', file.financialSettlementStatus ?? 'COST_ALLOCATED');
     }
