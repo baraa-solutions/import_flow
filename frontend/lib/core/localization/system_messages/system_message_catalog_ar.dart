@@ -1280,6 +1280,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SDU_ACID_CONFLICT': {
     'note': 'رقم ACID المستخرج {acid_number} يختلف عن الرقم المسجل في الملف {import_file_code} ({current_acid_number}).',
   },
+  'SDU_INVOICE_NUMBER_REQUIRED': {
+    'note': 'رقم الفاتورة مطلوب لربط بيانات الفاتورة بملف الشحنة.',
+  },
   'SDU_FILE_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} في حالة {status}: لا يمكن تطبيق البيانات المستخرجة عليه.',
   },

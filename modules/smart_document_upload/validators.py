@@ -255,3 +255,18 @@ def ensure_import_file_open(import_file) -> None:
                 "status": import_file.status,
             },
         )
+
+
+def ensure_invoice_number_present(invoice_number: Optional[str]) -> str:
+    """When applying to an import file, an invoice number is required (SDU-01 / BE03-T03): 400 SDU_INVOICE_NUMBER_REQUIRED."""
+    cleaned = (invoice_number or "").strip()
+    if not cleaned:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "SDU_INVOICE_NUMBER_REQUIRED",
+                "message": "رقم الفاتورة مطلوب لربط بيانات الفاتورة بملف الشحنة.",
+            },
+        )
+    return cleaned
+

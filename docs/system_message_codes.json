@@ -541,6 +541,14 @@
       "note"
     ]
   },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CT_CUSTOMS_RATE_MISSING": {
     "params": [
       "currency",
@@ -3497,6 +3505,12 @@
       "note"
     ]
   },
+  "SDU_INVOICE_NUMBER_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SDU_NO_SHIPPING_RECORD": {
     "params": [
       "import_file_code"
@@ -3551,6 +3565,14 @@
     "params": [
       "settlement_code",
       "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
     ],
     "parts": [
       "note"
@@ -3874,21 +3896,5 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
-  },
-  "CT_AGREEMENT_DATA_INVALID": {
-    "params": [
-      "reason"
-    ],
-    "parts": [
-      "note"
-    ]
-  },
-  "SETTLEMENT_PO_NOT_ALLOCATED": {
-    "params": [
-      "po_number"
-    ],
-    "parts": [
-      "note"
-    ]
   }
 }
