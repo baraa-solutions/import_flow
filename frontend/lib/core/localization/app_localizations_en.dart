@@ -13158,6 +13158,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'Reconciliation difference between the total and the item sum: $amount';
   @override String get settlementEstKpiDuty => 'Customs Duty';
   @override String get settlementEstKpiVatFees => 'VAT & Fees';
+  @override String get customsFxRateRequired => 'Customs exchange rate is required to calculate duties.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'Add PO lines with HS codes to estimate duties and taxes.';
+  @override String get customsMissingTariffBlockSave => 'Cannot save: Some lines are missing customs tariff. Please assign tariffs first.';
+  @override String get missingTariffLinesWarning => 'Lines missing customs tariffs';
   // === end review phase08_10 keys ===
 }
 

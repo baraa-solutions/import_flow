@@ -13159,6 +13159,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'فرق التسوية بين الإجمالي ومجموع الأصناف: $amount';
   @override String get settlementEstKpiDuty => 'ضريبة الوارد';
   @override String get settlementEstKpiVatFees => 'القيمة المضافة والرسوم';
+  @override String get customsFxRateRequired => 'سعر الصرف الجمركي مطلوب لاحتساب الرسوم والضرائب.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'يرجى إضافة بنود أوامر الشراء مصحوبة بالبنود الجمركية (HS Codes) لاحتساب الرسوم والضرائب بدقة.';
+  @override String get customsMissingTariffBlockSave => 'تعذر الحفظ: بعض البنود لا تحتوي على تعريفة جمركية. يرجى تعيين التعريفة الجمركية أولاً.';
+  @override String get missingTariffLinesWarning => 'بنود بدون تعريفة جمركية';
   // === end review phase08_10 keys ===
 }
 

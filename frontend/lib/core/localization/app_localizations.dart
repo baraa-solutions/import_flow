@@ -10440,6 +10440,10 @@ abstract class AppLocalizations {
   String settlementReconciliationNote(String amount);
   String get settlementEstKpiDuty;
   String get settlementEstKpiVatFees;
+  String get customsFxRateRequired;
+  String get addPoLinesWithHsToEstimateDuties;
+  String get customsMissingTariffBlockSave;
+  String get missingTariffLinesWarning;
   // === end review phase08_10 keys ===
 }
 
