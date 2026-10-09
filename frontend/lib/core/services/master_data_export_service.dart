@@ -3003,7 +3003,7 @@ Sorour Logistics ERP
 
     final csvContent = '$bom$headerMeta\n$headerRow\n${rows.join('\n')}';
     final prefix = fileNamePrefix ?? 'DynamicReport';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.csv';
 
     await FileSaveHelper.saveText(
       context: context,
@@ -3141,7 +3141,7 @@ Sorour Logistics ERP
 
     final bytes = await pdf.save();
     final prefix = fileNamePrefix ?? 'DynamicReport';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -3224,7 +3224,7 @@ Sorour Logistics ERP
     final prefix = shipmentCode != null && shipmentCode.isNotEmpty
         ? 'ShipmentUpdates_${shipmentCode.replaceAll(RegExp(r'[^\w\-]'), '_')}'
         : 'ShipmentUpdates';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.csv';
 
     if (!context.mounted) return;
     await FileSaveHelper.saveText(
@@ -3391,7 +3391,7 @@ Sorour Logistics ERP
     final prefix = shipmentCode != null && shipmentCode.isNotEmpty
         ? 'ShipmentUpdates_${shipmentCode.replaceAll(RegExp(r'[^\w\-]'), '_')}'
         : 'ShipmentUpdates';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -3606,7 +3606,7 @@ Sorour Logistics ERP
       ].join(','));
     }
 
-    final filename = 'Import_Requirements_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Import_Requirements_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -3735,7 +3735,7 @@ Sorour Logistics ERP
     );
 
     final bytes = await pdf.save();
-    final filename = 'Import_Requirements_Registry_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Import_Requirements_Registry_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -4042,7 +4042,7 @@ _Generated via Sorour Logistics ERP_
       csvContent.writeln(r.map((c) => '"${c.replaceAll('"', '""')}"').join(','));
     }
 
-    final filename = 'Demurrage_Trackings_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Demurrage_Trackings_${_formatDate(DateTime.now())}.csv';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -4178,7 +4178,7 @@ _Generated via Sorour Logistics ERP_
     );
 
     final bytes = await pdf.save();
-    final filename = 'Demurrage_Trackings_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Demurrage_Trackings_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -4519,7 +4519,7 @@ _Generated via Sorour Logistics ERP_
       csvContent.writeln(r.map((c) => '"${c.replaceAll('"', '""')}"').join(','));
     }
 
-    final filename = 'Carrier_Demurrage_Policies_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Carrier_Demurrage_Policies_${_formatDate(DateTime.now())}.csv';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
