@@ -108,8 +108,8 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
   final TextEditingController _secondaryEmailCtrl = TextEditingController();
   final TextEditingController _websiteCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
-  final TextEditingController _countryCtrl = TextEditingController(text: 'China (CN)');
-  final TextEditingController _countryCodeCtrl = TextEditingController(text: 'CN');
+  final TextEditingController _countryCtrl = TextEditingController();
+  final TextEditingController _countryCodeCtrl = TextEditingController();
 
   final TextEditingController _cargoxIdCtrl = TextEditingController();
   final TextEditingController _foreignTaxIdCtrl = TextEditingController();
@@ -176,24 +176,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
   }
 
   void _setupInitialDefaults() {
-    switch (_selectedTarget) {
-      case EntityTarget.supplier:
-        _countryCtrl.text = 'China (CN)';
-        _countryCodeCtrl.text = 'CN';
-        break;
-      case EntityTarget.company:
-      case EntityTarget.customsBroker:
-      case EntityTarget.inlandTransport:
-      case EntityTarget.bank:
-      case EntityTarget.partner:
-        _countryCtrl.text = 'Egypt (EG)';
-        _countryCodeCtrl.text = 'EG';
-        break;
-      default:
-        _countryCtrl.text = 'Egypt (EG)';
-        _countryCodeCtrl.text = 'EG';
-        break;
-    }
+    // Keep controllers empty for clean state
   }
 
   @override

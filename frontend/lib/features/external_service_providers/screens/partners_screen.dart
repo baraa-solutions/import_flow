@@ -1307,7 +1307,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
     final Set<String> selectedCategories = partnerToEdit != null
         ? partnerToEdit.categoriesList.toSet()
-        : {'Customs Broker'};
+        : <String>{};
 
     final nameCtrl = TextEditingController(text: partnerToEdit?.partnerName ?? '');
     final taxIdCtrl = TextEditingController(text: partnerToEdit?.taxId ?? '');
@@ -1321,13 +1321,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final insuranceCoverageCtrl = TextEditingController(text: partnerToEdit?.insuranceCoverageTypes ?? '');
     final scacCtrl = TextEditingController(text: partnerToEdit?.scacCode ?? '');
     final defaultFreeDaysCtrl = TextEditingController(
-      text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '14',
+      text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '',
     );
     final trackingCtrl = TextEditingController(text: partnerToEdit?.trackingUrl ?? '');
     final fiataCtrl = TextEditingController(text: partnerToEdit?.fiataId ?? '');
     final shippingModesCtrl = TextEditingController(text: partnerToEdit?.shippingModes ?? '');
     final supportedCurrenciesCtrl = TextEditingController(
-      text: partnerToEdit?.supportedCurrencies ?? (partnerToEdit != null ? '' : 'USD, EUR, EGP'),
+      text: partnerToEdit?.supportedCurrencies ?? '',
     );
     final accreditationCtrl = TextEditingController(text: partnerToEdit?.inspectionAccreditationNumber ?? '');
     final inspectionScopeCtrl = TextEditingController(text: partnerToEdit?.inspectionScope ?? '');
@@ -1341,7 +1341,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final secondaryEmailCtrl = TextEditingController(text: partnerToEdit?.secondaryEmail ?? '');
     final websiteCtrl = TextEditingController(text: partnerToEdit?.website ?? '');
     final addressCtrl = TextEditingController(text: partnerToEdit?.address ?? '');
-    final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? 'Egypt');
+    final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? '');
 
     bool isSubmitting = false;
 

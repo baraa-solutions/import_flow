@@ -640,7 +640,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
 
     final nameCtrl = TextEditingController(text: companyToEdit?.importerName ?? '');
     final addressCtrl = TextEditingController(text: companyToEdit?.address ?? '');
-    final countryCtrl = TextEditingController(text: companyToEdit?.country ?? 'Egypt');
+    final countryCtrl = TextEditingController(text: companyToEdit?.country ?? '');
     final impIdCtrl = TextEditingController(text: companyToEdit?.importerId ?? '');
     final vatIdCtrl = TextEditingController(text: companyToEdit?.vatId ?? '');
     final regNumCtrl = TextEditingController(text: companyToEdit?.registrationNumber ?? '');
