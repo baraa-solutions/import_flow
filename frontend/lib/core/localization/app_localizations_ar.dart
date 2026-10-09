@@ -12309,6 +12309,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepError(String error) => 'تعذر تأكيد الإبحار: $error';
   @override String get fbkStatusCancelled => 'ملغي';
   @override String get fbkMixedCurrencyError => 'يجب أن تستخدم كافة بنود التكلفة عملة واحدة حتى تتوفر ميزة تحويل العملات';
+  @override String get demPushNeedsLinkedFile => 'لا يمكن الترحيل للتسوية المالية: يجب ربط ملف استيراد أولاً';
+  @override String get demPushConfirmTitle => 'تأكيد الترحيل للتسوية المالية';
+  @override String get demPushConfirmMessage => 'هل أنت متأكد من ترحيل مصاريف الأرضيات وغرامات التأخير إلى ملف التسوية المالية؟';
+  @override String get demPushConfirmFileCode => 'ملف الاستيراد';
+  @override String get demPushConfirmDemurrageFx => 'إجمالي غرامات التأخير';
+  @override String get demPushConfirmDetentionFx => 'إجمالي غرامات الحاويات';
+  @override String get demPushConfirmStorageEgp => 'إجمالي رسوم التخزين';
+  @override String get demPushConfirmRate => 'سعر الصرف';
+  @override String get demPushConfirmTotalEgp => 'إجمالي تكلفة التسوية';
+  @override String get demPushConfirmBtn => 'تأكيد والترحيل';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
