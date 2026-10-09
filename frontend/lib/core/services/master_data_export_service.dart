@@ -19,13 +19,31 @@ import '../../features/import_requirements/models/import_requirement_model.dart'
 import '../../features/demurrage_detention/models/demurrage_model.dart';
 
 class MasterDataExportService {
-  static String _formatDate(DateTime? dt) {
+  /// Standardized safe date formatting for export documents (YYYY-MM-DD).
+  static String formatDateSafe(dynamic dt) {
     if (dt == null) return '-';
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
+    if (dt is DateTime) {
+      final y = dt.year.toString().padLeft(4, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final d = dt.day.toString().padLeft(2, '0');
+      return '$y-$m-$d';
+    }
+    final str = dt.toString().trim();
+    if (str.isEmpty || str == 'null' || str == '-') return '-';
+    final parsed = DateTime.tryParse(str);
+    if (parsed != null) {
+      final y = parsed.year.toString().padLeft(4, '0');
+      final m = parsed.month.toString().padLeft(2, '0');
+      final d = parsed.day.toString().padLeft(2, '0');
+      return '$y-$m-$d';
+    }
+    if (str.length >= 10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(str)) {
+      return str.substring(0, 10);
+    }
+    return str;
   }
+
+  static String _formatDate(dynamic dt) => formatDateSafe(dt);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. EGYPTIAN IMPORT COMPANIES (الشركات المستوردة)
@@ -234,7 +252,7 @@ class MasterDataExportService {
           ? company.importerName.trim()
           : company.importerId,
     );
-    final filename = '${safeName}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -567,7 +585,7 @@ Sorour Logistics ERP
           ? supplier.companyName.trim()
           : supplier.supplierCode,
     );
-    final filename = '${safeName}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -938,7 +956,7 @@ Sorour Logistics ERP
           ? partner.partnerName.trim()
           : partner.partnerCode,
     );
-    final filename = '${safeName}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1277,7 +1295,7 @@ Sorour Logistics ERP
       buffer.writeln('"${(r.costItemName ?? "-").replaceAll('"', '""')}","${r.costCategory ?? "-"}","$party",${r.includedInIncoterm ? "نعم" : "لا"},"${(r.notes ?? "-").replaceAll('"', '""')}"');
     }
 
-    final filename = 'MasterData_Incoterm_${incoterm.incotermCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Incoterm_${incoterm.incotermCode}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1579,7 +1597,7 @@ Sorour Logistics ERP
       );
     }
 
-    final filename = 'Customs_Tariffs_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Customs_Tariffs_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1813,7 +1831,7 @@ Sorour Logistics ERP
       buffer.writeln('$code,$name,$type,$country,$city,$status,$notes');
     }
 
-    final filename = 'Transport_Locations_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Transport_Locations_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
