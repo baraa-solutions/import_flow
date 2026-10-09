@@ -217,7 +217,102 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.email_outlined, l10n.emailRowLabel, company.email ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.smartphone, 'الموبايل / Mobile', company.mobileNumber ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.print, 'الفاكس / Fax', company.faxNumber ?? '-'),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.email_outlined, 'البريد الأساسي', company.primaryEmail ?? company.email ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.mark_email_read_outlined, 'البريد الثانوي', company.secondaryEmail ?? '-'),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.language, 'الموقع الإلكتروني / Website', company.website ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.vpn_key_rounded,
+                                  'Nafeza E-Token',
+                                  (company.nafezaToken != null && company.nafezaToken!.isNotEmpty)
+                                      ? '****${company.nafezaToken!.length > 4 ? company.nafezaToken!.substring(company.nafezaToken!.length - 4) : company.nafezaToken!}'
+                                      : '-',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Section 3: Trademark & Quality Certificates ───────────────────
+                    _buildSectionHeader(Icons.verified_rounded, 'شهادات العلامة التجارية والجودة / Trademark Certificates & ISO'),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.verified_outlined,
+                                  'WIPO Madrid Monitor',
+                                  company.hasWipo ? (company.wipoNumber != null && company.wipoNumber!.isNotEmpty ? 'مسجل (#${company.wipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.verified_outlined,
+                                  'EUIPO (أوروبا)',
+                                  company.hasEuipo ? (company.euipoNumber != null && company.euipoNumber!.isNotEmpty ? 'مسجل (#${company.euipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.public,
+                                  'Global Brand Database',
+                                  company.hasGlobalBrand ? (company.globalBrandNumber != null && company.globalBrandNumber!.isNotEmpty ? 'مسجل (#${company.globalBrandNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.workspace_premium_outlined,
+                                  'ISO 9001 Certificate',
+                                  company.hasIso9001 ? (company.iso9001Number != null && company.iso9001Number!.isNotEmpty ? 'معتمد (#${company.iso9001Number})' : 'نعم (معتمد)') : 'غير معتمد',
+                                ),
                               ),
                             ],
                           ),

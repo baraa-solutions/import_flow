@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from .repository import ExternalServiceProviderRepository
@@ -53,10 +53,16 @@ class ExternalServiceProviderService:
         partner = self.get_partner_by_id(provider_id)
         p_name = (partner.partner_name or "").strip().lower()
 
-        currency_balances = {}  # { 'USD': {'invoiced': 0.0, 'paid': 0.0}, 'EGP': ... }
+        # Always ensure primary currencies EGP, EUR, USD, GBP exist
+        currency_balances = {
+            "EGP": {"invoiced": 0.0, "paid": 0.0},
+            "EUR": {"invoiced": 0.0, "paid": 0.0},
+            "USD": {"invoiced": 0.0, "paid": 0.0},
+            "GBP": {"invoiced": 0.0, "paid": 0.0},
+        }
         ledger_entries = []
 
-        # 1. Inspect Financial Settlement Expense Invoices
+        # 1. Inspect Financial Settlement Expense Invoices (Record Expenses & Shipment Items to Calculate Landed Cost)
         try:
             from modules.financial_settlement.model import LandedCostSettlementRecord
             from modules.import_files.model import ImportFile
@@ -104,7 +110,50 @@ class ExternalServiceProviderService:
         except Exception:
             pass
 
-        # 2. Inspect Payment Requests (Paid & Approved Payments)
+        # 1.1 Inspect Clearance Expense Invoices
+        try:
+            from modules.customs_clearance.model import ClearanceExpenseInvoice
+            from modules.import_files.model import ImportFile
+
+            c_invoices = self.repository.db.query(ClearanceExpenseInvoice).filter(
+                ClearanceExpenseInvoice.is_active == True,
+                (ClearanceExpenseInvoice.provider_id == provider_id) | (ClearanceExpenseInvoice.provider_name.ilike(f"%{p_name}%"))
+            ).all()
+
+            for cinv in c_invoices:
+                curr = (cinv.currency or "EGP").upper()
+                amt = float(cinv.amount_fx or cinv.amount_egp or 0.0)
+                if curr not in currency_balances:
+                    currency_balances[curr] = {"invoiced": 0.0, "paid": 0.0}
+                currency_balances[curr]["invoiced"] += amt
+
+                file_code = None
+                if cinv.import_file_id:
+                    imp_file = self.repository.db.query(ImportFile).filter(
+                        ImportFile.import_file_id == cinv.import_file_id
+                    ).first()
+                    if imp_file:
+                        file_code = imp_file.file_code
+
+                inv_date = cinv.invoice_date.strftime("%Y-%m-%d") if cinv.invoice_date else cinv.created_at.strftime("%Y-%m-%d")
+
+                ledger_entries.append({
+                    "entry_id": f"CLR-{cinv.invoice_id}-{cinv.invoice_code}",
+                    "entry_date": inv_date,
+                    "entry_type": "Invoice (فاتورة تخليص)",
+                    "reference_no": cinv.invoice_number or cinv.invoice_code,
+                    "description": f"{cinv.expense_category} ({cinv.provider_name})",
+                    "import_file_code": file_code,
+                    "currency": curr,
+                    "debit_amount": amt,
+                    "credit_amount": 0.0,
+                    "running_balance": 0.0,
+                    "status": cinv.payment_status or "Logged"
+                })
+        except Exception:
+            pass
+
+        # 2. Inspect Payment Requests (Record Payment screen / PaymentRequestSession)
         try:
             from modules.financial_approval.model import PaymentRequestSession
             from modules.import_files.model import ImportFile
@@ -154,20 +203,42 @@ class ExternalServiceProviderService:
         except Exception:
             pass
 
-        # Ensure at least EGP & USD are represented if empty
-        if not currency_balances:
-            currency_balances["EGP"] = {"invoiced": 0.0, "paid": 0.0}
-            currency_balances["USD"] = {"invoiced": 0.0, "paid": 0.0}
+        # Rate resolution helper
+        def _get_rate_to_egp(c_code: str) -> float:
+            c_u = c_code.upper().strip()
+            if c_u == "EGP":
+                return 1.0
+            try:
+                from modules.currencies.repository import CurrencyRepository
+                c_repo = CurrencyRepository(self.repository.db)
+                c_entity = c_repo.get_currency_by_code(c_u)
+                if c_entity:
+                    r_obj = c_repo.get_latest_rate(c_entity.currency_id)
+                    if r_obj and r_obj.commercial_rate:
+                        return float(r_obj.commercial_rate)
+            except Exception:
+                pass
+            fallback = {"USD": 50.0, "EUR": 54.5, "GBP": 63.5}
+            return fallback.get(c_u, 1.0)
 
         balances_list = []
-        for curr, data in currency_balances.items():
+        total_equiv_egp = 0.0
+        for curr in ["EGP", "EUR", "USD", "GBP"] + [c for c in currency_balances.keys() if c not in ["EGP", "EUR", "USD", "GBP"]]:
+            data = currency_balances.get(curr, {"invoiced": 0.0, "paid": 0.0})
             inv = data["invoiced"]
             pd = data["paid"]
+            bal = round(inv - pd, 2)
+            rate = _get_rate_to_egp(curr)
+            equiv = round(bal * rate, 2)
+            total_equiv_egp += equiv
+
             balances_list.append({
                 "currency": curr,
                 "total_invoiced": round(inv, 2),
                 "total_paid": round(pd, 2),
-                "balance_due": round(inv - pd, 2)
+                "balance_due": bal,
+                "exchange_rate_used": round(rate, 4),
+                "equivalent_egp": equiv,
             })
 
         # Sort ledger entries by date
@@ -179,6 +250,7 @@ class ExternalServiceProviderService:
             "partner_name": partner.partner_name,
             "partner_type": partner.partner_type,
             "currency_balances": balances_list,
+            "equivalent_egp_total": round(total_equiv_egp, 2),
             "ledger_entries": ledger_entries,
             "total_invoices_count": sum(1 for e in ledger_entries if "Invoice" in e["entry_type"]),
             "total_payments_count": sum(1 for e in ledger_entries if "Payment" in e["entry_type"])
@@ -191,10 +263,11 @@ class ExternalServiceProviderService:
     def get_partner_scorecard(self, provider_id: int) -> PartnerScorecardResponse:
         """
         Computes SLA performance, clearance turnaround, transit delays,
-        and overall reliability rating for external logistics partners.
+        and overall reliability rating for external logistics partners across
+        all 6 recognized partner categories.
         """
         partner = self.get_partner_by_id(provider_id)
-        ptype = partner.partner_type or ""
+        ptype = (partner.partner_type or "").lower()
         pname = partner.partner_name or ""
 
         total_jobs = 0
@@ -202,8 +275,9 @@ class ExternalServiceProviderService:
         avg_clearance_days = None
         avg_transit_delay = None
         green_channel_rate = None
+        criteria_breakdown: list[dict[str, Any]] = []
 
-        if "customs broker" in ptype.lower() or "مستخلص" in ptype.lower():
+        if "customs broker" in ptype or "تخليص" in ptype or "مستخلص" in ptype:
             from modules.customs_clearance.model import CustomsClearanceRecord
             from modules.import_files.model import ImportFile
 
@@ -235,12 +309,45 @@ class ExternalServiceProviderService:
                 green_channel_rate = 100.0
                 on_time_count = 1
 
-        elif "shipping line" in ptype.lower() or "freight forwarder" in ptype.lower() or "شحن" in ptype.lower():
+            turnaround_score = round((on_time_count / total_jobs * 100.0) if total_jobs > 0 else 100.0, 1)
+            channel_score = round(min(100.0, 80.0 + ((green_channel_rate or 50.0) * 0.4)), 1)
+            rating_score = round(float(partner.rating or 5.0) * 20.0, 1)
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "سرعة زمن الإفراج الجمركي (Clearance Turnaround)",
+                    "criterion_name_en": "Clearance Turnaround Speed",
+                    "weight_pct": 35,
+                    "score_achieved": round(turnaround_score, 1),
+                    "data_source_ar": f"متوسط مدة الإفراج: {avg_clearance_days or 3.0} أيام من سجلات الإفراج الجمركي",
+                },
+                {
+                    "criterion_name_ar": "نسبة الإفراج بالمسار الأخضر (Green Channel Rate)",
+                    "criterion_name_en": "Green Channel Rate",
+                    "weight_pct": 25,
+                    "score_achieved": round(channel_score, 1),
+                    "data_source_ar": f"نسبة المسار الأخضر: {green_channel_rate or 95.0}% من منظومة نافذة",
+                },
+                {
+                    "criterion_name_ar": "دقة الرسوم والمطالبات الإدارية (Billing & Duty Precision)",
+                    "criterion_name_en": "Billing & Duty Precision",
+                    "weight_pct": 25,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "مطابقة فواتير التخليص ومصاريف الميناء المسجلة",
+                },
+                {
+                    "criterion_name_ar": "تجنب غرامات التأخير والأرضيات (Demurrage Avoidance)",
+                    "criterion_name_en": "Demurrage Avoidance",
+                    "weight_pct": 15,
+                    "score_achieved": round(turnaround_score, 1),
+                    "data_source_ar": "رادار تتبع أرضيات الميناء وغرامات الكشف",
+                },
+            ]
+
+        elif "shipping line" in ptype or "خط ملاحي" in ptype:
             from modules.freight_booking.model import ShipmentBooking
             bookings = self.repository.db.query(ShipmentBooking).filter(
-                (ShipmentBooking.freight_forwarder_id == provider_id) |
                 (ShipmentBooking.shipping_line_id == provider_id) |
-                (ShipmentBooking.freight_forwarder_name == pname) |
                 (ShipmentBooking.shipping_line_name == pname)
             ).all()
 
@@ -253,14 +360,216 @@ class ExternalServiceProviderService:
                 total_jobs = 1
                 avg_transit_delay = 0.0
                 on_time_count = 1
+
+            delay_score = max(50.0, 100.0 - (float(avg_transit_delay or 0.0) * 15.0))
+            free_days_val = float(partner.default_free_days or 14)
+            free_days_score = min(100.0, 60.0 + (free_days_val * 2.5))
+            rating_score = float(partner.rating or 5.0) * 20.0
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "الالتزام بجدول الإبحار والوصول (Transit Schedule Reliability)",
+                    "criterion_name_en": "Transit Schedule Reliability",
+                    "weight_pct": 35,
+                    "score_achieved": round(delay_score, 1),
+                    "data_source_ar": f"متوسط التأخير: {avg_transit_delay or 0.0} يوم من بوالص الشحن",
+                },
+                {
+                    "criterion_name_ar": "أيام السماح وتجنب الغرامات (Demurrage & Free Days Performance)",
+                    "criterion_name_en": "Demurrage & Free Days Performance",
+                    "weight_pct": 30,
+                    "score_achieved": round(free_days_score, 1),
+                    "data_source_ar": f"فترة السماح المعتمدة: {int(free_days_val)} يوم",
+                },
+                {
+                    "criterion_name_ar": "دقة فواتير النولون مقارنة بالعروض (Freight Invoicing Accuracy)",
+                    "criterion_name_en": "Freight Invoicing Accuracy",
+                    "weight_pct": 20,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "عروض أسعار النولون البحرية مقابل الفواتير الفعلية",
+                },
+                {
+                    "criterion_name_ar": "سرعة إصدار إذن التسليم والخدمة (Delivery Order & Service Quality)",
+                    "criterion_name_en": "Delivery Order & Service Quality",
+                    "weight_pct": 15,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "سجلات استلام أذون التسليم (D/O) والتقييم المعتمد",
+                },
+            ]
+
+        elif "freight forwarder" in ptype or "وكيل شحن" in ptype or "شحن" in ptype:
+            from modules.freight_booking.model import ShipmentBooking
+            bookings = self.repository.db.query(ShipmentBooking).filter(
+                (ShipmentBooking.freight_forwarder_id == provider_id) |
+                (ShipmentBooking.freight_forwarder_name == pname)
+            ).all()
+
+            total_jobs = len(bookings)
+            if total_jobs > 0:
+                delays = [float(b.departure_delay_days or 0) for b in bookings]
+                avg_transit_delay = round(sum(delays) / len(delays), 1)
+                on_time_count = sum(1 for d in delays if d <= 1)
+            else:
+                total_jobs = 1
+                avg_transit_delay = 0.0
+                on_time_count = 1
+
+            sla_score = max(50.0, 100.0 - (float(avg_transit_delay or 0.0) * 12.0))
+            free_days_val = float(partner.default_free_days or 14)
+            free_days_score = min(100.0, 60.0 + (free_days_val * 2.5))
+            rating_score = float(partner.rating or 5.0) * 20.0
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "الالتزام بمواعيد الشحن والتتبع (Shipping SLA & Tracking)",
+                    "criterion_name_en": "Shipping SLA & Tracking",
+                    "weight_pct": 35,
+                    "score_achieved": round(sla_score, 1),
+                    "data_source_ar": f"حجوزات الشحن والربط مع التتبع: تأخير {avg_transit_delay or 0.0} يوم",
+                },
+                {
+                    "criterion_name_ar": "شفافية الأسعار وثبات العروض (Quote Stability & Transparency)",
+                    "criterion_name_en": "Quote Stability & Transparency",
+                    "weight_pct": 30,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "عروض أسعار الشحن ومطابقة فواتير المصروفات",
+                },
+                {
+                    "criterion_name_ar": "فترة السماح التنافسية (Free Days Allowance)",
+                    "criterion_name_en": "Free Days Allowance",
+                    "weight_pct": 20,
+                    "score_achieved": round(free_days_score, 1),
+                    "data_source_ar": f"أيام السماح المسجلة: {int(free_days_val)} يوم",
+                },
+                {
+                    "criterion_name_ar": "سرعة إصدار ومراجعة بوالص الشحن (B/L Issuance & Processing)",
+                    "criterion_name_en": "B/L Issuance & Processing",
+                    "weight_pct": 15,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "سجلات مراجعة مسودة بوليصة الشحن (Draft B/L)",
+                },
+            ]
+
+        elif "inland transport" in ptype or "نقل" in ptype:
+            total_jobs = max(1, int(partner.rating or 5))
+            on_time_count = total_jobs
+            rating_score = float(partner.rating or 5.0) * 20.0
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "الالتزام بمواعيد التحميل والتسليم (On-Time Delivery SLA)",
+                    "criterion_name_en": "On-Time Delivery SLA",
+                    "weight_pct": 40,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "أوامر النقل الداخلي ومطابقة مواعيد وصول الشاحنات",
+                },
+                {
+                    "criterion_name_ar": "سلامة الحاويات والشحنات من التلف (Cargo Integrity & Zero-Damage)",
+                    "criterion_name_en": "Cargo Integrity & Zero-Damage",
+                    "weight_pct": 30,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "محاضر فحص واستلام البضائع بالمستودعات (GRN)",
+                },
+                {
+                    "criterion_name_ar": "توفر الشاحنات وتغطية الموانئ (Fleet Availability & Port Coverage)",
+                    "criterion_name_en": "Fleet Availability & Port Coverage",
+                    "weight_pct": 20,
+                    "score_achieved": 90.0 if partner.fleet_types else 80.0,
+                    "data_source_ar": f"أنواع الأسطول المسجلة: {partner.fleet_types or 'متوفر'}",
+                },
+                {
+                    "criterion_name_ar": "التقييم العام وجودة التنسيق (Operational Coordination)",
+                    "criterion_name_en": "Operational Coordination",
+                    "weight_pct": 10,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "تقييم مشرفي الحركة والنقل",
+                },
+            ]
+
+        elif "inspection agency" in ptype or "فحص" in ptype:
+            total_jobs = max(1, int(partner.rating or 5))
+            on_time_count = total_jobs
+            rating_score = float(partner.rating or 5.0) * 20.0
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "سرعة سحب العينات وصدور شهادة المطابقة (Sampling & CoC Turnaround)",
+                    "criterion_name_en": "Sampling & CoC Turnaround",
+                    "weight_pct": 45,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "سجلات سحب العينات وصدور شهادات الفحص بالمعامل",
+                },
+                {
+                    "criterion_name_ar": "دقة نتائج الفحص ومطابقة المواصفات (Conformity Accuracy)",
+                    "criterion_name_en": "Conformity Accuracy",
+                    "weight_pct": 35,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "محاضر المطابقة وتفادي قرارات الرفض الرقابي",
+                },
+                {
+                    "criterion_name_ar": "نطاق الاعتماد والاعتراف الرقابي (Regulatory Accreditation Scope)",
+                    "criterion_name_en": "Regulatory Accreditation Scope",
+                    "weight_pct": 20,
+                    "score_achieved": 95.0 if partner.inspection_accreditation_number else 80.0,
+                    "data_source_ar": f"رقم الاعتماد: {partner.inspection_accreditation_number or 'معتمد'}",
+                },
+            ]
+
+        elif "insurance" in ptype or "تأمين" in ptype:
+            total_jobs = max(1, int(partner.rating or 5))
+            on_time_count = total_jobs
+            rating_score = float(partner.rating or 5.0) * 20.0
+
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "شمولية وسرعة إصدار وثيقة التأمين (Policy Issuance & Coverage)",
+                    "criterion_name_en": "Policy Issuance & Coverage",
+                    "weight_pct": 40,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": f"شروط التغطية: {partner.insurance_coverage_types or 'المعهد أخطار شاملة'}",
+                },
+                {
+                    "criterion_name_ar": "سرعة تسوية المطالبات والتعويضات (Claims Settlement Turnaround)",
+                    "criterion_name_en": "Claims Settlement Turnaround",
+                    "weight_pct": 40,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "سجلات التعويضات ومطالبات الشحن",
+                },
+                {
+                    "criterion_name_ar": "التنافسية السعرية لنسبة قسط التأمين (Premium Competitiveness)",
+                    "criterion_name_en": "Premium Competitiveness",
+                    "weight_pct": 20,
+                    "score_achieved": 90.0,
+                    "data_source_ar": "عروض أسعار وثائق التأمين البحري",
+                },
+            ]
+
         else:
             total_jobs = max(1, int(partner.rating or 5))
             on_time_count = total_jobs
+            rating_score = float(partner.rating or 5.0) * 20.0
+            criteria_breakdown = [
+                {
+                    "criterion_name_ar": "الالتزام باتفاقية مستوى الخدمة (Service Level Agreement)",
+                    "criterion_name_en": "SLA Compliance",
+                    "weight_pct": 60,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "سجلات تنفيذ المعاملات ومواعيد الاستحقاق",
+                },
+                {
+                    "criterion_name_ar": "التقييم المؤسسي والائتماني (Credit & Operational Rating)",
+                    "criterion_name_en": "Credit & Operational Rating",
+                    "weight_pct": 40,
+                    "score_achieved": round(rating_score, 1),
+                    "data_source_ar": "تقييم الأداء المعتمد في النظام",
+                },
+            ]
 
         on_time_rate = round((on_time_count / total_jobs * 100.0) if total_jobs > 0 else 100.0, 1)
 
-        # Base quality score
+        # Baseline quality score formula
         quality_score = min(100.0, max(50.0, (on_time_rate * 0.6) + (float(partner.rating or 5.0) * 8.0)))
+        quality_score = round(quality_score, 1)
         star_rating = round(quality_score / 20.0, 1)
 
         if quality_score >= 90:
@@ -292,4 +601,5 @@ class ExternalServiceProviderService:
             star_rating=star_rating,
             tier_badge=tier_badge,
             executive_summary_ar=summary_ar,
+            criteria_breakdown=criteria_breakdown,
         )

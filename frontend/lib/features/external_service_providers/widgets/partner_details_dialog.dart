@@ -288,18 +288,6 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 12),
                               ],
-                              if (partner.defaultFreeDays != null) ...[
-                                Expanded(
-                                  child: _buildCopyableInfoField(
-                                    context: context,
-                                    label: l10n.defaultFreeDaysLabel,
-                                    value: l10n.partnerFreeDaysBadge(partner.defaultFreeDays!),
-                                    icon: Icons.timer_outlined,
-                                    highlightColor: AppTheme.emerald,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                              ],
                               if (partner.fiataId != null && partner.fiataId!.isNotEmpty) ...[
                                 Expanded(
                                   child: _buildCopyableInfoField(
@@ -491,7 +479,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 child: _buildSimpleInfoField(
                                   context: context,
                                   label: l10n.paymentTermsDetailLabel,
-                                  value: partner.paymentType,
+                                  value: (partner.paymentTerms != null && partner.paymentTerms!.isNotEmpty)
+                                      ? partner.paymentTerms!
+                                      : partner.paymentType,
                                   icon: Icons.credit_score_rounded,
                                 ),
                               ),
@@ -504,6 +494,17 @@ class PartnerDetailsDialog extends StatelessWidget {
                                   icon: Icons.monetization_on_outlined,
                                 ),
                               ),
+                              if (partner.defaultFreeDays != null) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildSimpleInfoField(
+                                    context: context,
+                                    label: l10n.defaultFreeDaysLabel,
+                                    value: l10n.partnerFreeDaysBadge(partner.defaultFreeDays!),
+                                    icon: Icons.timer_outlined,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(

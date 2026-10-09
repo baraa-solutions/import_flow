@@ -233,7 +233,12 @@ class MasterDataExportService {
     buffer.writeln('الدولة,${company.country}');
     buffer.writeln('العنوان,"${company.address.replaceAll('"', '""')}"');
     buffer.writeln('الهاتف,${company.phone ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${company.email ?? "-"}');
+    buffer.writeln('المحمول,${company.mobileNumber ?? "-"}');
+    buffer.writeln('الفاكس,${company.faxNumber ?? "-"}');
+    buffer.writeln('البريد الإلكتروني,${company.primaryEmail ?? company.email ?? "-"}');
+    buffer.writeln('البريد الثانوي,${company.secondaryEmail ?? "-"}');
+    buffer.writeln('الموقع الإلكتروني,${company.website ?? "-"}');
+    buffer.writeln('توكن نافذة,${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? "****" : "-"}');
     buffer.writeln('');
 
     buffer.writeln('--- بيانات القيد والتسجيلات الرسمية ---');
@@ -241,6 +246,13 @@ class MasterDataExportService {
     buffer.writeln('البطاقة الاستيرادية,${company.importerId},${_formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${company.daysUntilImporterIdExpiry > 0 ? "سارية" : "منتهية"}');
     buffer.writeln('البطاقة الضريبية,${company.vatId},${_formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${company.daysUntilVatExpiry > 0 ? "سارية" : "منتهية"}');
     buffer.writeln('السجل التجاري,${company.registrationNumber},${_formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${company.daysUntilRegExpiry > 0 ? "سارٍ" : "منتهٍ"}');
+    buffer.writeln('');
+
+    buffer.writeln('--- شهادات العلامات التجارية والجودة ---');
+    buffer.writeln('WIPO Madrid Monitor,${company.hasWipo ? (company.wipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('EUIPO,${company.hasEuipo ? (company.euipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('Global Brand Database,${company.hasGlobalBrand ? (company.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('ISO 9001 Certificate,${company.hasIso9001 ? (company.iso9001Number ?? "معتمد") : "غير معتمد"}');
 
     if (company.notes != null && company.notes!.isNotEmpty) {
       buffer.writeln('');
@@ -269,14 +281,19 @@ class MasterDataExportService {
 🏢 *Company Name:* ${comp.importerName}
 📍 *Address:* ${comp.address}
 🌍 *Country:* ${comp.country.isNotEmpty ? comp.country : "Egypt"}
-📞 *Phone:* ${comp.phone ?? "-"}
-📧 *Email:* ${comp.email ?? "-"}
+📞 *Phone:* ${comp.phone ?? "-"} | *Mobile:* ${comp.mobileNumber ?? "-"}
+📧 *Email:* ${comp.primaryEmail ?? comp.email ?? "-"} | *Secondary:* ${comp.secondaryEmail ?? "-"}
+🌐 *Website:* ${comp.website ?? "-"}
 
 *📋 Official Licenses & Registrations:*
 • *Importer Card:* ${comp.importerId} (Expires: ${_formatDate(comp.importerIdExpiry)})
 • *VAT / Tax ID:* ${comp.vatId} (Expires: ${_formatDate(comp.vatIdExpiry)})
 • *Commercial Register:* ${comp.registrationNumber} (Expires: ${_formatDate(comp.registrationExpiry)})
 • *Status:* ${comp.isActive ? "✅ Active" : "❌ Inactive"}
+
+*🎖️ Trademark & Quality Certificates:*
+• *WIPO Madrid:* ${comp.hasWipo ? (comp.wipoNumber ?? "Yes") : "No"} | *EUIPO:* ${comp.hasEuipo ? (comp.euipoNumber ?? "Yes") : "No"}
+• *Global Brand:* ${comp.hasGlobalBrand ? (comp.globalBrandNumber ?? "Yes") : "No"} | *ISO 9001:* ${comp.hasIso9001 ? (comp.iso9001Number ?? "Yes") : "No"}
 ${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *Notes:* ${comp.notes}\n" : ""}_Generated via Sorour Logistics ERP_
 '''.trim();
     }
@@ -285,14 +302,19 @@ ${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *Notes:* ${comp.notes}\n"
 🏢 *اسم الشركة:* ${comp.importerName}
 📍 *العنوان:* ${comp.address}
 🇪🇬 *الدولة:* ${comp.country.isNotEmpty ? comp.country : "مصر"}
-📞 *الهاتف:* ${comp.phone ?? "-"}
-📧 *الإيميل:* ${comp.email ?? "-"}
+📞 *الهاتف:* ${comp.phone ?? "-"} | *المحمول:* ${comp.mobileNumber ?? "-"}
+📧 *الإيميل:* ${comp.primaryEmail ?? comp.email ?? "-"} | *الإيميل الثانوي:* ${comp.secondaryEmail ?? "-"}
+🌐 *الموقع الإلكتروني:* ${comp.website ?? "-"}
 
 *📋 بيانات القيد والتراخيص:*
 • *البطاقة الاستيرادية:* ${comp.importerId} (انتهاء: ${_formatDate(comp.importerIdExpiry)})
 • *البطاقة الضريبية:* ${comp.vatId} (انتهاء: ${_formatDate(comp.vatIdExpiry)})
 • *السجل التجاري:* ${comp.registrationNumber} (انتهاء: ${_formatDate(comp.registrationExpiry)})
 • *الحالة:* ${comp.isActive ? "✅ نشط" : "❌ غير نشط"}
+
+*🎖️ شهادات العلامات التجارية والجودة:*
+• *WIPO Madrid:* ${comp.hasWipo ? (comp.wipoNumber ?? "مسجل") : "غير مسجل"} | *EUIPO:* ${comp.hasEuipo ? (comp.euipoNumber ?? "مسجل") : "غير مسجل"}
+• *Global Brand:* ${comp.hasGlobalBrand ? (comp.globalBrandNumber ?? "مسجل") : "غير مسجل"} | *ISO 9001:* ${comp.hasIso9001 ? (comp.iso9001Number ?? "معتمد") : "غير معتمد"}
 ${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *ملاحظات:* ${comp.notes}\n" : ""}_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
@@ -574,6 +596,10 @@ Sorour Logistics ERP
     buffer.writeln('مسجل بقرار 43,${supplier.registeredDecree43 ? "نعم" : "لا"}');
     buffer.writeln('قائمة بيضاء,${supplier.whiteListRegistered ? "نعم" : "لا"}');
     buffer.writeln('العلامات والبراندات,"${(supplier.brands ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('WIPO Madrid Monitor,${supplier.hasWipo ? (supplier.wipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('EUIPO,${supplier.hasEuipo ? (supplier.euipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('Global Brand Database,${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('ISO 9001 Certificate,${supplier.hasIso9001 ? (supplier.iso9001Number ?? "معتمد") : "غير معتمد"}');
 
     if (supplier.notes != null && supplier.notes!.isNotEmpty) {
       buffer.writeln('');
@@ -610,9 +636,13 @@ ${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *Carg
 • *Account / IBAN:* ${sup.iban ?? sup.accountNumber ?? "-"}
 
 *📞 Contact:*
-• *Phone:* ${sup.phone ?? sup.mobile ?? "-"}
-• *Email:* ${sup.email ?? "-"}
-${sup.website != null && sup.website!.isNotEmpty ? "🌐 *Website:* ${sup.website}\n" : ""}${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *Brands:* ${sup.brands}\n" : ""}_Generated via Sorour Logistics ERP_
+• *Phone:* ${sup.phone ?? "-"} | *Mobile:* ${sup.mobile ?? "-"}
+• *Email:* ${sup.email ?? "-"} | *Secondary:* ${sup.secondaryEmail ?? "-"}
+${sup.website != null && sup.website!.isNotEmpty ? "🌐 *Website:* ${sup.website}\n" : ""}${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *Brands:* ${sup.brands}\n" : ""}
+*🎖️ Trademark & Quality Certificates:*
+• *WIPO Madrid:* ${sup.hasWipo ? (sup.wipoNumber ?? "Yes") : "No"} | *EUIPO:* ${sup.hasEuipo ? (sup.euipoNumber ?? "Yes") : "No"}
+• *Global Brand:* ${sup.hasGlobalBrand ? (sup.globalBrandNumber ?? "Yes") : "No"} | *ISO 9001:* ${sup.hasIso9001 ? (sup.iso9001Number ?? "Yes") : "No"}
+_Generated via Sorour Logistics ERP_
 '''.trim();
     }
     return '''
@@ -628,9 +658,13 @@ ${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *Carg
 • *Account / IBAN:* ${sup.iban ?? sup.accountNumber ?? "-"}
 
 *📞 التواصل:*
-• *الهاتف:* ${sup.phone ?? sup.mobile ?? "-"}
-• *الإيميل:* ${sup.email ?? "-"}
-${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *البراندات:* ${sup.brands}\n" : ""}_تم الإنشاء عبر Sorour Logistics ERP_
+• *الهاتف:* ${sup.phone ?? "-"} | *المحمول:* ${sup.mobile ?? "-"}
+• *الإيميل:* ${sup.email ?? "-"} | *الإيميل الثانوي:* ${sup.secondaryEmail ?? "-"}
+${sup.website != null && sup.website!.isNotEmpty ? "🌐 *الموقع:* ${sup.website}\n" : ""}${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *البراندات:* ${sup.brands}\n" : ""}
+*🎖️ شهادات العلامات التجارية والجودة:*
+• *WIPO Madrid:* ${sup.hasWipo ? (sup.wipoNumber ?? "مسجل") : "غير مسجل"} | *EUIPO:* ${sup.hasEuipo ? (sup.euipoNumber ?? "مسجل") : "غير مسجل"}
+• *Global Brand:* ${sup.hasGlobalBrand ? (sup.globalBrandNumber ?? "مسجل") : "غير مسجل"} | *ISO 9001:* ${sup.hasIso9001 ? (sup.iso9001Number ?? "معتمد") : "غير معتمد"}
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 

@@ -146,6 +146,21 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
   final TextEditingController _branchNameCtrl = TextEditingController();
   final TextEditingController _bankAccountCtrl = TextEditingController();
 
+  // Trademark & Quality Certificates
+  bool _hasWipo = false;
+  final TextEditingController _wipoNumberCtrl = TextEditingController();
+  bool _hasEuipo = false;
+  final TextEditingController _euipoNumberCtrl = TextEditingController();
+  bool _hasGlobalBrand = false;
+  final TextEditingController _globalBrandNumberCtrl = TextEditingController();
+  bool _hasIso9001 = false;
+  final TextEditingController _iso9001NumberCtrl = TextEditingController();
+
+  // Freight Forwarder Financial & Credit Conditions
+  final TextEditingController _defaultFreeDaysCtrl = TextEditingController();
+  final TextEditingController _paymentTermsCtrl = TextEditingController();
+  final TextEditingController _creditLimitCtrl = TextEditingController();
+
   double _confidenceScore = 0.0;
   String? _selectedFileName;
 
@@ -216,6 +231,13 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
     _swiftCodeCtrl.dispose();
     _branchNameCtrl.dispose();
     _bankAccountCtrl.dispose();
+    _wipoNumberCtrl.dispose();
+    _euipoNumberCtrl.dispose();
+    _globalBrandNumberCtrl.dispose();
+    _iso9001NumberCtrl.dispose();
+    _defaultFreeDaysCtrl.dispose();
+    _paymentTermsCtrl.dispose();
+    _creditLimitCtrl.dispose();
     super.dispose();
   }
 
@@ -611,6 +633,21 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
       if (ext['has_iso'] != null) _hasIso = ext['has_iso'] == true || ext['has_iso'] == 'true';
       if (ext['registered_decree_43'] != null) _registeredDecree43 = ext['registered_decree_43'] == true || ext['registered_decree_43'] == 'true';
       if (ext['white_list_registered'] != null) _whiteListRegistered = ext['white_list_registered'] == true || ext['white_list_registered'] == 'true';
+
+      // Trademark & Quality Certificates
+      if (ext['has_wipo'] != null) _hasWipo = ext['has_wipo'] == true || ext['has_wipo'] == 'true';
+      if (ext['wipo_number'] != null) _wipoNumberCtrl.text = ext['wipo_number'].toString();
+      if (ext['has_euipo'] != null) _hasEuipo = ext['has_euipo'] == true || ext['has_euipo'] == 'true';
+      if (ext['euipo_number'] != null) _euipoNumberCtrl.text = ext['euipo_number'].toString();
+      if (ext['has_global_brand'] != null) _hasGlobalBrand = ext['has_global_brand'] == true || ext['has_global_brand'] == 'true';
+      if (ext['global_brand_number'] != null) _globalBrandNumberCtrl.text = ext['global_brand_number'].toString();
+      if (ext['has_iso_9001'] != null) _hasIso9001 = ext['has_iso_9001'] == true || ext['has_iso_9001'] == 'true';
+      if (ext['iso_9001_number'] != null) _iso9001NumberCtrl.text = ext['iso_9001_number'].toString();
+
+      // Freight Forwarder Financial & Credit
+      if (ext['default_free_days'] != null) _defaultFreeDaysCtrl.text = ext['default_free_days'].toString();
+      if (ext['payment_terms'] != null) _paymentTermsCtrl.text = ext['payment_terms'].toString();
+      if (ext['credit_limit'] != null) _creditLimitCtrl.text = ext['credit_limit'].toString();
     });
   }
 
@@ -666,6 +703,14 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             'registered_decree_43': _registeredDecree43,
             'white_list_registered': _whiteListRegistered,
             'brands': _brandsCtrl.text.trim().isNotEmpty ? _brandsCtrl.text.trim() : null,
+            'has_wipo': _hasWipo,
+            'wipo_number': _hasWipo && _wipoNumberCtrl.text.trim().isNotEmpty ? _wipoNumberCtrl.text.trim() : null,
+            'has_euipo': _hasEuipo,
+            'euipo_number': _hasEuipo && _euipoNumberCtrl.text.trim().isNotEmpty ? _euipoNumberCtrl.text.trim() : null,
+            'has_global_brand': _hasGlobalBrand,
+            'global_brand_number': _hasGlobalBrand && _globalBrandNumberCtrl.text.trim().isNotEmpty ? _globalBrandNumberCtrl.text.trim() : null,
+            'has_iso_9001': _hasIso9001,
+            'iso_9001_number': _hasIso9001 && _iso9001NumberCtrl.text.trim().isNotEmpty ? _iso9001NumberCtrl.text.trim() : null,
             'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
@@ -674,7 +719,6 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           endpoint = '${ApiConstants.baseUrl}/import-companies';
           final notesParts = <String>[];
           if (_contactPersonCtrl.text.trim().isNotEmpty) notesParts.add('Manager: ${_contactPersonCtrl.text.trim()}');
-          if (_nafezaTokenCtrl.text.trim().isNotEmpty) notesParts.add('Nafeza E-Token: ${_nafezaTokenCtrl.text.trim()}');
           if (_bankNameCtrl.text.trim().isNotEmpty) notesParts.add('Bank: ${_bankNameCtrl.text.trim()}');
           if (_swiftCodeCtrl.text.trim().isNotEmpty) notesParts.add('SWIFT: ${_swiftCodeCtrl.text.trim()}');
           if (_accountNumberCtrl.text.trim().isNotEmpty) notesParts.add('Account: ${_accountNumberCtrl.text.trim()}');
@@ -692,7 +736,20 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             'registration_number': _commercialRegisterCtrl.text.trim().isNotEmpty ? _commercialRegisterCtrl.text.trim() : '000000',
             'registration_expiry': '${_registrationExpiry.year}-${_registrationExpiry.month.toString().padLeft(2, '0')}-${_registrationExpiry.day.toString().padLeft(2, '0')}',
             'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'mobile': _mobileCtrl.text.trim().isNotEmpty ? _mobileCtrl.text.trim() : null,
+            'fax': _faxCtrl.text.trim().isNotEmpty ? _faxCtrl.text.trim() : null,
             'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'secondary_email': _secondaryEmailCtrl.text.trim().isNotEmpty ? _secondaryEmailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
+            'nafeza_token': _nafezaTokenCtrl.text.trim().isNotEmpty ? _nafezaTokenCtrl.text.trim() : null,
+            'has_wipo': _hasWipo,
+            'wipo_number': _hasWipo && _wipoNumberCtrl.text.trim().isNotEmpty ? _wipoNumberCtrl.text.trim() : null,
+            'has_euipo': _hasEuipo,
+            'euipo_number': _hasEuipo && _euipoNumberCtrl.text.trim().isNotEmpty ? _euipoNumberCtrl.text.trim() : null,
+            'has_global_brand': _hasGlobalBrand,
+            'global_brand_number': _hasGlobalBrand && _globalBrandNumberCtrl.text.trim().isNotEmpty ? _globalBrandNumberCtrl.text.trim() : null,
+            'has_iso_9001': _hasIso9001,
+            'iso_9001_number': _hasIso9001 && _iso9001NumberCtrl.text.trim().isNotEmpty ? _iso9001NumberCtrl.text.trim() : null,
             'notes': notesParts.isNotEmpty ? notesParts.join(' | ') : null,
           };
           break;
@@ -750,6 +807,9 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': 'Egypt',
+            'default_free_days': int.tryParse(_defaultFreeDaysCtrl.text.trim()) ?? 14,
+            'payment_terms': _paymentTermsCtrl.text.trim().isNotEmpty ? _paymentTermsCtrl.text.trim() : null,
+            'credit_limit': double.tryParse(_creditLimitCtrl.text.trim()) ?? 0.0,
             'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
@@ -1305,6 +1365,163 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
     }
   }
 
+  Widget _buildTrademarkSection(bool isArabic) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blueGrey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined, size: 16, color: AppTheme.cobalt),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  isArabic ? 'شهادات العلامة التجارية والجودة (Trademark Certificates)' : 'Trademark & Quality Certificates',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 1. WIPO Madrid Monitor
+          Row(
+            children: [
+              SizedBox(
+                width: 170,
+                child: Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('WIPO Madrid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _hasWipo,
+                    activeColor: AppTheme.cobalt,
+                    onChanged: (val) => setState(() => _hasWipo = val ?? false),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _wipoNumberCtrl,
+                  enabled: _hasWipo,
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'رقم تسجيل WIPO Madrid Monitor' : 'WIPO Registration Number',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.tag, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 2. EUIPO
+          Row(
+            children: [
+              SizedBox(
+                width: 170,
+                child: Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('EUIPO (أوروبا)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _hasEuipo,
+                    activeColor: AppTheme.cobalt,
+                    onChanged: (val) => setState(() => _hasEuipo = val ?? false),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _euipoNumberCtrl,
+                  enabled: _hasEuipo,
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'رقم تسجيل EUIPO' : 'EUIPO Registration Number',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.tag, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 3. Global Brand Database
+          Row(
+            children: [
+              SizedBox(
+                width: 170,
+                child: Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Global Brand', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _hasGlobalBrand,
+                    activeColor: AppTheme.cobalt,
+                    onChanged: (val) => setState(() => _hasGlobalBrand = val ?? false),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _globalBrandNumberCtrl,
+                  enabled: _hasGlobalBrand,
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'رقم تسجيل Global Brand Database' : 'Global Brand Registration Number',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.public, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 4. ISO 9001 Certificate
+          Row(
+            children: [
+              SizedBox(
+                width: 170,
+                child: Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('ISO 9001 Cert', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    value: _hasIso9001,
+                    activeColor: AppTheme.emerald,
+                    onChanged: (val) => setState(() => _hasIso9001 = val ?? false),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _iso9001NumberCtrl,
+                  enabled: _hasIso9001,
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'رقم وتفاصيل شهادة ISO 9001' : 'ISO 9001 Certificate Number',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.workspace_premium_outlined, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSupplierFields(bool isArabic) {
     const supplierTypeOptions = [
       'Manufacturer',
@@ -1683,6 +1900,9 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           ),
         ),
         const SizedBox(height: 10),
+        // Trademark Certificates & ISO 9001
+        _buildTrademarkSection(isArabic),
+        const SizedBox(height: 10),
         // Brands & Notes
         Row(
           children: [
@@ -1864,7 +2084,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           ],
         ),
         const SizedBox(height: 10),
-        // Phone & Email
+        // Phone, Mobile, Fax
         Row(
           children: [
             Expanded(
@@ -1879,11 +2099,57 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
+                controller: _mobileCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم المحمول' : 'Mobile Number',
+                  prefixIcon: const Icon(Icons.smartphone_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _faxCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الفاكس' : 'Fax',
+                  prefixIcon: const Icon(Icons.print_rounded, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Primary Email, Secondary Email, Website
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
                 controller: _emailCtrl,
                 textDirection: TextDirection.ltr,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'البريد الإلكتروني الرسمي' : 'Official Email Address',
                   prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _secondaryEmailCtrl,
+                textDirection: TextDirection.ltr,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني الثانوي' : 'Secondary Email',
+                  prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _websiteCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني' : 'Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
                 ),
               ),
             ),
@@ -1993,6 +2259,9 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             ],
           ),
         ),
+        const SizedBox(height: 10),
+        // Trademark Certificates & ISO 9001
+        _buildTrademarkSection(isArabic),
         const SizedBox(height: 10),
         TextFormField(
           controller: _notesCtrl,
@@ -2304,6 +2573,71 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // Financial & Credit Conditions
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blueGrey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppTheme.charcoal),
+                  const SizedBox(width: 6),
+                  Text(
+                    isArabic ? 'شروط الائتمان والعمليات المالية' : 'Credit Terms & Financial Conditions',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _defaultFreeDaysCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'أيام السماح الافتراضية (Default Free Days) *' : 'Default Free Days *',
+                        prefixIcon: const Icon(Icons.timer_outlined, size: 16),
+                        isDense: true,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'حقل إلزامي لحساب تاريخ الاستحقاق' : 'Required') : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _paymentTermsCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'شروط الدفع (Payment Terms)' : 'Payment Terms',
+                        prefixIcon: const Icon(Icons.credit_card_outlined, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _creditLimitCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'الحد الائتماني (Credit Limit)' : 'Credit Limit',
+                        prefixIcon: const Icon(Icons.monetization_on_outlined, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -2760,8 +3094,18 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
     addField('المسؤول', 'Contact Person', _contactPersonCtrl.text);
     addField('الهاتف', 'Phone', _phoneCtrl.text);
     addField('المحمول', 'Mobile', _mobileCtrl.text);
+    addField('الفاكس', 'Fax', _faxCtrl.text);
     addField('البريد الإلكتروني', 'Email', _emailCtrl.text);
+    addField('البريد الثانوي', 'Secondary Email', _secondaryEmailCtrl.text);
     addField('الموقع الإلكتروني', 'Website', _websiteCtrl.text);
+    addField('توكن نافذة', 'Nafeza Token', _nafezaTokenCtrl.text);
+    if (_hasWipo) addField('WIPO Madrid', 'WIPO Madrid', _wipoNumberCtrl.text.isNotEmpty ? _wipoNumberCtrl.text : 'Yes');
+    if (_hasEuipo) addField('EUIPO', 'EUIPO', _euipoNumberCtrl.text.isNotEmpty ? _euipoNumberCtrl.text : 'Yes');
+    if (_hasGlobalBrand) addField('Global Brand', 'Global Brand', _globalBrandNumberCtrl.text.isNotEmpty ? _globalBrandNumberCtrl.text : 'Yes');
+    if (_hasIso9001) addField('ISO 9001', 'ISO 9001', _iso9001NumberCtrl.text.isNotEmpty ? _iso9001NumberCtrl.text : 'Yes');
+    addField('أيام السماح الافتراضية', 'Default Free Days', _defaultFreeDaysCtrl.text);
+    addField('شروط الدفع', 'Payment Terms', _paymentTermsCtrl.text);
+    addField('الحد الائتماني', 'Credit Limit', _creditLimitCtrl.text);
     addField('البنك', 'Bank Name', _bankNameCtrl.text);
     addField('سويفت', 'SWIFT Code', _swiftCodeCtrl.text);
     addField('الحساب المصرفي', 'Bank Account', _accountNumberCtrl.text);

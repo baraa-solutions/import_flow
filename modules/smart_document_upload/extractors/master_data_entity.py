@@ -15,7 +15,19 @@ from modules.smart_document_upload.extractors.base_extractor import BaseExtracto
 class MasterDataEntityExtractor(BaseExtractor):
 
     def required_fields(self) -> List[str]:
-        return ["company_name", "phone_number", "country_code"]
+        return ["company_name", "country_code"]
+
+    def compute_confidence(self, extracted: Dict[str, Any]) -> float:
+        if not extracted or not extracted.get("company_name"):
+            return 0.0
+        score = 0.35
+        if any(extracted.get(k) for k in ["vat_tax_id", "vat_id", "commercial_register", "cargox_id", "importer_id", "license_number", "swift_code", "foreign_exporter_id"]):
+            score += 0.25
+        if any(extracted.get(k) for k in ["phone_number", "mobile_number", "email", "website", "fax_number"]):
+            score += 0.20
+        if any(extracted.get(k) for k in ["country_code", "country", "address"]):
+            score += 0.20
+        return round(min(1.0, score), 2)
 
     def extract(self, raw_text: str, spatial_boxes: dict = None, module_name: str = "generic") -> Dict[str, Any]:
         text = raw_text or ""
@@ -28,7 +40,17 @@ class MasterDataEntityExtractor(BaseExtractor):
         importer_id_val = self._clean_val(self._extract_importer_id(text))
         insurance_terms_val = self._clean_val(self._extract_insurance_terms(text))
         ports_val = self._clean_val(self._extract_ports(text))
-        acct_num = self._clean_val(self._extract_account_number(text) or self._extract_iban(text))
+        has_wipo_val = self._extract_has_wipo(text)
+        wipo_num = self._clean_val(self._extract_wipo_number(text))
+        has_euipo_val = self._extract_has_euipo(text)
+        euipo_num = self._clean_val(self._extract_euipo_number(text))
+        has_gbd_val = self._extract_has_global_brand(text)
+        gbd_num = self._clean_val(self._extract_global_brand_number(text))
+        has_iso9001_val = self._extract_has_iso_9001(text)
+        iso9001_num = self._clean_val(self._extract_iso_9001_number(text))
+        nafeza_tok = self._clean_val(self._extract_nafeza_token(text))
+        iban_val = self._clean_val(self._extract_iban(text))
+        acct_num = self._clean_val(self._extract_account_number(text))
 
         result: Dict[str, Any] = {
             "company_name": company_name,
@@ -58,7 +80,8 @@ class MasterDataEntityExtractor(BaseExtractor):
             "importer_card_number": importer_id_val,
             "importer_id_expiry": self._clean_val(self._extract_importer_expiry(text)),
             "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
-            "nafeza_token_id": self._clean_val(self._extract_nafeza_token(text)),
+            "nafeza_token": nafeza_tok,
+            "nafeza_token_id": nafeza_tok,
             "cargox_id": self._clean_val(self._extract_cargox_id(text)),
             "cargox_platform_id": self._clean_val(self._extract_cargox_id(text)),
             "license_number": self._clean_val(self._extract_broker_license(text)),
@@ -79,12 +102,20 @@ class MasterDataEntityExtractor(BaseExtractor):
             "branch_name": self._clean_val(self._extract_branch_name(text)),
             "bank_code": self._clean_val(self._extract_bank_code(text)),
             "swift_code": self._clean_val(self._extract_swift(text)),
-            "bank_account": acct_num,
+            "bank_account": acct_num or iban_val,
             "account_number": acct_num,
-            "iban": self._clean_val(self._extract_iban(text)),
+            "iban": iban_val,
             "credit_limit": self._extract_credit_limit(text),
             "rating": self._extract_rating(text),
-            "has_iso": self._extract_has_iso(text),
+            "has_iso": self._extract_has_iso(text) or has_iso9001_val,
+            "has_wipo": has_wipo_val,
+            "wipo_number": wipo_num,
+            "has_euipo": has_euipo_val,
+            "euipo_number": euipo_num,
+            "has_global_brand": has_gbd_val,
+            "global_brand_number": gbd_num,
+            "has_iso_9001": has_iso9001_val,
+            "iso_9001_number": iso9001_num,
             "registered_decree_43": self._extract_decree_43(text),
             "white_list_registered": self._extract_white_list(text),
             "brands": self._clean_val(self._extract_brands(text)),
@@ -173,17 +204,17 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_cargox_id(self, text: str) -> Optional[str]:
         explicit = self.find_first([
-            r"(?:CargoX\s+Platform\s+(?:Registered\s+)?ID|CargoX\s+Blockchain\s+ID|CargoX\s+ID|CargoX\s+Account|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=][^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
+            r"(?:CargoX\s+Platform\s+(?:Registered\s+)?ID|CargoX\s+Blockchain\s+ID|CargoX\s+Registered\s+ID|CargoX\s+ID|CargoX\s+Account(?:\s+No\.?)?|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
             r"(?:CargoX\s+Platform\s+ID|CargoX\s+Blockchain\s+ID|CargoX\s+ID|Blockchain\s+ID|CargoX\s+Account)[^\S\r\n]*[:=]?[^\S\r\n]*(0x[a-fA-F0-9]{40}|CX-[A-Za-z0-9]{6,16}|[A-Za-z0-9\-_]{5,42})",
             r"\b(0x[a-fA-F0-9]{40})\b",
-            r"\b(CX-[A-Za-z0-9]{6,16})\b",
+            r"\b(CX-[A-Za-z0-9]{5,20})\b",
         ], text)
-        if explicit and explicit.upper() not in ["PLATFORM", "REGISTERED", "BLOCKCHAIN", "ACCOUNT"]:
+        if explicit and explicit.upper() not in ["PLATFORM", "REGISTERED", "BLOCKCHAIN", "ACCOUNT", "ID"]:
             return explicit.strip()
         m = re.search(r"\b(0x[a-fA-F0-9]{40})\b", text)
         if m:
             return m.group(1).strip()
-        m_cx = re.search(r"\b(CX-[A-Za-z0-9]{6,16})\b", text)
+        m_cx = re.search(r"\b(CX-[A-Za-z0-9]{5,20})\b", text)
         if m_cx:
             return m_cx.group(1).strip()
         return None
@@ -251,22 +282,26 @@ class MasterDataEntityExtractor(BaseExtractor):
 
         # 2. General labeled company detection
         labeled = self.find_first([
-            r"(?:Company\s+Name|Company|Consignee\s+Name|Shipper\s+Name|Supplier\s+Name|Exporter\s+Name|اسم\s+الشركة)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:CODE|REGISTRATION|ID|COUNTRY|ADDRESS|PHONE|TEL|TAX|VAT)\b)([A-Za-z0-9\s&,.'\-\u0600-\u06FF]{3,60})",
+            r"(?:Company\s+Name|Company|Consignee\s+Name|Shipper\s+Name|Supplier\s+Name|Exporter\s+Name|اسم\s+الشركة)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:CODE|REGISTRATION|ID|COUNTRY|ADDRESS|PHONE|TEL|TAX|VAT)\b)([^\r\n]{3,80})",
         ], text)
         if labeled and not any(stop in labeled.upper() for stop in system_stop_words):
             return self._clean_val(labeled)
 
         # 3. Look for explicit company lines with legal suffixes
-        suffixes = ["LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "CO.,", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT", "S.A.E", "UAB", "B.V.", "S.R.O", "OÜ", "S.L."]
+        suffixes = [
+            "LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "CO.,", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT", "S.A.E", "UAB", "B.V.", "S.R.O", "OÜ", "S.L.",
+            "ش.م.م", "ذ.م.م", "ش م م", "ذ م م", "توصية", "تضامن", "مساهمة", "للاستيراد", "للتصدير", "للتجارة", "شركة", "مؤسسة"
+        ]
         for idx, line in enumerate(valid_lines):
             upper = line.upper()
             if any(kw in upper for kw in suffixes):
                 if not any(stop in upper for stop in ["ADDRESS:", "VAT NUMBER", "PHONE", "TEL:", "FACTORY ADDRESS", "URL:", "BUILDING", "STREET", "ROAD"]):
+                    cleaned_line = re.sub(r"^(?:Supplier|Shipper|Exporter|Vendor|Manufacturer|Company|Client|المورد|الشاحن|الشركة)\s*[:=-]\s*", "", line, flags=re.IGNORECASE).strip()
                     # If line is just suffix alone (e.g. "Ltd."), merge with preceding lines
-                    if len(line.strip("., ")) < 5 and idx > 0:
+                    if len(cleaned_line.strip("., ")) < 5 and idx > 0:
                         prev = valid_lines[idx - 1]
-                        return f"{prev} {line}".strip()
-                    return line.strip()
+                        return f"{prev} {cleaned_line}".strip()
+                    return cleaned_line
 
         # 4. Fallback to first clean valid line
         first_clean = valid_lines[0]
@@ -492,7 +527,7 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_commercial_register(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Company\s+Code|Enterprise\s+code|السجل\s+التجاري|سجل\s+تجاري|رقم\s+السجل)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9]+)",
+            r"(?:Commercial\s+Register|C\.R\.|CR(?:\s+No\.?)?|Company\s+Code|Enterprise\s+code|السجل\s+التجاري|سجل\s+تجاري|رقم\s+السجل)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9]+)",
             r"Enterprise\s+code\s+([0-9]+)",
             r"Company\s+code\s*[:\s]*([0-9]+)",
             r"C\.R\.\s*([0-9]+)",
@@ -790,8 +825,58 @@ class MasterDataEntityExtractor(BaseExtractor):
         return 5.0
 
     def _extract_account_number(self, text: str) -> Optional[str]:
+        for line in text.splitlines():
+            m = re.search(
+                r"(?:Account\s+Number|Account\s+No\.?|A/C\s+No\.?|A/C\s+Number|Bank\s+Account(?:\s+No\.?)?|رقم\s+الحساب|الحساب\s+البنكي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\- ]{6,34})",
+                line,
+                re.IGNORECASE,
+            )
+            if not m:
+                m = re.search(
+                    r"(?:Account|A/C)[^\S\r\n]*[:=][^\S\r\n]*([A-Za-z0-9\- ]{6,34})",
+                    line,
+                    re.IGNORECASE,
+                )
+            if m:
+                cleaned = re.split(r"(?i)\b(?:SWIFT|BIC|IBAN|BANK|BRANCH)", m.group(1))[0].strip()
+                if cleaned:
+                    return cleaned
+        return None
+
+    def _extract_has_wipo(self, text: str) -> bool:
+        return bool(re.search(r"\b(?:WIPO|Madrid\s+Monitor|ويبو|مدريد)\b", text, re.IGNORECASE))
+
+    def _extract_wipo_number(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Account\s+Number|Account\s+No\.?|رقم\s+الحساب)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9\s\-]{6,30})",
+            r"(?:WIPO\s+Madrid\s+Monitor|WIPO\s+Registration|WIPO\s+No\.?|WIPO\s+ID|WIPO|Madrid\s+Monitor)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+            r"(?:رقم\s+الويبو|رقم\s+تسجيل\s+ويبو|ويبو)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+        ], text)
+
+    def _extract_has_euipo(self, text: str) -> bool:
+        return bool(re.search(r"\b(?:EUIPO|European\s+Union\s+Intellectual\s+Property|الاتحاد\s+الأوروبي)\b", text, re.IGNORECASE))
+
+    def _extract_euipo_number(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:EUIPO\s+Registration|EUIPO\s+No\.?|EUIPO\s+ID|EUIPO)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+            r"(?:رقم\s+EUIPO|علامة\s+الاتحاد\s+الأوروبي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+        ], text)
+
+    def _extract_has_global_brand(self, text: str) -> bool:
+        return bool(re.search(r"\b(?:Global\s+Brand\s+Database|Global\s+Brand|GBD|قاعدة\s+بيانات\s+العلامات)\b", text, re.IGNORECASE))
+
+    def _extract_global_brand_number(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Global\s+Brand\s+Database|Global\s+Brand\s+ID|Global\s+Brand\s+No\.?|GBD)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+            r"(?:قاعدة\s+بيانات\s+العلامات\s+التجارية|رقم\s+العلامة\s+العالمية)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+        ], text)
+
+    def _extract_has_iso_9001(self, text: str) -> bool:
+        return bool(re.search(r"\b(?:ISO\s*9001(?::2015)?|أيزو\s*9001)\b", text, re.IGNORECASE))
+
+    def _extract_iso_9001_number(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:ISO\s*9001(?::2015)?\s+Certificate|ISO\s*9001\s+No\.?|ISO\s*9001\s+ID|ISO\s*9001)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
+            r"(?:شهادة\s+أيزو\s*9001|رقم\s+أيزو\s*9001)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
         ], text)
 
 

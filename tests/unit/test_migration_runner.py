@@ -26,8 +26,7 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
-# Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "a0b1c2d3e4f5"
+HEAD_REVISION = "c3d4e5f6a7b8"
 
 
 class _SpyMasterData:
@@ -381,8 +380,12 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> c8d3e4f5a6b7 (email listener message codes) -> d9e4f5a6b7c8 (tax rates, B/L blocking codes)
     # -> e5f6a7b8c9d0 (system_parameters, PO created_by/updated_by)
     # -> f6a7b8c9d0e1 (CBM shipment_mode, planning sessions created_by/updated_by)
-    # -> head a0b1c2d3e4f5 (audit & soft-delete columns across models)
-    assert script.get_revision(HEAD_REVISION).down_revision == "f6a7b8c9d0e1"
+    # -> a0b1c2d3e4f5 (audit & soft-delete columns across models)
+    # -> b2c3d4e5f6a7 (MD02 and MD04 fields)
+    # -> head c3d4e5f6a7b8 (trademark and contact fields)
+    assert script.get_revision(HEAD_REVISION).down_revision == "b2c3d4e5f6a7"
+    assert script.get_revision("b2c3d4e5f6a7").down_revision == "a0b1c2d3e4f5"
+    assert script.get_revision("a0b1c2d3e4f5").down_revision == "f6a7b8c9d0e1"
     assert script.get_revision("f6a7b8c9d0e1").down_revision == "e5f6a7b8c9d0"
     assert script.get_revision("e5f6a7b8c9d0").down_revision == "d9e4f5a6b7c8"
     assert script.get_revision("d9e4f5a6b7c8").down_revision == "c8d3e4f5a6b7"

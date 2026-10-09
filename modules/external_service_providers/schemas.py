@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, List, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -15,7 +15,9 @@ class PartnerBase(BaseModel):
     authorized_ports: Optional[str] = Field(None, max_length=300, description="الموانئ والمنافذ الجمركية المعتمدة للعمل بها")
     scac_code: Optional[str] = Field(None, max_length=20)
     tracking_url: Optional[str] = Field(None, max_length=300)
-    default_free_days: Optional[int] = Field(14, ge=0, description="فترة السماح الافتراضية بالأيام (Free Days)")
+    default_free_days: Optional[int] = Field(None, ge=0, description="فترة السماح الافتراضية بالأيام (Free Days)")
+    local_agent_name: Optional[str] = Field(None, max_length=200, description="اسم التوكيل الملاحي المحلي في مصر")
+    booking_email: Optional[str] = Field(None, max_length=150, description="بريد الحجز والعمليات")
     fiata_id: Optional[str] = Field(None, max_length=50, description="رخصة الفياتا أو كود ترخيص الشحن الدولي")
     shipping_modes: Optional[str] = Field(None, max_length=200, description="طرق الشحن المدعومة (FCL, LCL, Air, Land)")
     supported_currencies: Optional[str] = Field(None, max_length=100, description="العملات المعتمدة لتقديم عروض الأسعار")
@@ -29,6 +31,8 @@ class PartnerBase(BaseModel):
     swift_code: Optional[str] = Field(None, max_length=20)
     bank_code: Optional[str] = Field(None, max_length=20)
     branch_name: Optional[str] = Field(None, max_length=100)
+    account_number: Optional[str] = Field(None, max_length=100, description="رقم الحساب البنكي")
+    iban: Optional[str] = Field(None, max_length=100, description="رقم الآيبان الدولي")
 
     # Contact & Info
     contact_person: Optional[str] = Field(None, max_length=150)
@@ -43,6 +47,7 @@ class PartnerBase(BaseModel):
 
     # Financial & Rating
     payment_type: Optional[str] = Field("Credit", max_length=50)
+    payment_terms: Optional[str] = Field(None, max_length=100, description="شروط الدفع والائتمان")
     credit_limit: Optional[float] = Field(0.0, ge=0.0)
     rating: Optional[float] = Field(5.0, ge=1.0, le=5.0)
     notes: Optional[str] = Field(None, max_length=1000)
@@ -62,6 +67,8 @@ class PartnerUpdate(BaseModel):
     scac_code: Optional[str] = None
     tracking_url: Optional[str] = None
     default_free_days: Optional[int] = None
+    local_agent_name: Optional[str] = None
+    booking_email: Optional[str] = None
     fiata_id: Optional[str] = None
     shipping_modes: Optional[str] = None
     supported_currencies: Optional[str] = None
@@ -75,13 +82,19 @@ class PartnerUpdate(BaseModel):
     swift_code: Optional[str] = None
     bank_code: Optional[str] = None
     branch_name: Optional[str] = None
+    account_number: Optional[str] = None
+    iban: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
+    fax: Optional[str] = None
     email: Optional[str] = None
+    secondary_email: Optional[str] = None
+    website: Optional[str] = None
     address: Optional[str] = None
     country: Optional[str] = None
     payment_type: Optional[str] = None
+    payment_terms: Optional[str] = None
     credit_limit: Optional[float] = None
     rating: Optional[float] = None
     notes: Optional[str] = None
@@ -108,6 +121,8 @@ class PartnerCurrencyBalance(BaseModel):
     total_invoiced: float = 0.0
     total_paid: float = 0.0
     balance_due: float = 0.0
+    exchange_rate_used: float = 1.0
+    equivalent_egp: float = 0.0
 
 
 class PartnerLedgerEntry(BaseModel):
@@ -130,6 +145,7 @@ class PartnerStatementOfAccountResponse(BaseModel):
     partner_name: str
     partner_type: str
     currency_balances: list[PartnerCurrencyBalance] = []
+    equivalent_egp_total: float = 0.0
     ledger_entries: list[PartnerLedgerEntry] = []
     total_invoices_count: int = 0
     total_payments_count: int = 0
@@ -153,5 +169,6 @@ class PartnerScorecardResponse(BaseModel):
     star_rating: float  # 1.0 to 5.0
     tier_badge: str  # "Platinum A+", "Gold A", "Silver B", "Probation C"
     executive_summary_ar: str
+    criteria_breakdown: Optional[list[dict[str, Any]]] = None
 
     model_config = ConfigDict(from_attributes=True)

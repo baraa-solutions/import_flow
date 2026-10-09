@@ -315,10 +315,20 @@ import '../../currencies/providers/currencies_provider.dart';
                                       : 'Load Actual Nafeza Sample (2026-612-1-94731)',
                                   style: const TextStyle(fontSize: 11)),
                               onPressed: () {
+                                final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+                                final usdCurr = currencies.cast<CurrencyModel?>().firstWhere(
+                                  (c) => c != null && c.currencyCode.toUpperCase() == 'USD',
+                                  orElse: () => null,
+                                );
+                                final dynamicRate = (usdCurr != null &&
+                                        usdCurr.latestCustomsRate != null &&
+                                        usdCurr.latestCustomsRate! > 0)
+                                    ? usdCurr.latestCustomsRate!.toStringAsFixed(4)
+                                    : '';
                                 setCalcState(() {
                                   selectedCurrency = 'USD';
                                   selectedFreightCurrency = 'USD';
-                                  exchangeRateCtrl.text = '50.7917';
+                                  exchangeRateCtrl.text = dynamicRate;
                                   insuranceCtrl.text = '14902.793';
                                   deemedInsuranceCtrl.text = '0.00';
                                   insuranceType = 'actual';

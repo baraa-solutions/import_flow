@@ -41,6 +41,16 @@ EXTRACT_CODES = (
     "customs_consultation.manage",
     "shipping_scenarios.manage",
     "purchase_orders.edit",
+    "suppliers.create",
+    "suppliers.edit",
+    "suppliers.view",
+    "import_companies.create",
+    "import_companies.edit",
+    "import_companies.view",
+    "partners.manage",
+    "partners.view",
+    "master_data.manage",
+    "master_data.view",
 )
 
 

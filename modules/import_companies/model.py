@@ -96,8 +96,81 @@ class ImportCompany(Base):
         String(50)
     )
 
+    mobile = Column(
+        String(50),
+        nullable=True
+    )
+
+    fax = Column(
+        String(50),
+        nullable=True
+    )
+
     email = Column(
         String(150)
+    )
+
+    secondary_email = Column(
+        String(150),
+        nullable=True
+    )
+
+    website = Column(
+        String(200),
+        nullable=True
+    )
+
+    # Nafeza API / Integration Token (Encrypted/Masked in UI)
+    nafeza_token = Column(
+        String(500),
+        nullable=True
+    )
+
+    # ==================================================
+    # Trademark & Quality Certificates
+    # ==================================================
+    has_wipo = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    wipo_number = Column(
+        String(100),
+        nullable=True
+    )
+
+    has_euipo = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    euipo_number = Column(
+        String(100),
+        nullable=True
+    )
+
+    has_global_brand = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    global_brand_number = Column(
+        String(100),
+        nullable=True
+    )
+
+    has_iso_9001 = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    iso_9001_number = Column(
+        String(100),
+        nullable=True
     )
 
     # ==================================================

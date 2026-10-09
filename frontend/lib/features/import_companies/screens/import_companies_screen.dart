@@ -61,6 +61,16 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
       l10n.importCompaniesTsvHeaderCountry,
       l10n.importCompaniesTsvHeaderAddress,
       l10n.importCompaniesTsvHeaderPhone,
+      'Mobile',
+      'Fax',
+      'Primary Email',
+      'Secondary Email',
+      'Website',
+      'Nafeza Token',
+      'WIPO Madrid',
+      'EUIPO',
+      'Global Brand',
+      'ISO 9001',
       l10n.importCompaniesTsvHeaderStatus,
       l10n.importCompaniesTsvHeaderNotes,
     ];
@@ -84,6 +94,16 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
         countryText,
         c.address,
         phoneText,
+        c.mobileNumber ?? '-',
+        c.faxNumber ?? '-',
+        c.primaryEmail ?? '-',
+        c.secondaryEmail ?? '-',
+        c.website ?? '-',
+        (c.nafezaToken != null && c.nafezaToken!.isNotEmpty) ? '****${c.nafezaToken!.length > 4 ? c.nafezaToken!.substring(c.nafezaToken!.length - 4) : c.nafezaToken!}' : '-',
+        c.hasWipo ? (c.wipoNumber ?? 'Yes') : 'No',
+        c.hasEuipo ? (c.euipoNumber ?? 'Yes') : 'No',
+        c.hasGlobalBrand ? (c.globalBrandNumber ?? 'Yes') : 'No',
+        c.hasIso9001 ? (c.iso9001Number ?? 'Yes') : 'No',
         statusText,
         notesText,
       ].join('\t');
@@ -107,7 +127,15 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
       '${l10n.countryRowLabel}: $countryText',
       '${l10n.addressRowLabel}: ${c.address}',
       if (c.phone != null && c.phone!.isNotEmpty) '${l10n.phoneRowLabel}: ${c.phone}',
-      if (c.email != null && c.email!.isNotEmpty) '${l10n.emailRowLabel}: ${c.email}',
+      if (c.mobileNumber != null && c.mobileNumber!.isNotEmpty) 'Mobile: ${c.mobileNumber}',
+      if (c.faxNumber != null && c.faxNumber!.isNotEmpty) 'Fax: ${c.faxNumber}',
+      if (c.primaryEmail != null && c.primaryEmail!.isNotEmpty) '${l10n.emailRowLabel}: ${c.primaryEmail}',
+      if (c.secondaryEmail != null && c.secondaryEmail!.isNotEmpty) 'Secondary Email: ${c.secondaryEmail}',
+      if (c.website != null && c.website!.isNotEmpty) 'Website: ${c.website}',
+      if (c.hasWipo) 'WIPO Madrid: ${c.wipoNumber ?? 'Yes'}',
+      if (c.hasEuipo) 'EUIPO: ${c.euipoNumber ?? 'Yes'}',
+      if (c.hasGlobalBrand) 'Global Brand DB: ${c.globalBrandNumber ?? 'Yes'}',
+      if (c.hasIso9001) 'ISO 9001: ${c.iso9001Number ?? 'Yes'}',
       if (c.notes != null && c.notes!.isNotEmpty) '${l10n.administrativeNotesHeader}: ${c.notes}',
     ].join('\n');
   }
@@ -326,7 +354,12 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   final filtered = companies.where((c) {
                     return c.importerName.toLowerCase().contains(_searchQuery) ||
                         c.importerId.toLowerCase().contains(_searchQuery) ||
-                        c.registrationNumber.toLowerCase().contains(_searchQuery);
+                        c.registrationNumber.toLowerCase().contains(_searchQuery) ||
+                        (c.primaryEmail != null && c.primaryEmail!.toLowerCase().contains(_searchQuery)) ||
+                        (c.secondaryEmail != null && c.secondaryEmail!.toLowerCase().contains(_searchQuery)) ||
+                        (c.phone != null && c.phone!.toLowerCase().contains(_searchQuery)) ||
+                        (c.mobileNumber != null && c.mobileNumber!.toLowerCase().contains(_searchQuery)) ||
+                        (c.website != null && c.website!.toLowerCase().contains(_searchQuery));
                   }).toList();
 
                   if (filtered.isEmpty) {
@@ -645,6 +678,23 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     final vatIdCtrl = TextEditingController(text: companyToEdit?.vatId ?? '');
     final regNumCtrl = TextEditingController(text: companyToEdit?.registrationNumber ?? '');
     final phoneCtrl = TextEditingController(text: companyToEdit?.phone ?? '');
+    final mobileCtrl = TextEditingController(text: companyToEdit?.mobileNumber ?? '');
+    final faxCtrl = TextEditingController(text: companyToEdit?.faxNumber ?? '');
+    final emailCtrl = TextEditingController(text: companyToEdit?.primaryEmail ?? '');
+    final secondaryEmailCtrl = TextEditingController(text: companyToEdit?.secondaryEmail ?? '');
+    final websiteCtrl = TextEditingController(text: companyToEdit?.website ?? '');
+    final nafezaTokenCtrl = TextEditingController(text: companyToEdit?.nafezaToken ?? '');
+    bool obscureToken = true;
+
+    bool hasWipo = companyToEdit?.hasWipo ?? false;
+    final wipoCtrl = TextEditingController(text: companyToEdit?.wipoNumber ?? '');
+    bool hasEuipo = companyToEdit?.hasEuipo ?? false;
+    final euipoCtrl = TextEditingController(text: companyToEdit?.euipoNumber ?? '');
+    bool hasGlobalBrand = companyToEdit?.hasGlobalBrand ?? false;
+    final globalBrandCtrl = TextEditingController(text: companyToEdit?.globalBrandNumber ?? '');
+    bool hasIso9001 = companyToEdit?.hasIso9001 ?? false;
+    final iso9001Ctrl = TextEditingController(text: companyToEdit?.iso9001Number ?? '');
+
     final isSubmitting = ValueNotifier<bool>(false);
 
     DateTime impExpiry = companyToEdit?.importerIdExpiry ?? DateTime.now().add(const Duration(days: 365));
@@ -933,6 +983,230 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       onPressed: () => CopyHelper.copy(context, phoneCtrl.text),
                                     ),
                                   ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: mobileCtrl,
+                                          label: 'رقم الموبايل / Mobile Number',
+                                          icon: Icons.smartphone,
+                                          hint: 'e.g. +20 100 123 4567',
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, mobileCtrl.text),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: faxCtrl,
+                                          label: 'رقم الفاكس / Fax Number',
+                                          icon: Icons.print,
+                                          hint: 'e.g. +20 2 2345 6789',
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, faxCtrl.text),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: emailCtrl,
+                                          label: 'البريد الإلكتروني الأساسي / Primary Email',
+                                          icon: Icons.email,
+                                          hint: 'info@company.com',
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, emailCtrl.text),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: secondaryEmailCtrl,
+                                          label: 'البريد الإلكتروني الثانوي / Secondary Email',
+                                          icon: Icons.mark_email_read_outlined,
+                                          hint: 'imports@company.com',
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, secondaryEmailCtrl.text),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  CustomTextField(
+                                    controller: websiteCtrl,
+                                    label: 'الموقع الإلكتروني / Website URL',
+                                    icon: Icons.language,
+                                    hint: 'https://company.com',
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                      tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, websiteCtrl.text),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cobalt.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.vpn_key_rounded, size: 16, color: AppTheme.cobalt),
+                                            const SizedBox(width: 6),
+                                            const Text(
+                                              'رمز نافذة والربط الرقمي / Nafeza E-Token',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        CustomTextField(
+                                          controller: nafezaTokenCtrl,
+                                          label: 'Nafeza Token (مشفر آمن)',
+                                          icon: Icons.lock_outline,
+                                          obscureText: obscureToken,
+                                          hint: 'NFZ-TK-xxxxxxxx',
+                                          suffixIcon: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(obscureToken ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.grey),
+                                                tooltip: obscureToken ? 'إظهار الرمز' : 'إخفاء الرمز',
+                                                onPressed: () => setDialogState(() => obscureToken = !obscureToken),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                                tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                                onPressed: () => CopyHelper.copy(context, nafezaTokenCtrl.text),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade50.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.amber.shade300),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.verified_rounded, size: 18, color: Colors.amber.shade900),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'قسم شهادات العلامة التجارية والجودة / Trademark Certificates & ISO',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        CheckboxListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: const Text('WIPO Madrid Monitor (شهادة وايپو مدريد)'),
+                                          value: hasWipo,
+                                          activeColor: AppTheme.cobalt,
+                                          onChanged: (val) => setDialogState(() => hasWipo = val ?? false),
+                                        ),
+                                        if (hasWipo) ...[
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            child: CustomTextField(
+                                              controller: wipoCtrl,
+                                              label: 'رقم تسجيل WIPO Madrid / Registration No.',
+                                              icon: Icons.numbers,
+                                              hint: 'e.g. 1234567',
+                                            ),
+                                          ),
+                                        ],
+                                        CheckboxListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: const Text('EUIPO (المكتب الأوروبي للملكية الفكرية)'),
+                                          value: hasEuipo,
+                                          activeColor: AppTheme.cobalt,
+                                          onChanged: (val) => setDialogState(() => hasEuipo = val ?? false),
+                                        ),
+                                        if (hasEuipo) ...[
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            child: CustomTextField(
+                                              controller: euipoCtrl,
+                                              label: 'رقم تسجيل EUIPO / European Trademark No.',
+                                              icon: Icons.numbers,
+                                              hint: 'e.g. 018345678',
+                                            ),
+                                          ),
+                                        ],
+                                        CheckboxListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: const Text('Global Brand Database (قاعدة بيانات العلامات العالمية)'),
+                                          value: hasGlobalBrand,
+                                          activeColor: AppTheme.cobalt,
+                                          onChanged: (val) => setDialogState(() => hasGlobalBrand = val ?? false),
+                                        ),
+                                        if (hasGlobalBrand) ...[
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            child: CustomTextField(
+                                              controller: globalBrandCtrl,
+                                              label: 'معرف العلامة في Global Brand DB',
+                                              icon: Icons.numbers,
+                                              hint: 'e.g. GBD-987654',
+                                            ),
+                                          ),
+                                        ],
+                                        CheckboxListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: const Text('ISO 9001 Certificate (شهادة نظام إدارة الجودة)'),
+                                          value: hasIso9001,
+                                          activeColor: AppTheme.cobalt,
+                                          onChanged: (val) => setDialogState(() => hasIso9001 = val ?? false),
+                                        ),
+                                        if (hasIso9001) ...[
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            child: CustomTextField(
+                                              controller: iso9001Ctrl,
+                                              label: 'رقم شهادة ISO 9001 Certificate No.',
+                                              icon: Icons.verified_user_outlined,
+                                              hint: 'e.g. ISO-9001-2015-XYZ',
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               );
                             },
@@ -996,6 +1270,20 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         registrationNumber: regNumCtrl.text.trim(),
                                         registrationExpiry: regExpiry,
                                         phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                                        mobileNumber: mobileCtrl.text.trim().isEmpty ? null : mobileCtrl.text.trim(),
+                                        faxNumber: faxCtrl.text.trim().isEmpty ? null : faxCtrl.text.trim(),
+                                        primaryEmail: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                                        secondaryEmail: secondaryEmailCtrl.text.trim().isEmpty ? null : secondaryEmailCtrl.text.trim(),
+                                        website: websiteCtrl.text.trim().isEmpty ? null : websiteCtrl.text.trim(),
+                                        nafezaToken: nafezaTokenCtrl.text.trim().isEmpty ? null : nafezaTokenCtrl.text.trim(),
+                                        hasWipo: hasWipo,
+                                        wipoNumber: hasWipo && wipoCtrl.text.trim().isNotEmpty ? wipoCtrl.text.trim() : null,
+                                        hasEuipo: hasEuipo,
+                                        euipoNumber: hasEuipo && euipoCtrl.text.trim().isNotEmpty ? euipoCtrl.text.trim() : null,
+                                        hasGlobalBrand: hasGlobalBrand,
+                                        globalBrandNumber: hasGlobalBrand && globalBrandCtrl.text.trim().isNotEmpty ? globalBrandCtrl.text.trim() : null,
+                                        hasIso9001: hasIso9001,
+                                        iso9001Number: hasIso9001 && iso9001Ctrl.text.trim().isNotEmpty ? iso9001Ctrl.text.trim() : null,
                                         isActive: companyToEdit?.isActive ?? true,
                                       );
 
@@ -1022,6 +1310,18 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         }
                                         if (FieldChangeItem.isDifferent(companyToEdit.phone, company.phone)) {
                                           changes.add(FieldChangeItem(fieldName: l10n.diffPhone, oldValue: companyToEdit.phone, newValue: company.phone));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.primaryEmail, company.primaryEmail)) {
+                                          changes.add(FieldChangeItem(fieldName: 'البريد الإلكتروني الأساسي', oldValue: companyToEdit.primaryEmail ?? '—', newValue: company.primaryEmail ?? '—'));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.website, company.website)) {
+                                          changes.add(FieldChangeItem(fieldName: 'الموقع الإلكتروني', oldValue: companyToEdit.website ?? '—', newValue: company.website ?? '—'));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.hasWipo, company.hasWipo)) {
+                                          changes.add(FieldChangeItem(fieldName: 'WIPO Madrid', oldValue: companyToEdit.hasWipo ? 'نعم' : 'لا', newValue: company.hasWipo ? 'نعم' : 'لا'));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.hasIso9001, company.hasIso9001)) {
+                                          changes.add(FieldChangeItem(fieldName: 'ISO 9001', oldValue: companyToEdit.hasIso9001 ? 'نعم' : 'لا', newValue: company.hasIso9001 ? 'نعم' : 'لا'));
                                         }
 
                                         if (changes.isNotEmpty) {

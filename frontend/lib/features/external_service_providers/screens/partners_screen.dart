@@ -612,8 +612,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
                                                     borderRadius: BorderRadius.circular(6),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                      margin: const EdgeInsetsDirectional.only(end: 6),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                      margin: const EdgeInsetsDirectional.only(end: 4),
                                                       decoration: BoxDecoration(
                                                         color: AppTheme.cobalt.withOpacity(0.12),
                                                         borderRadius: BorderRadius.circular(6),
@@ -622,11 +622,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       child: Row(
                                                         mainAxisSize: MainAxisSize.min,
                                                         children: [
-                                                          const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
-                                                          const SizedBox(width: 4),
+                                                          const Icon(Icons.receipt_long, size: 12, color: AppTheme.cobalt),
+                                                          const SizedBox(width: 3),
                                                           Text(
                                                             l10n.partnerStatementOfAccountBtn,
-                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                                           ),
                                                         ],
                                                       ),
@@ -634,7 +634,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   ),
                                                 ),
                                                 if (partner.providerId != null) ...[
-                                                    const SizedBox(width: 6),
+                                                    const SizedBox(width: 4),
                                                     Tooltip(
                                                       message: l10n.partnerScorecardTooltip,
                                                       child: InkWell(
@@ -647,7 +647,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         ),
                                                         borderRadius: BorderRadius.circular(6),
                                                         child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                                           decoration: BoxDecoration(
                                                             color: Colors.amber.shade50,
                                                             borderRadius: BorderRadius.circular(6),
@@ -656,18 +656,18 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                           child: Row(
                                                             mainAxisSize: MainAxisSize.min,
                                                             children: [
-                                                              Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
-                                                              const SizedBox(width: 4),
+                                                              Icon(Icons.workspace_premium_outlined, size: 12, color: Colors.amber.shade800),
+                                                              const SizedBox(width: 3),
                                                               Text(
                                                                 l10n.partnerScorecardBtn,
-                                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
                                                               ),
                                                             ],
                                                           ),
                                                         ),
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 6),
+                                                    const SizedBox(width: 4),
                                                   ],
                                                   Tooltip(
                                                     message: l10n.partnerCopySummaryBtn,
@@ -679,8 +679,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       ),
                                                       borderRadius: BorderRadius.circular(6),
                                                       child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                        margin: const EdgeInsetsDirectional.only(end: 6),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                        margin: const EdgeInsetsDirectional.only(end: 4),
                                                         decoration: BoxDecoration(
                                                           color: AppTheme.emerald.withOpacity(0.12),
                                                           borderRadius: BorderRadius.circular(6),
@@ -689,11 +689,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
-                                                            const Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
-                                                            const SizedBox(width: 4),
+                                                            const Icon(Icons.copy_all_rounded, size: 12, color: AppTheme.emerald),
+                                                            const SizedBox(width: 3),
                                                             Text(
                                                               l10n.partnerCopySummaryBtn,
-                                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                                             ),
                                                           ],
                                                         ),
@@ -1323,6 +1323,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final defaultFreeDaysCtrl = TextEditingController(
       text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '',
     );
+    final paymentTermsCtrl = TextEditingController(text: partnerToEdit?.paymentTerms ?? '');
+    final creditLimitCtrl = TextEditingController(
+      text: partnerToEdit?.creditLimit != null ? partnerToEdit!.creditLimit.toString() : '',
+    );
     final trackingCtrl = TextEditingController(text: partnerToEdit?.trackingUrl ?? '');
     final fiataCtrl = TextEditingController(text: partnerToEdit?.fiataId ?? '');
     final shippingModesCtrl = TextEditingController(text: partnerToEdit?.shippingModes ?? '');
@@ -1678,6 +1682,47 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                         icon: Icons.alt_route_rounded,
                                         hint: l10n.shippingModesHint,
                                       ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: defaultFreeDaysCtrl,
+                                              suffixIcon: buildCopySuffix(defaultFreeDaysCtrl),
+                                              label: '${l10n.defaultFreeDaysLabel} (إلزامي)',
+                                              icon: Icons.timer_outlined,
+                                              isRequired: true,
+                                              keyboardType: TextInputType.number,
+                                              hint: l10n.defaultFreeDaysHint,
+                                              validator: (val) {
+                                                if (val == null || val.trim().isEmpty) return l10n.fieldRequired;
+                                                final parsed = int.tryParse(val.trim());
+                                                if (parsed == null || parsed < 0) return l10n.defaultFreeDaysHint;
+                                                return null;
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: paymentTermsCtrl,
+                                              suffixIcon: buildCopySuffix(paymentTermsCtrl),
+                                              label: l10n.paymentTermsDetailLabel,
+                                              icon: Icons.credit_score_rounded,
+                                              hint: 'e.g. Net 30, 14 Days',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: creditLimitCtrl,
+                                        suffixIcon: buildCopySuffix(creditLimitCtrl),
+                                        label: l10n.creditLimitDetailLabel,
+                                        icon: Icons.monetization_on_outlined,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        hint: '0.00',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1980,7 +2025,9 @@ suffixIcon: buildCopySuffix(countryCtrl),
                                 insuranceCoverageTypes: isInsuranceCompany ? (insuranceCoverageCtrl.text.trim().isEmpty ? null : insuranceCoverageCtrl.text.trim()) : null,
                                 scacCode: scacCtrl.text.trim().isEmpty ? null : scacCtrl.text.trim(),
                                 trackingUrl: trackingCtrl.text.trim().isEmpty ? null : trackingCtrl.text.trim(),
-                                defaultFreeDays: isShippingLine ? (int.tryParse(defaultFreeDaysCtrl.text.trim()) ?? 14) : null,
+                                defaultFreeDays: (isShippingLine || isFreightForwarder) ? (int.tryParse(defaultFreeDaysCtrl.text.trim()) ?? 14) : null,
+                                paymentTerms: paymentTermsCtrl.text.trim().isEmpty ? null : paymentTermsCtrl.text.trim(),
+                                creditLimit: double.tryParse(creditLimitCtrl.text.trim()) ?? (partnerToEdit?.creditLimit ?? 0.0),
                                 fiataId: isFreightForwarder ? (fiataCtrl.text.trim().isEmpty ? null : fiataCtrl.text.trim()) : null,
                                 shippingModes: isFreightForwarder ? (shippingModesCtrl.text.trim().isEmpty ? null : shippingModesCtrl.text.trim()) : null,
                                 supportedCurrencies: isFreightForwarder ? (supportedCurrenciesCtrl.text.trim().isEmpty ? null : supportedCurrenciesCtrl.text.trim()) : null,

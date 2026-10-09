@@ -1571,22 +1571,16 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
     return lines
 
 
-def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
+def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses ArabicRapidOCREngine (with Arabic ONNX model + RTL support) with default RapidOCR and pytesseract fallbacks.
+    Uses multilingual RapidOCR with natural reading order line grouping,
+    with ArabicRapidOCREngine and pytesseract fallbacks.
     """
-    try:
-        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
-        arabic_text = extract_arabic_ocr_text(filename, content_bytes)
-        if arabic_text and len(arabic_text.strip()) > 30:
-            return arabic_text
-    except Exception as e:
-        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}. Falling back to default RapidOCR.")
-
     lower = filename.lower()
     extracted_lines: List[str] = []
 
+    # 1. Primary Engine: Multilingual RapidOCR with natural line grouping
     try:
         from rapidocr_onnxruntime import RapidOCR
         import numpy as np
@@ -1598,10 +1592,10 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             max_pages = min(len(pdf), 8)
             for i in range(max_pages):
                 page = pdf.get_page(i)
-                pil_img = page.render(scale=1.5).to_pil()
+                pil_img = page.render(scale=2.0).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
-                    page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    page_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                     extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
 
@@ -1610,7 +1604,7 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
             ocr_res, _ = engine(np.array(pil_img))
             if ocr_res:
-                image_lines = _group_ocr_boxes_into_lines(ocr_res)
+                image_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                 extracted_lines.extend(image_lines)
 
     except Exception as e:
@@ -1618,7 +1612,18 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
 
     result_text = "\n".join(extracted_lines)
 
-    # Fallback to pytesseract if RapidOCR produced insufficient output for images
+    # 2. If RapidOCR produced insufficient output or document is Arabic-heavy, try ArabicRapidOCR
+    has_arabic = bool(re.search(r"[\u0600-\u06FF]", result_text))
+    if len(result_text.strip()) < 30 or (has_arabic and len(result_text.strip()) < 80):
+        try:
+            from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+            arabic_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=two_column_table)
+            if arabic_text and len(arabic_text.strip()) > len(result_text.strip()):
+                result_text = arabic_text
+        except Exception as e:
+            logger.warning(f"Arabic OCR engine fallback note for '{filename}': {e}")
+
+    # 3. Fallback to pytesseract if RapidOCR produced insufficient output for images
     if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         try:
             import pytesseract

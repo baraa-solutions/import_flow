@@ -197,6 +197,45 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Total Equivalent EGP Summary Banner
+                        if (soa.equivalentEgpTotal != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    Directionality.of(context) == TextDirection.rtl
+                                        ? 'إجمالي الرصيد المكافئ بالجنيه المصري (وفق أسعار الصرف الرسمية):'
+                                        : 'Total Equivalent Balance in EGP (Official Exchange Rates):',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${_formatNumber(soa.equivalentEgpTotal!)} ${l10n.soaCurrencyEgp}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.cobalt,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         // Currency Balances Cards
                         Text(
                           l10n.multiCurrencyBalancesHeader,
@@ -288,6 +327,34 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       ),
                                     ],
                                   ),
+                                  if (cb.currency != 'EGP' && cb.equivalentEgp != null) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            Directionality.of(context) == TextDirection.rtl
+                                                ? 'المعادل بالجنيه:'
+                                                : 'Equiv. (EGP):',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: isDark ? AppTheme.darkTextSecondary : Colors.black45,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${_formatNumber(cb.equivalentEgp!)} EGP (1=${cb.exchangeRateUsed ?? 1})',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: isDark ? AppTheme.darkTextSecondary : Colors.black54,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             );
