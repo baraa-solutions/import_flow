@@ -118,8 +118,14 @@ def export_partners_excel(db: Session = Depends(get_db)):
     partners = service.get_all_partners(include_inactive=True)
     headers = [
         'Code', 'Partner Name', 'Category / Type', 'Tax ID', 'Commercial Reg #',
+        'Clearance License #', 'Authorized Ports', 'SCAC Code', 'Default Free Days',
+        'FIATA ID', 'Shipping Modes', 'Supported Currencies',
+        'Transport License #', 'Fleet Types', 'Coverage Areas',
+        'Insurance License #', 'Coverage Types',
+        'SWIFT Code', 'Bank Code', 'Branch Name',
+        'Payment Terms', 'Credit Limit', 'Rating',
         'Contact Person', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
-        'Website', 'Address', 'Country', 'Status'
+        'Website', 'Address', 'Country', 'Notes', 'Status'
     ]
     rows = []
     for p in partners:
@@ -129,6 +135,24 @@ def export_partners_excel(db: Session = Depends(get_db)):
             p.partner_type,
             p.tax_id or '',
             p.commercial_register or '',
+            getattr(p, 'clearance_license_number', '') or '',
+            getattr(p, 'authorized_ports', '') or '',
+            getattr(p, 'scac_code', '') or '',
+            str(getattr(p, 'default_free_days', '')) if getattr(p, 'default_free_days', None) is not None else '',
+            getattr(p, 'fiata_id', '') or '',
+            getattr(p, 'shipping_modes', '') or '',
+            getattr(p, 'supported_currencies', '') or '',
+            getattr(p, 'transport_license_number', '') or '',
+            getattr(p, 'fleet_types', '') or '',
+            getattr(p, 'coverage_areas', '') or '',
+            getattr(p, 'insurance_license_number', '') or '',
+            getattr(p, 'insurance_coverage_types', '') or '',
+            getattr(p, 'swift_code', '') or '',
+            getattr(p, 'bank_code', '') or '',
+            getattr(p, 'branch_name', '') or '',
+            getattr(p, 'payment_type', '') or '',
+            str(getattr(p, 'credit_limit', 0.0) or 0.0),
+            str(getattr(p, 'rating', 5.0) or 5.0),
             p.contact_person or '',
             p.phone or '',
             p.mobile or '',
@@ -138,6 +162,7 @@ def export_partners_excel(db: Session = Depends(get_db)):
             getattr(p, 'website', '') or '',
             p.address or '',
             p.country or 'Egypt',
+            getattr(p, 'notes', '') or '',
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Partners & Banks", headers, rows)
@@ -152,17 +177,27 @@ def export_partners_excel(db: Session = Depends(get_db)):
 def export_partners_pdf(db: Session = Depends(get_db)):
     service = ExternalServiceProviderService(db)
     partners = service.get_all_partners(include_inactive=True)
-    headers = ['Code', 'Partner Name', 'Category', 'Tax ID', 'Phone', 'Email', 'Country', 'Status']
+    headers = ['Code', 'Partner Name', 'Category', 'Tax ID', 'License/SCAC/SWIFT', 'Phone', 'Email', 'Payment / Credit', 'Status']
     rows = []
     for p in partners:
+        code_spec = (
+            getattr(p, 'clearance_license_number', '') or
+            getattr(p, 'scac_code', '') or
+            getattr(p, 'swift_code', '') or
+            getattr(p, 'transport_license_number', '') or
+            getattr(p, 'insurance_license_number', '') or
+            '-'
+        )
+        pay_info = f"{getattr(p, 'payment_type', 'Credit') or 'Credit'} / {getattr(p, 'credit_limit', 0.0) or 0.0}"
         rows.append([
             p.partner_code,
             p.partner_name,
             p.partner_type,
             p.tax_id or '',
+            code_spec,
             p.phone or p.mobile or '',
             p.email or '',
-            p.country or 'Egypt',
+            pay_info,
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Partners & Banks (MD-003)", headers, rows)

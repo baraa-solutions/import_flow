@@ -145,22 +145,27 @@ async def import_excel_companies(file: UploadFile = File(...), db: Session = Dep
 @import_router.get("/export-excel")
 def export_companies_excel(db: Session = Depends(get_db)):
     companies = get_all_companies_admin_service(db)
-    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry', 'Address', 'Country', 'Phone', 'Email', 'Status']
+    headers = [
+        'ID', 'Company Name', 'Importer Card ID', 'Importer Expiry',
+        'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry',
+        'Address', 'Country', 'Phone', 'Email', 'Notes', 'Status'
+    ]
     rows = []
     for c in companies:
         rows.append([
             c.company_id,
             c.importer_name,
             c.importer_id,
-            str(c.importer_id_expiry),
+            MasterDataExportImportHelper.format_date_safe(c.importer_id_expiry),
             c.vat_id,
-            str(c.vat_id_expiry),
+            MasterDataExportImportHelper.format_date_safe(c.vat_id_expiry),
             c.registration_number,
-            str(c.registration_expiry),
+            MasterDataExportImportHelper.format_date_safe(c.registration_expiry),
             c.address,
             c.country,
             c.phone or '',
             c.email or '',
+            c.notes or '',
             'Active' if c.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Import Companies", headers, rows)
@@ -174,17 +179,24 @@ def export_companies_excel(db: Session = Depends(get_db)):
 @import_router.get("/export-pdf")
 def export_companies_pdf(db: Session = Depends(get_db)):
     companies = get_all_companies_admin_service(db)
-    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'Commercial Reg #', 'Phone', 'Status']
+    headers = [
+        'ID', 'Company Name', 'Importer Card ID', 'Importer Expiry',
+        'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry',
+        'Phone', 'Email', 'Status'
+    ]
     rows = []
     for c in companies:
         rows.append([
             c.company_id,
             c.importer_name,
             c.importer_id,
-            str(c.importer_id_expiry),
+            MasterDataExportImportHelper.format_date_safe(c.importer_id_expiry),
             c.vat_id,
+            MasterDataExportImportHelper.format_date_safe(c.vat_id_expiry),
             c.registration_number,
+            MasterDataExportImportHelper.format_date_safe(c.registration_expiry),
             c.phone or '',
+            c.email or '',
             'Active' if c.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Egyptian Import Companies (MD-001)", headers, rows)

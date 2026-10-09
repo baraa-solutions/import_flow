@@ -150,9 +150,10 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
 def export_suppliers_excel(db: Session = Depends(get_db)):
     suppliers = get_all_suppliers_admin_service(db)
     headers = [
-        'Code', 'Company Name', 'Type', 'Reg Type', 'Exporter ID (Nafeza)', 'Country',
+        'Code', 'Company Name', 'Type', 'Reg Type', 'Exporter ID (Nafeza)', 'CargoX ID', 'Country',
         'Country Code', 'Address', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
-        'Website', 'ISO', 'Decree 43', 'White List', 'Status'
+        'Website', 'Bank Name', 'SWIFT Code', 'Account Number', 'IBAN',
+        'ISO', 'Decree 43', 'White List', 'Brands', 'Notes', 'Status'
     ]
     rows = []
     for s in suppliers:
@@ -162,6 +163,7 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
             s.supplier_type,
             s.registration_type,
             s.foreign_exporter_id,
+            getattr(s, 'cargox_platform_id', '') or '',
             s.foreign_exporter_country,
             s.foreign_exporter_country_code,
             s.address,
@@ -171,9 +173,15 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
             s.email or '',
             getattr(s, 'secondary_email', '') or '',
             s.website or '',
+            getattr(s, 'bank_name', '') or '',
+            getattr(s, 'swift_code', '') or '',
+            getattr(s, 'account_number', '') or '',
+            getattr(s, 'iban', '') or '',
             'Yes' if getattr(s, 'has_iso', False) else 'No',
             'Yes' if getattr(s, 'registered_decree_43', False) else 'No',
             'Yes' if getattr(s, 'white_list_registered', False) else 'No',
+            getattr(s, 'brands', '') or '',
+            getattr(s, 'notes', '') or '',
             'Active' if s.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Foreign Suppliers", headers, rows)
@@ -187,7 +195,7 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
 @supplier_router.get("/export-pdf")
 def export_suppliers_pdf(db: Session = Depends(get_db)):
     suppliers = get_all_suppliers_admin_service(db)
-    headers = ['Code', 'Company Name', 'Type', 'Exporter ID', 'Country', 'Phone', 'Email', 'ISO/Decree43/WhiteList', 'Status']
+    headers = ['Code', 'Company Name', 'Type', 'Exporter ID', 'CargoX ID', 'Country', 'Phone', 'Email', 'Bank/SWIFT', 'Compliance', 'Status']
     rows = []
     for s in suppliers:
         flags = []
@@ -196,14 +204,18 @@ def export_suppliers_pdf(db: Session = Depends(get_db)):
         if getattr(s, 'white_list_registered', False): flags.append("WL")
         flag_str = ", ".join(flags) if flags else "-"
 
+        bank_swift = f"{getattr(s, 'bank_name', '') or '-'}/{getattr(s, 'swift_code', '') or '-'}"
+
         rows.append([
             s.supplier_code,
             s.company_name,
             s.supplier_type,
             s.foreign_exporter_id,
+            getattr(s, 'cargox_platform_id', '') or '-',
             s.foreign_exporter_country,
             s.phone or '',
             s.email or '',
+            bank_swift,
             flag_str,
             'Active' if s.is_active else 'Inactive',
         ])

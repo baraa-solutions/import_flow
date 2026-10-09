@@ -31,6 +31,18 @@ class MasterDataExportImportHelper:
             return default
 
     @staticmethod
+    def format_date_safe(val: Any) -> str:
+        """Standardized YYYY-MM-DD date formatter for export outputs."""
+        if not val:
+            return ""
+        if isinstance(val, (date, datetime)):
+            return val.strftime("%Y-%m-%d")
+        s = str(val).strip()
+        if len(s) >= 10 and s[4] == '-' and s[7] == '-':
+            return s[:10]
+        return s
+
+    @staticmethod
     def parse_bool_safe(val: Any) -> bool:
         """Standardized boolean converter supporting common Arabic and English truthy literals."""
         if not val:
