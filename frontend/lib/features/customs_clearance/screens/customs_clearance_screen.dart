@@ -59,9 +59,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   String _selectedStatusFilter = 'All';
   int _selectedTab = 0;
 
-  // Local state for sample drawing items & discrepancy protocols (Clean Production - 0 records)
-  final List<Map<String, dynamic>> _drawnSamples = [];
-  final List<Map<String, dynamic>> _shortageProtocols = [];
+  // Local state for discrepancy protocols (Clean Production - 0 records)
   final List<Map<String, dynamic>> _discrepancyProtocols = [];
   GuideMatchResultModel? _clearanceGuideMatchResult;
 
@@ -831,15 +829,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   Widget _buildDrawingSamplesAndShortageView(List<CustomsClearanceModel> records, AppLocalizations l) {
     return DrawingSamplesAndShortageTab(
       records: records,
-      drawnSamples: _drawnSamples,
-      shortageProtocols: _shortageProtocols,
       onRefresh: _refreshData,
-      onAddSample: (sample) {
-        setState(() => _drawnSamples.insert(0, sample));
-      },
-      onAddShortage: (shortage) {
-        setState(() => _shortageProtocols.insert(0, shortage));
-      },
     );
   }
 

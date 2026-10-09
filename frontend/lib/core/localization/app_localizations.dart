@@ -2789,6 +2789,17 @@ abstract class AppLocalizations {
   String get drawingSamplesFilterPending;
   String get drawingSamplesEmptySamples;
   String get drawingSamplesEmptyShortage;
+  String get drawingSamplesColFileCode;
+  String get drawingSamplesColSampledBodies;
+  String get drawingSamplesColSamplingDate;
+  String get drawingSamplesColGoeicCert;
+  String get drawingSamplesColTestStatus;
+  String get drawingSamplesColLabResult;
+  String get ccShortageNotAvailable;
+  String get importFilePickerTitle;
+  String get importFilePickerSelectPrompt;
+  String get importFilePickerNoFilesFound;
+  String get importFilePickerContinue;
   String get drawingSamplesShortageSectionTitle;
   String get drawingSamplesShortageSectionDesc;
   String get drawingSamplesAddShortageBtn;
