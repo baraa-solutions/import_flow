@@ -126,6 +126,7 @@ import '../../currencies/providers/currencies_provider.dart';
     String? multiError;
     bool isMultiCalculating = false;
     bool didAutoSimulate = false;
+    bool didInitialRateLoad = false;
 
     Future<void> runImportFileSimulation(
         int fileId, StateSetter setState) async {
@@ -188,7 +189,12 @@ import '../../currencies/providers/currencies_provider.dart';
                   'value': TextEditingController(
                       text: _numToDouble(lineMap['item_total_fob_foreign'])
                           .toStringAsFixed(2)),
-                  'inspection': TextEditingController(text: '0.00'),
+                  'inspection': TextEditingController(
+                      text: lineMap['inspection_fee_egp'] != null &&
+                              _numToDouble(lineMap['inspection_fee_egp']) > 0
+                          ? _numToDouble(lineMap['inspection_fee_egp'])
+                              .toStringAsFixed(2)
+                          : ''),
                   'origin': lineMap['origin_country']?.toString() ?? 'CN',
                   'exemption':
                       lineMap['preferential_agreement_applied']?.toString(),
@@ -221,6 +227,25 @@ import '../../currencies/providers/currencies_provider.dart';
             didAutoSimulate = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               runImportFileSimulation(initialImportFileId, setCalcState);
+            });
+          } else if (initialImportFileId == null && !didInitialRateLoad) {
+            didInitialRateLoad = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (exchangeRateCtrl.text.isEmpty) {
+                final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+                final currModel = currencies.cast<CurrencyModel?>().firstWhere(
+                  (c) => c != null && c.currencyCode.toUpperCase() == selectedCurrency.toUpperCase(),
+                  orElse: () => null,
+                );
+                if (currModel != null &&
+                    currModel.latestCustomsRate != null &&
+                    currModel.latestCustomsRate! > 0) {
+                  setCalcState(() {
+                    exchangeRateCtrl.text = currModel.latestCustomsRate!.toStringAsFixed(4);
+                    syncCalculatedFields(setCalcState, multiLines);
+                  });
+                }
+              }
             });
           }
 
@@ -1316,6 +1341,15 @@ import '../../currencies/providers/currencies_provider.dart';
                                   'exemption_code': m['exemption'],
                                   'is_exemption_conditions_met': m['is_exemption_conditions_met'] == true,
                                 });
+                              }
+
+                              if (linesData.isEmpty || linesData.any((l) => (l['hs_code'] as String).isEmpty || (l['value_fc'] as double) <= 0)) {
+                                setCalcState(() {
+                                  multiError = isArabic
+                                      ? 'يرجى إدخال بند جمركي وقيمة صالحة أكبر من صفر لكل صنف'
+                                      : 'Please enter a valid HS code and value greater than 0 for all items';
+                                });
+                                return;
                               }
 
                               setCalcState(() {

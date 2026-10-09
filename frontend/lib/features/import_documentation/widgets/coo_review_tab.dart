@@ -44,12 +44,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
   bool _isCertifying = false;
 
   String _certType = 'EUR.1';
-  final TextEditingController _certNumberCtrl = TextEditingController(text: 'DRAFT-EUR1-001');
+  final TextEditingController _certNumberCtrl = TextEditingController();
   final TextEditingController _exporterCtrl = TextEditingController();
   final TextEditingController _exporterRegIdCtrl = TextEditingController();
   final TextEditingController _importerCtrl = TextEditingController();
-  final TextEditingController _originCountryCtrl = TextEditingController(text: 'Germany');
-  final TextEditingController _destCountryCtrl = TextEditingController(text: 'Egypt');
+  final TextEditingController _originCountryCtrl = TextEditingController();
+  final TextEditingController _destCountryCtrl = TextEditingController();
   final TextEditingController _invoiceNoCtrl = TextEditingController();
   final TextEditingController _rawTextCtrl = TextEditingController();
   final TextEditingController _overrideReasonCtrl = TextEditingController();

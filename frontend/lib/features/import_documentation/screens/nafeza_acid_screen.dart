@@ -61,7 +61,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // Controllers for Tab 0 (ACID Request)
   final _requestFormKey = GlobalKey<FormState>();
-  final TextEditingController _acidNumberCtrl = TextEditingController(text: 'ACID-EG-2026-');
+  final TextEditingController _acidNumberCtrl = TextEditingController();
   int? _selectedImporterId;
   final TextEditingController _importerNameCtrl = TextEditingController();
   final TextEditingController _importerTaxIdCtrl = TextEditingController();
@@ -84,8 +84,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   final TextEditingController _proformaDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   String _invoiceType = 'Proforma Invoice';
 
-  final TextEditingController _polCtrl = TextEditingController(text: 'Shanghai Port (CNSHA)');
-  final TextEditingController _podCtrl = TextEditingController(text: 'Alexandria Port (EG ALX)');
+  final TextEditingController _polCtrl = TextEditingController();
+  final TextEditingController _podCtrl = TextEditingController();
 
   int? _selectedBrokerId;
   final TextEditingController _brokerNameCtrl = TextEditingController();

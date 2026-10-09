@@ -165,11 +165,11 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   final TextEditingController _acidNumberCtrl = TextEditingController();
   final TextEditingController _form4NumberCtrl = TextEditingController();
   final TextEditingController _blNumberCtrl = TextEditingController();
-  final TextEditingController _customsValueEgpCtrl = TextEditingController(text: '0.00');
-  final TextEditingController _importDutyEgpCtrl = TextEditingController(text: '0.00');
-  final TextEditingController _vatEgpCtrl = TextEditingController(text: '0.00');
-  final TextEditingController _otherFeesEgpCtrl = TextEditingController(text: '0.00');
-  final TextEditingController _totalDutyAndTaxesCtrl = TextEditingController(text: '0.00');
+  final TextEditingController _customsValueEgpCtrl = TextEditingController();
+  final TextEditingController _importDutyEgpCtrl = TextEditingController();
+  final TextEditingController _vatEgpCtrl = TextEditingController();
+  final TextEditingController _otherFeesEgpCtrl = TextEditingController();
+  final TextEditingController _totalDutyAndTaxesCtrl = TextEditingController();
   final TextEditingController _submissionDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   final TextEditingController _notesCtrl = TextEditingController();
 

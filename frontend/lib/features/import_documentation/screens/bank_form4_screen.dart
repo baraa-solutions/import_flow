@@ -51,11 +51,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   int? _editingBankDocId;
   String? _editingBankDocCode;
   int? _form4ImportFileId;
-  final TextEditingController _bankAmountController = TextEditingController(text: '62300.0');
+  final TextEditingController _bankAmountController = TextEditingController();
   String _bankDocType = 'Form 4';
   String _form4Currency = 'USD';
   int? _selectedBankId;
-  String _bankName = 'National Bank of Egypt (NBE)';
+  String _bankName = '';
   final TextEditingController _form4RequestDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   final TextEditingController _form4NotesCtrl = TextEditingController();
   final TextEditingController _docReferenceNumberCtrl = TextEditingController();
@@ -64,13 +64,13 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   bool _isSavingForm4 = false;
 
   final Map<String, bool> _form4DocsChecklist = {
-    'proforma_invoice': true,
-    'packing_list': true,
-    'certificate_of_origin': true,
-    'bill_of_lading': true,
-    'acid_notice': true,
+    'proforma_invoice': false,
+    'packing_list': false,
+    'certificate_of_origin': false,
+    'bill_of_lading': false,
+    'acid_notice': false,
     'marine_insurance': false,
-    'bank_application': true,
+    'bank_application': false,
     'admin_fee_receipt': false,
   };
 
@@ -164,7 +164,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   }
 
   void _onCloneBankDocSelected(BankingDocumentModel doc) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (dialogCtx) => AppLocalizationsProvider(
@@ -244,7 +243,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          final isAr = Localizations.localeOf(context).languageCode == 'ar';
           return AlertDialog(
             title: Row(
               children: [
@@ -442,7 +440,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     return LayoutBuilder(
       builder: (context, constraints) {
