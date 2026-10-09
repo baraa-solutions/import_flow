@@ -12488,6 +12488,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccInsYardLabel => 'ساحة / رصيف المعاينة والكشف بالميناء *';
   @override String get ccInsYardHint => 'اختر ساحة الفحص...';
   @override String get ccInsYardRequired => 'يرجى تحديد ساحة المعاينة';
+  @override String get ccInsResultRequired => 'يرجى تحديد نتيجة المعاينة والفحص';
+  @override String get ccInsBodiesRequired => 'يرجى تحديد جهة رقابية واحدة على الأقل عند سحب العينات';
+  @override String get ccInsSamplingNoRequired => 'رقم محضر سحب العينات إلزامي ولا يقل عن ثلاثة أحرف';
   @override String get ccInsDateLabel => 'تاريخ المعاينة الفنية *';
   @override String get ccInsTypeLabel => 'نوع وطريقة الكشف والمعاينة:';
   @override String get ccInsType1 => 'كشف فعلي وسحب عينات';
@@ -12511,7 +12514,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccInsSampleSwitchOn => 'سيتم تدوين رقم محضر سحب العينات وتحديد جهات الفحص المعملي ومتابعة تقرير GOEIC';
   @override String get ccInsSampleSwitchOff => 'لم يتم سحب عينات (اكتفاء بالمعاينة الظاهرية ومطابقة المستندات)';
   @override String get ccInsSampleRecordLabel => 'رقم محضر سحب العينات الرسمي *';
-  @override String get ccInsSampleRecordHint => 'مثال: SMP-2026-ALX-1082';
+  @override String get ccInsSampleRecordHint => 'مثال: رقم محضر السحب...';
   @override String get ccInsSampleRecordNew => 'توليد رقم محضر جديد';
   @override String get ccInsSampleRecordRequired => 'رقم محضر سحب العينات مطلوب (3 أحرف على الأقل)';
   @override String get ccInsSampleDateLabel => 'تاريخ سحب العينات *';

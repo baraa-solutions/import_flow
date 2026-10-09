@@ -495,7 +495,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         keyName: 'customsInspectionSamplingScreenBtn',
         icon: Icons.biotech_rounded,
         label: l.ccStageInspection,
-        open: (f) => CustomsInspectionSamplingDialog.show(context, f),
+        open: (f) {
+          final records = ref.read(customsClearanceProvider).valueOrNull ?? [];
+          final record = records.where((r) => r.importFileId == f.importFileId).firstOrNull;
+          CustomsInspectionSamplingDialog.show(context, f, clearanceRecord: record);
+        },
       ),
       _stageButton(
         keyName: 'finalDutyAssessmentScreenBtn',

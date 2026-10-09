@@ -12487,6 +12487,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccInsYardLabel => 'Port inspection yard / berth *';
   @override String get ccInsYardHint => 'Select the inspection yard...';
   @override String get ccInsYardRequired => 'Select the inspection yard';
+  @override String get ccInsResultRequired => 'Inspection verdict is required';
+  @override String get ccInsBodiesRequired => 'At least one regulatory body must be selected when sampling';
+  @override String get ccInsSamplingNoRequired => 'Sampling record number is required (min 3 characters)';
   @override String get ccInsDateLabel => 'Technical inspection date *';
   @override String get ccInsTypeLabel => 'Inspection type and method:';
   @override String get ccInsType1 => 'Physical inspection with sampling';
@@ -12510,7 +12513,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccInsSampleSwitchOn => 'The sampling record number will be logged, the testing bodies selected and the GOEIC report followed up';
   @override String get ccInsSampleSwitchOff => 'No samples drawn (visual inspection and document check only)';
   @override String get ccInsSampleRecordLabel => 'Official sampling record number *';
-  @override String get ccInsSampleRecordHint => 'e.g. SMP-2026-ALX-1082';
+  @override String get ccInsSampleRecordHint => 'e.g. Sampling record no.';
   @override String get ccInsSampleRecordNew => 'Generate a new record number';
   @override String get ccInsSampleRecordRequired => 'The sampling record number is required (at least 3 characters)';
   @override String get ccInsSampleDateLabel => 'Sampling date *';
