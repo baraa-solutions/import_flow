@@ -166,11 +166,8 @@ def export_partners_excel(db: Session = Depends(get_db)):
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Partners & Banks", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Partners_Banks", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf")
@@ -201,11 +198,8 @@ def export_partners_pdf(db: Session = Depends(get_db)):
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Partners & Banks (MD-003)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Partners_Banks", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @router.get("/{provider_id}", response_model=PartnerResponse)

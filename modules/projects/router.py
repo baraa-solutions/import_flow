@@ -167,11 +167,8 @@ def export_projects_excel(db: Session = Depends(get_db)):
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Projects & Cost Centers", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Projects_CostCenters_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf")
@@ -191,8 +188,5 @@ def export_projects_pdf(db: Session = Depends(get_db)):
             'Active' if p.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Projects & Cost Centers (MD-007)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Projects_CostCenters_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)

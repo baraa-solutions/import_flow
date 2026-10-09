@@ -185,11 +185,8 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
             'Active' if s.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Foreign Suppliers", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @supplier_router.get("/export-pdf")
@@ -220,11 +217,8 @@ def export_suppliers_pdf(db: Session = Depends(get_db)):
             'Active' if s.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Foreign Exporters & Suppliers (MD-002)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 # ==================================================

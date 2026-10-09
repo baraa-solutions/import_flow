@@ -169,11 +169,8 @@ def export_companies_excel(db: Session = Depends(get_db)):
             'Active' if c.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Import Companies", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Egyptian_Import_Companies", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @import_router.get("/export-pdf")
@@ -200,11 +197,8 @@ def export_companies_pdf(db: Session = Depends(get_db)):
             'Active' if c.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Egyptian Import Companies (MD-001)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Egyptian_Import_Companies", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 # ==================================================
