@@ -12306,6 +12306,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'Actual sailing confirmed and B/L ($bl) recorded; the shipment is now In-Transit';
   @override String fbkDepError(String error) => 'Could not confirm the sailing: $error';
   @override String get fbkStatusCancelled => 'Cancelled';
+  @override String get fbkMixedCurrencyError => 'All charges must use one currency until currency conversion is available';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===

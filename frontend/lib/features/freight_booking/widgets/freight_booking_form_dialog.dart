@@ -26,12 +26,346 @@ import 'freight_booking_prompts.dart';
 import 'freight_booking_quote_card.dart';
 import 'freight_booking_ui.dart';
 
+/// State snapshot of the 17 freight quote breakdown items.
+class FbkQuoteState {
+  final bool container40ftApp;
+  final double container40ftPrice;
+  final String container40ftCur;
+  final int container40ftQty;
+
+  final bool container20ftApp;
+  final double container20ftPrice;
+  final String container20ftCur;
+  final int container20ftQty;
+
+  final bool lclCbmApp;
+  final double lclCbmPrice;
+  final String lclCbmCur;
+  final double lclCbmQty;
+
+  final bool dthcApp;
+  final double dthcPrice;
+  final String dthcCur;
+
+  final bool storagePerWeekApp;
+  final double storagePerWeekPrice;
+  final String storagePerWeekCur;
+
+  final bool extraDayStorageApp;
+  final double extraDayStoragePrice;
+  final String extraDayStorageCur;
+
+  final bool solasVgmApp;
+  final double solasVgmPrice;
+  final String solasVgmCur;
+
+  final bool vgmNotifApp;
+  final double vgmNotifPrice;
+  final String vgmNotifCur;
+
+  final bool telexReleaseApp;
+  final double telexReleasePrice;
+  final String telexReleaseCur;
+
+  final bool expressCourierApp;
+  final double expressCourierPrice;
+  final String expressCourierCur;
+
+  final bool eurAtrApp;
+  final double eurAtrPrice;
+  final String eurAtrCur;
+
+  final bool insuranceApp;
+  final double insurancePrice;
+  final String insuranceCur;
+
+  final bool docFeesApp;
+  final double docFeesPrice;
+  final String docFeesCur;
+
+  final bool waiverApp;
+  final double waiverPrice;
+  final String waiverCur;
+
+  final bool ics2App;
+  final double ics2Price;
+  final String ics2Cur;
+
+  final bool otherFeesApp;
+  final double otherFeesPrice;
+  final String otherFeesCur;
+
+  final bool cancellationApp;
+  final double cancellationPrice;
+  final String cancellationCur;
+
+  const FbkQuoteState({
+    this.container40ftApp = false,
+    this.container40ftPrice = 0.0,
+    this.container40ftCur = 'USD',
+    this.container40ftQty = 1,
+    this.container20ftApp = false,
+    this.container20ftPrice = 0.0,
+    this.container20ftCur = 'USD',
+    this.container20ftQty = 0,
+    this.lclCbmApp = false,
+    this.lclCbmPrice = 0.0,
+    this.lclCbmCur = 'USD',
+    this.lclCbmQty = 0.0,
+    this.dthcApp = false,
+    this.dthcPrice = 0.0,
+    this.dthcCur = 'USD',
+    this.storagePerWeekApp = false,
+    this.storagePerWeekPrice = 0.0,
+    this.storagePerWeekCur = 'USD',
+    this.extraDayStorageApp = false,
+    this.extraDayStoragePrice = 0.0,
+    this.extraDayStorageCur = 'USD',
+    this.solasVgmApp = false,
+    this.solasVgmPrice = 0.0,
+    this.solasVgmCur = 'USD',
+    this.vgmNotifApp = false,
+    this.vgmNotifPrice = 0.0,
+    this.vgmNotifCur = 'USD',
+    this.telexReleaseApp = false,
+    this.telexReleasePrice = 0.0,
+    this.telexReleaseCur = 'USD',
+    this.expressCourierApp = false,
+    this.expressCourierPrice = 0.0,
+    this.expressCourierCur = 'USD',
+    this.eurAtrApp = false,
+    this.eurAtrPrice = 0.0,
+    this.eurAtrCur = 'USD',
+    this.insuranceApp = false,
+    this.insurancePrice = 0.0,
+    this.insuranceCur = 'USD',
+    this.docFeesApp = false,
+    this.docFeesPrice = 0.0,
+    this.docFeesCur = 'USD',
+    this.waiverApp = false,
+    this.waiverPrice = 0.0,
+    this.waiverCur = 'USD',
+    this.ics2App = false,
+    this.ics2Price = 0.0,
+    this.ics2Cur = 'USD',
+    this.otherFeesApp = false,
+    this.otherFeesPrice = 0.0,
+    this.otherFeesCur = 'USD',
+    this.cancellationApp = false,
+    this.cancellationPrice = 0.0,
+    this.cancellationCur = 'USD',
+  });
+}
+
+/// Builds the list of booking charges from the quote breakdown state.
+///
+/// Sea freight 40ft and 20ft charges use specific container units
+/// ('Per 40ft Container', 'Per 20ft Container') so that the backend cost
+/// calculation does not erroneously overwrite per-type container quantities
+/// with the total container count.
+List<BookingChargeModel> buildChargesFromQuote(FbkQuoteState s) {
+  final List<BookingChargeModel> newCharges = [];
+  if (s.container40ftApp && s.container40ftPrice > 0) {
+    final qty = s.container40ftQty > 0 ? s.container40ftQty : 1;
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Sea Freight 40ft',
+      unit: 'Per 40ft Container',
+      quantity: qty,
+      currency: s.container40ftCur,
+      rate: s.container40ftPrice,
+      total: s.container40ftPrice * qty,
+    ));
+  }
+  if (s.container20ftApp && s.container20ftPrice > 0) {
+    final qty = s.container20ftQty > 0 ? s.container20ftQty : 1;
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Sea Freight 20ft',
+      unit: 'Per 20ft Container',
+      quantity: qty,
+      currency: s.container20ftCur,
+      rate: s.container20ftPrice,
+      total: s.container20ftPrice * qty,
+    ));
+  }
+  if (s.lclCbmApp && s.lclCbmPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'LCL CBM Freight',
+      unit: 'Per CBM',
+      quantity: s.lclCbmQty.ceil() > 0 ? s.lclCbmQty.ceil() : 1,
+      currency: s.lclCbmCur,
+      rate: s.lclCbmPrice,
+      total: s.lclCbmPrice * s.lclCbmQty,
+    ));
+  }
+  if (s.dthcApp && s.dthcPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'DTHC (Destination THC)',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.dthcCur,
+      rate: s.dthcPrice,
+      total: s.dthcPrice,
+    ));
+  }
+  if (s.storagePerWeekApp && s.storagePerWeekPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Storage per one week',
+      unit: 'Per Week',
+      quantity: 1,
+      currency: s.storagePerWeekCur,
+      rate: s.storagePerWeekPrice,
+      total: s.storagePerWeekPrice,
+    ));
+  }
+  if (s.extraDayStorageApp && s.extraDayStoragePrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Extra day storage',
+      unit: 'Per Day',
+      quantity: 1,
+      currency: s.extraDayStorageCur,
+      rate: s.extraDayStoragePrice,
+      total: s.extraDayStoragePrice,
+    ));
+  }
+  if (s.solasVgmApp && s.solasVgmPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'SOLAS/VGM Fees',
+      unit: 'Per Container',
+      quantity: 1,
+      currency: s.solasVgmCur,
+      rate: s.solasVgmPrice,
+      total: s.solasVgmPrice,
+    ));
+  }
+  if (s.vgmNotifApp && s.vgmNotifPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'VGM Notification Fee',
+      unit: 'Per Container',
+      quantity: 1,
+      currency: s.vgmNotifCur,
+      rate: s.vgmNotifPrice,
+      total: s.vgmNotifPrice,
+    ));
+  }
+  if (s.telexReleaseApp && s.telexReleasePrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Telex Release',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.telexReleaseCur,
+      rate: s.telexReleasePrice,
+      total: s.telexReleasePrice,
+    ));
+  }
+  if (s.expressCourierApp && s.expressCourierPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Express Courier',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.expressCourierCur,
+      rate: s.expressCourierPrice,
+      total: s.expressCourierPrice,
+    ));
+  }
+  if (s.eurAtrApp && s.eurAtrPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'EUR.1 / ATR Certificate',
+      unit: 'Per Certificate',
+      quantity: 1,
+      currency: s.eurAtrCur,
+      rate: s.eurAtrPrice,
+      total: s.eurAtrPrice,
+    ));
+  }
+  if (s.insuranceApp && s.insurancePrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Marine Insurance',
+      unit: 'Per Policy',
+      quantity: 1,
+      currency: s.insuranceCur,
+      rate: s.insurancePrice,
+      total: s.insurancePrice,
+    ));
+  }
+  if (s.docFeesApp && s.docFeesPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Document Fees',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.docFeesCur,
+      rate: s.docFeesPrice,
+      total: s.docFeesPrice,
+    ));
+  }
+  if (s.waiverApp && s.waiverPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Waiver Letter Fee',
+      unit: 'Per Letter',
+      quantity: 1,
+      currency: s.waiverCur,
+      rate: s.waiverPrice,
+      total: s.waiverPrice,
+    ));
+  }
+  if (s.ics2App && s.ics2Price > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'ICS2 Filing Fee',
+      unit: 'Per Filing',
+      quantity: 1,
+      currency: s.ics2Cur,
+      rate: s.ics2Price,
+      total: s.ics2Price,
+    ));
+  }
+  if (s.otherFeesApp && s.otherFeesPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Other Fees',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.otherFeesCur,
+      rate: s.otherFeesPrice,
+      total: s.otherFeesPrice,
+    ));
+  }
+  if (s.cancellationApp && s.cancellationPrice > 0) {
+    newCharges.add(BookingChargeModel(
+      chargeType: 'Booking Cancellation',
+      unit: 'Per Shipment',
+      quantity: 1,
+      currency: s.cancellationCur,
+      rate: s.cancellationPrice,
+      total: s.cancellationPrice,
+    ));
+  }
+  return newCharges;
+}
+
+/// Collects distinct currencies across all applicable quote breakdown items.
+Set<String> collectApplicableCurrencies(FbkQuoteState s) {
+  return buildChargesFromQuote(s)
+      .map((c) => c.currency.trim().toUpperCase())
+      .where((cur) => cur.isNotEmpty)
+      .toSet();
+}
+
+/// Returns true if more than one distinct currency is used by applicable quote items.
+bool hasMixedCurrencies(FbkQuoteState s) {
+  return collectApplicableCurrencies(s).length > 1;
+}
+
 /// Create / edit a freight booking. Nothing is prefilled with sample data:
 /// a new booking starts empty and the required fields carry validators.
 class FreightBookingFormDialog extends ConsumerStatefulWidget {
   final ShipmentBookingModel? bookingToEdit;
   final bool isClone;
   const FreightBookingFormDialog({super.key, this.bookingToEdit, this.isClone = false});
+
+  static List<BookingChargeModel> buildCharges(FbkQuoteState s) =>
+      buildChargesFromQuote(s);
+  static Set<String> collectCurrencies(FbkQuoteState s) =>
+      collectApplicableCurrencies(s);
+  static bool checkMixedCurrencies(FbkQuoteState s) =>
+      hasMixedCurrencies(s);
 
   @override
   ConsumerState<FreightBookingFormDialog> createState() => _FreightBookingFormDialogState();
@@ -490,82 +824,75 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         severity: AppSeverity.success);
   }
 
-  void _rebuildChargesFromQuoteBreakdown() {
-    final List<BookingChargeModel> newCharges = [];
-    if (_container40ftApp && _container40ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 40ft',
-        unit: 'Per Container',
-        quantity: _container40ftQty > 0 ? _container40ftQty : 1,
-        currency: _container40ftCur,
-        rate: _container40ftPrice,
-        total: _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1),
-      ));
-    }
-    if (_container20ftApp && _container20ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 20ft',
-        unit: 'Per Container',
-        quantity: _container20ftQty > 0 ? _container20ftQty : 1,
-        currency: _container20ftCur,
-        rate: _container20ftPrice,
-        total: _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1),
-      ));
-    }
-    if (_lclCbmApp && _lclCbmPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'LCL CBM Freight',
-        unit: 'Per CBM',
-        quantity: _lclCbmQty.ceil() > 0 ? _lclCbmQty.ceil() : 1,
-        currency: _lclCbmCur,
-        rate: _lclCbmPrice,
-        total: _lclCbmPrice * _lclCbmQty,
-      ));
-    }
-    if (_dthcApp && _dthcPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'DTHC (Destination THC)', unit: 'Per Shipment', quantity: 1, currency: _dthcCur, rate: _dthcPrice, total: _dthcPrice));
-    }
-    if (_storagePerWeekApp && _storagePerWeekPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Storage per one week', unit: 'Per Week', quantity: 1, currency: _storagePerWeekCur, rate: _storagePerWeekPrice, total: _storagePerWeekPrice));
-    }
-    if (_extraDayStorageApp && _extraDayStoragePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Extra day storage', unit: 'Per Day', quantity: 1, currency: _extraDayStorageCur, rate: _extraDayStoragePrice, total: _extraDayStoragePrice));
-    }
-    if (_solasVgmApp && _solasVgmPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'SOLAS/VGM Fees', unit: 'Per Container', quantity: 1, currency: _solasVgmCur, rate: _solasVgmPrice, total: _solasVgmPrice));
-    }
-    if (_vgmNotifApp && _vgmNotifPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'VGM Notification Fee', unit: 'Per Container', quantity: 1, currency: _vgmNotifCur, rate: _vgmNotifPrice, total: _vgmNotifPrice));
-    }
-    if (_telexReleaseApp && _telexReleasePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Telex Release', unit: 'Per Shipment', quantity: 1, currency: _telexReleaseCur, rate: _telexReleasePrice, total: _telexReleasePrice));
-    }
-    if (_expressCourierApp && _expressCourierPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Express Courier', unit: 'Per Shipment', quantity: 1, currency: _expressCourierCur, rate: _expressCourierPrice, total: _expressCourierPrice));
-    }
-    if (_eurAtrApp && _eurAtrPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'EUR.1 / ATR Certificate', unit: 'Per Certificate', quantity: 1, currency: _eurAtrCur, rate: _eurAtrPrice, total: _eurAtrPrice));
-    }
-    if (_insuranceApp && _insurancePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Marine Insurance', unit: 'Per Policy', quantity: 1, currency: _insuranceCur, rate: _insurancePrice, total: _insurancePrice));
-    }
-    if (_docFeesApp && _docFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Document Fees', unit: 'Per Shipment', quantity: 1, currency: _docFeesCur, rate: _docFeesPrice, total: _docFeesPrice));
-    }
-    if (_waiverApp && _waiverPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Waiver Letter Fee', unit: 'Per Letter', quantity: 1, currency: _waiverCur, rate: _waiverPrice, total: _waiverPrice));
-    }
-    if (_ics2App && _ics2Price > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'ICS2 Filing Fee', unit: 'Per Filing', quantity: 1, currency: _ics2Cur, rate: _ics2Price, total: _ics2Price));
-    }
-    if (_otherFeesApp && _otherFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Other Fees', unit: 'Per Shipment', quantity: 1, currency: _otherFeesCur, rate: _otherFeesPrice, total: _otherFeesPrice));
-    }
+  FbkQuoteState get _currentQuoteState => FbkQuoteState(
+        container40ftApp: _container40ftApp,
+        container40ftPrice: _container40ftPrice,
+        container40ftCur: _container40ftCur,
+        container40ftQty: _container40ftQty,
+        container20ftApp: _container20ftApp,
+        container20ftPrice: _container20ftPrice,
+        container20ftCur: _container20ftCur,
+        container20ftQty: _container20ftQty,
+        lclCbmApp: _lclCbmApp,
+        lclCbmPrice: _lclCbmPrice,
+        lclCbmCur: _lclCbmCur,
+        lclCbmQty: _lclCbmQty,
+        dthcApp: _dthcApp,
+        dthcPrice: _dthcPrice,
+        dthcCur: _dthcCur,
+        storagePerWeekApp: _storagePerWeekApp,
+        storagePerWeekPrice: _storagePerWeekPrice,
+        storagePerWeekCur: _storagePerWeekCur,
+        extraDayStorageApp: _extraDayStorageApp,
+        extraDayStoragePrice: _extraDayStoragePrice,
+        extraDayStorageCur: _extraDayStorageCur,
+        solasVgmApp: _solasVgmApp,
+        solasVgmPrice: _solasVgmPrice,
+        solasVgmCur: _solasVgmCur,
+        vgmNotifApp: _vgmNotifApp,
+        vgmNotifPrice: _vgmNotifPrice,
+        vgmNotifCur: _vgmNotifCur,
+        telexReleaseApp: _telexReleaseApp,
+        telexReleasePrice: _telexReleasePrice,
+        telexReleaseCur: _telexReleaseCur,
+        expressCourierApp: _expressCourierApp,
+        expressCourierPrice: _expressCourierPrice,
+        expressCourierCur: _expressCourierCur,
+        eurAtrApp: _eurAtrApp,
+        eurAtrPrice: _eurAtrPrice,
+        eurAtrCur: _eurAtrCur,
+        insuranceApp: _insuranceApp,
+        insurancePrice: _insurancePrice,
+        insuranceCur: _insuranceCur,
+        docFeesApp: _docFeesApp,
+        docFeesPrice: _docFeesPrice,
+        docFeesCur: _docFeesCur,
+        waiverApp: _waiverApp,
+        waiverPrice: _waiverPrice,
+        waiverCur: _waiverCur,
+        ics2App: _ics2App,
+        ics2Price: _ics2Price,
+        ics2Cur: _ics2Cur,
+        otherFeesApp: _otherFeesApp,
+        otherFeesPrice: _otherFeesPrice,
+        otherFeesCur: _otherFeesCur,
+        cancellationApp: _cancellationApp,
+        cancellationPrice: _cancellationPrice,
+        cancellationCur: _cancellationCur,
+      );
 
-    _charges = newCharges;
+  void _rebuildChargesFromQuoteBreakdown() {
+    _charges = buildChargesFromQuote(_currentQuoteState);
   }
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
+    final l = AppLocalizations.of(context);
+    if (hasMixedCurrencies(_currentQuoteState)) {
+      if (_tab != 1) setState(() => _tab = 1);
+      FbkUi.snack(context, l.fbkMixedCurrencyError, severity: AppSeverity.danger);
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       // Required fields live on the first tab: bring the user back to the errors.
       if (_tab != 0) setState(() => _tab = 0);
@@ -698,25 +1025,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   }
 
   double get _computedCurrentExecutedFreight {
-    double total = 0.0;
-    if (_container40ftApp) total += _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1);
-    if (_container20ftApp) total += _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1);
-    if (_lclCbmApp) total += _lclCbmPrice * _lclCbmQty;
-    if (_expressCourierApp) total += _expressCourierPrice;
-    if (_eurAtrApp) total += _eurAtrPrice;
-    if (_solasVgmApp) total += _solasVgmPrice;
-    if (_vgmNotifApp) total += _vgmNotifPrice;
-    if (_telexReleaseApp) total += _telexReleasePrice;
-    if (_insuranceApp) total += _insurancePrice;
-    if (_cancellationApp) total += _cancellationPrice;
-    if (_ics2App) total += _ics2Price;
-    if (_otherFeesApp) total += _otherFeesPrice;
-    if (_docFeesApp) total += _docFeesPrice;
-    if (_waiverApp) total += _waiverPrice;
-    if (_dthcApp) total += _dthcPrice;
-    if (_storagePerWeekApp) total += _storagePerWeekPrice;
-    if (_extraDayStorageApp) total += _extraDayStoragePrice;
-    return total;
+    final charges = buildChargesFromQuote(_currentQuoteState);
+    return charges.fold<double>(0.0, (sum, c) => sum + c.total);
   }
 
   Widget _liveSavingsBanner() {
@@ -762,13 +1072,29 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         _rebuildChargesFromQuoteBreakdown();
       },
       price: price,
-      onPriceChanged: (v) => setState(() => onPrice(v)),
+      onPriceChanged: (v) {
+        setState(() => onPrice(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       currency: cur,
-      onCurrencyChanged: (v) => setState(() => onCur(v)),
+      onCurrencyChanged: (v) {
+        setState(() => onCur(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       quantity: qty,
-      onQuantityChanged: onQty == null ? null : (v) => setState(() => onQty(v)),
+      onQuantityChanged: onQty == null
+          ? null
+          : (v) {
+              setState(() => onQty(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
       doubleQty: cbm,
-      onDoubleQtyChanged: onCbm == null ? null : (v) => setState(() => onCbm(v)),
+      onDoubleQtyChanged: onCbm == null
+          ? null
+          : (v) {
+              setState(() => onCbm(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
     );
   }
 
