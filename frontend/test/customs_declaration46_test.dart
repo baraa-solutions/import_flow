@@ -89,6 +89,18 @@ CurrencyModel _currency(String code, double? customsRate) => CurrencyModel(
       latestCustomsRate: customsRate,
     );
 
+ImportFileModel _simpleFile(int id, String code, String supplier) => ImportFileModel(
+      importFileId: id,
+      importFileCode: code,
+      companyName: 'Company 1',
+      supplierName: supplier,
+      currentModule: 'Customs Clearance',
+      currentStage: 'Declaration 46',
+      nextAction: 'Submit Form 46',
+      createdAt: '2026-08-20T00:00:00Z',
+      updatedAt: '2026-08-20T00:00:00Z',
+    );
+
 class _FakeRef implements Ref {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -302,6 +314,20 @@ void main() {
         updatedAt: DateTime(2026, 1, 1),
       );
 
+      final mockClearance = CustomsClearanceModel(
+        customsClearanceId: 1,
+        clearanceCode: 'CC-001',
+        importFileId: 7,
+        declaration46No: '46-ALX-FILE-2026-007',
+        declaration46Date: '2026-08-25T00:00:00',
+        customsOfficeName: 'جمرك الإسكندرية',
+        channelType: 'Yellow',
+        status: 'Under Customs Clearance',
+        totalDutyPayable: 12500.0,
+        createdAt: '2026-08-25T00:00:00Z',
+        updatedAt: '2026-08-25T00:00:00Z',
+      );
+
       tester.view.physicalSize = const Size(1400, 950);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -313,6 +339,7 @@ void main() {
         ProviderScope(
           overrides: [
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier(initial: [mockClearance])),
             customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([mockTariff])),
             purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(7, '8471.30.00')])),
             currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('EUR', 55.0)])),
@@ -339,14 +366,13 @@ void main() {
 
       // 1. Verify SubTab 1 KPI Metrics Cards
       expect(find.text('إجمالي الإقرارات'), findsOneWidget);
-      expect(find.text('إجمالي القيمة الجمركية (سيف)'), findsOneWidget);
       expect(find.text('إجمالي الضرائب والرسوم'), findsOneWidget);
+      expect(find.text('إجمالي الرسوم التقديرية'), findsOneWidget);
       expect(find.text('إعفاءات الشراكة الأوروبية'), findsOneWidget);
 
       // 2. Verify Registry Table Columns and Data
       expect(find.text('46-ALX-FILE-2026-007'), findsOneWidget);
       expect(find.text('Siemens Industrial Automation AG'), findsOneWidget);
-      expect(find.text('8471.30.00'), findsOneWidget);
 
       // 3. Verify Assessment Action Button and Tap to Open Dialog
       final assessmentBtn = find.byTooltip('معاينة التقييم الجمركي وبنود التعريفة');
@@ -358,9 +384,77 @@ void main() {
 
       // 4. Verify Assessment Dialog Content
       expect(find.text('التقييم الجمركي وبنود التعريفة — شهادة 46 ك.م'), findsOneWidget);
+      expect(find.textContaining('8471.30.00'), findsWidgets);
       expect(find.text('تفصيل وعاء القيمة للأغراض الجمركية (سيف)'), findsOneWidget);
       expect(find.text('جدول الضرائب والرسوم الجمركية المقررة'), findsOneWidget);
       expect(find.text('بيانات الشحنة والإقرار الجمركي'), findsOneWidget);
+    });
+
+    testWidgets('FE06-T02: given 3 import files and 1 clearance record with declaration_46_no=46-X-1, registry shows exactly 1 row with 46-X-1 and no 46-ALX-', (tester) async {
+      final file1 = _simpleFile(101, 'IMP-2026-0101', 'Supplier A');
+      final file2 = _simpleFile(102, 'IMP-2026-0102', 'Supplier B');
+      final file3 = _simpleFile(103, 'IMP-2026-0103', 'Supplier C');
+
+      final clearance1 = CustomsClearanceModel(
+        customsClearanceId: 50,
+        clearanceCode: 'CC-050',
+        importFileId: 101,
+        declaration46No: '46-X-1',
+        declaration46Date: '2026-08-25T00:00:00',
+        customsOfficeName: 'جمرك الإسكندرية',
+        channelType: 'Green',
+        status: 'Under Customs Clearance',
+        totalDutyPayable: 5000.0,
+        createdAt: '2026-08-25T00:00:00Z',
+        updatedAt: '2026-08-25T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([file1, file2, file3])),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier(initial: [clearance1])),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Exactly 1 row with 46-X-1
+      expect(find.text('46-X-1'), findsOneWidget);
+      expect(find.text('Supplier A'), findsOneWidget);
+
+      // Other suppliers should not appear as rows in the registry table
+      expect(find.text('Supplier B'), findsNothing);
+      expect(find.text('Supplier C'), findsNothing);
+
+      // Verify no fabricated '46-ALX-' appears anywhere in the UI
+      expect(find.textContaining('46-ALX-'), findsNothing);
     });
 
     testWidgets('Missing tariff and customs FX rate show the missing banner and no computed duties', (tester) async {

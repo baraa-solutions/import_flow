@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,9 @@ import '../../../core/localization/stored_text.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../customs_clearance/providers/customs_clearance_provider.dart';
+import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -109,6 +112,31 @@ class CustomsDeclarationAssessment {
   });
 
   bool get isComplete => missing.isEmpty;
+}
+
+class _DeclarationRegistryItem {
+  final CustomsClearanceModel record;
+  final ImportFileModel? file;
+  final CustomsDeclarationAssessment? estimate;
+
+  const _DeclarationRegistryItem({
+    required this.record,
+    required this.file,
+    this.estimate,
+  });
+
+  String get declarationNo => record.declaration46No ?? '-';
+  String get importFileCode => file?.importFileCode ?? (record.importFileId > 0 ? 'IMP-${record.importFileId}' : '-');
+  String get primaryNameWithCode => file?.primaryNameWithCode ?? importFileCode;
+  String get supplierName => file?.supplierName ?? '-';
+  String get declarationDate => record.declaration46Date != null && record.declaration46Date!.length >= 10
+      ? record.declaration46Date!.substring(0, 10)
+      : '—';
+  String get customsOffice => record.customsOfficeName.trim().isNotEmpty ? record.customsOfficeName : '—';
+  String get channel => record.channelType;
+  String get status => record.status;
+  double? get effectiveDutyTotal => record.effectiveDutyTotal;
+  double? get estimatedDutyTotal => estimate?.totalDutiesEgp;
 }
 
 class CustomsDeclaration46Screen extends ConsumerStatefulWidget {
@@ -227,6 +255,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   List<Map<String, dynamic>> _regulatoryApprovals = [];
 
   String _searchQuery = '';
+  Timer? _searchDebounceTimer;
+  final TextEditingController _searchCtrl = TextEditingController();
+  Map<int, CustomsDeclarationAssessment> _cachedAssessments = {};
+  int _lastInputsHash = 0;
   bool _isSavingDeclaration = false;
 
   @override
@@ -245,6 +277,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   void _refreshData() {
     if (!ref.read(importFilesProvider).isLoading) {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(customsClearanceProvider).isLoading) {
+      ref.read(customsClearanceProvider.notifier).fetchRecords();
     }
     if (!ref.read(acidSessionsProvider).isLoading) {
       ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
@@ -268,6 +303,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchCtrl.dispose();
     _declaration46NoCtrl.dispose();
     _acidNumberCtrl.dispose();
     _form4NumberCtrl.dispose();
@@ -449,17 +486,24 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     final bookings = ref.read(freightBookingProvider).valueOrNull ?? [];
     final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
     final pos = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final clearanceRecords = ref.read(customsClearanceProvider).valueOrNull ?? [];
 
-    final assessments = files.map((f) => _calculateAssessment(
-      f,
-      context.l10n,
-      cachedAcids: acids,
-      cachedBankDocs: bankDocs,
-      cachedReviews: reviews,
-      cachedBookings: bookings,
-      cachedTariffs: tariffs,
-      cachedPos: pos,
-    )).toList();
+    final assessments = files.map((f) {
+      final clearance = clearanceRecords.where((c) => c.importFileId == f.importFileId).firstOrNull;
+      return _calculateAssessment(
+        f,
+        context.l10n,
+        declarationNo: clearance?.declaration46No ?? f.form46No ?? '',
+        registrationDate: clearance?.declaration46Date ?? f.form46Date ?? '',
+        status: clearance?.status ?? '',
+        cachedAcids: acids,
+        cachedBankDocs: bankDocs,
+        cachedReviews: reviews,
+        cachedBookings: bookings,
+        cachedTariffs: tariffs,
+        cachedPos: pos,
+      );
+    }).toList();
 
     CustomsDeclarationAssessment? selected;
     await showDialog(
@@ -698,7 +742,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       importFileNameOrCode: fileCode,
       headerContext: TableExportHeaderContext(
         title: l.customsDeclRegulatoryHeader,
-        subtitle: 'Declaration 46: ${_declaration46NoCtrl.text} — Import File: $fileCode',
+        subtitle: l.customsDeclExportSubtitleWithFile(_declaration46NoCtrl.text, fileCode),
         metadata: {
           l.customsDeclColDeclarationNo: _declaration46NoCtrl.text,
           l.customsDeclColFileNumber: fileCode,
@@ -1273,6 +1317,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   CustomsDeclarationAssessment _calculateAssessment(
     dynamic file,
     AppLocalizations l, {
+    String? declarationNo,
+    String? registrationDate,
+    String? status,
     List<dynamic>? cachedAcids,
     List<dynamic>? cachedBankDocs,
     List<dynamic>? cachedReviews,
@@ -1282,7 +1329,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     List<CurrencyModel>? cachedCurrencies,
   }) {
     final int fileId = file.importFileId;
-    final String declNo = '46-ALX-${file.importFileCode}';
+    final String declNo = declarationNo ?? file.form46No ?? '';
+    final String regDate = registrationDate ?? file.form46Date ?? '';
+    final String declStatus = status ?? '';
 
     // 1. ACID
     String acidVal = file.acidNumber ?? '';
@@ -1397,9 +1446,46 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       missing: f.missing,
       hasExemption: isEuropeanOrExempt,
       exemptionTitle: exemptionTitle,
-      registrationDate: DateTime.now().toString().substring(0, 10),
-      status: l.customsDeclStatusRegisteredNafeza,
+      registrationDate: regDate,
+      status: declStatus,
     );
+  }
+
+  CustomsDeclarationAssessment? _getOrComputeAssessment(
+    ImportFileModel? file,
+    AppLocalizations l, {
+    required List<dynamic> acids,
+    required List<dynamic> bankDocs,
+    required List<dynamic> reviews,
+    required List<dynamic> bookings,
+    required List<CustomsTariffModel> allTariffs,
+    required List<dynamic> pos,
+    required List<CurrencyModel> currencies,
+    String? declarationNo,
+    String? registrationDate,
+    String? status,
+  }) {
+    if (file == null) return null;
+    final fileId = file.importFileId;
+    if (_cachedAssessments.containsKey(fileId)) {
+      return _cachedAssessments[fileId];
+    }
+    final assessment = _calculateAssessment(
+      file,
+      l,
+      declarationNo: declarationNo ?? file.form46No ?? '',
+      registrationDate: registrationDate ?? file.form46Date ?? '',
+      status: status ?? '',
+      cachedAcids: acids,
+      cachedBankDocs: bankDocs,
+      cachedReviews: reviews,
+      cachedBookings: bookings,
+      cachedTariffs: allTariffs,
+      cachedPos: pos,
+      cachedCurrencies: currencies,
+    );
+    _cachedAssessments[fileId] = assessment;
+    return assessment;
   }
 
   /// Money cell: right-aligned LTR digits, or the red missing marker.
@@ -1419,34 +1505,87 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   Widget _buildDeclarationRegistryView(AppLocalizations l) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final clearanceAsync = ref.watch(customsClearanceProvider);
+    final clearanceRecords = clearanceAsync.valueOrNull ?? [];
     final acids = ref.watch(acidSessionsProvider).valueOrNull ?? [];
     final bankDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
     final reviews = ref.watch(draftBLReviewsProvider).valueOrNull ?? [];
     final bookings = ref.watch(freightBookingProvider).valueOrNull ?? [];
     final allTariffs = ref.watch(customsTariffProvider).valueOrNull ?? [];
     final pos = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
 
-    final filtered = importFiles.where((f) {
-      if (_searchQuery.isEmpty) return true;
-      return f.importFileCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          f.supplierName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          f.primaryNameWithCode.toLowerCase().contains(_searchQuery.toLowerCase());
+    final realDeclarations = clearanceRecords.where((r) {
+      final no = r.declaration46No?.trim();
+      return no != null && no.isNotEmpty;
     }).toList();
 
-    final assessments = filtered.map((f) => _calculateAssessment(
-      f,
-      l,
-      cachedAcids: acids,
-      cachedBankDocs: bankDocs,
-      cachedReviews: reviews,
-      cachedBookings: bookings,
-      cachedTariffs: allTariffs,
-      cachedPos: pos,
-    )).toList();
+    final currentHash = Object.hash(
+      importFiles.length,
+      clearanceRecords.length,
+      acids.length,
+      bankDocs.length,
+      reviews.length,
+      bookings.length,
+      allTariffs.length,
+      pos.length,
+      currencies.length,
+    );
+    if (_lastInputsHash != currentHash) {
+      _lastInputsHash = currentHash;
+      _cachedAssessments = {};
+    }
 
-    final totalCif = assessments.fold<double>(0.0, (sum, a) => sum + (a.cifEgp ?? 0.0));
-    final totalDuties = assessments.fold<double>(0.0, (sum, a) => sum + (a.totalDutiesEgp ?? 0.0));
-    final totalExemptions = assessments.where((a) => a.hasExemption).length;
+    final fileMap = {for (final f in importFiles) f.importFileId: f};
+
+    final allItems = realDeclarations.map((record) {
+      final file = fileMap[record.importFileId];
+      final estimate = _getOrComputeAssessment(
+        file,
+        l,
+        acids: acids,
+        bankDocs: bankDocs,
+        reviews: reviews,
+        bookings: bookings,
+        allTariffs: allTariffs,
+        pos: pos,
+        currencies: currencies,
+        declarationNo: record.declaration46No,
+        registrationDate: record.declaration46Date,
+        status: record.status,
+      );
+      return _DeclarationRegistryItem(
+        record: record,
+        file: file,
+        estimate: estimate,
+      );
+    }).toList();
+
+    final filteredItems = allItems.where((item) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      final dNo = item.declarationNo.toLowerCase();
+      final fCode = item.importFileCode.toLowerCase();
+      final supp = item.supplierName.toLowerCase();
+      final pName = item.primaryNameWithCode.toLowerCase();
+      final off = item.customsOffice.toLowerCase();
+      return dNo.contains(q) ||
+          fCode.contains(q) ||
+          supp.contains(q) ||
+          pName.contains(q) ||
+          off.contains(q);
+    }).toList();
+
+    final totalCount = filteredItems.length;
+    final totalStoredDuties = filteredItems.fold<double>(
+      0.0,
+      (sum, item) => sum + (item.effectiveDutyTotal ?? 0.0),
+    );
+    final totalEstimatedDuties = filteredItems.fold<double>(
+      0.0,
+      (sum, item) => sum + (item.estimatedDutyTotal ?? 0.0),
+    );
+    final totalExemptions = filteredItems.where((item) => item.estimate?.hasExemption == true).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1455,21 +1594,21 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         IdocBUi.metrics([
           MetricCardData(
             title: l.customsDeclMetricTotalDeclarations,
-            value: assessments.length.toString(),
+            value: totalCount.toString(),
             icon: Icons.assignment_turned_in_outlined,
             color: AppTheme.cobalt,
           ),
           MetricCardData(
-            title: l.customsDeclMetricTotalCif,
-            value: '${IdocBFormat.money(totalCif)} ${l.egpCurrency}',
-            icon: Icons.monetization_on_outlined,
-            color: AppTheme.cobalt,
-          ),
-          MetricCardData(
             title: l.customsDeclMetricTotalDuties,
-            value: '${IdocBFormat.money(totalDuties)} ${l.egpCurrency}',
+            value: '${IdocBFormat.money(totalStoredDuties)} ${l.egpCurrency}',
             icon: Icons.account_balance_wallet_outlined,
             color: AppTheme.crimson,
+          ),
+          MetricCardData(
+            title: l.customsDeclMetricEstimatedDuties,
+            value: '${IdocBFormat.money(totalEstimatedDuties)} ${l.egpCurrency}',
+            icon: Icons.analytics_outlined,
+            color: AppTheme.cobalt,
           ),
           MetricCardData(
             title: l.customsDeclMetricExemptions,
@@ -1484,6 +1623,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         LayoutBuilder(
           builder: (context, constraints) {
             final searchField = TextField(
+              controller: _searchCtrl,
               decoration: InputDecoration(
                 hintText: l.customsDeclRegistrySearchHint,
                 hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
@@ -1501,13 +1641,18 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
               style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-              onChanged: (val) => setState(() => _searchQuery = val),
+              onChanged: (val) {
+                _searchDebounceTimer?.cancel();
+                _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+                  if (mounted) setState(() => _searchQuery = val.trim());
+                });
+              },
             );
 
             final actionButtons = [
-              AppButton(key: const Key('copyRegistryTableTsvBtn'), label: l.customsDeclExportTsvButton, onPressed: () => _exportRegistryTsv(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.copy),
-              AppButton(key: const Key('exportRegistryExcelBtn'), label: l.exportRegistryExcelTooltip, onPressed: () => _exportRegistryExcel(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.table_view_outlined),
-              AppButton(key: const Key('exportRegistryPdfBtn'), label: l.exportRegistryPdfTooltip, onPressed: () => _exportRegistryPdf(assessments, l), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf_outlined),
+              AppButton(key: const Key('copyRegistryTableTsvBtn'), label: l.customsDeclExportTsvButton, onPressed: () => _exportRegistryTsv(filteredItems, l), variant: AppButtonVariant.secondary, icon: Icons.copy),
+              AppButton(key: const Key('exportRegistryExcelBtn'), label: l.exportRegistryExcelTooltip, onPressed: () => _exportRegistryExcel(filteredItems, l), variant: AppButtonVariant.secondary, icon: Icons.table_view_outlined),
+              AppButton(key: const Key('exportRegistryPdfBtn'), label: l.exportRegistryPdfTooltip, onPressed: () => _exportRegistryPdf(filteredItems, l), variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf_outlined),
               AppButton(key: const Key('registerNewDeclBtn'), label: l.customsDeclRegisterNewButton, onPressed: () => setState(() => _selectedSubTab = 0), icon: Icons.add),
             ];
 
@@ -1532,11 +1677,15 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
         const SizedBox(height: 16),
 
         // Registry table (assessment, row copy and clone actions)
-        if (assessments.isEmpty)
+        if (filteredItems.isEmpty)
           IdocBStateView.empty(
             key: const Key('decl46RegistryEmpty'),
-            message: l.idocBNoDeclarations,
+            message: _searchQuery.isNotEmpty
+                ? l.idocBNoDeclarations
+                : l.customsDeclRegistryEmptyMessage,
             icon: Icons.assignment_outlined,
+            actionLabel: l.customsDeclRegisterNewButton,
+            onAction: () => setState(() => _selectedSubTab = 0),
           )
         else
         Container(
@@ -1573,21 +1722,19 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 ),
                 DataColumn(
                   label: Text(
-                    l.customsDeclColHsCode,
+                    l.customsDeclColRegistrationDate,
                     style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
-                  numeric: true,
                   label: Text(
-                    l.customsDeclCifValueLabel,
+                    l.ccDecOfficeLabel,
                     style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
                 DataColumn(
-                  numeric: true,
                   label: Text(
-                    l.customsDeclTotalDutiesLabel,
+                    l.customsDeclChannelLabel,
                     style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
@@ -1597,9 +1744,16 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                   ),
                 ),
+                DataColumn(
+                  numeric: true,
+                  label: Text(
+                    l.customsDeclColTariffEstimate,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                  ),
+                ),
               ],
-              rows: assessments.map((a) {
-                final rowSummary = '${a.declarationNo}\t${a.primaryNameWithCode}\t${a.supplierName}\t${a.hsCode}\t${a.cifEgp.fixedOrMissing(2, _miss)}\t${a.totalDutiesEgp.fixedOrMissing(2, _miss)}\t${a.registrationDate}\t${a.status}';
+              rows: filteredItems.map((item) {
+                final rowSummary = '${item.declarationNo}\t${item.importFileCode}\t${item.supplierName}\t${item.declarationDate}\t${item.customsOffice}\t${item.channel}\t${item.status}\t${item.estimatedDutyTotal.fixedOrMissing(2, _miss)}';
 
                 return DataRow(
                   cells: [
@@ -1607,14 +1761,15 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (item.estimate != null)
+                            IconButton(
+                              key: Key('viewAssessmentBtn_${item.declarationNo}'),
+                              icon: const Icon(Icons.analytics_outlined, color: AppTheme.cobalt, size: 18),
+                              tooltip: l.customsDeclViewAssessmentTooltip,
+                              onPressed: () => _showTariffAssessmentDialog(item.estimate!, l),
+                            ),
                           IconButton(
-                            key: Key('viewAssessmentBtn_${a.declarationNo}'),
-                            icon: const Icon(Icons.analytics_outlined, color: AppTheme.cobalt, size: 18),
-                            tooltip: l.customsDeclViewAssessmentTooltip,
-                            onPressed: () => _showTariffAssessmentDialog(a, l),
-                          ),
-                          IconButton(
-                            key: Key('copyRegistryRowBtn_${a.declarationNo}'),
+                            key: Key('copyRegistryRowBtn_${item.declarationNo}'),
                             icon: Icon(Icons.copy, size: 16, color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
                             tooltip: l.copyRegistryRowSuccess,
                             onPressed: () {
@@ -1622,42 +1777,44 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                 l.customsDeclColDeclarationNo,
                                 l.customsDeclColFileNumber,
                                 l.customsDeclColSupplier,
-                                l.customsDeclColHsCode,
-                                l.customsDeclCifValueLabel,
-                                l.customsDeclTotalDutiesLabel,
                                 l.customsDeclColRegistrationDate,
+                                l.ccDecOfficeLabel,
+                                l.customsDeclChannelLabel,
                                 l.customsDeclColDeclarationStatus,
+                                l.customsDeclColTariffEstimate,
                               ];
                               final values = [
-                                a.declarationNo,
-                                a.primaryNameWithCode,
-                                a.supplierName,
-                                a.hsCode,
-                                a.cifEgp.fixedOrMissing(2, _miss),
-                                a.totalDutiesEgp.fixedOrMissing(2, _miss),
-                                a.registrationDate,
-                                a.status,
+                                item.declarationNo,
+                                item.importFileCode,
+                                item.supplierName,
+                                item.declarationDate,
+                                item.customsOffice,
+                                item.channel,
+                                item.status,
+                                item.estimatedDutyTotal.fixedOrMissing(2, _miss),
                               ];
                               TableCopyHelper.copyRow(context, values, headers: headers);
                             },
                           ),
-                          IconButton(
-                            key: Key('cloneRegistryRowBtn_${a.declarationNo}'),
-                            icon: Icon(Icons.copy_all, size: 18, color: isDark ? AppTheme.emerald : AppTheme.flatEmerald),
-                            tooltip: l.cloneCustomsDeclRowTooltip,
-                            onPressed: () => _onCloneDeclarationSelected(a),
-                          ),
+                          if (item.estimate != null)
+                            IconButton(
+                              key: Key('cloneRegistryRowBtn_${item.declarationNo}'),
+                              icon: Icon(Icons.copy_all, size: 18, color: isDark ? AppTheme.emerald : AppTheme.flatEmerald),
+                              tooltip: l.cloneCustomsDeclRowTooltip,
+                              onPressed: () => _onCloneDeclarationSelected(item.estimate!),
+                            ),
                         ],
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.declarationNo,
+                        value: item.declarationNo,
                         rowSummary: rowSummary,
                         child: Text(
-                          a.declarationNo,
+                          item.declarationNo,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
                             color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
                           ),
                         ),
@@ -1665,66 +1822,80 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.primaryNameWithCode,
+                        value: item.importFileCode,
                         rowSummary: rowSummary,
                         child: Text(
-                          a.primaryNameWithCode,
+                          item.importFileCode,
                           style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         ),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.supplierName,
+                        value: item.supplierName,
                         rowSummary: rowSummary,
                         child: Text(
-                          a.supplierName,
+                          item.supplierName,
                           style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         ),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.hsCode,
+                        value: item.declarationDate,
                         rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkBorder : AppTheme.surfaceAlt,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isDark ? AppTheme.darkBorderLight : AppTheme.border),
-                          ),
-                          child: Text(
-                            a.hsCode,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                              color: isDark ? AppTheme.darkHyperlink : AppTheme.charcoal,
-                            ),
-                          ),
+                        child: Text(
+                          item.declarationDate,
+                          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                         ),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.cifEgp.fixedOrMissing(2, _miss),
+                        value: item.customsOffice,
                         rowSummary: rowSummary,
-                        child: _figureText(a.cifEgp, AppTheme.cobalt, bold: false),
+                        child: Text(
+                          item.customsOffice,
+                          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                        ),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.totalDutiesEgp.fixedOrMissing(2, _miss),
+                        value: item.channel,
                         rowSummary: rowSummary,
-                        child: _figureText(a.totalDutiesEgp, AppTheme.crimson, bold: true),
+                        child: Builder(
+                          builder: (context) {
+                            final ch = CcUi.channelStyle(l, item.channel);
+                            return IdocBStatusChip(
+                              label: ch.label,
+                              severity: ch.severity,
+                              icon: ch.icon,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     DataCell(
                       CopyableTableCell(
-                        value: a.status,
+                        value: item.status,
                         rowSummary: rowSummary,
-                        child: IdocBStatusChip(label: a.status, severity: AppSeverity.info),
+                        child: Builder(
+                          builder: (context) {
+                            final st = CcUi.statusStyle(l, item.status);
+                            return IdocBStatusChip(
+                              label: st.label,
+                              severity: st.severity,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: item.estimatedDutyTotal.fixedOrMissing(2, _miss),
+                        rowSummary: rowSummary,
+                        child: _figureText(item.estimatedDutyTotal, AppTheme.crimson, bold: true),
                       ),
                     ),
                   ],
@@ -2133,61 +2304,53 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
     CopyHelper.copy(context, tsv, customMessage: l.customsDeclExportSuccess);
   }
 
-  void _exportRegistryTsv(List<CustomsDeclarationAssessment> items, AppLocalizations l) {
+  void _exportRegistryTsv(List<_DeclarationRegistryItem> items, AppLocalizations l) {
     final headers = [
       l.customsDeclColDeclarationNo,
       l.customsDeclColFileNumber,
       l.customsDeclColSupplier,
-      l.customsDeclColHsCode,
-      l.customsDeclCifValueLabel,
-      l.customsDeclImportDutyLabel,
-      l.customsDeclVatLabel,
-      l.customsDeclTotalDutiesLabel,
       l.customsDeclColRegistrationDate,
+      l.ccDecOfficeLabel,
+      l.customsDeclChannelLabel,
       l.customsDeclColDeclarationStatus,
+      l.customsDeclColTariffEstimate,
     ];
 
     final rows = items.map((a) => [
       a.declarationNo,
-      a.primaryNameWithCode,
+      a.importFileCode,
       a.supplierName,
-      a.hsCode,
-      a.cifEgp.fixedOrMissing(2, _miss),
-      a.importDutyEgp.fixedOrMissing(2, _miss),
-      a.vatEgp.fixedOrMissing(2, _miss),
-      a.totalDutiesEgp.fixedOrMissing(2, _miss),
-      a.registrationDate,
+      a.declarationDate,
+      a.customsOffice,
+      a.channel,
       a.status,
+      a.estimatedDutyTotal.fixedOrMissing(2, _miss),
     ]).toList();
 
     TableCopyHelper.copyTable(context, headers, rows);
   }
 
-  Future<void> _exportRegistryExcel(List<CustomsDeclarationAssessment> items, AppLocalizations l) async {
+  Future<void> _exportRegistryExcel(List<_DeclarationRegistryItem> items, AppLocalizations l) async {
     final headers = [
       l.customsDeclColDeclarationNo,
       l.customsDeclColFileNumber,
       l.customsDeclColSupplier,
-      l.customsDeclColHsCode,
-      l.customsDeclCifValueLabel,
-      l.customsDeclImportDutyLabel,
-      l.customsDeclVatLabel,
-      l.customsDeclTotalDutiesLabel,
       l.customsDeclColRegistrationDate,
+      l.ccDecOfficeLabel,
+      l.customsDeclChannelLabel,
       l.customsDeclColDeclarationStatus,
+      l.customsDeclColTariffEstimate,
     ];
 
     final rows = items.map((a) => [
       a.declarationNo,
-      a.primaryNameWithCode,
+      a.importFileCode,
       a.supplierName,
-      a.hsCode,
-      a.cifEgp.fixedOrMissing(2, _miss),
-      a.importDutyEgp.fixedOrMissing(2, _miss),
-      a.vatEgp.fixedOrMissing(2, _miss),
-      a.totalDutiesEgp.fixedOrMissing(2, _miss),
-      a.registrationDate,
+      a.declarationDate,
+      a.customsOffice,
+      a.channel,
       a.status,
+      a.estimatedDutyTotal.fixedOrMissing(2, _miss),
     ]).toList();
 
     await TableExportService.exportTableToExcel(
@@ -2199,25 +2362,27 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
     );
   }
 
-  Future<void> _exportRegistryPdf(List<CustomsDeclarationAssessment> items, AppLocalizations l) async {
+  Future<void> _exportRegistryPdf(List<_DeclarationRegistryItem> items, AppLocalizations l) async {
     final headers = [
       l.customsDeclColDeclarationNo,
       l.customsDeclColFileNumber,
       l.customsDeclColSupplier,
-      l.customsDeclColHsCode,
-      l.customsDeclCifValueLabel,
-      l.customsDeclTotalDutiesLabel,
+      l.customsDeclColRegistrationDate,
+      l.ccDecOfficeLabel,
+      l.customsDeclChannelLabel,
       l.customsDeclColDeclarationStatus,
+      l.customsDeclColTariffEstimate,
     ];
 
     final rows = items.map((a) => [
       a.declarationNo,
-      a.primaryNameWithCode,
+      a.importFileCode,
       a.supplierName,
-      a.hsCode,
-      a.cifEgp.egpOrMissing(_miss),
-      a.totalDutiesEgp.egpOrMissing(_miss),
+      a.declarationDate,
+      a.customsOffice,
+      a.channel,
       a.status,
+      a.estimatedDutyTotal.egpOrMissing(_miss),
     ]).toList();
 
     await TableExportService.exportTableToPdf(
@@ -2228,10 +2393,10 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
       importFileNameOrCode: 'ALL-FILES',
       headerContext: TableExportHeaderContext(
         title: l.customsDeclTabRegistry,
-        subtitle: 'Sorour Logistics ERP — Customs Clearance Follow-up',
+        subtitle: l.customsDeclExportSubtitle,
         metadata: {
-          'Total Declarations': items.length.toString(),
-          'Generated At': DateTime.now().toString().substring(0, 19),
+          l.customsDeclExportMetaTotal: items.length.toString(),
+          l.customsDeclExportMetaGeneratedAt: DateTime.now().toString().substring(0, 19),
         },
       ),
     );
