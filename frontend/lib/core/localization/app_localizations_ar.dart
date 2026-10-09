@@ -2892,6 +2892,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. إخطار إقرار الوزن';
   @override String get freightBookingItemTelex => '8. إطلاق الفاكس الملاحي';
   @override String get freightBookingItemInsurance => '9. بوليصة التأمين البحري';
+  @override String get freightBookingInsuranceHint => 'سجل التأمين البحري في شاشة وثائق التأمين، فهو لا يدخل ضمن تكاليف الحجز.';
   @override String get freightBookingItemCancellation => '10. غرامة إلغاء الحجز';
   @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة (ICS2)';
   @override String get freightBookingItemOther => '12. مصاريف ورسوم أخرى';
@@ -12307,6 +12308,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم ($bl) وانتقال الشحنة لحالة In-Transit';
   @override String fbkDepError(String error) => 'تعذر تأكيد الإبحار: $error';
   @override String get fbkStatusCancelled => 'ملغي';
+  @override String get fbkMixedCurrencyError => 'يجب أن تستخدم كافة بنود التكلفة عملة واحدة حتى تتوفر ميزة تحويل العملات';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -13159,6 +13161,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'فرق التسوية بين الإجمالي ومجموع الأصناف: $amount';
   @override String get settlementEstKpiDuty => 'ضريبة الوارد';
   @override String get settlementEstKpiVatFees => 'القيمة المضافة والرسوم';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 قدم، ولكن لم يتم تخصيص أي حاوية 40/45 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 20 قدم، ولكن لم يتم تخصيص أي حاوية 20 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
   // === end review phase08_10 keys ===
 }
 

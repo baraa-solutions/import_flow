@@ -3010,6 +3010,7 @@ abstract class AppLocalizations {
   String get freightBookingItemVgmNotif;
   String get freightBookingItemTelex;
   String get freightBookingItemInsurance;
+  String get freightBookingInsuranceHint;
   String get freightBookingItemCancellation;
   String get freightBookingItemIcs2;
   String get freightBookingItemOther;
@@ -9588,6 +9589,7 @@ abstract class AppLocalizations {
   String fbkDepSuccess(String bl);
   String fbkDepError(String error);
   String get fbkStatusCancelled;
+  String get fbkMixedCurrencyError;
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -10440,6 +10442,9 @@ abstract class AppLocalizations {
   String settlementReconciliationNote(String amount);
   String get settlementEstKpiDuty;
   String get settlementEstKpiVatFees;
+  String get fbkQuoteEquipmentMismatch40ft;
+  String get fbkQuoteEquipmentMismatch20ft;
+  String get fbkQuoteEquipmentMismatchBoth;
   // === end review phase08_10 keys ===
 }
 

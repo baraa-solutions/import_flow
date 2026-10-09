@@ -117,7 +117,7 @@ class ImportFileClosureModel {
       archivalNotes: json['archival_notes'],
       status: json['status'] ?? 'Closed',
       isActive: json['is_active'] ?? true,
-      closedAt: json['closed_at'] ?? '',
+      closedAt: json['closed_at']?.toString() ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -178,7 +178,7 @@ class ClosurePrecheckResponseModel {
   final List<ClosureMessage> warningMessages;
   final Map<String, bool> checklistStatus;
   final double actualLandedCostEgp;
-  final double actualMarkupFactor;
+  final double? actualMarkupFactor;
   final String? dossierExportedAt;
   final String? dossierExportedBy;
   final String? emptyContainersReturnedAt;
@@ -196,7 +196,7 @@ class ClosurePrecheckResponseModel {
     this.warningMessages = const [],
     this.checklistStatus = const {},
     this.actualLandedCostEgp = 0.0,
-    this.actualMarkupFactor = 1.0,
+    this.actualMarkupFactor,
     this.dossierExportedAt,
     this.dossierExportedBy,
     this.emptyContainersReturnedAt,
@@ -233,7 +233,7 @@ class ClosurePrecheckResponseModel {
       actualLandedCostEgp:
           (json['actual_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       actualMarkupFactor:
-          (json['actual_markup_factor'] as num?)?.toDouble() ?? 1.0,
+          (json['actual_markup_factor'] as num?)?.toDouble(),
       dossierExportedAt: json['dossier_exported_at']?.toString(),
       dossierExportedBy: json['dossier_exported_by']?.toString(),
       emptyContainersReturnedAt:

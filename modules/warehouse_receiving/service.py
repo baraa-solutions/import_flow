@@ -2,9 +2,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams
 
 from .model import WarehouseReceivingRecord
 from .schemas import (
@@ -20,12 +22,14 @@ from .repository import (
     get_warehouse_receiving_by_id,
     get_active_grn_for_file,
     get_warehouse_receiving_list,
+    paginate_warehouse_receivings as repo_paginate_warehouse_receivings,
     add_warehouse_receiving,
     apply_changes,
     set_active,
 )
 from .validators import (
     coded_error,
+    ensure_file_open,
     validate_seal_integrity,
     validate_discrepancy_claim,
     validate_grn_lines,
@@ -34,6 +38,12 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_claim_amount_and_currency,
+    validate_grn_status_transition,
+    validate_grn_put_fields,
+    validate_customs_release,
+    validate_grn_deletable,
+    validate_inspection_date,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -72,6 +82,14 @@ def _line_totals(items: List[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
+def _discrepancy_rate(totals: Dict[str, int]) -> float:
+    invoiced = int(totals.get("total_invoiced_qty", 0) or 0)
+    if invoiced <= 0:
+        return 0.0
+    discrepancy = int(totals.get("total_shortage_qty", 0) or 0) + int(totals.get("total_damaged_qty", 0) or 0)
+    return round((discrepancy / invoiced) * 100.0, 2)
+
+
 def _create_discrepancy_type(totals: Dict[str, int]) -> str:
     """GRN create: Shortage > Damage > Excess > None (Shortage wins even when there is damage too)."""
     if totals["total_shortage_qty"] > 0:
@@ -93,6 +111,12 @@ def _insert_grn(db: Session, values: Dict[str, Any]) -> WarehouseReceivingRecord
         return add_warehouse_receiving(db, {**values, "grn_code": generate_grn_code(db)})
 
 
+def _require_open_file_for_grn(db: Session, import_file_id: int) -> None:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if imp_file:
+        ensure_file_open(imp_file)
+
+
 def create_warehouse_receiving_service(
     db: Session,
     schema: WarehouseReceivingCreate,
@@ -101,6 +125,14 @@ def create_warehouse_receiving_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
+    ensure_file_open(imp_file)
+
+    clearance = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == schema.import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+
+    validate_customs_release(imp_file, clearance)
 
     existing = get_active_grn_for_file(db, schema.import_file_id)
     if existing:
@@ -111,7 +143,7 @@ def create_warehouse_receiving_service(
 
     items_list = [item.model_dump() for item in schema.grn_items]
     totals = _line_totals(items_list)
-    inspector = (schema.inspector_name or "").strip() or user
+    inspector = user
     arrival_dt = schema.arrival_datetime or datetime.now(timezone.utc)
 
     record = _insert_grn(db, {
@@ -137,11 +169,6 @@ def create_warehouse_receiving_service(
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
 
     # LOG-BOND-003: Check if shipment is Under-Bond Released (Quarantine Lock Active)
-    clearance = db.query(CustomsClearanceRecord).filter(
-        CustomsClearanceRecord.import_file_id == schema.import_file_id,
-        CustomsClearanceRecord.is_active == True,
-    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
-
     if clearance and clearance.is_under_bond_release and clearance.quarantine_lock:
         record.is_under_bond_quarantine = True
         record.quarantine_lock_active = True
@@ -275,8 +302,40 @@ def list_warehouse_receivings_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[WarehouseReceivingRecord]:
-    return get_warehouse_receiving_list(db, include_inactive, import_file_id, status, search)
+    skip: int = 0,
+    limit: int = 200,
+    return_total: bool = False,
+):
+    items, total = get_warehouse_receiving_list(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+    if return_total:
+        return items, total
+    return items
+
+
+def paginate_warehouse_receivings_service(
+    db: Session,
+    params: PageParams,
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    response: Optional[Response] = None,
+) -> Dict[str, Any]:
+    return repo_paginate_warehouse_receivings(
+        db,
+        params=params,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        response=response,
+    )
 
 
 def get_warehouse_receiving_by_file_service(db: Session, import_file_id: int) -> Optional[WarehouseReceivingRecord]:
@@ -292,9 +351,17 @@ def report_receiving_discrepancy_service(
 ) -> WarehouseReceivingRecord:
     """BP-035 Report Receiving Discrepancies & Damage Claims."""
     validate_discrepancy_type(payload.discrepancy_type)
+    if payload.discrepancy_type == "None":
+        raise coded_error(
+            400,
+            "WR_DISCREPANCY_TYPE_INVALID",
+            "لا يمكن الإبلاغ عن فروق مع اختيار نوع 'None'. يلزم تحديد نوع الفرق (عجز، تلف، زيادة، صنف خطأ).",
+            discrepancy_type="None",
+        )
     validate_discrepancy_claim(payload.discrepancy_type, payload.discrepancy_notes)
 
     record = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, record.import_file_id)
     apply_changes(record, {
         "discrepancy_type": payload.discrepancy_type,
         "discrepancy_notes": payload.discrepancy_notes,
@@ -306,6 +373,19 @@ def report_receiving_discrepancy_service(
 
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="REPORT_DISCREPANCY",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR report discrepancy audit log")
     return record
 
 
@@ -316,26 +396,47 @@ def update_warehouse_receiving_service(
     user: str = "System",
 ) -> WarehouseReceivingRecord:
     existing = get_warehouse_receiving_service(db, record_id)
-    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    _require_open_file_for_grn(db, existing.import_file_id)
 
-    validate_status_label(update_data.get("status"))
+    validate_grn_put_fields(schema)
+
+    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type", "inspection_verdict"}
+    update_data = {
+        k: v for k, v in schema.model_dump(exclude_unset=True).items()
+        if not (v is None and k in NOT_NULL_COLUMNS)
+    }
+
+    if "status" in update_data:
+        validate_grn_status_transition(existing.status, update_data["status"])
+
     validate_discrepancy_type(update_data.get("discrepancy_type"))
-    if "inspection_verdict" in update_data:
-        update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
+    if "inspector_name" in values:
+        values["inspector_name"] = user
+    if "claim_amount_estimated" in update_data or "claim_currency" in update_data:
+        req_amount = update_data["claim_amount_estimated"] if "claim_amount_estimated" in update_data else existing.claim_amount_estimated
+        req_currency = update_data["claim_currency"] if "claim_currency" in update_data else existing.claim_currency
+        amount, currency = validate_claim_amount_and_currency(db, req_amount, req_currency)
+        values["claim_amount_estimated"] = amount
+        values["claim_currency"] = currency
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
+        totals = _line_totals(items)
         values["grn_items"] = items
-        values.update(_line_totals(items))
+        values.update(totals)
+        values["discrepancy_rate_percent"] = _discrepancy_rate(totals)
 
-    if "inspection_verdict" in values:
-        validate_verdict_consistency(
-            values["inspection_verdict"],
-            values.get("total_shortage_qty", existing.total_shortage_qty),
-            values.get("total_damaged_qty", existing.total_damaged_qty),
-        )
+        if existing.inspection_protocol_number:
+            validate_verdict_consistency(
+                existing.inspection_verdict,
+                totals["total_shortage_qty"],
+                totals["total_damaged_qty"],
+            )
+        else:
+            if "discrepancy_type" not in values:
+                values["discrepancy_type"] = _create_discrepancy_type(totals)
 
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
     apply_changes(existing, values, user)
@@ -360,8 +461,22 @@ def update_warehouse_receiving_service(
 
 def soft_delete_warehouse_receiving_service(db: Session, record_id: int, user: str = "System") -> bool:
     record = get_warehouse_receiving_service(db, record_id)
+    _require_open_file_for_grn(db, record.import_file_id)
+    validate_grn_deletable(record)
     set_active(record, False, user)
     db.commit()
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR delete audit log")
     return True
 
 
@@ -369,6 +484,7 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     record = get_warehouse_receiving_by_id(db, record_id, include_inactive=True)
     if not record:
         raise HTTPException(status_code=404, detail=f"سجل استلام المخزن رقم {record_id} غير موجود.")
+    _require_open_file_for_grn(db, record.import_file_id)
     if not record.is_active:
         other = get_active_grn_for_file(db, record.import_file_id, exclude_id=record.receiving_id)
         if other:
@@ -376,15 +492,69 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     set_active(record, True, user)
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="RESTORE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR restore audit log")
     return record
 
 
-def validate_warehouse_dispatch_authorization(db: Session, record_id: int) -> bool:
+def release_quarantine_lock_for_file(
+    db: Session, import_file_id: int, user: str = "System"
+) -> List[WarehouseReceivingRecord]:
+    """Release quarantine and dispatch lock on all active GRNs of the file when customs lifts the lock."""
+    grns = db.query(WarehouseReceivingRecord).filter(
+        WarehouseReceivingRecord.import_file_id == import_file_id,
+        WarehouseReceivingRecord.is_active == True,
+        WarehouseReceivingRecord.quarantine_lock_active == True,
+    ).all()
+    released = []
+    for record in grns:
+        record.quarantine_lock_active = False
+        record.dispatch_blocked = False
+        if record.status == "Under Bond Quarantine":
+            record.status = "Goods Received"
+        note = record.discrepancy_notes or ""
+        if "Quarantine lock lifted after lab approval" not in note:
+            record.discrepancy_notes = (note + " | Quarantine lock lifted after lab approval").lstrip(" | ")
+        record.updated_by = user
+        record.updated_at = datetime.now(timezone.utc)
+        released.append(record)
+    return released
+
+
+def refresh_quarantine_lock(
+    db: Session, record: WarehouseReceivingRecord, user: str = "System"
+) -> WarehouseReceivingRecord:
+    """If a GRN is still marked quarantine_lock_active but its customs clearance lifted the lock, sync & commit."""
+    if record.quarantine_lock_active:
+        from modules.customs_clearance.model import CustomsClearanceRecord
+        clearance = db.query(CustomsClearanceRecord).filter(
+            CustomsClearanceRecord.import_file_id == record.import_file_id,
+            CustomsClearanceRecord.is_active == True,
+        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+        if clearance is not None and clearance.quarantine_lock is False:
+            release_quarantine_lock_for_file(db, record.import_file_id, user=user)
+            db.commit()
+            db.refresh(record)
+    return record
+
+
+def validate_warehouse_dispatch_authorization(db: Session, record_id: int, user: str = "System") -> bool:
     """
     LOG-BOND-003: Strict Quarantine Dispatch Lock Validator.
     Raises HTTP 400 if cargo is under laboratory quarantine lock.
     """
     record = get_warehouse_receiving_service(db, record_id)
+    refresh_quarantine_lock(db, record, user=user)
     if record.quarantine_lock_active or record.dispatch_blocked:
         raise HTTPException(
             status_code=400,
@@ -393,8 +563,8 @@ def validate_warehouse_dispatch_authorization(db: Session, record_id: int) -> bo
     return True
 
 
-def validate_dispatch_service(db: Session, record_id: int) -> WarehouseDispatchValidationResponse:
-    validate_warehouse_dispatch_authorization(db, record_id)
+def validate_dispatch_service(db: Session, record_id: int, user: str = "System") -> WarehouseDispatchValidationResponse:
+    validate_warehouse_dispatch_authorization(db, record_id, user=user)
     record = get_warehouse_receiving_service(db, record_id)
     return WarehouseDispatchValidationResponse(
         receiving_id=record.receiving_id,
@@ -424,6 +594,9 @@ def submit_warehouse_inspection_protocol_service(
     - Dispatches system notification to QC, Operations, and Financial Accounting.
     """
     record = get_warehouse_receiving_service(db, record_id)
+    refresh_quarantine_lock(db, record, user=user_name)
+    _require_open_file_for_grn(db, record.import_file_id)
+    validate_inspection_date(schema.inspection_date)
     verdict = normalize_verdict(schema.inspection_verdict)
     if schema.discrepancy_type is not None:
         validate_discrepancy_type(schema.discrepancy_type)
@@ -440,11 +613,11 @@ def submit_warehouse_inspection_protocol_service(
 
     # 2. Discrepancy calculations
     total_discrepancy = (record.total_shortage_qty or 0) + (record.total_damaged_qty or 0)
-    invoiced = record.total_invoiced_qty or 0
-    if invoiced > 0:
-        record.discrepancy_rate_percent = round((total_discrepancy / invoiced) * 100.0, 2)
-    else:
-        record.discrepancy_rate_percent = 0.0
+    record.discrepancy_rate_percent = _discrepancy_rate({
+        "total_invoiced_qty": record.total_invoiced_qty,
+        "total_shortage_qty": record.total_shortage_qty,
+        "total_damaged_qty": record.total_damaged_qty,
+    })
 
     # 3. Protocol Number Generation
     if not record.inspection_protocol_number:
@@ -460,10 +633,12 @@ def submit_warehouse_inspection_protocol_service(
     record.insurance_claim_ref = schema.insurance_claim_ref
     record.supplier_claim_filed = schema.supplier_claim_filed
     record.supplier_claim_ref = schema.supplier_claim_ref
-    record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
-    record.claim_currency = schema.claim_currency or "EGP"
-    if schema.inspector_name and schema.inspector_name.strip():
-        record.inspector_name = schema.inspector_name.strip()
+    amount, currency = validate_claim_amount_and_currency(
+        db, schema.claim_amount_estimated, schema.claim_currency
+    )
+    record.claim_amount_estimated = amount
+    record.claim_currency = currency
+    record.inspector_name = user_name
     if schema.notes:
         record.notes = schema.notes
 
@@ -586,6 +761,19 @@ def submit_warehouse_inspection_protocol_service(
         db.commit()
 
     best_effort(db, _notify, "WR inspection notification")
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="INSPECTION_PROTOCOL",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user_name,
+        )
+
+    best_effort(db, _audit, "WR inspection protocol audit log")
     return record
 
 
@@ -611,8 +799,8 @@ def get_inspection_summary_service(db: Session, record_id: int) -> InspectionSum
         insurance_claim_ref=record.insurance_claim_ref,
         supplier_claim_filed=record.supplier_claim_filed or False,
         supplier_claim_ref=record.supplier_claim_ref,
-        claim_amount_estimated=record.claim_amount_estimated or 0.0,
-        claim_currency=record.claim_currency or "EGP",
+        claim_amount_estimated=record.claim_amount_estimated,
+        claim_currency=record.claim_currency,
         status=record.status or "Goods Received",
         is_ready_for_landed_cost=(record.inspection_verdict != "REJECTED_QUARANTINED" and not record.quarantine_lock_active),
     )

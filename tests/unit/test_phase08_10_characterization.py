@@ -52,7 +52,10 @@ def db_session():
 
 
 @pytest.fixture
-def client(db_session):
+def client(db_session, monkeypatch):
+    import modules.auth.permissions as auth_permissions
+    monkeypatch.setattr(auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
+
     def override_get_db():
         yield db_session
 
@@ -63,14 +66,13 @@ def client(db_session):
 
 
 def _file(db, code="IMP-CHAR-0001", **extra) -> ImportFile:
+    kwargs = {"is_customs_released": True, "status": "Active", "progress_percent": 90.0, "is_active": True}
+    kwargs.update(extra)
     imp = ImportFile(
         import_file_code=code,
         company_name="Char Co",
         supplier_name="Char Supplier",
-        status="Active",
-        progress_percent=90.0,
-        is_active=True,
-        **extra,
+        **kwargs,
     )
     db.add(imp)
     db.commit()
@@ -241,7 +243,7 @@ def test_final_close_end_state(db_session):
     ])
     db_session.commit()
 
-    rec = close_import_file_service(db_session, FileClosureCreate(import_file_id=imp.import_file_id))
+    rec = close_import_file_service(db_session, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
 
     assert rec.status == "Closed"
     db_session.refresh(imp)

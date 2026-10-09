@@ -21,10 +21,15 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
+import '../services/booking_charge_builder.dart';
 import 'freight_booking_cost_row.dart';
 import 'freight_booking_prompts.dart';
 import 'freight_booking_quote_card.dart';
 import 'freight_booking_ui.dart';
+
+// The charge-building API lives in the service; re-exported for existing callers.
+export '../services/booking_charge_builder.dart'
+    show FbkQuoteState, buildChargesFromQuote, collectApplicableCurrencies, hasMixedCurrencies;
 
 /// Create / edit a freight booking. Nothing is prefilled with sample data:
 /// a new booking starts empty and the required fields carry validators.
@@ -32,6 +37,13 @@ class FreightBookingFormDialog extends ConsumerStatefulWidget {
   final ShipmentBookingModel? bookingToEdit;
   final bool isClone;
   const FreightBookingFormDialog({super.key, this.bookingToEdit, this.isClone = false});
+
+  static List<BookingChargeModel> buildCharges(FbkQuoteState s) =>
+      buildChargesFromQuote(s);
+  static Set<String> collectCurrencies(FbkQuoteState s) =>
+      collectApplicableCurrencies(s);
+  static bool checkMixedCurrencies(FbkQuoteState s) =>
+      hasMixedCurrencies(s);
 
   @override
   ConsumerState<FreightBookingFormDialog> createState() => _FreightBookingFormDialogState();
@@ -73,6 +85,21 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   final bool _isStackable = true;
   List<ContainerAllocationModel> _containers = [];
   List<BookingChargeModel> _charges = [];
+  bool _has40ftMismatch = false;
+  bool _has20ftMismatch = false;
+  bool get _hasQuoteMismatch => _has40ftMismatch || _has20ftMismatch;
+
+  String? _getQuoteMismatchError(BuildContext context) {
+    if (!_hasQuoteMismatch) return null;
+    final l = AppLocalizations.of(context);
+    if (_has40ftMismatch && _has20ftMismatch) {
+      return l.fbkQuoteEquipmentMismatchBoth;
+    } else if (_has40ftMismatch) {
+      return l.fbkQuoteEquipmentMismatch40ft;
+    } else {
+      return l.fbkQuoteEquipmentMismatch20ft;
+    }
+  }
 
   // Full 17 quote items state matching Phase 1
   String _mainQuoteCurrency = 'USD';
@@ -490,185 +517,89 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         severity: AppSeverity.success);
   }
 
-  void _rebuildChargesFromQuoteBreakdown() {
-    final List<BookingChargeModel> newCharges = [];
-    if (_container40ftApp && _container40ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 40ft',
-        chargeCategory: 'FREIGHT',
-        unit: 'Per Container',
-        quantity: (_container40ftQty > 0 ? _container40ftQty : 1).toDouble(),
-        containerType: '40HC',
-        currency: _container40ftCur,
-        rate: _container40ftPrice,
-        total: _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1),
-      ));
-    }
-    if (_container20ftApp && _container20ftPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Sea Freight 20ft',
-        chargeCategory: 'FREIGHT',
-        unit: 'Per Container',
-        quantity: (_container20ftQty > 0 ? _container20ftQty : 1).toDouble(),
-        containerType: '20GP',
-        currency: _container20ftCur,
-        rate: _container20ftPrice,
-        total: _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1),
-      ));
-    }
-    if (_lclCbmApp && _lclCbmPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'LCL CBM Freight',
-        chargeCategory: 'FREIGHT',
-        unit: 'Per CBM',
-        quantity: _lclCbmQty > 0 ? _lclCbmQty : 1.0,
-        currency: _lclCbmCur,
-        rate: _lclCbmPrice,
-        total: _lclCbmPrice * _lclCbmQty,
-      ));
-    }
-    if (_dthcApp && _dthcPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'DTHC (Destination THC)',
-        chargeCategory: 'DESTINATION_LOCAL',
-        unit: 'Per Shipment',
-        quantity: 1,
-        currency: _dthcCur,
-        rate: _dthcPrice,
-        total: _dthcPrice,
-      ));
-    }
-    if (_storagePerWeekApp && _storagePerWeekPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Storage per one week',
-        chargeCategory: 'STORAGE',
-        unit: 'Per Week',
-        quantity: 1,
-        currency: _storagePerWeekCur,
-        rate: _storagePerWeekPrice,
-        total: _storagePerWeekPrice,
-      ));
-    }
-    if (_extraDayStorageApp && _extraDayStoragePrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Extra day storage',
-        chargeCategory: 'STORAGE',
-        unit: 'Per Day',
-        quantity: 1,
-        currency: _extraDayStorageCur,
-        rate: _extraDayStoragePrice,
-        total: _extraDayStoragePrice,
-      ));
-    }
-    if (_solasVgmApp && _solasVgmPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'SOLAS/VGM Fees',
-        chargeCategory: 'ORIGIN_LOCAL',
-        unit: 'Per Container',
-        quantity: 1,
-        currency: _solasVgmCur,
-        rate: _solasVgmPrice,
-        total: _solasVgmPrice,
-      ));
-    }
-    if (_vgmNotifApp && _vgmNotifPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'VGM Notification Fee',
-        chargeCategory: 'OTHER',
-        unit: 'Per Container',
-        quantity: 1,
-        currency: _vgmNotifCur,
-        rate: _vgmNotifPrice,
-        total: _vgmNotifPrice,
-      ));
-    }
-    if (_telexReleaseApp && _telexReleasePrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Telex Release',
-        chargeCategory: 'OTHER',
-        unit: 'Per Shipment',
-        quantity: 1,
-        currency: _telexReleaseCur,
-        rate: _telexReleasePrice,
-        total: _telexReleasePrice,
-      ));
-    }
-    if (_expressCourierApp && _expressCourierPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Express Courier',
-        chargeCategory: 'OTHER',
-        unit: 'Per Shipment',
-        quantity: 1,
-        currency: _expressCourierCur,
-        rate: _expressCourierPrice,
-        total: _expressCourierPrice,
-      ));
-    }
-    if (_eurAtrApp && _eurAtrPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'EUR.1 / ATR Certificate',
-        chargeCategory: 'OTHER',
-        unit: 'Per Certificate',
-        quantity: 1,
-        currency: _eurAtrCur,
-        rate: _eurAtrPrice,
-        total: _eurAtrPrice,
-      ));
-    }
-    // Marine Insurance is kept out of booking charges: must be recorded in Cargo Insurance module.
-    if (_docFeesApp && _docFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Document Fees',
-        chargeCategory: 'OTHER',
-        unit: 'Per Shipment',
-        quantity: 1,
-        currency: _docFeesCur,
-        rate: _docFeesPrice,
-        total: _docFeesPrice,
-      ));
-    }
-    if (_waiverApp && _waiverPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Waiver Letter Fee',
-        chargeCategory: 'OTHER',
-        unit: 'Per Letter',
-        quantity: 1,
-        currency: _waiverCur,
-        rate: _waiverPrice,
-        total: _waiverPrice,
-      ));
-    }
-    if (_ics2App && _ics2Price > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'ICS2 Filing Fee',
-        chargeCategory: 'OTHER',
-        unit: 'Per Filing',
-        quantity: 1,
-        currency: _ics2Cur,
-        rate: _ics2Price,
-        total: _ics2Price,
-      ));
-    }
-    if (_otherFeesApp && _otherFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(
-        chargeType: 'Other Fees',
-        chargeCategory: 'OTHER',
-        unit: 'Per Shipment',
-        quantity: 1,
-        currency: _otherFeesCur,
-        rate: _otherFeesPrice,
-        total: _otherFeesPrice,
-      ));
-    }
+  FbkQuoteState get _currentQuoteState => FbkQuoteState(
+        container40ftApp: _container40ftApp,
+        container40ftPrice: _container40ftPrice,
+        container40ftCur: _container40ftCur,
+        container40ftQty: _container40ftQty,
+        container20ftApp: _container20ftApp,
+        container20ftPrice: _container20ftPrice,
+        container20ftCur: _container20ftCur,
+        container20ftQty: _container20ftQty,
+        lclCbmApp: _lclCbmApp,
+        lclCbmPrice: _lclCbmPrice,
+        lclCbmCur: _lclCbmCur,
+        lclCbmQty: _lclCbmQty,
+        dthcApp: _dthcApp,
+        dthcPrice: _dthcPrice,
+        dthcCur: _dthcCur,
+        storagePerWeekApp: _storagePerWeekApp,
+        storagePerWeekPrice: _storagePerWeekPrice,
+        storagePerWeekCur: _storagePerWeekCur,
+        extraDayStorageApp: _extraDayStorageApp,
+        extraDayStoragePrice: _extraDayStoragePrice,
+        extraDayStorageCur: _extraDayStorageCur,
+        solasVgmApp: _solasVgmApp,
+        solasVgmPrice: _solasVgmPrice,
+        solasVgmCur: _solasVgmCur,
+        vgmNotifApp: _vgmNotifApp,
+        vgmNotifPrice: _vgmNotifPrice,
+        vgmNotifCur: _vgmNotifCur,
+        telexReleaseApp: _telexReleaseApp,
+        telexReleasePrice: _telexReleasePrice,
+        telexReleaseCur: _telexReleaseCur,
+        expressCourierApp: _expressCourierApp,
+        expressCourierPrice: _expressCourierPrice,
+        expressCourierCur: _expressCourierCur,
+        eurAtrApp: _eurAtrApp,
+        eurAtrPrice: _eurAtrPrice,
+        eurAtrCur: _eurAtrCur,
+        insuranceApp: _insuranceApp,
+        insurancePrice: _insurancePrice,
+        insuranceCur: _insuranceCur,
+        docFeesApp: _docFeesApp,
+        docFeesPrice: _docFeesPrice,
+        docFeesCur: _docFeesCur,
+        waiverApp: _waiverApp,
+        waiverPrice: _waiverPrice,
+        waiverCur: _waiverCur,
+        ics2App: _ics2App,
+        ics2Price: _ics2Price,
+        ics2Cur: _ics2Cur,
+        otherFeesApp: _otherFeesApp,
+        otherFeesPrice: _otherFeesPrice,
+        otherFeesCur: _otherFeesCur,
+        cancellationApp: _cancellationApp,
+        cancellationPrice: _cancellationPrice,
+        cancellationCur: _cancellationCur,
+      );
 
-    _charges = newCharges;
+  void _rebuildChargesFromQuoteBreakdown() {
+    final result = BookingChargeBuilder.build(_currentQuoteState, containers: _containers);
+    _charges = result.charges;
+    _has40ftMismatch = result.has40ftMismatch;
+    _has20ftMismatch = result.has20ftMismatch;
   }
 
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
+    final l = AppLocalizations.of(context);
+    if (hasMixedCurrencies(_currentQuoteState)) {
+      if (_tab != 1) setState(() => _tab = 1);
+      FbkUi.snack(context, l.fbkMixedCurrencyError, severity: AppSeverity.danger);
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       // Required fields live on the first tab: bring the user back to the errors.
       if (_tab != 0) setState(() => _tab = 0);
+      return;
+    }
+
+    setState(() => _rebuildChargesFromQuoteBreakdown());
+    if (_hasQuoteMismatch) {
+      if (_tab != 0) setState(() => _tab = 0);
+      FbkUi.snack(context, _getQuoteMismatchError(context)!, severity: AppSeverity.danger);
       return;
     }
 
@@ -700,10 +631,16 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   }
 
   Future<void> _doSave() async {
+    setState(() => _rebuildChargesFromQuoteBreakdown());
+    if (_hasQuoteMismatch) {
+      if (_tab != 0) setState(() => _tab = 0);
+      FbkUi.snack(context, _getQuoteMismatchError(context)!, severity: AppSeverity.danger);
+      return;
+    }
+
     setState(() => _isSaving = true);
     final l = AppLocalizations.of(context);
     try {
-      _rebuildChargesFromQuoteBreakdown();
 
       final owner = _ownerController.text.trim();
       final payload = {
@@ -798,25 +735,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   }
 
   double get _computedCurrentExecutedFreight {
-    double total = 0.0;
-    if (_container40ftApp) total += _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1);
-    if (_container20ftApp) total += _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1);
-    if (_lclCbmApp) total += _lclCbmPrice * _lclCbmQty;
-    if (_expressCourierApp) total += _expressCourierPrice;
-    if (_eurAtrApp) total += _eurAtrPrice;
-    if (_solasVgmApp) total += _solasVgmPrice;
-    if (_vgmNotifApp) total += _vgmNotifPrice;
-    if (_telexReleaseApp) total += _telexReleasePrice;
-    // Marine Insurance kept out of booking freight total (ACC3-T02)
-    if (_cancellationApp) total += _cancellationPrice;
-    if (_ics2App) total += _ics2Price;
-    if (_otherFeesApp) total += _otherFeesPrice;
-    if (_docFeesApp) total += _docFeesPrice;
-    if (_waiverApp) total += _waiverPrice;
-    if (_dthcApp) total += _dthcPrice;
-    if (_storagePerWeekApp) total += _storagePerWeekPrice;
-    if (_extraDayStorageApp) total += _extraDayStoragePrice;
-    return total;
+    final charges = buildChargesFromQuote(_currentQuoteState);
+    return charges.fold<double>(0.0, (sum, c) => sum + c.total);
   }
 
   Widget _liveSavingsBanner() {
@@ -862,13 +782,29 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         _rebuildChargesFromQuoteBreakdown();
       },
       price: price,
-      onPriceChanged: (v) => setState(() => onPrice(v)),
+      onPriceChanged: (v) {
+        setState(() => onPrice(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       currency: cur,
-      onCurrencyChanged: (v) => setState(() => onCur(v)),
+      onCurrencyChanged: (v) {
+        setState(() => onCur(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       quantity: qty,
-      onQuantityChanged: onQty == null ? null : (v) => setState(() => onQty(v)),
+      onQuantityChanged: onQty == null
+          ? null
+          : (v) {
+              setState(() => onQty(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
       doubleQty: cbm,
-      onDoubleQtyChanged: onCbm == null ? null : (v) => setState(() => onCbm(v)),
+      onDoubleQtyChanged: onCbm == null
+          ? null
+          : (v) {
+              setState(() => onCbm(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
     );
   }
 
@@ -914,17 +850,17 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.08),
+              color: AppTheme.orange.withOpacity(0.08),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                const Icon(Icons.info_outline, size: 16, color: AppTheme.orange),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'سجل التأمين في شاشة التأمين',
+                    l.freightBookingInsuranceHint,
                     style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
                   ),
                 ),
@@ -1356,6 +1292,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                                 vgmWeightKg: _containers[0].vgmWeightKg,
                               );
                             }
+                            _rebuildChargesFromQuoteBreakdown();
                           });
                         }
                       },
@@ -1381,6 +1318,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                               vgmWeightKg: _containers[0].vgmWeightKg,
                             );
                           }
+                          _rebuildChargesFromQuoteBreakdown();
                         });
                       },
                     ),
@@ -1388,6 +1326,15 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                 ],
               ),
               const SizedBox(height: 10),
+              if (_hasQuoteMismatch) ...[
+                FbkNotice(
+                  key: const Key('fbkQuoteEquipmentMismatchNotice'),
+                  message: _getQuoteMismatchError(context)!,
+                  severity: AppSeverity.danger,
+                  icon: Icons.error_outline,
+                ),
+                const SizedBox(height: 8),
+              ],
               FbkNotice(message: l.fbkEquipmentNote, severity: AppSeverity.info, icon: Icons.info_outline),
               if (cargoMetricsMissing) ...[
                 const SizedBox(height: 8),

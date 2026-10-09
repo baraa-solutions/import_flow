@@ -33,6 +33,7 @@ def db_session():
         import_file_code="IMP-2026-0888",
         company_name="Archi Brands for Trading",
         supplier_name="Narbutas Furniture Corp",
+        is_customs_released=True,
         is_active=True,
     )
     session.add(imp_file)
@@ -179,7 +180,7 @@ def test_phase_10_file_closure_workflow(db_session):
         archival_notes="All customs releases, GRNs, and GL journals verified and balanced.",
     )
 
-    rec = close_import_file_service(db_session, closure_schema)
+    rec = close_import_file_service(db_session, closure_schema, trusted=True)
     assert rec.closure_code.startswith("CLR-")
     assert rec.status == "Closed"
 

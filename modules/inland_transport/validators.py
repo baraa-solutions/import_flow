@@ -1,9 +1,12 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from modules.import_files.model import ImportFile
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 from .schemas import InlandTransportBookingCreate
 
 # Legacy booking status labels (T3 enum codes come in a later wave: docs/plans/phase-08-10-quality-plan.md section 5).
@@ -13,6 +16,7 @@ STATUS_IN_TRANSIT = "In Transit"
 STATUS_ARRIVED = "Arrived at Warehouse"
 STATUS_DELIVERED = "Delivered"
 IT_STATUS_LABELS = frozenset({STATUS_BOOKED, STATUS_DISPATCHED, STATUS_IN_TRANSIT, STATUS_ARRIVED, STATUS_DELIVERED})
+CREATE_ALLOWED_STATUSES = frozenset({STATUS_BOOKED, STATUS_DISPATCHED, STATUS_IN_TRANSIT})
 
 ACTION_GATE_OUT = "gate_out"
 ACTION_WAREHOUSE_ARRIVAL = "warehouse_arrival"
@@ -50,6 +54,30 @@ def validate_actual_times(actual_departure_at: Optional[datetime], actual_arriva
         )
 
 
+def validate_not_future(dt: Optional[datetime], field_name: str = "التاريخ") -> None:
+    if dt is None:
+        return
+    now_utc = datetime.now(timezone.utc)
+    dt_aware = _aware(dt)
+    if dt_aware > now_utc + timedelta(days=1):
+        raise coded_error(
+            400,
+            "IT_DATE_IN_FUTURE",
+            f"موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.",
+            field_name=field_name,
+        )
+
+
+def validate_seal_evidence(seal_intact: bool, seal_number: Optional[str]) -> None:
+    if not seal_intact:
+        if not seal_number or not str(seal_number).strip():
+            raise coded_error(
+                400,
+                "IT_SEAL_REQUIRED",
+                "رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم الجمركي.",
+            )
+
+
 def validate_text_fields(
     truck_plate_number: Optional[str],
     driver_name: Optional[str],
@@ -78,10 +106,78 @@ def validate_text_fields(
         )
 
 
+def validate_create_status_and_dates(
+    status: Optional[str],
+    actual_departure_at: Optional[datetime],
+    actual_arrival_at: Optional[datetime],
+) -> None:
+    if actual_arrival_at is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="لا يمكن تسجيل موعد الوصول الفعلي عند إنشاء حجز النقل.",
+        )
+    if status is not None:
+        validate_status_label(status)
+        if status not in CREATE_ALLOWED_STATUSES:
+            raise coded_error(
+                400,
+                "IT_STATUS_INVALID",
+                f"حالة النقل '{status}' غير مسموح بها عند إنشاء الحجز.",
+                status=status,
+            )
+        if status == STATUS_IN_TRANSIT and not actual_departure_at:
+            raise HTTPException(
+                status_code=400,
+                detail="تسجيل حالة النقل 'In Transit' يتطلب تحديد موعد المغادرة الفعلي.",
+            )
+
+
+def validate_truck_type(truck_type: Optional[str]) -> str:
+    if not truck_type or not str(truck_type).strip():
+        raise coded_error(
+            400,
+            "IT_TRUCK_TYPE_INVALID",
+            "نوع الشاحنة مطلوب.",
+            truck_type=truck_type or "",
+        )
+    normalized = enum_codes.normalize(enum_codes.TRUCK_TYPE, str(truck_type).strip())
+    allowed = enum_codes.LABELS_EN.get(enum_codes.TRUCK_TYPE, {})
+    if normalized not in allowed:
+        raise coded_error(
+            400,
+            "IT_TRUCK_TYPE_INVALID",
+            f"نوع الشاحنة '{truck_type}' غير صالح.",
+            truck_type=truck_type,
+        )
+    return normalized
+
+
+def validate_carrier(db: Session, carrier_id: Optional[int]) -> Optional[ExternalServiceProvider]:
+    if carrier_id is None:
+        return None
+    provider = (
+        db.query(ExternalServiceProvider)
+        .filter(
+            ExternalServiceProvider.provider_id == carrier_id,
+            ExternalServiceProvider.is_active == True,
+        )
+        .first()
+    )
+    if not provider:
+        raise coded_error(
+            400,
+            "IT_CARRIER_INVALID",
+            f"شركة النقل رقم {carrier_id} غير موجودة أو غير نشطة.",
+            carrier_id=carrier_id,
+        )
+    return provider
+
+
 def validate_transport_booking_input(schema: InlandTransportBookingCreate):
     validate_text_fields(schema.truck_plate_number, schema.driver_name, schema.driver_phone, schema.waybill_number)
     validate_schedule(schema.planned_departure_at, schema.expected_arrival_at)
-    validate_status_label(schema.status)
+    validate_actual_times(schema.actual_departure_at, schema.actual_arrival_at)
+    validate_create_status_and_dates(schema.status, schema.actual_departure_at, schema.actual_arrival_at)
 
 
 def validate_status_label(status: Optional[str]) -> None:
@@ -135,4 +231,5 @@ def validate_import_file_for_transport(db: Session, import_file_id: int) -> Impo
             status_code=404,
             detail=f"ملف الشحنة رقم {import_file_id} غير موجود أو غير نشط.",
         )
+    ensure_file_open(imp_file)
     return imp_file

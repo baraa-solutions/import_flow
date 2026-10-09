@@ -92,6 +92,7 @@ class FinancialSettlementResponse(BaseModel):
     created_by: str
     updated_at: datetime
     updated_by: str
+    messages: List[SettlementMessage] = []
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -365,6 +365,14 @@
       "note"
     ]
   },
+  "CC_SETTLEMENT_LOCKED": {
+    "params": [
+      "settlement_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_TASK_DECLARATION_46": {
     "params": [
       "do_number",
@@ -533,10 +541,38 @@
       "note"
     ]
   },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CT_CUSTOMS_RATE_MISSING": {
     "params": [
       "currency",
       "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_CODE_UNKNOWN": {
+    "params": [
+      "currency_code"
     ],
     "parts": [
       "note"
@@ -1899,6 +1935,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [
@@ -2045,6 +2089,14 @@
       "reason"
     ]
   },
+  "IMPORT_FILE_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "INVOICES_ALREADY_SETTLED": {
     "params": [
       "import_file_code",
@@ -2071,6 +2123,28 @@
       "note"
     ]
   },
+  "IT_CARRIER_INVALID": {
+    "params": [
+      "carrier_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -2083,6 +2157,14 @@
     "params": [
       "action",
       "current_status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_TRUCK_TYPE_INVALID": {
+    "params": [
+      "truck_type"
     ],
     "parts": [
       "note"
@@ -2351,6 +2433,15 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "LIST_SORT_FIELD_INVALID": {
+    "params": [
+      "allowed",
+      "field"
+    ],
+    "parts": [
       "note"
     ]
   },
@@ -3507,6 +3598,14 @@
       "note"
     ]
   },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_UNPAID_INVOICE": {
     "params": [
       "amount",
@@ -3540,6 +3639,17 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
     ]
   },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
@@ -3622,9 +3732,39 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_CUSTOMS_NOT_RELEASED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_DISCREPANCY_TYPE_INVALID": {
     "params": [
       "discrepancy_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_FIELD_NOT_EDITABLE": {
+    "params": [
+      "field_name"
     ],
     "parts": [
       "note"
@@ -3645,6 +3785,23 @@
       "invoiced_qty",
       "item_code",
       "shortage_qty"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_GRN_LOCKED": {
+    "params": [
+      "grn_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_STATUS_CHANGE_NOT_ALLOWED": {
+    "params": [
+      "current_status",
+      "target_status"
     ],
     "parts": [
       "note"
