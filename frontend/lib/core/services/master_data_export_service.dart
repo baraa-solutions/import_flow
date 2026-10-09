@@ -2142,7 +2142,7 @@ Sorour Logistics ERP
       buffer.writeln('$code,$name,$symbol,$isBase,$commRate,$custRate,$decimals,$status');
     }
 
-    final filename = 'Currencies_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Currencies_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -2488,7 +2488,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'AuditLogs_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'AuditLogs_${_formatDate(DateTime.now())}.pdf',
     );
   }
 
@@ -2517,7 +2517,7 @@ Sorour Logistics ERP
       buffer.writeln('$id,$act,$entity,$code,$summary,$by,$time');
     }
 
-    final filename = 'AuditLogs_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'AuditLogs_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -2871,7 +2871,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'SmartTasks_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'SmartTasks_Report_${_formatDate(DateTime.now())}.pdf',
     );
   }
 
@@ -2897,18 +2897,18 @@ Sorour Logistics ERP
       final phase = '"${(t.phaseName ?? "").replaceAll('"', '""')}"';
       final priority = '"${t.priority.replaceAll('"', '""')}"';
       final reminder = '"${t.reminderType.replaceAll('"', '""')}"';
-      final due = '"${(t.dueDate ?? "").replaceAll('"', '""')}"';
-      final alertDate = '"${(t.reminderDate ?? "").replaceAll('"', '""')}"';
+      final due = '"${formatDateSafe(t.dueDate)}"';
+      final alertDate = '"${formatDateSafe(t.reminderDate)}"';
       final status = '"${t.status.replaceAll('"', '""')}"';
       final user = '"${t.assignedUser.replaceAll('"', '""')}"';
       final notes = '"${(t.notes ?? "").replaceAll('"', '""')}"';
-      final createdAt = '"${t.createdAt.replaceAll('"', '""')}"';
+      final createdAt = '"${formatDateSafe(t.createdAt)}"';
       final createdBy = '"${t.createdBy.replaceAll('"', '""')}"';
 
       buffer.writeln('$code,$type,$title,$desc,$fileCode,$phase,$priority,$reminder,$due,$alertDate,$status,$user,$notes,$createdAt,$createdBy');
     }
 
-    final filename = 'SmartTasks_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'SmartTasks_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
