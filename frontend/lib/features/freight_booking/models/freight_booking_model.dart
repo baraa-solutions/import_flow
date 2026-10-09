@@ -96,33 +96,42 @@ class ContainerAllocationModel {
 class BookingChargeModel {
   final String chargeType;
   final String unit;
-  final int quantity;
+  final double quantity;
+  final String? containerType;
   final String currency;
   final double rate;
   final double total;
+  final double? fxRateToUsd;
+  final double? amountUsd;
 
   BookingChargeModel({
     required this.chargeType,
     this.unit = 'Per Container',
-    this.quantity = 1,
+    this.quantity = 1.0,
+    this.containerType,
     this.currency = 'USD',
     this.rate = 0.0,
     this.total = 0.0,
+    this.fxRateToUsd,
+    this.amountUsd,
   });
 
   factory BookingChargeModel.fromJson(Map<String, dynamic> json) {
     return BookingChargeModel(
       chargeType: json['charge_type'] ?? 'Sea Freight',
       unit: json['unit'] ?? 'Per Container',
-      quantity: json['quantity'] ?? 1,
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
+      containerType: json['container_type'],
       currency: json['currency'] ?? 'USD',
       rate: (json['rate'] as num?)?.toDouble() ?? 0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
+      fxRateToUsd: (json['fx_rate_to_usd'] as num?)?.toDouble(),
+      amountUsd: (json['amount_usd'] as num?)?.toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = <String, dynamic>{
       'charge_type': chargeType,
       'unit': unit,
       'quantity': quantity,
@@ -130,6 +139,16 @@ class BookingChargeModel {
       'rate': rate,
       'total': total,
     };
+    if (containerType != null) {
+      map['container_type'] = containerType;
+    }
+    if (fxRateToUsd != null) {
+      map['fx_rate_to_usd'] = fxRateToUsd;
+    }
+    if (amountUsd != null) {
+      map['amount_usd'] = amountUsd;
+    }
+    return map;
   }
 }
 

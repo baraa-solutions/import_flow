@@ -10441,6 +10441,9 @@ abstract class AppLocalizations {
   String settlementReconciliationNote(String amount);
   String get settlementEstKpiDuty;
   String get settlementEstKpiVatFees;
+  String get fbkQuoteEquipmentMismatch40ft;
+  String get fbkQuoteEquipmentMismatch20ft;
+  String get fbkQuoteEquipmentMismatchBoth;
   // === end review phase08_10 keys ===
 }
 

@@ -149,15 +149,27 @@ void main() {
 
       final content = file.readAsStringSync();
 
+      // Units and the cancellation line live in the single charge builder.
+      final builderFile = File(file.path.replaceFirst(
+        'widgets/freight_booking_form_dialog.dart',
+        'services/booking_charge_builder.dart',
+      ));
+      expect(builderFile.existsSync(), isTrue, reason: 'booking_charge_builder.dart must exist');
+      final builder = builderFile.readAsStringSync();
+
       // Per-type container units
-      expect(content.contains("'Per 40ft Container'"), isTrue,
+      expect(builder.contains("'Per 40ft Container'"), isTrue,
           reason: 'Must use Per 40ft Container unit');
-      expect(content.contains("'Per 20ft Container'"), isTrue,
+      expect(builder.contains("'Per 20ft Container'"), isTrue,
           reason: 'Must use Per 20ft Container unit');
 
       // Cancellation charge
-      expect(content.contains("'Booking Cancellation'"), isTrue,
+      expect(builder.contains("'Booking Cancellation'"), isTrue,
           reason: 'Must build Booking Cancellation charge');
+
+      // The dialog builds its charges only through the shared builder.
+      expect(content.contains('BookingChargeBuilder.build('), isTrue,
+          reason: 'Dialog must build charges via BookingChargeBuilder');
 
       // Single source of truth calculation for executed freight
       expect(content.contains("buildChargesFromQuote(_currentQuoteState)"), isTrue,
