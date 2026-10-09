@@ -2800,6 +2800,11 @@ abstract class AppLocalizations {
   String get importFilePickerSelectPrompt;
   String get importFilePickerNoFilesFound;
   String get importFilePickerContinue;
+  String get ccActionNeedsAssessment;
+  String get ccActionNeedsPayment;
+  String get ccActionQuarantineLocked;
+  String get ccActionAlreadyReleased;
+  String get customsClearanceViewTooltip;
   String get drawingSamplesShortageSectionTitle;
   String get drawingSamplesShortageSectionDesc;
   String get drawingSamplesAddShortageBtn;

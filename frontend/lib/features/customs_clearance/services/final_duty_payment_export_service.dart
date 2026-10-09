@@ -45,7 +45,7 @@ class FinalDutyPaymentExportService {
     ].join('\t'));
 
     for (final r in records) {
-      final isPaid = r.paymentStatus == 'Paid & Verified';
+      final isPaid = CcStatus.isPaid(r);
       final actual = CcFormat.fixed(r.effectiveDutyTotal);
       final est = CcFormat.fixed(r.estimatedDutyTotal);
       final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
@@ -92,7 +92,7 @@ class FinalDutyPaymentExportService {
     ].join(','));
 
     for (final r in records) {
-      final isPaid = r.paymentStatus == 'Paid & Verified';
+      final isPaid = CcStatus.isPaid(r);
       final actual = CcFormat.fixed(r.effectiveDutyTotal);
       final est = CcFormat.fixed(r.estimatedDutyTotal);
       final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
@@ -197,7 +197,7 @@ class FinalDutyPaymentExportService {
     } else {
       for (int i = 0; i < records.length; i++) {
         final r = records[i];
-        final isPaid = r.paymentStatus == 'Paid & Verified';
+        final isPaid = CcStatus.isPaid(r);
         final actual = CcFormat.fixed(r.effectiveDutyTotal);
         final est = CcFormat.fixed(r.estimatedDutyTotal);
         final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
@@ -267,11 +267,11 @@ class FinalDutyPaymentExportService {
       0.0,
       (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
-    final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
+    final totalPaid = records.where((r) => CcStatus.isPaid(r)).fold<double>(
       0.0,
       (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
     );
-    final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
+    final pendingCount = records.where((r) => !CcStatus.isPaid(r)).length;
     final netVariance = records.fold<double>(
       0.0,
       (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
@@ -441,7 +441,7 @@ class FinalDutyPaymentExportService {
                   ),
                   // Data Rows
                   ...records.map((r) {
-                    final isPaid = r.paymentStatus == 'Paid & Verified';
+                    final isPaid = CcStatus.isPaid(r);
                     final actual = CcFormat.fixed(r.effectiveDutyTotal);
                     final est = CcFormat.fixed(r.estimatedDutyTotal);
                     final variance = CcFormat.signedFixed(r.dutyVarianceAmount);

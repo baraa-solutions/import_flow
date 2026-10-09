@@ -24,6 +24,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import '../widgets/clearance_card.dart';
+import '../widgets/clearance_details_dialog.dart';
 import '../widgets/clearance_expenses_dialog.dart';
 import '../widgets/clearance_screen_dialogs.dart';
 import '../widgets/customs_broker_authorization_dialog.dart';
@@ -364,8 +365,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         subtitle: l.ccExportRegistrySubtitle,
         metadata: {
           l.ccExportMetaTotal: records.length.toString(),
-          l.ccExportMetaPaid: records.where((r) => r.paymentStatus == 'Paid & Verified').length.toString(),
-          l.ccExportMetaRelease: records.where((r) => r.status == 'Final Release Granted').length.toString(),
+          l.ccExportMetaPaid: records.where((r) => CcStatus.isPaid(r)).length.toString(),
+          l.ccExportMetaRelease: records.where((r) => CcStatus.isReleased(r)).length.toString(),
         },
       ),
     );
@@ -610,10 +611,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   /// Counts straight from the loaded records (no extra calls, no new math).
   List<MetricCardData> _metricsFor(List<CustomsClearanceModel> records, AppLocalizations l) {
-    final assessed = records.where((r) => (r.actualDutyTotal ?? 0) > 0).length;
-    final paid = records.where((r) => r.paymentStatus == 'Paid & Verified').length;
-    final outstanding = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
-    final released = records.where((r) => r.status == 'Final Release Granted').length;
+    final assessed = records.where((r) => CcStatus.isAssessed(r)).length;
+    final paid = records.where((r) => CcStatus.isPaid(r)).length;
+    final outstanding = records.where((r) => !CcStatus.isPaid(r)).length;
+    final released = records.where((r) => CcStatus.isReleased(r)).length;
     return [
       MetricCardData(
         title: l.ccMetricAssessed,
@@ -791,6 +792,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             key: ValueKey('clearanceCard_${record.clearanceCode}'),
             record: record,
             actions: ClearanceCardActions(
+              onView: () => _showClearanceDetails(record),
               onEdit: () => _showAddEditDialog(record),
               onCopyRow: () => _copyClearanceRowTsv(record, l),
               onClone: () => _onCloneClearance(record),
@@ -847,6 +849,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     );
   }
 
+  void _showClearanceDetails(CustomsClearanceModel record) {
+    ClearanceDetailsDialog.show(context, record: record);
+  }
+
   // ===========================================================================
   // SUB-VIEW 3: FINAL CUSTOMS PAYMENT & RELEASE
   // ===========================================================================
@@ -854,6 +860,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     return FinalDutyPaymentTab(
       records: records,
       onRefresh: _refreshData,
+      onView: _showClearanceDetails,
       onPay: _showDutyPaymentDialog,
       onRelease: _showFinalReleaseDialog,
     );

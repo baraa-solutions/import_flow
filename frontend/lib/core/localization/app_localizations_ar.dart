@@ -2682,6 +2682,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get importFilePickerSelectPrompt => 'يرجى اختيار ملف الشحنة للمتابعة';
   @override String get importFilePickerNoFilesFound => 'لا توجد ملفات شحن نشطة متاحة';
   @override String get importFilePickerContinue => 'متابعة';
+  @override String get ccActionNeedsAssessment => 'يجب تقييم الرسوم الجمركية أولاً';
+  @override String get ccActionNeedsPayment => 'يجب سداد الرسوم الجمركية أولاً';
+  @override String get ccActionQuarantineLocked => 'الشحنة تحت التحفظ الرقابي — يلزم رفع التحفظ أولاً';
+  @override String get ccActionAlreadyReleased => 'تم الإفراج الجمركي النهائي بالفعل';
+  @override String get customsClearanceViewTooltip => 'عرض تفاصيل المعاملة الجمركية';
   @override String get drawingSamplesShortageSectionTitle => 'سجل إثبات ومطابقة عجز البضائع المفرغة';
   @override String get drawingSamplesShortageSectionDesc => 'مقارنة أوزان وطرود المانيفست بالبضائع المفرغة فعلياً لإثبات العجز واستنزال الرسوم الجمركية أو مطالبة الناقل';
   @override String get drawingSamplesAddShortageBtn => 'إثبات محضر عجز جديد';

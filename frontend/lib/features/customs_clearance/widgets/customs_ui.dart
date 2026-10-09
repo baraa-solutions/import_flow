@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/metric_card.dart';
+import '../models/customs_clearance_model.dart';
 
 /// Number / date formatting shared by the customs-clearance screens.
 /// Pure presentation: no business math lives here.
@@ -51,6 +52,46 @@ class CcFormat {
   /// `yyyy-MM-dd` for a picked date.
   static String date(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// Pure status queries and operational stage guards for customs clearance.
+/// Mirrors backend guards (`modules/customs_clearance/validators.py`).
+class CcStatus {
+  CcStatus._();
+
+  static const Set<String> paidStatuses = {
+    'Paid & Verified',
+    'Paid',
+    'Duties Paid',
+  };
+
+  /// Payment status is one of the recognised paid states (legacy-tolerant).
+  static bool isPaid(CustomsClearanceModel r) =>
+      paidStatuses.contains(r.paymentStatus);
+
+  /// Duty has been assessed: valid claim number and positive effective duty.
+  static bool isAssessed(CustomsClearanceModel r) =>
+      (r.nafezaClaimNumber ?? '').isNotEmpty && (r.effectiveDutyTotal ?? 0) > 0;
+
+  /// Goods have been released by customs authority (by status or permit number).
+  static bool isReleased(CustomsClearanceModel r) =>
+      r.status == 'Final Release Granted' || (r.releasePermitNo ?? '').isNotEmpty;
+
+  /// Duty payment is allowed only after assessment, before payment, and before release.
+  static bool canPay(CustomsClearanceModel r) =>
+      isAssessed(r) && !isPaid(r) && !isReleased(r);
+
+  /// Final release is allowed only after payment, with quarantine lifted, and before release.
+  static bool canRelease(CustomsClearanceModel r) =>
+      isPaid(r) && !r.quarantineLock && !isReleased(r);
+
+  /// Under-bond temporary release is allowed before final release and if not already under bond.
+  static bool canUnderBond(CustomsClearanceModel r) =>
+      !isReleased(r) && !r.isUnderBondRelease;
+
+  /// Recording lab results is allowed when released under bond with an active quarantine lock.
+  static bool canRecordLab(CustomsClearanceModel r) =>
+      r.isUnderBondRelease && r.quarantineLock;
 }
 
 /// Thin feature-local composition over core tokens (see FinancialUi): maps

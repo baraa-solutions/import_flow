@@ -2682,6 +2682,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get importFilePickerSelectPrompt => 'Please select an import file to continue';
   @override String get importFilePickerNoFilesFound => 'No active shipment files available';
   @override String get importFilePickerContinue => 'Continue';
+  @override String get ccActionNeedsAssessment => 'Duties must be assessed first';
+  @override String get ccActionNeedsPayment => 'Duties must be paid first';
+  @override String get ccActionQuarantineLocked => 'Shipment is under quarantine lock — quarantine must be lifted first';
+  @override String get ccActionAlreadyReleased => 'Final release already granted';
+  @override String get customsClearanceViewTooltip => 'View customs clearance details';
   @override String get drawingSamplesShortageSectionTitle => 'Cargo Examination & Shortage Protocols';
   @override String get drawingSamplesShortageSectionDesc => 'Compare manifest weights and packages against landed physical cargo to document shortages and apply customs duty deductions or carrier claims';
   @override String get drawingSamplesAddShortageBtn => 'Record Shortage Protocol';

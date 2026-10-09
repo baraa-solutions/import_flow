@@ -48,6 +48,7 @@ void main() {
     Widget createTestWidget({
       List<CustomsClearanceModel>? records,
       Locale locale = const Locale('ar'),
+      void Function(CustomsClearanceModel)? onView,
       void Function(CustomsClearanceModel)? onPay,
       void Function(CustomsClearanceModel)? onRelease,
     }) {
@@ -58,6 +59,7 @@ void main() {
             child: Scaffold(
               body: FinalDutyPaymentTab(
                 records: records ?? mockRecords,
+                onView: onView,
                 onPay: onPay,
                 onRelease: onRelease,
               ),
@@ -173,36 +175,82 @@ void main() {
       expect(find.text('CLR-2026-0002'), findsOneWidget);
     });
 
-    testWidgets('Triggers onPay and onRelease callbacks correctly', (tester) async {
+    testWidgets('Triggers onView, onPay and onRelease callbacks correctly', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
+      CustomsClearanceModel? viewedRecord;
       CustomsClearanceModel? paidRecord;
       CustomsClearanceModel? releasedRecord;
 
+      final testRecords = [
+        // Record 1: Paid & ready for release (not yet released, no quarantine)
+        CustomsClearanceModel(
+          customsClearanceId: 101,
+          clearanceCode: 'CLR-2026-0001',
+          importFileId: 10,
+          declaration46No: 'DEC-46-8899',
+          customsOfficeName: 'Alexandria Port Customs',
+          channelType: 'Green Channel',
+          nafezaClaimNumber: 'CLM-8899',
+          actualDutyTotal: 154200.0,
+          dutyPaidAmount: 154200.0,
+          paymentStatus: 'Paid & Verified',
+          bankReceiptNo: 'RCP-BNK-9901',
+          status: 'Duty Paid - Ready for Final Release',
+          quarantineLock: false,
+          createdAt: '2026-09-01T10:00:00Z',
+          updatedAt: '2026-09-02T12:00:00Z',
+        ),
+        // Record 2: Assessed & payable
+        CustomsClearanceModel(
+          customsClearanceId: 102,
+          clearanceCode: 'CLR-2026-0002',
+          importFileId: 12,
+          declaration46No: 'DEC-46-9900',
+          customsOfficeName: 'Dekheila Port Customs',
+          channelType: 'Red Channel',
+          nafezaClaimNumber: 'CLM-9900',
+          totalDutyPayable: 210000.0,
+          actualDutyTotal: 0.0,
+          paymentStatus: 'Pending Payment',
+          status: 'Customs Duties Assessed - Ready for Payment',
+          createdAt: '2026-09-03T10:00:00Z',
+          updatedAt: '2026-09-03T12:00:00Z',
+        ),
+      ];
+
       await tester.pumpWidget(createTestWidget(
+        records: testRecords,
+        onView: (r) => viewedRecord = r,
         onPay: (r) => paidRecord = r,
         onRelease: (r) => releasedRecord = r,
       ));
       await tester.pumpAndSettle();
 
-      // Scroll to Pay button in horizontally scrollable table
-      final payBtn = find.text('تفاصيل السداد');
-      await tester.ensureVisible(payBtn);
+      // Row 1 is Paid: displays "عرض" (View) button
+      final viewBtn = find.text('عرض').first;
+      await tester.ensureVisible(viewBtn);
+      await tester.tap(viewBtn);
       await tester.pumpAndSettle();
-      await tester.tap(payBtn);
-      await tester.pumpAndSettle();
-      expect(paidRecord, isNotNull);
-      expect(paidRecord!.clearanceCode, equals('CLR-2026-0001'));
+      expect(viewedRecord, isNotNull);
+      expect(viewedRecord!.clearanceCode, equals('CLR-2026-0001'));
 
-      // Scroll to Final Release button for record 1
-      final releaseBtns = find.text('الإفراج النهائي');
-      await tester.ensureVisible(releaseBtns.first);
-      await tester.pumpAndSettle();
-      await tester.tap(releaseBtns.first);
+      // Row 1 is also ready for release: displays "الإفراج النهائي" button
+      final releaseBtn = find.text('الإفراج النهائي');
+      await tester.ensureVisible(releaseBtn);
+      await tester.tap(releaseBtn);
       await tester.pumpAndSettle();
       expect(releasedRecord, isNotNull);
       expect(releasedRecord!.clearanceCode, equals('CLR-2026-0001'));
+
+      // Row 2 is Assessed & un-paid: displays "سداد ومطابقة" button
+      final payBtn = find.text('سداد ومطابقة');
+      await tester.ensureVisible(payBtn);
+      await tester.tap(payBtn);
+      await tester.pumpAndSettle();
+      expect(paidRecord, isNotNull);
+      expect(paidRecord!.clearanceCode, equals('CLR-2026-0002'));
     });
 
     testWidgets('Renders cleanly in English locale', (tester) async {
