@@ -10193,8 +10193,18 @@ abstract class AppLocalizations {
   String get inlandFareRequired;
   String get inlandFareInvalid;
   String get inlandDepartureDate;
+  String get inlandDepartureTime;
   String get inlandEtaDate;
+  String get inlandEtaTime;
   String get inlandEtaBeforeDeparture;
+  String get inlandSelectCarrierHint;
+  String get inlandSelectPickupLocationHint;
+  String get inlandGatePassNoLabel;
+  String get inlandGatePassNoHint;
+  String get inlandSealIntactSwitch;
+  String get inlandSealNumberLabel;
+  String get inlandSealNumberHint;
+  String get inlandSealNumberRequiredWhenBroken;
   String get inlandNotesLabel;
   String get inlandNotesHint;
   String get inlandSubmitBtn;
