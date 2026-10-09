@@ -24,6 +24,11 @@ class MasterDataEntityExtractor(BaseExtractor):
         company_name = self._extract_company_name(text, entity_type=entity_type)
         reg_type = self._clean_val(self._extract_registration_type(text))
         tax_id = self._clean_val(self._extract_tax_id(text))
+        commercial_reg = self._clean_val(self._extract_commercial_register(text))
+        importer_id_val = self._clean_val(self._extract_importer_id(text))
+        insurance_terms_val = self._clean_val(self._extract_insurance_terms(text))
+        ports_val = self._clean_val(self._extract_ports(text))
+        acct_num = self._clean_val(self._extract_account_number(text) or self._extract_iban(text))
 
         result: Dict[str, Any] = {
             "company_name": company_name,
@@ -37,32 +42,51 @@ class MasterDataEntityExtractor(BaseExtractor):
             "fax_number": self._clean_val(self._extract_fax(text)),
             "website": self._clean_val(self._extract_website(text)),
             "email": self._clean_val(self._extract_email(text)),
+            "secondary_email": self._clean_val(self._extract_secondary_email(text)),
             "vat_tax_id": tax_id,
             "foreign_exporter_id": tax_id,
+            "vat_id": tax_id,
             "address": self._clean_val(self._extract_address(text, company_name=company_name)),
             "country_code": self._clean_val(self._extract_country(text)),
+            "country": self._clean_val(self._extract_country_name(text)),
             "postcode": self._clean_val(self._extract_postcode(text)),
             "industry_description": self._clean_val(self._extract_industry(text)),
-            "commercial_register": self._clean_val(self._extract_commercial_register(text)),
+            "commercial_register": commercial_reg,
+            "registration_number": commercial_reg,
             "registration_expiry": self._clean_val(self._extract_registration_expiry(text)),
-            "importer_id": self._clean_val(self._extract_importer_id(text)),
+            "importer_id": importer_id_val,
+            "importer_card_number": importer_id_val,
             "importer_id_expiry": self._clean_val(self._extract_importer_expiry(text)),
             "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
+            "nafeza_token_id": self._clean_val(self._extract_nafeza_token(text)),
             "cargox_id": self._clean_val(self._extract_cargox_id(text)),
             "cargox_platform_id": self._clean_val(self._extract_cargox_id(text)),
             "license_number": self._clean_val(self._extract_broker_license(text)),
             "clearance_license_number": self._clean_val(self._extract_broker_license(text)),
+            "transport_license_number": self._clean_val(self._extract_transport_license(text)),
+            "inspection_accreditation_number": self._clean_val(self._extract_inspection_accreditation(text)),
+            "insurance_license_number": self._clean_val(self._extract_insurance_license(text)),
+            "fiata_id": self._clean_val(self._extract_fiata_id(text)),
             "scac_code": self._clean_val(self._extract_scac_code(text)),
             "tracking_url": self._clean_val(self._extract_tracking_url(text)),
             "fleet_types": self._clean_val(self._extract_fleet_types(text)),
             "inspection_scope": self._clean_val(self._extract_inspection_scope(text)),
-            "insurance_terms": self._clean_val(self._extract_insurance_terms(text)),
-            "ports": self._clean_val(self._extract_ports(text)),
+            "insurance_terms": insurance_terms_val,
+            "insurance_coverage_types": insurance_terms_val,
+            "ports": ports_val,
+            "authorized_ports": ports_val,
             "bank_name": self._clean_val(self._extract_bank_name(text)),
+            "branch_name": self._clean_val(self._extract_branch_name(text)),
+            "bank_code": self._clean_val(self._extract_bank_code(text)),
             "swift_code": self._clean_val(self._extract_swift(text)),
-            "bank_account": self._clean_val(self._extract_iban(text)),
-            "account_number": self._clean_val(self._extract_iban(text)),
+            "bank_account": acct_num,
+            "account_number": acct_num,
             "iban": self._clean_val(self._extract_iban(text)),
+            "credit_limit": self._extract_credit_limit(text),
+            "rating": self._extract_rating(text),
+            "has_iso": self._extract_has_iso(text),
+            "registered_decree_43": self._extract_decree_43(text),
+            "white_list_registered": self._extract_white_list(text),
             "brands": self._clean_val(self._extract_brands(text)),
             "notes": self._clean_val(self._extract_notes(text)),
         }
@@ -641,6 +665,133 @@ class MasterDataEntityExtractor(BaseExtractor):
     def _extract_notes(self, text: str) -> Optional[str]:
         return self.find_first([
             r"(?:Notes|Remarks|Additional\s+Notes|ملاحظات|ملاحظات\s+إضافية)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,200})",
+        ], text)
+
+    def _extract_secondary_email(self, text: str) -> Optional[str]:
+        emails = re.findall(r"\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
+        unique_emails = []
+        for em in emails:
+            if em.lower() not in [u.lower() for u in unique_emails]:
+                unique_emails.append(em)
+        if len(unique_emails) >= 2:
+            return unique_emails[1]
+        return None
+
+    def _extract_country_name(self, text: str) -> Optional[str]:
+        code = self._extract_country(text)
+        if not code:
+            return None
+        code_map = {
+            "CN": "China (CN)",
+            "EG": "Egypt (EG)",
+            "US": "United States (US)",
+            "DE": "Germany (DE)",
+            "IT": "Italy (IT)",
+            "TR": "Turkey (TR)",
+            "AE": "United Arab Emirates (AE)",
+            "SA": "Saudi Arabia (SA)",
+            "IN": "India (IN)",
+            "GB": "United Kingdom (GB)",
+            "ES": "Spain (ES)",
+            "FR": "France (FR)",
+            "JP": "Japan (JP)",
+            "KR": "South Korea (KR)",
+            "RU": "Russia (RU)",
+            "BR": "Brazil (BR)",
+            "LT": "Lithuania (LT)",
+            "NL": "Netherlands (NL)",
+            "VN": "Vietnam (VN)",
+            "CH": "Switzerland (CH)",
+            "BE": "Belgium (BE)",
+            "CA": "Canada (CA)",
+            "AU": "Australia (AU)",
+            "PL": "Poland (PL)",
+            "SE": "Sweden (SE)",
+            "PT": "Portugal (PT)",
+            "AT": "Austria (AT)",
+            "GR": "Greece (GR)",
+            "JO": "Jordan (JO)",
+        }
+        return code_map.get(code, code)
+
+    def _extract_nafeza_token(self, text: str) -> Optional[str]:
+        explicit = self.find_first([
+            r"(?:Nafeza\s+Token|Token\s+ID|E-Token|Nafeza\s+E-Token|توكن\s+نافذة|رمز\s+نافذة|توكن)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{5,40})",
+            r"\b(NFT-[A-Za-z0-9\-]{5,25})\b",
+        ], text)
+        return explicit.strip() if explicit else None
+
+    def _extract_branch_name(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Branch\s+Name|Branch|اسم\s+الفرع|الفرع)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,60})",
+            r"\b([A-Za-z\u0600-\u06FF\s]{3,40}\s+(?:Branch|فرع))\b",
+        ], text)
+
+    def _extract_bank_code(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Bank\s+Code|كود\s+البنك|رمز\s+البنك)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{3,20})",
+        ], text)
+
+    def _extract_transport_license(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Transport\s+License|Truck\s+License|ترخيص\s+النقل|رخصة\s+النقل|ترخيص\s+الأسطول)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{3,30})",
+            r"\b(TR-[0-9]{4,10})\b",
+        ], text)
+
+    def _extract_inspection_accreditation(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Accreditation\s+No\.?|GOIEC\s+Reg|ISO\s+Accreditation|رقم\s+الاعتماد|تسجيل\s+الرقابة\s+على\s+الصادرات)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{3,30})",
+            r"\b(GOIEC-[A-Za-z0-9\-]{3,15})\b",
+        ], text)
+
+    def _extract_insurance_license(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Insurance\s+License|FRA\s+License|ترخيص\s+التأمين|ترخيص\s+الرقابة\s+المالية)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{3,30})",
+            r"\b(FRA-[0-9]{3,10})\b",
+        ], text)
+
+    def _extract_fiata_id(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:FIATA\s+ID|FIATA\s+License|رخصة\s+الفياتا|فياتا)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{3,30})",
+            r"\b(FIATA-[A-Za-z0-9\-]{3,15})\b",
+        ], text)
+
+    def _extract_has_iso(self, text: str) -> bool:
+        return bool(re.search(r"\b(ISO\s*9001|ISO\s*14001|ISO\s*45001|ISO\s*22000|ISO\s*CERTIFIED|آيزو|شهادة\s+آيزو)\b", text, re.IGNORECASE))
+
+    def _extract_decree_43(self, text: str) -> bool:
+        return bool(re.search(r"\b(DECREE\s*43|REGULATION\s*43|قرار\s*43|قرار\s*وزاري\s*43|43/2016)\b", text, re.IGNORECASE))
+
+    def _extract_white_list(self, text: str) -> bool:
+        return bool(re.search(r"\b(WHITE\s*LIST|WHITELIST|القائمة\s+البيضاء|قائمة\s+بيضاء)\b", text, re.IGNORECASE))
+
+    def _extract_credit_limit(self, text: str) -> Optional[float]:
+        val = self.find_first([
+            r"(?:Credit\s+Limit|حد\s+الائتمان|الحد\s+الائتماني)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9.,]+)",
+        ], text)
+        if val:
+            try:
+                return float(val.replace(",", "").strip())
+            except ValueError:
+                pass
+        return 0.0
+
+    def _extract_rating(self, text: str) -> Optional[float]:
+        val = self.find_first([
+            r"(?:Rating|التقييم|الرتبة)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9.]+)",
+        ], text)
+        if val:
+            try:
+                r = float(val.strip())
+                if 1.0 <= r <= 5.0:
+                    return r
+            except ValueError:
+                pass
+        return 5.0
+
+    def _extract_account_number(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Account\s+Number|Account\s+No\.?|رقم\s+الحساب)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9\s\-]{6,30})",
         ], text)
 
 

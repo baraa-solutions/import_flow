@@ -338,7 +338,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
         withData: true,
       );
 
@@ -457,7 +457,13 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         _arabicNameCtrl.text = ext['name_ar'].toString();
       }
 
-      if (ext['contact_person'] != null) _contactPersonCtrl.text = ext['contact_person'].toString();
+      if (ext['contact_person'] != null) {
+        _contactPersonCtrl.text = ext['contact_person'].toString();
+      } else if (ext['manager'] != null) {
+        _contactPersonCtrl.text = ext['manager'].toString();
+      } else if (ext['legal_representative'] != null) {
+        _contactPersonCtrl.text = ext['legal_representative'].toString();
+      }
       if (ext['phone'] != null) {
         _phoneCtrl.text = ext['phone'].toString();
       } else if (ext['phone_number'] != null) {
@@ -535,7 +541,11 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
       } else if (ext['importer_card_number'] != null) {
         _importerCardCtrl.text = ext['importer_card_number'].toString();
       }
-      if (ext['nafeza_token_id'] != null) _nafezaTokenCtrl.text = ext['nafeza_token_id'].toString();
+      if (ext['nafeza_token_id'] != null) {
+        _nafezaTokenCtrl.text = ext['nafeza_token_id'].toString();
+      } else if (ext['nafeza_token'] != null) {
+        _nafezaTokenCtrl.text = ext['nafeza_token'].toString();
+      }
 
       if (ext['importer_id_expiry'] != null) {
         final d = _tryParseDate(ext['importer_id_expiry']);
@@ -554,17 +564,36 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         _brokerLicenseCtrl.text = ext['clearance_license_number'].toString();
       } else if (ext['license_number'] != null) {
         _brokerLicenseCtrl.text = ext['license_number'].toString();
+      } else if (ext['transport_license_number'] != null) {
+        _brokerLicenseCtrl.text = ext['transport_license_number'].toString();
+      } else if (ext['inspection_accreditation_number'] != null) {
+        _brokerLicenseCtrl.text = ext['inspection_accreditation_number'].toString();
+      } else if (ext['insurance_license_number'] != null) {
+        _brokerLicenseCtrl.text = ext['insurance_license_number'].toString();
+      } else if (ext['fiata_id'] != null) {
+        _brokerLicenseCtrl.text = ext['fiata_id'].toString();
       }
-      if (ext['ports'] != null) _portsCtrl.text = ext['ports'].toString();
+
+      if (ext['ports'] != null) {
+        _portsCtrl.text = ext['ports'].toString();
+      } else if (ext['authorized_ports'] != null) {
+        _portsCtrl.text = ext['authorized_ports'].toString();
+      }
       if (ext['scac_code'] != null) _scacCodeCtrl.text = ext['scac_code'].toString();
       if (ext['tracking_url'] != null) _trackingUrlCtrl.text = ext['tracking_url'].toString();
-      if (ext['services_scope'] != null) _servicesScopeCtrl.text = ext['services_scope'].toString();
+      if (ext['services_scope'] != null) {
+        _servicesScopeCtrl.text = ext['services_scope'].toString();
+      } else if (ext['shipping_modes'] != null) {
+        _servicesScopeCtrl.text = ext['shipping_modes'].toString();
+      }
       if (ext['fleet_types'] != null) _fleetTypesCtrl.text = ext['fleet_types'].toString();
       if (ext['inspection_scope'] != null) _inspectionScopeCtrl.text = ext['inspection_scope'].toString();
       if (ext['policy_terms'] != null) {
         _policyTermsCtrl.text = ext['policy_terms'].toString();
       } else if (ext['insurance_terms'] != null) {
         _policyTermsCtrl.text = ext['insurance_terms'].toString();
+      } else if (ext['insurance_coverage_types'] != null) {
+        _policyTermsCtrl.text = ext['insurance_coverage_types'].toString();
       }
 
       if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString();
@@ -643,6 +672,15 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
 
         case EntityTarget.company:
           endpoint = '${ApiConstants.baseUrl}/import-companies';
+          final notesParts = <String>[];
+          if (_contactPersonCtrl.text.trim().isNotEmpty) notesParts.add('Manager: ${_contactPersonCtrl.text.trim()}');
+          if (_nafezaTokenCtrl.text.trim().isNotEmpty) notesParts.add('Nafeza E-Token: ${_nafezaTokenCtrl.text.trim()}');
+          if (_bankNameCtrl.text.trim().isNotEmpty) notesParts.add('Bank: ${_bankNameCtrl.text.trim()}');
+          if (_swiftCodeCtrl.text.trim().isNotEmpty) notesParts.add('SWIFT: ${_swiftCodeCtrl.text.trim()}');
+          if (_accountNumberCtrl.text.trim().isNotEmpty) notesParts.add('Account: ${_accountNumberCtrl.text.trim()}');
+          if (_ibanCtrl.text.trim().isNotEmpty) notesParts.add('IBAN: ${_ibanCtrl.text.trim()}');
+          if (_notesCtrl.text.trim().isNotEmpty) notesParts.add(_notesCtrl.text.trim());
+
           payload = {
             'importer_name': effectiveName,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
@@ -655,26 +693,27 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             'registration_expiry': '${_registrationExpiry.year}-${_registrationExpiry.month.toString().padLeft(2, '0')}-${_registrationExpiry.day.toString().padLeft(2, '0')}',
             'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
             'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
-            'notes': _nafezaTokenCtrl.text.trim().isNotEmpty ? 'Nafeza E-Token: ${_nafezaTokenCtrl.text.trim()}' : null,
+            'notes': notesParts.isNotEmpty ? notesParts.join(' | ') : null,
           };
           break;
 
         case EntityTarget.customsBroker:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Customs Broker',
             'clearance_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
-            'notes': _portsCtrl.text.trim().isNotEmpty ? 'Operating Ports: ${_portsCtrl.text.trim()}' : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'mobile': _mobileCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'website': _websiteCtrl.text.trim(),
+            'authorized_ports': _portsCtrl.text.trim().isNotEmpty ? _portsCtrl.text.trim() : null,
+            'tax_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : null,
+            'commercial_register': _commercialRegisterCtrl.text.trim().isNotEmpty ? _commercialRegisterCtrl.text.trim() : null,
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'mobile': _mobileCtrl.text.trim().isNotEmpty ? _mobileCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': 'Egypt',
-            'tax_id': _taxIdCtrl.text.trim(),
-            'commercial_register': _commercialRegisterCtrl.text.trim(),
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
@@ -682,78 +721,88 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           final scac = _scacCodeCtrl.text.trim().toUpperCase();
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Shipping Line',
             'scac_code': scac.isNotEmpty ? scac : 'LINE',
             'tracking_url': _trackingUrlCtrl.text.trim().isNotEmpty ? _trackingUrlCtrl.text.trim() : null,
             'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
             'secondary_email': _secondaryEmailCtrl.text.trim().isNotEmpty ? _secondaryEmailCtrl.text.trim() : null,
-            'phone': _phoneCtrl.text.trim(),
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
         case EntityTarget.freightForwarder:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Freight Forwarder',
-            'commercial_register': _commercialRegisterCtrl.text.trim(),
-            'notes': _servicesScopeCtrl.text.trim().isNotEmpty ? 'Scope: ${_servicesScopeCtrl.text.trim()}' : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'website': _websiteCtrl.text.trim(),
+            'commercial_register': _commercialRegisterCtrl.text.trim().isNotEmpty ? _commercialRegisterCtrl.text.trim() : null,
+            'fiata_id': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
+            'shipping_modes': _servicesScopeCtrl.text.trim().isNotEmpty ? _servicesScopeCtrl.text.trim() : null,
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'secondary_email': _secondaryEmailCtrl.text.trim().isNotEmpty ? _secondaryEmailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
         case EntityTarget.inlandTransport:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Inland Transport',
-            'clearance_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
-            'notes': _fleetTypesCtrl.text.trim().isNotEmpty ? 'Fleet: ${_fleetTypesCtrl.text.trim()}' : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
+            'transport_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
+            'fleet_types': _fleetTypesCtrl.text.trim().isNotEmpty ? _fleetTypesCtrl.text.trim() : null,
+            'coverage_areas': _portsCtrl.text.trim().isNotEmpty ? _portsCtrl.text.trim() : null,
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'mobile': _mobileCtrl.text.trim().isNotEmpty ? _mobileCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt Hub',
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
         case EntityTarget.inspectionAgency:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Inspection Agency',
-            'clearance_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
-            'notes': _inspectionScopeCtrl.text.trim().isNotEmpty ? 'Scope: ${_inspectionScopeCtrl.text.trim()}' : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'website': _websiteCtrl.text.trim(),
+            'inspection_accreditation_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
+            'inspection_scope': _inspectionScopeCtrl.text.trim().isNotEmpty ? _inspectionScopeCtrl.text.trim() : null,
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt Hub',
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
         case EntityTarget.insuranceCompany:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Insurance Company',
-            'notes': _policyTermsCtrl.text.trim().isNotEmpty ? 'Coverage: ${_policyTermsCtrl.text.trim()}' : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'website': _websiteCtrl.text.trim(),
+            'insurance_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
+            'insurance_coverage_types': _policyTermsCtrl.text.trim().isNotEmpty ? _policyTermsCtrl.text.trim() : null,
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt HQ',
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
@@ -761,29 +810,31 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           final swift = _swiftCodeCtrl.text.trim();
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Bank',
             'swift_code': swift.isNotEmpty ? swift : 'BANK-EG-SWIFT',
-            'bank_code': 'BNK-001',
+            'bank_code': swift.length >= 4 ? swift.substring(0, 4) : 'BNK-001',
             'branch_name': _branchNameCtrl.text.trim().isNotEmpty ? _branchNameCtrl.text.trim() : 'Main Branch',
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'address': _addressCtrl.text.trim(),
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : null,
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
         case EntityTarget.partner:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'partner_name': name,
+            'partner_name': effectiveName,
             'partner_type': 'Freight Forwarder',
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'address': _addressCtrl.text.trim(),
+            'contact_person': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : null,
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : null,
             'country': 'Egypt',
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
       }
@@ -1839,12 +1890,115 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
           ],
         ),
         const SizedBox(height: 10),
-        // Notes / Nafeza Token
+        // Legal Representative / Manager & Nafeza Token
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الممثل القانوني / مدير الاستيراد' : 'Legal Representative / Manager',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _nafezaTokenCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'معرف توكن نافذة المعتمد' : 'Nafeza E-Token ID',
+                  prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Beneficiary Bank Details
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blueGrey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.account_balance, size: 16, color: AppTheme.charcoal),
+                  const SizedBox(width: 6),
+                  Text(
+                    isArabic ? 'بيانات البنك المعتمد للتعاملات الجمركية' : 'Bank & Customs Account Details',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _bankNameCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'اسم البنك المصرفي' : 'Bank Name',
+                        prefixIcon: const Icon(Icons.account_balance_outlined, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _swiftCodeCtrl,
+                      textDirection: TextDirection.ltr,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'كود السويفت' : 'SWIFT Code',
+                        prefixIcon: const Icon(Icons.code, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _accountNumberCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم الحساب المصرفي' : 'Account Number',
+                        prefixIcon: const Icon(Icons.numbers, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _ibanCtrl,
+                      textDirection: TextDirection.ltr,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم الآيبان الدولي' : 'IBAN',
+                        prefixIcon: const Icon(Icons.credit_card, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         TextFormField(
-          controller: _nafezaTokenCtrl,
+          controller: _notesCtrl,
           decoration: InputDecoration(
-            labelText: isArabic ? 'معرف توكن نافذة أو ملاحظات إضافية' : 'Nafeza E-Token ID / Additional Notes',
-            prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+            labelText: isArabic ? 'ملاحظات إضافية' : 'Additional Notes',
+            prefixIcon: const Icon(Icons.notes_rounded, size: 18),
           ),
         ),
       ],
