@@ -2760,6 +2760,18 @@ abstract class AppLocalizations {
   String get underBondLabApprovedSuccess;
   String get underBondLabRejectedAlert;
   String underBondLabResultError(String error);
+  String get underBondConfirmLiftTitle;
+  String get underBondConfirmLiftBody;
+  String get underBondConfirmLiftConfirm;
+  String get underBondConfirmLiftCancel;
+  String get underBondLabVerdictRequired;
+  String get underBondRefRequired;
+  String get underBondRefMinLength;
+  String get underBondRefInvalid;
+  String get underBondLocationRequired;
+  String get underBondCertRequired;
+  String get underBondCertMinLength;
+  String get underBondCertInvalid;
   String get customsClearanceExportTsvBtn;
   String get customsClearanceExportTsvSuccess;
   String get customsClearanceCopyFieldTooltip;
