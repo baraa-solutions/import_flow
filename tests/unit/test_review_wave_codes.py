@@ -49,8 +49,6 @@ NOT_MESSAGE_FILES = {"modules/auth/seed_rbac.py"}  # role definitions ({"code": 
 KNOWN_PARAM_GAPS = {
     # financial_settlement.validators.ensure_cost_not_approved -> SETTLEMENT_COST_ALREADY_APPROVED
     ("SETTLEMENT_NOT_EDITABLE", "modules/financial_settlement/validators.py"),
-    # warehouse_receiving.validators.validate_verdict_matches -> WR_VERDICT_INCONSISTENT_EXPECTED
-    ("WR_VERDICT_INCONSISTENT", "modules/warehouse_receiving/validators.py"),
 }
 
 REVIEW_WAVE_CODES = (
@@ -79,6 +77,7 @@ REVIEW_WAVE_CODES = (
     "CC_RESTORE_DUPLICATE_ACTIVE", "CC_UNDER_BOND_NOT_ALLOWED", "CC_INVOICE_FX_RATE_REQUIRED",
     "CC_INVOICE_RECORD_FILE_MISMATCH", "CC_ACID_EXPIRY_INVALID", "CC_REFERENCE_CODE_CONFLICT",
     "CC_RELEASE_QUARANTINE_LOCKED", "CC_LAB_RESULT_ALREADY_FINAL", "CC_ASSESSED_COMPONENTS_LOCKED",
+    "CC_SETTLEMENT_LOCKED",
     "CCQ_RFQ_STATUS_INVALID", "CCQ_RFQ_CANCELLED", "CCQ_QUOTE_EXPIRED", "CCQ_AWARDED_QUOTE_DELETE",
     "CCQ_PRICE_LIST_DATE_RANGE",
     # 08-10

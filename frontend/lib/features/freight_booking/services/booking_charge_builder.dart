@@ -1,5 +1,137 @@
 import '../models/freight_booking_model.dart';
 
+/// State snapshot of the freight quote breakdown items (17 priced lines plus
+/// the booking cancellation fee).
+class FbkQuoteState {
+  final bool container40ftApp;
+  final double container40ftPrice;
+  final String container40ftCur;
+  final int container40ftQty;
+
+  final bool container20ftApp;
+  final double container20ftPrice;
+  final String container20ftCur;
+  final int container20ftQty;
+
+  final bool lclCbmApp;
+  final double lclCbmPrice;
+  final String lclCbmCur;
+  final double lclCbmQty;
+
+  final bool dthcApp;
+  final double dthcPrice;
+  final String dthcCur;
+
+  final bool storagePerWeekApp;
+  final double storagePerWeekPrice;
+  final String storagePerWeekCur;
+
+  final bool extraDayStorageApp;
+  final double extraDayStoragePrice;
+  final String extraDayStorageCur;
+
+  final bool solasVgmApp;
+  final double solasVgmPrice;
+  final String solasVgmCur;
+
+  final bool vgmNotifApp;
+  final double vgmNotifPrice;
+  final String vgmNotifCur;
+
+  final bool telexReleaseApp;
+  final double telexReleasePrice;
+  final String telexReleaseCur;
+
+  final bool expressCourierApp;
+  final double expressCourierPrice;
+  final String expressCourierCur;
+
+  final bool eurAtrApp;
+  final double eurAtrPrice;
+  final String eurAtrCur;
+
+  final bool insuranceApp;
+  final double insurancePrice;
+  final String insuranceCur;
+
+  final bool docFeesApp;
+  final double docFeesPrice;
+  final String docFeesCur;
+
+  final bool waiverApp;
+  final double waiverPrice;
+  final String waiverCur;
+
+  final bool ics2App;
+  final double ics2Price;
+  final String ics2Cur;
+
+  final bool otherFeesApp;
+  final double otherFeesPrice;
+  final String otherFeesCur;
+
+  final bool cancellationApp;
+  final double cancellationPrice;
+  final String cancellationCur;
+
+  const FbkQuoteState({
+    this.container40ftApp = false,
+    this.container40ftPrice = 0.0,
+    this.container40ftCur = 'USD',
+    this.container40ftQty = 1,
+    this.container20ftApp = false,
+    this.container20ftPrice = 0.0,
+    this.container20ftCur = 'USD',
+    this.container20ftQty = 0,
+    this.lclCbmApp = false,
+    this.lclCbmPrice = 0.0,
+    this.lclCbmCur = 'USD',
+    this.lclCbmQty = 0.0,
+    this.dthcApp = false,
+    this.dthcPrice = 0.0,
+    this.dthcCur = 'USD',
+    this.storagePerWeekApp = false,
+    this.storagePerWeekPrice = 0.0,
+    this.storagePerWeekCur = 'USD',
+    this.extraDayStorageApp = false,
+    this.extraDayStoragePrice = 0.0,
+    this.extraDayStorageCur = 'USD',
+    this.solasVgmApp = false,
+    this.solasVgmPrice = 0.0,
+    this.solasVgmCur = 'USD',
+    this.vgmNotifApp = false,
+    this.vgmNotifPrice = 0.0,
+    this.vgmNotifCur = 'USD',
+    this.telexReleaseApp = false,
+    this.telexReleasePrice = 0.0,
+    this.telexReleaseCur = 'USD',
+    this.expressCourierApp = false,
+    this.expressCourierPrice = 0.0,
+    this.expressCourierCur = 'USD',
+    this.eurAtrApp = false,
+    this.eurAtrPrice = 0.0,
+    this.eurAtrCur = 'USD',
+    this.insuranceApp = false,
+    this.insurancePrice = 0.0,
+    this.insuranceCur = 'USD',
+    this.docFeesApp = false,
+    this.docFeesPrice = 0.0,
+    this.docFeesCur = 'USD',
+    this.waiverApp = false,
+    this.waiverPrice = 0.0,
+    this.waiverCur = 'USD',
+    this.ics2App = false,
+    this.ics2Price = 0.0,
+    this.ics2Cur = 'USD',
+    this.otherFeesApp = false,
+    this.otherFeesPrice = 0.0,
+    this.otherFeesCur = 'USD',
+    this.cancellationApp = false,
+    this.cancellationPrice = 0.0,
+    this.cancellationCur = 'USD',
+  });
+}
+
 /// Result of building charges from quotation breakdown and allocated equipment.
 class BookingChargeBuildResult {
   final List<BookingChargeModel> charges;
@@ -15,81 +147,46 @@ class BookingChargeBuildResult {
   bool get hasError => has40ftMismatch || has20ftMismatch;
 }
 
-/// Pure helper that synchronizes and builds booking charges from quotation
-/// breakdown lines and allocated containers.
+/// Pure helper that builds booking charges from the quotation breakdown and
+/// the allocated containers. This is the single charge-building path.
 class BookingChargeBuilder {
   BookingChargeBuilder._();
+
+  static BookingChargeModel _flat(
+    String chargeType,
+    String unit,
+    String currency,
+    double price,
+  ) =>
+      BookingChargeModel(
+        chargeType: chargeType,
+        unit: unit,
+        quantity: 1,
+        currency: currency,
+        rate: price,
+        total: price,
+      );
 
   /// Builds booking charges, dynamically mapping container types to sea freight
   /// charges and strictly validating that allocated equipment matches quoted sizes.
   ///
+  /// Sea freight 40ft / 20ft lines use per-size units ('Per 40ft Container',
+  /// 'Per 20ft Container') so the backend cost calculation does not overwrite
+  /// per-type container quantities with the total container count.
+  ///
   /// Never drops a quoted freight line silently. If a quoted size (40ft or 20ft)
   /// has price > 0 and qty > 0 but no matching container is allocated, the line
-  /// is kept and a [mismatchError] is recorded so the UI can block save.
-  static BookingChargeBuildResult buildCharges({
-    required List<ContainerAllocationModel> containers,
-    // 40ft Quote
-    bool container40ftApp = false,
-    double container40ftPrice = 0.0,
-    int container40ftQty = 0,
-    String container40ftCur = 'USD',
-    // 20ft Quote
-    bool container20ftApp = false,
-    double container20ftPrice = 0.0,
-    int container20ftQty = 0,
-    String container20ftCur = 'USD',
-    // LCL
-    bool lclCbmApp = false,
-    double lclCbmPrice = 0.0,
-    double lclCbmQty = 0.0,
-    String lclCbmCur = 'USD',
-    // Surcharges & additional fees
-    bool dthcApp = false,
-    double dthcPrice = 0.0,
-    String dthcCur = 'USD',
-    bool storagePerWeekApp = false,
-    double storagePerWeekPrice = 0.0,
-    String storagePerWeekCur = 'USD',
-    bool extraDayStorageApp = false,
-    double extraDayStoragePrice = 0.0,
-    String extraDayStorageCur = 'USD',
-    bool solasVgmApp = false,
-    double solasVgmPrice = 0.0,
-    String solasVgmCur = 'USD',
-    bool vgmNotifApp = false,
-    double vgmNotifPrice = 0.0,
-    String vgmNotifCur = 'USD',
-    bool telexReleaseApp = false,
-    double telexReleasePrice = 0.0,
-    String telexReleaseCur = 'USD',
-    bool expressCourierApp = false,
-    double expressCourierPrice = 0.0,
-    String expressCourierCur = 'USD',
-    bool eurAtrApp = false,
-    double eurAtrPrice = 0.0,
-    String eurAtrCur = 'USD',
-    bool insuranceApp = false,
-    double insurancePrice = 0.0,
-    String insuranceCur = 'USD',
-    bool docFeesApp = false,
-    double docFeesPrice = 0.0,
-    String docFeesCur = 'USD',
-    bool waiverApp = false,
-    double waiverPrice = 0.0,
-    String waiverCur = 'USD',
-    bool ics2App = false,
-    double ics2Price = 0.0,
-    String ics2Cur = 'USD',
-    bool otherFeesApp = false,
-    double otherFeesPrice = 0.0,
-    String otherFeesCur = 'USD',
+  /// is kept and a mismatch flag is recorded so the UI can block save.
+  static BookingChargeBuildResult build(
+    FbkQuoteState s, {
+    List<ContainerAllocationModel> containers = const [],
   }) {
     final List<BookingChargeModel> newCharges = [];
     bool has40ftMismatch = false;
     bool has20ftMismatch = false;
 
     // 40ft / 45ft sea freight
-    if (container40ftApp && container40ftPrice > 0 && container40ftQty > 0) {
+    if (s.container40ftApp && s.container40ftPrice > 0 && s.container40ftQty > 0) {
       final c40 = containers.cast<ContainerAllocationModel?>().firstWhere(
         (c) => c != null && (c.containerType.startsWith('40') || c.containerType.startsWith('45')),
         orElse: () => null,
@@ -106,17 +203,17 @@ class BookingChargeBuilder {
 
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 40ft',
-        unit: 'Per Container',
-        quantity: container40ftQty.toDouble(),
+        unit: 'Per 40ft Container',
+        quantity: s.container40ftQty.toDouble(),
         containerType: tag,
-        currency: container40ftCur,
-        rate: container40ftPrice,
-        total: container40ftPrice * container40ftQty,
+        currency: s.container40ftCur,
+        rate: s.container40ftPrice,
+        total: s.container40ftPrice * s.container40ftQty,
       ));
     }
 
     // 20ft sea freight
-    if (container20ftApp && container20ftPrice > 0 && container20ftQty > 0) {
+    if (s.container20ftApp && s.container20ftPrice > 0 && s.container20ftQty > 0) {
       final c20 = containers.cast<ContainerAllocationModel?>().firstWhere(
         (c) => c != null && c.containerType.startsWith('20'),
         orElse: () => null,
@@ -133,66 +230,70 @@ class BookingChargeBuilder {
 
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 20ft',
-        unit: 'Per Container',
-        quantity: container20ftQty.toDouble(),
+        unit: 'Per 20ft Container',
+        quantity: s.container20ftQty.toDouble(),
         containerType: tag,
-        currency: container20ftCur,
-        rate: container20ftPrice,
-        total: container20ftPrice * container20ftQty,
+        currency: s.container20ftCur,
+        rate: s.container20ftPrice,
+        total: s.container20ftPrice * s.container20ftQty,
       ));
     }
 
     // LCL
-    if (lclCbmApp && lclCbmPrice > 0) {
+    if (s.lclCbmApp && s.lclCbmPrice > 0) {
+      final qty = s.lclCbmQty > 0 ? s.lclCbmQty : 1.0;
       newCharges.add(BookingChargeModel(
         chargeType: 'LCL CBM Freight',
         unit: 'Per CBM',
-        quantity: lclCbmQty > 0 ? lclCbmQty : 1.0,
-        currency: lclCbmCur,
-        rate: lclCbmPrice,
-        total: lclCbmPrice * (lclCbmQty > 0 ? lclCbmQty : 1.0),
+        quantity: qty,
+        currency: s.lclCbmCur,
+        rate: s.lclCbmPrice,
+        total: s.lclCbmPrice * qty,
       ));
     }
 
     // Surcharges & additional fees
-    if (dthcApp && dthcPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'DTHC (Destination THC)', unit: 'Per Shipment', quantity: 1, currency: dthcCur, rate: dthcPrice, total: dthcPrice));
+    if (s.dthcApp && s.dthcPrice > 0) {
+      newCharges.add(_flat('DTHC (Destination THC)', 'Per Shipment', s.dthcCur, s.dthcPrice));
     }
-    if (storagePerWeekApp && storagePerWeekPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Storage per one week', unit: 'Per Week', quantity: 1, currency: storagePerWeekCur, rate: storagePerWeekPrice, total: storagePerWeekPrice));
+    if (s.storagePerWeekApp && s.storagePerWeekPrice > 0) {
+      newCharges.add(_flat('Storage per one week', 'Per Week', s.storagePerWeekCur, s.storagePerWeekPrice));
     }
-    if (extraDayStorageApp && extraDayStoragePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Extra day storage', unit: 'Per Day', quantity: 1, currency: extraDayStorageCur, rate: extraDayStoragePrice, total: extraDayStoragePrice));
+    if (s.extraDayStorageApp && s.extraDayStoragePrice > 0) {
+      newCharges.add(_flat('Extra day storage', 'Per Day', s.extraDayStorageCur, s.extraDayStoragePrice));
     }
-    if (solasVgmApp && solasVgmPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'SOLAS/VGM Fees', unit: 'Per Container', quantity: 1, currency: solasVgmCur, rate: solasVgmPrice, total: solasVgmPrice));
+    if (s.solasVgmApp && s.solasVgmPrice > 0) {
+      newCharges.add(_flat('SOLAS/VGM Fees', 'Per Container', s.solasVgmCur, s.solasVgmPrice));
     }
-    if (vgmNotifApp && vgmNotifPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'VGM Notification Fee', unit: 'Per Container', quantity: 1, currency: vgmNotifCur, rate: vgmNotifPrice, total: vgmNotifPrice));
+    if (s.vgmNotifApp && s.vgmNotifPrice > 0) {
+      newCharges.add(_flat('VGM Notification Fee', 'Per Container', s.vgmNotifCur, s.vgmNotifPrice));
     }
-    if (telexReleaseApp && telexReleasePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Telex Release', unit: 'Per Shipment', quantity: 1, currency: telexReleaseCur, rate: telexReleasePrice, total: telexReleasePrice));
+    if (s.telexReleaseApp && s.telexReleasePrice > 0) {
+      newCharges.add(_flat('Telex Release', 'Per Shipment', s.telexReleaseCur, s.telexReleasePrice));
     }
-    if (expressCourierApp && expressCourierPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Express Courier', unit: 'Per Shipment', quantity: 1, currency: expressCourierCur, rate: expressCourierPrice, total: expressCourierPrice));
+    if (s.expressCourierApp && s.expressCourierPrice > 0) {
+      newCharges.add(_flat('Express Courier', 'Per Shipment', s.expressCourierCur, s.expressCourierPrice));
     }
-    if (eurAtrApp && eurAtrPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'EUR.1 / ATR Certificate', unit: 'Per Certificate', quantity: 1, currency: eurAtrCur, rate: eurAtrPrice, total: eurAtrPrice));
+    if (s.eurAtrApp && s.eurAtrPrice > 0) {
+      newCharges.add(_flat('EUR.1 / ATR Certificate', 'Per Certificate', s.eurAtrCur, s.eurAtrPrice));
     }
-    if (insuranceApp && insurancePrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Marine Insurance', unit: 'Per Policy', quantity: 1, currency: insuranceCur, rate: insurancePrice, total: insurancePrice));
+    if (s.insuranceApp && s.insurancePrice > 0) {
+      newCharges.add(_flat('Marine Insurance', 'Per Policy', s.insuranceCur, s.insurancePrice));
     }
-    if (docFeesApp && docFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Document Fees', unit: 'Per Shipment', quantity: 1, currency: docFeesCur, rate: docFeesPrice, total: docFeesPrice));
+    if (s.docFeesApp && s.docFeesPrice > 0) {
+      newCharges.add(_flat('Document Fees', 'Per Shipment', s.docFeesCur, s.docFeesPrice));
     }
-    if (waiverApp && waiverPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Waiver Letter Fee', unit: 'Per Letter', quantity: 1, currency: waiverCur, rate: waiverPrice, total: waiverPrice));
+    if (s.waiverApp && s.waiverPrice > 0) {
+      newCharges.add(_flat('Waiver Letter Fee', 'Per Letter', s.waiverCur, s.waiverPrice));
     }
-    if (ics2App && ics2Price > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'ICS2 Filing Fee', unit: 'Per Filing', quantity: 1, currency: ics2Cur, rate: ics2Price, total: ics2Price));
+    if (s.ics2App && s.ics2Price > 0) {
+      newCharges.add(_flat('ICS2 Filing Fee', 'Per Filing', s.ics2Cur, s.ics2Price));
     }
-    if (otherFeesApp && otherFeesPrice > 0) {
-      newCharges.add(BookingChargeModel(chargeType: 'Other Fees', unit: 'Per Shipment', quantity: 1, currency: otherFeesCur, rate: otherFeesPrice, total: otherFeesPrice));
+    if (s.otherFeesApp && s.otherFeesPrice > 0) {
+      newCharges.add(_flat('Other Fees', 'Per Shipment', s.otherFeesCur, s.otherFeesPrice));
+    }
+    if (s.cancellationApp && s.cancellationPrice > 0) {
+      newCharges.add(_flat('Booking Cancellation', 'Per Shipment', s.cancellationCur, s.cancellationPrice));
     }
 
     return BookingChargeBuildResult(
@@ -201,4 +302,25 @@ class BookingChargeBuilder {
       has20ftMismatch: has20ftMismatch,
     );
   }
+}
+
+/// Charges for [s]; pass [containers] to tag sea-freight lines with the booked
+/// container type. Delegates to [BookingChargeBuilder.build].
+List<BookingChargeModel> buildChargesFromQuote(
+  FbkQuoteState s, {
+  List<ContainerAllocationModel> containers = const [],
+}) =>
+    BookingChargeBuilder.build(s, containers: containers).charges;
+
+/// Collects distinct currencies across all applicable quote breakdown items.
+Set<String> collectApplicableCurrencies(FbkQuoteState s) {
+  return buildChargesFromQuote(s)
+      .map((c) => c.currency.trim().toUpperCase())
+      .where((cur) => cur.isNotEmpty)
+      .toSet();
+}
+
+/// Returns true if more than one distinct currency is used by applicable quote items.
+bool hasMixedCurrencies(FbkQuoteState s) {
+  return collectApplicableCurrencies(s).length > 1;
 }

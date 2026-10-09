@@ -27,12 +27,23 @@ import 'freight_booking_prompts.dart';
 import 'freight_booking_quote_card.dart';
 import 'freight_booking_ui.dart';
 
+// The charge-building API lives in the service; re-exported for existing callers.
+export '../services/booking_charge_builder.dart'
+    show FbkQuoteState, buildChargesFromQuote, collectApplicableCurrencies, hasMixedCurrencies;
+
 /// Create / edit a freight booking. Nothing is prefilled with sample data:
 /// a new booking starts empty and the required fields carry validators.
 class FreightBookingFormDialog extends ConsumerStatefulWidget {
   final ShipmentBookingModel? bookingToEdit;
   final bool isClone;
   const FreightBookingFormDialog({super.key, this.bookingToEdit, this.isClone = false});
+
+  static List<BookingChargeModel> buildCharges(FbkQuoteState s) =>
+      buildChargesFromQuote(s);
+  static Set<String> collectCurrencies(FbkQuoteState s) =>
+      collectApplicableCurrencies(s);
+  static bool checkMixedCurrencies(FbkQuoteState s) =>
+      hasMixedCurrencies(s);
 
   @override
   ConsumerState<FreightBookingFormDialog> createState() => _FreightBookingFormDialogState();
@@ -506,68 +517,78 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         severity: AppSeverity.success);
   }
 
-  void _rebuildChargesFromQuoteBreakdown() {
-    final result = BookingChargeBuilder.buildCharges(
-      containers: _containers,
-      container40ftApp: _container40ftApp,
-      container40ftPrice: _container40ftPrice,
-      container40ftQty: _container40ftQty,
-      container40ftCur: _container40ftCur,
-      container20ftApp: _container20ftApp,
-      container20ftPrice: _container20ftPrice,
-      container20ftQty: _container20ftQty,
-      container20ftCur: _container20ftCur,
-      lclCbmApp: _lclCbmApp,
-      lclCbmPrice: _lclCbmPrice,
-      lclCbmQty: _lclCbmQty,
-      lclCbmCur: _lclCbmCur,
-      dthcApp: _dthcApp,
-      dthcPrice: _dthcPrice,
-      dthcCur: _dthcCur,
-      storagePerWeekApp: _storagePerWeekApp,
-      storagePerWeekPrice: _storagePerWeekPrice,
-      storagePerWeekCur: _storagePerWeekCur,
-      extraDayStorageApp: _extraDayStorageApp,
-      extraDayStoragePrice: _extraDayStoragePrice,
-      extraDayStorageCur: _extraDayStorageCur,
-      solasVgmApp: _solasVgmApp,
-      solasVgmPrice: _solasVgmPrice,
-      solasVgmCur: _solasVgmCur,
-      vgmNotifApp: _vgmNotifApp,
-      vgmNotifPrice: _vgmNotifPrice,
-      vgmNotifCur: _vgmNotifCur,
-      telexReleaseApp: _telexReleaseApp,
-      telexReleasePrice: _telexReleasePrice,
-      telexReleaseCur: _telexReleaseCur,
-      expressCourierApp: _expressCourierApp,
-      expressCourierPrice: _expressCourierPrice,
-      expressCourierCur: _expressCourierCur,
-      eurAtrApp: _eurAtrApp,
-      eurAtrPrice: _eurAtrPrice,
-      eurAtrCur: _eurAtrCur,
-      insuranceApp: _insuranceApp,
-      insurancePrice: _insurancePrice,
-      insuranceCur: _insuranceCur,
-      docFeesApp: _docFeesApp,
-      docFeesPrice: _docFeesPrice,
-      docFeesCur: _docFeesCur,
-      waiverApp: _waiverApp,
-      waiverPrice: _waiverPrice,
-      waiverCur: _waiverCur,
-      ics2App: _ics2App,
-      ics2Price: _ics2Price,
-      ics2Cur: _ics2Cur,
-      otherFeesApp: _otherFeesApp,
-      otherFeesPrice: _otherFeesPrice,
-      otherFeesCur: _otherFeesCur,
-    );
+  FbkQuoteState get _currentQuoteState => FbkQuoteState(
+        container40ftApp: _container40ftApp,
+        container40ftPrice: _container40ftPrice,
+        container40ftCur: _container40ftCur,
+        container40ftQty: _container40ftQty,
+        container20ftApp: _container20ftApp,
+        container20ftPrice: _container20ftPrice,
+        container20ftCur: _container20ftCur,
+        container20ftQty: _container20ftQty,
+        lclCbmApp: _lclCbmApp,
+        lclCbmPrice: _lclCbmPrice,
+        lclCbmCur: _lclCbmCur,
+        lclCbmQty: _lclCbmQty,
+        dthcApp: _dthcApp,
+        dthcPrice: _dthcPrice,
+        dthcCur: _dthcCur,
+        storagePerWeekApp: _storagePerWeekApp,
+        storagePerWeekPrice: _storagePerWeekPrice,
+        storagePerWeekCur: _storagePerWeekCur,
+        extraDayStorageApp: _extraDayStorageApp,
+        extraDayStoragePrice: _extraDayStoragePrice,
+        extraDayStorageCur: _extraDayStorageCur,
+        solasVgmApp: _solasVgmApp,
+        solasVgmPrice: _solasVgmPrice,
+        solasVgmCur: _solasVgmCur,
+        vgmNotifApp: _vgmNotifApp,
+        vgmNotifPrice: _vgmNotifPrice,
+        vgmNotifCur: _vgmNotifCur,
+        telexReleaseApp: _telexReleaseApp,
+        telexReleasePrice: _telexReleasePrice,
+        telexReleaseCur: _telexReleaseCur,
+        expressCourierApp: _expressCourierApp,
+        expressCourierPrice: _expressCourierPrice,
+        expressCourierCur: _expressCourierCur,
+        eurAtrApp: _eurAtrApp,
+        eurAtrPrice: _eurAtrPrice,
+        eurAtrCur: _eurAtrCur,
+        insuranceApp: _insuranceApp,
+        insurancePrice: _insurancePrice,
+        insuranceCur: _insuranceCur,
+        docFeesApp: _docFeesApp,
+        docFeesPrice: _docFeesPrice,
+        docFeesCur: _docFeesCur,
+        waiverApp: _waiverApp,
+        waiverPrice: _waiverPrice,
+        waiverCur: _waiverCur,
+        ics2App: _ics2App,
+        ics2Price: _ics2Price,
+        ics2Cur: _ics2Cur,
+        otherFeesApp: _otherFeesApp,
+        otherFeesPrice: _otherFeesPrice,
+        otherFeesCur: _otherFeesCur,
+        cancellationApp: _cancellationApp,
+        cancellationPrice: _cancellationPrice,
+        cancellationCur: _cancellationCur,
+      );
 
+  void _rebuildChargesFromQuoteBreakdown() {
+    final result = BookingChargeBuilder.build(_currentQuoteState, containers: _containers);
     _charges = result.charges;
     _has40ftMismatch = result.has40ftMismatch;
     _has20ftMismatch = result.has20ftMismatch;
   }
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
+    final l = AppLocalizations.of(context);
+    if (hasMixedCurrencies(_currentQuoteState)) {
+      if (_tab != 1) setState(() => _tab = 1);
+      FbkUi.snack(context, l.fbkMixedCurrencyError, severity: AppSeverity.danger);
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       // Required fields live on the first tab: bring the user back to the errors.
       if (_tab != 0) setState(() => _tab = 0);
@@ -713,25 +734,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   }
 
   double get _computedCurrentExecutedFreight {
-    double total = 0.0;
-    if (_container40ftApp) total += _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1);
-    if (_container20ftApp) total += _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1);
-    if (_lclCbmApp) total += _lclCbmPrice * _lclCbmQty;
-    if (_expressCourierApp) total += _expressCourierPrice;
-    if (_eurAtrApp) total += _eurAtrPrice;
-    if (_solasVgmApp) total += _solasVgmPrice;
-    if (_vgmNotifApp) total += _vgmNotifPrice;
-    if (_telexReleaseApp) total += _telexReleasePrice;
-    if (_insuranceApp) total += _insurancePrice;
-    if (_cancellationApp) total += _cancellationPrice;
-    if (_ics2App) total += _ics2Price;
-    if (_otherFeesApp) total += _otherFeesPrice;
-    if (_docFeesApp) total += _docFeesPrice;
-    if (_waiverApp) total += _waiverPrice;
-    if (_dthcApp) total += _dthcPrice;
-    if (_storagePerWeekApp) total += _storagePerWeekPrice;
-    if (_extraDayStorageApp) total += _extraDayStoragePrice;
-    return total;
+    final charges = buildChargesFromQuote(_currentQuoteState);
+    return charges.fold<double>(0.0, (sum, c) => sum + c.total);
   }
 
   Widget _liveSavingsBanner() {
@@ -777,13 +781,29 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         _rebuildChargesFromQuoteBreakdown();
       },
       price: price,
-      onPriceChanged: (v) => setState(() => onPrice(v)),
+      onPriceChanged: (v) {
+        setState(() => onPrice(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       currency: cur,
-      onCurrencyChanged: (v) => setState(() => onCur(v)),
+      onCurrencyChanged: (v) {
+        setState(() => onCur(v));
+        _rebuildChargesFromQuoteBreakdown();
+      },
       quantity: qty,
-      onQuantityChanged: onQty == null ? null : (v) => setState(() => onQty(v)),
+      onQuantityChanged: onQty == null
+          ? null
+          : (v) {
+              setState(() => onQty(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
       doubleQty: cbm,
-      onDoubleQtyChanged: onCbm == null ? null : (v) => setState(() => onCbm(v)),
+      onDoubleQtyChanged: onCbm == null
+          ? null
+          : (v) {
+              setState(() => onCbm(v));
+              _rebuildChargesFromQuoteBreakdown();
+            },
     );
   }
 

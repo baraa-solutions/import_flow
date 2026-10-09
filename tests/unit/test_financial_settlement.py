@@ -1,5 +1,6 @@
 import unittest
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -8,15 +9,16 @@ from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
-from modules.currencies.model import Currency
+from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_tariff.model import CustomsTariff
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.transport_locations.model import TransportLocation
-from modules.freight_quotations.model import FreightRFQRequest
-from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.purchase_orders.model import PurchaseOrder, POLineItem
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.financial_settlement.model import LandedCostSettlementRecord
+import main  # registers all models with Base.metadata
 from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
@@ -31,6 +33,7 @@ from modules.financial_settlement.service import (
     calculate_landed_cost_engine,
     soft_delete_settlement_service,
     restore_settlement_service,
+    simulate_estimated_landed_cost_service,
 )
 
 class TestFinancialSettlementModule(unittest.TestCase):
@@ -180,6 +183,603 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(res_exw["total_expenses_egp"], 95000.0)
         self.assertEqual(res_exw["total_landed_cost_egp"], 245000.0)
         self.assertEqual(res_exw["incoterm_code"], "EXW")
+
+    def test_partial_shipment_fob_share(self):
+        """
+        ACC2-T01: Landed cost uses the file's share of partially shipped POs.
+        - PO 1 line 1,000 units x 10 USD, PO rate 50, CBM 20, weight 5,000;
+        - allocation file A 400, file B 600.
+        - Settlement A items: qty 400, FOB 200,000.00, CBM 8.0, weight 2,000;
+        - B: 600, 300,000.00;
+        - A expense 60,000 Value-Based -> A unit landed cost (200,000+60,000)/400 = 650.00.
+        - PO-level allocation 40 % (shipped_amount_fob 4,000) -> same FOB 200,000.
+        - PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED.
+        - Recalculation fetch for A = 200,000.
+        """
+        import json
+        from modules.purchase_orders.model import POLineItem, POShipmentAllocation
+        from modules.financial_settlement.service import (
+            _items_from_purchase_orders,
+            file_po_line_shares,
+            SettlementFx,
+        )
+        from modules.recalculation.service import _fetch_from_purchase_orders
+
+        # Ensure USD exists and exchange rate 50.0
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(
+                currency_code="USD",
+                currency_name="US Dollar",
+                currency_symbol="$",
+                is_base_currency=False,
+                decimal_places=2,
+                is_active=True,
+            )
+            self.db.add(usd)
+            self.db.commit()
+            self.db.refresh(usd)
+
+        rate_row = self.db.query(ExchangeRate).filter(
+            ExchangeRate.currency_id == usd.currency_id,
+            ExchangeRate.effective_date == date.today(),
+        ).first()
+        if not rate_row:
+            rate_row = ExchangeRate(
+                currency_id=usd.currency_id,
+                commercial_rate=50.0,
+                customs_rate=50.0,
+                effective_date=date.today(),
+            )
+            self.db.add(rate_row)
+            self.db.commit()
+
+        # Ensure Supplier, Incoterm, Project exist
+        supp = self.db.query(Supplier).filter(Supplier.supplier_id == 1).first()
+        if not supp:
+            supp = Supplier(
+                supplier_id=1,
+                supplier_code="SUP-ACC2-01",
+                company_name="Global Heavy Equipment Ltd",
+                supplier_type="Manufacturer",
+                registration_type="CargoX",
+                foreign_exporter_id="EXP-ACC2-01",
+                foreign_exporter_country="China",
+                foreign_exporter_country_code="CN",
+                address="Shanghai, China",
+                is_active=True,
+            )
+            self.db.add(supp)
+
+        inco = self.db.query(Incoterm).filter(Incoterm.incoterm_id == 1).first()
+        if not inco:
+            inco = Incoterm(
+                incoterm_id=1,
+                incoterm_code="FOB",
+                incoterm_name="Free On Board",
+                is_active=True,
+            )
+            self.db.add(inco)
+
+        proj = self.db.query(Project).filter(Project.project_id == 1).first()
+        if not proj:
+            proj = Project(
+                project_id=1,
+                project_code="PRJ-ACC2-01",
+                project_name="Delta Heavy Machinery",
+                project_owner="Ahmed",
+                company_id=1,
+                supplier_id=1,
+                incoterm_id=1,
+                is_active=True,
+            )
+            self.db.add(proj)
+        self.db.commit()
+
+        # Create File A and File B
+        file_a = ImportFile(
+            import_file_code="IMP-FILE-2026-00A",
+            company_id=1,
+            company_name="Delta Industrial Co",
+            supplier_name="Global Supplier",
+            po_number="PO-ACC2-001",
+        )
+        file_b = ImportFile(
+            import_file_code="IMP-FILE-2026-00B",
+            company_id=1,
+            company_name="Delta Industrial Co",
+            supplier_name="Global Supplier",
+            po_number="PO-ACC2-001",
+        )
+        self.db.add_all([file_a, file_b])
+        self.db.commit()
+        self.db.refresh(file_a)
+        self.db.refresh(file_b)
+
+        # Create PO: 1,000 units x 10 USD = 10,000 USD FOB
+        po = PurchaseOrder(
+            po_number="PO-ACC2-001",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=usd.currency_id,
+            total_amount_fob=10000.0,
+            order_date=datetime.now(timezone.utc),
+            import_file_id=file_a.import_file_id,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+
+        # File B also lists this PO via po_ids
+        file_b.po_ids = json.dumps([po.po_id])
+        self.db.commit()
+
+        # Add PO Line Item: 1,000 units, 10 USD, CBM 20, Weight 5,000
+        line = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-ACC2-01",
+            description_ar="Ù…Ø¶Ø®Ø§Øª ØµÙ†Ø§Ø¹ÙŠØ©",
+            description_en="Industrial Pumps",
+            quantity=1000.0,
+            unit_price=10.0,
+            total_price=10000.0,
+            gross_weight_kg=5000.0,
+            total_cbm=20.0,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.db.add(line)
+        self.db.commit()
+        self.db.refresh(line)
+
+        # 1. Item-level Allocations: File A = 400, File B = 600
+        alloc_a = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=line.item_id,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=400.0,
+            shipped_amount_fob=4000.0,
+            shipment_ref="BL-A-01",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        alloc_b = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=line.item_id,
+            import_file_id=file_b.import_file_id,
+            shipped_quantity=600.0,
+            shipped_amount_fob=6000.0,
+            shipment_ref="BL-B-01",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add_all([alloc_a, alloc_b])
+        self.db.commit()
+
+        fx = SettlementFx(self.db, "commercial")
+
+        # Settlement A items: qty 400, FOB 200,000.00, CBM 8.0, weight 2,000
+        items_a = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a), 1)
+        self.assertEqual(items_a[0]["qty"], 400.0)
+        self.assertEqual(items_a[0]["fob_unit_egp"], 500.0)
+        self.assertEqual(items_a[0]["cbm"], 8.0)
+        self.assertEqual(items_a[0]["gross_weight_kg"], 2000.0)
+
+        # Test CLO-02 and PL-08 share paths for file A (400 units)
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            simulate_estimated_landed_cost_service,
+        )
+        res_clo02 = calculate_actual_landed_cost_service(self.db, file_a.import_file_id)
+        self.assertEqual(len(res_clo02.items_breakdown), 1)
+        self.assertEqual(res_clo02.items_breakdown[0].qty, 400.0)
+        self.assertEqual(res_clo02.items_breakdown[0].fob_total_egp, 200000.0)
+
+        res_pl08 = simulate_estimated_landed_cost_service(self.db, file_a.import_file_id)
+        self.assertEqual(len(res_pl08.items_breakdown), 1)
+        self.assertEqual(res_pl08.items_breakdown[0].qty, 400.0)
+        self.assertEqual(res_pl08.items_breakdown[0].fob_total_fc, 4000.0)
+
+        # Settlement B items: qty 600, FOB 300,000.00
+        items_b = _items_from_purchase_orders(self.db, file_b, fx)
+        self.assertEqual(len(items_b), 1)
+        self.assertEqual(items_b[0]["qty"], 600.0)
+        self.assertEqual(items_b[0]["fob_unit_egp"], 500.0)
+        self.assertEqual(items_b[0]["cbm"], 12.0)
+        self.assertEqual(items_b[0]["gross_weight_kg"], 3000.0)
+
+        # A expense 60,000 Value-Based -> A unit landed cost (200,000+60,000)/400 = 650.00
+        expenses_a = [
+            {
+                "invoice_no": "EXP-60K",
+                "category": "Freight",
+                "provider_name": "Carrier",
+                "currency": "EGP",
+                "amount_fx": 60000.0,
+                "exchange_rate": 1.0,
+                "amount_egp": 60000.0,
+                "allocation_rule": "Value-Based",
+            }
+        ]
+        res_a = calculate_landed_cost_engine(expenses_a, items_a)
+        self.assertEqual(res_a["total_fob_egp"], 200000.0)
+        self.assertEqual(res_a["total_expenses_egp"], 60000.0)
+        self.assertEqual(res_a["total_landed_cost_egp"], 260000.0)
+        self.assertEqual(res_a["item_landed_costs"][0]["unit_landed_cost_egp"], 650.0)
+
+        # Recalculation fetch for A = 200,000
+        recalc_fob_a = _fetch_from_purchase_orders(self.db, file_a.import_file_id, "total_amount_fob", "sum")
+        self.assertEqual(recalc_fob_a, 200000.0)
+
+        # 2. PO-level allocation 40 % (shipped_amount_fob 4,000) -> same FOB 200,000
+        self.db.delete(alloc_a)
+        self.db.delete(alloc_b)
+        self.db.commit()
+
+        alloc_po_a = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=0.0,
+            shipped_amount_fob=4000.0,
+            shipment_ref="BL-A-PO",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_po_a)
+        self.db.commit()
+
+        items_a_po = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a_po), 1)
+        self.assertEqual(items_a_po[0]["qty"], 400.0)
+        self.assertEqual(items_a_po[0]["fob_unit_egp"], 500.0)
+        self.assertEqual(items_a_po[0]["cbm"], 8.0)
+        self.assertEqual(items_a_po[0]["gross_weight_kg"], 2000.0)
+        res_a_po = calculate_landed_cost_engine(expenses_a, items_a_po)
+        self.assertEqual(res_a_po["total_fob_egp"], 200000.0)
+
+        # 2b. PO-level allocation with FOB 0 falls back to quantity ratio (400/1000 = 0.4)
+        self.db.delete(alloc_po_a)
+        self.db.commit()
+
+        alloc_po_zero_fob = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=400.0,
+            shipped_amount_fob=0.0,
+            shipment_ref="BL-A-ZERO-FOB",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_po_zero_fob)
+        self.db.commit()
+
+        items_a_zero_fob = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a_zero_fob), 1)
+        self.assertEqual(items_a_zero_fob[0]["qty"], 400.0)
+        self.assertEqual(items_a_zero_fob[0]["fob_unit_egp"], 500.0)
+        shares_zero_fob = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_zero_fob), 1)
+        self.assertEqual(shares_zero_fob[0][1], 400.0)
+        self.assertEqual(shares_zero_fob[0][2], 0.4)
+
+        # 2c. Mixed PO-level allocations: one with FOB (200 qty, 2000 FOB), one with FOB 0 (200 qty, 0 FOB)
+        # Fallback to quantity ratio: (200+200)/1000 = 0.4 -> 400 qty, 0.4 ratio
+        self.db.delete(alloc_po_zero_fob)
+        self.db.commit()
+
+        alloc_mixed_1 = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=200.0,
+            shipped_amount_fob=2000.0,
+            shipment_ref="BL-A-MIXED-1",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        alloc_mixed_2 = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=None,
+            import_file_id=file_a.import_file_id,
+            shipped_quantity=200.0,
+            shipped_amount_fob=0.0,
+            shipment_ref="BL-A-MIXED-2",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add_all([alloc_mixed_1, alloc_mixed_2])
+        self.db.commit()
+
+        shares_mixed = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_mixed), 1)
+        self.assertEqual(shares_mixed[0][1], 400.0)
+        self.assertEqual(shares_mixed[0][2], 0.4)
+        items_a_mixed = _items_from_purchase_orders(self.db, file_a, fx)
+        self.assertEqual(len(items_a_mixed), 1)
+        self.assertEqual(items_a_mixed[0]["qty"], 400.0)
+        self.assertEqual(items_a_mixed[0]["fob_unit_egp"], 500.0)
+
+        self.db.delete(alloc_mixed_1)
+        self.db.delete(alloc_mixed_2)
+        self.db.commit()
+
+        # 3. PO with allocations only for file B -> file A excludes it and returns SETTLEMENT_PO_NOT_ALLOCATED
+        alloc_po_b = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=line.item_id,
+            import_file_id=file_b.import_file_id,
+            shipped_quantity=600.0,
+            shipped_amount_fob=6000.0,
+            shipment_ref="BL-B-ONLY",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_po_b)
+        self.db.commit()
+
+        messages_a = []
+        shares_a = file_po_line_shares(self.db, file_a, messages=messages_a)
+        self.assertEqual(len(shares_a), 0)
+        self.assertEqual(len(messages_a), 1)
+        self.assertEqual(messages_a[0].code, "SETTLEMENT_PO_NOT_ALLOCATED")
+        self.assertEqual(messages_a[0].params.get("po_number"), po.po_number)
+
+        # 4. Allocations with no import file (import_file_id is None) do NOT cause PO to vanish
+        self.db.delete(alloc_po_b)
+        self.db.commit()
+
+        alloc_unlinked = POShipmentAllocation(
+            po_id=po.po_id,
+            po_item_id=line.item_id,
+            import_file_id=None,
+            shipped_quantity=400.0,
+            shipped_amount_fob=4000.0,
+            shipment_ref="BL-UNLINKED",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(alloc_unlinked)
+        self.db.commit()
+
+        # Should keep full-PO behavior (1000 units, not skipped)
+        shares_unlinked = file_po_line_shares(self.db, file_a)
+        self.assertEqual(len(shares_unlinked), 1)
+        self.assertEqual(shares_unlinked[0][1], 1000.0)
+        self.assertEqual(shares_unlinked[0][2], 1.0)
+
+        # Recalculation should also contribute full PO FOB when allocations are unlinked
+        recalc_unlinked = _fetch_from_purchase_orders(self.db, file_a.import_file_id, "total_amount_fob", "sum")
+        self.assertEqual(recalc_unlinked, 500000.0)
+
+
+    def test_estimate_freight_uses_ocean_cost_only(self):
+        """
+        ACC3-T03: Phase-1 landed cost estimate uses only the ocean freight of the
+        awarded quote for CIF calculation, not the quote total cost (which includes
+        local and inland charges).
+        Worked example:
+        FOB: 100,000 USD, Customs FX rate: 50.0 EGP/USD. Total FOB = 5,000,000 EGP.
+        Awarded quote: Ocean freight = 3,000 USD, Local charges = 400 USD, Inland = 600 USD (Total = 4,000 USD).
+        Deemed insurance: 2.5% of FOB = 2,500 USD = 125,000 EGP.
+        Customs Tariff: Duty = 10%, VAT = 14%.
+
+        Expectations:
+        - Freight line amount_fc = 3,000.00 USD, amount_egp = 150,000.00 EGP (not 4,000 / 200,000).
+        - Insurance line amount_fc = 2,500.00 USD, amount_egp = 125,000.00 EGP.
+        - CIF for customs = 5,000,000 + 150,000 + 125,000 = 5,275,000.00 EGP.
+        - Duty (10%) = 527,500.00 EGP.
+        - VAT base = 5,275,000 + 527,500 = 5,802,500.00 EGP.
+        - VAT (14%) = 812,350.00 EGP.
+        - Total customs & taxes = 527,500 + 812,350 = 1,339,850.00 EGP.
+        """
+        # Ensure USD currency with customs rate 50.0
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(usd)
+            self.db.commit()
+            self.db.refresh(usd)
+
+        rate = self.db.query(ExchangeRate).filter(ExchangeRate.currency_id == usd.currency_id).first()
+        if not rate:
+            rate = ExchangeRate(
+                currency_id=usd.currency_id,
+                customs_rate=Decimal("50.0"),
+                commercial_rate=Decimal("50.0"),
+                effective_date=date(2020, 1, 1),
+                is_active=True,
+            )
+            self.db.add(rate)
+        else:
+            rate.customs_rate = Decimal("50.0")
+            rate.commercial_rate = Decimal("50.0")
+            rate.is_active = True
+        self.db.commit()
+
+        # Customs tariff with 10% duty, 14% VAT, 0% service fee for worked example match
+        tariff = CustomsTariff(
+            hs_code="8479.89.99",
+            hs_description="Special Machinery",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+            schedule_tax_rate=Decimal("0.00"),
+            development_fee_rate=Decimal("0.00"),
+            customs_service_fee_rate=Decimal("0.00"),
+            effective_from=date(2020, 1, 1),
+            is_active=True,
+        )
+        self.db.add(tariff)
+        self.db.commit()
+        self.db.refresh(tariff)
+
+        # External service provider
+        provider = ExternalServiceProvider(
+            partner_code="PRV-ACC3-001",
+            partner_name="Ocean Freight Line",
+            partner_type="Shipping Line",
+            is_active=True,
+        )
+        self.db.add(provider)
+        self.db.commit()
+        self.db.refresh(provider)
+
+        # Ensure Supplier, Incoterm, Project exist
+        supp = self.db.query(Supplier).filter(Supplier.supplier_id == 1).first()
+        if not supp:
+            supp = Supplier(
+                supplier_id=1,
+                supplier_code="SUP-ACC3-01",
+                company_name="Global Heavy Equipment Ltd",
+                supplier_type="Manufacturer",
+                registration_type="CargoX",
+                foreign_exporter_id="EXP-ACC3-01",
+                foreign_exporter_country="China",
+                foreign_exporter_country_code="CN",
+                address="Shanghai, China",
+                is_active=True,
+            )
+            self.db.add(supp)
+
+        inco = self.db.query(Incoterm).filter(Incoterm.incoterm_id == 1).first()
+        if not inco:
+            inco = Incoterm(
+                incoterm_id=1,
+                incoterm_code="FOB",
+                incoterm_name="Free On Board",
+                is_active=True,
+            )
+            self.db.add(inco)
+
+        proj = self.db.query(Project).filter(Project.project_id == 1).first()
+        if not proj:
+            proj = Project(
+                project_id=1,
+                project_code="PRJ-ACC3-01",
+                project_name="Delta Heavy Machinery",
+                project_owner="Ahmed",
+                company_id=1,
+                supplier_id=1,
+                incoterm_id=1,
+                is_active=True,
+            )
+            self.db.add(proj)
+        self.db.commit()
+
+        # Import File
+        imp = ImportFile(
+            import_file_code="IMP-ACC3-003",
+            company_id=1,
+            company_name="Delta Industrial Co",
+            supplier_name="Global Supplier",
+            po_number="PO-ACC3-003",
+            hs_code="8479.89.99",
+            is_active=True,
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        # Purchase Order: 100,000 USD FOB
+        po = PurchaseOrder(
+            po_number="PO-ACC3-003",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=usd.currency_id,
+            total_amount_fob=100000.0,
+            order_date=datetime.now(timezone.utc),
+            import_file_id=imp.import_file_id,
+            is_active=True,
+        )
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+
+        # PO Line Item linked to tariff
+        po_item = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-ACC3-01",
+            description_ar="آلات خاصة",
+            description_en="Special Machinery Unit",
+            quantity=Decimal("1.0"),
+            unit_price=Decimal("100000.0"),
+            total_price=Decimal("100000.0"),
+            gross_weight_kg=Decimal("1000.0"),
+            total_cbm=Decimal("5.0"),
+            tariff_id=tariff.tariff_id,
+        )
+        self.db.add(po_item)
+        self.db.commit()
+
+        # Freight RFQ Request (Awarded, is_active=True)
+        today = date.today()
+        rfq = FreightRFQRequest(
+            rfq_code="RFQ-ACC3-003",
+            title="Freight RFQ for ACC3-T03",
+            shipping_method="Ocean FCL",
+            crd_date=today,
+            pol_name="Shanghai",
+            pod_name="Alexandria",
+            import_file_id=imp.import_file_id,
+            status="Awarded",
+            is_active=True,
+        )
+        self.db.add(rfq)
+        self.db.commit()
+        self.db.refresh(rfq)
+
+        # Awarded Quote: Ocean 3,000, Local 400, Inland 600, Total 4,000
+        quote = FreightQuotationItem(
+            rfq_id=rfq.rfq_id,
+            provider_id=provider.provider_id,
+            provider_name=provider.partner_name,
+            currency_code="USD",
+            ocean_freight_cost=3000.0,
+            local_charges_cost=400.0,
+            inland_cost=600.0,
+            total_cost=4000.0,
+            sailing_date=today,
+            estimated_arrival_date=today,
+            is_awarded=True,
+        )
+        self.db.add(quote)
+        self.db.commit()
+        self.db.refresh(quote)
+
+        rfq.selected_quotation_id = quote.quotation_id
+        self.db.commit()
+
+        # Run simulation
+        res = simulate_estimated_landed_cost_service(self.db, imp.import_file_id)
+
+        # 1. Freight expense line must use ocean_freight_cost only (3,000 USD x 50 = 150,000 EGP)
+        self.assertEqual(res.total_freight_egp, 150000.0)
+        freight_line = next(e for e in res.expenses_breakdown if "Ocean/Air Freight" in e.category)
+        self.assertEqual(freight_line.amount_fc, 3000.0)
+        self.assertEqual(freight_line.amount_egp, 150000.0)
+        self.assertIn("نولون الشحن البحري للعرض الفائز في المناقصة", freight_line.source)
+
+        # 2. Deemed Insurance (2.5% of 100,000 USD = 2,500 USD = 125,000 EGP)
+        self.assertEqual(res.total_insurance_egp, 125000.0)
+        ins_line = next(e for e in res.expenses_breakdown if "Marine Insurance" in e.category)
+        self.assertEqual(ins_line.amount_fc, 2500.0)
+        self.assertEqual(ins_line.amount_egp, 125000.0)
+
+        # 3. Customs Duty and VAT calculated on CIF 5,275,000.00 EGP
+        # Duty = 10% of CIF = 527,500.00 EGP
+        self.assertEqual(res.total_customs_duty_egp, 527500.0)
+        # VAT = 14% of (CIF + Duty) = 14% of 5,802,500 = 812,350.00 EGP
+        self.assertEqual(res.total_vat_and_fees_egp, 812350.0)
+        self.assertEqual(res.total_customs_and_taxes_egp, 527500.0 + 812350.0)
+
 
 if __name__ == "__main__":
     unittest.main()

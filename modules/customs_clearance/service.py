@@ -59,7 +59,9 @@ from .validators import (
     validate_release_not_quarantined,
     validate_release_payment,
     validate_release_permit_no,
+    validate_settlement_open,
     validate_under_bond_allowed,
+    SETTLEMENT_LOCKED_STATUSES,
 )
 
 logger = logging.getLogger(__name__)
@@ -1293,6 +1295,11 @@ def record_lab_result_and_lift_quarantine_service(
             record.quarantine_lock = False
             record.quarantine_lifted_date = payload.test_completion_date or _now()
             record.quarantine_lifted_by = "Customs Laboratory Authority"
+            try:
+                from modules.warehouse_receiving.service import release_quarantine_lock_for_file
+                release_quarantine_lock_for_file(db, record.import_file_id, user=user)
+            except Exception:
+                pass
             if can_release and is_duty_fully_paid(record):
                 record.dispatch_authorized = True
                 record.status = FINAL_RELEASE_STATUS
@@ -1376,15 +1383,24 @@ def _recalculate_clearance_expenses_aggregates(db: Session, import_file_id: int,
         imp_file.updated_at = _now()
 
 
-def _sync_settlement_snapshot(db: Session, import_file_id: int) -> None:
+def _sync_settlement_snapshot(db: Session, import_file_id: int, actor: str = SYSTEM_USER) -> None:
     """Landed-cost settlement snapshot: ``Clearance / <label_en>`` rows replace the earlier clearance rows."""
     from modules.financial_settlement.model import LandedCostSettlementRecord
+    from modules.financial_settlement.service import recalculate_settlement_totals
 
     settlement = db.query(LandedCostSettlementRecord).filter(
         LandedCostSettlementRecord.import_file_id == import_file_id,
         LandedCostSettlementRecord.is_active == True,  # noqa: E712
     ).first()
     if not settlement:
+        return
+    if settlement.status in SETTLEMENT_LOCKED_STATUSES:
+        logger.warning(
+            "Skipping settlement snapshot sync for import_file_id=%s: settlement %s is locked (%s)",
+            import_file_id,
+            settlement.settlement_code,
+            settlement.status,
+        )
         return
     rows = [item for item in (settlement.expense_invoices or []) if not str(item.get("category", "")).startswith("Clearance / ")]
     for inv in repo.get_active_invoices_for_file(db, import_file_id):
@@ -1403,7 +1419,7 @@ def _sync_settlement_snapshot(db: Session, import_file_id: int) -> None:
             "allocation_rule": inv.allocation_rule or "Equal",
         })
     settlement.expense_invoices = rows
-    settlement.total_expenses_egp = round(sum(item.get("net_payable_egp", 0.0) for item in rows), 2)
+    recalculate_settlement_totals(settlement, actor=actor)
     settlement.updated_at = _now()
 
 
@@ -1414,6 +1430,7 @@ def record_clearance_invoice_service(
 ) -> ClearanceExpenseInvoice:
     """CL-05: record a broker / port / handling invoice (EGP amount from FX when needed), update the record and
     file totals, then sync the settlement snapshot, close CL-05 tasks and notify."""
+    validate_settlement_open(db, payload.import_file_id)
     imp_file = _require_import_file(db, payload.import_file_id)
     file_label = _file_label(imp_file)
 
@@ -1500,7 +1517,7 @@ def record_clearance_invoice_service(
         provider_name=invoice.provider_name or "-",
         import_file_code=file_label,
     )
-    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, payload.import_file_id)
+    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, payload.import_file_id, actor=current_user)
     _follow_up(db, "CL-05 task completion", _complete_tasks, db, payload.import_file_id,
                ("CLEARANCE_INVOICES", "CL-05"), invoice_msg, current_user,
                note_part="body", task_codes=("CL-05", "TSK-0205"), open_statuses=("Pending", "In Progress"))
@@ -1550,10 +1567,11 @@ def delete_clearance_invoice_service(
         raise HTTPException(status_code=404, detail="فاتورة التخليص غير موجودة أو محذوفة.")
     import_file_id = inv.import_file_id
     clearance_id = inv.customs_clearance_id
+    validate_settlement_open(db, import_file_id)
 
     inv.is_active = False
     _touch(inv, current_user)
     _recalculate_clearance_expenses_aggregates(db, import_file_id, clearance_id)
     db.commit()
-    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, import_file_id)
+    _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, import_file_id, actor=current_user)
     return True

@@ -2,6 +2,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/freight_booking/models/freight_booking_model.dart';
 import 'package:frontend/features/freight_booking/services/booking_charge_builder.dart';
 
+BookingChargeBuildResult _build({
+  required List<ContainerAllocationModel> containers,
+  bool container40ftApp = false,
+  double container40ftPrice = 0.0,
+  int container40ftQty = 0,
+  String container40ftCur = 'USD',
+  bool container20ftApp = false,
+  double container20ftPrice = 0.0,
+  int container20ftQty = 0,
+  String container20ftCur = 'USD',
+}) =>
+    BookingChargeBuilder.build(
+      FbkQuoteState(
+        container40ftApp: container40ftApp,
+        container40ftPrice: container40ftPrice,
+        container40ftQty: container40ftQty,
+        container40ftCur: container40ftCur,
+        container20ftApp: container20ftApp,
+        container20ftPrice: container20ftPrice,
+        container20ftQty: container20ftQty,
+        container20ftCur: container20ftCur,
+      ),
+      containers: containers,
+    );
+
 void main() {
   group('BookingChargeBuilder Tests (BE45-T01)', () {
     test('40GP container allocation produces charge tagged with 40GP', () {
@@ -9,7 +34,7 @@ void main() {
         ContainerAllocationModel(containerType: '40GP', quantity: 2),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container40ftApp: true,
         container40ftPrice: 2000.0,
@@ -35,7 +60,7 @@ void main() {
         ContainerAllocationModel(containerType: '45HC', quantity: 1),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container40ftApp: true,
         container40ftPrice: 2400.0,
@@ -58,7 +83,7 @@ void main() {
         ContainerAllocationModel(containerType: '20RF', quantity: 1),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container40ftApp: true,
         container40ftPrice: 2000.0,
@@ -90,7 +115,7 @@ void main() {
         ContainerAllocationModel(containerType: '20GP', quantity: 2),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container40ftApp: true,
         container40ftPrice: 2000.0,
@@ -117,7 +142,7 @@ void main() {
         ContainerAllocationModel(containerType: '20GP', quantity: 1),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container40ftApp: true,
         container40ftPrice: 2000.0,
@@ -141,12 +166,33 @@ void main() {
       expect(result.has40ftMismatch, isTrue);
     });
 
+    test('Single path: container tag, per-size unit and cancellation line come from one build', () {
+      final result = BookingChargeBuilder.build(
+        const FbkQuoteState(
+          container40ftApp: true,
+          container40ftPrice: 2000.0,
+          container40ftQty: 2,
+          cancellationApp: true,
+          cancellationPrice: 150.0,
+        ),
+        containers: [ContainerAllocationModel(containerType: '40GP', quantity: 2)],
+      );
+
+      expect(result.hasError, isFalse);
+      final c40 = result.charges.firstWhere((c) => c.chargeType == 'Sea Freight 40ft');
+      expect(c40.containerType, '40GP');
+      expect(c40.unit, 'Per 40ft Container');
+      final cancel = result.charges.firstWhere((c) => c.chargeType == 'Booking Cancellation');
+      expect(cancel.total, 150.0);
+      expect(cancel.containerType, isNull);
+    });
+
     test('20ft quote with 40HC equipment flags mismatch and retains 20ft freight line', () {
       final containers = [
         ContainerAllocationModel(containerType: '40HC', quantity: 1),
       ];
 
-      final result = BookingChargeBuilder.buildCharges(
+      final result = _build(
         containers: containers,
         container20ftApp: true,
         container20ftPrice: 1500.0,

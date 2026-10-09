@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from modules.common.legacy_rows import LegacyRowTolerantModel
 
 class GrnItemSchema(BaseModel):
-    item_code: str
-    item_name: str
+    item_code: str = Field(..., min_length=1)
+    item_name: str = Field(..., min_length=1)
     invoiced_qty: int = Field(0, ge=0)
     accepted_qty: int = Field(0, ge=0)
     shortage_qty: int = Field(0, ge=0)
@@ -15,14 +15,14 @@ class GrnItemSchema(BaseModel):
 
 class WarehouseReceivingCreate(BaseModel):
     import_file_id: int
-    warehouse_name: str = "Main Warehouse - Cairo"
+    warehouse_name: str = Field(..., min_length=2)
     arrival_datetime: Optional[datetime] = None
     truck_plate_number: Optional[str] = None
     driver_name: Optional[str] = None
     driver_phone: Optional[str] = None
     seal_number: Optional[str] = None
     seal_intact: bool = True
-    grn_items: List[GrnItemSchema] = []
+    grn_items: List[GrnItemSchema] = Field(..., min_length=1)
     discrepancy_notes: Optional[str] = None
     inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
@@ -30,7 +30,7 @@ class WarehouseReceivingCreate(BaseModel):
 class DiscrepancyReportSubmit(BaseModel):
     discrepancy_type: str = Field(..., description="Shortage, Damage, Excess, Wrong Item")
     discrepancy_notes: str
-    quarantine_zone_assigned: bool = True
+    quarantine_zone_assigned: bool = False
     insurance_claim_filed: bool = False
     insurance_claim_ref: Optional[str] = None
 
@@ -50,8 +50,8 @@ class WarehouseInspectionSubmit(BaseModel):
     insurance_claim_ref: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float = 0.0
-    claim_currency: str = "EGP"
+    claim_amount_estimated: Optional[float] = Field(None, ge=0.0)
+    claim_currency: Optional[str] = None
     inspector_name: Optional[str] = Field(None, description="[Deprecated] Acting user is taken from the token")
     notes: Optional[str] = None
 
@@ -71,7 +71,7 @@ class WarehouseReceivingUpdate(BaseModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: Optional[bool] = None
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: Optional[float] = None
+    claim_amount_estimated: Optional[float] = Field(None, ge=0.0)
     claim_currency: Optional[str] = None
 
 class WarehouseReceivingResponse(LegacyRowTolerantModel):
@@ -106,8 +106,8 @@ class WarehouseReceivingResponse(LegacyRowTolerantModel):
     root_cause: Optional[str] = None
     supplier_claim_filed: bool = False
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: Optional[float] = 0.0  # amounts / rates: a legacy NULL stays None
-    claim_currency: str = "EGP"
+    claim_amount_estimated: Optional[float] = None  # amounts / rates: a legacy NULL stays None
+    claim_currency: Optional[str] = None
     discrepancy_rate_percent: Optional[float] = 0.0
     status: str
     inspector_name: str
@@ -140,8 +140,8 @@ class InspectionSummaryResponse(BaseModel):
     insurance_claim_ref: Optional[str] = None
     supplier_claim_filed: bool
     supplier_claim_ref: Optional[str] = None
-    claim_amount_estimated: float
-    claim_currency: str
+    claim_amount_estimated: Optional[float] = None
+    claim_currency: Optional[str] = None
     status: str
     is_ready_for_landed_cost: bool
 
@@ -152,4 +152,13 @@ class WarehouseDispatchValidationResponse(BaseModel):
     is_dispatch_allowed: bool
     status: str
     message: str
+
+
+class PaginatedWarehouseReceivingResponse(BaseModel):
+    items: List[WarehouseReceivingResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
 

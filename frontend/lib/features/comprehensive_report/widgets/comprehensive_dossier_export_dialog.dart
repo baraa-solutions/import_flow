@@ -8,6 +8,8 @@ import '../models/comprehensive_dossier_model.dart';
 import '../services/comprehensive_dossier_service.dart';
 import '../services/comprehensive_report_export_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -135,9 +137,11 @@ class _ComprehensiveDossierExportDialogState
         setState(() {
           _isSubmitting = false;
         });
+        final l10n = AppLocalizations.of(context);
+        final msg = ApiErrorText.of(l10n, e, fallback: 'خطأ أثناء تأكيد التصدير: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ أثناء تأكيد التصدير: $e'),
+            content: Text(msg),
             backgroundColor: AppTheme.flatCrimson,
           ),
         );
@@ -285,8 +289,10 @@ class _ComprehensiveDossierExportDialogState
         Expanded(
           child: _kpiCard(
             title: 'قيمة البضاعة FOB',
-            value: '${dossier.totalFobFc.toStringAsFixed(2)} ${dossier.fobCurrency}',
-            subtitle: dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP',
+            value: _formatFob(dossier),
+            subtitle: dossier.fobSource == 'ESTIMATE'
+                ? (dossier.totalFobEgp == null ? 'تقديري (— EGP)' : 'تقديري (${dossier.totalFobEgp!.toStringAsFixed(0)} EGP)')
+                : (dossier.totalFobEgp == null ? '— EGP' : '${dossier.totalFobEgp!.toStringAsFixed(0)} EGP'),
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
           ),
@@ -296,7 +302,9 @@ class _ComprehensiveDossierExportDialogState
           child: _kpiCard(
             title: 'تكلفة الوصول الفعلية',
             value: '${dossier.actualLandedCostTotalEgp.toStringAsFixed(2)} EGP',
-            subtitle: 'معامل: ${dossier.actualLandedCostMarkupFactor.toStringAsFixed(3)}x',
+            subtitle: dossier.actualLandedCostMarkupFactor == null
+                ? '—'
+                : 'معامل: ${dossier.actualLandedCostMarkupFactor!.toStringAsFixed(3)}x',
             icon: Icons.account_balance_wallet_outlined,
             color: AppTheme.flatEmerald,
           ),
@@ -323,6 +331,18 @@ class _ComprehensiveDossierExportDialogState
         ),
       ],
     );
+  }
+
+  String _formatFob(ComprehensiveShipmentDossierModel dossier) {
+    if (dossier.totalFobFc != null && dossier.fobCurrency != null) {
+      return '${dossier.totalFobFc!.toStringAsFixed(2)} ${dossier.fobCurrency}';
+    }
+    if (dossier.fobByCurrency.isNotEmpty) {
+      return dossier.fobByCurrency.entries
+          .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+          .join(' / ');
+    }
+    return '—';
   }
 
   Widget _kpiCard({

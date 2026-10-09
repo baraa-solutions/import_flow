@@ -18,6 +18,7 @@ from .schemas import (
 )
 from . import repository as repo
 from .validators import (
+    BLOCKING_MESSAGES_AR,
     CLOSURE_STATUS_CLOSED,
     CLOSURE_STATUS_DRAFT,
     FILE_STATUS_CLOSED,
@@ -29,6 +30,8 @@ from .validators import (
     closure_blocked_error,
     closure_exists_error,
     evaluate_closure_gate,
+    export_blocked_error,
+    export_blocking_keys,
     validate_update_status,
 )
 from modules.auth.permissions import has_user_permission
@@ -88,10 +91,15 @@ def _resolve_user_name(value: Optional[str], legacy_defaults: frozenset, user: s
     return user
 
 
-def _require_any_permission(db: Session, actor: Optional[User], *codes: str) -> None:
-    """Route-level auth only proves the user may read closures; the write permission depends on the payload."""
-    if actor is None:
+def _require_any_permission(db: Session, actor: Optional[User], *codes: str, trusted: bool = False) -> None:
+    """Route-level auth only proves the user may read closures; the write permission depends on the payload (BE810-F31)."""
+    if trusted:
         return
+    if actor is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied. Permission '{codes[-1]}' required.",
+        )
     if not any(has_user_permission(db, actor, code) for code in codes):
         raise HTTPException(
             status_code=403,
@@ -102,11 +110,10 @@ def _require_any_permission(db: Session, actor: Optional[User], *codes: str) -> 
 def _is_closure_task(task: SmartTask) -> bool:
     return (
         task.msg_code == "CLO_TASK_OFFICIAL_CLOSURE"
+        or task.task_type == "CLO-04"
         or "0904" in (task.task_code or "")
-        # legacy rows created before msg codes existed
+        # legacy rows created before msg codes existed: exact CLO-04 match in title only (BE810-F27)
         or "CLO-04" in (task.title or "")
-        or "إغلاق" in (task.title or "")
-        or "أرشفة" in (task.title or "")
     )
 
 
@@ -122,7 +129,11 @@ def _closure_facts(db: Session, imp: ImportFile) -> Tuple[ClosureFacts, Optional
         customs_release_permit_no=imp.customs_release_permit_no,
         customs_released_at=imp.customs_released_at,
         active_grn_count=len(grns),
-        locked_grn_count=sum(1 for g in grns if g.quarantine_lock_active),
+        locked_grn_count=sum(
+            1 for g in grns
+            if g.quarantine_lock_active
+            and getattr(repo.latest_active_clearance(db, imp.import_file_id), "quarantine_lock", True) is not False
+        ),
         has_settled_settlement=settlement is not None,
         actual_landed_cost_egp=float(imp.actual_landed_cost_total_egp or 0.0),
         financial_settlement_status=imp.financial_settlement_status,
@@ -165,15 +176,16 @@ def close_import_file_service(
     schema: FileClosureCreate,
     user: str = "System",
     actor: Optional[User] = None,
+    trusted: bool = False,
 ) -> ImportFileClosureRecord:
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
     if schema.is_draft:
-        _require_any_permission(db, actor, "import_files.edit", "import_files.close")
+        _require_any_permission(db, actor, "import_files.edit", "import_files.close", trusted=trusted)
     else:
-        _require_any_permission(db, actor, "import_files.close")
+        _require_any_permission(db, actor, "import_files.close", trusted=trusted)
 
     # FC-04: a closed file is never closed again (nor moved back to a draft closure) until it is reopened.
     if imp_file.status == FILE_STATUS_CLOSED:
@@ -202,22 +214,43 @@ def close_import_file_service(
         "status": target_status,
     }
     if existing_record:
-        # closed_at moves only when the record becomes Closed (a draft re-save keeps it)
-        extra = {} if schema.is_draft else {"closed_at": datetime.now(timezone.utc)}
+        # closed_at moves only when the record becomes Closed (a draft re-save clears it if not Closed)
+        if schema.is_draft:
+            extra = {"closed_at": None} if target_status != "Closed" else {}
+        else:
+            extra = {"closed_at": datetime.now(timezone.utc)}
         record = repo.apply_changes(existing_record, {**values, **extra}, user)
     else:
         record = _insert_closure(db, {**values, "import_file_id": import_file_id, "created_by": user, "updated_by": user})
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
 
     if schema.is_draft:
-        imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
-        set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
+        # BE810-T09 / F19: Draft changes current_module / stage only when dossier is already exported.
+        if imp_file.dossier_exported_at:
+            imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
+            set_file_tracking(imp_file, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_COMPLETE_CHECKLIST"))
         db.commit()
         db.refresh(record)
+
+        def _audit_draft() -> None:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="ImportFileClosureRecord",
+                entity_id=record.closure_id,
+                entity_code=record.closure_code,
+                action="CREATE",
+                new_data=schema.model_dump(exclude_unset=True),
+                performed_by=user,
+            )
+
+        best_effort(db, _audit_draft, "Closure draft create audit log")
         return record
 
-    # FC-05: remember where the file was so a reopen restores that phase.
-    imp_file.closed_at_phase = imp_file.current_module
+    # FC-05 / BE810-T09: remember where the file was so a reopen restores that phase (strip any trailing " (Draft)").
+    curr_mod = imp_file.current_module or ""
+    if curr_mod.endswith(" (Draft)"):
+        curr_mod = curr_mod[:-len(" (Draft)")]
+    imp_file.closed_at_phase = curr_mod
     imp_file.status = FILE_STATUS_CLOSED
     imp_file.current_module = CLOSURE_MODULE
     imp_file.progress_percent = 100.0
@@ -254,6 +287,17 @@ def close_import_file_service(
     closure_code = record.closure_code
     record_id = record.closure_id
 
+    def _audit_close() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record_id,
+            entity_code=closure_code,
+            action="CLOSE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
     def _lifecycle() -> None:
         from modules.lifecycle_board.service import advance_lifecycle_step_service
         advance_lifecycle_step_service(
@@ -280,6 +324,7 @@ def close_import_file_service(
         from modules.experience_guide.service import ExperienceGuideService
         ExperienceGuideService.run_autonomous_learning(db=db, trigger_import_file_id=import_file_id)
 
+    best_effort(db, _audit_close, "Closure official close audit log")
     best_effort(db, _lifecycle, "Closure lifecycle advance STEP_21")
     best_effort(db, _enforce_terminal_state, "Closure terminal state after lifecycle advance")
     best_effort(db, _learning, "Closure autonomous learning trigger")
@@ -338,9 +383,24 @@ def update_closure_service(
     if "auditor_name" in values:
         values["auditor_name"] = user
 
+    old_data = {k: getattr(record, k, None) for k in values.keys()}
     repo.apply_changes(record, values, user)
     db.commit()
     db.refresh(record)
+
+    def _audit_update() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=values,
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_update, "Closure update audit log")
     return record
 
 
@@ -351,6 +411,18 @@ def soft_delete_closure_service(db: Session, closure_id: int, user: str = "Syste
         raise closed_record_locked_error(record.closure_code)
     repo.apply_changes(record, {"is_active": False}, user)
     db.commit()
+
+    def _audit_delete() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_delete, "Closure delete audit log")
     return True
 
 
@@ -365,6 +437,18 @@ def restore_closure_service(db: Session, closure_id: int, user: str = "System") 
     repo.apply_changes(record, {"is_active": True}, user)
     db.commit()
     db.refresh(record)
+
+    def _audit_restore() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFileClosureRecord",
+            entity_id=record.closure_id,
+            entity_code=record.closure_code,
+            action="RESTORE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_restore, "Closure restore audit log")
     return record
 
 
@@ -425,26 +509,39 @@ def get_comprehensive_shipment_dossier_service(
 
     po_summaries = []
     items_detail = []
-    total_fob_fc = 0.0
-    fob_currency = "USD"
     fob_by_currency: Dict[str, float] = {}
+    unknown_currency = False
 
     for po in pos:
-        curr = po.currency.currency_code if getattr(po, "currency", None) else "USD"
-        fob_currency = curr
+        curr = po.currency.currency_code if getattr(po, "currency", None) else None
         amt = float(po.total_amount_fob or 0.0)
-        total_fob_fc += amt
-        fob_by_currency[curr] = fob_by_currency.get(curr, 0.0) + amt
+        if not curr:
+            unknown_currency = True
+        else:
+            fob_by_currency[curr] = round(fob_by_currency.get(curr, 0.0) + amt, 2)
+
+        po_rate_raw = float(po.exchange_rate) if po.exchange_rate is not None else None
+        if po_rate_raw is not None:
+            if po_rate_raw <= 0:
+                po_rate = None
+            elif (curr or "").strip().upper() != "EGP" and po_rate_raw == 1.0:
+                po_rate = None
+            else:
+                po_rate = po_rate_raw
+        else:
+            po_rate = None
+
         po_summaries.append({
             "po_id": po.po_id,
             "po_number": po.po_number,
             "po_reference": po.po_reference,
             "proforma_invoice_number": po.proforma_invoice_number,
             "currency": curr,
-            "exchange_rate": float(po.exchange_rate or 1.0),
+            "exchange_rate": po_rate,
             "total_amount_fob": amt,
             "total_packages": int(po.total_packages_count or 0),
             "total_gross_weight_kg": float(po.total_gross_weight_kg or 0.0),
+            "total_net_weight_kg": float(po.total_net_weight_kg) if getattr(po, "total_net_weight_kg", None) is not None and float(po.total_net_weight_kg) > 0 else None,
             "total_cbm": float(po.total_cbm or 0.0),
             "status": po.status,
         })
@@ -454,8 +551,9 @@ def get_comprehensive_shipment_dossier_service(
             qty = float(itm.quantity or 0.0)
             u_price = float(itm.unit_price or 0.0)
             tot_price = float(itm.total_price or (qty * u_price))
+            itm_nw = float(itm.net_weight_kg) if getattr(itm, "net_weight_kg", None) is not None and float(itm.net_weight_kg) > 0 else None
             items_detail.append({
-                "item_code": itm.item_code or f"ITM-{len(items_detail)+1:03d}",
+                "item_code": itm.item_code or None,
                 "description": itm.description_ar or itm.description_en or itm.main_description or "",
                 "quantity": qty,
                 "unit_of_measure": itm.unit_of_measure or "",
@@ -464,13 +562,26 @@ def get_comprehensive_shipment_dossier_service(
                 "hs_code": hs,
                 "cbm": float(itm.total_cbm or 0.0),
                 "weight_kg": float(itm.gross_weight_kg or 0.0),
+                "net_weight_kg": itm_nw,
             })
 
-    # Fallback to estimated cost if no PO items found
-    if total_fob_fc == 0.0 and getattr(imp, "estimated_cost", 0.0):
-        total_fob_fc = float(imp.estimated_cost or 0.0)
-        fob_currency = imp.estimated_cost_currency or "USD"
-        fob_by_currency = {fob_currency: total_fob_fc}
+    # Track FOB source: PO vs ESTIMATE vs None (FC-07 / BE810-T07)
+    fob_source: Optional[str] = None
+    if pos:
+        fob_source = "PO"
+    elif getattr(imp, "estimated_cost", None) and float(imp.estimated_cost or 0.0) > 0:
+        fob_source = "ESTIMATE"
+        est_val = float(imp.estimated_cost or 0.0)
+        est_curr = imp.estimated_cost_currency or "USD"
+        fob_by_currency = {est_curr: est_val}
+
+    if not unknown_currency and len(fob_by_currency) == 1:
+        single_curr, single_amt = next(iter(fob_by_currency.items()))
+        total_fob_fc = single_amt
+        fob_currency = single_curr
+    else:
+        total_fob_fc = None
+        fob_currency = None
 
     # 3. Customs Clearance Record
     clearance = repo.latest_active_clearance(db, import_file_id)
@@ -527,16 +638,19 @@ def get_comprehensive_shipment_dossier_service(
         or imp.actual_landed_cost_total_egp
         or 0.0
     )
-    markup_fac = float(
-        (settlement.average_markup_factor if settlement else None)
-        or imp.actual_landed_cost_markup_factor
-        or 1.0
-    )
+    raw_markup = None
+    if settlement and settlement.average_markup_factor is not None:
+        raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
+    markup_fac: Optional[float] = float(raw_markup) if raw_markup is not None else None
     var_egp = float(imp.actual_landed_cost_variance_egp or 0.0)
     var_pct = float(imp.actual_landed_cost_variance_pct or 0.0)
     calc_at = imp.actual_landed_cost_calculated_at or (settlement.updated_at if settlement else None)
     if settlement is not None and settlement.total_fob_egp:
         total_fob_egp: Optional[float] = float(settlement.total_fob_egp)
+    elif unknown_currency or not fob_by_currency or fob_source is None:
+        total_fob_egp = None
     else:
         total_fob_egp = _stored_clearance_fob_egp(clearance, fob_by_currency)
         if total_fob_egp is None:
@@ -558,12 +672,13 @@ def get_comprehensive_shipment_dossier_service(
             section_code="SEC-01",
             section_name_en="Phase 1 & 2: Commercial Contract & PO",
             section_name_ar="أمر الشراء والتوريد والتعاقد الخارجي",
-            status="COMPLETED" if pos or total_fob_fc > 0 else "PENDING",
-            status_ar="مكتمل" if pos or total_fob_fc > 0 else "قيد الانتظار",
+            status="COMPLETED" if pos or bool(fob_by_currency) else "PENDING",
+            status_ar="مكتمل" if pos or bool(fob_by_currency) else "قيد الانتظار",
             details={
                 "po_count": len(pos),
                 "total_fob_fc": total_fob_fc,
                 "currency": fob_currency,
+                "fob_by_currency": fob_by_currency,
                 "items_count": len(items_detail),
                 "incoterm": imp.incoterm_code or "",
             },
@@ -686,23 +801,55 @@ def get_comprehensive_shipment_dossier_service(
         ),
     ]
 
+    gate = evaluate_file_closure_gate(db, imp)
     closure_readiness = {
-        "docs_verified": bool(imp.acid_number and (imp.form4_no or imp.swift_no)),
-        "customs_cleared": customs_released,
-        "warehouse_received": bool(wh is not None),
-        "eir_returned": containers_returned,
-        # FC-13: same key as the precheck checklist (eir_returned kept for old clients)
-        "empty_containers_returned": containers_returned,
-        "landed_cost_settled": bool(actual_landed_egp > 0 and (imp.financial_settlement_status == "COST_ALLOCATED" or settlement_done)),
-        "tasks_closed": True,
+        **gate.checklist,
+        # FC-13 / BE810-T08: eir_returned alias kept for old clients
+        "eir_returned": gate.checklist["empty_containers_returned"],
     }
 
-    summary_notes = (
-        f"ملف الشحنة {imp.import_file_code} مستوفي لكافة مراحل الاستيراد العشر. "
-        f"قيمة البضاعة FOB تبلغ {total_fob_fc:,.2f} {fob_currency}، "
-        f"وتكلفة الوصول الفعلية الشاملة تبلغ {actual_landed_egp:,.2f} جنيه مصري بمعامل زيادة {markup_fac:.3f}x. "
-        f"الملف جاهز للأرشفة الرقمية والاعتماد النهائي."
-    )
+    if total_fob_fc is not None and fob_currency:
+        fob_text = f"{total_fob_fc:,.2f} {fob_currency}"
+    elif fob_by_currency:
+        fob_text = " / ".join(f"{amt:,.2f} {c}" for c, amt in sorted(fob_by_currency.items()))
+    else:
+        fob_text = "—"
+
+    markup_str = f" بمعامل زيادة {markup_fac:.3f}x" if markup_fac is not None else ""
+    is_ready = all(closure_readiness.values())
+    if is_ready:
+        summary_notes = (
+            f"ملف الشحنة {imp.import_file_code} مستوفي لكافة مراحل الاستيراد العشر. "
+            f"قيمة البضاعة FOB تبلغ {fob_text}، "
+            f"وتكلفة الوصول الفعلية الشاملة تبلغ {actual_landed_egp:,.2f} جنيه مصري{markup_str}. "
+            f"الملف جاهز للأرشفة الرقمية والاعتماد النهائي."
+        )
+    else:
+        summary_notes = (
+            f"ملف الشحنة {imp.import_file_code} قيد المتابعة ولم يستوفِ شروط الإغلاق بعد. "
+            f"قيمة البضاعة FOB تبلغ {fob_text}، "
+            f"وتكلفة الوصول الحالية تبلغ {actual_landed_egp:,.2f} جنيه مصري{markup_str}."
+        )
+
+    dossier_net_weight: Optional[float] = None
+    if getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
+        dossier_net_weight = float(imp.net_weight_kg)
+    else:
+        po_items_nw = sum(
+            float(itm["net_weight_kg"])
+            for itm in items_detail
+            if itm.get("net_weight_kg") is not None
+        )
+        if po_items_nw > 0:
+            dossier_net_weight = round(po_items_nw, 2)
+        else:
+            po_nw = sum(
+                float(p["total_net_weight_kg"])
+                for p in po_summaries
+                if p.get("total_net_weight_kg") is not None
+            )
+            if po_nw > 0:
+                dossier_net_weight = round(po_nw, 2)
 
     return ComprehensiveShipmentDossierResponse(
         import_file_id=imp.import_file_id,
@@ -733,13 +880,15 @@ def get_comprehensive_shipment_dossier_service(
         port_of_discharge=imp.port_of_discharge,
         total_packages=int(getattr(imp, "total_packages_count", 0) or sum(p.get("total_packages", 0) for p in po_summaries) or 0),
         gross_weight_kg=float(getattr(imp, "gross_weight_kg", 0.0) or sum(p.get("total_gross_weight_kg", 0.0) for p in po_summaries) or 0.0),
-        net_weight_kg=float(getattr(imp, "net_weight_kg", 0.0) or sum(float(itm.get("weight_kg", 0.0) or 0.0) for itm in items_detail) or 0.0),
+        net_weight_kg=dossier_net_weight,
         total_cbm=float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0),
         target_free_days=int(imp.target_free_days or 0),
         purchase_orders=po_summaries,
+        fob_by_currency=fob_by_currency,
         total_fob_fc=total_fob_fc,
         total_fob_egp=total_fob_egp,
         fob_currency=fob_currency,
+        fob_source=fob_source,
         items_count=len(items_detail),
         items_detail=items_detail,
         acid_number=imp.acid_number,
@@ -792,19 +941,26 @@ def confirm_dossier_export_service(
     payload: DossierExportConfirmRequest,
     user: str = "System",
     actor: Optional[User] = None,
+    trusted: bool = False,
 ) -> DossierExportConfirmResponse:
     """
     CLO-03: Confirms the export of the comprehensive shipment dossier, records export metadata,
     advances progress to >=99.5%, resolves SmartTask TSK-0903, dispatches TSK-0904, and posts system notification.
     """
     imp = _get_active_file(db, payload.import_file_id)
-    _require_any_permission(db, actor, "import_files.edit", "import_files.close")
+    _require_any_permission(db, actor, "import_files.edit", "import_files.close", trusted=trusted)
     if imp.status == FILE_STATUS_CLOSED:
         raise already_closed_error(imp.import_file_code)
+
+    # BE810-T09 / F18: Check gate preconditions (customs, warehouse, landed cost).
+    gate = evaluate_file_closure_gate(db, imp)
+    if export_blocking_keys(gate):
+        raise export_blocked_error(gate)
 
     exported_by = user
     now_utc = datetime.now(timezone.utc)
     today_str = datetime.now().strftime("%Y-%m-%d")
+    was_already_exported = imp.dossier_exported_at is not None
 
     # 1. Update ImportFile metadata & progress
     imp.dossier_exported_at = now_utc
@@ -814,10 +970,11 @@ def confirm_dossier_export_service(
     imp.current_module = "Phase 10 - Comprehensive Dossier Export & Digital Archiving"
     set_file_tracking(imp, stage_code="CLOSURE_IN_PROGRESS", next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
 
-    # 2. Resolve SmartTask TSK-0903
+    # 2. Resolve SmartTask TSK-0903 (open tasks only, BE810-F35)
     tasks_903 = db.query(SmartTask).filter(
         SmartTask.import_file_id == imp.import_file_id,
         SmartTask.is_active == True,
+        SmartTask.status.in_(["Pending", "In Progress"]),
         (SmartTask.task_code.ilike("%0903%") | SmartTask.title.ilike("%الملف الشامل%") | SmartTask.title.ilike("%CLO-03%"))
     ).all()
     for t in tasks_903:
@@ -854,25 +1011,37 @@ def confirm_dossier_export_service(
             updated_by=user,
         ))
 
-    # 4. Dispatch central SystemNotification
-    notif_msg = msg(
-        "CLO_DOSSIER_EXPORTED",
-        import_file_code=imp.import_file_code,
-        exported_by=exported_by,
-        export_format=payload.export_format,
-    )
-    db.add(SystemNotification(
-        title=render_en(notif_msg.code, notif_msg.params, "title"),
-        message=render_en(notif_msg.code, notif_msg.params, "body"),
-        msg_code=notif_msg.code,
-        msg_params=notif_msg.params,
-        severity="INFO",
-        category="FILE_CLOSURE",
-        entity_type="ImportFile",
-        entity_id=imp.import_file_id,
-        target_role="ALL",
-    ))
+    # 4. Dispatch central SystemNotification (only on the first export, BE810-F35)
+    if not was_already_exported:
+        notif_msg = msg(
+            "CLO_DOSSIER_EXPORTED",
+            import_file_code=imp.import_file_code,
+            exported_by=exported_by,
+            export_format=payload.export_format,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
+            severity="INFO",
+            category="FILE_CLOSURE",
+            entity_type="ImportFile",
+            entity_id=imp.import_file_id,
+            target_role="ALL",
+        ))
     db.commit()
+
+    def _audit_export() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ImportFile",
+            entity_id=imp.import_file_id,
+            entity_code=imp.import_file_code,
+            action="DOSSIER_EXPORT",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
 
     # 5. Lifecycle advance STEP_20 -> STEP_21 (follow-up: never undoes the saved export)
     import_file_id = imp.import_file_id
@@ -894,6 +1063,7 @@ def confirm_dossier_export_service(
         set_file_tracking(target, next_action=msg("NA_CLO_OFFICIAL_CLOSURE"))
         db.commit()
 
+    best_effort(db, _audit_export, "Dossier export audit log")
     best_effort(db, _lifecycle, "Dossier export lifecycle advance STEP_20 -> STEP_21")
     best_effort(db, _enforce_next_action, "Dossier export next action")
 
@@ -930,18 +1100,34 @@ def get_closure_precheck_service(db: Session, import_file_id: int) -> ClosurePre
     existing = repo.get_closure_by_import_file_id(db, import_file_id)
 
     actual_landed = float(imp.actual_landed_cost_total_egp or 0.0)
-    markup = float(imp.actual_landed_cost_markup_factor or 1.0)
+    raw_markup = None
     if settlement is not None:
         actual_landed = float(settlement.total_landed_cost_egp or actual_landed)
-        markup = float(settlement.average_markup_factor or markup)
+        if settlement.average_markup_factor is not None:
+            raw_markup = settlement.average_markup_factor
+    elif getattr(imp, "actual_landed_cost_calculated_at", None) is not None:
+        raw_markup = getattr(imp, "actual_landed_cost_markup_factor", None)
+    markup: Optional[float] = float(raw_markup) if raw_markup is not None else None
+
+    blocking_keys = list(gate.blocking_keys)
+    blocking_reasons = list(gate.blocking_reasons)
+    can_close = gate.can_close
+    if imp.status == FILE_STATUS_CLOSED:
+        can_close = False
+        if "already_closed" not in blocking_keys:
+            blocking_keys.append("already_closed")
+        already_closed_msg = BLOCKING_MESSAGES_AR.get("already_closed", "ملف الشحنة مغلق رسمياً بالفعل ولا يمكن إعادة إغلاقه.")
+        if already_closed_msg not in blocking_reasons:
+            blocking_reasons.append(already_closed_msg)
 
     return ClosurePrecheckResponse(
         import_file_id=imp.import_file_id,
         import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
         company_name=company_name,
         supplier_name=supplier_name,
-        can_close=gate.can_close and imp.status != FILE_STATUS_CLOSED,
-        blocking_reasons=gate.blocking_reasons,
+        can_close=can_close,
+        blocking_reasons=blocking_reasons,
+        blocking_keys=blocking_keys,
         warnings=gate.warnings,
         checklist_status=gate.checklist,
         actual_landed_cost_egp=actual_landed,
@@ -959,13 +1145,14 @@ def official_close_import_file_service(
     db: Session,
     schema: FileClosureCreate,
     user: str = "System",
+    actor: Optional[User] = None,
 ) -> OfficialClosureCertificateResponse:
     """
     CLO-04: Formal closure & digital archival.
     Issues digital certificate, locks file at 100%, and advances lifecycle board to terminal STEP_21.
     """
     final_schema = schema.model_copy(update={"is_draft": False})
-    record = close_import_file_service(db, final_schema, user=user)
+    record = close_import_file_service(db, final_schema, user=user, actor=actor, trusted=actor is None)
 
     imp = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
     company_name, supplier_name = _party_names(imp)

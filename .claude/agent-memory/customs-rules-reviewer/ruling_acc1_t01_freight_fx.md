@@ -14,3 +14,7 @@ PR #43 (base fix/be67-t02-preferential-agreement-rate) reviewed 2026-10-07: appr
 
 **Why:** consistent rulings on freight FX for later ACC1-T03 (deemed policy) reviews.
 **How to apply:** when ACC1-T03 lands, check the rate lookup is skipped for deemed freight.
+
+Re-review 2026-10-07 at ad536f9f: backend guard `request.has_freight_document and ...` (service.py:690) fixes the deemed 422; test 6 added, 6/6 pass.
+Flutter fix broke duty_calculator_dialog.dart: removed `} else {`/closing `}` in syncCalculatedFields (l.87-102) and InputDecoration `),` (l.765)
+-> dart analyze: duplicate 'deemedFrt' l.109, expected '}' l.118. Ruled BLOCKER (breaks Flutter build). Always run dart analyze on dialog diffs.

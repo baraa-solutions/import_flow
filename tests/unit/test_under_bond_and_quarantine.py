@@ -27,6 +27,7 @@ from modules.warehouse_receiving.service import (
     create_warehouse_receiving_service,
     validate_warehouse_dispatch_authorization,
 )
+from modules.file_closure.service import evaluate_file_closure_gate
 
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -169,6 +170,120 @@ class TestUnderBondAndQuarantineLock:
         assert cleared_clr.dispatch_authorized is True
         assert cleared_clr.status == "Final Release Granted"
         assert cleared_clr.lab_certificate_number == "LAB-GOEIC-2026-4433"
+
+        # 8. Verify GRN quarantine lock is automatically lifted (BE810-T03)
+        db_session.refresh(grn)
+        assert grn.quarantine_lock_active is False
+        assert grn.dispatch_blocked is False
+        assert grn.status == "Goods Received"
+        assert "Quarantine lock lifted after lab approval" in (grn.discrepancy_notes or "")
+
+        # 9. Validate dispatch is now authorized
+        assert validate_warehouse_dispatch_authorization(db_session, grn.receiving_id) is True
+
+        # 10. File closure gate no longer blocks on warehouse_quarantine
+        gate = evaluate_file_closure_gate(db_session, imp)
+        assert "warehouse_quarantine" not in gate.blocking_reasons
+
+    def test_lab_non_conforming_keeps_lock(self, db_session):
+        """BE810-T03: Non-conforming lab result keeps the quarantine lock on GRN and clearance."""
+        imp = ImportFile(
+            import_file_code="IMP-BOND-FAIL",
+            company_name="Chem Co",
+            supplier_name="Global Supplier",
+        )
+        db_session.add(imp)
+        db_session.commit()
+        db_session.refresh(imp)
+
+        clearance = CustomsClearanceRecord(
+            clearance_code="CLR-BOND-FAIL",
+            import_file_id=imp.import_file_id,
+            is_under_bond_release=True,
+            quarantine_lock=True,
+            status="Under-Bond Temporary Release",
+        )
+        db_session.add(clearance)
+
+        grn = WarehouseReceivingRecord(
+            grn_code="GRN-BOND-FAIL",
+            import_file_id=imp.import_file_id,
+            warehouse_name="Bond WH",
+            is_under_bond_quarantine=True,
+            quarantine_lock_active=True,
+            dispatch_blocked=True,
+            status="Under Bond Quarantine",
+            is_active=True,
+        )
+        db_session.add(grn)
+        db_session.commit()
+
+        record_lab_result_and_lift_quarantine_service(
+            db_session,
+            clearance.customs_clearance_id,
+            LabTestResultSubmit(
+                lab_test_result="Non-Conforming",
+                lab_certificate_number="LAB-FAIL-001",
+                test_completion_date=datetime.now(timezone.utc),
+                lift_quarantine_lock=False,
+            ),
+            can_release=False,
+        )
+
+        db_session.refresh(clearance)
+        db_session.refresh(grn)
+        assert clearance.quarantine_lock is True
+        assert grn.quarantine_lock_active is True
+        assert grn.dispatch_blocked is True
+
+        with pytest.raises(HTTPException) as exc:
+            validate_warehouse_dispatch_authorization(db_session, grn.receiving_id)
+        assert exc.value.status_code == 400
+
+    def test_legacy_locked_grn_auto_refreshed_on_dispatch(self, db_session):
+        """BE810-T03: Legacy locked GRN whose customs clearance already lifted lock is refreshed on dispatch validation."""
+        imp = ImportFile(
+            import_file_code="IMP-BOND-LEGACY",
+            company_name="Legacy Co",
+            supplier_name="Supplier",
+            is_customs_released=True,
+        )
+        db_session.add(imp)
+        db_session.commit()
+        db_session.refresh(imp)
+
+        # Clearance already has quarantine_lock = False
+        clearance = CustomsClearanceRecord(
+            clearance_code="CLR-BOND-LEGACY",
+            import_file_id=imp.import_file_id,
+            is_under_bond_release=True,
+            quarantine_lock=False,
+            status="Final Release Granted",
+            is_active=True,
+        )
+        db_session.add(clearance)
+
+        # Legacy GRN still has quarantine_lock_active = True
+        grn = WarehouseReceivingRecord(
+            grn_code="GRN-BOND-LEGACY",
+            import_file_id=imp.import_file_id,
+            warehouse_name="Legacy WH",
+            is_under_bond_quarantine=True,
+            quarantine_lock_active=True,
+            dispatch_blocked=True,
+            status="Under Bond Quarantine",
+            is_active=True,
+        )
+        db_session.add(grn)
+        db_session.commit()
+
+        # Validating dispatch should auto-refresh and return True
+        assert validate_warehouse_dispatch_authorization(db_session, grn.receiving_id) is True
+
+        db_session.refresh(grn)
+        assert grn.quarantine_lock_active is False
+        assert grn.dispatch_blocked is False
+        assert grn.status == "Goods Received"
 
     def test_api_under_bond_endpoints(self, client, db_session):
         imp = ImportFile(

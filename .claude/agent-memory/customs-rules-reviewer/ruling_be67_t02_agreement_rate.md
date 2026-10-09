@@ -18,3 +18,7 @@ Accepted scope extension: `_customs_rate` wraps CurrencyService._get_rate_to_egp
 
 **Why:** keep later reviews of BE67-T13/T14/ACC1-T04 (depend on T02) consistent.
 **How to apply:** check whether a follow-up normalised HS to 10 digits on both sides before re-flagging.
+
+Re-review 2026-10-07 at 090d8e92: 10-digit fix done (candidates {nodots, nodots[:8]} / 8-digit adds +"00"),
+test_10digit_hs_code_matches_8digit_dotted_agreement added; `_customs_rate` dropped, FX call sites byte-identical
+to main (left to BEW0-01 PR #18). Residual minor: ordering is newest-first, not most-specific-HS-first.
