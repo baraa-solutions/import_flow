@@ -2498,6 +2498,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsClearanceFilterDutyRequested => 'Duty Requested';
   @override String get customsClearanceFilterDutyPaid => 'Duty Paid';
   @override String get customsClearanceFilterFinalRelease => 'Final Release Granted';
+  @override String get customsClearanceStatusInspectionRecorded => 'Inspection & Sampling Recorded';
+  @override String get customsClearanceStatusDutiesAssessed => 'Customs Duties Assessed - Ready for Payment';
+  @override String get customsClearanceStatusDutyPaidReady => 'Duty Paid - Ready for Final Release';
+  @override String get customsClearanceStatusUnderBondReleased => 'Under Bond Released';
+  @override String get customsClearanceStatusLabRejected => 'Lab Non-Conforming - Rejected';
+  @override String get customsClearanceStatusInvoicesVerified => 'Invoices Logged & Verified';
   @override String get customsClearanceNewRecordButton => 'New Clearance Record';
   @override String get customsClearanceEmptyRecords => 'No matching customs clearance records found.';
   @override String get customsClearanceDeclaration46Label => 'Decl. 46';
@@ -2794,6 +2800,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get finalDutyScreenSubtitle => 'Nafeza duty assessment reconciliation, bank receipt verification, variance tracking, and final release permit issuance';
   @override String get finalDutySummaryHeader => 'Customs Duty Payment & Release Summary';
   @override String get finalDutyKpiTotalPayable => 'Total Duties Payable';
+  @override String get finalDutyKpiOutstanding => 'Total Outstanding';
   @override String get finalDutyKpiTotalPaid => 'Total Duties Paid';
   @override String get finalDutyKpiPendingPayment => 'Pending Settlements';
   @override String get finalDutyKpiNetVariance => 'Net Duty Variance';

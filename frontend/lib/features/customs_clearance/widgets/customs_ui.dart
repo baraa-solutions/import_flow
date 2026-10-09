@@ -94,10 +94,57 @@ class CcStatus {
       r.isUnderBondRelease && r.quarantineLock;
 }
 
+/// Pure KPI calculation for Customs Duty Payment and Ledger.
+class FinalDutyKpis {
+  const FinalDutyKpis({
+    required this.outstanding,
+    required this.totalPaid,
+    required this.pendingCount,
+    required this.netVariance,
+  });
+
+  final double outstanding;
+  final double totalPaid;
+  final int pendingCount;
+  final double netVariance;
+
+  factory FinalDutyKpis.from(List<CustomsClearanceModel> records) {
+    var outstanding = 0.0;
+    var totalPaid = 0.0;
+    var pendingCount = 0;
+    var netVariance = 0.0;
+
+    for (final r in records) {
+      if (CcStatus.isPaid(r)) {
+        totalPaid += r.dutyPaidAmount ?? r.effectiveDutyTotal ?? 0.0;
+      } else {
+        pendingCount++;
+        if (CcStatus.isAssessed(r)) {
+          outstanding += r.effectiveDutyTotal ?? 0.0;
+        }
+      }
+
+      if ((r.estimatedDutyTotal ?? 0) > 0) {
+        netVariance += r.dutyVarianceAmount ?? 0.0;
+      }
+    }
+
+    return FinalDutyKpis(
+      outstanding: outstanding,
+      totalPaid: totalPaid,
+      pendingCount: pendingCount,
+      netVariance: netVariance,
+    );
+  }
+}
+
 /// Thin feature-local composition over core tokens (see FinancialUi): maps
 /// clearance statuses to severity chips and offers shared layout pieces.
 class CcUi {
   CcUi._();
+
+  /// Variance threshold in EGP triggering a visual warning.
+  static const double varianceWarnThresholdEgp = 500.0;
 
   /// Lets a (non-flexible) AppButton shrink instead of overflowing.
   static Widget fit(Widget button) => FittedBox(
@@ -134,22 +181,52 @@ class CcUi {
       case 'Final Release Granted':
         return (
           severity: AppSeverity.success,
-          label: l.customsClearanceFilterFinalRelease
+          label: l.customsClearanceFilterFinalRelease,
         );
       case 'Duty Paid':
         return (
           severity: AppSeverity.info,
-          label: l.customsClearanceFilterDutyPaid
+          label: l.customsClearanceFilterDutyPaid,
+        );
+      case 'Duty Paid - Ready for Final Release':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusDutyPaidReady,
+        );
+      case 'Customs Duties Assessed - Ready for Payment':
+        return (
+          severity: AppSeverity.warning,
+          label: l.customsClearanceStatusDutiesAssessed,
+        );
+      case 'Inspection & Sampling Recorded':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusInspectionRecorded,
+        );
+      case 'Under Bond Released':
+        return (
+          severity: AppSeverity.warning,
+          label: l.customsClearanceStatusUnderBondReleased,
+        );
+      case 'Lab Non-Conforming - Rejected':
+        return (
+          severity: AppSeverity.danger,
+          label: l.customsClearanceStatusLabRejected,
+        );
+      case 'Invoices Logged & Verified':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusInvoicesVerified,
         );
       case 'Duty Requested':
         return (
           severity: AppSeverity.warning,
-          label: l.customsClearanceFilterDutyRequested
+          label: l.customsClearanceFilterDutyRequested,
         );
       case 'Inspection In Progress':
         return (
           severity: AppSeverity.info,
-          label: l.customsClearanceFilterInspection
+          label: l.customsClearanceFilterInspection,
         );
       default:
         return (severity: AppSeverity.info, label: status);

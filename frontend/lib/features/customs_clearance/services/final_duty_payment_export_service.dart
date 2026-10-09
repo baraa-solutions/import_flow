@@ -57,14 +57,14 @@ class FinalDutyPaymentExportService {
         _cleanTsv(r.clearanceCode),
         _cleanTsv(r.declaration46No ?? '-'),
         _cleanTsv(r.customsOfficeName),
-        _cleanTsv(r.channelType),
+        _cleanTsv(CcUi.channelStyle(l, r.channelType).label),
         _cleanTsv('$actual ${l.finalDutyCurrencyEgp}'),
         _cleanTsv('$est ${l.finalDutyCurrencyEgp}'),
         _cleanTsv(variance),
         _cleanTsv(paymentStatusStr),
         _cleanTsv(bankReceiptStr),
         _cleanTsv(releasePermitStr),
-        _cleanTsv(r.status),
+        _cleanTsv(CcUi.statusStyle(l, r.status).label),
       ].join('\t'));
     }
 
@@ -104,14 +104,14 @@ class FinalDutyPaymentExportService {
         _csvQuote(r.clearanceCode),
         _csvQuote(r.declaration46No ?? '-'),
         _csvQuote(r.customsOfficeName),
-        _csvQuote(r.channelType),
+        _csvQuote(CcUi.channelStyle(l, r.channelType).label),
         _csvQuote('$actual ${l.finalDutyCurrencyEgp}'),
         _csvQuote('$est ${l.finalDutyCurrencyEgp}'),
         _csvQuote(variance),
         _csvQuote(paymentStatusStr),
         _csvQuote(bankReceiptStr),
         _csvQuote(releasePermitStr),
-        _csvQuote(r.status),
+        _csvQuote(CcUi.statusStyle(l, r.status).label),
       ].join(','));
     }
 
@@ -169,25 +169,13 @@ class FinalDutyPaymentExportService {
     buf.writeln('Timestamp: ${DateTime.now().toString().substring(0, 19)}');
     buf.writeln('----------------------------------------------------------------');
 
-    final totalPayable = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
-    final netVariance = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
-    );
+    final kpis = FinalDutyKpis.from(records);
 
     buf.writeln(l.finalDutyDossierKpiSummary);
-    buf.writeln('• ${l.finalDutyKpiTotalPayable}: ${totalPayable.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
-    buf.writeln('• ${l.finalDutyKpiTotalPaid}: ${totalPaid.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
-    buf.writeln('• ${l.finalDutyKpiPendingPayment}: $pendingCount');
-    buf.writeln('• ${l.finalDutyKpiNetVariance}: ${netVariance >= 0 ? "+" : ""}${netVariance.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
+    buf.writeln('• ${l.finalDutyKpiOutstanding}: ${kpis.outstanding.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
+    buf.writeln('• ${l.finalDutyKpiTotalPaid}: ${kpis.totalPaid.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
+    buf.writeln('• ${l.finalDutyKpiPendingPayment}: ${kpis.pendingCount}');
+    buf.writeln('• ${l.finalDutyKpiNetVariance}: ${kpis.netVariance >= 0 ? "+" : ""}${kpis.netVariance.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}');
     buf.writeln('----------------------------------------------------------------');
     buf.writeln(l.finalDutyDossierRecordsDetails);
     buf.writeln('----------------------------------------------------------------');
@@ -202,11 +190,13 @@ class FinalDutyPaymentExportService {
         final est = CcFormat.fixed(r.estimatedDutyTotal);
         final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
         final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
+        final channelLabel = CcUi.channelStyle(l, r.channelType).label;
+        final statusLabel = CcUi.statusStyle(l, r.status).label;
 
         buf.writeln('[${i + 1}] ${l.customsClearanceColClearanceCode}: ${r.clearanceCode}');
         buf.writeln('    • ${l.customsClearanceColDecl46}: ${r.declaration46No ?? '-'}');
         buf.writeln('    • ${l.customsClearanceColCustomsOffice}: ${r.customsOfficeName}');
-        buf.writeln('    • ${l.customsClearanceChannelLabel}: ${r.channelType}');
+        buf.writeln('    • ${l.customsClearanceChannelLabel}: $channelLabel');
         buf.writeln('    • ${l.customsClearanceColActualDuty}: $actual ${l.finalDutyCurrencyEgp}');
         buf.writeln('    • ${l.customsClearanceColEstimatedDuty}: $est ${l.finalDutyCurrencyEgp}');
         buf.writeln('    • ${l.customsClearanceColDutyVariance}: $variance');
@@ -217,7 +207,7 @@ class FinalDutyPaymentExportService {
         if (r.releasePermitNo != null && r.releasePermitNo!.isNotEmpty) {
           buf.writeln('    • ${l.finalDutyColReleasePermit}: ${r.releasePermitNo}');
         }
-        buf.writeln('    • ${l.status}: ${r.status}');
+        buf.writeln('    • ${l.status}: $statusLabel');
         if (r.dutyVarianceReason != null && r.dutyVarianceReason!.isNotEmpty) {
           buf.writeln('    • ${l.customsClearanceVarianceReasonInput}: ${r.dutyVarianceReason}');
         }
@@ -263,19 +253,7 @@ class FinalDutyPaymentExportService {
       margin: const pw.EdgeInsets.all(24),
     );
 
-    final totalPayable = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final totalPaid = records.where((r) => CcStatus.isPaid(r)).fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final pendingCount = records.where((r) => !CcStatus.isPaid(r)).length;
-    final netVariance = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
-    );
+    final kpis = FinalDutyKpis.from(records);
 
     doc.addPage(
       pw.MultiPage(
@@ -349,30 +327,30 @@ class FinalDutyPaymentExportService {
             pw.Row(
               children: [
                 _buildPdfKpiCard(
-                  title: l.finalDutyKpiTotalPayable,
-                  value: '${totalPayable.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
+                  title: l.finalDutyKpiOutstanding,
+                  value: '${kpis.outstanding.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
                   color: PdfColors.blue900,
                   isAr: isAr,
                 ),
                 pw.SizedBox(width: 8),
                 _buildPdfKpiCard(
                   title: l.finalDutyKpiTotalPaid,
-                  value: '${totalPaid.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
+                  value: '${kpis.totalPaid.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
                   color: PdfColors.green900,
                   isAr: isAr,
                 ),
                 pw.SizedBox(width: 8),
                 _buildPdfKpiCard(
                   title: l.finalDutyKpiPendingPayment,
-                  value: pendingCount.toString(),
+                  value: kpis.pendingCount.toString(),
                   color: PdfColors.orange900,
                   isAr: isAr,
                 ),
                 pw.SizedBox(width: 8),
                 _buildPdfKpiCard(
                   title: l.finalDutyKpiNetVariance,
-                  value: '${netVariance >= 0 ? "+" : ""}${netVariance.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
-                  color: netVariance.abs() > 500 ? PdfColors.red900 : PdfColors.teal900,
+                  value: '${kpis.netVariance >= 0 ? "+" : ""}${kpis.netVariance.toStringAsFixed(2)} ${l.finalDutyCurrencyEgp}',
+                  color: kpis.netVariance.abs() > CcUi.varianceWarnThresholdEgp ? PdfColors.red900 : PdfColors.teal900,
                   isAr: isAr,
                 ),
               ],

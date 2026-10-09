@@ -31,6 +31,7 @@ void main() {
         clearanceCode: 'CLR-2026-0002',
         importFileId: 12,
         declaration46No: 'DEC-46-9900',
+        nafezaClaimNumber: 'CLM-2026-9900',
         customsOfficeName: 'Dekheila Port Customs',
         channelType: 'Red Channel',
         totalDutyPayable: 210000.0,
@@ -102,13 +103,13 @@ void main() {
 
       // Design refresh: currency moved into the KPI titles; KPI values use
       // CcFormat.money (thousands separators, no currency suffix).
-      expect(find.text('إجمالي الرسوم المطلوبة (جنيه)'), findsOneWidget);
+      expect(find.text('إجمالي الرسوم المستحقة (جنيه)'), findsOneWidget);
       expect(find.text('إجمالي الرسوم المسددة (جنيه)'), findsOneWidget);
       expect(find.text('مطالبات قيد السداد'), findsOneWidget);
       expect(find.text('صافي الفروقات الجمركية (جنيه)'), findsOneWidget);
 
-      // Total payable = 154200 + 210000 = 364,200.00
-      expect(find.text('364,200.00'), findsOneWidget);
+      // Outstanding payable = 210000.00 (from un-paid assessed records)
+      expect(find.text('210,000.00'), findsOneWidget);
       // Total paid appears in the KPI card and (with currency) in row 1
       expect(find.text('154,200.00'), findsOneWidget);
       expect(find.text('154,200.00 جنيه مصري'), findsOneWidget);
@@ -261,7 +262,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Final Customs Duty Payment & Release Hub'), findsOneWidget);
-      expect(find.text('Total Duties Payable (EGP)'), findsOneWidget);
+      expect(find.text('Total Outstanding (EGP)'), findsOneWidget);
       expect(find.text('Total Duties Paid (EGP)'), findsOneWidget);
       expect(find.text('Pending Settlements'), findsOneWidget);
       expect(find.text('Net Duty Variance (EGP)'), findsOneWidget);

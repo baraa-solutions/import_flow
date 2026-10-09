@@ -56,7 +56,7 @@ class ClearanceCard extends ConsumerWidget {
     final isPaid = CcStatus.isPaid(record);
     final assessed =
         record.effectiveDutyTotal;
-    final varianceWarn = (record.dutyVarianceAmount ?? 0).abs() > 500;
+    final varianceWarn = (record.dutyVarianceAmount ?? 0).abs() > CcUi.varianceWarnThresholdEgp;
 
     final primary = AppTheme.textPrimaryOf(context);
     final secondary = AppTheme.textSecondaryOf(context);

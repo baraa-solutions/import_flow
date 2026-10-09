@@ -2498,6 +2498,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get customsClearanceFilterDutyRequested => 'مطلوب سداد الجمارك';
   @override String get customsClearanceFilterDutyPaid => 'تم سداد الرسوم';
   @override String get customsClearanceFilterFinalRelease => 'تم الإفراج النهائي';
+  @override String get customsClearanceStatusInspectionRecorded => 'تم تسجيل المعاينة وسحب العينات';
+  @override String get customsClearanceStatusDutiesAssessed => 'تم تقدير الرسوم - جاهز للسداد';
+  @override String get customsClearanceStatusDutyPaidReady => 'تم سداد الرسوم - جاهز للإفراج النهائي';
+  @override String get customsClearanceStatusUnderBondReleased => 'مفرج عنه تحت التحفظ';
+  @override String get customsClearanceStatusLabRejected => 'غير مطابق للمواصفات - مرفوض';
+  @override String get customsClearanceStatusInvoicesVerified => 'تم تسجيل وتدقيق الفواتير';
   @override String get customsClearanceNewRecordButton => 'تسجيل معاملة تخليص';
   @override String get customsClearanceEmptyRecords => 'لا توجد سجلات تخليص جمركي مطابقة للبحث حالياً.';
   @override String get customsClearanceDeclaration46Label => '46 ك.م';
@@ -2794,6 +2800,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get finalDutyScreenSubtitle => 'مطابقة إذن سداد نافذة وتوثيق إيصالات السداد البنكي وحفظ الفروق المالية واعتماد إذن الإفراج وتصريح خروج البوابة';
   @override String get finalDutySummaryHeader => 'ملخص منظومة سداد الرسوم الجمركية والإفراج النهائي';
   @override String get finalDutyKpiTotalPayable => 'إجمالي الرسوم المطلوبة';
+  @override String get finalDutyKpiOutstanding => 'إجمالي الرسوم المستحقة';
   @override String get finalDutyKpiTotalPaid => 'إجمالي الرسوم المسددة';
   @override String get finalDutyKpiPendingPayment => 'مطالبات قيد السداد';
   @override String get finalDutyKpiNetVariance => 'صافي الفروقات الجمركية';

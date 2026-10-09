@@ -2616,6 +2616,12 @@ abstract class AppLocalizations {
   String get customsClearanceFilterDutyRequested;
   String get customsClearanceFilterDutyPaid;
   String get customsClearanceFilterFinalRelease;
+  String get customsClearanceStatusInspectionRecorded;
+  String get customsClearanceStatusDutiesAssessed;
+  String get customsClearanceStatusDutyPaidReady;
+  String get customsClearanceStatusUnderBondReleased;
+  String get customsClearanceStatusLabRejected;
+  String get customsClearanceStatusInvoicesVerified;
   String get customsClearanceNewRecordButton;
   String get customsClearanceEmptyRecords;
   String get customsClearanceDeclaration46Label;
@@ -2912,6 +2918,7 @@ abstract class AppLocalizations {
   String get finalDutyScreenSubtitle;
   String get finalDutySummaryHeader;
   String get finalDutyKpiTotalPayable;
+  String get finalDutyKpiOutstanding;
   String get finalDutyKpiTotalPaid;
   String get finalDutyKpiPendingPayment;
   String get finalDutyKpiNetVariance;

@@ -103,44 +103,32 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
     final records = widget.records;
     final filtered = _filteredRecords;
 
-    final totalPayable = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final totalPaid = records.where((r) => CcStatus.isPaid(r)).fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final pendingCount = records.where((r) => !CcStatus.isPaid(r)).length;
-    final netVariance = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
-    );
+    final kpis = FinalDutyKpis.from(records);
 
     final metrics = [
       MetricCardData(
-        title: '${l.finalDutyKpiTotalPayable} (${l.egpCurrency})',
-        value: CcFormat.money(totalPayable),
+        title: '${l.finalDutyKpiOutstanding} (${l.egpCurrency})',
+        value: CcFormat.money(kpis.outstanding),
         icon: Icons.account_balance_wallet_outlined,
         color: AppTheme.cobalt,
       ),
       MetricCardData(
         title: '${l.finalDutyKpiTotalPaid} (${l.egpCurrency})',
-        value: CcFormat.money(totalPaid),
+        value: CcFormat.money(kpis.totalPaid),
         icon: Icons.check_circle_outline,
         color: AppTheme.emerald,
       ),
       MetricCardData(
         title: l.finalDutyKpiPendingPayment,
-        value: pendingCount.toString(),
+        value: kpis.pendingCount.toString(),
         icon: Icons.pending_actions_outlined,
         color: AppTheme.orange,
       ),
       MetricCardData(
         title: '${l.finalDutyKpiNetVariance} (${l.egpCurrency})',
-        value: CcFormat.signedMoney(netVariance),
+        value: CcFormat.signedMoney(kpis.netVariance),
         icon: Icons.compare_arrows_outlined,
-        color: netVariance.abs() > 500 ? AppTheme.crimson : AppTheme.charcoal,
+        color: kpis.netVariance.abs() > CcUi.varianceWarnThresholdEgp ? AppTheme.crimson : AppTheme.charcoal,
       ),
     ];
 
@@ -365,10 +353,12 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
     final estDutyStr = '${CcFormat.money(r.estimatedDutyTotal)} ${l.finalDutyCurrencyEgp}';
     final varianceStr = '${CcFormat.signedMoney(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
     final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
+    final channelLabel = CcUi.channelStyle(l, r.channelType).label;
+    final statusLabel = CcUi.statusStyle(l, r.status).label;
     final bankReceiptStr = r.bankReceiptNo ?? '-';
     final releasePermitStr = r.releasePermitNo ?? '-';
     final rowSummary =
-        "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t${r.channelType}\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t${r.status}";
+        "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t$channelLabel\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t$statusLabel";
 
     DataCell textCell(String value, Widget child) =>
         DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
@@ -423,7 +413,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
         _codeCell(r.clearanceCode, rowSummary, color: AppTheme.cobalt),
         _codeCell(r.declaration46No, rowSummary),
         textCell(r.customsOfficeName, Text(r.customsOfficeName, style: const TextStyle(fontSize: 12))),
-        textCell(r.channelType, Text(r.channelType, style: const TextStyle(fontSize: 12))),
+        textCell(channelLabel, Text(channelLabel, style: const TextStyle(fontSize: 12))),
         textCell(
           actualDutyStr,
           LtrText(
@@ -440,7 +430,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: (r.dutyVarianceAmount ?? 0).abs() > 500
+              color: (r.dutyVarianceAmount ?? 0).abs() > CcUi.varianceWarnThresholdEgp
                   ? AppTheme.warningForeground
                   : AppTheme.textSecondaryOf(context),
             ),

@@ -280,9 +280,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         l.status,
       ];
 
-  List<String> _tableRow(CustomsClearanceModel r, List<ImportFileModel> files, bool isAr) {
+  List<String> _tableRow(CustomsClearanceModel r, List<ImportFileModel> files, AppLocalizations l) {
     final rawCode = 'IMP-${r.importFileId}';
-    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: files, isArabic: isAr);
+    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: files, isArabic: l.isArabic);
     final actual = CcFormat.fixed(r.effectiveDutyTotal);
     final est = CcFormat.fixed(r.estimatedDutyTotal);
     final variance = CcFormat.signedFixed(r.dutyVarianceAmount);
@@ -291,13 +291,13 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       shipTitle,
       r.declaration46No ?? '-',
       r.customsOfficeName,
-      r.channelType,
+      CcUi.channelStyle(l, r.channelType).label,
       r.deliveryOrderNumber ?? '-',
       actual,
       est,
       variance,
-      r.paymentStatus,
-      r.status,
+      CcStatus.isPaid(r) ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment,
+      CcUi.statusStyle(l, r.status).label,
     ];
   }
 
@@ -305,7 +305,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     TableCopyHelper.copyRow(
       context,
-      _tableRow(record, files, l.isArabic),
+      _tableRow(record, files, l),
       headers: _tableHeaders(l),
       includeHeaders: true,
       customMessage: l.copyCustomsClearanceRowSuccess,
@@ -318,7 +318,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     TableCopyHelper.copyTable(
       context,
       _tableHeaders(l),
-      records.map((r) => _tableRow(r, files, l.isArabic)).toList(),
+      records.map((r) => _tableRow(r, files, l)).toList(),
       customMessage: l.copyCustomsClearanceTableSuccess,
     );
   }
@@ -330,7 +330,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       stageName: 'Customs Clearance',
       importFileNameOrCode: 'Registry',
       headers: _tableHeaders(l),
-      rows: records.map((r) => _tableRow(r, files, l.isArabic)).toList(),
+      rows: records.map((r) => _tableRow(r, files, l)).toList(),
     );
   }
 
@@ -349,7 +349,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     ];
 
     final rows = records.map((r) {
-      final row = _tableRow(r, files, l.isArabic);
+      final row = _tableRow(r, files, l);
       // PDF keeps the compact column set (no estimated / variance columns).
       return [...row.sublist(0, 7), row[9], row[10]];
     }).toList();
@@ -697,9 +697,15 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   items: [
                     SearchableDropdownItem(value: 'All', label: l.customsClearanceFilterAll),
                     SearchableDropdownItem(value: 'Inspection In Progress', label: l.customsClearanceFilterInspection),
+                    SearchableDropdownItem(value: 'Inspection & Sampling Recorded', label: l.customsClearanceStatusInspectionRecorded),
                     SearchableDropdownItem(value: 'Duty Requested', label: l.customsClearanceFilterDutyRequested),
+                    SearchableDropdownItem(value: 'Customs Duties Assessed - Ready for Payment', label: l.customsClearanceStatusDutiesAssessed),
                     SearchableDropdownItem(value: 'Duty Paid', label: l.customsClearanceFilterDutyPaid),
+                    SearchableDropdownItem(value: 'Duty Paid - Ready for Final Release', label: l.customsClearanceStatusDutyPaidReady),
+                    SearchableDropdownItem(value: 'Under Bond Released', label: l.customsClearanceStatusUnderBondReleased),
+                    SearchableDropdownItem(value: 'Lab Non-Conforming - Rejected', label: l.customsClearanceStatusLabRejected),
                     SearchableDropdownItem(value: 'Final Release Granted', label: l.customsClearanceFilterFinalRelease),
+                    SearchableDropdownItem(value: 'Invoices Logged & Verified', label: l.customsClearanceStatusInvoicesVerified),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedStatusFilter = val);
