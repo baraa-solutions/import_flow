@@ -21,7 +21,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "c3d4e5f6a7b8"  # current head (trademark and contact fields)
+HEAD = "e4f5a6b7c8d9"  # current head
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
