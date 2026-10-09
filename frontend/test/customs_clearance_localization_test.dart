@@ -188,6 +188,7 @@ void main() {
         ar.customsClearanceExportTsvBtn,
         ar.customsClearanceExportTsvSuccess,
         ar.customsClearanceCopyFieldTooltip,
+        ar.ccRecordFileNotFound,
       ];
 
       final List<String> enStrings = [
@@ -368,6 +369,7 @@ void main() {
         en.customsClearanceExportTsvBtn,
         en.customsClearanceExportTsvSuccess,
         en.customsClearanceCopyFieldTooltip,
+        en.ccRecordFileNotFound,
       ];
 
       for (final s in arStrings) {

@@ -12361,6 +12361,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccStageRelease => 'إذن الإفراج (CL-04)';
   @override String get ccStageInvoices => 'فواتير التخليص (CL-05)';
   @override String get ccNoImportFiles => 'لا توجد ملفات شحنات مسجلة';
+  @override String get ccRecordFileNotFound => 'لم يتم العثور على ملف الشحنة المرتبط';
   @override String get ccExpensesTooltip => 'فواتير ومصاريف التخليص (CL-05)';
   @override String get ccMetricAssessed => 'محتسبة';
   @override String get ccMetricPaid => 'مسددة';

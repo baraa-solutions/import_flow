@@ -12360,6 +12360,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccStageRelease => 'Release Permit (CL-04)';
   @override String get ccStageInvoices => 'Clearance Invoices (CL-05)';
   @override String get ccNoImportFiles => 'No shipment files are registered';
+  @override String get ccRecordFileNotFound => 'Associated shipment file not found';
   @override String get ccExpensesTooltip => 'Clearance invoices and expenses (CL-05)';
   @override String get ccMetricAssessed => 'Assessed';
   @override String get ccMetricPaid => 'Paid';

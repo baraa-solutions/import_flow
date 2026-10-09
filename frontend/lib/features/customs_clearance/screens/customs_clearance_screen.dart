@@ -38,6 +38,7 @@ import '../widgets/discrepancy_and_damage_tab.dart';
 import '../widgets/drawing_samples_and_shortage_tab.dart';
 import '../widgets/final_duty_assessment_dialog.dart';
 import '../widgets/final_duty_payment_tab.dart';
+import '../widgets/import_file_picker_dialog.dart';
 import '../widgets/search_and_clone_customs_clearance_dialog.dart';
 import '../widgets/under_bond_release_dialog.dart';
 
@@ -98,13 +99,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   Future<void> _loadClearanceGuide(int? fileId) async {
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    dynamic file;
-    if (fileId != null) {
-      file = files.where((f) => f.importFileId == fileId).firstOrNull;
-    } else if (files.isNotEmpty) {
-      file = files.first;
+    if (fileId == null) {
+      if (mounted) setState(() => _clearanceGuideMatchResult = null);
+      return;
     }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) {
       if (mounted) setState(() => _clearanceGuideMatchResult = null);
       return;
@@ -422,7 +422,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   /// Resolves the shipment a header stage button works on, or tells the user
   /// that no shipment file is registered.
-  void _openStage(void Function(ImportFileModel file) open) {
+  Future<void> _openStage(void Function(ImportFileModel file) open) async {
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -430,13 +430,36 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       );
       return;
     }
-    final targetFile = widget.initialImportFileId != null
-        ? files.firstWhere(
-            (f) => f.importFileId == widget.initialImportFileId,
-            orElse: () => files.first,
-          )
-        : files.first;
+    ImportFileModel? targetFile;
+    if (widget.initialImportFileId != null) {
+      targetFile = files.where((f) => f.importFileId == widget.initialImportFileId).firstOrNull;
+    }
+    if (targetFile == null) {
+      targetFile = await showImportFilePickerDialog(
+        context,
+        ref,
+        title: context.l10n.importFilePickerTitle,
+      );
+      if (targetFile == null) return;
+    }
+    if (!mounted) return;
     open(targetFile);
+  }
+
+  void _openRecordStage(CustomsClearanceModel record, void Function(ImportFileModel file) open) {
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = files.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          context.l10n.ccRecordFileNotFound,
+          severity: AppSeverity.warning,
+        ),
+      );
+      return;
+    }
+    open(file);
   }
 
   Widget _stageButton({
@@ -799,6 +822,18 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             record: record,
             actions: ClearanceCardActions(
               onView: () => _showClearanceDetails(record),
+              onBrokerAuth: () => _openRecordStage(
+                record,
+                (f) => CustomsBrokerAuthorizationDialog.show(context, f),
+              ),
+              onDeliveryOrder: () => _openRecordStage(
+                record,
+                (f) => DeliveryOrderPaymentDialog.show(context, f),
+              ),
+              onDeclaration46: () => _openRecordStage(
+                record,
+                (f) => CustomsDeclaration46Dialog.show(context, f),
+              ),
               onEdit: () => _showAddEditDialog(record),
               onCopyRow: () => _copyClearanceRowTsv(record, l),
               onClone: () => _onCloneClearance(record),

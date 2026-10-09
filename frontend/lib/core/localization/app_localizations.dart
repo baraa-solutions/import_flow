@@ -9642,6 +9642,7 @@ abstract class AppLocalizations {
   String get ccStageRelease;
   String get ccStageInvoices;
   String get ccNoImportFiles;
+  String get ccRecordFileNotFound;
   String get ccExpensesTooltip;
   String get ccMetricAssessed;
   String get ccMetricPaid;
