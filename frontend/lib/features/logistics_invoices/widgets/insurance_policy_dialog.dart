@@ -9,11 +9,13 @@ import '../repositories/logistics_invoices_repository.dart';
 class InsurancePolicyDialog extends ConsumerStatefulWidget {
   final InsurancePolicyModel? initialPolicy;
   final int defaultShipmentId;
+  final String? defaultBlNumber;
 
   const InsurancePolicyDialog({
     super.key,
     this.initialPolicy,
     this.defaultShipmentId = 1,
+    this.defaultBlNumber,
   });
 
   @override
@@ -45,7 +47,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
     final p = widget.initialPolicy;
 
     _shipmentIdCtrl = TextEditingController(text: (p?.shipmentId ?? widget.defaultShipmentId).toString());
-    _blNumberCtrl = TextEditingController(text: p?.blNumber ?? '');
+    _blNumberCtrl = TextEditingController(text: p?.blNumber ?? widget.defaultBlNumber ?? '');
     _companyIdCtrl = TextEditingController(text: (p?.insuranceCompanyId ?? 1).toString());
     _companyNameCtrl = TextEditingController(text: p?.insuranceCompanyName ?? 'Misr Insurance Co.');
     _policyNumberCtrl = TextEditingController(text: p?.policyNumber ?? 'POL-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch % 10000}');

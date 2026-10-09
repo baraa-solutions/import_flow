@@ -7,8 +7,13 @@ import '../repositories/logistics_invoices_repository.dart';
 
 class AdvancePaymentDialog extends ConsumerStatefulWidget {
   final int defaultShipmentId;
+  final String? defaultBlNumber;
 
-  const AdvancePaymentDialog({super.key, this.defaultShipmentId = 1});
+  const AdvancePaymentDialog({
+    super.key,
+    this.defaultShipmentId = 1,
+    this.defaultBlNumber,
+  });
 
   @override
   ConsumerState<AdvancePaymentDialog> createState() => _AdvancePaymentDialogState();
@@ -32,7 +37,7 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
   void initState() {
     super.initState();
     _shipmentIdCtrl = TextEditingController(text: widget.defaultShipmentId.toString());
-    _blNumberCtrl = TextEditingController();
+    _blNumberCtrl = TextEditingController(text: widget.defaultBlNumber ?? '');
     _partnerIdCtrl = TextEditingController(text: '1');
     _partnerNameCtrl = TextEditingController(text: 'Customs Clearance Partner');
     _amountCtrl = TextEditingController(text: '50000');

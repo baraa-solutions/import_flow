@@ -14,10 +14,14 @@ import '../widgets/three_way_match_badge.dart';
 
 class LogisticsInvoicesScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
+  final int? initialShipmentId;
+  final String? initialBlNumber;
 
   const LogisticsInvoicesScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.initialShipmentId,
+    this.initialBlNumber,
   });
 
   @override
@@ -32,6 +36,9 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTabIndex);
+    if (widget.initialShipmentId != null) {
+      ref.read(selectedShipmentFilterProvider.notifier).state = widget.initialShipmentId;
+    }
     Future.microtask(() {
       ref.invalidate(logisticsInvoicesListProvider);
       ref.invalidate(paymentVouchersListProvider);
@@ -51,7 +58,11 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => InvoiceFormDialog(defaultPartnerType: defaultType),
+      builder: (ctx) => InvoiceFormDialog(
+        defaultPartnerType: defaultType,
+        initialShipmentId: widget.initialShipmentId,
+        initialBlNumber: widget.initialBlNumber,
+      ),
     );
   }
 
@@ -75,7 +86,10 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AdvancePaymentDialog(),
+      builder: (ctx) => AdvancePaymentDialog(
+        defaultShipmentId: widget.initialShipmentId ?? 1,
+        defaultBlNumber: widget.initialBlNumber,
+      ),
     );
   }
 
@@ -83,7 +97,10 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const InsurancePolicyDialog(),
+      builder: (ctx) => InsurancePolicyDialog(
+        defaultShipmentId: widget.initialShipmentId ?? 1,
+        defaultBlNumber: widget.initialBlNumber,
+      ),
     );
   }
 
@@ -159,6 +176,35 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               ),
             ],
           ),
+          if (ref.watch(selectedShipmentFilterProvider) != null) ...[
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.cobalt),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.filter_alt, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    'الشحنة: IMP-${ref.watch(selectedShipmentFilterProvider)}${widget.initialBlNumber != null && widget.initialBlNumber!.isNotEmpty ? " | B/L: ${widget.initialBlNumber}" : ""}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () {
+                      ref.read(selectedShipmentFilterProvider.notifier).state = null;
+                    },
+                    child: const Icon(Icons.close, color: Colors.white70, size: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white, size: 20),

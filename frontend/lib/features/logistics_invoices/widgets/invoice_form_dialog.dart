@@ -11,11 +11,15 @@ import 'partner_balance_card.dart';
 class InvoiceFormDialog extends ConsumerStatefulWidget {
   final LogisticsInvoiceModel? initialInvoice;
   final String defaultPartnerType;
+  final int? initialShipmentId;
+  final String? initialBlNumber;
 
   const InvoiceFormDialog({
     super.key,
     this.initialInvoice,
     this.defaultPartnerType = 'freight',
+    this.initialShipmentId,
+    this.initialBlNumber,
   });
 
   @override
@@ -58,8 +62,8 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     super.initState();
     final inv = widget.initialInvoice;
 
-    _shipmentId = inv?.shipmentId ?? 1;
-    _blNumber = inv?.blNumber ?? '';
+    _shipmentId = inv?.shipmentId ?? widget.initialShipmentId ?? 1;
+    _blNumber = inv?.blNumber ?? widget.initialBlNumber ?? '';
     _partnerId = inv?.partnerId ?? 1;
     _partnerName = inv?.partnerName ?? '';
     _partnerType = inv?.partnerType ?? widget.defaultPartnerType;

@@ -3,6 +3,7 @@ import '../models/logistics_invoice_models.dart';
 import '../repositories/logistics_invoices_repository.dart';
 
 // Filter States
+final selectedShipmentFilterProvider = StateProvider<int?>((ref) => null);
 final invoicePartnerTypeFilterProvider = StateProvider<String>((ref) => 'all');
 final invoiceStatusFilterProvider = StateProvider<String>((ref) => 'all');
 final invoiceShipmentFilterProvider = StateProvider<int?>((ref) => null);
@@ -13,7 +14,9 @@ final logisticsInvoicesListProvider = FutureProvider.autoDispose<List<LogisticsI
   final repo = ref.watch(logisticsInvoicesRepositoryProvider);
   final partnerType = ref.watch(invoicePartnerTypeFilterProvider);
   final status = ref.watch(invoiceStatusFilterProvider);
-  final shipmentId = ref.watch(invoiceShipmentFilterProvider);
+  final selectedShipment = ref.watch(selectedShipmentFilterProvider);
+  final tabShipment = ref.watch(invoiceShipmentFilterProvider);
+  final shipmentId = selectedShipment ?? tabShipment;
   final partnerId = ref.watch(invoicePartnerFilterProvider);
 
   return repo.fetchInvoices(
@@ -61,7 +64,9 @@ final insurancePoliciesFilterShipmentProvider = StateProvider<int?>((ref) => nul
 final insurancePoliciesListProvider = FutureProvider.autoDispose<List<InsurancePolicyModel>>((ref) async {
   final repo = ref.watch(logisticsInvoicesRepositoryProvider);
   final status = ref.watch(insurancePoliciesFilterStatusProvider);
-  final shipmentId = ref.watch(insurancePoliciesFilterShipmentProvider);
+  final selectedShipment = ref.watch(selectedShipmentFilterProvider);
+  final tabShipment = ref.watch(insurancePoliciesFilterShipmentProvider);
+  final shipmentId = selectedShipment ?? tabShipment;
 
   return repo.fetchInsurancePolicies(
     status: status,
@@ -75,7 +80,9 @@ final clearanceAdvancesFilterPartnerProvider = StateProvider<int?>((ref) => null
 
 final clearanceAdvancesListProvider = FutureProvider.autoDispose<List<ClearanceAdvancePaymentModel>>((ref) async {
   final repo = ref.watch(logisticsInvoicesRepositoryProvider);
-  final shipmentId = ref.watch(clearanceAdvancesFilterShipmentProvider);
+  final selectedShipment = ref.watch(selectedShipmentFilterProvider);
+  final tabShipment = ref.watch(clearanceAdvancesFilterShipmentProvider);
+  final shipmentId = selectedShipment ?? tabShipment;
   final partnerId = ref.watch(clearanceAdvancesFilterPartnerProvider);
 
   return repo.fetchClearanceAdvances(
@@ -91,7 +98,9 @@ final paymentVouchersFilterShipmentProvider = StateProvider<int?>((ref) => null)
 final paymentVouchersListProvider = FutureProvider.autoDispose<List<LogisticsPaymentVoucherModel>>((ref) async {
   final repo = ref.watch(logisticsInvoicesRepositoryProvider);
   final partnerId = ref.watch(paymentVouchersFilterPartnerProvider);
-  final shipmentId = ref.watch(paymentVouchersFilterShipmentProvider);
+  final selectedShipment = ref.watch(selectedShipmentFilterProvider);
+  final tabShipment = ref.watch(paymentVouchersFilterShipmentProvider);
+  final shipmentId = selectedShipment ?? tabShipment;
 
   return repo.fetchPaymentVouchers(
     partnerId: partnerId,

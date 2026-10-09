@@ -36,6 +36,8 @@ from modules.financial_settlement.service import (
 
 class TestFinancialSettlementModule(unittest.TestCase):
     def setUp(self):
+        from modules.currencies.service import clear_currency_cache
+        clear_currency_cache()
         self.engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(self.engine)
         TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
@@ -70,6 +72,8 @@ class TestFinancialSettlementModule(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+        from modules.currencies.service import clear_currency_cache
+        clear_currency_cache()
 
     def test_landed_cost_engine_allocation_formulas(self):
         expenses = [
@@ -230,7 +234,12 @@ class TestFinancialSettlementModule(unittest.TestCase):
                 effective_date=date.today(),
             )
             self.db.add(rate_row)
-            self.db.commit()
+        else:
+            rate_row.commercial_rate = 50.0
+            rate_row.customs_rate = 50.0
+        self.db.commit()
+        from modules.currencies.service import clear_currency_cache
+        clear_currency_cache()
 
         # Ensure Supplier, Incoterm, Project exist
         supp = self.db.query(Supplier).filter(Supplier.supplier_id == 1).first()
