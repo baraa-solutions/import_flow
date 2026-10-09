@@ -12452,6 +12452,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccAssessLabFees => 'Laboratory and testing fees';
   @override String get ccAssessNotesSection => 'Assessment notes and final calculation directions';
   @override String get ccAssessNotesHint => 'Tariff officer notes and directions or any exceptional items...';
+  @override String get ccPreviousNotesLabel => 'Previous notes';
+  @override String get ccStepNotesLabel => 'Notes for this step';
   @override String ccAssessTotalDue(String amount) => 'Total payable: $amount EGP';
   @override String get ccAssessConfirm => 'Approve and calculate duties (CL-02)';
   @override String ccAssessSuccess(String claim, String total) => 'Customs duties for claim #$claim approved with a total of ($total EGP). Moved to the next stage: duty payment via Sadad (CL-03).';

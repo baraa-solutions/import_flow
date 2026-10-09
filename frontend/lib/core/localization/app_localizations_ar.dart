@@ -12453,6 +12453,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccAssessLabFees => 'رسوم التحاليل والمعامل';
   @override String get ccAssessNotesSection => 'ملاحظات وتوجيهات التثمين والاحتساب النهائي';
   @override String get ccAssessNotesHint => 'ملاحظات وتوجيهات مأمور التعريفة أو أي بنود استثنائية...';
+  @override String get ccPreviousNotesLabel => 'الملاحظات السابقة';
+  @override String get ccStepNotesLabel => 'ملاحظات هذه المرحلة';
   @override String ccAssessTotalDue(String amount) => 'الإجمالي المستحق بالسداد: $amount ج.م';
   @override String get ccAssessConfirm => 'اعتماد واحتساب الرسوم (CL-02)';
   @override String ccAssessSuccess(String claim, String total) => 'تم احتساب واعتماد الرسوم الجمركية بمطالبة #$claim بإجمالي ($total ج.م). تم الانتقال للمرحلة التالية: سداد الرسوم بسداد (CL-03).';

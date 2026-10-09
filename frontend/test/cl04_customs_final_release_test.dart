@@ -293,5 +293,59 @@ void main() {
 
       expect(find.text('رقم إذن الإفراج إلزامي'), findsOneWidget);
     });
+
+    testWidgets('CL-04: Dialog with previous notes displays them read-only and starts with empty notes controller', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 95,
+        importFileCode: 'IMP-2026-0095',
+        companyName: 'Delta Industrial Machinery LLC',
+        supplierName: 'Bavaria Tech GmbH',
+        currentModule: 'Phase 7 - Customs Clearance & Inspection',
+        currentStage: 'Stage 7 - Customs Clearance',
+        nextAction: 'Action',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      final clearanceRecord = CustomsClearanceModel(
+        customsClearanceId: 504,
+        clearanceCode: 'CLR-2026-0504',
+        importFileId: 95,
+        notes: 'R1-PRIOR-NOTES',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: CustomsFinalReleaseDialog(
+                  file: sampleFile,
+                  clearanceRecord: clearanceRecord,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Read-only previous notes box is visible and contains 'R1-PRIOR-NOTES'
+      expect(find.text('R1-PRIOR-NOTES'), findsOneWidget);
+
+      // Notes input field controller starts empty
+      final notesFieldFinder = find.byKey(const Key('notesField'));
+      expect(notesFieldFinder, findsOneWidget);
+      final formField = tester.widget<TextFormField>(notesFieldFinder);
+      expect(formField.controller?.text, '');
+    });
   });
 }
+

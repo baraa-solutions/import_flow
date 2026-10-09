@@ -491,3 +491,100 @@ class CcDateField extends StatelessWidget {
     );
   }
 }
+
+/// Read-only collapsible box displaying prior clearance notes without duplicating them.
+class CcPreviousNotesBox extends StatefulWidget {
+  const CcPreviousNotesBox({
+    super.key,
+    required this.notes,
+    this.initiallyExpanded = true,
+  });
+
+  final String notes;
+  final bool initiallyExpanded;
+
+  @override
+  State<CcPreviousNotesBox> createState() => _CcPreviousNotesBoxState();
+}
+
+class _CcPreviousNotesBoxState extends State<CcPreviousNotesBox> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.notes.trim().isEmpty) return const SizedBox.shrink();
+
+    final l = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.grey.shade900 : Colors.grey.shade50;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+
+    return Container(
+      margin: const EdgeInsetsDirectional.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 16,
+                    color: AppTheme.textMutedOf(context),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l.ccPreviousNotesLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textMutedOf(context),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppTheme.textMutedOf(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded) ...[
+            Divider(height: 1, color: borderColor),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SelectableText(
+                widget.notes,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

@@ -9734,6 +9734,8 @@ abstract class AppLocalizations {
   String get ccAssessLabFees;
   String get ccAssessNotesSection;
   String get ccAssessNotesHint;
+  String get ccPreviousNotesLabel;
+  String get ccStepNotesLabel;
   String ccAssessTotalDue(String amount);
   String get ccAssessConfirm;
   String ccAssessSuccess(String claim, String total);

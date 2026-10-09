@@ -118,9 +118,7 @@ class _CustomsDutyPaymentDialogState
       text: rec?.receiptFileUrl ?? '',
     );
 
-    _notesController = TextEditingController(
-      text: rec?.notes ?? '',
-    );
+    _notesController = TextEditingController();
 
     if (rec?.paymentDate != null) {
       final parsed = DateTime.tryParse(rec!.paymentDate!);
@@ -469,8 +467,10 @@ class _CustomsDutyPaymentDialogState
             ),
           ),
           const SizedBox(height: 16),
+          if ((widget.clearanceRecord?.notes ?? '').trim().isNotEmpty)
+            CcPreviousNotesBox(notes: widget.clearanceRecord!.notes!),
           CcField(
-            label: l.ccDutyNotesLabel,
+            label: l.ccStepNotesLabel,
             child: TextFormField(
               key: const Key('dutyPaymentNotesField'),
               controller: _notesController,
