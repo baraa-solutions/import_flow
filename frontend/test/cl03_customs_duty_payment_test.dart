@@ -175,5 +175,79 @@ void main() {
       expect(find.byKey(const Key('submitDutyPaymentBtn')), findsOneWidget);
       expect(find.text('تأكيد وتسجيل سداد الرسوم (CL-03)'), findsOneWidget);
     });
+
+    testWidgets('CL-03 starts with empty SADAD and unselected bank when not on file, triggers validator on submit', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 95,
+        importFileCode: 'IMP-2026-0095',
+        customFileNumber: 'Industrial Machinery',
+        companyName: 'Delta Industrial Machinery LLC',
+        supplierName: 'Bavaria Tech GmbH',
+        portOfDischarge: 'El Dekheila Port',
+        deliveryOrderNo: 'DO-2026-HAPAG-5511',
+        form46No: 'DEC-2026-DKH-5511',
+        form46Date: '2026-09-18T10:00:00Z',
+        form46Status: 'REGISTERED',
+        customsDutySadadNo: null,
+        customsDutyPaidAmount: 0.0,
+        currentModule: 'Phase 7 - Customs Clearance & Inspection',
+        currentStage: 'Customs Duties Assessed - Ready for Payment',
+        progressPercent: 90.0,
+        nextAction: 'سداد الرسوم الجمركية بسداد (CL-03)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T12:00:00Z',
+      );
+
+      final clearanceRecord = CustomsClearanceModel(
+        customsClearanceId: 503,
+        clearanceCode: 'CLR-2026-0503',
+        importFileId: 95,
+        declaration46No: 'DEC-2026-DKH-5511',
+        declaration46Date: '2026-09-18T10:00:00Z',
+        customsOfficeName: 'El Dekheila Port Customs',
+        channelType: 'Red Channel',
+        nafezaClaimNumber: 'CLM-MTS-2026-987654',
+        sadadNumber: null,
+        payingBankName: null,
+        actualDutyTotal: 165801.50,
+        totalDutyPayable: 165801.50,
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T12:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: CustomsDutyPaymentDialog(
+                  file: sampleFile,
+                  clearanceRecord: clearanceRecord,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify SADAD field starts empty and does not invent reference with file ID
+      final sadadField = tester.widget<TextFormField>(find.byKey(const Key('sadadNumberField')));
+      expect(sadadField.controller?.text, isEmpty);
+      expect(sadadField.controller?.text.contains('0095'), isFalse);
+
+      // Tap submit button without filling SADAD or bank
+      await tester.tap(find.byKey(const Key('submitDutyPaymentBtn')));
+      await tester.pumpAndSettle();
+
+      // Expect validation errors
+      expect(find.text('رقم سداد إلزامي'), findsOneWidget);
+      expect(find.text('يرجى اختيار البنك القائم بالسداد'), findsOneWidget);
+    });
   });
 }

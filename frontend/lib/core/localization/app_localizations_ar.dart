@@ -12376,6 +12376,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDutySadadHint => 'مثال: SADAD-2026-0042';
   @override String get ccDutyAutoGenerate => 'توليد تلقائي';
   @override String get ccDutySadadRequired => 'رقم سداد إلزامي';
+  @override String get ccDutySadadTooShort => 'رقم سداد يجب ألا يقل عن 3 أحرف';
   @override String get ccDutyReceiptLabel => 'رقم إشعار / إيصال السداد البنكي';
   @override String get ccDutyReceiptHint => 'مثال: REC-EFIN-998877';
   @override String get ccDutyReceiptRequired => 'رقم الإيصال إلزامي';
@@ -12385,6 +12386,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDutyDateLabel => 'تاريخ السداد';
   @override String get ccDutyMethodLabel => 'طريقة السداد';
   @override String get ccDutyBankLabel => 'البنك المسدد من خلاله';
+  @override String get ccDutyBankRequired => 'يرجى اختيار البنك القائم بالسداد';
   @override String get ccDutyAttachmentsSection => 'المرفقات والملاحظات الرقابية';
   @override String get ccDutyReceiptFileLabel => 'رابط أو مرجع ملف إيصال السداد الإلكتروني (Receipt File URL)';
   @override String get ccDutyReceiptFileHint => 'مثال: /uploads/receipts/sadad_rec_2026_01.pdf';

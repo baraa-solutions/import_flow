@@ -9657,6 +9657,7 @@ abstract class AppLocalizations {
   String get ccDutySadadHint;
   String get ccDutyAutoGenerate;
   String get ccDutySadadRequired;
+  String get ccDutySadadTooShort;
   String get ccDutyReceiptLabel;
   String get ccDutyReceiptHint;
   String get ccDutyReceiptRequired;
@@ -9666,6 +9667,7 @@ abstract class AppLocalizations {
   String get ccDutyDateLabel;
   String get ccDutyMethodLabel;
   String get ccDutyBankLabel;
+  String get ccDutyBankRequired;
   String get ccDutyAttachmentsSection;
   String get ccDutyReceiptFileLabel;
   String get ccDutyReceiptFileHint;

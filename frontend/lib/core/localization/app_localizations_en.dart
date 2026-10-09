@@ -12375,6 +12375,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccDutySadadHint => 'e.g. SADAD-2026-0042';
   @override String get ccDutyAutoGenerate => 'Auto-generate';
   @override String get ccDutySadadRequired => 'Sadad number is required';
+  @override String get ccDutySadadTooShort => 'SADAD number must be at least 3 characters';
   @override String get ccDutyReceiptLabel => 'Bank payment notice / receipt number';
   @override String get ccDutyReceiptHint => 'e.g. REC-EFIN-998877';
   @override String get ccDutyReceiptRequired => 'Receipt number is required';
@@ -12384,6 +12385,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccDutyDateLabel => 'Payment date';
   @override String get ccDutyMethodLabel => 'Payment method';
   @override String get ccDutyBankLabel => 'Paying bank';
+  @override String get ccDutyBankRequired => 'Please select the paying bank';
   @override String get ccDutyAttachmentsSection => 'Attachments and control notes';
   @override String get ccDutyReceiptFileLabel => 'Electronic payment receipt file link or reference (Receipt File URL)';
   @override String get ccDutyReceiptFileHint => 'e.g. /uploads/receipts/sadad_rec_2026_01.pdf';
