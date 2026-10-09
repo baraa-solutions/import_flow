@@ -625,6 +625,16 @@ def preview(
     if target_entity_type == "financial_settlement" and current_status == "Closed":
         blocked_by_status = True
         can_apply = False
+    if target_entity_type == "financial_settlement":
+        from modules.import_files.model import ImportFile
+        from modules.common.validators import CLOSED_FILE_STATUSES
+        imp_file = getattr(entity, "import_file", None)
+        if imp_file is None and hasattr(entity, "import_file_id"):
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == entity.import_file_id).first()
+        file_status = str(getattr(imp_file, "status", "") or "").strip()
+        if imp_file and (file_status in CLOSED_FILE_STATUSES or file_status.capitalize() in CLOSED_FILE_STATUSES):
+            blocked_by_status = True
+            can_apply = False
 
     # 4. Fetch live values and compute variances
     items = _evaluate_dependencies(db, entity, target_entity_type, dependencies, threshold_pct)
@@ -794,7 +804,30 @@ def apply(
         for i in changed_items
     ]
 
-    # 4b. Settlements: Closed is final; an Approved one changes only with a written justification (review 2 #3)
+    # 4b. Settlements: Closed file or Closed status is final; an Approved one changes only with a written justification (review 2 #3)
+    if target_entity_type == "financial_settlement":
+        from modules.import_files.model import ImportFile
+        from modules.common.validators import CLOSED_FILE_STATUSES
+        imp_file = getattr(entity, "import_file", None)
+        if imp_file is None and hasattr(entity, "import_file_id"):
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == entity.import_file_id).first()
+        file_status = str(getattr(imp_file, "status", "") or "").strip()
+        if imp_file and (file_status in CLOSED_FILE_STATUSES or file_status.capitalize() in CLOSED_FILE_STATUSES):
+            from modules.common.errors import CodedHTTPException
+            file_code = imp_file.import_file_code or f"#{imp_file.import_file_id}"
+            _log_refusal_and_raise(
+                db,
+                CodedHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="IMPORT_FILE_CLOSED",
+                    message_ar=f"ملف الشحنة {file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.",
+                    import_file_code=file_code,
+                ),
+                **log_base,
+                preview_data=applied_changes,
+                result_status="blocked_file_closed",
+                justification=justification,
+            )
     if target_entity_type == "financial_settlement" and current_status == "Closed":
         _log_refusal_and_raise(
             db,

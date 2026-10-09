@@ -46,6 +46,7 @@ from .model import WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
 from .validators import (
     SETTLEMENT_FX_RATE_MISSING,
     ensure_cost_not_approved,
+    ensure_file_open,
     ensure_invoices_not_settled,
     ensure_no_other_active_settlement,
     ensure_settlement_editable,
@@ -670,6 +671,7 @@ def create_settlement_service(
     db: Session, schema: FinancialSettlementCreate, actor: str = "System"
 ) -> LandedCostSettlementRecord:
     imp_file = require_active(db, ImportFile, schema.import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
+    ensure_file_open(imp_file)
 
     existing = get_settlement_by_import_file_id(db, schema.import_file_id)
     if existing:
@@ -772,6 +774,7 @@ def recalculate_settlement_service(db: Session, settlement_id: int, actor: str =
     record = get_settlement_by_id(db, settlement_id)
     if not record:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     ensure_settlement_editable(record)
     _recalculate_in_place(record, actor)
     db.commit()
@@ -789,6 +792,7 @@ def update_settlement_service(
     existing = get_settlement_by_id(db, settlement_id)
     if not existing:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_file_open(existing.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == existing.import_file_id).first())
     ensure_settlement_editable(existing)
 
     update_data = schema.model_dump(exclude_unset=True)
@@ -830,6 +834,7 @@ def list_settlements_service(
 
 def soft_delete_settlement_service(db: Session, settlement_id: int, actor: str = "System") -> bool:
     record = get_settlement_service(db, settlement_id)
+    ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     ensure_settlement_editable(record)
     soft_delete_settlement(db, record, actor)
     db.commit()
@@ -839,6 +844,7 @@ def restore_settlement_service(db: Session, settlement_id: int, actor: str = "Sy
     record = get_settlement_by_id(db, settlement_id, include_inactive=True)
     if not record:
         raise HTTPException(status_code=404, detail=f"سجل التسوية التكليفية رقم {settlement_id} غير موجود.")
+    ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     if not record.is_active:
         ensure_no_other_active_settlement(get_settlement_by_import_file_id(db, record.import_file_id), settlement_id)
     restore_settlement(db, record, actor)
@@ -2022,6 +2028,7 @@ def confirm_invoices_settlement_service(
     from modules.notifications.model import SystemNotification
 
     imp = require_active(db, ImportFile, payload.import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
+    ensure_file_open(imp)
     ensure_invoices_not_settled(imp)
 
     agg = aggregate_shipment_invoices_service(db, payload.import_file_id)
@@ -2589,6 +2596,7 @@ def approve_actual_landed_cost_service(
     from modules.notifications.model import SystemNotification
 
     imp = require_active(db, ImportFile, payload.import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
+    ensure_file_open(imp)
     ensure_cost_not_approved(imp, get_settlement_by_import_file_id(db, imp.import_file_id))
 
     # Run calculation
