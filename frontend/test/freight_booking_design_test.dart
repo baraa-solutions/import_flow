@@ -247,7 +247,7 @@ void main() {
       expect(p.containsKey('booking_id'), isFalse);
     });
 
-    testWidgets('renders the cost tab with all 17 items without overflow on a compact window (800x900)', (tester) async {
+    testWidgets('renders the cost tab with the 16 booking items (no insurance row) without overflow on a compact window (800x900)', (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -258,7 +258,7 @@ void main() {
       final l = AppLocalizations.of(tester.element(find.byType(FreightBookingFormDialog)));
       await tester.tap(find.text(l.freightBookingTabCostBreakdown));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.byType(Switch), findsNWidgets(17));
+      expect(find.byType(Switch), findsNWidgets(16)); // insurance has no row (ACC3-T02)
       expect(tester.takeException(), isNull);
     });
 

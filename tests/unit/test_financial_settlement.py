@@ -1,6 +1,5 @@
 import unittest
 from datetime import datetime, date, timezone
-from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,18 +12,34 @@ from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_tariff.model import CustomsTariff
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.transport_locations.model import TransportLocation
-from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
-from modules.purchase_orders.model import PurchaseOrder, POLineItem
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_insurance.model import CargoInsuranceCertificate
+from modules.customs_clearance.model import CustomsClearanceRecord, ClearanceExpenseInvoice
+from modules.inland_transport.model import InlandTransportBooking
+from modules.demurrage_detention.model import DemurrageTracking
 from modules.import_files.model import ImportFile
 from modules.financial_settlement.model import LandedCostSettlementRecord
-import main  # registers all models with Base.metadata
 from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
     ItemLandedCostSchema,
     FinancialSettlementUpdate,
 )
+from modules.financial_settlement.service import (
+    create_settlement_service,
+    recalculate_settlement_service,
+    get_settlement_service,
+    list_settlements_service,
+    calculate_landed_cost_engine,
+    soft_delete_settlement_service,
+    restore_settlement_service,
+)
+from decimal import Decimal
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.purchase_orders.model import PurchaseOrder, POLineItem
+import main
 from modules.financial_settlement.service import (
     create_settlement_service,
     recalculate_settlement_service,
@@ -183,6 +198,80 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(res_exw["total_expenses_egp"], 95000.0)
         self.assertEqual(res_exw["total_landed_cost_egp"], 245000.0)
         self.assertEqual(res_exw["incoterm_code"], "EXW")
+
+    def test_booking_without_insurance_line_counts_insurance_once(self):
+        # ACC3-T02 acceptance test:
+        # Booking freight 4,000 USD + insurance certificate 346.50 USD at rate 50.0
+        # -> freight row 200,000.00 EGP, insurance row 17,325.00 EGP, no other insurance amount
+        from modules.cargo_insurance.model import CargoInsuranceCertificate
+        from modules.currencies.model import Currency, ExchangeRate
+        from modules.financial_settlement.service import aggregate_shipment_invoices_service
+
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+        self.db.add_all([usd, egp])
+        self.db.flush()
+
+        rate_row = ExchangeRate(
+            currency_id=usd.currency_id,
+            commercial_rate=50.0,
+            customs_rate=50.0,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_row)
+        self.db.commit()
+
+        # Add booking without insurance line (4,000 USD)
+        booking = ShipmentBooking(
+            booking_code="BKG-ACC3-001",
+            booking_confirmation_no="MSC-CONF-4000",
+            import_file_id=self.import_file_id,
+            total_freight_cost_usd=4000.0,
+            status="Confirmed",
+            booking_confirmation_date=datetime.now(timezone.utc),
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(booking)
+
+        # Add insurance certificate (346.50 USD)
+        cert = CargoInsuranceCertificate(
+            certificate_code="INS-CERT-001",
+            policy_number="POL-2026-999",
+            import_file_id=self.import_file_id,
+            insured_entity_name="Delta Industrial Co",
+            insurance_company_name="Misr Insurance",
+            port_of_loading="Shanghai, China",
+            port_of_discharge="Alexandria, Egypt",
+            currency="USD",
+            total_payable_premium=346.50,
+            exchange_rate=50.0,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(cert)
+        self.db.commit()
+
+        res = aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        invoices = res.invoices
+
+        # Check freight invoice: 4,000 USD * 50 = 200,000 EGP
+        frt_invoices = [inv for inv in invoices if inv.category == "Ocean/Air Freight"]
+        self.assertEqual(len(frt_invoices), 1)
+        self.assertEqual(frt_invoices[0].amount_fc, 4000.0)
+        self.assertEqual(frt_invoices[0].amount_egp, 200000.0)
+
+        # Check insurance invoice: 346.50 USD * 50 = 17,325 EGP
+        ins_invoices = [inv for inv in invoices if inv.category == "Marine Insurance"]
+        self.assertEqual(len(ins_invoices), 1)
+        self.assertEqual(ins_invoices[0].amount_fc, 346.50)
+        self.assertEqual(ins_invoices[0].amount_egp, 17325.0)
+
+        # Verify no other insurance amounts are counted
+        total_insurance_egp = sum(inv.amount_egp for inv in ins_invoices)
+        self.assertEqual(total_insurance_egp, 17325.0)
 
     def test_partial_shipment_fob_share(self):
         """
@@ -558,7 +647,6 @@ class TestFinancialSettlementModule(unittest.TestCase):
         recalc_unlinked = _fetch_from_purchase_orders(self.db, file_a.import_file_id, "total_amount_fob", "sum")
         self.assertEqual(recalc_unlinked, 500000.0)
 
-
     def test_estimate_freight_uses_ocean_cost_only(self):
         """
         ACC3-T03: Phase-1 landed cost estimate uses only the ocean freight of the
@@ -783,3 +871,4 @@ class TestFinancialSettlementModule(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

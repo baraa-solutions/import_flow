@@ -581,6 +581,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     _has20ftMismatch = result.has20ftMismatch;
   }
 
+
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
     final l = AppLocalizations.of(context);
     if (hasMixedCurrencies(_currentQuoteState)) {
@@ -843,8 +844,30 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
             (v) => _vgmNotifPrice = v, _vgmNotifCur, (v) => _vgmNotifCur = v),
         _costRow(l.freightBookingItemTelex, _telexReleaseApp, (v) => _telexReleaseApp = v, _telexReleasePrice,
             (v) => _telexReleasePrice = v, _telexReleaseCur, (v) => _telexReleaseCur = v),
-        _costRow(l.freightBookingItemInsurance, _insuranceApp, (v) => _insuranceApp = v, _insurancePrice,
-            (v) => _insurancePrice = v, _insuranceCur, (v) => _insuranceCur = v),
+        if (_insuranceApp || _insurancePrice > 0)
+          Container(
+            key: const ValueKey('fbkInsuranceHint'),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: AppTheme.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l.freightBookingInsuranceHint,
+                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         _costRow(l.freightBookingItemCancellation, _cancellationApp, (v) => _cancellationApp = v, _cancellationPrice,
             (v) => _cancellationPrice = v, _cancellationCur, (v) => _cancellationCur = v),
         _costRow(l.freightBookingItemIcs2, _ics2App, (v) => _ics2App = v, _ics2Price, (v) => _ics2Price = v,

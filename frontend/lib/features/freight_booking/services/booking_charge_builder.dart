@@ -157,9 +157,11 @@ class BookingChargeBuilder {
     String unit,
     String currency,
     double price,
+    String category,
   ) =>
       BookingChargeModel(
         chargeType: chargeType,
+        chargeCategory: category,
         unit: unit,
         quantity: 1,
         currency: currency,
@@ -203,6 +205,7 @@ class BookingChargeBuilder {
 
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 40ft',
+        chargeCategory: 'FREIGHT',
         unit: 'Per 40ft Container',
         quantity: s.container40ftQty.toDouble(),
         containerType: tag,
@@ -230,6 +233,7 @@ class BookingChargeBuilder {
 
       newCharges.add(BookingChargeModel(
         chargeType: 'Sea Freight 20ft',
+        chargeCategory: 'FREIGHT',
         unit: 'Per 20ft Container',
         quantity: s.container20ftQty.toDouble(),
         containerType: tag,
@@ -244,6 +248,7 @@ class BookingChargeBuilder {
       final qty = s.lclCbmQty > 0 ? s.lclCbmQty : 1.0;
       newCharges.add(BookingChargeModel(
         chargeType: 'LCL CBM Freight',
+        chargeCategory: 'FREIGHT',
         unit: 'Per CBM',
         quantity: qty,
         currency: s.lclCbmCur,
@@ -254,46 +259,45 @@ class BookingChargeBuilder {
 
     // Surcharges & additional fees
     if (s.dthcApp && s.dthcPrice > 0) {
-      newCharges.add(_flat('DTHC (Destination THC)', 'Per Shipment', s.dthcCur, s.dthcPrice));
+      newCharges.add(_flat('DTHC (Destination THC)', 'Per Shipment', s.dthcCur, s.dthcPrice, 'DESTINATION_LOCAL'));
     }
     if (s.storagePerWeekApp && s.storagePerWeekPrice > 0) {
-      newCharges.add(_flat('Storage per one week', 'Per Week', s.storagePerWeekCur, s.storagePerWeekPrice));
+      newCharges.add(_flat('Storage per one week', 'Per Week', s.storagePerWeekCur, s.storagePerWeekPrice, 'STORAGE'));
     }
     if (s.extraDayStorageApp && s.extraDayStoragePrice > 0) {
-      newCharges.add(_flat('Extra day storage', 'Per Day', s.extraDayStorageCur, s.extraDayStoragePrice));
+      newCharges.add(_flat('Extra day storage', 'Per Day', s.extraDayStorageCur, s.extraDayStoragePrice, 'STORAGE'));
     }
     if (s.solasVgmApp && s.solasVgmPrice > 0) {
-      newCharges.add(_flat('SOLAS/VGM Fees', 'Per Container', s.solasVgmCur, s.solasVgmPrice));
+      newCharges.add(_flat('SOLAS/VGM Fees', 'Per Container', s.solasVgmCur, s.solasVgmPrice, 'ORIGIN_LOCAL'));
     }
     if (s.vgmNotifApp && s.vgmNotifPrice > 0) {
-      newCharges.add(_flat('VGM Notification Fee', 'Per Container', s.vgmNotifCur, s.vgmNotifPrice));
+      newCharges.add(_flat('VGM Notification Fee', 'Per Container', s.vgmNotifCur, s.vgmNotifPrice, 'OTHER'));
     }
     if (s.telexReleaseApp && s.telexReleasePrice > 0) {
-      newCharges.add(_flat('Telex Release', 'Per Shipment', s.telexReleaseCur, s.telexReleasePrice));
+      newCharges.add(_flat('Telex Release', 'Per Shipment', s.telexReleaseCur, s.telexReleasePrice, 'OTHER'));
     }
     if (s.expressCourierApp && s.expressCourierPrice > 0) {
-      newCharges.add(_flat('Express Courier', 'Per Shipment', s.expressCourierCur, s.expressCourierPrice));
+      newCharges.add(_flat('Express Courier', 'Per Shipment', s.expressCourierCur, s.expressCourierPrice, 'OTHER'));
     }
     if (s.eurAtrApp && s.eurAtrPrice > 0) {
-      newCharges.add(_flat('EUR.1 / ATR Certificate', 'Per Certificate', s.eurAtrCur, s.eurAtrPrice));
+      newCharges.add(_flat('EUR.1 / ATR Certificate', 'Per Certificate', s.eurAtrCur, s.eurAtrPrice, 'OTHER'));
     }
-    if (s.insuranceApp && s.insurancePrice > 0) {
-      newCharges.add(_flat('Marine Insurance', 'Per Policy', s.insuranceCur, s.insurancePrice));
-    }
+    // Marine Insurance is never a booking charge (ACC3-T02): it is recorded in the
+    // Cargo Insurance module, and the backend rejects INSURANCE lines (422).
     if (s.docFeesApp && s.docFeesPrice > 0) {
-      newCharges.add(_flat('Document Fees', 'Per Shipment', s.docFeesCur, s.docFeesPrice));
+      newCharges.add(_flat('Document Fees', 'Per Shipment', s.docFeesCur, s.docFeesPrice, 'OTHER'));
     }
     if (s.waiverApp && s.waiverPrice > 0) {
-      newCharges.add(_flat('Waiver Letter Fee', 'Per Letter', s.waiverCur, s.waiverPrice));
+      newCharges.add(_flat('Waiver Letter Fee', 'Per Letter', s.waiverCur, s.waiverPrice, 'OTHER'));
     }
     if (s.ics2App && s.ics2Price > 0) {
-      newCharges.add(_flat('ICS2 Filing Fee', 'Per Filing', s.ics2Cur, s.ics2Price));
+      newCharges.add(_flat('ICS2 Filing Fee', 'Per Filing', s.ics2Cur, s.ics2Price, 'OTHER'));
     }
     if (s.otherFeesApp && s.otherFeesPrice > 0) {
-      newCharges.add(_flat('Other Fees', 'Per Shipment', s.otherFeesCur, s.otherFeesPrice));
+      newCharges.add(_flat('Other Fees', 'Per Shipment', s.otherFeesCur, s.otherFeesPrice, 'OTHER'));
     }
     if (s.cancellationApp && s.cancellationPrice > 0) {
-      newCharges.add(_flat('Booking Cancellation', 'Per Shipment', s.cancellationCur, s.cancellationPrice));
+      newCharges.add(_flat('Booking Cancellation', 'Per Shipment', s.cancellationCur, s.cancellationPrice, 'OTHER'));
     }
 
     return BookingChargeBuildResult(

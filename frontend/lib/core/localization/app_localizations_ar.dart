@@ -2892,6 +2892,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. إخطار إقرار الوزن';
   @override String get freightBookingItemTelex => '8. إطلاق الفاكس الملاحي';
   @override String get freightBookingItemInsurance => '9. بوليصة التأمين البحري';
+  @override String get freightBookingInsuranceHint => 'سجل التأمين البحري في شاشة وثائق التأمين، فهو لا يدخل ضمن تكاليف الحجز.';
   @override String get freightBookingItemCancellation => '10. غرامة إلغاء الحجز';
   @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة (ICS2)';
   @override String get freightBookingItemOther => '12. مصاريف ورسوم أخرى';

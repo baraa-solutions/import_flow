@@ -2892,6 +2892,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. VGM Notification Fee';
   @override String get freightBookingItemTelex => '8. Telex Release';
   @override String get freightBookingItemInsurance => '9. Marine Insurance';
+  @override String get freightBookingInsuranceHint => 'Record marine insurance in the Cargo Insurance screen; it is not part of the booking charges.';
   @override String get freightBookingItemCancellation => '10. Booking Cancellation';
   @override String get freightBookingItemIcs2 => '11. ICS2 Filing Fee';
   @override String get freightBookingItemOther => '12. Other Freight Fees';

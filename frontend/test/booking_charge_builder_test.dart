@@ -206,4 +206,47 @@ void main() {
       expect(result.charges.any((c) => c.chargeType == 'Sea Freight 20ft'), isTrue);
     });
   });
+  _acc3t02Tests();
+}
+
+void _acc3t02Tests() {
+  group('Insurance out of booking charges (ACC3-T02)', () {
+    final state = FbkQuoteState(
+      container40ftApp: true,
+      container40ftPrice: 3000.0,
+      container40ftQty: 1,
+      dthcApp: true,
+      dthcPrice: 100.0,
+      storagePerWeekApp: true,
+      storagePerWeekPrice: 50.0,
+      insuranceApp: true,
+      insurancePrice: 350.0,
+      insuranceCur: 'EUR',
+      docFeesApp: true,
+      docFeesPrice: 25.0,
+    );
+    final charges = BookingChargeBuilder.build(
+      state,
+      containers: [ContainerAllocationModel(containerType: '40HC', quantity: 1)],
+    ).charges;
+
+    test('Marine Insurance never becomes a booking charge', () {
+      expect(charges.any((c) => c.chargeType == 'Marine Insurance'), isFalse);
+      expect(charges.any((c) => c.chargeCategory == 'INSURANCE'), isFalse);
+    });
+
+    test('insurance is excluded from the total and from the currency guard', () {
+      expect(charges.fold<double>(0, (s, c) => s + c.total), 3000.0 + 100.0 + 50.0 + 25.0);
+      expect(hasMixedCurrencies(state), isFalse);
+    });
+
+    test('every line carries the category the backend expects', () {
+      String cat(String type) => charges.firstWhere((c) => c.chargeType == type).chargeCategory!;
+      expect(cat('Sea Freight 40ft'), 'FREIGHT');
+      expect(cat('DTHC (Destination THC)'), 'DESTINATION_LOCAL');
+      expect(cat('Storage per one week'), 'STORAGE');
+      expect(cat('Document Fees'), 'OTHER');
+      expect(charges.every((c) => c.chargeCategory != null), isTrue);
+    });
+  });
 }

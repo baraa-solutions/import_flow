@@ -23,6 +23,10 @@ class BookingChargeItem(BaseModel):
     total: float = Field(default=0.0, ge=0.0)
     fx_rate_to_usd: Optional[float] = None
     amount_usd: Optional[float] = None
+    charge_category: Optional[str] = Field(
+        default=None,
+        description="FREIGHT, ORIGIN_LOCAL, DESTINATION_LOCAL, INSURANCE, STORAGE, OTHER",
+    )
 
 
 class ShipmentBookingBase(BaseModel):

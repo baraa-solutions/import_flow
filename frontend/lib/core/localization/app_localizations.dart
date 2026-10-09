@@ -3010,6 +3010,7 @@ abstract class AppLocalizations {
   String get freightBookingItemVgmNotif;
   String get freightBookingItemTelex;
   String get freightBookingItemInsurance;
+  String get freightBookingInsuranceHint;
   String get freightBookingItemCancellation;
   String get freightBookingItemIcs2;
   String get freightBookingItemOther;
