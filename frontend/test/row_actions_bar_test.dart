@@ -276,6 +276,31 @@ void main() {
 
       expect(editTapped, isTrue);
     });
+
+    testWidgets('pill delete with async onDelete opening dialog does NOT show deletedSuccessfully on cancel', (tester) async {
+      bool actuallyDeleted = false;
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          child: RowActionsPill(
+            onDelete: () async {
+              // Custom caller-managed dialog where user cancels
+              final confirmed = false;
+              if (confirmed) {
+                actuallyDeleted = true;
+              }
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(actuallyDeleted, isFalse);
+      expect(find.text('Deleted successfully'), findsNothing);
+    });
   });
 
   group('RowContextMenuHelper tests', () {
@@ -373,6 +398,159 @@ void main() {
 
       expect(find.byIcon(Icons.visibility), findsOneWidget);
       expect(find.byIcon(Icons.edit), findsNothing);
+    });
+
+    testWidgets('renders action with disabledReason as disabled and prevents execution', (tester) async {
+      bool deleteCalled = false;
+      final actions = [
+        RowAction<String>.delete(
+          disabledReason: 'Has linked active records',
+          run: (s) => deleteCalled = true,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          child: Builder(
+            builder: (ctx) => ElevatedButton(
+              onPressed: () {
+                RowContextMenuHelper.showActionsMenu<String>(
+                  context: ctx,
+                  globalPosition: const Offset(100, 100),
+                  row: 'item-1',
+                  actions: actions,
+                );
+              },
+              child: const Text('Open Disabled Menu'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open Disabled Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Has linked active records'), findsOneWidget);
+
+      // Tap disabled delete item
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(deleteCalled, isFalse);
+      expect(find.text('Deleted successfully'), findsNothing);
+    });
+
+    testWidgets('automatically reads permissions from ProviderScope when permissions parameter is null', (tester) async {
+      final actions = [
+        RowAction<String>.view(
+          permission: 'orders.view',
+          run: (s) {},
+        ),
+        RowAction<String>.edit(
+          permission: 'orders.manage',
+          run: (s) {},
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          permissions: const PermissionSet({'orders.view'}),
+          child: Builder(
+            builder: (ctx) => ElevatedButton(
+              onPressed: () {
+                RowContextMenuHelper.showActionsMenu<String>(
+                  context: ctx,
+                  globalPosition: const Offset(100, 100),
+                  row: 'item-1',
+                  actions: actions,
+                );
+              },
+              child: const Text('Open Auto-Permission Menu'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open Auto-Permission Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.visibility), findsOneWidget);
+      expect(find.byIcon(Icons.edit), findsNothing);
+    });
+
+    testWidgets('legacy showContextMenu renders View details first in English and executes onView', (tester) async {
+      bool viewTapped = false;
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          child: Builder(
+            builder: (ctx) => ElevatedButton(
+              onPressed: () {
+                RowContextMenuHelper.showContextMenu(
+                  context: ctx,
+                  globalPosition: const Offset(100, 100),
+                  codeToCopy: 'SUP-001',
+                  onView: () => viewTapped = true,
+                  onEdit: () {},
+                  onHistory: () {},
+                  isActive: true,
+                  onToggleActive: () {},
+                );
+              },
+              child: const Text('Open Legacy Menu'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open Legacy Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('View Details'), findsOneWidget);
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      expect(viewTapped, isTrue);
+    });
+
+    testWidgets('legacy showContextMenu renders View details first in Arabic', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.arabic,
+            home: Scaffold(
+              body: Center(
+                child: Builder(
+                  builder: (ctx) => ElevatedButton(
+                    onPressed: () {
+                      RowContextMenuHelper.showContextMenu(
+                        context: ctx,
+                        globalPosition: const Offset(100, 100),
+                        codeToCopy: 'SUP-001',
+                        onView: () {},
+                        onEdit: () {},
+                        onHistory: () {},
+                        isActive: true,
+                        onToggleActive: () {},
+                      );
+                    },
+                    child: const Text('افتح القائمة'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('افتح القائمة'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('عرض التفاصيل'), findsOneWidget);
     });
   });
 }

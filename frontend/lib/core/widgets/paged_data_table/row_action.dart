@@ -36,6 +36,7 @@ class RowAction<T> {
   final Color? color;
   final Color? backgroundColor;
   final bool isDestructive;
+  final bool showOutcomeSnackBar;
 
   const RowAction({
     required this.kind,
@@ -51,6 +52,7 @@ class RowAction<T> {
     this.color,
     this.backgroundColor,
     this.isDestructive = false,
+    this.showOutcomeSnackBar = true,
   });
 
   /// 👁️ Standard View / Details action.
@@ -167,6 +169,8 @@ class RowAction<T> {
     String Function(AppLocalizations l, T row)? confirmMessage,
     IconData? icon,
     String Function(AppLocalizations l)? label,
+    bool isDestructive = true,
+    bool showOutcomeSnackBar = true,
   }) =>
       RowAction<T>(
         kind: RowActionKind.delete,
@@ -181,7 +185,8 @@ class RowAction<T> {
         label: label ?? ((l) => l.deleteTooltip),
         color: AppTheme.crimson,
         backgroundColor: AppTheme.crimsonLight,
-        isDestructive: true,
+        isDestructive: isDestructive,
+        showOutcomeSnackBar: showOutcomeSnackBar,
       );
 
   /// ⚙️ Custom action.
@@ -390,7 +395,7 @@ class RowActionsBar<T> extends ConsumerWidget {
 
     try {
       await action.run(row);
-      if (context.mounted && action.isDestructive) {
+      if (context.mounted && action.isDestructive && action.showOutcomeSnackBar) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l.deletedSuccessfully),
@@ -447,16 +452,35 @@ class RowActionsBar<T> extends ConsumerWidget {
         primaryWidgets.add(const SizedBox(width: 4));
       }
 
-      primaryWidgets.add(
-        IconActionButton(
-          icon: action.resolveIcon(),
-          color: action.resolveColor(context),
-          backgroundColor: action.resolveBackgroundColor(context),
-          tooltip: tooltip,
-          iconSize: iconSize,
-          onTap: isActionEnabled ? () => _handleActionTap(context, action) : null,
-        ),
-      );
+      final onTap = isActionEnabled ? () => _handleActionTap(context, action) : null;
+      switch (kind) {
+        case RowActionKind.view:
+          primaryWidgets.add(ViewActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          break;
+        case RowActionKind.edit:
+          primaryWidgets.add(EditActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          break;
+        case RowActionKind.print:
+          primaryWidgets.add(PrintActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          break;
+        case RowActionKind.delete:
+          primaryWidgets.add(DeleteActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          break;
+        case RowActionKind.clone:
+          primaryWidgets.add(CloneActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          break;
+        default:
+          primaryWidgets.add(
+            IconActionButton(
+              icon: action.resolveIcon(),
+              color: action.resolveColor(context),
+              backgroundColor: action.resolveBackgroundColor(context),
+              tooltip: tooltip,
+              iconSize: iconSize,
+              onTap: onTap,
+            ),
+          );
+      }
     }
 
     // Add overflow button if there are custom actions
