@@ -3609,6 +3609,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get categoryAirFreight => 'شحن جوي';
   @override String get categoryBulkCargo => 'بضائع صب';
   @override String get categoryMultimodal => 'شحن متعدد الوسائط';
+  @override String get categoryCourier => 'بريد سريع (Courier)';
+  @override String get budgetCurrencyLabel => 'عملة الميزانية';
   @override String get projectsCopyFieldTooltip => 'نسخ البيانات';
   @override String get projectsExportTsvBtn => 'تصدير المشاريع (جدول)';
   @override String get projectsExportTsvSuccess => 'تم نسخ بيانات جميع المشاريع كجدول بنجاح';

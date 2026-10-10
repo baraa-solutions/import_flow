@@ -214,8 +214,8 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     Directionality.of(context) == TextDirection.rtl
-                                        ? 'إجمالي الرصيد المكافئ بالجنيه المصري (وفق أسعار الصرف الرسمية):'
-                                        : 'Total Equivalent Balance in EGP (Official Exchange Rates):',
+                                        ? 'إجمالي الرصيد المكافئ بالجنيه المصري (سعر البنك التجاري بتاريخ ${soa.asOfDate ?? "اليوم"}):'
+                                        : 'Total Equivalent Balance in EGP (Commercial rate as of ${soa.asOfDate ?? "today"}):',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
@@ -229,6 +229,35 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.cobalt,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (soa.hasUnconvertedBalances) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade700.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    Directionality.of(context) == TextDirection.rtl
+                                        ? 'تنبيه: توجد عملات أجنبية ليس لها سعر صرف مسجل بتاريخ اليوم، لم يتم تحويلها للجنيه المصري.'
+                                        : 'Notice: Some foreign currencies have no exchange rate recorded as of today and are not included in the EGP total.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -327,33 +356,52 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       ),
                                     ],
                                   ),
-                                  if (cb.currency != 'EGP' && cb.equivalentEgp != null) ...[
+                                  if (cb.currency != 'EGP') ...[
                                     const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            Directionality.of(context) == TextDirection.rtl
-                                                ? 'المعادل بالجنيه:'
-                                                : 'Equiv. (EGP):',
+                                    if (cb.equivalentEgp != null)
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              Directionality.of(context) == TextDirection.rtl
+                                                  ? 'المعادل بالجنيه:'
+                                                  : 'Equiv. (EGP):',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: isDark ? AppTheme.darkTextSecondary : Colors.black45,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${_formatNumber(cb.equivalentEgp!)} EGP (1=${cb.exchangeRateUsed ?? 1})',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              color: isDark ? AppTheme.darkTextSecondary : Colors.black45,
+                                              color: isDark ? AppTheme.darkTextSecondary : Colors.black54,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '${_formatNumber(cb.equivalentEgp!)} EGP (1=${cb.exchangeRateUsed ?? 1})',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: isDark ? AppTheme.darkTextSecondary : Colors.black54,
-                                            fontWeight: FontWeight.w600,
+                                        ],
+                                      )
+                                    else if (cb.warning != null)
+                                      Row(
+                                        children: [
+                                          Icon(Icons.info_outline, size: 12, color: Colors.amber.shade700),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              cb.warning!,
+                                              style: TextStyle(
+                                                fontSize: 9.5,
+                                                color: Colors.amber.shade800,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                   ],
                                 ],
                               ),

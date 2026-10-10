@@ -17,6 +17,7 @@ class ProjectBase(BaseModel):
     allow_multi_shipment: bool = Field(True, description="يسمح بالشحن على أكثر من شحنة")
     allow_multi_company: bool = Field(True, description="يسمح بالربط مع أكثر من شركة أو خط شحن")
     total_budget_usd: Optional[float] = Field(None, ge=0)
+    budget_currency: str = Field("USD", max_length=10)
     target_end_date: Optional[str] = Field(None, max_length=50, description="تاريخ الانتهاء المستهدف (YYYY-MM-DD)")
     notes: Optional[str] = None
 
@@ -38,6 +39,7 @@ class ProjectUpdate(BaseModel):
     allow_multi_shipment: Optional[bool] = None
     allow_multi_company: Optional[bool] = None
     total_budget_usd: Optional[float] = Field(None, ge=0)
+    budget_currency: Optional[str] = Field(None, max_length=10)
     target_end_date: Optional[str] = Field(None, max_length=50)
     status: Optional[str] = Field(None, max_length=50)  # Open, Closed, On Hold
     notes: Optional[str] = None

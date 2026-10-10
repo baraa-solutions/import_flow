@@ -109,9 +109,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         return l10n.categoryBulkCargo;
       case 'Multimodal':
         return l10n.categoryMultimodal;
+      case 'Courier':
+        return l10n.categoryCourier;
       default:
         return category;
     }
+  }
+
+  String _formatBudget(BuildContext context, ProjectModel p) {
+    if (p.totalBudgetUsd == null) return context.l10n.projectBudgetNotSet;
+    return '${p.budgetCurrency} ${p.totalBudgetUsd!.toStringAsFixed(2)}';
   }
 
   String _getPriorityLabel(BuildContext context, String priority) {
@@ -157,9 +164,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           .map((c) => _getCategoryLabel(context, c))
           .join(', ');
       final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-      final budgetText = p.totalBudgetUsd != null
-          ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-          : l10n.projectBudgetNotSet;
+      final budgetText = _formatBudget(context, p);
       final targetDateText = p.targetEndDate ?? '';
       final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
       final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -196,9 +201,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         .map((c) => _getCategoryLabel(context, c))
         .join(', ');
     final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-    final budgetText = p.totalBudgetUsd != null
-        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-        : l10n.projectBudgetNotSet;
+    final budgetText = _formatBudget(context, p);
     final targetDateText = p.targetEndDate ?? '-';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -230,9 +233,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         .map((c) => _getCategoryLabel(context, c))
         .join(', ');
     final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-    final budgetText = p.totalBudgetUsd != null
-        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-        : l10n.projectBudgetNotSet;
+    final budgetText = _formatBudget(context, p);
     final targetDateText = p.targetEndDate ?? '';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -542,9 +543,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                       .map((c) => _getCategoryLabel(context, c))
                                       .join(', ');
                                   final rowSummary = _buildProjectRowSummary(context, p);
-                                  final budgetText = p.totalBudgetUsd != null
-                                      ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-                                      : l10n.projectBudgetNotSet;
+                                  final budgetText = _formatBudget(context, p);
                                   final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
 
                                   return TableRow(
@@ -900,8 +899,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       'LCL Breakbulk',
       'Air Freight',
       'Bulk Cargo',
-      'Multimodal'
+      'Multimodal',
+      'Courier',
     ];
+
+    String selectedCurrency = project?.budgetCurrency ?? 'USD';
+    final List<String> availableCurrencies = ['USD', 'EUR', 'EGP', 'GBP', 'CNY', 'AED', 'SAR', 'JPY'];
+    if (!availableCurrencies.contains(selectedCurrency)) {
+      availableCurrencies.insert(0, selectedCurrency);
+    }
 
     final Set<String> selectedCategories = project != null && project.shipmentCategory.isNotEmpty
         ? project.shipmentCategory.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
@@ -1133,6 +1139,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     Row(
                       children: [
                         Expanded(
+                          flex: 3,
                           child: TextFormField(
                             controller: budgetCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1147,8 +1154,26 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 120,
+                          child: SearchableDropdownField<String>(
+                            value: selectedCurrency,
+                            labelText: l10n.budgetCurrencyLabel,
+                            items: availableCurrencies
+                                .map((c) => SearchableDropdownItem<String>(
+                                      value: c,
+                                      label: c,
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setDialogState(() => selectedCurrency = v);
+                            },
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
+                          flex: 3,
                           child: TextFormField(
                             controller: targetEndDateCtrl,
                             readOnly: true,
@@ -1270,6 +1295,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               allowMultiShipment: allowMultiShipment,
                               allowMultiCompany: allowMultiCompany,
                               totalBudgetUsd: budget,
+                              budgetCurrency: selectedCurrency,
                               targetEndDate: targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             );
@@ -1289,6 +1315,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               'allow_multi_shipment': allowMultiShipment,
                               'allow_multi_company': allowMultiCompany,
                               'total_budget_usd': budget,
+                              'budget_currency': selectedCurrency,
                               'target_end_date': targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               'status': selectedStatus,
                               'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),

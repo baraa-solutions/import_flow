@@ -129,6 +129,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
   final TextEditingController _importerCardCtrl = TextEditingController();
   final TextEditingController _nafezaTokenCtrl = TextEditingController();
+  bool _showNafezaToken = false;
   DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365));
   DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
   DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 2));
@@ -807,7 +808,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': 'Egypt',
-            'default_free_days': int.tryParse(_defaultFreeDaysCtrl.text.trim()) ?? 14,
+            'default_free_days': int.tryParse(_defaultFreeDaysCtrl.text.trim()),
             'payment_terms': _paymentTermsCtrl.text.trim().isNotEmpty ? _paymentTermsCtrl.text.trim() : null,
             'credit_limit': double.tryParse(_creditLimitCtrl.text.trim()) ?? 0.0,
             'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
@@ -2170,11 +2171,25 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: TextFormField(
-                controller: _nafezaTokenCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'معرف توكن نافذة المعتمد' : 'Nafeza E-Token ID',
-                  prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+              child: StatefulBuilder(
+                builder: (context, setFieldState) => TextFormField(
+                  controller: _nafezaTokenCtrl,
+                  obscureText: !_showNafezaToken,
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'معرف توكن نافذة المعتمد' : 'Nafeza E-Token ID',
+                    prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _showNafezaToken ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                      ),
+                      tooltip: isArabic ? (_showNafezaToken ? 'إخفاء' : 'إظهار') : (_showNafezaToken ? 'Hide' : 'Show'),
+                      onPressed: () {
+                        setState(() => _showNafezaToken = !_showNafezaToken);
+                        setFieldState(() {});
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -3098,7 +3113,11 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
     addField('البريد الإلكتروني', 'Email', _emailCtrl.text);
     addField('البريد الثانوي', 'Secondary Email', _secondaryEmailCtrl.text);
     addField('الموقع الإلكتروني', 'Website', _websiteCtrl.text);
-    addField('توكن نافذة', 'Nafeza Token', _nafezaTokenCtrl.text);
+    final nafezaRaw = _nafezaTokenCtrl.text.trim();
+    if (nafezaRaw.isNotEmpty) {
+      final masked = nafezaRaw.length > 4 ? '****${nafezaRaw.substring(nafezaRaw.length - 4)}' : '****';
+      addField('توكن نافذة', 'Nafeza Token', masked);
+    }
     if (_hasWipo) addField('WIPO Madrid', 'WIPO Madrid', _wipoNumberCtrl.text.isNotEmpty ? _wipoNumberCtrl.text : 'Yes');
     if (_hasEuipo) addField('EUIPO', 'EUIPO', _euipoNumberCtrl.text.isNotEmpty ? _euipoNumberCtrl.text : 'Yes');
     if (_hasGlobalBrand) addField('Global Brand', 'Global Brand', _globalBrandNumberCtrl.text.isNotEmpty ? _globalBrandNumberCtrl.text : 'Yes');

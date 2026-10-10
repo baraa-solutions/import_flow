@@ -39,6 +39,7 @@ class ProjectModel {
   final bool allowMultiShipment;
   final bool allowMultiCompany;
   final double? totalBudgetUsd;
+  final String budgetCurrency;
   final String? targetEndDate;
   final String status;
   final String? notes;
@@ -67,6 +68,7 @@ class ProjectModel {
     this.allowMultiShipment = true,
     this.allowMultiCompany = true,
     this.totalBudgetUsd,
+    this.budgetCurrency = 'USD',
     this.targetEndDate,
     this.status = 'Open',
     this.notes,
@@ -104,6 +106,7 @@ class ProjectModel {
       allowMultiShipment: _parseBool(json['allow_multi_shipment'], defaultValue: true),
       allowMultiCompany: _parseBool(json['allow_multi_company'], defaultValue: true),
       totalBudgetUsd: _numToNullableDouble(json['total_budget_usd']),
+      budgetCurrency: json['budget_currency']?.toString() ?? 'USD',
       targetEndDate: json['target_end_date']?.toString(),
       status: json['status']?.toString() ?? 'Open',
       notes: json['notes']?.toString(),
@@ -135,6 +138,7 @@ class ProjectModel {
       'allow_multi_shipment': allowMultiShipment,
       'allow_multi_company': allowMultiCompany,
       'total_budget_usd': totalBudgetUsd,
+      'budget_currency': budgetCurrency,
       if (targetEndDate != null) 'target_end_date': targetEndDate,
       'status': status,
       'notes': notes,

@@ -212,7 +212,10 @@ class PartnerCurrencyBalanceModel {
   final double totalPaid;
   final double balanceDue;
   final double? exchangeRateUsed;
+  final String? rateType;
+  final String? rateDate;
   final double? equivalentEgp;
+  final String? warning;
 
   PartnerCurrencyBalanceModel({
     required this.currency,
@@ -220,7 +223,10 @@ class PartnerCurrencyBalanceModel {
     this.totalPaid = 0.0,
     this.balanceDue = 0.0,
     this.exchangeRateUsed,
+    this.rateType,
+    this.rateDate,
     this.equivalentEgp,
+    this.warning,
   });
 
   factory PartnerCurrencyBalanceModel.fromJson(Map<String, dynamic> json) {
@@ -230,7 +236,10 @@ class PartnerCurrencyBalanceModel {
       totalPaid: (json['total_paid'] as num?)?.toDouble() ?? 0.0,
       balanceDue: (json['balance_due'] as num?)?.toDouble() ?? 0.0,
       exchangeRateUsed: (json['exchange_rate_used'] as num?)?.toDouble(),
+      rateType: json['rate_type']?.toString(),
+      rateDate: json['rate_date']?.toString(),
       equivalentEgp: (json['equivalent_egp'] as num?)?.toDouble(),
+      warning: json['warning']?.toString(),
     );
   }
 }
@@ -289,6 +298,9 @@ class PartnerStatementOfAccountModel {
   final List<PartnerLedgerEntryModel> ledgerEntries;
   final int totalInvoicesCount;
   final int totalPaymentsCount;
+  final String? asOfDate;
+  final String? rateType;
+  final bool hasUnconvertedBalances;
 
   PartnerStatementOfAccountModel({
     required this.providerId,
@@ -300,6 +312,9 @@ class PartnerStatementOfAccountModel {
     this.ledgerEntries = const [],
     this.totalInvoicesCount = 0,
     this.totalPaymentsCount = 0,
+    this.asOfDate,
+    this.rateType,
+    this.hasUnconvertedBalances = false,
   });
 
   factory PartnerStatementOfAccountModel.fromJson(Map<String, dynamic> json) {
@@ -319,6 +334,9 @@ class PartnerStatementOfAccountModel {
           [],
       totalInvoicesCount: json['total_invoices_count'] ?? 0,
       totalPaymentsCount: json['total_payments_count'] ?? 0,
+      asOfDate: json['as_of_date']?.toString(),
+      rateType: json['rate_type']?.toString(),
+      hasUnconvertedBalances: json['has_unconverted_balances'] == true,
     );
   }
 }

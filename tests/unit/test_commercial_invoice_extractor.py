@@ -111,3 +111,53 @@ class TestCommercialInvoiceExtractor:
             assert import_file.invoices_count == 1
         finally:
             db.close()
+
+    def test_extract_arabic_commercial_invoice_fields(self):
+        arabic_text = """تحليل شامل لبيانات الفاتورة التجارية المرفقة:
+1. الأطراف والبيانات الأساسية
+المُصدِّر (البائع): شركة G.I. INDUSTRIAL HOLDING SPA (إيطاليا - Via G. Agnelli, 7, 33053 Latisana).
+المستورد (المشتري): شركة ECO ASSOCIATES (مصر - 7 شارع حسني عثمان، حي السفارات، مدينة نصر، القاهرة).
+رقم الفاتورة: V1/ 2539.
+تاريخ الفاتورة: 30/06/2026.
+أرقام المراجع:أمر شراء العميل (PO): ECO/53/26REV00.
+تأكيد أمر التوريد: 768 date 14/04/26.
+إذن التسليم/البوليصة: Bolla RO/0/ 441 Del 30/06/2026.
+كود العميل: 801765.
+الرقم الضريبي للمستورد (V.A.T. ID): 200183044.
+2. الشروط التجارية والمالية
+شرط التسليم (Incoterms 2020): EXW EXTRA UE (تسليم أرض المصنع خارج الاتحاد الأوروبي).
+شروط الدفع: 100% ADVANCED PAYMENT (دفع مقدم 100%).
+العملة: يورو (EUR).
+القيمة الإجمالية للفاتورة: 15,100.00 يورو.
+3. تفاصيل البنود والأصناف (Line Items)
+كود الصنف: WOPB3D0048S0009.
+الوصف: وحدة تكييف هواء / مبرد مياه بنظام السوائل (مبرد مياه وشيلر) - TWS 340 S.
+البند الجمركي (HS Code): 84158200.
+الكمية: 2 (قطعتين / No).
+سعر الوحدة: 7,550.00 يورو.
+الإجمالي للبند: 15,100.00 يورو.
+الوزن الصافي (Net Weight): 820.60 كجم.
+الوزن الإجمالي/القائم (Gross Weight): 848.60 كجم.
+بلد المنشأ: إيطاليا (Italy)."""
+        extractor = CommercialInvoiceExtractor()
+        data = extractor.extract(arabic_text, {})
+
+        assert data["invoice_number"] == "V1/ 2539"
+        assert data["invoice_date"] == "30/06/2026"
+        assert data["supplier_name"] == "G.I. INDUSTRIAL HOLDING SPA"
+        assert data["importer_name"] == "ECO ASSOCIATES"
+        assert data["importer_tax_id"] == "200183044"
+        assert data["incoterms"] == "EXW"
+        assert data["currency"] == "EUR"
+        assert data["invoice_value"] == 15100.0
+        assert data["origin_country"] == "إيطاليا"
+        assert data["payment_terms"] == "100% ADVANCED PAYMENT"
+        assert data["total_gross_weight_kg"] == 848.6
+        assert data["total_net_weight_kg"] == 820.6
+        assert len(data["items"]) == 1
+        assert data["items"][0]["item_code"] == "WOPB3D0048S0009"
+        assert data["items"][0]["hs_code"] == "84158200"
+        assert data["items"][0]["quantity"] == 2.0
+        assert data["items"][0]["unit_price"] == 7550.0
+        assert data["items"][0]["total_price"] == 15100.0
+

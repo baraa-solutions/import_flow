@@ -3609,6 +3609,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get categoryAirFreight => 'Air Freight';
   @override String get categoryBulkCargo => 'Bulk Cargo';
   @override String get categoryMultimodal => 'Multimodal';
+  @override String get categoryCourier => 'Courier';
+  @override String get budgetCurrencyLabel => 'Budget Currency';
   @override String get projectsCopyFieldTooltip => 'Copy data';
   @override String get projectsExportTsvBtn => 'Export Projects (TSV)';
   @override String get projectsExportTsvSuccess => 'Projects table copied to clipboard successfully';

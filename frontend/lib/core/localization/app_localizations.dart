@@ -3730,6 +3730,8 @@ abstract class AppLocalizations {
   String get categoryAirFreight;
   String get categoryBulkCargo;
   String get categoryMultimodal;
+  String get categoryCourier;
+  String get budgetCurrencyLabel;
   String get projectsCopyFieldTooltip;
   String get projectsExportTsvBtn;
   String get projectsExportTsvSuccess;

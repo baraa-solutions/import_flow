@@ -121,8 +121,11 @@ class PartnerCurrencyBalance(BaseModel):
     total_invoiced: float = 0.0
     total_paid: float = 0.0
     balance_due: float = 0.0
-    exchange_rate_used: float = 1.0
-    equivalent_egp: float = 0.0
+    exchange_rate_used: Optional[float] = None
+    rate_type: Optional[str] = None
+    rate_date: Optional[str] = None
+    equivalent_egp: Optional[float] = None
+    warning: Optional[str] = None
 
 
 class PartnerLedgerEntry(BaseModel):
@@ -145,10 +148,13 @@ class PartnerStatementOfAccountResponse(BaseModel):
     partner_name: str
     partner_type: str
     currency_balances: list[PartnerCurrencyBalance] = []
-    equivalent_egp_total: float = 0.0
+    equivalent_egp_total: Optional[float] = None
     ledger_entries: list[PartnerLedgerEntry] = []
     total_invoices_count: int = 0
     total_payments_count: int = 0
+    as_of_date: Optional[str] = None
+    rate_type: Optional[str] = None
+    has_unconverted_balances: bool = False
 
 
 # ==================================================

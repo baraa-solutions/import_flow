@@ -82,6 +82,7 @@ class ProjectRepository:
             allow_multi_shipment=data.allow_multi_shipment,
             allow_multi_company=data.allow_multi_company,
             total_budget_usd=data.total_budget_usd,
+            budget_currency=data.budget_currency.strip() if getattr(data, "budget_currency", None) else "USD",
             target_end_date=data.target_end_date.strip() if data.target_end_date else None,
             status="Open",
             notes=data.notes.strip() if data.notes else None,

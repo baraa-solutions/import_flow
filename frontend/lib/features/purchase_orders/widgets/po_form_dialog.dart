@@ -579,7 +579,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final rawSupp = _getExt(ext, ['supplier_name', 'supplier name', 'supplier', 'vendor_name', 'vendor name', 'vendor', 'shipper', 'exporter_name', 'exporter name', 'exporter'])?.toString().trim().toLowerCase();
     final rawSuppTax = _getExt(ext, ['supplier_tax_id', 'supplier tax id', 'exporter_id', 'vat_number', 'tax_id'])?.toString().trim();
     final rawSuppEmail = _getExt(ext, ['supplier_email', 'supplier email', 'email'])?.toString().trim().toLowerCase();
-    if (rawSupp == null || rawSupp.isEmpty) return null;
+    if (rawSupp == null || rawSupp.length < 3) return null;
 
     final matchedSupp = suppliers.where((s) {
       final sName = s.companyName.toLowerCase();
@@ -591,12 +591,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final noise = {'ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.', 'co', 'the', '&', 'group', 'uab'};
       final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
       final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      if (rawTokens.isEmpty || sTokens.isEmpty) return false;
       final intersection = rawTokens.intersection(sTokens);
-      return intersection.isNotEmpty && (intersection.isNotEmpty || intersection.length == rawTokens.length || intersection.length == sTokens.length);
+      // Require >=2 matching tokens, or intersection covers all tokens from one side.
+      return intersection.length >= 2 || intersection.length == rawTokens.length || intersection.length == sTokens.length;
     }).firstOrNull;
 
     return matchedSupp?.supplierId;
   }
+
 
   int? _matchIncotermId(dynamic extOrRaw, List<IncotermModel> incoterms) {
     if (incoterms.isEmpty) return null;
@@ -1183,10 +1186,24 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }).toList();
     }
 
+    // One-time sync: backfill packing-item descriptions from invoice items so that
+    // this never runs inside build() (which would remount widgets on every keystroke).
+    for (int i = 0; i < _dialogPackingItems.length && i < _dialogItems.length; i++) {
+      final p = _dialogPackingItems[i];
+      if (p.description == null || p.description!.trim().isEmpty) {
+        final item = _dialogItems[i];
+        final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
+        if (desc != null && desc.isNotEmpty) {
+          _dialogPackingItems.replaceAsNew(i, p.copyWith(description: desc));
+        }
+      }
+    }
+
     _poReferenceCtrl.addListener(_markDirty);
     _piCtrl.addListener(_markDirty);
     _rateCtrl.addListener(_markDirty);
     _notesCtrl.addListener(_markDirty);
+
 
     _autosaveTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (_isDirty && mounted) {
@@ -1483,8 +1500,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final item = _dialogItems[i];
             final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
             if (desc != null && desc.isNotEmpty) {
-              // As a new row: its description field must be rebuilt to show the filled-in text.
-              _dialogPackingItems.replaceAsNew(i, _dialogPackingItems[i].copyWith(description: desc));
+              // Use stable in-place assignment ([]= preserves key); replaceAsNew would
+              // remount the widget on every rebuild causing 1-keystroke focus drops.
+              _dialogPackingItems[i] = _dialogPackingItems[i].copyWith(description: desc);
             }
           }
         }
