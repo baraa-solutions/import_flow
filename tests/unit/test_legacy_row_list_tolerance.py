@@ -135,7 +135,7 @@ def test_freight_booking_cleared_free_days_does_not_break_update_or_list(db_sess
     listed = client.get("/api/v1/freight-booking", headers=HEADERS)
     assert listed.status_code == 200, listed.text
     row = next(r for r in listed.json() if r["booking_code"] == "BKG-LEGACY-0001")
-    assert row["free_demurrage_days"] == 14
+    assert row["free_demurrage_days"] is None
 
 
 def test_financial_settlement_list_with_app_written_row(db_session, client):
