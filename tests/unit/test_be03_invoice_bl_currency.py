@@ -163,3 +163,84 @@ def test_same_currency_reports_no_mismatch(db):
     db.refresh(f)
     assert f.estimated_cost_currency == "USD"
     assert created_session.currency_mismatch is False
+
+
+def test_certify_with_lowercase_usd_against_usd_file_get_session_not_mismatched(db):
+    """
+    Certify with lowercase 'usd' against a file with estimated_cost_currency='USD'.
+    The session create, get, and list must all evaluate currency_mismatch to False.
+    Sync endpoint response must return the validated uppercase code 'USD'.
+    """
+    f = ImportFile(
+        import_file_code="IMP-2026-USD-02",
+        custom_file_number="FILE-USD-02",
+        company_name="USD Importer Ltd 2",
+        supplier_name="Global Supplier",
+        estimated_cost=30000.0,
+        estimated_cost_currency="USD",
+        is_active=True,
+    )
+    db.add(f)
+    db.commit()
+    db.refresh(f)
+
+    session_create = InvoiceBLMatchSessionCreate(
+        import_file_id=f.import_file_id,
+        invoice_number="INV-USD-LOWER",
+        bl_number="MEDU-LOWER",
+        is_draft=False,
+        is_safe_for_certification=True,
+        critical_discrepancies_count=0,
+        invoice_data={"invoice_number": "INV-USD-LOWER", "currency": "usd", "incoterm": "FOB"},
+        bl_data={"draft_bl_number": "MEDU-LOWER"},
+    )
+
+    created_session = doc_service.create_invoice_bl_match_session_service(db, session_create, user="certifier")
+    assert created_session.currency_mismatch is False
+
+    fetched_session = doc_service.get_invoice_bl_match_session_service(db, created_session.session_id)
+    assert fetched_session.currency_mismatch is False
+
+    sessions_list = doc_service.list_invoice_bl_match_sessions_service(db, import_file_id=f.import_file_id)
+    assert len(sessions_list) == 1
+    assert sessions_list[0].currency_mismatch is False
+
+    # Sync endpoint should also return validated uppercase code and currency_mismatch=False
+    req = InvoiceBLSyncRequest(
+        import_file_id=f.import_file_id,
+        invoice_data={"invoice_number": "INV-USD-SYNC", "currency": "usd", "incoterm": "FOB"},
+        bl_data={"draft_bl_number": "MEDU-SYNC"},
+    )
+    sync_resp = doc_service.sync_certified_invoice_bl_to_file_service(db, req, user="certifier")
+    assert sync_resp["currency"] == "USD"
+    assert sync_resp["currency_mismatch"] is False
+
+
+def test_legacy_session_empty_currency_not_flagged_as_mismatch(db):
+    """
+    A legacy session with empty or None currency does not flag currency_mismatch as True.
+    """
+    f = ImportFile(
+        import_file_code="IMP-2026-LEGACY",
+        custom_file_number="FILE-LEGACY",
+        company_name="Legacy Importer",
+        supplier_name="Global Supplier",
+        estimated_cost=10000.0,
+        estimated_cost_currency="USD",
+        is_active=True,
+    )
+    db.add(f)
+    db.commit()
+    db.refresh(f)
+
+    session_create = InvoiceBLMatchSessionCreate(
+        import_file_id=f.import_file_id,
+        invoice_number="INV-LEGACY",
+        bl_number="MEDU-LEGACY",
+        is_draft=True,
+        invoice_data={"invoice_number": "INV-LEGACY", "currency": ""},
+        bl_data={"draft_bl_number": "MEDU-LEGACY"},
+    )
+    created = doc_service.create_invoice_bl_match_session_service(db, session_create, user="certifier")
+    fetched = doc_service.get_invoice_bl_match_session_service(db, created.session_id)
+    assert fetched.currency_mismatch is False

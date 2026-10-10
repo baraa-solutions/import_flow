@@ -469,11 +469,14 @@ def test_review10_coo_put_draft_to_certified_runs_follow_ups(db):
 # --- customs-rules-reviewer follow-ups (#3, #4, #5, #6) -------------------------------------------------------
 def test_customs3_certify_writes_real_columns_only(db):
     _seed_codes(db)
+    imp1 = db.get(ImportFile, 1)
+    imp1.estimated_cost_currency = "EUR"
+    db.commit()
     service.create_invoice_bl_match_session_service(db, _cert_payload(
         invoice_data={"invoice_number": "INV-9", "currency": "usd", "total_amount": 500, "incoterm": "FOB"}), user="a")
     db.expire_all()
     imp = db.get(ImportFile, 1)
-    assert imp.estimated_cost_currency == "USD" and imp.incoterm_code == "FOB"
+    assert imp.estimated_cost_currency == "EUR" and imp.incoterm_code == "FOB"
     assert "total_amount" not in imp.__dict__
 
 

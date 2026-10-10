@@ -4973,7 +4973,9 @@ def _attach_session_currency_mismatch(
             f = db.query(ImportFile.estimated_cost_currency).filter(ImportFile.import_file_id == session.import_file_id).first()
             file_currency = f[0] if f else None
         inv_c = (session.invoice_data or {}).get("currency") if isinstance(session.invoice_data, dict) else None
-        session.currency_mismatch = inv_c is not None and inv_c != file_currency
+        from modules.common import enum_codes
+        code = str(enum_codes.normalize_currency(inv_c) or "").strip().upper()
+        session.currency_mismatch = bool(code) and code != (file_currency or "").upper()
 
 
 def sync_certified_invoice_bl_to_file_service(
@@ -4991,7 +4993,7 @@ def sync_certified_invoice_bl_to_file_service(
 
     invoice_number = inv.get('invoice_number', 'N/A')
     draft_bl_number = bl.get('draft_bl_number', 'N/A')
-    inv_currency = inv.get("currency")
+    validated_currency = _validate_currency_code(db, inv["currency"]) if inv.get("currency") else None
     return {
         "status": "success",
         "message": f"تمت مطابقة واعتماد الفاتورة ({invoice_number}) والبوليصة ({draft_bl_number}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
@@ -5005,7 +5007,7 @@ def sync_certified_invoice_bl_to_file_service(
         "synced_incoterm_code": imp_file.incoterm_code,
         # Kept for old clients: the file has no amount column (deferred), the currency is the invoice currency as sent.
         "total_amount": None,
-        "currency": inv_currency or imp_file.estimated_cost_currency,
+        "currency": validated_currency or imp_file.estimated_cost_currency,
         "currency_mismatch": currency_mismatch,
     }
 
