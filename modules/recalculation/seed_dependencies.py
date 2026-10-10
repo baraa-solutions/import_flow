@@ -11,8 +11,11 @@ To add a new relationship in the future:
   Done. No other code changes needed.
 """
 
+import logging
 from sqlalchemy.orm import Session
 import modules.recalculation.repository as repo
+
+logger = logging.getLogger("recalculation_seed")
 
 # ─── Blocked statuses for import budgets ────────────────────────────────────
 _BUDGET_BLOCKED_STATUSES = ["Budget Approved", "Superseded"]
@@ -161,6 +164,7 @@ def run_seed(db: Session) -> int:
             source_field=retired["source_field"],
         )
     db.commit()
+    logger.info("[RecalculationEngine] Seeded %d dependency rows and deactivated retired seeds.", count)
     print(f"[RecalculationEngine] Seeded {count} dependency rows.")
     return count
 

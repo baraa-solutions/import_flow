@@ -773,9 +773,38 @@ def test_financial_settlement_recalculation_preserves_actual_expenses(db: Sessio
 
     # 3. Verify actual expense rows in settlement are preserved untouched
     db.refresh(settlement)
-    assert settlement_field_total(settlement.expense_invoices, "Customs Duty") == 100_000.0 or settlement_field_total(settlement.expense_invoices, "customs_duties_egp") == 100_000.0
+    assert settlement_field_total(settlement.expense_invoices, "customs_duties_egp") == 100_000.0
     assert settlement.total_expenses_egp == pytest.approx(125_000.0, abs=1.0)
     assert settlement.total_landed_cost_egp == pytest.approx(225_000.0, abs=1.0)
+
+
+def test_master_data_sync_service_retires_settlement_expense_seeds(db: Session):
+    """
+    MasterDataSyncService (invoked on every application startup via SchemaUpgradeService)
+    idempotently seeds dependencies and deactivates retired settlement expense seeds.
+    """
+    import modules.recalculation.repository as repo
+    from modules.recalculation.seed_dependencies import RETIRED_DEPENDENCY_SEEDS
+    from database.master_data_sync_service import MasterDataSyncService
+
+    # 1. Simulate legacy DB where retired seeds were active
+    for retired in RETIRED_DEPENDENCY_SEEDS:
+        repo.upsert_dependency(db=db, **retired)
+    db.flush()
+
+    active_before = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_before) == 3
+
+    # 2. Run sync via MasterDataSyncService
+    sync_service = MasterDataSyncService(db)
+    seeded_count = sync_service.sync_recalculation_dependencies()
+    assert seeded_count > 0
+
+    # 3. Verify retired seeds are deactivated and only total_fob_egp remains active
+    active_after = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_after) == 1
+    assert active_after[0].target_field == "total_fob_egp"
+
 
 
 
