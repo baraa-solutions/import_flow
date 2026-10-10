@@ -17,6 +17,7 @@ import 'package:frontend/core/widgets/buttons/app_button.dart';
 class FakePaymentRequestsNotifier extends PaymentRequestsNotifier {
   bool smartReconcileSwiftCalled = false;
   bool reconcileReviewedSwiftBatchCalled = false;
+  bool reconcileSwiftCalled = false;
   Map<String, dynamic>? nextExtractResult;
 
   FakePaymentRequestsNotifier(List<PaymentRequestModel> initialPayments)
@@ -69,6 +70,19 @@ class FakePaymentRequestsNotifier extends PaymentRequestsNotifier {
     String? notes,
   }) async {
     reconcileReviewedSwiftBatchCalled = true;
+    return null;
+  }
+
+  @override
+  Future<PaymentRequestModel?> reconcileSwift({
+    required int paymentId,
+    required String swiftReferenceNo,
+    required String swiftReceiptDate,
+    required double swiftTransferredAmount,
+    String swiftTransferredCurrency = 'USD',
+    String? swiftReconciliationNotes,
+  }) async {
+    reconcileSwiftCalled = true;
     return null;
   }
 }
@@ -276,6 +290,55 @@ void main() {
         },
         expectedMissingFieldName: 'Currency',
       );
+    });
+
+    testWidgets(
+        'Manual dialog for payment with no SWIFT data starts empty and does not call reconcileSwift when saved empty',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final samplePayment = _createSamplePayment();
+      final fakeNotifier = FakePaymentRequestsNotifier([samplePayment]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            paymentRequestsProvider.overrideWith((ref) => fakeNotifier),
+            currenciesProvider.overrideWith((ref) => FakeCurrenciesNotifier()),
+            importFilesProvider.overrideWith((ref) => FakeImportFilesNotifier()),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('en'),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: Scaffold(body: SwiftReconciliationScreen()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final registerBtn = find.widgetWithText(AppButton, 'Register SWIFT');
+      expect(registerBtn, findsOneWidget);
+      await tester.ensureVisible(registerBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(registerBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+
+      final saveBtn = find.widgetWithText(
+          AppButton, 'Save & Reconcile SWIFT (Sync Shipment)');
+      expect(saveBtn, findsOneWidget);
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(fakeNotifier.reconcileSwiftCalled, isFalse);
+      expect(find.byType(AlertDialog), findsOneWidget);
     });
 
     test('Source-scan guard: no invented data or USD fallbacks in swift_reconciliation_screen', () {

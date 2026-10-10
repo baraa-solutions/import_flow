@@ -539,18 +539,16 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     final transferredAmountController = TextEditingController(
       text: pay.swiftTransferredAmount != null
           ? pay.swiftTransferredAmount!.toStringAsFixed(2)
-          : pay.requestedAmount.toStringAsFixed(2),
+          : '',
     );
     String? selectedCurrency = pay.swiftTransferredCurrency ??
         (pay.currencyCode.isNotEmpty ? pay.currencyCode : null);
     final notesController =
         TextEditingController(text: pay.swiftReconciliationNotes ?? '');
 
-    DateTime receiptDate;
+    DateTime? receiptDate;
     if (pay.swiftReceiptDate != null && pay.swiftReceiptDate!.isNotEmpty) {
-      receiptDate = DateTime.tryParse(pay.swiftReceiptDate!) ?? DateTime.now();
-    } else {
-      receiptDate = DateTime.now();
+      receiptDate = DateTime.tryParse(pay.swiftReceiptDate!);
     }
 
     DateTime requestDate;
@@ -569,8 +567,12 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             final transferredAmt =
                 double.tryParse(transferredAmountController.text.trim()) ?? 0.0;
             final variance = transferredAmt - pay.requestedAmount;
-            final processingDays = receiptDate.difference(requestDate).inDays;
-            final safeDays = processingDays < 0 ? 0 : processingDays;
+            final processingDays = receiptDate != null
+                ? receiptDate!.difference(requestDate).inDays
+                : null;
+            final safeDays = processingDays != null
+                ? (processingDays < 0 ? 0 : processingDays)
+                : null;
 
             Color varianceColor;
             IconData varianceIcon;
@@ -887,32 +889,55 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                             children: [
                               // SWIFT Receipt Date
                               Expanded(
-                                child: InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: receiptDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2030),
+                                child: FormField<DateTime>(
+                                  key: ValueKey(receiptDate),
+                                  initialValue: receiptDate,
+                                  validator: (v) =>
+                                      (receiptDate == null && v == null)
+                                          ? l10n.requiredField
+                                          : null,
+                                  builder: (fieldState) {
+                                    return InkWell(
+                                      key: const Key('swiftReceiptDateField'),
+                                      onTap: () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: receiptDate ?? DateTime.now(),
+                                          firstDate: DateTime(2020),
+                                          lastDate: DateTime(2030),
+                                        );
+                                        if (picked != null) {
+                                          setDialogState(() {
+                                            receiptDate = picked;
+                                            fieldState.didChange(picked);
+                                          });
+                                        }
+                                      },
+                                      child: InputDecorator(
+                                        decoration: InputDecoration(
+                                          labelText: l10n.swiftReceiptDateLabel,
+                                          border: const OutlineInputBorder(),
+                                          errorText: fieldState.errorText,
+                                          prefixIcon: const Icon(
+                                              Icons.calendar_today,
+                                              color: AppTheme.cobalt),
+                                        ),
+                                        child: Text(
+                                          receiptDate != null
+                                              ? receiptDate!.toString().substring(0, 10)
+                                              : '',
+                                          style: TextStyle(
+                                            fontWeight: receiptDate != null
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: receiptDate != null
+                                                ? AppTheme.charcoal
+                                                : AppTheme.textMuted,
+                                          ),
+                                        ),
+                                      ),
                                     );
-                                    if (picked != null) {
-                                      setDialogState(
-                                          () => receiptDate = picked);
-                                    }
                                   },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: l10n.swiftReceiptDateLabel,
-                                      border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(
-                                          Icons.calendar_today,
-                                          color: AppTheme.cobalt),
-                                    ),
-                                    child: Text(
-                                        receiptDate.toString().substring(0, 10),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1057,43 +1082,46 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      l10n.swiftDaysBetweenDates(safeDays),
+                                      safeDays != null
+                                          ? l10n.swiftDaysBetweenDates(safeDays)
+                                          : '-',
                                       style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: safeDays <= 3
-                                            ? AppTheme.emeraldLight
-                                            : (safeDays <= 7
-                                                ? AppTheme.orangeLight
-                                                : AppTheme.crimsonLight),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        safeDays <= 3
-                                            ? l10n.swiftExecutionInstantTag(
-                                                safeDays)
-                                            : (safeDays <= 7
-                                                ? l10n
-                                                    .swiftExecutionReasonableTag(
-                                                        safeDays)
-                                                : l10n.swiftExecutionDelayedTag(
-                                                    safeDays)),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
+                                    if (safeDays != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
                                           color: safeDays <= 3
-                                              ? AppTheme.wcagEmerald
+                                              ? AppTheme.emeraldLight
                                               : (safeDays <= 7
-                                                  ? AppTheme.wcagOrange
-                                                  : AppTheme.crimson),
+                                                  ? AppTheme.orangeLight
+                                                  : AppTheme.crimsonLight),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          safeDays <= 3
+                                              ? l10n.swiftExecutionInstantTag(
+                                                  safeDays)
+                                              : (safeDays <= 7
+                                                  ? l10n
+                                                      .swiftExecutionReasonableTag(
+                                                          safeDays)
+                                                  : l10n.swiftExecutionDelayedTag(
+                                                      safeDays)),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: safeDays <= 3
+                                                ? AppTheme.wcagEmerald
+                                                : (safeDays <= 7
+                                                    ? AppTheme.wcagOrange
+                                                    : AppTheme.crimson),
+                                          ),
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -1101,15 +1129,21 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                        '${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
-                                        style: const TextStyle(fontSize: 12)),
-                                    Text(
-                                        '${l10n.swiftTransferredAmountLabel}: ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: varianceColor)),
+                                    Expanded(
+                                      child: Text(
+                                          '${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
+                                          style: const TextStyle(fontSize: 12)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                          '${l10n.swiftTransferredAmountLabel}: ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}',
+                                          textAlign: TextAlign.end,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: varianceColor)),
+                                    ),
                                   ],
                                 ),
                                 const Divider(),
@@ -1117,12 +1151,15 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(varianceText,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: varianceColor)),
-                                    if (variance != 0)
+                                    Expanded(
+                                      child: Text(varianceText,
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: varianceColor)),
+                                    ),
+                                    if (variance != 0) ...[
+                                      const SizedBox(width: 8),
                                       Text(
                                         '${l10n.swiftVarianceLabel}: ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
                                         style: TextStyle(
@@ -1130,6 +1167,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                             color: varianceColor,
                                             fontSize: 13),
                                       ),
+                                    ],
                                   ],
                                 ),
                               ],
@@ -1195,7 +1233,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                     variant: AppButtonVariant.success,
                     icon: Icons.check,
                     onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
+                      if (!formKey.currentState!.validate() || receiptDate == null) return;
                       Navigator.pop(dialogCtx);
 
                       setState(() => _isProcessing = true);
@@ -1206,7 +1244,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                               paymentId: pay.paymentId,
                               swiftReferenceNo: swiftRefController.text.trim(),
                               swiftReceiptDate:
-                                  receiptDate.toString().substring(0, 10),
+                                  receiptDate!.toString().substring(0, 10),
                               swiftTransferredAmount: transferredAmt,
                               swiftTransferredCurrency: selectedCurrency!,
                               swiftReconciliationNotes:
