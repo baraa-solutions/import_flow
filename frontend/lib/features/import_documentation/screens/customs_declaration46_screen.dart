@@ -257,7 +257,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   final TextEditingController _searchCtrl = TextEditingController();
-  Map<int, CustomsDeclarationAssessment> _cachedAssessments = {};
+  Map<String, CustomsDeclarationAssessment> _cachedAssessments = {};
   int _lastInputsHash = 0;
   bool _isSavingDeclaration = false;
 
@@ -1467,8 +1467,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   }) {
     if (file == null) return null;
     final fileId = file.importFileId;
-    if (_cachedAssessments.containsKey(fileId)) {
-      return _cachedAssessments[fileId];
+    final cacheKey = '$fileId|${declarationNo ?? file.form46No ?? ""}|${registrationDate ?? file.form46Date ?? ""}|${status ?? ""}';
+    if (_cachedAssessments.containsKey(cacheKey)) {
+      return _cachedAssessments[cacheKey];
     }
     final assessment = _calculateAssessment(
       file,
@@ -1484,7 +1485,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       cachedPos: pos,
       cachedCurrencies: currencies,
     );
-    _cachedAssessments[fileId] = assessment;
+    _cachedAssessments[cacheKey] = assessment;
     return assessment;
   }
 
@@ -1521,15 +1522,16 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     }).toList();
 
     final currentHash = Object.hash(
-      importFiles.length,
-      clearanceRecords.length,
-      acids.length,
-      bankDocs.length,
-      reviews.length,
-      bookings.length,
-      allTariffs.length,
-      pos.length,
-      currencies.length,
+      identityHashCode(importFiles),
+      identityHashCode(clearanceRecords),
+      identityHashCode(acids),
+      identityHashCode(bankDocs),
+      identityHashCode(reviews),
+      identityHashCode(bookings),
+      identityHashCode(allTariffs),
+      identityHashCode(pos),
+      identityHashCode(currencies),
+      l.isArabic,
     );
     if (_lastInputsHash != currentHash) {
       _lastInputsHash = currentHash;
