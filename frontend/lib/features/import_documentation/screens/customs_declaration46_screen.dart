@@ -294,6 +294,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       _vatEgpCtrl.text = '0.00';
       _otherFeesEgpCtrl.text = '0.00';
       _totalDutyAndTaxesCtrl.text = '0.00';
+      _declarationDate = DateTime.now();
+      _submissionDateCtrl.text = _declarationDate.toIso8601String().substring(0, 10);
       setState(() {
         _matchedTariffs = [];
         _regulatoryApprovals = [];
@@ -361,7 +363,13 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       if (parsedDate != null) {
         _declarationDate = parsedDate;
         _submissionDateCtrl.text = parsedDate.toIso8601String().substring(0, 10);
+      } else {
+        _declarationDate = DateTime.now();
+        _submissionDateCtrl.text = _declarationDate.toIso8601String().substring(0, 10);
       }
+    } else {
+      _declarationDate = DateTime.now();
+      _submissionDateCtrl.text = _declarationDate.toIso8601String().substring(0, 10);
     }
     if (file.portOfDischarge != null && file.portOfDischarge!.isNotEmpty) {
       final pod = file.portOfDischarge!.toLowerCase();
@@ -525,7 +533,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                   _selectedImportFileId = matchedFile.importFileId;
                 }
                 _declaration46NoCtrl.text = newCode;
-                _submissionDateCtrl.text = DateTime.now().toString().substring(0, 10);
+                _declarationDate = DateTime.now();
+                _submissionDateCtrl.text = _declarationDate.toIso8601String().substring(0, 10);
                 _acidNumberCtrl.text = a.acidNumber;
                 _form4NumberCtrl.text = a.form4Number;
                 _blNumberCtrl.text = a.blNumber;
@@ -899,6 +908,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 padding: const EdgeInsets.all(16),
                 decoration: AppTheme.cardDecorationOf(context),
                 child: SearchableDropdownField<int>(
+                  key: const Key('decl46FileDropdown'),
                   labelText: l.customsDeclSelectFileLabel,
                   hintText: l.customsDeclSearchFileHint,
                   value: _selectedImportFileId,
