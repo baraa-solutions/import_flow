@@ -541,11 +541,31 @@
       "note"
     ]
   },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CT_CUSTOMS_RATE_MISSING": {
     "params": [
       "currency",
       "on_date"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -1915,6 +1935,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [
@@ -2099,6 +2127,20 @@
     "params": [
       "carrier_id"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -3556,6 +3598,14 @@
       "note"
     ]
   },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_UNPAID_INVOICE": {
     "params": [
       "amount",
@@ -3589,6 +3639,17 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
     ]
   },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
@@ -3671,10 +3732,24 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_CUSTOMS_NOT_RELEASED": {
     "params": [
       "import_file_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -3874,21 +3949,5 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
-  },
-  "CT_AGREEMENT_DATA_INVALID": {
-    "params": [
-      "reason"
-    ],
-    "parts": [
-      "note"
-    ]
-  },
-  "SETTLEMENT_PO_NOT_ALLOCATED": {
-    "params": [
-      "po_number"
-    ],
-    "parts": [
-      "note"
-    ]
   }
 }

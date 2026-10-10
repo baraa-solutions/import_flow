@@ -15,9 +15,12 @@ from modules.transport_locations.model import TransportLocation
 from modules.freight_quotations.model import FreightRFQRequest
 from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_insurance.model import CargoInsuranceCertificate
+from modules.customs_clearance.model import CustomsClearanceRecord, ClearanceExpenseInvoice
+from modules.inland_transport.model import InlandTransportBooking
+from modules.demurrage_detention.model import DemurrageTracking
 from modules.import_files.model import ImportFile
 from modules.financial_settlement.model import LandedCostSettlementRecord
-import main  # registers all models with Base.metadata
 from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
@@ -32,6 +35,20 @@ from modules.financial_settlement.service import (
     calculate_landed_cost_engine,
     soft_delete_settlement_service,
     restore_settlement_service,
+)
+from decimal import Decimal
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.purchase_orders.model import PurchaseOrder, POLineItem
+import main
+from modules.financial_settlement.service import (
+    create_settlement_service,
+    recalculate_settlement_service,
+    get_settlement_service,
+    list_settlements_service,
+    calculate_landed_cost_engine,
+    soft_delete_settlement_service,
+    restore_settlement_service,
+    simulate_estimated_landed_cost_service,
 )
 
 class TestFinancialSettlementModule(unittest.TestCase):
@@ -185,6 +202,80 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(res_exw["total_expenses_egp"], 95000.0)
         self.assertEqual(res_exw["total_landed_cost_egp"], 245000.0)
         self.assertEqual(res_exw["incoterm_code"], "EXW")
+
+    def test_booking_without_insurance_line_counts_insurance_once(self):
+        # ACC3-T02 acceptance test:
+        # Booking freight 4,000 USD + insurance certificate 346.50 USD at rate 50.0
+        # -> freight row 200,000.00 EGP, insurance row 17,325.00 EGP, no other insurance amount
+        from modules.cargo_insurance.model import CargoInsuranceCertificate
+        from modules.currencies.model import Currency, ExchangeRate
+        from modules.financial_settlement.service import aggregate_shipment_invoices_service
+
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+        self.db.add_all([usd, egp])
+        self.db.flush()
+
+        rate_row = ExchangeRate(
+            currency_id=usd.currency_id,
+            commercial_rate=50.0,
+            customs_rate=50.0,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_row)
+        self.db.commit()
+
+        # Add booking without insurance line (4,000 USD)
+        booking = ShipmentBooking(
+            booking_code="BKG-ACC3-001",
+            booking_confirmation_no="MSC-CONF-4000",
+            import_file_id=self.import_file_id,
+            total_freight_cost_usd=4000.0,
+            status="Confirmed",
+            booking_confirmation_date=datetime.now(timezone.utc),
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(booking)
+
+        # Add insurance certificate (346.50 USD)
+        cert = CargoInsuranceCertificate(
+            certificate_code="INS-CERT-001",
+            policy_number="POL-2026-999",
+            import_file_id=self.import_file_id,
+            insured_entity_name="Delta Industrial Co",
+            insurance_company_name="Misr Insurance",
+            port_of_loading="Shanghai, China",
+            port_of_discharge="Alexandria, Egypt",
+            currency="USD",
+            total_payable_premium=346.50,
+            exchange_rate=50.0,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(cert)
+        self.db.commit()
+
+        res = aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        invoices = res.invoices
+
+        # Check freight invoice: 4,000 USD * 50 = 200,000 EGP
+        frt_invoices = [inv for inv in invoices if inv.category == "Ocean/Air Freight"]
+        self.assertEqual(len(frt_invoices), 1)
+        self.assertEqual(frt_invoices[0].amount_fc, 4000.0)
+        self.assertEqual(frt_invoices[0].amount_egp, 200000.0)
+
+        # Check insurance invoice: 346.50 USD * 50 = 17,325 EGP
+        ins_invoices = [inv for inv in invoices if inv.category == "Marine Insurance"]
+        self.assertEqual(len(ins_invoices), 1)
+        self.assertEqual(ins_invoices[0].amount_fc, 346.50)
+        self.assertEqual(ins_invoices[0].amount_egp, 17325.0)
+
+        # Verify no other insurance amounts are counted
+        total_insurance_egp = sum(inv.amount_egp for inv in ins_invoices)
+        self.assertEqual(total_insurance_egp, 17325.0)
 
     def test_partial_shipment_fob_share(self):
         """
@@ -565,7 +656,228 @@ class TestFinancialSettlementModule(unittest.TestCase):
         recalc_unlinked = _fetch_from_purchase_orders(self.db, file_a.import_file_id, "total_amount_fob", "sum")
         self.assertEqual(recalc_unlinked, 500000.0)
 
+    def test_estimate_freight_uses_ocean_cost_only(self):
+        """
+        ACC3-T03: Phase-1 landed cost estimate uses only the ocean freight of the
+        awarded quote for CIF calculation, not the quote total cost (which includes
+        local and inland charges).
+        Worked example:
+        FOB: 100,000 USD, Customs FX rate: 50.0 EGP/USD. Total FOB = 5,000,000 EGP.
+        Awarded quote: Ocean freight = 3,000 USD, Local charges = 400 USD, Inland = 600 USD (Total = 4,000 USD).
+        Deemed insurance: 2.5% of FOB = 2,500 USD = 125,000 EGP.
+        Customs Tariff: Duty = 10%, VAT = 14%.
+
+        Expectations:
+        - Freight line amount_fc = 3,000.00 USD, amount_egp = 150,000.00 EGP (not 4,000 / 200,000).
+        - Insurance line amount_fc = 2,500.00 USD, amount_egp = 125,000.00 EGP.
+        - CIF for customs = 5,000,000 + 150,000 + 125,000 = 5,275,000.00 EGP.
+        - Duty (10%) = 527,500.00 EGP.
+        - VAT base = 5,275,000 + 527,500 = 5,802,500.00 EGP.
+        - VAT (14%) = 812,350.00 EGP.
+        - Total customs & taxes = 527,500 + 812,350 = 1,339,850.00 EGP.
+        """
+        # Ensure USD currency with customs rate 50.0
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(usd)
+            self.db.commit()
+            self.db.refresh(usd)
+
+        rate = self.db.query(ExchangeRate).filter(ExchangeRate.currency_id == usd.currency_id).first()
+        if not rate:
+            rate = ExchangeRate(
+                currency_id=usd.currency_id,
+                customs_rate=Decimal("50.0"),
+                commercial_rate=Decimal("50.0"),
+                effective_date=date(2020, 1, 1),
+                is_active=True,
+            )
+            self.db.add(rate)
+        else:
+            rate.customs_rate = Decimal("50.0")
+            rate.commercial_rate = Decimal("50.0")
+            rate.is_active = True
+        self.db.commit()
+
+        # Customs tariff with 10% duty, 14% VAT, 0% service fee for worked example match
+        tariff = CustomsTariff(
+            hs_code="8479.89.99",
+            hs_description="Special Machinery",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+            schedule_tax_rate=Decimal("0.00"),
+            development_fee_rate=Decimal("0.00"),
+            customs_service_fee_rate=Decimal("0.00"),
+            effective_from=date(2020, 1, 1),
+            is_active=True,
+        )
+        self.db.add(tariff)
+        self.db.commit()
+        self.db.refresh(tariff)
+
+        # External service provider
+        provider = ExternalServiceProvider(
+            partner_code="PRV-ACC3-001",
+            partner_name="Ocean Freight Line",
+            partner_type="Shipping Line",
+            is_active=True,
+        )
+        self.db.add(provider)
+        self.db.commit()
+        self.db.refresh(provider)
+
+        # Ensure Supplier, Incoterm, Project exist
+        supp = self.db.query(Supplier).filter(Supplier.supplier_id == 1).first()
+        if not supp:
+            supp = Supplier(
+                supplier_id=1,
+                supplier_code="SUP-ACC3-01",
+                company_name="Global Heavy Equipment Ltd",
+                supplier_type="Manufacturer",
+                registration_type="CargoX",
+                foreign_exporter_id="EXP-ACC3-01",
+                foreign_exporter_country="China",
+                foreign_exporter_country_code="CN",
+                address="Shanghai, China",
+                is_active=True,
+            )
+            self.db.add(supp)
+
+        inco = self.db.query(Incoterm).filter(Incoterm.incoterm_id == 1).first()
+        if not inco:
+            inco = Incoterm(
+                incoterm_id=1,
+                incoterm_code="FOB",
+                incoterm_name="Free On Board",
+                is_active=True,
+            )
+            self.db.add(inco)
+
+        proj = self.db.query(Project).filter(Project.project_id == 1).first()
+        if not proj:
+            proj = Project(
+                project_id=1,
+                project_code="PRJ-ACC3-01",
+                project_name="Delta Heavy Machinery",
+                project_owner="Ahmed",
+                company_id=1,
+                supplier_id=1,
+                incoterm_id=1,
+                is_active=True,
+            )
+            self.db.add(proj)
+        self.db.commit()
+
+        # Import File
+        imp = ImportFile(
+            import_file_code="IMP-ACC3-003",
+            company_id=1,
+            company_name="Delta Industrial Co",
+            supplier_name="Global Supplier",
+            po_number="PO-ACC3-003",
+            hs_code="8479.89.99",
+            is_active=True,
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        # Purchase Order: 100,000 USD FOB
+        po = PurchaseOrder(
+            po_number="PO-ACC3-003",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=usd.currency_id,
+            total_amount_fob=100000.0,
+            order_date=datetime.now(timezone.utc),
+            import_file_id=imp.import_file_id,
+            is_active=True,
+        )
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+
+        # PO Line Item linked to tariff
+        po_item = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-ACC3-01",
+            description_ar="آلات خاصة",
+            description_en="Special Machinery Unit",
+            quantity=Decimal("1.0"),
+            unit_price=Decimal("100000.0"),
+            total_price=Decimal("100000.0"),
+            gross_weight_kg=Decimal("1000.0"),
+            total_cbm=Decimal("5.0"),
+            tariff_id=tariff.tariff_id,
+        )
+        self.db.add(po_item)
+        self.db.commit()
+
+        # Freight RFQ Request (Awarded, is_active=True)
+        today = date.today()
+        rfq = FreightRFQRequest(
+            rfq_code="RFQ-ACC3-003",
+            title="Freight RFQ for ACC3-T03",
+            shipping_method="Ocean FCL",
+            crd_date=today,
+            pol_name="Shanghai",
+            pod_name="Alexandria",
+            import_file_id=imp.import_file_id,
+            status="Awarded",
+            is_active=True,
+        )
+        self.db.add(rfq)
+        self.db.commit()
+        self.db.refresh(rfq)
+
+        # Awarded Quote: Ocean 3,000, Local 400, Inland 600, Total 4,000
+        quote = FreightQuotationItem(
+            rfq_id=rfq.rfq_id,
+            provider_id=provider.provider_id,
+            provider_name=provider.partner_name,
+            currency_code="USD",
+            ocean_freight_cost=3000.0,
+            local_charges_cost=400.0,
+            inland_cost=600.0,
+            total_cost=4000.0,
+            sailing_date=today,
+            estimated_arrival_date=today,
+            is_awarded=True,
+        )
+        self.db.add(quote)
+        self.db.commit()
+        self.db.refresh(quote)
+
+        rfq.selected_quotation_id = quote.quotation_id
+        self.db.commit()
+
+        # Run simulation
+        res = simulate_estimated_landed_cost_service(self.db, imp.import_file_id)
+
+        # 1. Freight expense line must use ocean_freight_cost only (3,000 USD x 50 = 150,000 EGP)
+        self.assertEqual(res.total_freight_egp, 150000.0)
+        freight_line = next(e for e in res.expenses_breakdown if "Ocean/Air Freight" in e.category)
+        self.assertEqual(freight_line.amount_fc, 3000.0)
+        self.assertEqual(freight_line.amount_egp, 150000.0)
+        self.assertIn("نولون الشحن البحري للعرض الفائز في المناقصة", freight_line.source)
+
+        # 2. Deemed Insurance (2.5% of 100,000 USD = 2,500 USD = 125,000 EGP)
+        self.assertEqual(res.total_insurance_egp, 125000.0)
+        ins_line = next(e for e in res.expenses_breakdown if "Marine Insurance" in e.category)
+        self.assertEqual(ins_line.amount_fc, 2500.0)
+        self.assertEqual(ins_line.amount_egp, 125000.0)
+
+        # 3. Customs Duty and VAT calculated on CIF 5,275,000.00 EGP
+        # Duty = 10% of CIF = 527,500.00 EGP
+        self.assertEqual(res.total_customs_duty_egp, 527500.0)
+        # VAT = 14% of (CIF + Duty) = 14% of 5,802,500 = 812,350.00 EGP
+        self.assertEqual(res.total_vat_and_fees_egp, 812350.0)
+        self.assertEqual(res.total_customs_and_taxes_egp, 527500.0 + 812350.0)
 
 
 if __name__ == "__main__":
     unittest.main()
+
