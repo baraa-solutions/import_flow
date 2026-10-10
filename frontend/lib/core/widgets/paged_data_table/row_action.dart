@@ -367,13 +367,41 @@ class RowActionsBar<T> extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleActionTap(
+  static Future<void> executeAction<T>(
     BuildContext context,
     RowAction<T> action,
-  ) async {
+    T row, {
+    WidgetRef? ref,
+    PermissionSet? permissions,
+  }) async {
     final l = context.l10n;
     if (!action.enabled || action.disabledReason != null) {
       return;
+    }
+
+    if (action.permission != null && action.permission!.isNotEmpty) {
+      bool isPermitted = true;
+      if (permissions != null) {
+        isPermitted = permissions.can(action.permission!);
+      } else {
+        AsyncValue<PermissionSet>? permState;
+        if (ref != null) {
+          permState = ref.read(currentPermissionsProvider);
+        } else {
+          try {
+            final container = ProviderScope.containerOf(context, listen: false);
+            permState = container.read(currentPermissionsProvider);
+          } catch (_) {}
+        }
+        if (permState != null) {
+          isPermitted = permState.when(
+            data: (permSet) => permSet.can(action.permission!),
+            loading: () => action.permission!.endsWith('.view'),
+            error: (_, __) => action.permission!.endsWith('.view'),
+          );
+        }
+      }
+      if (!isPermitted) return;
     }
 
     if (action.confirm) {
@@ -383,7 +411,7 @@ class RowActionsBar<T> extends ConsumerWidget {
         context,
         title: title,
         message: msg,
-        isDestructive: action.isDestructive,
+        isDestructive: action.isDestructive || action.kind == RowActionKind.delete,
       );
       if (!confirmed) return;
     }
@@ -410,6 +438,13 @@ class RowActionsBar<T> extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _handleActionTap(
+    BuildContext context,
+    RowAction<T> action,
+  ) async {
+    await executeAction(context, action, row);
   }
 
   @override
