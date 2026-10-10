@@ -2270,6 +2270,15 @@
       "note"
     ]
   },
+  "LC_STEP_ALREADY_COMPLETED": {
+    "params": [
+      "import_file_code",
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STEP_AUTO_CLOSED_PRIOR": {
     "params": [
       "completed_step_code"
@@ -2335,6 +2344,14 @@
   },
   "LC_STEP_RESUMED_DEFAULT": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_SEQUENCE_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -2410,6 +2427,14 @@
   },
   "LC_SYNC_FREIGHT_STUDIES_DONE": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_TARGET_STEP_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]

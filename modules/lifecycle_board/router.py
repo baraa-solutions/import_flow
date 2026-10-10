@@ -210,7 +210,8 @@ def skip_step(
 def set_multi_active_stages(
     payload: MultiStageSetPayload,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return service.set_multi_active_stages_service(db, payload)
+    return service.set_multi_active_stages_service(db, payload, actor=current_user)
 
 

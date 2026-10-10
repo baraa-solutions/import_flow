@@ -123,6 +123,15 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_STEP_NOT_ACTIVE": {
         "note": "Step {step_code} is not currently active on import file {import_file_code}.",
     },
+    "LC_STEP_ALREADY_COMPLETED": {
+        "note": "Step {step_code} is already completed or skipped on import file {import_file_code}.",
+    },
+    "LC_STEP_SEQUENCE_INVALID": {
+        "note": "Step {step_code} cannot be activated ahead of sequence for non-admin users.",
+    },
+    "LC_TARGET_STEP_INVALID": {
+        "note": "Cannot directly advance to {step_code} without administrator privileges.",
+    },
     "LC_CLOSURE_STEP_RESERVED": {
         "note": "Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.",
     },

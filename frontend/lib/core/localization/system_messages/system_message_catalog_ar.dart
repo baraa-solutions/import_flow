@@ -469,6 +469,15 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LC_STEP_NOT_ACTIVE': {
     'note': 'المرحلة {step_code} ليست قيد التنفيذ حالياً على ملف الاستيراد {import_file_code}.',
   },
+  'LC_STEP_ALREADY_COMPLETED': {
+    'note': 'المرحلة {step_code} مكتملة أو تم تخطيها بالفعل لملف الشحنة {import_file_code}.',
+  },
+  'LC_STEP_SEQUENCE_INVALID': {
+    'note': 'لا يمكن تفعيل المرحلة {step_code} قبل الوصول إليها في مسار الشحنة لغير المسؤولين.',
+  },
+  'LC_TARGET_STEP_INVALID': {
+    'note': 'لا يمكن الانتقال مباشرة إلى الخطوة {step_code} بدون صلاحيات المسؤول.',
+  },
   'LC_STEP_ON_HOLD': {
     'note': 'معلقة مؤقتاً: {reason}',
   },
