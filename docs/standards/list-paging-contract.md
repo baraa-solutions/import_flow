@@ -165,12 +165,15 @@ GET /api/v1/<entity>/export-excel
   current_user: User = Depends(require_permission("<module>.view"))
   ```
 - **Tenant & Entity Scoping:** Multi-tenant boundaries and user project/company scopes are enforced at the query level before `paginate()` is invoked.
-- **SQL Injection Prevention:** All search queries (`q`) pass through `like_term(q)` which escapes `%`, `_`, and `\`, applied exclusively via parameterized ORM filters (`col.ilike(...)`).
+- **SQL Injection Prevention:** All search queries (`q`) pass through `like_term(q)` which escapes `%`, `_`, and `\`. Whenever using `like_term`, callers MUST explicitly specify `escape="\\"` in SQLAlchemy (e.g. `col.ilike(escaped, escape="\\")`) so that the backslash escape character is properly recognized across database engines.
 
 ---
 
 ## 7. Backend Implementation Template
 
+The backend implementation follows the enterprise 3-tier structure (`router` -> `service` -> `repository`) mirroring `modules/import_files`:
+
+### 7.1 Router Layer (`router.py`)
 ```python
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Response
@@ -178,13 +181,71 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.permissions import require_permission
-from modules.common.pagination import Page, PageParams, paginate, like_term
+from modules.common.pagination import Page, PageParams
 from modules.users.model import User
 
-from .model import PurchaseOrder
 from .schemas import PurchaseOrderListItem
+from .service import get_paginated_purchase_orders_service
 
 router = APIRouter(prefix="/api/v1/purchase-orders", tags=["Purchase Orders"])
+
+@router.get("/paginated", response_model=Page[PurchaseOrderListItem])
+def list_purchase_orders_paginated(
+    response: Response,
+    params: PageParams = Depends(),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    supplier_id: Optional[int] = Query(None),
+    company_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("purchase_orders.view")),
+):
+    return get_paginated_purchase_orders_service(
+        db=db,
+        params=params,
+        response=response,
+        status=status_filter,
+        supplier_id=supplier_id,
+        company_id=company_id,
+    )
+```
+
+### 7.2 Service Layer (`service.py`)
+```python
+from typing import Optional
+from fastapi import Response
+from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams
+from . import repository as po_repo
+
+def get_paginated_purchase_orders_service(
+    db: Session,
+    params: PageParams,
+    *,
+    response: Optional[Response] = None,
+    status: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    company_id: Optional[int] = None,
+) -> dict:
+    return po_repo.get_paginated_purchase_orders(
+        db=db,
+        params=params,
+        response=response,
+        status=status,
+        supplier_id=supplier_id,
+        company_id=company_id,
+    )
+```
+
+### 7.3 Repository Layer (`repository.py`)
+```python
+from typing import Optional
+from fastapi import Response
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams, paginate, like_term
+from .model import PurchaseOrder
 
 PO_SORT_MAP = {
     "id": PurchaseOrder.po_id,
@@ -198,34 +259,54 @@ PO_SORT_MAP = {
     "total_amount_fob": PurchaseOrder.total_amount_fob,
 }
 
-@router.get("/paginated", response_model=Page[PurchaseOrderListItem])
-def list_purchase_orders_paginated(
-    response: Response,
-    params: PageParams = Depends(),
-    status_filter: Optional[str] = Query(None, alias="status"),
-    supplier_id: Optional[int] = Query(None),
-    company_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("purchase_orders.view")),
+def _apply_purchase_order_filters(
+    query,
+    *,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    company_id: Optional[int] = None,
 ):
-    query = db.query(PurchaseOrder)
-
-    if not params.include_inactive:
+    if not include_inactive:
         query = query.filter(PurchaseOrder.is_active.is_(True))
 
-    if status_filter:
-        query = query.filter(PurchaseOrder.status == status_filter)
+    if status:
+        query = query.filter(PurchaseOrder.status == status)
     if supplier_id:
         query = query.filter(PurchaseOrder.supplier_id == supplier_id)
     if company_id:
         query = query.filter(PurchaseOrder.company_id == company_id)
 
-    if params.q:
-        escaped = like_term(params.q)
+    if search and search.strip():
+        term = like_term(search)
         query = query.filter(
-            PurchaseOrder.po_number.ilike(escaped)
-            | PurchaseOrder.po_reference.ilike(escaped)
+            or_(
+                PurchaseOrder.po_number.ilike(term, escape="\\"),
+                PurchaseOrder.po_reference.ilike(term, escape="\\"),
+            )
         )
+
+    return query
+
+def get_paginated_purchase_orders(
+    db: Session,
+    params: PageParams,
+    *,
+    response: Optional[Response] = None,
+    status: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    company_id: Optional[int] = None,
+) -> dict:
+    query = db.query(PurchaseOrder)
+    query = _apply_purchase_order_filters(
+        query,
+        include_inactive=params.include_inactive,
+        search=params.q,
+        status=status,
+        supplier_id=supplier_id,
+        company_id=company_id,
+    )
 
     return paginate(
         query=query,
@@ -244,11 +325,11 @@ def list_purchase_orders_paginated(
 ```dart
 // 1. Feature Notifier backed by ServerPagedSource
 final purchaseOrdersPagedProvider = StateNotifierProvider.autoDispose<
-    PagedListNotifier<PurchaseOrderListItem>,
+    DefaultPagedListNotifier<PurchaseOrderListItem>,
     PagedListState<PurchaseOrderListItem>>((ref) {
   final dio = ref.watch(dioProvider);
-  return PagedListNotifier<PurchaseOrderListItem>(
-    source: ServerPagedSource(
+  return DefaultPagedListNotifier<PurchaseOrderListItem>(
+    ServerPagedSource(
       dio: dio,
       path: '/api/v1/purchase-orders/paginated',
       fromJson: (json) => PurchaseOrderListItem.fromJson(json),
@@ -279,7 +360,6 @@ PagedDataTable<PurchaseOrderListItem>(
       permission: 'purchase_orders.view',
       run: (row) async => EntityDetailsRegistry.open(
         context,
-        ref,
         EntityRef(type: EntityType.purchaseOrder, id: row.id, code: row.poNumber),
       ),
     ),
