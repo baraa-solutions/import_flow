@@ -610,96 +610,74 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   message: l10n.partnerStatementOfAccountTooltip,
                                                   child: InkWell(
                                                     onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
-                                                    borderRadius: BorderRadius.circular(6),
+                                                    borderRadius: BorderRadius.circular(5),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                      width: 26,
+                                                      height: 26,
                                                       margin: const EdgeInsetsDirectional.only(end: 4),
                                                       decoration: BoxDecoration(
                                                         color: AppTheme.cobalt.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(6),
+                                                        borderRadius: BorderRadius.circular(5),
                                                         border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                                       ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(Icons.receipt_long, size: 12, color: AppTheme.cobalt),
-                                                          const SizedBox(width: 3),
-                                                          Text(
-                                                            l10n.partnerStatementOfAccountBtn,
-                                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                                          ),
-                                                        ],
+                                                      child: const Center(
+                                                        child: Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
                                                 if (partner.providerId != null) ...[
-                                                    const SizedBox(width: 4),
-                                                    Tooltip(
-                                                      message: l10n.partnerScorecardTooltip,
-                                                      child: InkWell(
-                                                        onTap: () => showPartnerScorecardDialog(
-                                                          context,
-                                                          ref,
-                                                          providerId: partner.providerId!,
-                                                          providerName: partner.partnerName,
-                                                          providerType: partner.partnerType,
-                                                        ),
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.amber.shade50,
-                                                            borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: Colors.amber.shade600),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Icon(Icons.workspace_premium_outlined, size: 12, color: Colors.amber.shade800),
-                                                              const SizedBox(width: 3),
-                                                              Text(
-                                                                l10n.partnerScorecardBtn,
-                                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                  ],
                                                   Tooltip(
-                                                    message: l10n.partnerCopySummaryBtn,
+                                                    message: l10n.partnerScorecardTooltip,
                                                     child: InkWell(
-                                                      onTap: () => CopyHelper.copy(
+                                                      onTap: () => showPartnerScorecardDialog(
                                                         context,
-                                                        _buildPartnerSummary(context, partner),
-                                                        customMessage: l10n.partnerCopySummarySuccess,
+                                                        ref,
+                                                        providerId: partner.providerId!,
+                                                        providerName: partner.partnerName,
+                                                        providerType: partner.partnerType,
                                                       ),
-                                                      borderRadius: BorderRadius.circular(6),
+                                                      borderRadius: BorderRadius.circular(5),
                                                       child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                        width: 26,
+                                                        height: 26,
                                                         margin: const EdgeInsetsDirectional.only(end: 4),
                                                         decoration: BoxDecoration(
-                                                          color: AppTheme.emerald.withOpacity(0.12),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                                          color: Colors.amber.shade50,
+                                                          borderRadius: BorderRadius.circular(5),
+                                                          border: Border.all(color: Colors.amber.shade600),
                                                         ),
-                                                        child: Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(Icons.copy_all_rounded, size: 12, color: AppTheme.emerald),
-                                                            const SizedBox(width: 3),
-                                                            Text(
-                                                              l10n.partnerCopySummaryBtn,
-                                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                            ),
-                                                          ],
+                                                        child: Center(
+                                                          child: Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
+                                                ],
+                                                Tooltip(
+                                                  message: l10n.partnerCopySummaryBtn,
+                                                  child: InkWell(
+                                                    onTap: () => CopyHelper.copy(
+                                                      context,
+                                                      _buildPartnerSummary(context, partner),
+                                                      customMessage: l10n.partnerCopySummarySuccess,
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(5),
+                                                    child: Container(
+                                                      width: 26,
+                                                      height: 26,
+                                                      margin: const EdgeInsetsDirectional.only(end: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.emerald.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(5),
+                                                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
                                                   RowActionsPill(
                                                   onView: () => PartnerDetailsDialog.show(
                                                     context,

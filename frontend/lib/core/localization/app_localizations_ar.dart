@@ -3730,6 +3730,21 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get importerCardIdLabelShort => 'بطاقة استيرادية';
   @override String get vatTaxIdLabelShort => 'تسجيل ضريبي';
   @override String get commercialRegLabelShort => 'سجل تجاري';
+  @override String get importCompaniesMobileLabel => 'رقم الموبايل';
+  @override String get importCompaniesFaxLabel => 'رقم الفاكس';
+  @override String get importCompaniesPrimaryEmailLabel => 'البريد الإلكتروني الأساسي';
+  @override String get importCompaniesSecondaryEmailLabel => 'البريد الإلكتروني الثانوي';
+  @override String get importCompaniesWebsiteLabel => 'الموقع الإلكتروني';
+  @override String get importCompaniesNafezaTokenSection => 'رمز نافذة والربط الرقمي';
+  @override String get importCompaniesNafezaTokenLabel => 'رمز نافذة (مشفر آمن)';
+  @override String get importCompaniesShowTokenTooltip => 'إظهار الرمز';
+  @override String get importCompaniesHideTokenTooltip => 'إخفاء الرمز';
+  @override String get importCompaniesCertificatesSection => 'شهادات العلامة التجارية والجودة';
+  @override String get importCompaniesWipoTitle => 'شهادة وايپو مدريد (WIPO)';
+  @override String get importCompaniesWipoRegLabel => 'رقم تسجيل WIPO Madrid';
+  @override String get importCompaniesEuipoTitle => 'شهادة العلامة الأوروبية (EUIPO)';
+  @override String get importCompaniesEuipoRegLabel => 'رقم تسجيل EUIPO';
+  @override String get importCompaniesIsoTitle => 'شهادات إدارة الجودة ISO';
 
   // ── Screen 33: Foreign Suppliers ──
   @override String get suppliersScreenTitle => 'دليل الموردين والمصدرين الأجانب';
@@ -4139,13 +4154,22 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ledgerTypeCol => 'النوع';
   @override String get ledgerRefCol => 'المرجع';
   @override String get ledgerImportFileCol => 'ملف الشحنة';
+  @override String get ledgerProjectCol => 'اسم المشروع';
+  @override String get ledgerBlCol => 'رقم البوليصة';
+  @override String get ledgerImporterCol => 'الشركة المستوردة';
   @override String get ledgerDescriptionCol => 'البيان والوصف';
   @override String get ledgerCurrencyCol => 'العملة';
-  @override String get ledgerDebitCol => 'مدين (فاتورة)';
-  @override String get ledgerCreditCol => 'دائن (سداد)';
+  @override String get ledgerDebitCol => 'مدين (مستحق)';
+  @override String get ledgerCreditCol => 'دائن (مسدد)';
+  @override String get ledgerRunningBalanceCol => 'الرصيد التراكمي';
   @override String get ledgerStatusCol => 'الحالة';
   @override String get ledgerInvoiceBadge => 'فاتورة';
   @override String get ledgerPaymentBadge => 'سداد';
+  @override String get partnerSoaRecordInvoiceBtn => 'تسجيل فاتورة جديدة';
+  @override String get partnerSoaRecordPaymentBtn => 'تسجيل دفعة مسددة';
+  @override String get partnerSoaExportExcelBtn => 'تصدير إكسل (Excel)';
+  @override String get partnerSoaExportPdfBtn => 'تصدير كشف حساب PDF';
+  @override String get partnerSoaPrintBtn => 'طباعة كشف الحساب';
   @override String get soaFooterText => 'سرور للخدمات اللوجستية — وحدة محاسبة الموردين ومقدمي الخدمات متعددة العملات';
   @override String get closeBtn => 'إغلاق';
 

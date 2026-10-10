@@ -59,6 +59,8 @@ class TestPartnerStatementOfAccountFX(unittest.TestCase):
             import_file_code="IMP-2026-0001",
             company_name="Al-Sorour Trading",
             supplier_name="Global Steel Corp",
+            project_names="Mega Project Alpha",
+            bl_number="MSCU123456789",
             status="Draft",
             is_active=True,
         )
@@ -306,6 +308,37 @@ class TestPartnerStatementOfAccountFX(unittest.TestCase):
         channel_crit = next(c for c in card.criteria_breakdown if "Green Channel" in c["criterion_name_en"])
         self.assertEqual(turnaround_crit["score_achieved"], 0.0)
         self.assertEqual(channel_crit["score_achieved"], 0.0)
+
+    def test_soa_ledger_entry_contains_project_bl_importer(self):
+        """Ledger entries must be enriched with project_name, bl_number, and importer_name from linked ImportFile."""
+        partner = self._create_partner("Modern Customs Solutions", "Customs Broker")
+        self._create_currency("EGP", "Egyptian Pound", rate=1.0)
+
+        cl_inv = ClearanceExpenseInvoice(
+            invoice_code="CLI-2026-9999",
+            import_file_id=self.import_file_id,
+            invoice_number="INV-EGP-9999",
+            provider_id=partner.provider_id,
+            provider_name=partner.partner_name,
+            expense_category="Customs Clearance",
+            currency="EGP",
+            amount_fx=0.0,
+            amount_egp=7500.0,
+            invoice_date=cairo_today(),
+            is_active=True,
+        )
+        self.db.add(cl_inv)
+        self.db.commit()
+
+        soa = self.service.get_partner_statement_of_account(partner.provider_id)
+        entries = soa["ledger_entries"]
+        self.assertEqual(len(entries), 1)
+
+        entry = entries[0]
+        self.assertEqual(entry["project_name"], "Mega Project Alpha")
+        self.assertEqual(entry["bl_number"], "MSCU123456789")
+        self.assertEqual(entry["importer_name"], "Al-Sorour Trading")
+        self.assertEqual(entry["import_file_code"], "IMP-2026-0001")
 
 
 if __name__ == "__main__":

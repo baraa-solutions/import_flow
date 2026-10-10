@@ -3730,6 +3730,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get importerCardIdLabelShort => 'Importer Card';
   @override String get vatTaxIdLabelShort => 'VAT Reg ID';
   @override String get commercialRegLabelShort => 'Com. Reg #';
+  @override String get importCompaniesMobileLabel => 'Mobile Number';
+  @override String get importCompaniesFaxLabel => 'Fax Number';
+  @override String get importCompaniesPrimaryEmailLabel => 'Primary Email';
+  @override String get importCompaniesSecondaryEmailLabel => 'Secondary Email';
+  @override String get importCompaniesWebsiteLabel => 'Website URL';
+  @override String get importCompaniesNafezaTokenSection => 'Nafeza E-Token & Digital Link';
+  @override String get importCompaniesNafezaTokenLabel => 'Nafeza Token (Secure Encrypted)';
+  @override String get importCompaniesShowTokenTooltip => 'Show Token';
+  @override String get importCompaniesHideTokenTooltip => 'Hide Token';
+  @override String get importCompaniesCertificatesSection => 'Trademark Certificates & ISO';
+  @override String get importCompaniesWipoTitle => 'WIPO Madrid Monitor Certificate';
+  @override String get importCompaniesWipoRegLabel => 'WIPO Registration No.';
+  @override String get importCompaniesEuipoTitle => 'EUIPO Certificate';
+  @override String get importCompaniesEuipoRegLabel => 'EUIPO Registration No.';
+  @override String get importCompaniesIsoTitle => 'ISO Quality Management Certificates';
 
   // ── Screen 33: Foreign Suppliers ──
   @override String get suppliersScreenTitle => 'Foreign Suppliers Directory';
@@ -4139,13 +4154,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ledgerTypeCol => 'Type';
   @override String get ledgerRefCol => 'Reference';
   @override String get ledgerImportFileCol => 'Import File';
+  @override String get ledgerProjectCol => 'Project Name';
+  @override String get ledgerBlCol => 'B/L Number';
+  @override String get ledgerImporterCol => 'Importer Company';
   @override String get ledgerDescriptionCol => 'Description';
   @override String get ledgerCurrencyCol => 'Currency';
-  @override String get ledgerDebitCol => 'Debit (Invoice)';
-  @override String get ledgerCreditCol => 'Credit (Payment)';
+  @override String get ledgerDebitCol => 'Debit (Due)';
+  @override String get ledgerCreditCol => 'Credit (Paid)';
+  @override String get ledgerRunningBalanceCol => 'Running Balance';
   @override String get ledgerStatusCol => 'Status';
   @override String get ledgerInvoiceBadge => 'Invoice';
   @override String get ledgerPaymentBadge => 'Payment';
+  @override String get partnerSoaRecordInvoiceBtn => 'Record Invoice';
+  @override String get partnerSoaRecordPaymentBtn => 'Record Payment';
+  @override String get partnerSoaExportExcelBtn => 'Export to Excel';
+  @override String get partnerSoaExportPdfBtn => 'Export to PDF';
+  @override String get partnerSoaPrintBtn => 'Print Statement';
   @override String get soaFooterText => 'Sorour Logistics ERP — Multi-Currency Partner & Provider Accounting Module';
   @override String get closeBtn => 'Close';
 

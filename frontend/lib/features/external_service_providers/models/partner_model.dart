@@ -251,6 +251,9 @@ class PartnerLedgerEntryModel {
   final String referenceNo;
   final String description;
   final String? importFileCode;
+  final String? projectName;
+  final String? blNumber;
+  final String? importerName;
   final String currency;
   final double debitAmount;
   final double creditAmount;
@@ -264,6 +267,9 @@ class PartnerLedgerEntryModel {
     required this.referenceNo,
     required this.description,
     this.importFileCode,
+    this.projectName,
+    this.blNumber,
+    this.importerName,
     required this.currency,
     this.debitAmount = 0.0,
     this.creditAmount = 0.0,
@@ -279,6 +285,9 @@ class PartnerLedgerEntryModel {
       referenceNo: json['reference_no']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       importFileCode: json['import_file_code']?.toString(),
+      projectName: json['project_name']?.toString(),
+      blNumber: json['bl_number']?.toString(),
+      importerName: json['importer_name']?.toString(),
       currency: json['currency']?.toString() ?? 'EGP',
       debitAmount: (json['debit_amount'] as num?)?.toDouble() ?? 0.0,
       creditAmount: (json['credit_amount'] as num?)?.toDouble() ?? 0.0,

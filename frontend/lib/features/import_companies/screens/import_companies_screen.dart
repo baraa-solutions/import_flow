@@ -989,7 +989,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           controller: mobileCtrl,
-                                          label: 'رقم الموبايل / Mobile Number',
+                                          label: l10n.importCompaniesMobileLabel,
                                           icon: Icons.smartphone,
                                           hint: 'e.g. +20 100 123 4567',
                                           suffixIcon: IconButton(
@@ -1003,7 +1003,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           controller: faxCtrl,
-                                          label: 'رقم الفاكس / Fax Number',
+                                          label: l10n.importCompaniesFaxLabel,
                                           icon: Icons.print,
                                           hint: 'e.g. +20 2 2345 6789',
                                           suffixIcon: IconButton(
@@ -1021,7 +1021,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           controller: emailCtrl,
-                                          label: 'البريد الإلكتروني الأساسي / Primary Email',
+                                          label: l10n.importCompaniesPrimaryEmailLabel,
                                           icon: Icons.email,
                                           hint: 'info@company.com',
                                           suffixIcon: IconButton(
@@ -1035,7 +1035,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           controller: secondaryEmailCtrl,
-                                          label: 'البريد الإلكتروني الثانوي / Secondary Email',
+                                          label: l10n.importCompaniesSecondaryEmailLabel,
                                           icon: Icons.mark_email_read_outlined,
                                           hint: 'imports@company.com',
                                           suffixIcon: IconButton(
@@ -1050,7 +1050,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                   const SizedBox(height: 16),
                                   CustomTextField(
                                     controller: websiteCtrl,
-                                    label: 'الموقع الإلكتروني / Website URL',
+                                    label: l10n.importCompaniesWebsiteLabel,
                                     icon: Icons.language,
                                     hint: 'https://company.com',
                                     suffixIcon: IconButton(
@@ -1074,8 +1074,8 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                           children: [
                                             const Icon(Icons.vpn_key_rounded, size: 16, color: AppTheme.cobalt),
                                             const SizedBox(width: 6),
-                                            const Text(
-                                              'رمز نافذة والربط الرقمي / Nafeza E-Token',
+                                            Text(
+                                              l10n.importCompaniesNafezaTokenSection,
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                                             ),
                                           ],
@@ -1083,7 +1083,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         const SizedBox(height: 8),
                                         CustomTextField(
                                           controller: nafezaTokenCtrl,
-                                          label: 'Nafeza Token (مشفر آمن)',
+                                          label: l10n.importCompaniesNafezaTokenLabel,
                                           icon: Icons.lock_outline,
                                           obscureText: obscureToken,
                                           hint: 'NFZ-TK-xxxxxxxx',
@@ -1092,7 +1092,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             children: [
                                               IconButton(
                                                 icon: Icon(obscureToken ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.grey),
-                                                tooltip: obscureToken ? 'إظهار الرمز' : 'إخفاء الرمز',
+                                                tooltip: obscureToken ? l10n.importCompaniesShowTokenTooltip : l10n.importCompaniesHideTokenTooltip,
                                                 onPressed: () => setDialogState(() => obscureToken = !obscureToken),
                                               ),
                                               IconButton(
@@ -1122,7 +1122,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             Icon(Icons.verified_rounded, size: 18, color: Colors.amber.shade900),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'قسم شهادات العلامة التجارية والجودة / Trademark Certificates & ISO',
+                                              l10n.importCompaniesCertificatesSection,
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
                                             ),
                                           ],
@@ -1131,7 +1131,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('WIPO Madrid Monitor (شهادة وايپو مدريد)'),
+                                          title: Text(l10n.importCompaniesWipoTitle),
                                           value: hasWipo,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasWipo = val ?? false),
@@ -1141,7 +1141,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: wipoCtrl,
-                                              label: 'رقم تسجيل WIPO Madrid / Registration No.',
+                                              label: l10n.importCompaniesWipoRegLabel,
                                               icon: Icons.numbers,
                                               hint: 'e.g. 1234567',
                                             ),
@@ -1150,7 +1150,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('EUIPO (المكتب الأوروبي للملكية الفكرية)'),
+                                          title: Text(l10n.importCompaniesEuipoTitle),
                                           value: hasEuipo,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasEuipo = val ?? false),
@@ -1160,7 +1160,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: euipoCtrl,
-                                              label: 'رقم تسجيل EUIPO / European Trademark No.',
+                                              label: l10n.importCompaniesEuipoRegLabel,
                                               icon: Icons.numbers,
                                               hint: 'e.g. 018345678',
                                             ),

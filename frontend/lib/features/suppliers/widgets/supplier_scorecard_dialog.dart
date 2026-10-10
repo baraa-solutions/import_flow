@@ -56,7 +56,7 @@ class _SupplierScorecardDialogState extends ConsumerState<SupplierScorecardDialo
     });
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/suppliers//scorecard');
+      final res = await dio.get('/suppliers/${widget.supplierId}/scorecard');
       if (mounted) {
         setState(() {
           _scorecard = res.data is Map<String, dynamic> ? res.data : null;

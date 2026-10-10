@@ -117,12 +117,18 @@ class ExternalServiceProviderService:
                     seen_invoice_numbers.add(inv_ref.upper())
 
                 file_code = None
+                project_name = None
+                bl_number = None
+                importer_name = None
                 if cinv.import_file_id:
                     imp_file = self.repository.db.query(ImportFile).filter(
                         ImportFile.import_file_id == cinv.import_file_id
                     ).first()
                     if imp_file:
                         file_code = getattr(imp_file, "import_file_code", getattr(imp_file, "file_code", None))
+                        project_name = getattr(imp_file, "project_names", None)
+                        bl_number = getattr(imp_file, "bl_number", None)
+                        importer_name = getattr(imp_file, "company_name", None)
 
                 inv_date = cinv.invoice_date.strftime("%Y-%m-%d") if cinv.invoice_date else cinv.created_at.strftime("%Y-%m-%d")
 
@@ -133,6 +139,9 @@ class ExternalServiceProviderService:
                     "reference_no": cinv.invoice_number or cinv.invoice_code,
                     "description": f"{cinv.expense_category} ({cinv.provider_name or partner.partner_name})",
                     "import_file_code": file_code,
+                    "project_name": project_name,
+                    "bl_number": bl_number,
+                    "importer_name": importer_name,
                     "currency": curr,
                     "debit_amount": amt,
                     "credit_amount": 0.0,
@@ -153,12 +162,18 @@ class ExternalServiceProviderService:
 
             for rec in records:
                 file_code = None
+                project_name = None
+                bl_number = None
+                importer_name = None
                 if rec.import_file_id:
                     imp_file = self.repository.db.query(ImportFile).filter(
                         ImportFile.import_file_id == rec.import_file_id
                     ).first()
                     if imp_file:
                         file_code = getattr(imp_file, "import_file_code", getattr(imp_file, "file_code", None))
+                        project_name = getattr(imp_file, "project_names", None)
+                        bl_number = getattr(imp_file, "bl_number", None)
+                        importer_name = getattr(imp_file, "company_name", None)
 
                 invoices = rec.expense_invoices or []
                 for inv in invoices:
@@ -205,6 +220,9 @@ class ExternalServiceProviderService:
                         "reference_no": inv_no,
                         "description": f"{inv.get('category', 'Expense')} - {rec.settlement_code}",
                         "import_file_code": file_code,
+                        "project_name": project_name,
+                        "bl_number": bl_number,
+                        "importer_name": importer_name,
                         "currency": curr,
                         "debit_amount": amount_fx,
                         "credit_amount": 0.0,
@@ -244,12 +262,27 @@ class ExternalServiceProviderService:
                     currency_balances[curr]["paid"] += amt
 
                 file_code = None
+                project_name = None
+                bl_number = None
+                importer_name = None
                 if pay.import_file_id:
                     imp_file = self.repository.db.query(ImportFile).filter(
                         ImportFile.import_file_id == pay.import_file_id
                     ).first()
                     if imp_file:
                         file_code = getattr(imp_file, "import_file_code", getattr(imp_file, "file_code", None))
+                        project_name = getattr(imp_file, "project_names", None)
+                        bl_number = getattr(imp_file, "bl_number", None)
+                        importer_name = getattr(imp_file, "company_name", None)
+
+                if not project_name and pay.project_id:
+                    try:
+                        from modules.projects.model import Project
+                        proj = self.repository.db.query(Project).filter(Project.project_id == pay.project_id).first()
+                        if proj:
+                            project_name = proj.project_name
+                    except Exception:
+                        pass
 
                 p_date = pay.request_date.strftime("%Y-%m-%d") if pay.request_date else pay.created_at.strftime("%Y-%m-%d")
 
@@ -260,6 +293,9 @@ class ExternalServiceProviderService:
                     "reference_no": pay.payment_code or f"PAY-{pay.payment_id}",
                     "description": f"{pay.title} ({pay.payment_type})",
                     "import_file_code": file_code,
+                    "project_name": project_name,
+                    "bl_number": bl_number,
+                    "importer_name": importer_name,
                     "currency": curr,
                     "debit_amount": 0.0,
                     "credit_amount": amt,

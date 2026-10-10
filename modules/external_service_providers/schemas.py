@@ -135,6 +135,9 @@ class PartnerLedgerEntry(BaseModel):
     reference_no: str
     description: str
     import_file_code: Optional[str] = None
+    project_name: Optional[str] = None
+    bl_number: Optional[str] = None
+    importer_name: Optional[str] = None
     currency: str
     debit_amount: float = 0.0   # مستحق على الشركة لمقدم الخدمة
     credit_amount: float = 0.0  # مسدد لمقدم الخدمة

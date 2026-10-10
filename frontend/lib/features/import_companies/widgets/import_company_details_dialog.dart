@@ -217,11 +217,11 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.smartphone, 'الموبايل / Mobile', company.mobileNumber ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.smartphone, l10n.importCompaniesMobileLabel, company.mobileNumber ?? '-'),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.print, 'الفاكس / Fax', company.faxNumber ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.print, l10n.importCompaniesFaxLabel, company.faxNumber ?? '-'),
                               ),
                             ],
                           ),
@@ -241,7 +241,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.language, 'الموقع الإلكتروني / Website', company.website ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.language, l10n.importCompaniesWebsiteLabel, company.website ?? '-'),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -262,7 +262,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // ── Section 3: Trademark & Quality Certificates ───────────────────
-                    _buildSectionHeader(Icons.verified_rounded, 'شهادات العلامة التجارية والجودة / Trademark Certificates & ISO'),
+                    _buildSectionHeader(Icons.verified_rounded, l10n.importCompaniesCertificatesSection),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),

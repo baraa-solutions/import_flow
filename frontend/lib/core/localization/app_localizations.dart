@@ -3851,6 +3851,21 @@ abstract class AppLocalizations {
   String get importerCardIdLabelShort;
   String get vatTaxIdLabelShort;
   String get commercialRegLabelShort;
+  String get importCompaniesMobileLabel;
+  String get importCompaniesFaxLabel;
+  String get importCompaniesPrimaryEmailLabel;
+  String get importCompaniesSecondaryEmailLabel;
+  String get importCompaniesWebsiteLabel;
+  String get importCompaniesNafezaTokenSection;
+  String get importCompaniesNafezaTokenLabel;
+  String get importCompaniesShowTokenTooltip;
+  String get importCompaniesHideTokenTooltip;
+  String get importCompaniesCertificatesSection;
+  String get importCompaniesWipoTitle;
+  String get importCompaniesWipoRegLabel;
+  String get importCompaniesEuipoTitle;
+  String get importCompaniesEuipoRegLabel;
+  String get importCompaniesIsoTitle;
 
   // ── Screen 33: Foreign Suppliers ──
   String get suppliersScreenTitle;
@@ -4256,13 +4271,22 @@ abstract class AppLocalizations {
   String get ledgerTypeCol;
   String get ledgerRefCol;
   String get ledgerImportFileCol;
+  String get ledgerProjectCol;
+  String get ledgerBlCol;
+  String get ledgerImporterCol;
   String get ledgerDescriptionCol;
   String get ledgerCurrencyCol;
   String get ledgerDebitCol;
   String get ledgerCreditCol;
+  String get ledgerRunningBalanceCol;
   String get ledgerStatusCol;
   String get ledgerInvoiceBadge;
   String get ledgerPaymentBadge;
+  String get partnerSoaRecordInvoiceBtn;
+  String get partnerSoaRecordPaymentBtn;
+  String get partnerSoaExportExcelBtn;
+  String get partnerSoaExportPdfBtn;
+  String get partnerSoaPrintBtn;
   String get soaFooterText;
   String get closeBtn;
 
