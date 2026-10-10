@@ -92,6 +92,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   Timer? _dutyEstimateDebounce;
   bool _isEstimatingDuty = false;
   List<CustomsItemCalcRow> _engineCalculatedLines = [];
+  String? _currentEstimateCacheKey;
+  int _dutyEstimateRequestId = 0;
+  double? _engineGrandTotal;
 
   int? _editingConsultationId;
   String? _editingConsultationCode;
@@ -321,6 +324,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   void _onImportFileChanged(int? fileId) {
     setState(() {
       _selectedImportFileId = fileId;
+      _engineCalculatedLines = [];
+      _currentEstimateCacheKey = null;
+      _engineGrandTotal = null;
+      _estimatedDutiesController.text = '';
       if (fileId != null) {
         final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
         final file = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
@@ -755,6 +762,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
   }
 
+  String _buildEstimateCacheKey() {
+    return '$_selectedImportFileId|$_selectedPoId|$_customsCurrency|'
+        '${_exchangeRateController.text.trim()}|'
+        '${_freightForeignController.text.trim()}|$_freightCurrency|'
+        '${_freightExchangeRateController.text.trim()}|'
+        '${_freightEgpController.text.trim()}|$_insuranceOption|'
+        '${_insuranceEgpController.text.trim()}|'
+        '${_studyDate.year}-${_studyDate.month}-${_studyDate.day}';
+  }
+
   void _triggerDutyEstimateDebounced() {
     _dutyEstimateDebounce?.cancel();
     _dutyEstimateDebounce = Timer(const Duration(milliseconds: 400), () {
@@ -765,6 +782,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   }
 
   Future<void> _fetchDutyEstimateFromEngine() async {
+    final int reqId = ++_dutyEstimateRequestId;
+    final String requestKey = _buildEstimateCacheKey();
+
     final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
     final tariffsList = ref.read(customsTariffProvider).valueOrNull ?? [];
 
@@ -795,9 +815,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     if (allPoLines.isEmpty) {
-      if (mounted) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
         setState(() {
           _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
           _isEstimatingDuty = false;
         });
       }
@@ -813,9 +835,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         defaultOriginCountry: defaultOriginCountry,
         exchangeRate: exchangeRate,
       );
-      if (mounted) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
         setState(() {
           _engineCalculatedLines = uncalculated;
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
           _isEstimatingDuty = false;
         });
       }
@@ -835,10 +859,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         : 1.0;
 
     final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
-    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? exchangeRate;
-    final double totalFreightEgp = freightForeign > 0
-        ? (freightForeign * freightFxRate)
-        : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
+    final double? freightFxTyped = double.tryParse(_freightExchangeRateController.text.trim());
+    final double? freightFxRateForEngine = (freightFxTyped != null && freightFxTyped > 0) ? freightFxTyped : null;
+    final double totalFreightEgp = freightForeign > 0 && freightFxRateForEngine != null
+        ? (freightForeign * freightFxRateForEngine)
+        : (_freightCurrency == _customsCurrency && freightForeign > 0 && exchangeRate > 0)
+            ? (freightForeign * exchangeRate)
+            : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
 
     final double effectiveFobForeign = totalInvoicesForeign > 0 ? totalInvoicesForeign : poItemsFobSum;
     final double totalFobEgp = effectiveFobForeign * exchangeRate;
@@ -868,7 +895,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       exchangeRate: exchangeRate,
       freightForeign: freightForeign,
       freightCurrency: _freightCurrency,
-      freightExchangeRate: freightFxRate,
+      freightExchangeRate: freightFxRateForEngine,
       freightEgp: totalFreightEgp,
       insuranceEgp: totalInsuranceEgp,
       insuranceOption: _insuranceOption,
@@ -886,23 +913,27 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         scaleFactor: scaleFactor,
         exchangeRate: exchangeRate,
       );
-      if (mounted) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
         setState(() {
           _engineCalculatedLines = uncalculated;
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
           _isEstimatingDuty = false;
         });
       }
       return;
     }
 
-    if (mounted) {
+    if (mounted && reqId == _dutyEstimateRequestId) {
       setState(() => _isEstimatingDuty = true);
     }
 
     try {
       final res = await ref.read(customsTariffProvider.notifier).estimateMultiItemDuty(payload);
       if (!mounted) return;
+      if (reqId != _dutyEstimateRequestId) return; // Ignore out of date responses
       if (res != null) {
+        final grandTotal = CustomsEstimatePayloadBuilder.parseToDouble(res['grand_total_payable_egp']) ?? 0.0;
         final rows = CustomsEstimatePayloadBuilder.mapEngineResponseToCalcRows(
           engineResponse: res,
           allLines: allPoLines,
@@ -911,22 +942,35 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           scaleFactor: scaleFactor,
           exchangeRate: exchangeRate,
         );
-        final double totalTaxes = rows
-            .where((l) => !l.isTariffMissing)
-            .fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
         setState(() {
           _engineCalculatedLines = rows;
+          _engineGrandTotal = grandTotal;
+          _currentEstimateCacheKey = requestKey;
           _isEstimatingDuty = false;
-          if (totalTaxes > 0) {
-            _estimatedDutiesController.text = totalTaxes.toStringAsFixed(2);
-          }
+          _estimatedDutiesController.text = grandTotal.toStringAsFixed(2);
         });
       } else {
-        setState(() => _isEstimatingDuty = false);
+        setState(() {
+          _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isEstimatingDuty = false);
+    } catch (e) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
+        setState(() {
+          _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiErrorText.of(context.l10n, e)),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
       }
     }
   }
@@ -965,7 +1009,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       return [];
     }
 
-    if (_engineCalculatedLines.isNotEmpty) {
+    final String currentKey = _buildEstimateCacheKey();
+    if (_engineCalculatedLines.isNotEmpty && _currentEstimateCacheKey == currentKey) {
       return _engineCalculatedLines;
     }
 
@@ -1089,6 +1134,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _selectedPoId = session.poId;
       _selectedProjectId = session.projectId;
       _estimatedDutiesController.text = session.estimatedDutiesEgp.toStringAsFixed(2);
+      _engineCalculatedLines = [];
+      _currentEstimateCacheKey = null;
+      _engineGrandTotal = session.estimatedDutiesEgp;
       _notesController.text = session.notes ?? '';
       _checklist.clear();
       _checklist.addAll(session.checklistItems);
@@ -1101,6 +1149,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _visitedTabs.add(0);
       _tabController.animateTo(0);
     });
+
+    if (session.importFileId != null) {
+      _onImportFileChanged(session.importFileId);
+    } else if (session.poId != null) {
+      final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final po = allPOs.where((p) => p.poId == session.poId).firstOrNull;
+      if (po != null && po.currencyCode != null && po.currencyCode!.isNotEmpty) {
+        _customsCurrency = po.currencyCode!;
+        _updateExchangeRateForCurrency(po.currencyCode!);
+      }
+      _triggerDutyEstimateDebounced();
+    } else {
+      _triggerDutyEstimateDebounced();
+    }
   }
 
 
@@ -1379,11 +1441,32 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       return;
     }
 
+    if (_isEstimatingDuty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يرجى الانتظار حتى انتهاء حساب الرسوم الجمركية من محرك الجمارك.'),
+          backgroundColor: AppTheme.wcagOrange,
+        ),
+      );
+      return;
+    }
+
     final rawCalcLines = _calculateCustomsLines();
     if (rawCalcLines.any((l) => l.isTariffMissing)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l.customsMissingTariffBlockSave),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
+
+    if ((_selectedImportFileId != null || _selectedPoId != null) &&
+        (_engineGrandTotal == null || _currentEstimateCacheKey == null || rawCalcLines.any((l) => !l.isCalculated))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ لم يتم حساب تقدير الرسوم الجمركية بعد بواسطة محرك الجمارك.'),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -1430,7 +1513,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       return;
     }
 
-    final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
+    final estimatedDuties = _engineGrandTotal ?? (double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0);
     final totalBrokerFees = widget.isTaxReviewMode ? 0.0 : _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
 
     // Change Diff Confirmation Dialog for Edits
@@ -1901,6 +1984,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             _selectedPoId = null;
                             _selectedProjectId = null;
                             _selectedBrokerId = null;
+                            _engineCalculatedLines = [];
+                            _currentEstimateCacheKey = null;
+                            _engineGrandTotal = null;
+                            _estimatedDutiesController.clear();
                             _initializeDefaultChecklist();
                           });
                         },
@@ -2815,6 +2902,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           setState(() {
                                             _insuranceOption = set.first;
                                           });
+                                          _triggerDutyEstimateDebounced();
                                         },
                                         style: const ButtonStyle(
                                           visualDensity: VisualDensity.compact,
@@ -3164,25 +3252,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing ? '—' : '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
+                                            value: !line.isCalculated ? '—' : '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text(line.isTariffMissing ? '—' : line.fobEgp.toStringAsFixed(2)),
+                                            child: Text(!line.isCalculated ? '—' : line.fobEgp.toStringAsFixed(2)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing ? '—' : '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
+                                            value: !line.isCalculated ? '—' : '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text(line.isTariffMissing ? '—' : line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            child: Text(!line.isCalculated ? '—' : line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing
+                                            value: !line.isCalculated
                                                 ? '—'
                                                 : '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel)',
                                             rowSummary: rowSummary,
-                                            child: line.isTariffMissing
+                                            child: !line.isCalculated
                                                 ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
                                                 : Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3225,33 +3313,33 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing
+                                            value: !line.isCalculated
                                                 ? '—'
                                                 : '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)',
                                             rowSummary: rowSummary,
-                                            child: line.isTariffMissing
+                                            child: !line.isCalculated
                                                 ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
                                                 : Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})'),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing
+                                            value: !line.isCalculated
                                                 ? '—'
                                                 : '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: line.isTariffMissing
+                                            child: !line.isCalculated
                                                 ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
                                                 : Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel'),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: line.isTariffMissing
+                                            value: !line.isCalculated
                                                 ? '—'
                                                 : '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: line.isTariffMissing
+                                            child: !line.isCalculated
                                                 ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
                                                 : Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                                           ),
@@ -3259,7 +3347,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         DataCell(
                                           line.isTariffMissing
                                               ? const TariffMissingBadge()
-                                              : Row(
+                                              : !line.isCalculated
+                                                  ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                  : Row(
                                                   children: [
                                                     if (line.requiresAcid)
                                                       Container(
@@ -3389,7 +3479,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ),
                                     ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.cobalt),
                                     ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.emerald),
-                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
+                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${(_engineGrandTotal ?? totalTaxesAndDutiesEgp).toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
                                      if (_isEstimatingDuty)
                                        const Padding(
                                          padding: EdgeInsets.symmetric(horizontal: 8),
@@ -3405,11 +3495,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       variant: AppButtonVariant.success,
                                       size: AppButtonSize.small,
                                       onPressed: () {
+                                        final appliedValue = _engineGrandTotal ?? totalTaxesAndDutiesEgp;
                                         setState(() {
-                                          _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
+                                          _estimatedDutiesController.text = appliedValue.toStringAsFixed(2);
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
+                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${appliedValue.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
                                         );
                                       },
                                     ),

@@ -770,6 +770,8 @@ class CustomsItemCalcRow {
   final bool isTariffMissing;
   final String? status;
 
+  bool get isCalculated => status == 'CALCULATED';
+
   CustomsItemCalcRow({
     required this.hsCode,
     required this.description,
