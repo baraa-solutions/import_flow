@@ -498,22 +498,30 @@ def test_apply_invoice_validation(client, operator, db, imp):
     url = "/api/v1/smart-upload/apply/commercial-invoice"
     base = {"import_file_id": imp.import_file_id}
     r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"acid_number": "123"}})
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "SDU_INVOICE_NUMBER_REQUIRED"
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "acid_number": "123"}})
     assert r.status_code == 400 and r.json()["detail"]["code"] == "SDU_ACID_INVALID"
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"acid_number": "9" * 19}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "acid_number": "9" * 19}})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "SDU_ACID_CONFLICT"
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"incoterms": "XYZ"}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "incoterms": "XYZ"}})
     assert r.status_code == 400
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_value": "abc"}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "invoice_value": "abc"}})
     assert r.status_code == 422
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_value": -5}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "invoice_value": -5}})
     assert r.status_code == 422
+    orig_currency = imp.estimated_cost_currency
+    orig_cost = imp.estimated_cost
     r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {
-        "acid_number": ACID, "incoterms": "cif", "invoice_value": 100.0, "currency": "eur", "extra_key": 1}})
+        "invoice_number": "INV-1", "acid_number": ACID, "incoterms": "cif", "invoice_value": 100.0, "currency": "eur", "extra_key": 1}})
     assert r.status_code == 200
     body = r.json()
     assert body["applied"] is True and body["msg_code"] == "SDU_INVOICE_APPLIED" and "message_ar" in body
     db.refresh(imp)
-    assert imp.incoterm_code == "CIF" and imp.estimated_cost_currency == "EUR"
+    assert imp.incoterm_code == "CIF"
+    assert imp.estimated_cost_currency == orig_currency
+    assert imp.estimated_cost == orig_cost
+    assert imp.invoices_data[0]["currency"] == "EUR"
+    assert imp.invoices_data[0]["invoice_no"] == "INV-1"
 
 
 def test_apply_invoice_inactive_file_404(client, operator, db, imp):
@@ -655,7 +663,7 @@ def test_apply_rejects_closed_file_and_records_user(client, operator, db, imp):
     db.add(CargoShippingRecord(cargo_shipping_code="SHP-CL", import_file_id=imp.import_file_id))
     db.commit()
     r = client.post("/api/v1/smart-upload/apply/commercial-invoice", headers=_h(operator),
-                    json={"import_file_id": imp.import_file_id, "invoice_data": {"invoice_value": 10}})
+                    json={"import_file_id": imp.import_file_id, "invoice_data": {"invoice_number": "INV-CL", "invoice_value": 10}})
     assert r.status_code == 200
     db.refresh(imp)
     assert imp.updated_by == operator.username
@@ -668,7 +676,7 @@ def test_apply_rejects_closed_file_and_records_user(client, operator, db, imp):
 
     imp.status = "Closed"
     db.commit()
-    for path, body in (("commercial-invoice", {"invoice_data": {"invoice_value": 10}}),
+    for path, body in (("commercial-invoice", {"invoice_data": {"invoice_number": "INV-CL", "invoice_value": 10}}),
                        ("bill-of-lading", {"bl_data": {"containers": [{"container_no": "TGHU7654321"}]}})):
         r = client.post(f"/api/v1/smart-upload/apply/{path}", headers=_h(operator),
                         json={"import_file_id": imp.import_file_id, **body})
