@@ -16,6 +16,8 @@ class ImportCompanyModel {
   final String? secondaryEmail;
   final String? website;
   final String? nafezaToken;
+  final bool hasNafezaToken;
+  final String? maskedNafezaToken;
   final bool hasWipo;
   final String? wipoNumber;
   final bool hasEuipo;
@@ -56,6 +58,8 @@ class ImportCompanyModel {
     this.secondaryEmail,
     this.website,
     this.nafezaToken,
+    this.hasNafezaToken = false,
+    this.maskedNafezaToken,
     this.hasWipo = false,
     this.wipoNumber,
     this.hasEuipo = false,
@@ -82,6 +86,9 @@ class ImportCompanyModel {
       return defaultValue;
     }
 
+    final maskedToken = json['masked_nafeza_token']?.toString();
+    final hasToken = parseBool(json['has_nafeza_token']) || (maskedToken != null && maskedToken.isNotEmpty);
+
     return ImportCompanyModel(
       companyId: json['company_id'] as int?,
       importerName: json['importer_name']?.toString() ?? '',
@@ -105,7 +112,9 @@ class ImportCompanyModel {
       email: json['email']?.toString(),
       secondaryEmail: json['secondary_email']?.toString(),
       website: json['website']?.toString(),
-      nafezaToken: json['nafeza_token']?.toString(),
+      hasNafezaToken: hasToken,
+      maskedNafezaToken: maskedToken,
+      nafezaToken: maskedToken ?? json['nafeza_token']?.toString(),
       hasWipo: parseBool(json['has_wipo']),
       wipoNumber: json['wipo_number']?.toString(),
       hasEuipo: parseBool(json['has_euipo']),
@@ -137,7 +146,8 @@ class ImportCompanyModel {
       'email': email,
       'secondary_email': secondaryEmail,
       'website': website,
-      'nafeza_token': nafezaToken,
+      if (nafezaToken != null && nafezaToken!.trim().isNotEmpty && !nafezaToken!.trim().startsWith('****'))
+        'nafeza_token': nafezaToken!.trim(),
       'has_wipo': hasWipo,
       'wipo_number': wipoNumber,
       'has_euipo': hasEuipo,

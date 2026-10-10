@@ -248,10 +248,8 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                 child: _buildSimpleInfoRow(
                                   context,
                                   Icons.vpn_key_rounded,
-                                  'Nafeza E-Token',
-                                  (company.nafezaToken != null && company.nafezaToken!.isNotEmpty)
-                                      ? '****${company.nafezaToken!.length > 4 ? company.nafezaToken!.substring(company.nafezaToken!.length - 4) : company.nafezaToken!}'
-                                      : '-',
+                                  l10n.importCompaniesNafezaTokenLabel,
+                                  company.maskedNafezaToken ?? (company.hasNafezaToken ? '****' : '-'),
                                 ),
                               ),
                             ],

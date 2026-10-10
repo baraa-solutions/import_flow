@@ -99,7 +99,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
         c.primaryEmail ?? '-',
         c.secondaryEmail ?? '-',
         c.website ?? '-',
-        (c.nafezaToken != null && c.nafezaToken!.isNotEmpty) ? '****${c.nafezaToken!.length > 4 ? c.nafezaToken!.substring(c.nafezaToken!.length - 4) : c.nafezaToken!}' : '-',
+        c.maskedNafezaToken ?? (c.hasNafezaToken ? '****' : '-'),
         c.hasWipo ? (c.wipoNumber ?? 'Yes') : 'No',
         c.hasEuipo ? (c.euipoNumber ?? 'Yes') : 'No',
         c.hasGlobalBrand ? (c.globalBrandNumber ?? 'Yes') : 'No',
@@ -683,7 +683,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     final emailCtrl = TextEditingController(text: companyToEdit?.primaryEmail ?? '');
     final secondaryEmailCtrl = TextEditingController(text: companyToEdit?.secondaryEmail ?? '');
     final websiteCtrl = TextEditingController(text: companyToEdit?.website ?? '');
-    final nafezaTokenCtrl = TextEditingController(text: companyToEdit?.nafezaToken ?? '');
+    final nafezaTokenCtrl = TextEditingController();
     bool obscureToken = true;
 
     bool hasWipo = companyToEdit?.hasWipo ?? false;
@@ -1086,7 +1086,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                           label: l10n.importCompaniesNafezaTokenLabel,
                                           icon: Icons.lock_outline,
                                           obscureText: obscureToken,
-                                          hint: 'NFZ-TK-xxxxxxxx',
+                                          hint: (companyToEdit?.hasNafezaToken == true) ? (companyToEdit?.maskedNafezaToken ?? '****') : 'NFZ-TK-xxxxxxxx',
                                           suffixIcon: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
@@ -1098,7 +1098,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                               IconButton(
                                                 icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
                                                 tooltip: l10n.importCompaniesCopyFieldTooltip,
-                                                onPressed: () => CopyHelper.copy(context, nafezaTokenCtrl.text),
+                                                onPressed: () => CopyHelper.copy(context, nafezaTokenCtrl.text.isNotEmpty ? nafezaTokenCtrl.text : (companyToEdit?.maskedNafezaToken ?? '')),
                                               ),
                                             ],
                                           ),

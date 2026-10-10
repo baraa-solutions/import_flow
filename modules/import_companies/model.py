@@ -207,3 +207,16 @@ class ImportCompany(Base):
     notes = Column(
         String(500)
     )
+
+    @property
+    def has_nafeza_token(self) -> bool:
+        """Returns True if nafeza token is configured."""
+        return bool(self.nafeza_token and str(self.nafeza_token).strip())
+
+    @property
+    def masked_nafeza_token(self) -> str | None:
+        """Returns masked token representation (****1234) without exposing secret."""
+        if not self.has_nafeza_token:
+            return None
+        from utils.crypto_utils import mask_secret_token
+        return mask_secret_token(self.nafeza_token)

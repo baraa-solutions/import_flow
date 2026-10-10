@@ -114,3 +114,57 @@ def test_schemas_partner_financial_fields():
     assert obj.default_free_days == 14
     assert obj.payment_terms == "Net 30 Days"
     assert obj.credit_limit == 50000.0
+
+
+def test_crypto_utils_secret_token_encryption_and_masking():
+    from utils.crypto_utils import encrypt_secret_text, decrypt_secret_text, mask_secret_token
+
+    raw_token = "NFT-SECURE-9876543210"
+    encrypted = encrypt_secret_text(raw_token)
+    assert encrypted.startswith("enc:")
+    assert encrypted != raw_token
+
+    # Decrypt
+    decrypted = decrypt_secret_text(encrypted)
+    assert decrypted == raw_token
+
+    # Masking
+    masked = mask_secret_token(encrypted)
+    assert masked == "****3210"
+
+    # Already masked or empty
+    assert mask_secret_token(None) is None
+    assert mask_secret_token("") is None
+    assert mask_secret_token("123") == "****"
+
+
+def test_import_company_response_sanitizes_nafeza_token():
+    from datetime import date, datetime, timezone
+    from utils.crypto_utils import encrypt_secret_text
+
+    raw_token = "NFT-TOP-SECRET-1234"
+    enc_token = encrypt_secret_text(raw_token)
+
+    data = {
+        "company_id": 42,
+        "importer_name": "Secure Trading LLC",
+        "importer_id": "IMP-4200",
+        "importer_id_expiry": date(2030, 1, 1),
+        "vat_id": "VAT-4200",
+        "vat_id_expiry": date(2030, 1, 1),
+        "registration_number": "REG-4200",
+        "registration_expiry": date(2030, 1, 1),
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+        "nafeza_token": enc_token,
+    }
+
+    res = ImportCompanyResponse(**data)
+    # The plaintext token must NEVER be returned
+    assert res.nafeza_token is None
+    # Presence flag must be True
+    assert res.has_nafeza_token is True
+    # Masked preview must display only last 4 characters
+    assert res.masked_nafeza_token == "****1234"
+

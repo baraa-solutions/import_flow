@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import EmailStr
+from pydantic import model_validator
 
 
 # ==========================================================
@@ -121,6 +122,24 @@ class ImportCompanyResponse(ImportCompanyBase):
     created_by: str | None = None
     updated_by: str | None = None
 
+    # Security: never return plaintext nafeza_token; provide presence flag & masked last-4
+    has_nafeza_token: bool = False
+    masked_nafeza_token: str | None = None
+    nafeza_token: str | None = None
+
     model_config = ConfigDict(
         from_attributes=True
     )
+
+    @model_validator(mode="after")
+    def sanitize_secret_token(self) -> "ImportCompanyResponse":
+        raw = self.nafeza_token
+        if raw and str(raw).strip():
+            self.has_nafeza_token = True
+            if not self.masked_nafeza_token:
+                from utils.crypto_utils import mask_secret_token
+                self.masked_nafeza_token = mask_secret_token(raw)
+        elif self.masked_nafeza_token:
+            self.has_nafeza_token = True
+        self.nafeza_token = None
+        return self
