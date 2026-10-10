@@ -430,3 +430,121 @@ def test_master_report_empty_and_unknown_currency(db_context):
     assert report.estimated_cost_by_currency == {"UNKNOWN": 0.0}
     assert report.total_estimated_cost == 0.0
 
+
+def test_project_commitments_dangling_currency_po_not_dropped(db_context):
+    """Test that POs with missing or dangling currency_id are not silently dropped by join,
+    and instead flag UNKNOWN in missing_rate_currencies with total_committed_usd=None."""
+    session = db_context["session"]
+    _add_rate(session, currency_id=db_context["usd"].currency_id, commercial_rate=48.50)
+    service = ProjectService(session)
+    project = service.create(ProjectCreate(
+        project_name="Dangling Currency PO",
+        project_owner="Tester",
+        company_id=db_context["company"].company_id,
+        supplier_id=db_context["supplier"].supplier_id,
+        incoterm_id=db_context["incoterm"].incoterm_id,
+        total_budget_usd=50000.0,
+    ))
+
+    # PO with dangling currency_id (no matching currency row)
+    po = PurchaseOrder(
+        po_number="PO-DANGLING-1",
+        project_id=project.project_id,
+        company_id=db_context["company"].company_id,
+        supplier_id=db_context["supplier"].supplier_id,
+        incoterm_id=db_context["incoterm"].incoterm_id,
+        currency_id=9999,
+        total_amount_fob=Decimal("7000.00"),
+        is_active=True,
+    )
+    session.add(po)
+    session.commit()
+
+    resp = service.get_by_id(project.project_id)
+    assert resp.po_count == 1
+    assert resp.total_committed_usd is None
+    assert resp.remaining_budget_usd is None
+    assert resp.missing_rate_currencies == ["UNKNOWN"]
+    assert resp.committed_by_currency == {"UNKNOWN": 7000.0}
+
+    # Also verify get_financial_commitments
+    commitments = service.get_financial_commitments(project.project_id)
+    assert commitments["po_count"] == 1
+    assert commitments["total_committed_usd"] is None
+    assert commitments["missing_rate_currencies"] == ["UNKNOWN"]
+    assert commitments["committed_by_currency"] == {"UNKNOWN": 7000.0}
+
+
+def test_project_commitments_usd_rate_non_positive(db_context):
+    """Test that USD rate <= 0 flags USD in missing_rate_currencies rather than silently dropping."""
+    session = db_context["session"]
+    # Seed USD rate as 0.0
+    _add_rate(session, currency_id=db_context["usd"].currency_id, commercial_rate=0.0)
+    _add_rate(session, currency_id=db_context["eur"].currency_id, commercial_rate=50.0)
+
+    service = ProjectService(session)
+    project = service.create(ProjectCreate(
+        project_name="Zero USD Rate Project",
+        project_owner="Tester",
+        company_id=db_context["company"].company_id,
+        supplier_id=db_context["supplier"].supplier_id,
+        incoterm_id=db_context["incoterm"].incoterm_id,
+        total_budget_usd=50000.0,
+    ))
+
+    po = PurchaseOrder(
+        po_number="PO-EUR-ZERO-USD",
+        project_id=project.project_id,
+        company_id=db_context["company"].company_id,
+        supplier_id=db_context["supplier"].supplier_id,
+        incoterm_id=db_context["incoterm"].incoterm_id,
+        currency_id=db_context["eur"].currency_id,
+        total_amount_fob=Decimal("5000.00"),
+        is_active=True,
+    )
+    session.add(po)
+    session.commit()
+
+    resp = service.get_by_id(project.project_id)
+    assert resp.total_committed_usd is None
+    assert "USD" in resp.missing_rate_currencies
+
+
+def test_get_all_rate_caching_on_missing_rates(db_context):
+    """Test that in get_all(), missing rates are cached and not repeatedly re-queried (no N+1 on missing path)."""
+    session = db_context["session"]
+    # Do not seed EUR rate
+    _add_rate(session, currency_id=db_context["usd"].currency_id, commercial_rate=48.50)
+
+    service = ProjectService(session)
+    for i in range(5):
+        p = service.create(ProjectCreate(
+            project_name=f"Missing Rate Project {i+1}",
+            project_owner=f"Owner {i+1}",
+            company_id=db_context["company"].company_id,
+            supplier_id=db_context["supplier"].supplier_id,
+            incoterm_id=db_context["incoterm"].incoterm_id,
+            total_budget_usd=30000.0,
+        ))
+        po = PurchaseOrder(
+            po_number=f"PO-MISSING-EUR-{i+1}",
+            project_id=p.project_id,
+            company_id=db_context["company"].company_id,
+            supplier_id=db_context["supplier"].supplier_id,
+            incoterm_id=db_context["incoterm"].incoterm_id,
+            currency_id=db_context["eur"].currency_id,
+            total_amount_fob=Decimal("1000.00"),
+            is_active=True,
+        )
+        session.add(po)
+    session.commit()
+
+    results = service.get_all(include_inactive=False)
+    # The 5 projects with missing EUR rate should all have total_committed_usd=None and missing_rate_currencies=["EUR"]
+    eur_projects = [r for r in results if r.project_name.startswith("Missing Rate Project")]
+    assert len(eur_projects) == 5
+    for r in eur_projects:
+        assert r.total_committed_usd is None
+        assert r.missing_rate_currencies == ["EUR"]
+
+

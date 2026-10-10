@@ -3524,6 +3524,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'الشركة #$id';
   @override String projectSupplierFallback(int id) => 'المورد #$id';
   @override String projectSupplierLabel(String supplier) => 'المورد: $supplier';
+  @override String get projectCommitmentsLabel => 'الالتزامات';
+  @override String get projectRemainingBudgetLabel => 'المتبقي من الميزانية';
+  @override String projectMissingRateCurrencies(String currencies) => 'أسعار الصرف غير متوفرة لعملات: $currencies';
+  @override String get projectUtilizationLabel => 'نسبة الاستهلاك';
   @override String get capMultiShipment => 'متعدد الشحنات';
   @override String get capMultiCompany => 'متعدد الشركات';
   @override String projectPrintSnack(String name, String code) => 'طباعة بيانات المشروع ومراكز التكلفة: $name ($code)';

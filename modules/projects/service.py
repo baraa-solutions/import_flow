@@ -21,13 +21,15 @@ class ProjectService:
         budget_usd: Optional[float],
         po_data: List[tuple],
         currency_service: "CurrencyService",
+        rate_cache: Optional[dict[str, Optional[float]]] = None,
     ) -> dict:
         po_count = sum(r[2] for r in po_data)
         committed_by_currency: dict[str, float] = {}
         for cur_code, amt, _ in po_data:
             code = (cur_code or "").upper().strip()
-            if code:
-                committed_by_currency[code] = round(committed_by_currency.get(code, 0.0) + amt, 2)
+            if not code:
+                code = "UNKNOWN"
+            committed_by_currency[code] = round(committed_by_currency.get(code, 0.0) + amt, 2)
 
         if po_count == 0 or not committed_by_currency:
             rem = round(budget_usd, 2) if budget_usd is not None else None
@@ -40,18 +42,31 @@ class ProjectService:
                 "committed_by_currency": {},
             }
 
+        if rate_cache is None:
+            rate_cache = {}
+
+        def _lookup_rate(cur: str) -> Optional[float]:
+            if cur in rate_cache:
+                return rate_cache[cur]
+            try:
+                rate_val, _, _ = currency_service._get_rate_to_egp(cur, rate_type="commercial")
+                val = float(rate_val)
+                if val <= 0:
+                    rate_cache[cur] = None
+                    return None
+                rate_cache[cur] = val
+                return val
+            except Exception:
+                rate_cache[cur] = None
+                return None
+
         missing_rate_currencies: List[str] = []
         has_non_usd = any(cur != "USD" for cur in committed_by_currency.keys())
 
         usd_rate_to_egp = None
         if has_non_usd:
-            try:
-                rate_val, _, _ = currency_service._get_rate_to_egp("USD", rate_type="commercial")
-                usd_rate_to_egp = float(rate_val)
-            except HTTPException:
-                if "USD" not in missing_rate_currencies:
-                    missing_rate_currencies.append("USD")
-            except Exception:
+            usd_rate_to_egp = _lookup_rate("USD")
+            if usd_rate_to_egp is None or usd_rate_to_egp <= 0:
                 if "USD" not in missing_rate_currencies:
                     missing_rate_currencies.append("USD")
 
@@ -61,15 +76,10 @@ class ProjectService:
             if cur_code == "USD":
                 converted_amounts_usd.append(cur_amount)
             else:
-                try:
-                    rate_val, _, _ = currency_service._get_rate_to_egp(cur_code, rate_type="commercial")
-                    cur_rate_to_egp = float(rate_val)
-                    if usd_rate_to_egp is not None and usd_rate_to_egp > 0:
-                        converted_amounts_usd.append(cur_amount * cur_rate_to_egp / usd_rate_to_egp)
-                except HTTPException:
-                    if cur_code not in missing_rate_currencies:
-                        missing_rate_currencies.append(cur_code)
-                except Exception:
+                cur_rate = _lookup_rate(cur_code)
+                if cur_rate is not None and usd_rate_to_egp is not None and usd_rate_to_egp > 0:
+                    converted_amounts_usd.append(cur_amount * cur_rate / usd_rate_to_egp)
+                else:
                     if cur_code not in missing_rate_currencies:
                         missing_rate_currencies.append(cur_code)
 
@@ -140,7 +150,7 @@ class ProjectService:
                     func.coalesce(func.sum(PurchaseOrder.total_amount_fob), 0.0),
                     func.count(PurchaseOrder.po_id),
                 )
-                .join(Currency, PurchaseOrder.currency_id == Currency.currency_id)
+                .outerjoin(Currency, PurchaseOrder.currency_id == Currency.currency_id)
                 .filter(
                     PurchaseOrder.project_id == project.project_id,
                     PurchaseOrder.is_active.is_(True),
@@ -198,7 +208,7 @@ class ProjectService:
 
         pos = (
             self.db.query(PurchaseOrder, Currency.currency_code)
-            .join(Currency, PurchaseOrder.currency_id == Currency.currency_id)
+            .outerjoin(Currency, PurchaseOrder.currency_id == Currency.currency_id)
             .filter(
                 PurchaseOrder.project_id == project_id,
                 PurchaseOrder.is_active.is_(True),
@@ -293,7 +303,7 @@ class ProjectService:
                 func.coalesce(func.sum(PurchaseOrder.total_amount_fob), 0.0),
                 func.count(PurchaseOrder.po_id),
             )
-            .join(Currency, PurchaseOrder.currency_id == Currency.currency_id)
+            .outerjoin(Currency, PurchaseOrder.currency_id == Currency.currency_id)
             .filter(
                 PurchaseOrder.project_id.in_(project_ids),
                 PurchaseOrder.is_active.is_(True),
@@ -308,6 +318,7 @@ class ProjectService:
 
         from modules.currencies.service import CurrencyService
         currency_service = CurrencyService(self.db)
+        rate_cache: dict[str, Optional[float]] = {}
 
         # 3. Build response for each project
         results = []
@@ -323,7 +334,7 @@ class ProjectService:
             c_names_str = ", ".join(c_names) if c_names else (p.company.importer_name if p.company else None)
 
             budget = float(p.total_budget_usd) if p.total_budget_usd is not None else None
-            p_stats = self._calculate_commitment_totals(budget, po_by_project.get(p.project_id, []), currency_service)
+            p_stats = self._calculate_commitment_totals(budget, po_by_project.get(p.project_id, []), currency_service, rate_cache=rate_cache)
 
             results.append(self._to_response(p, company_names_str=c_names_str, company_ids=c_ids, stats=p_stats))
 
