@@ -1294,7 +1294,7 @@ def reconcile_po_final_adjustments_service(
                 line_po_ids.add(db_po_item.po_id)
 
                 po = open_pos.get(db_po_item.po_id)
-                curr_code = getattr(getattr(po, "currency", None), "currency_code", None) or getattr(itm, "currency", None) or "USD"
+                curr_code = getattr(getattr(po, "currency", None), "currency_code", None) or getattr(itm, "currency", None) or getattr(imp_file, "estimated_cost_currency", None) or "UNKNOWN"
                 total_final_amount_by_currency[curr_code] = round(
                     total_final_amount_by_currency.get(curr_code, 0.0) + line_total, 2
                 )
@@ -1317,11 +1317,22 @@ def reconcile_po_final_adjustments_service(
 
         updated_items.append(itm.model_dump())
 
-    # BE03-T01: Weights/CBM from packing_items when any, else from line_items
+    # BE03-T01: Weights/CBM per PO: use packing_items for POs that have them, else line_items
+    pos_with_packing = {
+        packs[itm.packing_item_id].po_id
+        for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    }
+    weight_sources = [
+        itm for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    ] + [
+        itm for itm in line_items
+        if not itm.po_item_id or (itm.po_item_id in lines and lines[itm.po_item_id].po_id not in pos_with_packing)
+    ]
     total_net_weight = 0.0
     total_gross_weight = 0.0
     total_cbm = 0.0
-    weight_sources = packing_items if packing_items else line_items
     for itm in weight_sources:
         if itm.packing_item_id:
             db_row = packs.get(itm.packing_item_id)

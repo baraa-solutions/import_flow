@@ -163,6 +163,35 @@ def test_be03_t01_po_final_adjustment_single_line_and_packing(db):
     assert res["total_final_amount_by_currency"] == {"USD": 245.00}
 
 
+def test_be03_t01_multi_po_weight_aggregation_with_and_without_packing(db):
+    # PO 10 has packing row 21; PO 20 has NO packing row.
+    po1 = PurchaseOrder(po_id=10, po_number="PO-T-10", import_file_id=1, project_id=1, company_id=1,
+                        supplier_id=1, incoterm_id=1, currency_id=1, status="DRAFT", version=1, is_active=True)
+    po2 = PurchaseOrder(po_id=20, po_number="PO-T-20", import_file_id=1, project_id=1, company_id=1,
+                        supplier_id=1, incoterm_id=1, currency_id=1, status="DRAFT", version=1, is_active=True)
+    line1 = POLineItem(item_id=11, po_id=10, description_ar="line1", quantity=10, unit_price=2.0, total_price=20.0, gross_weight_kg=10.0)
+    pack1 = PackingListItem(packing_item_id=21, po_id=10, hs_code="940130", item_code="X", qty_pkg=1, total_gross_weight_kg=15.0)
+    line2 = POLineItem(item_id=21, po_id=20, description_ar="line2", quantity=5, unit_price=4.0, total_price=20.0, gross_weight_kg=8.0)
+    db.add_all([po1, po2, line1, pack1, line2])
+    db.commit()
+
+    req = POFinalAdjustmentRequest(
+        import_file_id=1,
+        final_invoice_number="INV-MULTI-1",
+        items=[
+            _adj_item(po_item_id=11, final_quantity=10, final_unit_price=2.0, unit_price=2.0, final_gross_weight_kg=10.0),
+            _adj_item(po_item_id=11, packing_item_id=21, final_gross_weight_kg=25.0, final_packages_count=2),
+            _adj_item(po_item_id=21, final_quantity=5, final_unit_price=4.0, unit_price=4.0, final_gross_weight_kg=12.0),
+        ],
+    )
+    res = service.reconcile_po_final_adjustments_service(db, req, user="alice")
+
+    # PO 10 takes 25.0 from packing row; PO 20 takes 12.0 from line item -> total 37.0
+    assert res["total_gross_weight_kg"] == 37.0
+    assert res["total_final_amount"] == 40.0
+    assert res["total_final_amount_by_currency"] == {"USD": 40.0}
+
+
 def test_doc02_negative_value_rejected(db):
     _po(db, 1, 1)
     with pytest.raises((HTTPException, ValidationError)):
