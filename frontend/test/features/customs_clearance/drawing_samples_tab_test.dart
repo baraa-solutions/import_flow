@@ -107,6 +107,24 @@ void main() {
     labTestResult: 'PENDING',
   );
 
+  final record3PreCl01 = _makeRecord(
+    id: 3,
+    fileId: 20,
+    isSampleDrawn: true,
+    samplingRecordNo: null,
+    sampleTestStatus: 'Samples Under Testing',
+    labTestResult: 'PENDING',
+  );
+
+  final recordRejected = _makeRecord(
+    id: 4,
+    fileId: 10,
+    isSampleDrawn: true,
+    samplingRecordNo: 'R-4',
+    sampleTestStatus: 'Rejected',
+    labTestResult: 'NON_CONFORMING',
+  );
+
   Widget buildTestHost({
     List<CustomsClearanceModel> records = const [],
     List<ImportFileModel> files = const [],
@@ -205,6 +223,52 @@ void main() {
 
       // Now CustomsInspectionSamplingDialog should be opened (NOT the old showAddSampleDialog)
       expect(find.byType(CustomsInspectionSamplingDialog), findsOneWidget);
+    });
+
+    testWidgets('Excludes records with isSampleDrawn=true that lack CL-01 sampling data', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        buildTestHost(
+          records: [record1, record3PreCl01],
+          files: fakeFiles,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Only R-1 with real samplingRecordNo is listed, record3PreCl01 is excluded
+      expect(find.text('R-1'), findsOneWidget);
+      final metricStrip = find.byType(MetricCardStrip);
+      expect(find.descendant(of: metricStrip, matching: find.text('1')), findsNWidgets(2)); // Total=1, Passed=1
+    });
+
+    testWidgets('Filters samples by REJECTED segment', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        buildTestHost(
+          records: [record1, recordRejected],
+          files: fakeFiles,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both initially visible in ALL
+      expect(find.text('R-1'), findsOneWidget);
+      expect(find.text('R-4'), findsOneWidget);
+
+      // Tap REJECTED segment
+      await tester.tap(find.text('مرفوضة'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('R-1'), findsNothing);
+      expect(find.text('R-4'), findsOneWidget);
     });
 
     testWidgets('Renders cleanly in English mode with correct KPI titles and shortage placeholder', (tester) async {

@@ -50,7 +50,7 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
   }
 
   List<CustomsClearanceModel> _getFilteredSamples(List<ImportFileModel> allFiles, AppLocalizations l) {
-    final drawn = widget.records.where((r) => r.isSampleDrawn).toList();
+    final drawn = widget.records.where((r) => r.hasActuallyDrawnSample).toList();
 
     return drawn.where((s) {
       if (_sampleStatusFilter == 'PASSED') {
@@ -158,7 +158,7 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
   Widget build(BuildContext context) {
     final l = context.l10n;
     final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-    final allDrawnSamples = widget.records.where((r) => r.isSampleDrawn).toList();
+    final allDrawnSamples = widget.records.where((r) => r.hasActuallyDrawnSample).toList();
 
     final totalSamples = allDrawnSamples.length;
     final passedSamples = allDrawnSamples
@@ -360,6 +360,10 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                   ButtonSegment(
                     value: 'PENDING',
                     label: Text(l.drawingSamplesFilterPending, style: const TextStyle(fontSize: 11)),
+                  ),
+                  ButtonSegment(
+                    value: 'REJECTED',
+                    label: Text(l.sampleFilterRejected, style: const TextStyle(fontSize: 11)),
                   ),
                 ],
                 selected: {_sampleStatusFilter},
