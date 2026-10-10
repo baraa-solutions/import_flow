@@ -822,10 +822,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       } else if (item.demurrageRiskLevel == 'High' || item.demurrageRiskLevel == 'Medium') {
                         riskColor = AppTheme.orange;
                       } else if (item.demurrageRiskLevel == 'Unknown') {
-                        riskColor = Colors.grey.shade500;
+                        riskColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
                       }
 
-                      Color sampleColor = Colors.grey.shade600;
+                      Color sampleColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
                       if (item.sampleTestStatus == 'Under Testing') {
                         sampleColor = AppTheme.orange;
                       } else if (item.sampleTestStatus == 'Approved') {
@@ -1604,7 +1604,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
                       final cleanPrevStep = s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-';
                       final cleanNextStep = s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-';
-                      final estCostStr = s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : '-';
+                      final estCostStr = s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : '—';
                       final estCurrStr = s.estimatedCostCurrency ?? '';
                       final rowSummary = '$shipmentTitle | ${s.companyName} | ${s.supplierName} | $cleanCurStep | ${s.shipmentMode ?? "-"} - ${s.incotermCode ?? "-"} | $estCostStr $estCurrStr${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
 
@@ -1767,11 +1767,21 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
+                              value: s.estimatedCost != null
+                                  ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim()
+                                  : '—',
                               rowSummary: rowSummary,
                               child: Text(
-                                '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
+                                s.estimatedCost != null
+                                    ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim()
+                                    : '—',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: s.estimatedCost != null
+                                      ? AppTheme.emerald
+                                      : (isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption),
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ),

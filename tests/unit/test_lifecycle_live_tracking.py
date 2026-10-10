@@ -231,13 +231,29 @@ def test_bounded_queries_filter_by_active_files_only(test_db):
     assert item.carrier_name == "CMA CGM"
     assert item.vessel_name == "CMA Jacques Saade"
 
-    # Verify that the booking query had the active ID in its filter
+    # Verify that the booking query had the active ID in its filter and excluded inactive ones
     booking_queries = [
-        q for q, p in executed_queries
+        (q, p) for q, p in executed_queries
         if "shipment_bookings" in q.lower()
     ]
     assert len(booking_queries) >= 1
-    assert any("import_file_id" in q.lower() for q in booking_queries)
+    for q, p in booking_queries:
+        q_lower = q.lower()
+        assert "where" in q_lower, f"Booking query has no WHERE clause: {q}"
+        assert "import_file_id in" in q_lower or "import_file_id =" in q_lower, (
+            f"Booking query does not filter on import_file_id: {q}"
+        )
+
+    all_booking_params = []
+    for q, p in booking_queries:
+        if isinstance(p, (list, tuple)):
+            all_booking_params.extend(p)
+        elif isinstance(p, dict):
+            all_booking_params.extend(p.values())
+
+    assert active_file.import_file_id in all_booking_params
+    assert inactive_file1.import_file_id not in all_booking_params
+    assert inactive_file2.import_file_id not in all_booking_params
 
 
 def test_stage_card_raw_values_without_fabricated_defaults(test_db, monkeypatch):

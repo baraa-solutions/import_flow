@@ -1597,7 +1597,6 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         carrier_name = (
             (dem.carrier_name if dem and dem.carrier_name else None)
             or (booking.shipping_line_name if booking and booking.shipping_line_name else None)
-            or (f.selected_scenario if f.selected_scenario else None)
         )
         vessel_name = (booking.vessel_name if booking and booking.vessel_name else None) or getattr(f, 'vessel_name', None)
         pol_name = f.port_of_loading or (booking.pol_name if booking and booking.pol_name else None)
