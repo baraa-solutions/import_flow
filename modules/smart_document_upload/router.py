@@ -374,6 +374,33 @@ async def extract_bill_of_lading_endpoint(
 
 
 @router.post(
+    "/extract/packing-list",
+    status_code=status.HTTP_200_OK,
+    summary="Extract Packing List, weights, packages, dimensions, and line items",
+)
+async def extract_packing_list_endpoint(
+    file: Optional[UploadFile] = File(None, description="Packing List or Weight List file"),
+    raw_text: Optional[str] = Form(None, description="Pasted Packing List text"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(EXTRACT),
+):
+    """Extracts structured packing list data with packages, pallets, weights, and items."""
+    filename = "packing_list.txt"
+    content_bytes = None
+    validate_raw_text(raw_text)
+    if file:
+        filename = stored_filename(file.filename or "packing_list.pdf")
+        _, content_bytes = await read_validated_upload(file)
+
+    return service.extract_packing_list_service(
+        filename=filename,
+        content_bytes=content_bytes,
+        raw_text=raw_text,
+        db=db,
+    )
+
+
+@router.post(
     "/cross-check/invoice-vs-bl",
     status_code=status.HTTP_200_OK,
     summary="Run 10-point cross-comparison audit between Invoice and B/L",

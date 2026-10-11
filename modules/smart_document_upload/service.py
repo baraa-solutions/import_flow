@@ -25,6 +25,7 @@ from modules.smart_document_upload.extractors.purchase_order import PurchaseOrde
 from modules.smart_document_upload.extractors.import_file import ImportFileExtractor
 from modules.smart_document_upload.extractors.cargo_shipping import CargoShippingExtractor
 from modules.smart_document_upload.extractors.commercial_invoice import CommercialInvoiceExtractor
+from modules.smart_document_upload.extractors.packing_list import PackingListExtractor
 from modules.smart_document_upload.extractors.customs_clearance import CustomsClearanceExtractor
 from modules.smart_document_upload.cross_checker import cross_check_invoice_vs_bl
 
@@ -66,6 +67,10 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "commercial-invoice": CommercialInvoiceExtractor(),
     "commercial_invoice": CommercialInvoiceExtractor(),
     "invoice": CommercialInvoiceExtractor(),
+    "packing-list": PackingListExtractor(),
+    "packing_list": PackingListExtractor(),
+    "packing": PackingListExtractor(),
+    "packing-and-weight-list": PackingListExtractor(),
     "bill-of-lading": CargoShippingExtractor(),
     "bill_of_lading": CargoShippingExtractor(),
     "bl": CargoShippingExtractor(),
@@ -584,6 +589,31 @@ def extract_bill_of_lading_service(
     }
 
 
+def extract_packing_list_service(
+    filename: str = "packing_list.pdf",
+    content_bytes: Optional[bytes] = None,
+    raw_text: Optional[str] = None,
+    db: Optional[Session] = None,
+    created_by: Optional[str] = "Admin",
+) -> Dict[str, Any]:
+    """Extracts packing list fields, totals, dimensions, and line items."""
+    if not raw_text and content_bytes:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
+    else:
+        spatial_boxes = {}
+    extractor = PackingListExtractor()
+    extracted = extractor.extract(raw_text or "", spatial_boxes)
+    return {
+        "document_type": "Packing and Weight List",
+        "filename": filename,
+        "extracted_fields": extracted,
+        "items": extracted.get("items", []),
+        "items_count": len(extracted.get("items", [])),
+        "pallets": extracted.get("pallets", []),
+        "pallets_count": len(extracted.get("pallets", [])),
+    }
+
+
 def cross_check_invoice_and_bl_service(
     invoice_data: Dict[str, Any],
     bl_data: Dict[str, Any],
@@ -694,6 +724,11 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
     if currency:
         file_record.estimated_cost_currency = currency
 
+    if data.supplier_name and data.supplier_name.strip():
+        curr_supp = (file_record.supplier_name or "").strip()
+        if not curr_supp or curr_supp in ["Unknown", "مورد غير محدد", "N/A"]:
+            file_record.supplier_name = data.supplier_name.strip()
+
     existing_invoices = list(file_record.invoices_data or [])
     inv_no = (data.invoice_number or "").strip() or f"INV-{len(existing_invoices) + 1}"
     existing_invoices.append({
@@ -702,6 +737,22 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         "amount": data.invoice_value or 0.0,
         "currency": currency or file_record.estimated_cost_currency,  # no invented default currency
         "items_count": len(data.items),
+        "supplier_name": data.supplier_name,
+        "importer_name": data.importer_name,
+        "origin_country": data.origin_country,
+        "hs_code": data.hs_code,
+        "is_preferential_origin": data.is_preferential_origin,
+        "preferential_origin_agreement": data.preferential_origin_agreement,
+        "is_free_of_charge": data.is_free_of_charge,
+        "total_gross_weight_kg": data.total_gross_weight_kg,
+        "total_net_weight_kg": data.total_net_weight_kg,
+        "pallets_count": data.pallets_count,
+        "packages_count": data.packages_count,
+        "container_number": data.container_number,
+        "seal_number": data.seal_number,
+        "purchase_order": data.purchase_order,
+        "freight_amount": data.freight_amount,
+        "items": data.items,
     })
     file_record.invoices_data = existing_invoices
     file_record.invoices_count = len(existing_invoices)

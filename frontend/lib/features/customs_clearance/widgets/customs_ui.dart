@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Number / date formatting shared by the customs-clearance screens.
 /// Pure presentation: no business math lives here.
@@ -163,36 +161,10 @@ class CcStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = AppTheme.severityForegroundOf(context, severity);
-    final bg = AppTheme.severityBackgroundOf(context, severity);
-    return Container(
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: fg),
-            const SizedBox(width: 4),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: fg,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppStatusBadge(
+      label: label,
+      severity: severity,
+      icon: icon,
     );
   }
 }
@@ -369,38 +341,18 @@ class CcStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    final color = _error ? AppTheme.crimson : AppTheme.textMutedOf(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsetsDirectional.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 52, color: color),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _error ? AppTheme.crimson : AppTheme.textSecondaryOf(context),
-              ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
-              AppButton(
-                label: actionLabel!,
-                variant: AppButtonVariant.primary,
-                size: AppButtonSize.small,
-                icon: _error ? Icons.refresh : Icons.add_circle_outline,
-                onPressed: onAction,
-              ),
-            ],
-          ],
-        ),
-      ),
+    if (_loading) return const AppLoadingState();
+    if (_error) {
+      return AppErrorState(
+        message: message,
+        onRetry: onAction,
+      );
+    }
+    return AppEmptyState(
+      message: message,
+      icon: icon,
+      actionLabel: actionLabel,
+      onAction: onAction,
     );
   }
 }
@@ -424,29 +376,15 @@ class CcDateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value,
-          firstDate: firstDate ?? DateTime(2020),
-          lastDate: lastDate ?? DateTime(2035),
-        );
-        if (picked != null) onChanged(picked);
+    return AppDatePickerField(
+      label: label,
+      value: value,
+      onChanged: (d) {
+        if (d != null) onChanged(d);
       },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          isDense: true,
-          suffixIcon: const Icon(Icons.calendar_today_outlined, size: 16),
-        ),
-        child: LtrText(
-          CcFormat.date(value),
-          style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)),
-        ),
-      ),
+      firstDate: firstDate,
+      lastDate: lastDate,
+      allowClear: false,
     );
   }
 }

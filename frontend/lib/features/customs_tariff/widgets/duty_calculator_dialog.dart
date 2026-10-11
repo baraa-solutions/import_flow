@@ -7,35 +7,87 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../currencies/providers/currencies_provider.dart';
+import '../services/customs_exemption_engine.dart';
+import './hs_code_timeline_widget.dart';
 
-  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
-      {String? initialHsCode, int? initialImportFileId}) {
-    String selectedCurrency = 'USD';
-    String selectedFreightCurrency = 'USD';
+  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref, {
+    String? initialHsCode,
+    int? initialImportFileId,
+    String? initialCurrency,
+    double? initialFreightAmount,
+    double? initialInsuranceAmount,
+    List<Map<String, dynamic>>? initialExtractedLines,
+  }) {
+    String selectedCurrency = (initialCurrency != null && initialCurrency.trim().isNotEmpty)
+        ? initialCurrency.trim().toUpperCase()
+        : 'USD';
+    String selectedFreightCurrency = selectedCurrency;
+    DateTime calculationDate = DateTime.now();
 
     final Map<String, double> defaultExchangeRates = {
-      'USD': 50.7917,
-      'EUR': 55.2000,
-      'GBP': 64.5000,
-      'CNY': 7.1000,
-      'SAR': 13.5400,
-      'AED': 13.8200,
+      'USD': 50.0000,
+      'EUR': 55.0000,
+      'GBP': 64.0000,
+      'CNY': 7.0000,
+      'SAR': 13.5000,
+      'AED': 13.7000,
       'EGP': 1.0000,
     };
 
-    final exchangeRateCtrl = TextEditingController(text: '50.7917');
-    final totalInvoiceFcCtrl = TextEditingController(text: '11736.40');
-    final insuranceCtrl = TextEditingController(text: '14902.793');
+    final exchangeRateCtrl = TextEditingController(text: '');
+    final totalInvoiceFcCtrl = TextEditingController(text: '0.00');
+    final insuranceCtrl = TextEditingController(text: '0.00');
     final deemedInsuranceCtrl = TextEditingController(text: '0.00');
-    final freightForeignCtrl = TextEditingController(text: '234.72');
+    final freightForeignCtrl = TextEditingController(text: '0.00');
     final freightExchangeRateCtrl = TextEditingController();
-    final multiFreightCtrl = TextEditingController(text: '11922.234');
+    final multiFreightCtrl = TextEditingController(text: '0.00');
     final deemedFreightCtrl = TextEditingController(text: '0.00');
-    final additionalFeesCtrl = TextEditingController(text: '1329.50');
-    final declaredCifCtrl = TextEditingController(text: '623000.00');
+    final additionalFeesCtrl = TextEditingController(text: '0.00');
+    final declaredCifCtrl = TextEditingController(text: '0.00');
 
     String insuranceType = 'actual';
     String freightType = 'actual';
+
+    Future<void> updateExchangeRate(String currency, DateTime date, StateSetter? setState) async {
+      try {
+        final rate = await ref
+            .read(currenciesProvider.notifier)
+            .fetchCustomsExchangeRate(currencyCode: currency, onDate: date);
+        if (rate != null && rate > 0) {
+          final formatted = rate.toStringAsFixed(4);
+          if (setState != null) {
+            setState(() {
+              exchangeRateCtrl.text = formatted;
+            });
+          } else {
+            exchangeRateCtrl.text = formatted;
+          }
+        } else {
+          final fallback = (defaultExchangeRates[currency] ?? 50.0).toStringAsFixed(4);
+          if (exchangeRateCtrl.text.isEmpty || exchangeRateCtrl.text == '0.00') {
+            if (setState != null) {
+              setState(() {
+                exchangeRateCtrl.text = fallback;
+              });
+            } else {
+              exchangeRateCtrl.text = fallback;
+            }
+          }
+        }
+      } catch (_) {
+        final fallback = (defaultExchangeRates[currency] ?? 50.0).toStringAsFixed(4);
+        if (exchangeRateCtrl.text.isEmpty || exchangeRateCtrl.text == '0.00') {
+          if (setState != null) {
+            setState(() {
+              exchangeRateCtrl.text = fallback;
+            });
+          } else {
+            exchangeRateCtrl.text = fallback;
+          }
+        }
+      }
+    }
 
     double computeTotalInvoiceFc(List<Map<String, dynamic>> lines) {
       double total = 0;
@@ -49,7 +101,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
     }
 
     double computeTotalFobEgp(List<Map<String, dynamic>> lines) {
-      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.7917;
+      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.0;
       return computeTotalInvoiceFc(lines) * rate;
     }
 
@@ -76,7 +128,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
     void syncCalculatedFields(
         StateSetter setState, List<Map<String, dynamic>> lines) {
       final totalFc = computeTotalInvoiceFc(lines);
-      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.7917;
+      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.0;
       final fobEgp = totalFc * rate;
 
       if (insuranceType == 'deemed') {
@@ -119,37 +171,120 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
       });
     }
 
-    List<Map<String, dynamic>> multiLines = [
-      {
-        'hs': TextEditingController(text: initialHsCode ?? '8536.41.00'),
-        'value': TextEditingController(text: '607.6'),
-        'inspection': TextEditingController(text: '0.00'),
-        'origin': 'CN',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-      {
-        'hs': TextEditingController(text: '8537.10.90'),
-        'value': TextEditingController(text: '4371.2'),
-        'inspection': TextEditingController(text: '8514.81'),
-        'origin': 'TR',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-      {
-        'hs': TextEditingController(text: '8537.10.90'),
-        'value': TextEditingController(text: '6757.6'),
-        'inspection': TextEditingController(text: '69772.09'),
-        'origin': 'DE',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-    ];
+    Future<void> evaluateLineItem(Map<String, dynamic> m, StateSetter setState) async {
+      final hs = (m['hs'] as TextEditingController).text.trim();
+      final origin = m['origin'] as String?;
+      if (hs.isEmpty) {
+        setState(() {
+          m['evaluation'] = null;
+        });
+        return;
+      }
+      final registeredTariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
+      final matchedTariff = registeredTariffs
+          .cast<CustomsTariffModel?>()
+          .firstWhere(
+            (t) =>
+                t != null &&
+                (t.hsCode == hs ||
+                    t.hsCode.replaceAll('.', '') == hs.replaceAll('.', '')),
+            orElse: () => null,
+          );
+      final exemptionEngine = ref.read(customsExemptionEngineProvider);
+      final eval = await exemptionEngine.evaluateLine(
+        hsCode: hs,
+        originCountry: origin ?? '',
+        isExemptionApplied: m['is_exemption_conditions_met'] == true,
+        calculationDate: calculationDate,
+        matchedTariff: matchedTariff,
+      );
+      setState(() {
+        m['evaluation'] = eval;
+      });
+    }
+
+    List<Map<String, dynamic>> multiLines = (initialExtractedLines != null && initialExtractedLines.isNotEmpty)
+        ? initialExtractedLines.map((line) {
+            final hs = line['hs_code']?.toString() ?? line['hs']?.toString() ?? '';
+            final val = line['total_price']?.toString() ??
+                line['amount']?.toString() ??
+                line['value']?.toString() ??
+                line['total_amount']?.toString() ??
+                '0.00';
+            final origin = line['country_of_origin']?.toString() ??
+                line['origin_country']?.toString() ??
+                line['origin']?.toString();
+            return {
+              'hs': TextEditingController(text: hs),
+              'value': TextEditingController(text: val),
+              'inspection': TextEditingController(text: '0.00'),
+              'origin': origin,
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+              'evaluation': null as ExemptionEvaluationResult?,
+            };
+          }).toList()
+        : [
+            {
+              'hs': TextEditingController(text: initialHsCode ?? ''),
+              'value': TextEditingController(text: '0.00'),
+              'inspection': TextEditingController(text: '0.00'),
+              'origin': null,
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+              'evaluation': null as ExemptionEvaluationResult?,
+            },
+          ];
+
+    if (initialExtractedLines != null && initialExtractedLines.isNotEmpty) {
+      double sumVal = 0.0;
+      for (final l in multiLines) {
+        sumVal += double.tryParse((l['value'] as TextEditingController).text) ?? 0.0;
+      }
+      if (sumVal > 0) {
+        totalInvoiceFcCtrl.text = sumVal.toStringAsFixed(2);
+      }
+      if (initialFreightAmount != null && initialFreightAmount > 0) {
+        freightForeignCtrl.text = initialFreightAmount.toStringAsFixed(2);
+      }
+      if (initialInsuranceAmount != null && initialInsuranceAmount > 0) {
+        insuranceCtrl.text = initialInsuranceAmount.toStringAsFixed(2);
+      }
+    }
 
     Map<String, dynamic>? multiResult;
     String? multiError;
     bool isMultiCalculating = false;
     bool didAutoSimulate = false;
+    bool didAutoEvaluateExtractedLines = false;
+
+    void resetCalculator(StateSetter setState) {
+      setState(() {
+        totalInvoiceFcCtrl.text = '0.00';
+        insuranceCtrl.text = '0.00';
+        deemedInsuranceCtrl.text = '0.00';
+        freightForeignCtrl.text = '0.00';
+        freightExchangeRateCtrl.text = '';
+        multiFreightCtrl.text = '0.00';
+        deemedFreightCtrl.text = '0.00';
+        additionalFeesCtrl.text = '0.00';
+        declaredCifCtrl.text = '0.00';
+        multiResult = null;
+        multiError = null;
+        multiLines = [
+          {
+            'hs': TextEditingController(text: ''),
+            'value': TextEditingController(text: '0.00'),
+            'inspection': TextEditingController(text: '0.00'),
+            'origin': null,
+            'exemption': null,
+            'is_exemption_conditions_met': false,
+            'evaluation': null as ExemptionEvaluationResult?,
+          },
+        ];
+        updateExchangeRate(selectedCurrency, calculationDate, setState);
+      });
+    }
 
     Future<void> runImportFileSimulation(
         int fileId, StateSetter setState) async {
@@ -219,8 +354,12 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                   'is_exemption_conditions_met': lineMap['is_exemption_applied'] == true ||
                       (lineMap['preferential_agreement_applied'] != null &&
                           lineMap['preferential_agreement_applied'].toString().isNotEmpty),
+                  'evaluation': null as ExemptionEvaluationResult?,
                 };
               }).toList();
+              for (final line in multiLines) {
+                evaluateLineItem(line, setState);
+              }
             }
             syncCalculatedFields(setState, multiLines);
             isMultiCalculating = false;
@@ -241,10 +380,26 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
         builder: (ctx, setCalcState) {
           final isArabic = Localizations.localeOf(ctx).languageCode == 'ar';
           final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          if (exchangeRateCtrl.text.isEmpty) {
+            updateExchangeRate(selectedCurrency, calculationDate, setCalcState);
+          }
           if (initialImportFileId != null && !didAutoSimulate) {
             didAutoSimulate = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               runImportFileSimulation(initialImportFileId, setCalcState);
+            });
+          } else if (initialExtractedLines != null && !didAutoEvaluateExtractedLines) {
+            didAutoEvaluateExtractedLines = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              for (final line in multiLines) {
+                if ((line['hs'] as TextEditingController).text.isNotEmpty) {
+                  evaluateLineItem(line, setCalcState);
+                }
+              }
+            });
+          } else if (initialHsCode != null && multiLines.isNotEmpty && multiLines.first['evaluation'] == null && (multiLines.first['hs'] as TextEditingController).text.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              evaluateLineItem(multiLines.first, setCalcState);
             });
           }
 
@@ -301,66 +456,25 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                 : () => runImportFileSimulation(
                                     initialImportFileId, setCalcState),
                           ),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.orange,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
-                              ),
-                              icon: const Icon(Icons.downloading, size: 14),
-                              label: Text(
-                                  isArabic
-                                      ? 'تحميل مثال نافذة الفعلي (2026-612-1-94731)'
-                                      : 'Load Actual Nafeza Sample (2026-612-1-94731)',
-                                  style: const TextStyle(fontSize: 11)),
-                              onPressed: () {
-                                setCalcState(() {
-                                  selectedCurrency = 'USD';
-                                  selectedFreightCurrency = 'USD';
-                                  exchangeRateCtrl.text = '50.7917';
-                                  insuranceCtrl.text = '14902.793';
-                                  deemedInsuranceCtrl.text = '0.00';
-                                  insuranceType = 'actual';
-                                  freightForeignCtrl.text = '234.72';
-                                  multiFreightCtrl.text = '11922.234';
-                                  deemedFreightCtrl.text = '0.00';
-                                  freightType = 'actual';
-                                  additionalFeesCtrl.text = '1329.50';
-                                  multiLines = [
-                                    {
-                                      'hs': TextEditingController(text: '8536.41.00'),
-                                      'value': TextEditingController(text: '607.6'),
-                                      'inspection':
-                                          TextEditingController(text: '0.00'),
-                                      'origin': 'CN',
-                                      'exemption': null,
-                                    },
-                                    {
-                                      'hs': TextEditingController(text: '8537.10.90'),
-                                      'value': TextEditingController(text: '4371.2'),
-                                      'inspection':
-                                          TextEditingController(text: '8514.81'),
-                                      'origin': 'TR',
-                                      'exemption': null,
-                                    },
-                                    {
-                                      'hs': TextEditingController(text: '8537.10.90'),
-                                      'value': TextEditingController(text: '6757.6'),
-                                      'inspection':
-                                          TextEditingController(text: '69772.09'),
-                                      'origin': 'DE',
-                                      'exemption': null,
-                                    },
-                                  ];
-                                  syncCalculatedFields(setCalcState, multiLines);
-                                });
-                              },
-                            ),
-                          ],
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.charcoal,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.restart_alt, size: 14),
+                          label: Text(
+                              isArabic
+                                  ? 'تفريغ / شحنة جديدة'
+                                  : 'Clear / New Shipment',
+                              style: const TextStyle(fontSize: 11)),
+                          onPressed: () => resetCalculator(setCalcState),
                         ),
+                      ],
+                    ),
                   const SizedBox(height: 12),
 
-                  // Header Inputs Grid - Row 1: Invoice Currency + Exchange Rate + Total FC Auto-Calc
+                  // Header Inputs Grid - Row 1: Invoice Currency + Date Picker + Exchange Rate + Total FC
                   Row(
                     children: [
                       Expanded(
@@ -393,12 +507,45 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   selectedFreightCurrency == 'USD') {
                                 selectedFreightCurrency = val;
                               }
-                              exchangeRateCtrl.text =
-                                  (defaultExchangeRates[val] ?? 50.7917)
-                                      .toStringAsFixed(4);
+                              updateExchangeRate(val, calculationDate, setCalcState);
                               syncCalculatedFields(setCalcState, multiLines);
                             });
                           },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: calculationDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              setCalcState(() {
+                                calculationDate = picked;
+                                updateExchangeRate(selectedCurrency, calculationDate, setCalcState);
+                                for (final line in multiLines) {
+                                  evaluateLineItem(line, setCalcState);
+                                }
+                              });
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: isArabic ? 'تاريخ سعر الصرف الجمركي' : 'Customs FX Date',
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.calendar_today, size: 16, color: AppTheme.cobalt),
+                            ),
+                            child: Text(
+                              '${calculationDate.year}-${calculationDate.month.toString().padLeft(2, '0')}-${calculationDate.day.toString().padLeft(2, '0')}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -413,8 +560,13 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             labelText: isArabic
                                 ? 'سعر التحويل (EGP/$selectedCurrency) *'
                                 : 'Exchange Rate (EGP/$selectedCurrency) *',
-                            hintText: '50.7917',
+                            hintText: '50.0000',
                             isDense: true,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                              tooltip: isArabic ? 'تحديث سعر الصرف لتاريخ اليوم' : 'Refresh rate for date',
+                              onPressed: () => updateExchangeRate(selectedCurrency, calculationDate, setCalcState),
+                            ),
                           ),
                         ),
                       ),
@@ -874,12 +1026,13 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                         onPressed: () {
                           setCalcState(() {
                             multiLines.add({
-                              'hs': TextEditingController(text: '8471.30.00'),
-                              'value': TextEditingController(text: '1000.00'),
+                              'hs': TextEditingController(text: ''),
+                              'value': TextEditingController(text: '0.00'),
                               'inspection': TextEditingController(text: '0.00'),
-                              'origin': 'CN',
+                              'origin': null,
                               'exemption': null,
                               'is_exemption_conditions_met': false,
+                              'evaluation': null as ExemptionEvaluationResult?,
                             });
                             syncCalculatedFields(setCalcState, multiLines);
                           });
@@ -968,10 +1121,38 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                         (m['hs'] as TextEditingController)
                                             .text = val;
                                       });
+                                      evaluateLineItem(m, setCalcState);
                                     }
                                   },
                                 ),
                               ),
+                              if (currentHs.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.history, size: 18, color: AppTheme.cobalt),
+                                  tooltip: isArabic ? 'التسلسل الزمني للبند الجمركي' : 'Tariff Timeline History',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => Dialog(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: HsCodeTimelineWidget(
+                                              hsCode: currentHs,
+                                              countryCode: m['origin'] as String?,
+                                              currentDutyRate: matchedTariff?.customsDutyRate ?? 5.0,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                               const SizedBox(width: 6),
                               Expanded(
                                 flex: 2,
@@ -983,7 +1164,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                       setCalcState, multiLines),
                                   decoration: InputDecoration(
                                     labelText: isArabic ? 'القيمة ($selectedCurrency)' : 'Value ($selectedCurrency)',
-                                    hintText: '1000',
+                                    hintText: '0.00',
                                     isDense: true,
                                   ),
                                 ),
@@ -997,39 +1178,56 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   searchHintText: isArabic ? 'ابحث عن بلد المنشأ...' : 'Search origin...',
                                   items: [
                                     SearchableDropdownItem(
-                                        value: 'CN', label: isArabic ? 'الصين - CN' : 'China - CN'),
+                                        value: 'BR',
+                                        label: isArabic ? 'البرازيل (اتفاقية ميركوسور) - BR' : 'Brazil (Mercosur) - BR'),
                                     SearchableDropdownItem(
-                                        value: 'TR',
-                                        label: isArabic ? 'تركيا (اتفاقية) - TR' : 'Turkey (Agreement) - TR'),
+                                        value: 'CN', label: isArabic ? 'الصين (تعريفة عامة MFN) - CN' : 'China (General MFN) - CN'),
                                     SearchableDropdownItem(
                                         value: 'DE',
-                                        label: isArabic ? 'ألمانيا (شراكة) - DE' : 'Germany (Partnership) - DE'),
+                                        label: isArabic ? 'ألمانيا (شراكة أوروبية EUR.1) - DE' : 'Germany (EU EUR.1) - DE'),
                                     SearchableDropdownItem(
                                         value: 'IT',
-                                        label: isArabic ? 'إيطاليا (شراكة) - IT' : 'Italy (Partnership) - IT'),
+                                        label: isArabic ? 'إيطاليا (شراكة أوروبية EUR.1) - IT' : 'Italy (EU EUR.1) - IT'),
+                                    SearchableDropdownItem(
+                                        value: 'TR',
+                                        label: isArabic ? 'تركيا (اتفاقية تجارة حرة) - TR' : 'Turkey (FTA) - TR'),
+                                    SearchableDropdownItem(
+                                        value: 'SA',
+                                        label: isArabic ? 'السعودية (اتفاقية تيسير العربية GAFTA) - SA' : 'Saudi Arabia (GAFTA) - SA'),
+                                    SearchableDropdownItem(
+                                        value: 'AE',
+                                        label: isArabic ? 'الإمارات (اتفاقية تيسير العربية GAFTA) - AE' : 'UAE (GAFTA) - AE'),
+                                    SearchableDropdownItem(
+                                        value: 'GB',
+                                        label: isArabic ? 'المملكة المتحدة (اتفاقية شراكة) - GB' : 'United Kingdom - GB'),
+                                    SearchableDropdownItem(
+                                        value: 'US', label: isArabic ? 'أمريكا (تعريفة عامة MFN) - US' : 'United States - US'),
+                                    SearchableDropdownItem(
+                                        value: 'IN', label: isArabic ? 'الهند (تعريفة عامة MFN) - IN' : 'India - IN'),
                                     SearchableDropdownItem(
                                         value: 'EG', label: isArabic ? 'مصر - EG' : 'Egypt - EG'),
                                     SearchableDropdownItem(
-                                        value: 'GB',
-                                        label: isArabic ? 'المملكة المتحدة - GB' : 'United Kingdom - GB'),
+                                        value: 'FR',
+                                        label: isArabic ? 'فرنسا (شراكة أوروبية EUR.1) - FR' : 'France (EU EUR.1) - FR'),
                                     SearchableDropdownItem(
-                                        value: 'US', label: isArabic ? 'أمريكا - US' : 'United States - US'),
-                                    SearchableDropdownItem(
-                                        value: 'IN', label: isArabic ? 'الهند - IN' : 'India - IN'),
-                                    SearchableDropdownItem(
-                                        value: 'BR',
-                                        label: isArabic ? 'البرازيل (ميركوسور) - BR' : 'Brazil (Mercosur) - BR'),
+                                        value: 'ES',
+                                        label: isArabic ? 'إسبانيا (شراكة أوروبية EUR.1) - ES' : 'Spain (EU EUR.1) - ES'),
                                     SearchableDropdownItem(
                                         value: 'RS',
-                                        label: isArabic ? 'صربيا (اتفاقية) - RS' : 'Serbia (Agreement) - RS'),
+                                        label: isArabic ? 'صربيا (اتفاقية تجارة حرة) - RS' : 'Serbia (FTA) - RS'),
                                     SearchableDropdownItem(
                                         value: 'CH',
-                                        label: isArabic ? 'سويسرا (إفتا) - CH' : 'Switzerland (EFTA) - CH'),
+                                        label: isArabic ? 'سويسرا (إفتا EFTA) - CH' : 'Switzerland (EFTA) - CH'),
+                                    SearchableDropdownItem(
+                                        value: 'JP', label: isArabic ? 'اليابان (تعريفة عامة MFN) - JP' : 'Japan - JP'),
+                                    SearchableDropdownItem(
+                                        value: 'KR', label: isArabic ? 'كوريا الجنوبية (تعريفة عامة MFN) - KR' : 'South Korea - KR'),
                                   ],
                                   onChanged: (val) {
                                     setCalcState(() {
                                       m['origin'] = val;
                                     });
+                                    evaluateLineItem(m, setCalcState);
                                   },
                                 ),
                               ),
@@ -1060,6 +1258,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                     setCalcState(() {
                                       m['exemption'] = val;
                                     });
+                                    evaluateLineItem(m, setCalcState);
                                   },
                                 ),
                               ),
@@ -1092,154 +1291,319 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                               ],
                             ],
                           ),
-                          if (matchedTariff != null &&
-                              (matchedTariff.priorApprovalNote ?? '')
-                                  .isNotEmpty) ...[
-                            const SizedBox(height: 6),
+                          if (currentHs.isEmpty) ...[
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              margin: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                                border:
-                                    Border.all(color: Colors.amber.shade700),
+                                color: isDark ? AppTheme.darkSurface : Colors.grey.withOpacity(0.04),
+                                borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded,
-                                          color: Colors.amber.shade900,
-                                          size: 16),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        isArabic
-                                            ? '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${matchedTariff.hsCode}):'
-                                            : '⚠️ Exemption & Documentary Requirements for Foreign Supplier (HS Code: ${matchedTariff.hsCode}):',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                          color: Colors.amber.shade900,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
+                                  const Icon(Icons.info_outline, size: 14, color: Colors.grey),
+                                  const SizedBox(width: 6),
                                   Text(
                                     isArabic
-                                        ? '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:'
-                                        : '• Documentary requirements must be requested from foreign supplier (e.g. Original EUR.1 or Mercosur origin) prior to tariff exemption:',
-                                    style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: Colors.amber.shade900),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    matchedTariff.priorApprovalNote!,
-                                    style: const TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.charcoal,
-                                        height: 1.3),
+                                        ? '💡 حدد بند التعريفة ودولة المنشأ لاكتشاف شروط الاستيراد والرقابة وتطبيق الإعفاءات التفضيلية الذكية.'
+                                        : 'Select HS Code and origin country to evaluate import conditions and smart exemptions.',
+                                    style: const TextStyle(fontSize: 10.5, color: Colors.grey),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                          // Interactive Exemption Checklist Checkbox (Requirements 3 & 4)
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (m['is_exemption_conditions_met'] == true)
-                                  ? AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.08)
-                                  : (isDark ? AppTheme.darkSurface : Colors.grey.withOpacity(0.04)),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: (m['is_exemption_conditions_met'] == true)
-                                    ? AppTheme.emerald
-                                    : (isDark ? AppTheme.darkBorder : Colors.grey.withOpacity(0.25)),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: m['is_exemption_conditions_met'] == true,
-                                  activeColor: AppTheme.emerald,
-                                  onChanged: (bool? val) async {
-                                    final isChecked = val ?? false;
-                                    setCalcState(() {
-                                      m['is_exemption_conditions_met'] = isChecked;
-                                    });
+                          ] else ...[
+                            Builder(
+                              builder: (context) {
+                                final eval = m['evaluation'] as ExemptionEvaluationResult?;
+                                if (eval == null) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 4),
+                                    child: SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  );
+                                }
 
-                                    // Task Automation (Requirement 4):
-                                    if (isChecked && initialImportFileId != null) {
-                                      final hsCodeStr = (m['hs'] as TextEditingController).text.trim();
-                                      try {
-                                        await ref.read(smartTasksProvider.notifier).createTask({
-                                          'title': 'Mandatory task: meet the exemption conditions for HS [$hsCodeStr] (matching certificate of origin / agreement requirements / required documents) to avoid the import duty.',
-                                          'description': 'The customs exemption conditions option was enabled in the customs calculator for HS $hsCodeStr. Meet the agreement conditions and provide the matching certificate of origin and all required documents to avoid the import duty.',
-                                          'task_type': 'System Generated',
-                                          'priority': 'Critical',
-                                          'reminder_type': 'Document',
-                                          'status': 'Pending',
-                                          'import_file_id': initialImportFileId,
-                                        });
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              backgroundColor: AppTheme.emerald,
-                                              content: Text(
-                                                isArabic
-                                                    ? '✅ مهمة إلزامية: تم تسجيل مهمة في قائمة مهام الشحنة لاستيفاء شروط ومستندات إعفاء البند [$hsCodeStr]'
-                                                    : '✅ Mandatory task created in shipment checklist for HS [$hsCodeStr] exemption conditions',
+                                final bool hasAg = eval.hasMatchingAgreement;
+                                final bool isExempt = m['is_exemption_conditions_met'] == true;
+
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: hasAg
+                                        ? (isExempt ? AppTheme.emeraldLight : AppTheme.orange.withOpacity(0.08))
+                                        : (isDark ? AppTheme.darkSurface : Colors.grey.withOpacity(0.04)),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: hasAg
+                                          ? (isExempt ? AppTheme.emeraldBorder : AppTheme.orange)
+                                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            hasAg
+                                                ? (isExempt ? Icons.verified : Icons.warning_amber_rounded)
+                                                : Icons.info_outline,
+                                            size: 16,
+                                            color: hasAg
+                                                ? (isExempt ? AppTheme.emerald : AppTheme.orange)
+                                                : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              eval.statusLabel,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11.5,
+                                                color: hasAg
+                                                    ? (isExempt ? AppTheme.wcagEmerald : AppTheme.orange)
+                                                    : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                               ),
-                                              duration: const Duration(seconds: 4),
                                             ),
-                                          );
-                                        }
-                                      } catch (_) {}
-                                    }
-                                  },
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    isArabic
-                                        ? 'هل سيتم استيفاء وتطبيق شروط الإعفاء الجمركي لهذا البند؟ (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)'
-                                        : 'Will customs exemption conditions be fulfilled for this item? (Partnership / Manufacturing / COO fulfilled)',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: (m['is_exemption_conditions_met'] == true)
-                                          ? FontWeight.bold
-                                          : FontWeight.w500,
-                                      color: (m['is_exemption_conditions_met'] == true)
-                                          ? (isDark ? Colors.green.shade300 : AppTheme.emerald)
-                                          : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                    ),
-                                  ),
-                                ),
-                                if (m['is_exemption_conditions_met'] == true)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
-                                    ),
-                                    child: Text(
-                                      isArabic ? 'معفى (0% جمرك)' : 'Exempt (0% Duty)',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.green.shade300 : AppTheme.emerald,
+                                          ),
+                                          if (hasAg) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: isExempt ? AppTheme.emerald : AppTheme.orange,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                eval.appliedAgreementName ?? (isArabic ? 'اتفاقية تجارة حرة' : 'FTA Agreement'),
+                                                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                    ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        eval.summaryAr,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                      if (eval.warningNote != null && eval.warningNote!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '⚠️ ${eval.warningNote}',
+                                          style: const TextStyle(fontSize: 10.5, color: AppTheme.crimson, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 6),
+                                      // Regulatory Requirements Chips
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (eval.requiresAcid)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.cobalt.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.qr_code, size: 12, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isArabic ? 'رقم ACID إلزامي قبل الشحن' : 'ACID Mandatory',
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (eval.requiresCoo)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.cobalt.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.card_membership, size: 12, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isArabic ? 'شهادة منشأ مصدقة إلزامية' : 'COO Certificate Required',
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (eval.regulatoryAuthority != null && eval.regulatoryAuthority!.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.charcoal.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppTheme.charcoal.withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.shield_outlined, size: 12, color: AppTheme.charcoal),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '${isArabic ? "جهة الرقابة:" : "Authority:"} ${eval.regulatoryAuthority}',
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (eval.priorApprovalNote != null && eval.priorApprovalNote!.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.orange.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.assignment_late_outlined, size: 12, color: AppTheme.orange),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '${isArabic ? "شروط الاستيراد:" : "Rules:"} ${eval.priorApprovalNote}',
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.orange, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (isExempt) ...[
+                                            const SizedBox(height: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blueGrey.withValues(alpha: 0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.info_outline, size: 13, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      isArabic
+                                                          ? 'قاعدة جمركية: الإعفاء يشمل ضريبة الوارد (0%) فقط، بينما تظل ضريبة القيمة المضافة (14%) وضريبة أ.ت.ص (1%) مستحقة بالكامل على وعاء الشحنة.'
+                                                          : 'Note: Exemption applies to import duty (0%) only. VAT (14%) and WHT (1%) remain fully payable on CIF base.',
+                                                      style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      if (hasAg) ...[
+                                        const Divider(height: 14),
+                                        Row(
+                                          children: [
+                                            Checkbox(
+                                              value: isExempt,
+                                              activeColor: AppTheme.emerald,
+                                              onChanged: (bool? val) async {
+                                                final isChecked = val ?? false;
+                                                setCalcState(() {
+                                                  m['is_exemption_conditions_met'] = isChecked;
+                                                });
+                                                await evaluateLineItem(m, setCalcState);
+
+                                                if (isChecked && initialImportFileId != null) {
+                                                  final hsCodeStr = (m['hs'] as TextEditingController).text.trim();
+                                                  try {
+                                                    await ref.read(smartTasksProvider.notifier).createTask({
+                                                      'title': 'Mandatory task: meet the exemption conditions for HS [$hsCodeStr] (matching certificate of origin / agreement requirements / required documents) to avoid the import duty.',
+                                                      'description': 'The customs exemption conditions option was enabled in the customs calculator for HS $hsCodeStr. Meet the agreement conditions and provide the matching certificate of origin and all required documents to avoid the import duty.',
+                                                      'task_type': 'System Generated',
+                                                      'priority': 'Critical',
+                                                      'reminder_type': 'Document',
+                                                      'status': 'Pending',
+                                                      'import_file_id': initialImportFileId,
+                                                    });
+                                                    if (context.mounted) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          backgroundColor: AppTheme.emerald,
+                                                          content: Text(
+                                                            isArabic
+                                                                ? '✅ مهمة إلزامية: تم تسجيل مهمة في قائمة مهام الشحنة لاستيفاء شروط ومستندات إعفاء البند [$hsCodeStr]'
+                                                                : '✅ Mandatory task created in shipment checklist for HS [$hsCodeStr] exemption conditions',
+                                                          ),
+                                                          duration: const Duration(seconds: 4),
+                                                        ),
+                                                      );
+                                                    }
+                                                  } catch (_) {}
+                                                }
+                                              },
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: InkWell(
+                                                onTap: () async {
+                                                  setCalcState(() {
+                                                    m['is_exemption_conditions_met'] = !isExempt;
+                                                  });
+                                                  await evaluateLineItem(m, setCalcState);
+                                                },
+                                                child: Text(
+                                                  isArabic
+                                                      ? 'تطبيق الإعفاء الجمركي التفضيلي (0% بدلاً من ${eval.baseDutyRate}%) — شروط الاتفاقية وشهادة المنشأ (${eval.requiredDocument ?? "شهادة المنشأ"}) مستوفاة'
+                                                      : 'Apply preferential exemption (0% instead of ${eval.baseDutyRate}%) — Agreement rules and certificate (${eval.requiredDocument ?? "COO"}) met',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: isExempt ? FontWeight.bold : FontWeight.w500,
+                                                    color: isExempt ? AppTheme.wcagEmerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            if (isExempt)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.emerald.withOpacity(0.15),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+                                                ),
+                                                child: Text(
+                                                  isArabic ? 'معفى (0% جمرك)' : 'Exempt (0% Duty)',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isDark ? Colors.green.shade300 : AppTheme.emerald,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                              ],
+                                );
+                              },
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     );
@@ -1434,7 +1798,39 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                         rows: (multiResult!['lines'] as List).map((l) {
                           return DataRow(cells: [
                             DataCell(Text('#${l['line_no']}')),
-                            DataCell(Text(l['hs_code'].toString())),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(l['hs_code'].toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.history, size: 14, color: AppTheme.cobalt),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: isArabic ? 'التسلسل الزمني للبند الجمركي' : 'Tariff Timeline History',
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx) => Dialog(
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16.0),
+                                              child: HsCodeTimelineWidget(
+                                                hsCode: l['hs_code'].toString(),
+                                                countryCode: l['origin_country']?.toString(),
+                                                currentDutyRate: _numToDouble(l['customs_duty_rate']),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                             DataCell(Text(
                                 l['preferential_agreement_applied'] != null
                                     ? '${l['origin_country']} (${isArabic ? "تفضيل 0%" : "Pref. 0%"})'

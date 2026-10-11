@@ -5,46 +5,31 @@ import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/compact_table_pagination_footer.dart';
-import '../../../core/widgets/directional_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/network/dio_client.dart';
-
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/reopen_shipment_dialog.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/smart_upload_button.dart';
-import '../../../core/widgets/stop_shipment_dialog.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/utils/bidi_text.dart';
-
-import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -1294,14 +1279,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                       label: l.uploadImportDocument,
                       onDataExtracted: (result) {
                         final fields = result.extractedFields;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${fields['commodity_description'] ?? fields['invoice_number'] ?? 'Extracted successfully'}',
-                            ),
-                            backgroundColor: AppTheme.emerald,
-                            duration: const Duration(seconds: 5),
-                          ),
+                        AppTheme.snackBar(
+                          context,
+                          '${fields['commodity_description'] ?? fields['invoice_number'] ?? 'Extracted successfully'}',
+                          severity: AppSeverity.success,
                         );
                       },
                     ),
@@ -1344,9 +1325,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
               child: paginatedState.isLoading 
                 ? const ImportFilesTableShimmerSkeleton()
                 : paginatedState.error != null
-                  ? Center(child: Text('❌ Error: ${paginatedState.error}', style: const TextStyle(color: Colors.red)))
+                  ? Center(child: AppErrorState(error: paginatedState.error, compact: true, onRetry: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page)))
                   : paginatedState.items.isEmpty
-                    ? Center(child: Text(l.noImportFilesFound, style: const TextStyle(fontSize: 16)))
+                    ? Center(child: AppEmptyState(message: l.noImportFilesFound))
                     : Card(
                       elevation: isDark ? 0 : 2,
                       margin: EdgeInsets.zero,
@@ -1619,30 +1600,32 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                            onEdit: () => _showAddEditFileDialog(file),
                                            onClone: () => _showCloneDialog(file),
                                            onPrint: () {
-                                             ScaffoldMessenger.of(context).showSnackBar(
-                                               SnackBar(
-                                                 content: Text('${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}'),
-                                                 backgroundColor: AppTheme.charcoal,
-                                                 duration: const Duration(seconds: 2),
-                                               ),
+                                             AppTheme.snackBar(
+                                               context,
+                                               '${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}',
+                                               severity: AppSeverity.info,
                                              );
                                            },
                                            onDelete: () async {
-                                             final confirm = await showDialog<bool>(
-                                               context: context,
-                                               builder: (c) => AlertDialog(
-                                                 title: Text(l.confirmDeleteImportFileTitle),
-                                                 content: Text(l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode)),
-                                                 actions: [
-                                                   TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-                                                   ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white), onPressed: () => Navigator.pop(c, true), child: Text(l.delete)),
-                                                 ],
-                                               ),
+
+                                             final confirm = await AppConfirmDialog.showDelete(
+
+                                               context,
+
+                                               title: l.confirmDeleteImportFileTitle,
+
+                                               message: l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode),
+
                                              );
-                                             if (confirm == true) {
+
+                                             if (confirm) {
+
                                                await ref.read(importFilesProvider.notifier).softDeleteImportFile(file.importFileId);
+
                                                ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
+
                                              }
+
                                            },
                                          ),
                                         ],
@@ -1756,9 +1739,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                        child: CopyableTableCell(
                                          value: priorityText,
                                          rowSummary: rowSummary,
-                                         child: Chip(
-                                           label: Text(priorityText, style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.white, fontWeight: FontWeight.bold)),
-                                           backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? AppTheme.wcagCrimson : AppTheme.wcagOrange,
+                                         child: AppStatusBadge(
+
+                                           label: priorityText,
+
+                                           severity: file.priority == 'High' || file.priority == 'Critical' ? AppSeverity.danger : AppSeverity.warning,
+
+                                           size: AppStatusBadgeSize.small,
+
                                          ),
                                        ),
                                      ),
@@ -1829,11 +1817,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                        child: CopyableTableCell(
                                          value: statusText,
                                          rowSummary: rowSummary,
-                                         child: Chip(
-                                           padding: EdgeInsets.zero,
-                                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                           label: Text(statusText, style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.white, fontWeight: FontWeight.bold)),
-                                           backgroundColor: file.status == 'Open' ? AppTheme.wcagEmerald : (isDark ? const Color(0xFF475569) : Colors.grey.shade600),
+                                         child: AppStatusBadge.fromStatus(
+
+                                           status: file.status,
+
+                                           label: statusText,
+
+                                           size: AppStatusBadgeSize.small,
+
                                          ),
                                        ),
                                      ),

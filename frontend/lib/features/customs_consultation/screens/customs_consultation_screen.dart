@@ -22,11 +22,14 @@ import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import 'dart:convert';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
+import '../../customs_tariff/widgets/hs_code_timeline_widget.dart';
+import '../../customs_tariff/services/customs_exemption_engine.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -86,6 +89,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   CustomsRecalculationResponseModel? _recalculationResult;
   bool _isRecalculating = false;
   DateTime _studyDate = DateTime.now();
+  final Map<String, bool> _lineExemptionOverrides = {};
+  bool _isExchangeRateFrozenFromSnapshot = false;
 
   int? _editingConsultationId;
   String? _editingConsultationCode;
@@ -396,7 +401,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
   }
 
-  void _updateExchangeRateForCurrency(String currencyCode) {
+  Future<void> _updateExchangeRateForCurrency(String currencyCode, {bool force = false}) async {
+    if (_isExchangeRateFrozenFromSnapshot && !force) return;
+    try {
+      final rate = await ref.read(currenciesProvider.notifier).fetchCustomsExchangeRate(
+        currencyCode: currencyCode,
+        onDate: _studyDate,
+      );
+      if (rate != null && rate > 0 && mounted) {
+        setState(() {
+          _exchangeRateController.text = rate.toStringAsFixed(4);
+        });
+        _autoCalculateDutiesFromImportFile();
+        return;
+      }
+    } catch (_) {}
+
     final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     final matchedCurrency = currencies
         .where((c) => c.currencyCode.toUpperCase() == currencyCode.toUpperCase())
@@ -404,8 +424,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (matchedCurrency != null) {
       final rate = matchedCurrency.latestCustomsRate ??
           matchedCurrency.latestCommercialRate;
-      if (rate != null && rate > 0) {
-        _exchangeRateController.text = rate.toStringAsFixed(4);
+      if (rate != null && rate > 0 && mounted) {
+        setState(() {
+          _exchangeRateController.text = rate.toStringAsFixed(4);
+        });
+        _autoCalculateDutiesFromImportFile();
       }
     }
   }
@@ -884,7 +907,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     };
 
     final List<CustomsItemCalcRow> result = [];
-    for (final entry in flatLineEntries) {
+    for (int i = 0; i < flatLineEntries.length; i++) {
+      final entry = flatLineEntries[i];
       final POLineItemModel l = entry['item'] as POLineItemModel;
       final PurchaseOrderModel po = entry['po'] as PurchaseOrderModel;
       final hs = (l.hsCode != null && l.hsCode!.trim().isNotEmpty) ? l.hsCode!.trim() : 'UNASSIGNED';
@@ -903,55 +927,60 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ? l.countryOfOrigin!.trim()
           : (po.countryOfOrigin != null && po.countryOfOrigin!.trim().isNotEmpty ? po.countryOfOrigin!.trim() : '');
 
-      String originCode = '';
-      if (rawOrigin.isNotEmpty) {
-        if (rawOrigin.contains(' - ')) {
-          originCode = rawOrigin.split(' - ').first.trim().toUpperCase();
-        } else if (rawOrigin.length >= 2) {
-          originCode = rawOrigin.substring(0, 2).toUpperCase();
-        } else {
-          originCode = rawOrigin.toUpperCase();
-        }
-      }
+      final originCode = CustomsExemptionEngine.extractIsoOrigin(rawOrigin);
+      final String itemKey = '${po.poId ?? 0}_${l.itemId ?? 0}_${i}_$hs';
 
       final double baseDutyRate = matchedTariff?.customsDutyRate ?? (l.dutyRate ?? 5.0);
       double effectiveDutyRate = baseDutyRate;
       bool hasExemption = false;
+      bool isAgreementEligible = false;
       String? appliedAgreementName;
       String? requiredDocument;
       String? exemptionConditionsNote;
 
       if (originCode.isNotEmpty) {
         if (euCountries.contains(originCode)) {
-          hasExemption = true;
+          isAgreementEligible = true;
           appliedAgreementName = loc.agreementEur1;
           requiredDocument = loc.agreementEur1Doc;
-          effectiveDutyRate = 0.0;
           exemptionConditionsNote = loc.agreementEur1Exemption(baseDutyRate);
         } else if (mercosurCountries.contains(originCode)) {
-          hasExemption = true;
+          isAgreementEligible = true;
           appliedAgreementName = loc.agreementMercosur;
           requiredDocument = loc.agreementMercosurDoc;
-          effectiveDutyRate = 0.0;
           exemptionConditionsNote = loc.agreementMercosurExemption(baseDutyRate);
         } else if (gaftaCountries.contains(originCode)) {
-          hasExemption = true;
+          isAgreementEligible = true;
           appliedAgreementName = loc.agreementGafta;
           requiredDocument = loc.agreementGaftaDoc;
-          effectiveDutyRate = 0.0;
           exemptionConditionsNote = loc.agreementGaftaExemption(baseDutyRate);
         } else if (originCode == 'TR') {
-          hasExemption = true;
+          isAgreementEligible = true;
           appliedAgreementName = loc.agreementTurkey;
           requiredDocument = loc.agreementTurkeyDoc;
-          effectiveDutyRate = 0.0;
           exemptionConditionsNote = loc.agreementTurkeyExemption(baseDutyRate);
         } else if (originCode == 'GB' || originCode == 'UK') {
-          hasExemption = true;
+          isAgreementEligible = true;
           appliedAgreementName = loc.agreementUk;
           requiredDocument = loc.agreementUkDoc;
-          effectiveDutyRate = 0.0;
           exemptionConditionsNote = loc.agreementUkExemption(baseDutyRate);
+        }
+      }
+
+      if (isAgreementEligible) {
+        final bool shouldApply = _lineExemptionOverrides[itemKey] ?? false;
+        if (shouldApply) {
+          hasExemption = true;
+          effectiveDutyRate = 0.0;
+        } else {
+          hasExemption = false;
+          effectiveDutyRate = baseDutyRate;
+        }
+      } else {
+        hasExemption = false;
+        effectiveDutyRate = baseDutyRate;
+        if (originCode.isNotEmpty) {
+          exemptionConditionsNote = 'لا ينطبق إعفاء تفضيلي — تطبق التعريفة العامة (MFN)';
         }
       }
 
@@ -976,6 +1005,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final double totalLineTaxes = dutyAmountEgp + vatAmountEgp + scheduleTaxAmountEgp + devFeeAmountEgp + svcAmountEgp;
 
       result.add(CustomsItemCalcRow(
+        itemKey: itemKey,
+        isAgreementEligible: isAgreementEligible,
         hsCode: hs,
         description: l.descriptionAr.isNotEmpty ? l.descriptionAr : (matchedTariff?.hsDescription ?? loc.defaultImportItemDescription),
         qty: l.quantity,
@@ -1062,6 +1093,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           .toList();
 
       aggregated.add(CustomsItemCalcRow(
+        itemKey: first.itemKey,
+        isAgreementEligible: lines.any((l) => l.isAgreementEligible),
         hsCode: hs,
         description: mergedDesc,
         qty: totalQty,
@@ -1131,6 +1164,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final priceLists = ref.read(brokerPriceListsProvider).valueOrNull ?? [];
       final matchedPl = priceLists.where((pl) => pl.priceListId == session.brokerPriceListId).firstOrNull;
       _brokerPriceListTitle = matchedPl?.title;
+
+      // Restore locked snapshot exchange rate & date (Zero retroactive alteration)
+      if (session.customsExchangeRate > 0) {
+        _exchangeRateController.text = session.customsExchangeRate.toStringAsFixed(4);
+        _customsCurrency = session.customsCurrency;
+        _isExchangeRateFrozenFromSnapshot = true;
+      }
+      if (session.calculationDate != null && session.calculationDate!.isNotEmpty) {
+        try {
+          _studyDate = DateTime.parse(session.calculationDate!);
+        } catch (_) {}
+      }
+
       _visitedTabs.add(0);
       _tabController.animateTo(0);
     });
@@ -1511,6 +1557,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     setState(() => _isSaving = true);
     try {
+      final double exRateToSave = double.tryParse(_exchangeRateController.text.trim()) ?? 1.0;
+      final metaMap = {
+        'customs_exchange_rate': exRateToSave,
+        'customs_currency': _customsCurrency,
+        'calculation_date': _studyDate.toIso8601String().substring(0, 10),
+      };
+      final metaStr = '<!-- SNAPSHOT: ${jsonEncode(metaMap)} -->';
+      final rawUserNotes = _notesController.text.trim();
+      final packedNotes = rawUserNotes.isNotEmpty ? '$metaStr\n$rawUserNotes' : metaStr;
+
       final payload = {
         'title': titleToSave,
         'broker_id': _selectedBrokerId ?? 1,
@@ -1522,7 +1578,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         'estimated_duties_egp': estimatedDuties,
         'total_broker_fees_egp': totalBrokerFees,
         if (_brokerPriceListId != null && !widget.isTaxReviewMode) 'broker_price_list_id': _brokerPriceListId,
-        'notes': _notesController.text.trim(),
+        'notes': packedNotes,
         'checklist_items': _checklist.map((item) => item.toJson()).toList(),
         'broker_quote_items': widget.isTaxReviewMode ? [] : _brokerQuoteItems.map((item) => item.toJson()).toList(),
       };
@@ -2537,20 +2593,55 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   controller: _exchangeRateController,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    labelText: l.customsFxRateLabel,
-                                    border: const OutlineInputBorder(),
-                                    prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.copyTooltip,
-                                      onPressed: () {
-                                        if (_exchangeRateController.text.isNotEmpty) {
-                                          CopyHelper.copy(context, _exchangeRateController.text);
-                                        }
-                                      },
+                                    labelText: _isExchangeRateFrozenFromSnapshot
+                                        ? '${l.customsFxRateLabel} (🔒 ${isArabic ? "سعر مثبت تاريخياً" : "Historical Lock"})'
+                                        : l.customsFxRateLabel,
+                                    helperText: _isExchangeRateFrozenFromSnapshot
+                                        ? (isArabic ? 'مثبت من تاريخ الدراسة السابقة لمنع التعديل بأثر رجعي' : 'Locked from snapshot to prevent retroactive changes')
+                                        : null,
+                                    helperStyle: const TextStyle(fontSize: 10, color: AppTheme.orange),
+                                    border: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: _isExchangeRateFrozenFromSnapshot ? AppTheme.orange : AppTheme.cobaltBorder,
+                                      ),
+                                    ),
+                                    prefixIcon: Icon(
+                                      _isExchangeRateFrozenFromSnapshot ? Icons.lock_clock : Icons.currency_exchange,
+                                      color: _isExchangeRateFrozenFromSnapshot ? AppTheme.orange : AppTheme.cobalt,
+                                      size: 18,
+                                    ),
+                                    suffixIcon: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_isExchangeRateFrozenFromSnapshot)
+                                          IconButton(
+                                            icon: const Icon(Icons.lock_open, size: 16, color: AppTheme.orange),
+                                            tooltip: isArabic ? 'فك تثبيت سعر الصرف وجلب أحدث سعر' : 'Unlock and fetch current rate',
+                                            onPressed: () {
+                                              setState(() {
+                                                _isExchangeRateFrozenFromSnapshot = false;
+                                                _updateExchangeRateForCurrency(_customsCurrency);
+                                              });
+                                            },
+                                          ),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy, size: 16),
+                                          tooltip: l.copyTooltip,
+                                          onPressed: () {
+                                            if (_exchangeRateController.text.isNotEmpty) {
+                                              CopyHelper.copy(context, _exchangeRateController.text);
+                                            }
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  onChanged: (_) => setState(() {}),
+                                  onChanged: (_) {
+                                    if (_isExchangeRateFrozenFromSnapshot) {
+                                      _isExchangeRateFrozenFromSnapshot = false;
+                                    }
+                                    setState(() {});
+                                  },
                                 );
                                 final dateField = InkWell(
                                   onTap: () async {
@@ -2561,7 +2652,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       lastDate: DateTime(2030),
                                     );
                                     if (picked != null) {
-                                      setState(() => _studyDate = picked);
+                                      setState(() {
+                                        _studyDate = picked;
+                                        if (!_isExchangeRateFrozenFromSnapshot) {
+                                          _updateExchangeRateForCurrency(_customsCurrency);
+                                        }
+                                      });
                                     }
                                   },
                                   child: InputDecorator(
@@ -3063,10 +3159,40 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           CopyableTableCell(
                                             value: line.hsCode,
                                             rowSummary: rowSummary,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                                              child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                                  child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                IconButton(
+                                                  icon: const Icon(Icons.history, size: 16, color: AppTheme.cobalt),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
+                                                  tooltip: isArabic ? 'التسلسل الزمني للتعريفة' : 'Tariff Timeline History',
+                                                  onPressed: () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (ctx) => Dialog(
+                                                        child: ConstrainedBox(
+                                                          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(16.0),
+                                                            child: HsCodeTimelineWidget(
+                                                              hsCode: line.hsCode,
+                                                              countryCode: line.countryOfOrigin,
+                                                              currentDutyRate: line.baseDutyRate,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -3151,17 +3277,66 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                       ),
                                                     ],
                                                   ),
-                                                  Container(
-                                                    margin: const EdgeInsets.only(top: 2),
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                    decoration: BoxDecoration(
-                                                      color: AppTheme.emeraldLight,
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: AppTheme.emeraldBorder),
+                                                  InkWell(
+                                                    onTap: (line.itemKey != null && line.isAgreementEligible)
+                                                        ? () {
+                                                            setState(() {
+                                                              _lineExemptionOverrides[line.itemKey!] = false;
+                                                            });
+                                                          }
+                                                        : null,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: Container(
+                                                      margin: const EdgeInsets.only(top: 2),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.emeraldLight,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: AppTheme.emeraldBorder),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            '${line.appliedAgreementName ?? (context.l10n.ccExemption)} ✔',
+                                                            style: const TextStyle(fontSize: 9.5, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
+                                                          ),
+                                                          if (line.itemKey != null && line.isAgreementEligible) ...[
+                                                            const SizedBox(width: 3),
+                                                            const Icon(Icons.close, size: 10, color: AppTheme.wcagEmerald),
+                                                          ],
+                                                        ],
+                                                      ),
                                                     ),
-                                                    child: Text(
-                                                      line.appliedAgreementName ?? (context.l10n.ccExemption),
-                                                      style: const TextStyle(fontSize: 9.5, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ] else if (line.isAgreementEligible && line.itemKey != null) ...[
+                                                  Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
+                                                  InkWell(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _lineExemptionOverrides[line.itemKey!] = true;
+                                                      });
+                                                    },
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: Container(
+                                                      margin: const EdgeInsets.only(top: 2),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.orange.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: AppTheme.orange),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.check_circle_outline, size: 10, color: AppTheme.orange),
+                                                          const SizedBox(width: 3),
+                                                          Text(
+                                                            'مؤهل (${line.appliedAgreementName}) — تطبيق؟',
+                                                            style: const TextStyle(fontSize: 9.5, color: AppTheme.orange, fontWeight: FontWeight.bold),
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ] else ...[

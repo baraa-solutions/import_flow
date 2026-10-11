@@ -3,20 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/change_diff_dialog.dart';
-import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/row_context_menu.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class ImportCompaniesScreen extends ConsumerStatefulWidget {
@@ -249,7 +241,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         scale: 0.8,
                         child: Switch(
                           value: showInactive,
-                          activeColor: AppTheme.cobalt,
+                          activeThumbColor: AppTheme.cobalt,
                           onChanged: (val) {
                             ref.read(showInactiveCompaniesProvider.notifier).state = val;
                           },
@@ -287,40 +279,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
             // Data Table Content
             Expanded(
               child: companiesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-                error: (err, stack) => Center(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Text(
-                            l10n.importersFetchError(err.toString()),
-                            textAlign: TextAlign.center,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            ref.read(importCompaniesProvider.notifier).fetchCompanies();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                loading: () => const AppLoadingState(),
+                error: (err, stack) => AppErrorState(
+                  message: l10n.importersFetchError(err.toString()),
+                  onRetry: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
                 ),
                 data: (companies) {
                   final filtered = companies.where((c) {
@@ -330,18 +292,19 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noImportCompaniesFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                    return AppEmptyState(
+                      message: l10n.noImportCompaniesFound,
+                      icon: Icons.business_outlined,
                     );
                   }
 
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -421,22 +384,13 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 onEdit: () => _showCompanyDialog(context, company),
                 onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
                 onDelete: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(l10n.confirmActionTitle),
-                      content: Text(isActive
-                          ? l10n.confirmDeactivateCompany(company.importerName)
-                          : l10n.confirmActivateCompany(company.importerName)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
+                  final confirm = await AppConfirmDialog.showToggleActive(
+                    context,
+                    isCurrentlyActive: isActive,
+                    entityName: company.importerName,
+                    message: isActive
+                        ? l10n.confirmDeactivateCompany(company.importerName)
+                        : l10n.confirmActivateCompany(company.importerName),
                   );
                   if (confirm == true && company.companyId != null) {
                     ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
@@ -450,7 +404,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
+                  color: (isActive ? AppTheme.cobalt : Colors.grey).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.business, color: isActive ? AppTheme.cobalt : Colors.grey),
@@ -490,20 +444,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         ),
                         const SizedBox(width: 8),
                         // Active/Deactive Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isActive ? l10n.statusActive : l10n.statusInactive,
-                            style: TextStyle(
-                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        AppStatusBadge(
+                          label: isActive ? l10n.statusActive : l10n.statusInactive,
+                          severity: isActive ? AppSeverity.success : AppSeverity.danger,
+                          size: AppStatusBadgeSize.small,
                         ),
                       ],
                     ),
@@ -567,15 +511,15 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     String statusText;
 
     if (daysLeft < 0) {
-      bg = AppTheme.crimson.withOpacity(0.15);
+      bg = AppTheme.crimson.withValues(alpha: 0.15);
       fg = AppTheme.crimson;
       statusText = l10n.expiryExpired;
     } else if (daysLeft <= 30) {
-      bg = AppTheme.orange.withOpacity(0.15);
+      bg = AppTheme.orange.withValues(alpha: 0.15);
       fg = AppTheme.orange;
       statusText = l10n.expiryDaysLeft(daysLeft);
     } else {
-      bg = AppTheme.emerald.withOpacity(0.15);
+      bg = AppTheme.emerald.withValues(alpha: 0.15);
       fg = AppTheme.emerald;
       statusText = l10n.expiryValidDays(daysLeft);
     }
@@ -748,27 +692,6 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                           const SizedBox(height: 16),
                           StatefulBuilder(
                             builder: (context, setDialogState) {
-                              Future<void> pickDate(String type) async {
-                                final initial = type == 'imp'
-                                    ? impExpiry
-                                    : type == 'vat'
-                                        ? vatExpiry
-                                        : regExpiry;
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: initial,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2040),
-                                );
-                                if (picked != null) {
-                                  setDialogState(() {
-                                    if (type == 'imp') impExpiry = picked;
-                                    if (type == 'vat') vatExpiry = picked;
-                                    if (type == 'reg') regExpiry = picked;
-                                  });
-                                }
-                              }
-
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -790,33 +713,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              l10n.importerCardExpiryLabel,
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            InkWell(
-                                              onTap: () => pickDate('imp'),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.grey.shade400),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                    const SizedBox(width: 8),
-                                                    Text('${impExpiry.year}-${impExpiry.month.toString().padLeft(2, '0')}-${impExpiry.day.toString().padLeft(2, '0')}'),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        child: AppDatePickerField(
+                                          label: l10n.importerCardExpiryLabel,
+                                          value: impExpiry,
+                                          allowClear: false,
+                                          isRequired: true,
+                                          onChanged: (d) {
+                                            if (d != null) setDialogState(() => impExpiry = d);
+                                          },
                                         ),
                                       ),
                                     ],
@@ -840,33 +744,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              l10n.vatRegExpiryLabel,
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            InkWell(
-                                              onTap: () => pickDate('vat'),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.grey.shade400),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                    const SizedBox(width: 8),
-                                                    Text('${vatExpiry.year}-${vatExpiry.month.toString().padLeft(2, '0')}-${vatExpiry.day.toString().padLeft(2, '0')}'),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        child: AppDatePickerField(
+                                          label: l10n.vatRegExpiryLabel,
+                                          value: vatExpiry,
+                                          allowClear: false,
+                                          isRequired: true,
+                                          onChanged: (d) {
+                                            if (d != null) setDialogState(() => vatExpiry = d);
+                                          },
                                         ),
                                       ),
                                     ],
@@ -890,33 +775,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              l10n.commercialRegExpiryLabel,
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            InkWell(
-                                              onTap: () => pickDate('reg'),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.grey.shade400),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                    const SizedBox(width: 8),
-                                                    Text('${regExpiry.year}-${regExpiry.month.toString().padLeft(2, '0')}-${regExpiry.day.toString().padLeft(2, '0')}'),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        child: AppDatePickerField(
+                                          label: l10n.commercialRegExpiryLabel,
+                                          value: regExpiry,
+                                          allowClear: false,
+                                          isRequired: true,
+                                          onChanged: (d) {
+                                            if (d != null) setDialogState(() => regExpiry = d);
+                                          },
                                         ),
                                       ),
                                     ],
@@ -1045,12 +911,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         }
                                       } else {
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                              backgroundColor: AppTheme.crimson,
-                                              behavior: SnackBarBehavior.floating,
-                                            ),
+                                          AppTheme.snackBar(
+                                            context,
+                                            errorMessage,
+                                            severity: AppSeverity.danger,
                                           );
                                         }
                                       }

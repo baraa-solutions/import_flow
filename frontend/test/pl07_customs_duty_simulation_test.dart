@@ -283,7 +283,7 @@ void main() {
 
       // Dialog picks its language from Localizations.localeOf(), which now resolves to ar.
       expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsOneWidget);
-      expect(find.text('تحميل مثال نافذة الفعلي (2026-612-1-94731)'), findsOneWidget);
+      expect(find.text('تفريغ / شحنة جديدة'), findsOneWidget);
       expect(find.text('محاكاة ملف الاستيراد (#42)'), findsOneWidget);
       expect(find.text('Egyptian Customs Duty Calculator — Nafeza Platform'), findsNothing);
       expect(find.text('إغلاق'), findsOneWidget);
