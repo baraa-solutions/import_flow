@@ -1201,6 +1201,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FA_PAYMENT_LOCKED': {
     'note': 'لا يمكن تعديل أو حذف طلب دفع معتمد أو مدفوع ({payment_code}، {status}).',
   },
+  'FA_PAYMENT_RATE_REQUIRED': {
+    'note': 'عند تغيير عملة طلب الصرف {payment_code} يجب إدخال سعر الصرف الجديد للعملة {currency_code}.',
+  },
   'FA_BUDGET_LOCKED': {
     'note': 'لا يمكن تعديل موازنة معتمدة أو تم استبدالها ({budget_code}، {status}): قم بمزامنتها لإنشاء مراجعة جديدة.',
   },
