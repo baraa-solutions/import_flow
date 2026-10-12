@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # ==============================================================================
 
 class ClearanceExpenseTypeBase(BaseModel):
-    expense_code: str = Field(..., min_length=2, max_length=50)
+    expense_code: Optional[str] = Field(None, min_length=2, max_length=50)
     name_ar: str = Field(..., min_length=2, max_length=200)
     name_en: Optional[str] = None
     category: str = Field(..., min_length=2, max_length=100)
@@ -39,6 +39,7 @@ class ClearanceExpenseTypeUpdate(BaseModel):
 
 class ClearanceExpenseTypeResponse(ClearanceExpenseTypeBase):
     expense_id: int
+    expense_code: str
     created_at: datetime
     updated_at: datetime
 

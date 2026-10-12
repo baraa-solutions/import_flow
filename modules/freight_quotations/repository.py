@@ -5,6 +5,7 @@ Freight Quotations Repository Layer (BP-008)
 from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from modules.common.sequence_generator import next_yearly_code
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
 from modules.freight_quotations.schemas import FreightRFQRequestCreate, FreightRFQRequestUpdate
 
@@ -12,37 +13,22 @@ from modules.freight_quotations.schemas import FreightRFQRequestCreate, FreightR
 class FreightQuotationRepository:
 
     @staticmethod
-    def generate_rfq_code(db: Session) -> str:
+    def generate_rfq_code(db: Session, year: Optional[int] = None) -> str:
         """
         Generates auto-incremented RFQ code in format RFQ-YYYY-XXX (e.g. RFQ-2026-001).
         """
-        current_year = datetime.now(timezone.utc).year
-        prefix = f"RFQ-{current_year}-"
-
-        last_rfq = (
-            db.query(FreightRFQRequest)
-            .filter(FreightRFQRequest.rfq_code.like(f"{prefix}%"))
-            .order_by(FreightRFQRequest.rfq_id.desc())
-            .first()
-        )
-
-        if last_rfq:
-            try:
-                last_num = int(last_rfq.rfq_code.split("-")[-1])
-                new_num = last_num + 1
-            except ValueError:
-                new_num = 1
-        else:
-            new_num = 1
-
-        return f"{prefix}{new_num:03d}"
+        return next_yearly_code(db, FreightRFQRequest.rfq_code, "RFQ", pad=3, year=year)
 
     @staticmethod
-    def create(db: Session, rfq_in: FreightRFQRequestCreate) -> FreightRFQRequest:
-        code = FreightQuotationRepository.generate_rfq_code(db)
+    def get_by_code(db: Session, code: str) -> Optional[FreightRFQRequest]:
+        return db.query(FreightRFQRequest).filter(FreightRFQRequest.rfq_code == code).first()
+
+    @staticmethod
+    def create(db: Session, rfq_in: FreightRFQRequestCreate, code: Optional[str] = None) -> FreightRFQRequest:
+        final_code = code or FreightQuotationRepository.generate_rfq_code(db)
 
         db_rfq = FreightRFQRequest(
-            rfq_code=code,
+            rfq_code=final_code,
             title=rfq_in.title,
             shipping_method=rfq_in.shipping_method,
             crd_date=rfq_in.crd_date,

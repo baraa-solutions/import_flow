@@ -5,6 +5,7 @@ Customs Consultation & Broker Price Lists Database Repository (BP-009)
 from datetime import datetime, date, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from modules.common.sequence_generator import next_yearly_code, next_global_code
 from modules.customs_consultation.model import (
     ClearanceExpenseType,
     BrokerPriceList,
@@ -31,25 +32,13 @@ class ClearanceExpenseTypeRepository:
 
     @staticmethod
     def generate_expense_code(db: Session) -> str:
-        last_item = (
-            db.query(ClearanceExpenseType)
-            .order_by(ClearanceExpenseType.expense_id.desc())
-            .first()
-        )
-        if last_item:
-            try:
-                num = int(last_item.expense_code.replace("EXP-", "")) + 1
-            except ValueError:
-                num = last_item.expense_id + 1
-        else:
-            num = 1
-        return f"EXP-{num:03d}"
+        return next_global_code(db, ClearanceExpenseType.expense_code, "EXP", pad=3)
 
     @staticmethod
-    def create(db: Session, schema: ClearanceExpenseTypeCreate) -> ClearanceExpenseType:
-        code = schema.expense_code or ClearanceExpenseTypeRepository.generate_expense_code(db)
+    def create(db: Session, schema: ClearanceExpenseTypeCreate, code: Optional[str] = None) -> ClearanceExpenseType:
+        final_code = code or schema.expense_code or ClearanceExpenseTypeRepository.generate_expense_code(db)
         db_obj = ClearanceExpenseType(
-            expense_code=code,
+            expense_code=final_code,
             name_ar=schema.name_ar,
             name_en=schema.name_en,
             category=schema.category,
@@ -118,29 +107,18 @@ class ClearanceExpenseTypeRepository:
 class BrokerPriceListRepository:
 
     @staticmethod
-    def generate_price_list_code(db: Session) -> str:
-        current_year = datetime.now(timezone.utc).year
-        prefix = f"PL-{current_year}-"
-        last_pl = (
-            db.query(BrokerPriceList)
-            .filter(BrokerPriceList.price_list_code.like(f"{prefix}%"))
-            .order_by(BrokerPriceList.price_list_id.desc())
-            .first()
-        )
-        if last_pl:
-            try:
-                num = int(last_pl.price_list_code.split("-")[-1]) + 1
-            except ValueError:
-                num = 1
-        else:
-            num = 1
-        return f"{prefix}{num:03d}"
+    def generate_price_list_code(db: Session, year: Optional[int] = None) -> str:
+        return next_yearly_code(db, BrokerPriceList.price_list_code, "PL", pad=3, year=year)
 
     @staticmethod
-    def create(db: Session, schema: BrokerPriceListCreate) -> BrokerPriceList:
-        code = BrokerPriceListRepository.generate_price_list_code(db)
+    def get_by_code(db: Session, code: str) -> Optional[BrokerPriceList]:
+        return db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == code).first()
+
+    @staticmethod
+    def create(db: Session, schema: BrokerPriceListCreate, code: Optional[str] = None) -> BrokerPriceList:
+        final_code = code or BrokerPriceListRepository.generate_price_list_code(db)
         db_pl = BrokerPriceList(
-            price_list_code=code,
+            price_list_code=final_code,
             title=schema.title,
             broker_id=schema.broker_id,
             broker_name=schema.broker_name,
@@ -267,37 +245,26 @@ class BrokerPriceListRepository:
 class CustomsConsultationRepository:
 
     @staticmethod
-    def generate_consultation_code(db: Session) -> str:
+    def generate_consultation_code(db: Session, year: Optional[int] = None) -> str:
         """
         Generates auto-incremented consultation code in format CUS-YYYY-XXX (e.g. CUS-2026-001).
         """
-        current_year = datetime.now(timezone.utc).year
-        prefix = f"CUS-{current_year}-"
-        
-        last_session = (
-            db.query(CustomsConsultationSession)
-            .filter(CustomsConsultationSession.consultation_code.like(f"{prefix}%"))
-            .order_by(CustomsConsultationSession.consultation_id.desc())
-            .first()
-        )
-        
-        if last_session:
-            try:
-                last_num = int(last_session.consultation_code.split("-")[-1])
-                new_num = last_num + 1
-            except ValueError:
-                new_num = 1
-        else:
-            new_num = 1
-
-        return f"{prefix}{new_num:03d}"
+        return next_yearly_code(db, CustomsConsultationSession.consultation_code, "CUS", pad=3, year=year)
 
     @staticmethod
-    def create(db: Session, session_in: CustomsConsultationCreate) -> CustomsConsultationSession:
-        code = CustomsConsultationRepository.generate_consultation_code(db)
+    def get_by_code(db: Session, code: str) -> Optional[CustomsConsultationSession]:
+        return (
+            db.query(CustomsConsultationSession)
+            .filter(CustomsConsultationSession.consultation_code == code)
+            .first()
+        )
+
+    @staticmethod
+    def create(db: Session, session_in: CustomsConsultationCreate, code: Optional[str] = None) -> CustomsConsultationSession:
+        final_code = code or CustomsConsultationRepository.generate_consultation_code(db)
 
         db_session = CustomsConsultationSession(
-            consultation_code=code,
+            consultation_code=final_code,
             title=session_in.title,
             broker_id=session_in.broker_id,
             broker_name=session_in.broker_name,
