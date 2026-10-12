@@ -84,6 +84,7 @@ from modules.financial_approval.validators import (
     is_advance_payment,
     normalize_payment_type,
     require_budget_approvable,
+    require_known_currency,
     require_payment_status,
     require_same_currency,
     validate_payment_request_inputs,
@@ -428,7 +429,21 @@ def create_payment_request_service(
         po_id=schema.po_id,
         supplier_id=schema.supplier_id,
         import_file_id=schema.import_file_id,
+        currency_code=schema.currency_code,
+        project_id=schema.project_id,
     )
+    norm_currency = require_known_currency(db, schema.currency_code)
+    updates: Dict[str, Any] = {"currency_code": norm_currency}
+    if schema.supplier_id:
+        from modules.suppliers.model import Supplier
+
+        sup = db.query(Supplier).filter(Supplier.supplier_id == schema.supplier_id).first()
+        if sup:
+            updates["supplier_name"] = sup.company_name
+            if not schema.beneficiary_name:
+                updates["beneficiary_name"] = sup.company_name
+    schema = schema.model_copy(update=updates)
+
     if schema.import_file_id:
         _ensure_no_open_payment_of_type(db, schema.import_file_id, schema.payment_type)
 
@@ -486,6 +501,8 @@ def update_payment_request_service(
         if k not in SERVER_OWNED_PAYMENT_FIELDS and not (v is None and k in not_null)  # C4 + FA-12
     }
     validate_payment_update(db_item, changes)
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        changes["currency_code"] = require_known_currency(db, changes["currency_code"])
     _require_reject_permission(db, db_item, changes, current_user)
 
     if changes.get("import_file_id") is not None:
@@ -899,6 +916,23 @@ def create_import_budget_service(
     db: Session, schema: ImportBudgetCreate, current_user_name: Optional[str] = None
 ) -> ImportBudgetApproval:
     """Creates an import budget in Pending Review (one active budget per import file)."""
+    if schema.po_id:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, schema.po_id, "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if schema.project_id:
+        from modules.projects.model import Project
+
+        require_active(db, Project, schema.project_id, "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    budget_updates: Dict[str, Any] = {}
+    if (schema.invoice_amount_foreign or 0.0) > 0 and schema.invoice_currency:
+        budget_updates["invoice_currency"] = require_known_currency(db, schema.invoice_currency)
+    if (schema.freight_cost_foreign or 0.0) > 0 and schema.freight_currency:
+        budget_updates["freight_currency"] = require_known_currency(db, schema.freight_currency)
+    if budget_updates:
+        schema = schema.model_copy(update=budget_updates)
+
     if schema.import_file_id:
         from modules.import_files.model import ImportFile
 
@@ -1078,6 +1112,29 @@ def update_import_budget_service(
     submitted.pop("budget_status", None)  # C4
     submitted.pop("approved_by", None)
     changes = {k: v for k, v in submitted.items() if not (v is None and k in _BUDGET_NOT_NULL_FIELDS)}
+
+    if changes.get("po_id") is not None:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, changes["po_id"], "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if changes.get("project_id") is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, changes["project_id"], "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    target_inv_foreign = changes.get("invoice_amount_foreign", db_item.invoice_amount_foreign) or 0.0
+    if target_inv_foreign > 0 and ("invoice_currency" in changes or "invoice_amount_foreign" in changes):
+        inv_curr = changes.get("invoice_currency", db_item.invoice_currency)
+        norm_inv = require_known_currency(db, inv_curr)
+        if "invoice_currency" in changes:
+            changes["invoice_currency"] = norm_inv
+
+    target_frt_foreign = changes.get("freight_cost_foreign", db_item.freight_cost_foreign) or 0.0
+    if target_frt_foreign > 0 and ("freight_currency" in changes or "freight_cost_foreign" in changes):
+        frt_curr = changes.get("freight_currency", db_item.freight_currency)
+        norm_frt = require_known_currency(db, frt_curr)
+        if "freight_currency" in changes:
+            changes["freight_currency"] = norm_frt
 
     new_file = changes.get("import_file_id")
     if new_file is not None and new_file != db_item.import_file_id:

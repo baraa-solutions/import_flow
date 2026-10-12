@@ -1183,6 +1183,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FA_CURRENCY_MISSING': {
     'note': 'لا توجد عملة مسجلة لمبلغ {source}. حدد العملة أولاً.',
   },
+  'FA_CURRENCY_UNKNOWN': {
+    'note': 'العملة {currency_code} غير معرفة في شاشة العملات.',
+  },
   'FA_SWIFT_CURRENCY_MISMATCH': {
     'note': 'عملة السويفت {swift_currency} لا تطابق عملة طلب الدفع {currency_code}.',
   },
