@@ -4,24 +4,15 @@ Freight Quotations Business Validators (BP-008)
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from modules.common.validators import require_active
 from modules.external_service_providers.model import ExternalServiceProvider
 
 
 def validate_carrier_exists(db: Session, provider_id: int) -> ExternalServiceProvider:
     """
-    Validates that carrier / freight provider ID exists in external_service_providers table.
+    Validates that carrier / freight provider ID exists in external_service_providers table and is active.
     """
-    provider = (
-        db.query(ExternalServiceProvider)
-        .filter(ExternalServiceProvider.provider_id == provider_id)
-        .first()
-    )
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Freight Carrier with ID '{provider_id}' not found.",
-        )
-    return provider
+    return require_active(db, ExternalServiceProvider, provider_id, "مقدم خدمة الشحن")
 
 
 def validate_quotation_dates(crd_date, sailing_date, arrival_date) -> None:

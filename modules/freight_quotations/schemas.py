@@ -21,18 +21,18 @@ class FreightQuotationItemBase(BaseModel):
     estimated_arrival_date: date
     transit_days: int = 0
     free_days_at_pod: int = 14
-    is_awarded: bool = False
     is_excluded_from_avg: bool = False
     remarks: Optional[str] = None
 
 
 class FreightQuotationItemCreate(FreightQuotationItemBase):
-    pass
+    quotation_id: Optional[int] = None
 
 
 class FreightQuotationItemResponse(FreightQuotationItemBase):
     quotation_id: int
     rfq_id: int
+    is_awarded: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,8 +51,6 @@ class FreightRFQRequestBase(BaseModel):
     total_cbm: float = 0.0
     total_gross_weight_kg: float = 0.0
     chargeable_weight_kg: float = 0.0
-    status: str = "Draft"  # Draft, RFQ Issued, Quotations Received, Awarded, Cancelled
-    selected_quotation_id: Optional[int] = None
     notes: Optional[str] = None
 
 
@@ -74,8 +72,6 @@ class FreightRFQRequestUpdate(BaseModel):
     total_cbm: Optional[float] = None
     total_gross_weight_kg: Optional[float] = None
     chargeable_weight_kg: Optional[float] = None
-    status: Optional[str] = None
-    selected_quotation_id: Optional[int] = None
     notes: Optional[str] = None
     quotations: Optional[List[FreightQuotationItemCreate]] = None
 
@@ -83,6 +79,8 @@ class FreightRFQRequestUpdate(BaseModel):
 class FreightRFQRequestResponse(FreightRFQRequestBase):
     rfq_id: int
     rfq_code: str
+    status: str = "Draft"
+    selected_quotation_id: Optional[int] = None
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     is_active: bool
