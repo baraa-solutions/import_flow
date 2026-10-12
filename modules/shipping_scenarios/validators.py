@@ -14,6 +14,7 @@ from modules.transport_locations.model import TransportLocation
 
 from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,
+    ShippingEvaluationUpdate,
     ShippingScenarioItemCreate,
 )
 
@@ -46,8 +47,32 @@ class ShippingScenarioValidator:
             )
 
     @staticmethod
+    def validate_evaluation_update(payload: ShippingEvaluationUpdate, stored: Any) -> None:
+        if payload.avg_form4_days is not None and payload.avg_form4_days < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Average Form 4 days cannot be negative.",
+            )
+
+        if payload.avg_clearance_days is not None and payload.avg_clearance_days < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Average Customs Clearance days cannot be negative.",
+            )
+
+        if payload.items is not None:
+            ShippingScenarioValidator.validate_scenario_items(
+                payload.cargo_ready_date or stored.cargo_ready_date, payload.items
+            )
+        elif payload.cargo_ready_date is not None and payload.cargo_ready_date != stored.cargo_ready_date:
+            if stored.items:
+                ShippingScenarioValidator.validate_scenario_items(
+                    payload.cargo_ready_date, stored.items
+                )
+
+    @staticmethod
     def validate_scenario_items(
-        cargo_ready_date: date, items: List[ShippingScenarioItemCreate]
+        cargo_ready_date: date, items: Iterable[Any]
     ) -> None:
         seen_keys = set()
         for idx, item in enumerate(items, start=1):

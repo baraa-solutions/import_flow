@@ -199,10 +199,7 @@ class ShippingScenarioService:
     ) -> ShippingEvaluationResponse:
         session_obj = get_or_404(db, ShippingEvaluationSession, session_id, "دراسة سيناريوهات الشحن")
 
-        if payload.items is not None:
-            ShippingScenarioValidator.validate_scenario_items(
-                payload.cargo_ready_date or session_obj.cargo_ready_date, payload.items
-            )
+        ShippingScenarioValidator.validate_evaluation_update(payload, session_obj)
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items, stored=session_obj)
         file_id = payload.import_file_id or session_obj.import_file_id
         reactivated = not session_obj.is_active and payload.is_active is not False  # an update reactivates
@@ -247,6 +244,14 @@ class ShippingScenarioService:
         if req.remarks:
             notes = f"{notes}\n[Clone Note]: {req.remarks}" if notes else f"[Clone Note]: {req.remarks}"
 
+        cloned_file_id = (
+            req.target_import_file_id
+            if getattr(req, "target_import_file_id", None) is not None
+            else (None if req.unlink_import_file else source.import_file_id)
+        )
+        if cloned_file_id:
+            ShippingScenarioService._check_one_per_file(db, cloned_file_id)
+
         cloned_session = ShippingEvaluationSession(
             session_code=ShippingScenarioRepository.generate_session_code(db),
             title=new_title,
@@ -256,7 +261,7 @@ class ShippingScenarioService:
             port_of_discharge_id=source.port_of_discharge_id,
             avg_form4_days=source.avg_form4_days,
             avg_clearance_days=source.avg_clearance_days,
-            import_file_id=None if req.unlink_import_file else source.import_file_id,
+            import_file_id=cloned_file_id,
             po_id=None if req.unlink_po else source.po_id,
             project_id=source.project_id,
             notes=notes,
@@ -264,6 +269,10 @@ class ShippingScenarioService:
             created_by=user,
             updated_by=user,
         )
+
+        items_to_validate = source.items if (req.copy_carrier_options and source.items) else []
+        ShippingScenarioValidator.validate_foreign_keys(db, cloned_session, items_to_validate)
+
         db.add(cloned_session)
         db.flush()
 
