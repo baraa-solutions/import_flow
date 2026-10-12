@@ -833,13 +833,26 @@ def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePay
 
 
 def get_all_payment_requests_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, po_id: Optional[int] = None,
-    supplier_id: Optional[int] = None, status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    items = repo.get_all_payment_requests(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    items, total = repo.get_all_payment_requests(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_payment_request_by_id_service(db: Session, payment_id: int) -> PaymentRequestSession:
@@ -1042,14 +1055,26 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
 
 
 def get_all_import_budgets_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None,
-    po_id: Optional[int] = None, budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    items = repo.get_all_import_budgets(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    items, total = repo.get_all_import_budgets(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_import_budget_by_id_service(db: Session, budget_id: int) -> ImportBudgetApproval:
