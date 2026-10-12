@@ -38,6 +38,7 @@ export 'compact_table_pagination_footer.dart';
 export 'metric_card.dart';
 export 'copyable_data_helper.dart';
 export 'table_row_clone_helper.dart';
+export 'container_load_plan_painter.dart';
 
 // ── Form Inputs & Pickers ───────────────────────────────────────────────────
 export 'custom_text_field.dart';
@@ -61,6 +62,7 @@ export 'app_confirm_dialog.dart';
 export 'reopen_shipment_dialog.dart';
 export 'stop_shipment_dialog.dart';
 export 'universal_entity_extractor_dialog.dart';
+export 'extraction_progress_dialog.dart';
 export 'unsaved_changes_dialog.dart';
 export 'unsaved_changes_guard.dart';
 export 'error_details_dialog.dart';

@@ -9,10 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/error_details_dialog.dart';
-import '../../../core/widgets/extraction_progress_dialog.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -243,6 +240,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
     showDialog(
       context: context,
       builder: (ctx) {
+        final searchCtrl = TextEditingController();
         String query = '';
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
@@ -278,23 +276,17 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                 height: 480,
                 child: Column(
                   children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: isArabic ? 'البحث برقم الطلب أو العنوان أو الميناء...' : 'Search RFQ Code, Title, or Port...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                    AppSearchField(
+                      controller: searchCtrl,
+                      hint: isArabic ? 'البحث برقم الطلب أو العنوان أو الميناء...' : 'Search RFQ Code, Title, or Port...',
                       onChanged: (v) => setDialogState(() => query = v.trim()),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
                       child: filtered.isEmpty
-                          ? Center(
-                              child: Text(
-                                isArabic ? 'لا توجد طلبات عروض أسعار مسجلة مطابقة' : 'No matching RFQs found',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
+                          ? AppEmptyState(
+                              icon: Icons.search_off_rounded,
+                              message: isArabic ? 'لا توجد طلبات عروض أسعار مسجلة مطابقة' : 'No matching RFQs found',
                             )
                           : ListView.separated(
                               itemCount: filtered.length,
@@ -600,34 +592,24 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                       Row(
                         children: [
                           Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final d = await showDatePicker(context: context, initialDate: sailingDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                            child: AppDatePickerField(
+                              label: isArabic ? 'تاريخ الإبحار الفعلي' : 'Actual Sailing Date (ETD)',
+                              value: sailingDate,
+                              allowClear: false,
+                              onChanged: (d) {
                                 if (d != null) setDialogState(() => sailingDate = d);
                               },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: isArabic ? 'تاريخ الإبحار الفعلي' : 'Actual Sailing Date (ETD)',
-                                  border: const OutlineInputBorder(),
-                                ),
-                                child: Text(sailingDate.toString().substring(0, 10)),
-                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final d = await showDatePicker(context: context, initialDate: arrivalDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                            child: AppDatePickerField(
+                              label: isArabic ? 'تاريخ الوصول المتوقع للميناء' : 'Estimated Arrival Date (ETA)',
+                              value: arrivalDate,
+                              allowClear: false,
+                              onChanged: (d) {
                                 if (d != null) setDialogState(() => arrivalDate = d);
                               },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: isArabic ? 'تاريخ الوصول المتوقع للميناء' : 'Estimated Arrival Date (ETA)',
-                                  border: const OutlineInputBorder(),
-                                ),
-                                child: Text(arrivalDate.toString().substring(0, 10)),
-                              ),
                             ),
                           ),
                         ],
@@ -1940,18 +1922,14 @@ Best regards,
                             const SizedBox(width: 12),
                             Expanded(
                               flex: 2,
-                              child: InkWell(
-                                onTap: () async {
-                                  final d = await showDatePicker(context: context, initialDate: _crdDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                              child: AppDatePickerField(
+                                label: isArabic ? 'تاريخ جاهزية البضاعة (CRD) *' : 'Cargo Ready Date (CRD) *',
+                                value: _crdDate,
+                                isRequired: true,
+                                allowClear: false,
+                                onChanged: (d) {
                                   if (d != null) setState(() => _crdDate = d);
                                 },
-                                child: InputDecorator(
-                                  decoration: InputDecoration(
-                                    labelText: isArabic ? 'تاريخ جاهزية البضاعة (CRD) *' : 'Cargo Ready Date (CRD) *',
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  child: Text(_crdDate.toString().substring(0, 10)),
-                                ),
                               ),
                             ),
                           ],
