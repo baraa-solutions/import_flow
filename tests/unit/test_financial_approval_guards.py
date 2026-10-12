@@ -139,8 +139,8 @@ def test_pay_and_reconcile_on_draft_are_rejected(db):
     assert exc.value.status_code == 400
     with pytest.raises(HTTPException) as exc:
         service.smart_reconcile_swift_service(db, SmartSwiftReconcileRequest(
-            payment_id=p.payment_id, swift_reference_no="R", swift_receipt_date=date(2026, 8, 14),
-            swift_transferred_amount=10000.0))
+            payment_id=p.payment_id, swift_reference_no="SWF-REF-1", swift_receipt_date=date(2026, 8, 14),
+            swift_transferred_amount=10000.0, swift_transferred_currency="USD"))
     assert exc.value.status_code == 400
     db.refresh(p)
     assert p.status == "Draft" and p.swift_reference_no is None
@@ -274,7 +274,7 @@ def test_restore_reruns_duplicate_guards(db):
 
 def test_create_schemas_require_exchange_rate():
     with pytest.raises(ValidationError):
-        PaymentRequestCreate(title="No rate", supplier_name="Sup", requested_amount=1.0, due_date=date(2026, 9, 1))
+        PaymentRequestCreate(title="No rate", supplier_name="Sup", requested_amount=1.0, currency_code="USD", due_date=date(2026, 9, 1))
     with pytest.raises(ValidationError):
         ImportBudgetCreate(title="No rate budget")
 
@@ -461,7 +461,7 @@ def test_payment_type_codes_and_legacy_labels(db):
     p = _payment(db, payment_type="Letter of Credit (L/C)")
     assert p.payment_type == "LETTER_OF_CREDIT"
     with pytest.raises(ValidationError):
-        PaymentRequestCreate(title="Bad type", supplier_name="Sup", requested_amount=1.0, exchange_rate=50.0,
+        PaymentRequestCreate(title="Bad type", supplier_name="Sup", requested_amount=1.0, currency_code="USD", exchange_rate=50.0,
                              due_date=date(2026, 9, 1), payment_type="متعدد (PO-1 (T/T))")
 
 
@@ -714,8 +714,8 @@ def test_api_create_payment_contract(api, db):
     officer = _user(db, "finance_officer2", "FINANCE_OFFICER")
     imp = seed_file(db, import_file_code="IMP-2026-9001")
     body = {"title": "API payment", "supplier_name": "Sup", "payment_type": "Against B/L", "requested_amount": 100.0,
-            "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)), "import_file_id": imp.import_file_id,
-            "status": "Paid"}
+            "currency_code": "USD", "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)),
+            "import_file_id": imp.import_file_id, "status": "Paid"}
     resp = api.post(BASE + "/payment-requests", headers=_bearer(officer), json=body)
     assert resp.status_code == 201, resp.text
     data = resp.json()
@@ -739,3 +739,83 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+def test_be02_t10_money_and_currency_schema_validation(api, db):
+    """BE02-T10: Money and currency input validation on request schemas."""
+    officer = _user(db, "finance_officer_t10", "FINANCE_OFFICER")
+
+    # 1. Create payment request without currency_code -> 422
+    with pytest.raises(ValidationError):
+        PaymentRequestCreate(
+            title="Payment Missing Currency",
+            supplier_name="Supplier A",
+            requested_amount=1000.0,
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        )
+
+    resp_pay = api.post(
+        BASE + "/payment-requests",
+        headers=_bearer(officer),
+        json={
+            "title": "Payment Missing Currency",
+            "supplier_name": "Supplier A",
+            "payment_type": "Advance Payment",
+            "requested_amount": 1000.0,
+            "exchange_rate": 50.0,
+            "due_date": str(date.today() + timedelta(days=5)),
+        },
+    )
+    assert resp_pay.status_code == 422
+
+    # 2. Smart reconcile with swift_transferred_amount=0 or missing currency -> 422
+    with pytest.raises(ValidationError):
+        SmartSwiftReconcileRequest(
+            payment_id=1,
+            swift_reference_no="SWF-REF-1",
+            swift_receipt_date=date(2026, 8, 14),
+            swift_transferred_amount=0.0,
+            swift_transferred_currency="USD",
+        )
+
+    resp_smart = api.post(
+        BASE + "/swift/smart-reconcile",
+        headers=_bearer(officer),
+        json={
+            "payment_id": 1,
+            "swift_reference_no": "SWF-REF-1",
+            "swift_receipt_date": str(date.today()),
+            "swift_transferred_amount": 0.0,
+            "swift_transferred_currency": "USD",
+        },
+    )
+    assert resp_smart.status_code == 422
+
+    # 3. Budget create with invoice_amount_foreign=1000 and no invoice_currency -> 422
+    with pytest.raises(ValidationError):
+        ImportBudgetCreate(
+            title="Foreign without currency",
+            invoice_amount_foreign=1000.0,
+            exchange_rate=50.0,
+        )
+
+    # freight_cost_foreign > 0 without freight_currency -> 422
+    with pytest.raises(ValidationError):
+        ImportBudgetCreate(
+            title="Freight without currency",
+            freight_cost_foreign=500.0,
+            exchange_rate=50.0,
+        )
+
+    resp_bgt = api.post(
+        BASE + "/import-budgets",
+        headers=_bearer(officer),
+        json={
+            "title": "Foreign without currency",
+            "invoice_amount_foreign": 1000.0,
+            "exchange_rate": 50.0,
+        },
+    )
+    assert resp_bgt.status_code == 422
+
