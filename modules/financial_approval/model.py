@@ -118,16 +118,16 @@ class ImportBudgetApproval(Base):
     )
 
     # Financial Components (EGP & Multi-Currency)
-    invoice_amount_egp: Mapped[float] = mapped_column(Float, default=0.0)
-    invoice_amount_foreign: Mapped[float] = mapped_column(Float, default=0.0)
-    invoice_currency: Mapped[str] = mapped_column(String(10), default="USD")
-    freight_cost_egp: Mapped[float] = mapped_column(Float, default=0.0)
-    freight_cost_foreign: Mapped[float] = mapped_column(Float, default=0.0)
-    freight_currency: Mapped[str] = mapped_column(String(10), default="USD")
-    customs_duties_egp: Mapped[float] = mapped_column(Float, default=0.0)
-    clearance_inland_egp: Mapped[float] = mapped_column(Float, default=0.0)
-    exchange_rate: Mapped[float] = mapped_column(Float, default=50.0)
-    total_budget_egp: Mapped[float] = mapped_column(Float, default=0.0)
+    invoice_amount_egp: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    invoice_amount_foreign: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    invoice_currency: Mapped[Optional[str]] = mapped_column(String(10), default="USD", nullable=True)
+    freight_cost_egp: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    freight_cost_foreign: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    freight_currency: Mapped[Optional[str]] = mapped_column(String(10), default="USD", nullable=True)
+    customs_duties_egp: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    clearance_inland_egp: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+    exchange_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    total_budget_egp: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
 
     # Budget Status: 'Draft', 'Pending Review', 'Needs Revalidation', 'Budget Approved', 'Superseded', 'Budget Exceeded', 'Rejected'
     budget_status: Mapped[str] = mapped_column(
