@@ -1412,6 +1412,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CT_AGREEMENT_DATA_INVALID": {
         "note": "Invalid preferential trade agreement data ({reason}).",
     },
+    "IF_STATUS_TRANSITION_INVALID": {
+        "note": "Cannot transition import file status from {from} to {to}.",
+    },
 }
 
 
