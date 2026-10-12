@@ -5,7 +5,7 @@ Queries and row writes only. Every write ``flush``es; the service commits once p
 """
 
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -125,7 +125,7 @@ def get_inactive_payment_request(db: Session, payment_id: int) -> Optional[Payme
     )
 
 
-def get_all_payment_requests(
+def _payment_requests_query(
     db: Session,
     include_inactive: bool = False,
     search: Optional[str] = None,
@@ -133,7 +133,7 @@ def get_all_payment_requests(
     po_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
+):
     query = db.query(PaymentRequestSession)
     if not include_inactive:
         query = query.filter(PaymentRequestSession.is_active == True)
@@ -155,8 +155,36 @@ def get_all_payment_requests(
             | PaymentRequestSession.supplier_name.ilike(pattern)
             | PaymentRequestSession.import_file_id.in_(_file_ids_matching(db, pattern))
         )
+    return query
 
-    return query.order_by(PaymentRequestSession.payment_id.desc()).all()
+
+def get_all_payment_requests(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    query = _payment_requests_query(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+    )
+    total = query.order_by(None).count()
+    ordered = query.order_by(PaymentRequestSession.payment_id.desc())
+    if skip > 0:
+        ordered = ordered.offset(skip)
+    if limit is not None:
+        ordered = ordered.limit(limit)
+    return ordered.all(), total
 
 
 def find_open_payment_of_type(
@@ -275,14 +303,14 @@ def get_inactive_import_budget(db: Session, budget_id: int) -> Optional[ImportBu
     )
 
 
-def get_all_import_budgets(
+def _import_budgets_query(
     db: Session,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
+):
     query = db.query(ImportBudgetApproval)
     if not include_inactive:
         query = query.filter(ImportBudgetApproval.is_active == True)
@@ -301,8 +329,34 @@ def get_all_import_budgets(
             | ImportBudgetApproval.title.ilike(pattern)
             | ImportBudgetApproval.import_file_id.in_(_file_ids_matching(db, pattern))
         )
+    return query
 
-    return query.order_by(ImportBudgetApproval.budget_id.desc()).all()
+
+def get_all_import_budgets(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    query = _import_budgets_query(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        budget_status=budget_status,
+    )
+    total = query.order_by(None).count()
+    ordered = query.order_by(ImportBudgetApproval.budget_id.desc())
+    if skip > 0:
+        ordered = ordered.offset(skip)
+    if limit is not None:
+        ordered = ordered.limit(limit)
+    return ordered.all(), total
 
 
 def find_active_budget_for_file(

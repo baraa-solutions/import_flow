@@ -578,11 +578,13 @@ def test_highest_freight_is_compared_in_egp(db):
 def test_list_returns_import_file_code_and_searches_it(db):
     imp = seed_file(db, import_file_code="IMP-2026-4242")
     p = _payment(db, import_file_id=imp.import_file_id)
-    rows = service.get_all_payment_requests_service(db, search="4242")
+    rows, total = service.get_all_payment_requests_service(db, search="4242")
+    assert total == 1
     assert [r.payment_id for r in rows] == [p.payment_id]
     assert rows[0].import_file_code == "IMP-2026-4242"
     budget = seed_budget(db, imp.import_file_id)
-    brows = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
+    brows, btotal = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
+    assert btotal == 1
     assert [r.budget_id for r in brows] == [budget.budget_id]
     assert brows[0].import_file_code == "IMP-2026-4242"
 
@@ -739,3 +741,68 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+# ─── BE02-T08: pagination for payment requests and budgets ────────────────────
+
+def test_payment_requests_pagination(db, api):
+    officer = _user(db, "fin_page_user1", "FINANCE_OFFICER")
+    created_ids = []
+    for i in range(30):
+        p = _payment(db, title=f"Payment {i+1}", amount=100.0 + i)
+        created_ids.append(p.payment_id)
+
+    # 1. No pagination params: returns all 30 items and X-Total-Count: 30
+    resp = api.get(f"{BASE}/payment-requests", headers=_bearer(officer))
+    assert resp.status_code == 200
+    assert resp.headers["X-Total-Count"] == "30"
+    items = resp.json()
+    assert len(items) == 30
+    assert [item["payment_id"] for item in items] == list(reversed(created_ids))
+
+    # 2. skip=10&limit=5: returns 5 items (ids 20..16 in desc order) and X-Total-Count: 30
+    resp_page = api.get(f"{BASE}/payment-requests?skip=10&limit=5", headers=_bearer(officer))
+    assert resp_page.status_code == 200
+    assert resp_page.headers["X-Total-Count"] == "30"
+    page_items = resp_page.json()
+    assert len(page_items) == 5
+    expected_ids = list(reversed(created_ids))[10:15]
+    assert [item["payment_id"] for item in page_items] == expected_ids
+
+    # 3. /payment-requests/paginated alias endpoint also works
+    resp_alias = api.get(f"{BASE}/payment-requests/paginated?skip=10&limit=5", headers=_bearer(officer))
+    assert resp_alias.status_code == 200
+    assert resp_alias.headers["X-Total-Count"] == "30"
+    assert len(resp_alias.json()) == 5
+
+
+def test_import_budgets_pagination(db, api):
+    officer = _user(db, "fin_page_user2", "FINANCE_OFFICER")
+    created_ids = []
+    for i in range(30):
+        b = seed_budget(db, None)
+        created_ids.append(b.budget_id)
+
+    # 1. No pagination params: returns all 30 items and X-Total-Count: 30
+    resp = api.get(f"{BASE}/import-budgets", headers=_bearer(officer))
+    assert resp.status_code == 200
+    assert resp.headers["X-Total-Count"] == "30"
+    items = resp.json()
+    assert len(items) == 30
+    assert [item["budget_id"] for item in items] == list(reversed(created_ids))
+
+    # 2. skip=10&limit=5: returns 5 items (ids 20..16 in desc order) and X-Total-Count: 30
+    resp_page = api.get(f"{BASE}/import-budgets?skip=10&limit=5", headers=_bearer(officer))
+    assert resp_page.status_code == 200
+    assert resp_page.headers["X-Total-Count"] == "30"
+    page_items = resp_page.json()
+    assert len(page_items) == 5
+    expected_ids = list(reversed(created_ids))[10:15]
+    assert [item["budget_id"] for item in page_items] == expected_ids
+
+    # 3. /import-budgets/paginated alias endpoint also works
+    resp_alias = api.get(f"{BASE}/import-budgets/paginated?skip=10&limit=5", headers=_bearer(officer))
+    assert resp_alias.status_code == 200
+    assert resp_alias.headers["X-Total-Count"] == "30"
+    assert len(resp_alias.json()) == 5
+
