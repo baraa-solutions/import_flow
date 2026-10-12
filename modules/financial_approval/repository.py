@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
 from modules.financial_approval.model import (
+    BudgetVarianceLog,
+    BudgetVarianceSetting,
     ImportBudgetApproval,
     OcrCorrectionsLog,
     PaymentRequestSession,
@@ -19,7 +21,12 @@ from modules.financial_approval.model import (
     SwiftExtractionField,
 )
 from modules.financial_approval.schemas import ImportBudgetCreate, PaymentRequestCreate
-from modules.financial_approval.validators import BATCH_PENDING, PAYMENT_APPROVED, normalize_payment_type
+from modules.financial_approval.validators import (
+    BATCH_PENDING,
+    BUDGET_SUPERSEDED,
+    PAYMENT_APPROVED,
+    normalize_payment_type,
+)
 
 
 def _now() -> datetime:
@@ -479,3 +486,29 @@ def mark_swift_batch_reconciled(db: Session, batch: SwiftExtractionBatch, paymen
     batch.updated_at = now
     db.flush()
     return batch
+
+
+def variance_logs_for_budget(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
+    return (
+        db.query(BudgetVarianceLog)
+        .filter(BudgetVarianceLog.budget_id == budget_id)
+        .order_by(BudgetVarianceLog.detected_at.desc())
+        .all()
+    )
+
+
+def get_setting(db: Session, key: str) -> Optional[BudgetVarianceSetting]:
+    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == key).first()
+
+
+def active_budgets_for_file(db: Session, import_file_id: int) -> List[ImportBudgetApproval]:
+    return (
+        db.query(ImportBudgetApproval)
+        .filter(
+            ImportBudgetApproval.import_file_id == import_file_id,
+            ImportBudgetApproval.is_active == True,
+            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
+        )
+        .all()
+    )
+

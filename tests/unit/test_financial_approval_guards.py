@@ -26,6 +26,7 @@ from modules.financial_approval.model import (
     SwiftExtractionBatch,
 )
 from modules.financial_approval.schemas import (
+    CloneImportBudgetRequest,
     ClonePaymentRequestRequest,
     ImportBudgetCreate,
     ImportBudgetUpdate,
@@ -739,3 +740,44 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+# ─── BE02-T16: hygiene & validation guards ───────────────────────────────────
+
+def test_clone_payment_request_invalid_amount_422():
+    with pytest.raises(ValidationError):
+        ClonePaymentRequestRequest(new_requested_amount=0.0)
+    with pytest.raises(ValidationError):
+        ClonePaymentRequestRequest(new_requested_amount=-15.0)
+
+
+def test_clone_import_budget_invalid_rate_422():
+    with pytest.raises(ValidationError):
+        CloneImportBudgetRequest(new_exchange_rate=0.0)
+    with pytest.raises(ValidationError):
+        CloneImportBudgetRequest(new_exchange_rate=-5.0)
+
+
+def test_budget_variance_logs_missing_budget_404(db):
+    with pytest.raises(HTTPException) as exc:
+        service.get_budget_variance_logs_service(db, budget_id=99999)
+    assert exc.value.status_code == 404
+    assert "الميزانية" in exc.value.detail
+
+
+def test_budget_prefill_soft_deleted_file_404(db):
+    imp = seed_file(db)
+    imp.is_active = False
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        service.get_budget_prefill_service(db, imp.import_file_id)
+    assert exc.value.status_code == 404
+
+
+def test_match_swift_batch_before_confirmation_raises_409(db):
+    batch = service.extract_swift_for_review_service(db, SWIFT_TEXT, "test.txt", "Text")
+    with pytest.raises(HTTPException) as exc:
+        service.match_reviewed_batch_service(db, batch.batch_id)
+    assert exc.value.status_code == 409
+    assert _code(exc) == "FA_SWIFT_BATCH_STATUS_INVALID"
+

@@ -517,7 +517,7 @@ def _require_reject_permission(db: Session, item: PaymentRequestSession, changes
             and not has_user_permission(db, current_user, "financial_approval.approve")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Permission 'financial_approval.approve' required.",
+            detail="تم رفض الوصول. الصلاحية 'financial_approval.approve' مطلوبة.",
         )
 
 
@@ -1135,7 +1135,11 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     from modules.shipping_scenarios.model import ShippingEvaluationSession
     from modules.suppliers.model import Supplier
 
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    imp = (
+        db.query(ImportFile)
+        .filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True)
+        .first()
+    )
     if not imp:
         raise not_found(L_FILE, import_file_id)
 
@@ -1330,7 +1334,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
 # ==============================================================================
 
 def _threshold_setting(db: Session) -> Optional[BudgetVarianceSetting]:
-    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == VARIANCE_THRESHOLD_KEY).first()
+    return repo.get_setting(db, VARIANCE_THRESHOLD_KEY)
 
 
 def get_variance_threshold_service(db: Session) -> float:
@@ -1382,12 +1386,8 @@ def update_variance_threshold_service(db: Session, threshold_percentage: float, 
 
 
 def get_budget_variance_logs_service(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
-    return (
-        db.query(BudgetVarianceLog)
-        .filter(BudgetVarianceLog.budget_id == budget_id)
-        .order_by(BudgetVarianceLog.detected_at.desc())
-        .all()
-    )
+    _get_budget(db, budget_id)
+    return repo.variance_logs_for_budget(db, budget_id)
 
 
 # ==============================================================================
@@ -1464,15 +1464,7 @@ def evaluate_and_record_budget_variance_service(
     - Budget Approved: numbers untouched, flagged, CRITICAL notification.
     A missing FX rate raises FA_FX_RATE_MISSING before any change (the caller's best_effort leaves budgets as they are).
     """
-    active_budgets = (
-        db.query(ImportBudgetApproval)
-        .filter(
-            ImportBudgetApproval.import_file_id == import_file_id,
-            ImportBudgetApproval.is_active == True,
-            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
-        )
-        .all()
-    )
+    active_budgets = repo.active_budgets_for_file(db, import_file_id)
     if not active_budgets:
         return []
 
@@ -1657,7 +1649,16 @@ def sync_budget_with_upstream_service(
         _apply_prefill(new_budget, prefill)
         repo.add_row(db, new_budget)
         open_logs = _resolve_pending_logs(db, budget.budget_id, username, override_justification, now)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise fa_error(
+                status.HTTP_409_CONFLICT,
+                "FA_CODE_GENERATION_CONFLICT",
+                f"الرقم المرجعي {rev_code} مستخدم بالفعل، يرجى إعادة المحاولة.",
+                reference_code=rev_code,
+            )
         db.refresh(new_budget)
         result_budget = new_budget
         action, message_code = "revision_created", "FA_BUDGET_SYNC_REVISION_CREATED"
@@ -1893,7 +1894,7 @@ def confirm_swift_batch_review_service(
     if not batch_resp.all_mandatory_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot confirm SWIFT review: Mandatory fields are missing or invalid: {', '.join(batch_resp.missing_mandatory_fields)}",
+            detail=f"تعذر تأكيد مراجعة السويفت: حقول إجبارية مفقودة أو غير صالحة: {', '.join(batch_resp.missing_mandatory_fields)}",
         )
 
     repo.mark_swift_batch_reviewed(db, batch, acting_user)
@@ -1914,13 +1915,10 @@ def confirm_swift_batch_review_service(
 
 def match_reviewed_batch_service(db: Session, batch_id: int, target_payment_id: Optional[int] = None) -> SwiftBatchMatchResponse:
     """Matches a confirmed batch (``final_value`` only) against Approved requests without a SWIFT reference
-    (plus the target request). 403 before the review is confirmed."""
+    (plus the target request). 409 before the review is confirmed."""
     batch = _get_batch(db, batch_id)
     if batch.status not in (BATCH_CONFIRMED, BATCH_RECONCILED):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="يجب مراجعة وتأكيد بيانات السويفت المستخرجة قبل المطابقة.",
-        )
+        raise batch_status_error(batch)
 
     confirmed = {f.field_key: f.final_value for f in batch.fields}
     parsed = dict(confirmed)

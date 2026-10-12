@@ -2,9 +2,8 @@
 Business Validation Rules for Financial Approval (BP-012 & BP-013)
 
 Status sets, server-owned transitions, payment type codes and the coded error helper.
-Coded errors use plain ``{code, message, **params}`` dicts (``fa_error``): the codes are not registered in
-``modules/common/system_messages.py`` yet (see docs/plans/review-shared-needs.md "## 02 shared needs"), and
-``CodedHTTPException`` refuses unregistered codes.
+Coded errors use structured ``{"code", "message", **params}`` dicts (``fa_error``), with codes
+registered in ``modules/common/system_messages.py``.
 """
 
 import re
