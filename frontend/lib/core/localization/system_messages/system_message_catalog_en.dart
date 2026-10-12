@@ -1195,6 +1195,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FA_SWIFT_BATCH_STATUS_INVALID': {
     'note': 'This action is not allowed on SWIFT batch {batch_code} in status {status}.',
   },
+  'FA_SWIFT_VALUE_DATE_INVALID': {
+    'note': 'SWIFT value date \'{value}\' in batch {batch_code} is invalid (YYYY-MM-DD required).',
+  },
   'FA_PAYMENT_STATUS_INVALID': {
     'note': 'Payment request {payment_code} is {status}: the action {action} is not allowed.',
   },

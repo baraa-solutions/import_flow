@@ -196,3 +196,202 @@ def test_swift_review_layer_full_lifecycle(db_session):
     batch_in_db = db_session.query(SwiftExtractionBatch).filter_by(batch_id=batch_resp.batch_id).first()
     assert batch_in_db.status == "RECONCILED"
     assert batch_in_db.matched_payment_id == 10
+
+
+def _make_field(batch_id: int, key: str, value: str, mandatory: bool = True) -> SwiftExtractionField:
+    return SwiftExtractionField(
+        batch_id=batch_id,
+        field_key=key,
+        field_label=key,
+        final_value=value,
+        confidence_score=1.0,
+        is_mandatory=mandatory,
+        is_empty=not bool(value),
+    )
+
+
+def test_batch_reconcile_fails_when_value_date_empty_or_invalid(db_session):
+    pay = PaymentRequestSession(
+        payment_id=20,
+        payment_code="PAY-2026-020",
+        title="Payment for Raw Materials",
+        supplier_id=1,
+        supplier_name="Test Supplier",
+        requested_amount=1000.0,
+        currency_code="USD",
+        exchange_rate=50.0,
+        requested_amount_egp=50000.0,
+        due_date=date(2026, 10, 20),
+        request_date=date(2026, 9, 20),
+        status="Approved",
+        is_active=True,
+    )
+    db_session.add(pay)
+
+    # Confirmed batch with empty value_date
+    batch1 = SwiftExtractionBatch(
+        batch_code="SWF-TEST-VD-EMPTY",
+        source_filename="empty_date.txt",
+        source_file_type="Text File",
+        raw_source_text="TEST",
+        status="REVIEWED_CONFIRMED",
+        matched_payment_id=20,
+        reviewed_by="ahmed_sorour",
+    )
+    db_session.add(batch1)
+    db_session.flush()
+
+    db_session.add_all([
+        _make_field(batch1.batch_id, "transaction_reference", "TXN-2026-001"),
+        _make_field(batch1.batch_id, "value_date", ""),
+        _make_field(batch1.batch_id, "amount", "1000.00"),
+        _make_field(batch1.batch_id, "currency", "USD"),
+    ])
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch1.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=20),
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail.get("code") == "FA_SWIFT_VALUE_DATE_INVALID"
+
+    pay_db = db_session.query(PaymentRequestSession).filter_by(payment_id=20).first()
+    assert pay_db.status == "Approved"
+
+    # Confirmed batch with invalid value_date format
+    batch2 = SwiftExtractionBatch(
+        batch_code="SWF-TEST-VD-INVALID",
+        source_filename="invalid_date.txt",
+        source_file_type="Text File",
+        raw_source_text="TEST",
+        status="REVIEWED_CONFIRMED",
+        matched_payment_id=20,
+        reviewed_by="ahmed_sorour",
+    )
+    db_session.add(batch2)
+    db_session.flush()
+
+    db_session.add_all([
+        _make_field(batch2.batch_id, "transaction_reference", "TXN-2026-002"),
+        _make_field(batch2.batch_id, "value_date", "20-09-2026"),
+        _make_field(batch2.batch_id, "amount", "1000.00"),
+        _make_field(batch2.batch_id, "currency", "USD"),
+    ])
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch2.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=20),
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail.get("code") == "FA_SWIFT_VALUE_DATE_INVALID"
+
+    pay_db = db_session.query(PaymentRequestSession).filter_by(payment_id=20).first()
+    assert pay_db.status == "Approved"
+
+
+def test_batch_reconcile_calculates_swift_processing_days_with_valid_date(db_session):
+    pay = PaymentRequestSession(
+        payment_id=30,
+        payment_code="PAY-2026-030",
+        title="Payment for Machinery",
+        supplier_id=1,
+        supplier_name="Test Supplier",
+        requested_amount=5000.0,
+        currency_code="USD",
+        exchange_rate=50.0,
+        requested_amount_egp=250000.0,
+        due_date=date(2026, 10, 20),
+        request_date=date(2026, 9, 20),
+        status="Approved",
+        is_active=True,
+    )
+    db_session.add(pay)
+
+    batch = SwiftExtractionBatch(
+        batch_code="SWF-TEST-VD-VALID",
+        source_filename="valid_date.txt",
+        source_file_type="Text File",
+        raw_source_text="TEST",
+        status="REVIEWED_CONFIRMED",
+        matched_payment_id=30,
+        reviewed_by="ahmed_sorour",
+    )
+    db_session.add(batch)
+    db_session.flush()
+
+    db_session.add_all([
+        _make_field(batch.batch_id, "transaction_reference", "TXN-2026-030"),
+        _make_field(batch.batch_id, "value_date", "2026-10-01"),
+        _make_field(batch.batch_id, "amount", "5000.00"),
+        _make_field(batch.batch_id, "currency", "USD"),
+    ])
+    db_session.commit()
+
+    pay_reconciled = service.reconcile_reviewed_batch_service(
+        db=db_session,
+        batch_id=batch.batch_id,
+        payload=SwiftBatchReconcileRequest(
+            payment_id=30,
+            notes="Reconciled with exact date",
+        ),
+    )
+    assert pay_reconciled.status == "Paid"
+    assert pay_reconciled.swift_reference_no == "TXN-2026-030"
+    assert pay_reconciled.swift_receipt_date == date(2026, 10, 1)
+    assert pay_reconciled.swift_processing_days == 11
+
+
+def test_batch_reconcile_fails_when_transaction_reference_empty(db_session):
+    pay = PaymentRequestSession(
+        payment_id=40,
+        payment_code="PAY-2026-040",
+        title="Payment for Chemicals",
+        supplier_id=1,
+        supplier_name="Test Supplier",
+        requested_amount=2000.0,
+        currency_code="USD",
+        exchange_rate=50.0,
+        requested_amount_egp=100000.0,
+        due_date=date(2026, 10, 20),
+        request_date=date(2026, 9, 20),
+        status="Approved",
+        is_active=True,
+    )
+    db_session.add(pay)
+
+    batch = SwiftExtractionBatch(
+        batch_code="SWF-TEST-REF-EMPTY",
+        source_filename="empty_ref.txt",
+        source_file_type="Text File",
+        raw_source_text="TEST",
+        status="REVIEWED_CONFIRMED",
+        matched_payment_id=40,
+        reviewed_by="ahmed_sorour",
+    )
+    db_session.add(batch)
+    db_session.flush()
+
+    db_session.add_all([
+        _make_field(batch.batch_id, "transaction_reference", ""),
+        _make_field(batch.batch_id, "value_date", "2026-10-01"),
+        _make_field(batch.batch_id, "amount", "2000.00"),
+        _make_field(batch.batch_id, "currency", "USD"),
+    ])
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=40),
+        )
+    assert exc_info.value.status_code == 400
+
+    pay_db = db_session.query(PaymentRequestSession).filter_by(payment_id=40).first()
+    assert pay_db.status == "Approved"

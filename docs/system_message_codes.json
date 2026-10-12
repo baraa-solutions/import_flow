@@ -1808,6 +1808,15 @@
       "note"
     ]
   },
+  "FA_SWIFT_VALUE_DATE_INVALID": {
+    "params": [
+      "batch_code",
+      "value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_TASK_ISSUE_ACID": {
     "params": [
       "import_file_code",
