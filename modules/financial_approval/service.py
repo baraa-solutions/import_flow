@@ -1966,14 +1966,29 @@ def reconcile_reviewed_batch_service(
     require_payment_status(db_item, PAYMENT_PAY_FROM, "reconcile")
 
     field_map = {f.field_key: f.final_value for f in batch.fields}
-    swift_ref = field_map.get("transaction_reference") or f"SWF-REF-{batch.batch_id}"
-    receipt_date = date.today()
+    swift_ref = (field_map.get("transaction_reference") or "").strip()
+    if not swift_ref:
+        raise batch_status_error(batch, status.HTTP_400_BAD_REQUEST)
     raw_date = field_map.get("value_date")
-    if raw_date:
-        try:
-            receipt_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-        except ValueError:
-            logger.info("SWIFT batch %s: value_date %r is not YYYY-MM-DD; using today", batch.batch_code, raw_date)
+    raw_date_str = str(raw_date).strip() if raw_date is not None else ""
+    if not raw_date_str:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_VALUE_DATE_INVALID",
+            f"تاريخ القيمة '{raw_date_str}' في دفعة السويفت {batch.batch_code} غير صالح أو غير مدخل بصيغة YYYY-MM-DD.",
+            batch_code=batch.batch_code,
+            value=raw_date_str,
+        )
+    try:
+        receipt_date = datetime.strptime(raw_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_VALUE_DATE_INVALID",
+            f"تاريخ القيمة '{raw_date_str}' في دفعة السويفت {batch.batch_code} غير صالح أو غير مدخل بصيغة YYYY-MM-DD.",
+            batch_code=batch.batch_code,
+            value=raw_date_str,
+        )
     try:
         amount = float(field_map.get("amount") or db_item.requested_amount)
     except (TypeError, ValueError):
