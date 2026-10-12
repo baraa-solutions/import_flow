@@ -139,8 +139,8 @@ def test_pay_and_reconcile_on_draft_are_rejected(db):
     assert exc.value.status_code == 400
     with pytest.raises(HTTPException) as exc:
         service.smart_reconcile_swift_service(db, SmartSwiftReconcileRequest(
-            payment_id=p.payment_id, swift_reference_no="R", swift_receipt_date=date(2026, 8, 14),
-            swift_transferred_amount=10000.0))
+            payment_id=p.payment_id, swift_reference_no="SWIFT-REF-01", swift_receipt_date=date(2026, 8, 14),
+            swift_transferred_amount=10000.0, swift_transferred_currency="USD"))
     assert exc.value.status_code == 400
     db.refresh(p)
     assert p.status == "Draft" and p.swift_reference_no is None
@@ -714,7 +714,7 @@ def test_api_create_payment_contract(api, db):
     officer = _user(db, "finance_officer2", "FINANCE_OFFICER")
     imp = seed_file(db, import_file_code="IMP-2026-9001")
     body = {"title": "API payment", "supplier_name": "Sup", "payment_type": "Against B/L", "requested_amount": 100.0,
-            "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)), "import_file_id": imp.import_file_id,
+            "currency_code": "USD", "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)), "import_file_id": imp.import_file_id,
             "status": "Paid"}
     resp = api.post(BASE + "/payment-requests", headers=_bearer(officer), json=body)
     assert resp.status_code == 201, resp.text
