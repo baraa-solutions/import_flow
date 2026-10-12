@@ -19,6 +19,7 @@ from modules.shipping_scenarios.schemas import (
 
 # Error code (detail["code"]) for a second active study on the same import file.
 SCENARIO_SESSION_EXISTS = "SCENARIO_SESSION_EXISTS"
+SCENARIO_ITEMS_BOOKED = "SCENARIO_ITEMS_BOOKED"
 
 
 class ShippingScenarioValidator:
@@ -131,6 +132,37 @@ class ShippingScenarioValidator:
             session_code=other.session_code,
             session_id=other.session_id,
         )
+
+    @staticmethod
+    def validate_item_ids_belong(stored_ids: Iterable[int], sent_ids: Iterable[Optional[int]]) -> None:
+        stored_set = set(stored_ids)
+        seen = set()
+        for i_id in sent_ids:
+            if i_id is None:
+                continue
+            if i_id in seen:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"معرّف البند {i_id} مكرر في البيانات المرسلة.",
+                )
+            seen.add(i_id)
+            if i_id not in stored_set:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"معرّف البند {i_id} غير تابع لهذه الدراسة.",
+                )
+
+    @staticmethod
+    def validate_removed_not_booked(booked_ids: Iterable[int]) -> None:
+        b_list = sorted(list(booked_ids))
+        if b_list:
+            item_ids_str = ", ".join(str(i) for i in b_list)
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                SCENARIO_ITEMS_BOOKED,
+                f"لا يمكن حذف خيارات الشحن ({item_ids_str}) لأنها مرتبطة بحجز شحن فعلي.",
+                item_ids=item_ids_str,
+            )
 
 
 def _require_refs(db: Session, model: Any, pk: str, refs: List[Tuple[Optional[int], str, bool]]) -> None:

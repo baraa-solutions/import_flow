@@ -3479,6 +3479,15 @@ Best regards,
         );
         return;
       }
+      if (ApiErrorText.code(failure) == ApiErrorCode.scenarioItemsBooked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiErrorText.of(context.l10n, failure)),
+            backgroundColor: AppTheme.wcagCrimson,
+          ),
+        );
+        return;
+      }
       final err = ApiErrorText.of(context.l10n, failure, fallback: context.l10n.saveFailed);
       await showErrorDetailsDialog(
         context,

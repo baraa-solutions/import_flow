@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, selectinload
@@ -127,11 +127,25 @@ class ShippingScenarioRepository:
                 setattr(session_obj, name, value)
 
         if payload.items is not None:
-            db.query(ShippingScenarioItem).filter(
-                ShippingScenarioItem.session_id == session_obj.session_id
-            ).delete()
+            existing_by_id = {item.item_id: item for item in session_obj.items}
+            sent_item_ids = {item.item_id for item in payload.items if item.item_id is not None}
+            for old_id, old_row in list(existing_by_id.items()):
+                if old_id not in sent_item_ids:
+                    db.delete(old_row)
+
             for item in payload.items:
-                db.add(_item_row(session_obj.session_id, item))
+                data = item.model_dump(include=set(SCENARIO_ITEM_FIELDS))
+                for name in _REQUIRED_TEXT_FIELDS:
+                    data[name] = data[name].strip()
+                for name in _OPTIONAL_TEXT_FIELDS:
+                    data[name] = data[name].strip() if data[name] else None
+
+                if item.item_id is not None and item.item_id in existing_by_id:
+                    row = existing_by_id[item.item_id]
+                    for k, v in data.items():
+                        setattr(row, k, v)
+                else:
+                    db.add(ShippingScenarioItem(session_id=session_obj.session_id, **data))
 
         # An edited and saved study is reactivated unless the client says otherwise.
         session_obj.is_active = payload.is_active if payload.is_active is not None else True
@@ -139,6 +153,20 @@ class ShippingScenarioRepository:
         db.flush()
         db.expire(session_obj, ["items"])
         return session_obj
+
+    @staticmethod
+    def booked_item_ids(db: Session, item_ids: Iterable[int]) -> Set[int]:
+        from modules.freight_booking.model import ShipmentBooking
+
+        ids = list(item_ids)
+        if not ids:
+            return set()
+        rows = (
+            db.query(ShipmentBooking.scenario_item_id)
+            .filter(ShipmentBooking.scenario_item_id.in_(ids))
+            .all()
+        )
+        return {r[0] for r in rows if r[0] is not None}
 
     @staticmethod
     def po_and_project_names(

@@ -1171,6 +1171,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'SCENARIO_SESSION_EXISTS': {
     'note': 'An active shipping-scenario study ({session_code}) already exists for this import file.',
   },
+  'SCENARIO_ITEMS_BOOKED': {
+    'note': 'Cannot delete scenario option(s) {item_ids} because they are referenced by active freight bookings.',
+  },
   'CONSULTATION_EXISTS': {
     'note': 'An active customs consultation ({consultation_code}) already exists for this import file.',
   },
