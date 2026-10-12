@@ -215,14 +215,43 @@ def require_same_currency(swift_currency: Optional[str], currency_code: Optional
         )
 
 
+def require_known_currency(db: Session, code: Optional[str]) -> str:
+    """Validate that code is a known and active currency in currencies master.
+
+    Raises 400 FA_CURRENCY_UNKNOWN when missing, unknown or inactive.
+    Returns normalized currency code.
+    """
+    if not code or not str(code).strip():
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_CURRENCY_UNKNOWN",
+            f"العملة {code} غير معرفة في شاشة العملات.",
+            currency_code=code or "",
+        )
+    norm = enum_codes.normalize_currency(str(code).strip())
+    from modules.currencies.repository import CurrencyRepository
+
+    curr = CurrencyRepository(db).get_currency_by_code(norm)
+    if not curr or not getattr(curr, "is_active", True):
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_CURRENCY_UNKNOWN",
+            f"العملة {code} غير معرفة في شاشة العملات.",
+            currency_code=code,
+        )
+    return norm
+
+
 def validate_payment_request_inputs(
     db: Session,
     requested_amount: float,
     po_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     import_file_id: Optional[int] = None,
+    currency_code: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> None:
-    """requested_amount > 0; supplier, purchase order and import file must exist and be active."""
+    """requested_amount > 0; supplier, purchase order, project, currency and import file must exist and be active."""
     if requested_amount is None or requested_amount <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -230,6 +259,12 @@ def validate_payment_request_inputs(
         )
     require_active(db, Supplier, supplier_id, "المورد", status_code=status.HTTP_404_NOT_FOUND)
     require_active(db, PurchaseOrder, po_id, "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if project_id is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, project_id, "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+    if currency_code is not None:
+        require_known_currency(db, currency_code)
     if import_file_id is not None:
         from modules.import_files.model import ImportFile
 

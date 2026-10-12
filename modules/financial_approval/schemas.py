@@ -172,6 +172,8 @@ class ImportBudgetUpdate(BaseModel):
     /approve, revisions through /sync)."""
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     import_file_id: Optional[int] = None
+    po_id: Optional[int] = None
+    project_id: Optional[int] = None
     invoice_amount_egp: Optional[float] = Field(None, ge=0.0)
     invoice_amount_foreign: Optional[float] = Field(None, ge=0.0)
     invoice_currency: Optional[str] = Field(None, max_length=10)

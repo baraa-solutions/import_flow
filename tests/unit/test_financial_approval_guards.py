@@ -739,3 +739,185 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+def test_be02_t11_master_data_validation(db):
+    """BE02-T11: Validate master data on create and update."""
+    from modules.suppliers.model import Supplier
+    from modules.projects.model import Project
+    from modules.purchase_orders.model import PurchaseOrder
+    from modules.currencies.model import Currency
+
+    # Seed active supplier, project, and PO
+    sup = Supplier(
+        supplier_code="SUP-M1",
+        company_name="Master Supplier Ltd",
+        supplier_type="Manufacturer",
+        registration_type="CargoX",
+        foreign_exporter_id="EXP-M1",
+        foreign_exporter_country="Germany",
+        foreign_exporter_country_code="DE",
+        address="Berlin",
+        is_active=True,
+    )
+    db.add(sup)
+    db.commit()
+    db.refresh(sup)
+
+    proj = Project(
+        project_code="PRJ-01",
+        project_name="Cairo Logistics Project",
+        project_owner="Finance Team",
+        company_id=1,
+        supplier_id=sup.supplier_id,
+        incoterm_id=1,
+        is_active=True,
+    )
+    db.add(proj)
+    db.commit()
+    db.refresh(proj)
+
+    po = PurchaseOrder(
+        po_number="PO-9999",
+        company_id=1,
+        supplier_id=sup.supplier_id,
+        project_id=proj.project_id,
+        incoterm_id=1,
+        currency_id=1,
+        total_amount_fob=50000.0,
+        is_active=True,
+    )
+    db.add(po)
+    db.commit()
+    db.refresh(proj)
+    db.refresh(po)
+
+    # 1. Unknown currency -> 400 FA_CURRENCY_UNKNOWN
+    with pytest.raises(HTTPException) as exc:
+        service.create_payment_request_service(
+            db,
+            PaymentRequestCreate(
+                title="Bad Currency Payment",
+                supplier_name="Sup",
+                payment_type="ADVANCE_PAYMENT",
+                requested_amount=1000.0,
+                currency_code="XYZ",
+                exchange_rate=50.0,
+                due_date=date(2026, 9, 1),
+            ),
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_CURRENCY_UNKNOWN"
+
+    # Inactive currency -> 400 FA_CURRENCY_UNKNOWN
+    inact_cur = Currency(currency_code="CAD", currency_name="Canadian Dollar", currency_symbol="C$", is_active=False)
+    db.add(inact_cur)
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        service.create_payment_request_service(
+            db,
+            PaymentRequestCreate(
+                title="Inactive Currency Payment",
+                supplier_name="Sup",
+                payment_type="ADVANCE_PAYMENT",
+                requested_amount=1000.0,
+                currency_code="CAD",
+                exchange_rate=50.0,
+                due_date=date(2026, 9, 1),
+            ),
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_CURRENCY_UNKNOWN"
+
+    # Payment update with unknown currency -> 400 FA_CURRENCY_UNKNOWN
+    p = _payment(db)
+    with pytest.raises(HTTPException) as exc:
+        service.update_payment_request_service(
+            db, p.payment_id, PaymentRequestUpdate(currency_code="XYZ")
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_CURRENCY_UNKNOWN"
+
+    # Budget create with unknown currency when foreign amount > 0 -> 400 FA_CURRENCY_UNKNOWN
+    with pytest.raises(HTTPException) as exc:
+        service.create_import_budget_service(
+            db,
+            ImportBudgetCreate(
+                title="Bad Budget Currency",
+                invoice_amount_foreign=5000.0,
+                invoice_currency="XYZ",
+                exchange_rate=50.0,
+            ),
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_CURRENCY_UNKNOWN"
+
+    # Budget update with unknown freight currency when foreign amount > 0 -> 400 FA_CURRENCY_UNKNOWN
+    bgt = seed_budget(db, None, status="Draft")
+    with pytest.raises(HTTPException) as exc:
+        service.update_import_budget_service(
+            db,
+            bgt.budget_id,
+            ImportBudgetUpdate(freight_cost_foreign=1000.0, freight_currency="XYZ"),
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_CURRENCY_UNKNOWN"
+
+    # 2. supplier_id is passed with different supplier_name -> stored as Supplier master company_name
+    p_sup = service.create_payment_request_service(
+        db,
+        PaymentRequestCreate(
+            title="Supplier Override Payment",
+            supplier_id=sup.supplier_id,
+            supplier_name="Wrong Client Name",
+            beneficiary_name=None,
+            payment_type="ADVANCE_PAYMENT",
+            requested_amount=2000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        ),
+    )
+    assert p_sup.supplier_name == "Master Supplier Ltd"
+    assert p_sup.beneficiary_name == "Master Supplier Ltd"
+
+    # 3. Missing project_id=999 -> 404
+    with pytest.raises(HTTPException) as exc:
+        service.create_payment_request_service(
+            db,
+            PaymentRequestCreate(
+                title="Missing Project Payment",
+                supplier_name="Sup",
+                project_id=999,
+                payment_type="ADVANCE_PAYMENT",
+                requested_amount=1000.0,
+                currency_code="USD",
+                exchange_rate=50.0,
+                due_date=date(2026, 9, 1),
+            ),
+        )
+    assert exc.value.status_code == 404
+    assert "المشروع" in str(exc.value.detail)
+
+    # Missing po_id=999 in budget -> 404
+    with pytest.raises(HTTPException) as exc:
+        service.create_import_budget_service(
+            db,
+            ImportBudgetCreate(
+                title="Missing PO Budget",
+                po_id=999,
+                exchange_rate=50.0,
+            ),
+        )
+    assert exc.value.status_code == 404
+    assert "أمر الشراء" in str(exc.value.detail)
+
+    # Missing project_id=999 in budget update -> 404
+    with pytest.raises(HTTPException) as exc:
+        service.update_import_budget_service(
+            db,
+            bgt.budget_id,
+            ImportBudgetUpdate(project_id=999),
+        )
+    assert exc.value.status_code == 404
+    assert "المشروع" in str(exc.value.detail)

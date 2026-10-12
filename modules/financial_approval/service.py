@@ -84,6 +84,7 @@ from modules.financial_approval.validators import (
     is_advance_payment,
     normalize_payment_type,
     require_budget_approvable,
+    require_known_currency,
     require_payment_status,
     require_same_currency,
     validate_payment_request_inputs,
@@ -428,9 +429,23 @@ def create_payment_request_service(
         po_id=schema.po_id,
         supplier_id=schema.supplier_id,
         import_file_id=schema.import_file_id,
+        currency_code=schema.currency_code,
+        project_id=schema.project_id,
     )
     if schema.import_file_id:
         _ensure_no_open_payment_of_type(db, schema.import_file_id, schema.payment_type)
+
+    norm_currency = require_known_currency(db, schema.currency_code)
+    updates: Dict[str, Any] = {"currency_code": norm_currency}
+    if schema.supplier_id:
+        from modules.suppliers.model import Supplier
+
+        sup = db.query(Supplier).filter(Supplier.supplier_id == schema.supplier_id).first()
+        if sup:
+            updates["supplier_name"] = sup.company_name
+            if not schema.beneficiary_name:
+                updates["beneficiary_name"] = sup.company_name
+    schema = schema.model_copy(update=updates)
 
     initial_status = schema.status if schema.status in PAYMENT_CREATE_STATUSES else PAYMENT_DRAFT
     file_code = "No File"
@@ -487,6 +502,21 @@ def update_payment_request_service(
     }
     validate_payment_update(db_item, changes)
     _require_reject_permission(db, db_item, changes, current_user)
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        changes["currency_code"] = require_known_currency(db, changes["currency_code"])
+    if "project_id" in changes and changes["project_id"] is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, changes["project_id"], "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+    if "po_id" in changes and changes["po_id"] is not None:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, changes["po_id"], "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if "supplier_id" in changes and changes["supplier_id"] is not None:
+        from modules.suppliers.model import Supplier
+
+        sup = require_active(db, Supplier, changes["supplier_id"], "المورد", status_code=status.HTTP_404_NOT_FOUND)
+        changes["supplier_name"] = sup.company_name
 
     if changes.get("import_file_id") is not None:
         from modules.import_files.model import ImportFile
@@ -906,6 +936,22 @@ def create_import_budget_service(
         if repo.find_active_budget_for_file(db, schema.import_file_id) is not None:
             raise _budget_duplicate_error(db, schema.import_file_id)
 
+    if schema.po_id is not None:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, schema.po_id, "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if schema.project_id is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, schema.project_id, "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    inv_amt = schema.invoice_amount_foreign or 0.0
+    if inv_amt > 0 and schema.invoice_currency:
+        require_known_currency(db, schema.invoice_currency)
+    frt_amt = schema.freight_cost_foreign or 0.0
+    if frt_amt > 0 and schema.freight_currency:
+        require_known_currency(db, schema.freight_currency)
+
     created = _insert_with_unique_code(
         db, lambda: repo.next_budget_code(db), lambda c: repo.budget_code_exists(db, c),
         lambda code: repo.add_import_budget(db, schema, code),
@@ -1086,6 +1132,25 @@ def update_import_budget_service(
         require_active(db, ImportFile, new_file, L_FILE)
         if repo.find_active_budget_for_file(db, new_file, exclude_id=db_item.budget_id) is not None:
             raise _budget_duplicate_error(db, new_file)
+
+    if "po_id" in changes and changes["po_id"] is not None:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, changes["po_id"], "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if "project_id" in changes and changes["project_id"] is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, changes["project_id"], "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    inv_amt = changes.get("invoice_amount_foreign", db_item.invoice_amount_foreign) or 0.0
+    inv_curr = changes.get("invoice_currency", db_item.invoice_currency)
+    if inv_amt > 0 and inv_curr and ("invoice_currency" in changes or "invoice_amount_foreign" in changes):
+        require_known_currency(db, inv_curr)
+
+    frt_amt = changes.get("freight_cost_foreign", db_item.freight_cost_foreign) or 0.0
+    frt_curr = changes.get("freight_currency", db_item.freight_currency)
+    if frt_amt > 0 and frt_curr and ("freight_currency" in changes or "freight_cost_foreign" in changes):
+        require_known_currency(db, frt_curr)
 
     repo.apply_budget_changes(db, db_item, changes, current_version)
     db.commit()
