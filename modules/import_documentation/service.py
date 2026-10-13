@@ -2907,10 +2907,15 @@ def create_coo_review_service(
         schema.reviewed_at = datetime.now(timezone.utc)
 
     existing_certified = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=False)
-    if is_draft and existing_certified:
+    if existing_certified:
+        if is_draft:
+            raise _conflict(
+                f"يوجد بالفعل دراسة معتمدة لشهادة المنشأ لهذا الملف ({existing_certified.coo_review_code}): "
+                f"لا يمكن حفظ مسودة فوقها."
+            )
         raise _conflict(
             f"يوجد بالفعل دراسة معتمدة لشهادة المنشأ لهذا الملف ({existing_certified.coo_review_code}): "
-            f"لا يمكن حفظ مسودة فوقها."
+            f"الدراسة المعتمدة مقفلة ولا يمكن اعتماد دراسة جديدة فوقها."
         )
     existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     if existing:
@@ -2934,6 +2939,23 @@ def update_coo_review_service(
     if not review:
         raise not_found(LABEL_COO_REVIEW, review_id)
     fields = schema.model_fields_set
+
+    if not review.is_draft:
+        disallowed = set(fields) - {"notes", "override_reason"}
+        if disallowed:
+            raise _conflict(
+                f"دراسة شهادة المنشأ ({review.coo_review_code}) معتمدة ومقفلة: "
+                f"لا يمكن تعديل الحقول ({', '.join(sorted(disallowed))})، يسمح فقط بتعديل الملاحظات."
+            )
+        if "notes" in fields:
+            review.notes = schema.notes
+            db.commit()
+            db.refresh(review)
+        elif "override_reason" in fields:
+            review.override_reason = schema.override_reason
+            db.commit()
+            db.refresh(review)
+        return review
 
     def _merged(name: str) -> Any:
         return getattr(schema, name) if name in fields else getattr(review, name)
@@ -5460,6 +5482,16 @@ def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_
     return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
 
 def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
+    review = repo.get_coo_review_by_id(db, review_id)
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة مراجعة شهادة المنشأ رقم {review_id} غير موجودة للحذف.",
+        )
+    if not review.is_draft:
+        raise _conflict(
+            f"دراسة شهادة المنشأ ({review.coo_review_code}) معتمدة ومقفلة: لا يمكن حذف دراسة معتمدة."
+        )
     ok = repo.delete_coo_review(db, review_id)
     if not ok:
         raise HTTPException(

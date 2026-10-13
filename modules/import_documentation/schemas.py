@@ -635,6 +635,7 @@ class CertificateOfOriginReviewBase(BaseModel):
     has_discrepancies: bool = False
     has_critical_mismatch: bool = False
     override_reason: Optional[str] = None
+    notes: Optional[str] = None
     status: str = "Draft Generated"
     is_draft: Optional[bool] = False
     reviewed_by: Optional[str] = None
@@ -661,6 +662,7 @@ class CertificateOfOriginReviewUpdate(BaseModel):
     has_discrepancies: Optional[bool] = None
     has_critical_mismatch: Optional[bool] = None
     override_reason: Optional[str] = None
+    notes: Optional[str] = None
     status: Optional[str] = None
     is_draft: Optional[bool] = None
     reviewed_by: Optional[str] = None
