@@ -566,3 +566,57 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert db.get(DraftBLReviewSession, other.bl_review_id).is_active is False
     log = db.query(AuditLog).filter_by(entity_type="DraftBLReviewSession", action="DELETE").one()
     assert log.performed_by == "eve"
+
+
+# --- BE03-T12: Inspection draft template without invented standards -----------------------
+def test_be03_t12_inspection_draft_no_invented_standards(db):
+    # 1. No PO lines -> applicable_standards is empty list
+    res_empty = service.generate_inspection_draft_template_service(db, 2, "SGS", "COC")
+    assert res_empty.applicable_standards == []
+    assert res_empty.template_data["coc_number"] == ""
+    assert "coc_number" in res_empty.template_data["missing_fields"]
+    assert "adopted_standard" in res_empty.template_data["missing_fields"]
+
+    # 2. PO line "Steel bolts" -> item adopted_standard == "" and "adopted_standard" in missing_fields, no "brand: Standard"
+    file_id = 15
+    db.add(ImportFile(import_file_id=file_id, import_file_code="IMP-BOLTS-1", company_name="Co", supplier_name="", is_active=True))
+    po = PurchaseOrder(po_id=150, po_number="PO-BOLTS", import_file_id=file_id, project_id=1, company_id=1, supplier_id=1,
+                       incoterm_id=1, currency_id=1, status="DRAFT", is_active=True)
+    db.add(po)
+    line = POLineItem(item_id=1501, po_id=150, description_en="Steel bolts", description_ar="مسامير صلب", quantity=500.0, unit_price=0.5)
+    db.add(line)
+    db.commit()
+
+    res = service.generate_inspection_draft_template_service(db, file_id, "COTECNA", "COC")
+    assert res.template_data["coc_number"] == ""
+    assert res.applicable_standards == []
+    assert len(res.template_data["inspected_items"]) == 1
+    item = res.template_data["inspected_items"][0]
+    assert item["product_type"] == ""
+    assert item["adopted_standard"] == ""
+    assert "brand: Standard" not in item["description"]
+    assert "adopted_standard" in res.template_data["missing_fields"]
+    assert "coc_number" in res.template_data["missing_fields"]
+
+
+def test_be03_t12_inspection_draft_matched_product_has_standard(db):
+    file_id = 16
+    db.add(ImportFile(import_file_id=file_id, import_file_code="IMP-CHAIR-1", company_name="Co", supplier_name="Mega Furn", is_active=True))
+    po = PurchaseOrder(po_id=160, po_number="PO-CHAIR", import_file_id=file_id, project_id=1, company_id=1, supplier_id=1,
+                       incoterm_id=1, currency_id=1, status="DRAFT", is_active=True)
+    db.add(po)
+    line = POLineItem(item_id=1601, po_id=160, description_en="Office Chairs", description_ar="كراسي", quantity=20.0, unit_price=50.0)
+    db.add(line)
+    db.commit()
+
+    res = service.generate_inspection_draft_template_service(db, file_id, "TÜV", "COC")
+    assert res.template_data["coc_number"] == ""
+    assert any("ES 7321" in s for s in res.applicable_standards)
+    assert len(res.template_data["inspected_items"]) == 1
+    item = res.template_data["inspected_items"][0]
+    assert item["product_type"] == "Office Chairs"
+    assert "ES 7321" in item["adopted_standard"]
+    assert "brand: Mega" in item["description"]
+    assert "adopted_standard" not in res.template_data["missing_fields"]
+    assert "coc_number" in res.template_data["missing_fields"]
+

@@ -143,9 +143,8 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertTrue(res.template_data["is_draft"])
         self.assertIn("48 HOURS", res.template_data["confirmation_deadline"])
         self.assertIn("7595528271020210010", res.template_data["acid_number"])
-        # Phase 3a DOC-03: without PO lines there are no inspected items (the former sample item list was invented
-        # data), so only the generic default standards remain.
-        self.assertTrue(len(res.applicable_standards) >= 1)
+        # BE03-T12: without PO lines there are no inspected items and no invented default standards.
+        self.assertEqual(res.applicable_standards, [])
 
     def test_extract_china_ccpit_coo_text(self):
         sample_text = """
