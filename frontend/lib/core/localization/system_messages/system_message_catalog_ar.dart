@@ -177,6 +177,10 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'body': 'تم استلام إيصال EIR #{eir_number} وإغلاق ملف الخط الملاحي بسلام. يرجى تجميع فواتير المورد، النولون، المخلص، والنقل، واحتساب تكلفة الوصول النهائية للشحنة.',
   },
 
+  'DOC_ACID_CONFLICT': {
+    'note': 'رقم ACID {acid_number} يختلف عن الرقم المسجل في الملف {import_file_code} ({current_acid_number}).',
+  },
+
   'DOC_ACID_REGISTERED': {
     'title': 'تم قيد وتدقيق رقم ACID: {acid_number}',
     'body': 'تم قيد وتدقيق الرقم التعريفي المبدئي (ACID: {acid_number}) بنجاح للشحنة ({import_file_code}). صلاحية الرقم حتى {expiry_date}. تم نقل الشحنة إلى مرحلة حجز النولون (STEP_06).',

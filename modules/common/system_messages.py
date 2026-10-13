@@ -1195,6 +1195,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SDU_ACID_CONFLICT": {
         "note": "The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
     },
+    "DOC_ACID_CONFLICT": {
+        "note": "ACID number {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
+    },
     "SDU_FILE_CLOSED": {
         "note": "Import file {import_file_code} is {status}: extracted data cannot be applied to it.",
     },

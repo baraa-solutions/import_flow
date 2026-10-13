@@ -177,6 +177,10 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'body': 'EIR #{eir_number} received and the shipping-line file closed. Collect the supplier, freight, broker and transport invoices and calculate the final landed cost.',
   },
 
+  'DOC_ACID_CONFLICT': {
+    'note': 'ACID number {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).',
+  },
+
   'DOC_ACID_REGISTERED': {
     'title': 'ACID registered and verified: {acid_number}',
     'body': 'ACID {acid_number} registered and verified for {import_file_code}. Valid until {expiry_date}. The shipment moved to freight booking (STEP_06).',

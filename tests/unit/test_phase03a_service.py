@@ -24,6 +24,7 @@ from modules.import_documentation.model import (
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
+    AcidRegistrationUpdate,
     CertificateOfOriginReviewCreate,
     CertificateOfOriginReviewUpdate,
     DraftBLComparisonRequest,
@@ -38,6 +39,7 @@ from modules.import_documentation.schemas import (
     POReconciliationSessionCreate,
 )
 import modules.import_documentation.service as service
+from modules.import_documentation.validators import acid_flags
 
 
 ACID_REQUIRED = dict(importer_name="Importer Co", importer_tax_id="123456789", exporter_name="Exporter Co",
@@ -385,6 +387,82 @@ def test_doc15_pending_number_is_never_verified(db):
     service.create_acid_session_service(db, AcidRegistrationCreate(import_file_id=2, acid_number=None, generated_date=date.today(), **ACID_REQUIRED))
     sess = db.query(AcidRegistrationSession).filter_by(import_file_id=2).one()
     assert sess.acid_number == "PENDING" and sess.status == "Requested"
+
+
+# --- BE03-T06: ACID verification status is derived on the server ---------------------------------------------
+def test_be03_t06_acid_flags_unit():
+    assert acid_flags(None) == (True, True, True, True, False)
+    assert acid_flags({}) == (True, True, True, True, False)
+    assert acid_flags({"items": [{"field": "importer_name", "match": False}]}) == (False, True, True, True, True)
+    assert acid_flags({"items": [{"field": "exporter_name", "status": "MISMATCH"}]}) == (True, False, True, True, True)
+    assert acid_flags({"items": [{"field": "proforma_invoice_no", "is_matched": False}]}) == (True, True, False, True, True)
+    assert acid_flags({"items": [{"field": "pod_name", "is_matched": False}]}) == (True, True, True, False, True)
+    assert acid_flags({"items": [
+        {"field": "importer_name", "match": False},
+        {"field": "pol_name", "match": False},
+    ]}) == (False, True, True, False, True)
+
+
+def test_be03_t06_create_acid_with_discrepancies_requires_override_reason(db):
+    disc = {"items": [{"field": "exporter_name", "match": False}]}
+    # Without override reason -> 400
+    with pytest.raises(HTTPException) as exc:
+        service.create_acid_session_service(db, AcidRegistrationCreate(
+            import_file_id=2,
+            acid_number="1234567890123456789",
+            generated_date=date.today(),
+            discrepancies_data=disc,
+            **ACID_REQUIRED,
+        ), user="a")
+    assert exc.value.status_code == 400
+    assert "يوجد اختلافات" in exc.value.detail
+
+    # With override reason -> Discrepancy_Accepted, has_discrepancies True
+    res = service.create_acid_session_service(db, AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="1234567890123456789",
+        generated_date=date.today(),
+        discrepancies_data=disc,
+        discrepancy_override_reason="Supplier name shortened on Nafeza",
+        **ACID_REQUIRED,
+    ), user="a")
+    assert res.status == "Discrepancy_Accepted"
+    assert res.has_discrepancies is True
+    assert res.is_exporter_matched is False
+
+
+def test_be03_t06_put_status_verified_on_requested_stays_requested(db):
+    created = service.create_acid_session_service(db, AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="PENDING",
+        requested_date=date.today(),
+        **ACID_REQUIRED,
+    ), user="a")
+    assert created.status == "Requested"
+
+    # Client tries to force status="Verified" on a pending/requested session
+    updated = service.update_acid_session_service(
+        db, created.acid_id, AcidRegistrationUpdate(status="Verified")
+    )
+    assert updated.status == "Requested"
+
+
+def test_be03_t06_different_acid_on_file_gives_409_conflict(db):
+    # File 1 has acid_number="1111111111111111111"
+    f = db.query(ImportFile).filter_by(import_file_id=1).one()
+    f.acid_number = "1111111111111111111"
+    db.commit()
+
+    # Session with "2222222222222222222" -> 409 DOC_ACID_CONFLICT
+    with pytest.raises(HTTPException) as exc:
+        service.create_acid_session_service(db, AcidRegistrationCreate(
+            import_file_id=1,
+            acid_number="2222222222222222222",
+            generated_date=date.today(),
+            **ACID_REQUIRED,
+        ), user="a")
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "DOC_ACID_CONFLICT"
 
 
 def test_doc19_revision_report_uses_english_label(db):
