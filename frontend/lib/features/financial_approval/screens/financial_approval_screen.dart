@@ -449,8 +449,10 @@ class _FinancialApprovalScreenState
               compName.isNotEmpty ? '$fCode - $compName' : fCode;
           _selectedSupplierId = effectiveSupplierId;
           _supplierNameController.text = effectiveSupplierName;
-          _paymentType =
-              FinancialUi.normalizePaymentType(prefill?.paymentTermsSummary);
+          final summary = prefill?.paymentTermsSummary;
+          if (summary != null && summary.isNotEmpty) {
+            _paymentType = FinancialUi.normalizePaymentType(summary);
+          }
 
           if (calculatedInvoiceAmount > 0) {
             _amountController.text = calculatedInvoiceAmount.toStringAsFixed(2);
