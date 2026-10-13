@@ -678,3 +678,80 @@ def test_be03_t12_inspection_draft_matched_product_has_standard(db):
     assert "brand: Mega" in item["description"]
     assert "adopted_standard" not in res.template_data["missing_fields"]
     assert "coc_number" in res.template_data["missing_fields"]
+
+
+# --- BE03-T16: Certified COO review is locked ---------------------------------------------
+def test_be03_t16_certified_coo_post_locked_and_lifecycle_unchanged(db, monkeypatch):
+    lifecycle_calls = []
+    original_lifecycle = service._coo_certified_follow_ups
+
+    def mock_follow_ups(*args, **kwargs):
+        lifecycle_calls.append((args, kwargs))
+        return original_lifecycle(*args, **kwargs)
+
+    monkeypatch.setattr(service, "_coo_certified_follow_ups", mock_follow_ups)
+
+    # 1. First certified POST succeeds and triggers follow-up
+    certified = CertificateOfOriginReviewCreate(
+        import_file_id=1,
+        certificate_type="EUR.1",
+        certificate_number="COO-CERT-1",
+        country_of_origin="Germany",
+        is_draft=False,
+        override_reason="Matches approved PO",
+        comparison_matrix=[{"field_key": "x", "match_status": "MATCH"}],
+    )
+    saved = service.create_coo_review_service(db, certified, user="alice")
+    assert saved.status == "Approved"
+    assert len(lifecycle_calls) == 1
+
+    # 2. Second certified POST raises 409 and does not trigger lifecycle follow-up
+    certified2 = CertificateOfOriginReviewCreate(
+        import_file_id=1,
+        certificate_type="EUR.1",
+        certificate_number="COO-CERT-2",
+        country_of_origin="Germany",
+        is_draft=False,
+        override_reason="Matches approved PO",
+        comparison_matrix=[{"field_key": "x", "match_status": "MATCH"}],
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_coo_review_service(db, certified2, user="bob")
+    assert exc.value.status_code == 409
+    assert len(lifecycle_calls) == 1  # Unchanged!
+
+
+def test_be03_t16_certified_coo_put_locked_except_notes_and_delete_locked(db):
+    certified = CertificateOfOriginReviewCreate(
+        import_file_id=1,
+        certificate_type="EUR.1",
+        certificate_number="COO-LOCK-1",
+        country_of_origin="Germany",
+        is_draft=False,
+        override_reason="Valid COO",
+        comparison_matrix=[{"field_key": "x", "match_status": "MATCH"}],
+    )
+    saved = service.create_coo_review_service(db, certified, user="alice")
+
+    # 1. PUT on certified modifying certificate_number -> 409
+    with pytest.raises(HTTPException) as exc:
+        service.update_coo_review_service(
+            db, saved.coo_review_id,
+            CertificateOfOriginReviewUpdate(certificate_number="COO-LOCK-CHANGED"),
+            user="alice",
+        )
+    assert exc.value.status_code == 409
+
+    # 2. PUT on certified updating notes -> 200 OK
+    updated = service.update_coo_review_service(
+        db, saved.coo_review_id,
+        CertificateOfOriginReviewUpdate(notes="Verified with chamber of commerce"),
+        user="alice",
+    )
+    assert updated.notes == "Verified with chamber of commerce"
+    assert updated.certificate_number == "COO-LOCK-1"
+
+    # 3. DELETE on certified -> 409
+    with pytest.raises(HTTPException) as exc:
+        service.delete_coo_review_service(db, saved.coo_review_id, user="alice")
+    assert exc.value.status_code == 409
