@@ -120,6 +120,17 @@ def _po_for_file(db: Session, import_file: ImportFile) -> Optional[PurchaseOrder
     pos = query.all()
     if len(pos) == 1:
         return pos[0]
+    if len(pos) > 1:
+        return None
+    # Fallback for legacy POs where import_file_id is null but po_number matches
+    if import_file.po_number:
+        legacy_pos = db.query(PurchaseOrder).filter(
+            PurchaseOrder.po_number == import_file.po_number,
+            PurchaseOrder.import_file_id.is_(None),
+            PurchaseOrder.is_active == True,
+        ).all()
+        if len(legacy_pos) == 1:
+            return legacy_pos[0]
     return None
 
 
