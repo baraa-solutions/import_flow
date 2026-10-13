@@ -566,3 +566,62 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert db.get(DraftBLReviewSession, other.bl_review_id).is_active is False
     log = db.query(AuditLog).filter_by(entity_type="DraftBLReviewSession", action="DELETE").one()
     assert log.performed_by == "eve"
+
+
+# --- BE03-T07: Draft B/L blocking flags and versions are server-owned ----------------------------------------
+def test_be03_t07_put_cannot_override_blocking_mismatch_and_dual_approval_blocked(db):
+    row = {
+        "field_key": "consignee", "field_label_ar": "المرسل إليه", "field_label_en": "Consignee",
+        "source_entity": "Booking", "system_value": "Acme Corp", "draft_value": "Wrong Consignee",
+        "status": "Incorrect", "required_correction": "Fix consignee", "reason": "Name mismatch",
+    }
+    review = service.create_draft_bl_review_service(
+        db, DraftBLReviewCreate(import_file_id=1, checklist_data=[row], is_draft=False), user="alice"
+    )
+    assert review.status == "REVISION_REQUIRED"
+    assert review.has_blocking_mismatch is True
+    assert review.open_discrepancies_count == 1
+
+    # Client tries to override blocking flags via PUT
+    updated = service.update_draft_bl_review_service(
+        db, review.bl_review_id, DraftBLReviewUpdate(
+            has_blocking_mismatch=False, open_discrepancies_count=0
+        ), user="bob"
+    )
+    assert updated.status == "REVISION_REQUIRED"
+    assert updated.has_blocking_mismatch is True
+    assert updated.open_discrepancies_count == 1
+
+    # Dual approval cannot proceed on a review with blocking mismatch / REVISION_REQUIRED
+    with pytest.raises(HTTPException) as exc:
+        service.process_dual_approval_service(
+            db, DualApprovalRequest(
+                bl_review_id=review.bl_review_id, role="importer", action="Approved", approved_by="client"
+            ), user="alice"
+        )
+    assert exc.value.status_code == 400
+
+
+def test_be03_t07_new_version_deactivates_non_terminal_parent(db):
+    row = {
+        "field_key": "consignee", "field_label_ar": "المرسل إليه", "field_label_en": "Consignee",
+        "source_entity": "Booking", "system_value": "Acme Corp", "draft_value": "Wrong Consignee",
+        "status": "Incorrect", "required_correction": "Fix consignee", "reason": "Name mismatch",
+    }
+    parent = service.create_draft_bl_review_service(
+        db, DraftBLReviewCreate(import_file_id=2, checklist_data=[row], is_draft=False), user="alice"
+    )
+    assert parent.is_active is True
+    assert parent.status == "REVISION_REQUIRED"
+
+    v2 = service.create_new_draft_version_service(
+        db, NewDraftVersionRequest(parent_session_id=parent.bl_review_id, draft_fields={}), user="bob"
+    )
+    db.refresh(parent)
+    assert parent.is_active is False
+    assert v2.is_active is True
+
+    # Exactly one active review for the file
+    active_reviews = db.query(DraftBLReviewSession).filter_by(import_file_id=2, is_active=True).all()
+    assert len(active_reviews) == 1
+    assert active_reviews[0].bl_review_id == v2.bl_review_id

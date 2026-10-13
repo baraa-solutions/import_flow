@@ -88,9 +88,10 @@ LABEL_INVOICE_BL_SESSION = "جلسة مطابقة الفاتورة والبول�
 DRAFT_BL_TERMINAL_STATUSES = frozenset({"FINAL", "APPROVED"})
 DRAFT_BL_APPROVAL_ROLES = frozenset({"importer", "customs_broker"})
 DRAFT_BL_APPROVAL_ACTIONS = frozenset({"Approved", "Rejected"})
-# Client-sent fields the server owns on a draft B/L review (DOC-04 / C2).
+# Client-sent fields the server owns on a draft B/L review (DOC-04 / C2 / BE03-T07).
 _DRAFT_BL_SERVER_OWNED = (
     "status", "stage",
+    "has_blocking_mismatch", "open_discrepancies_count", "revision_report_data",
     "importer_approval_status", "importer_approved_by", "importer_approval_date", "importer_approval_notes",
     "broker_approval_status", "broker_approved_by", "broker_approval_date", "broker_approval_notes",
     "approved_by", "approved_at", "reviewed_by", "reviewed_at",
@@ -2159,6 +2160,9 @@ def _reset_server_owned_draft_bl_fields(schema: DraftBLReviewCreate) -> None:
                   "broker_approved_by", "broker_approval_date", "broker_approval_notes",
                   "approved_by", "approved_at", "reviewed_by", "reviewed_at"):
         setattr(schema, field, None)
+    schema.has_blocking_mismatch = False
+    schema.open_discrepancies_count = 0
+    schema.revision_report_data = None
 
 
 # Critical fields of the draft B/L comparison (is_critical in compare_draft_bl_service's field list).
@@ -2236,7 +2240,7 @@ def create_draft_bl_review_service(
         schema.open_discrepancies_count = open_count
         # Server-computed: an open item on a critical B/L field blocks approval (client flag ignored).
         schema.has_blocking_mismatch = _checklist_has_blocking(raw_checklist)
-    elif not schema.comparison_matrix:
+    elif not is_draft or not schema.comparison_matrix:
         comp_req = DraftBLComparisonRequest(
             import_file_id=schema.import_file_id,
             draft_source=schema.draft_source,
@@ -2330,16 +2334,27 @@ def update_draft_bl_review_service(
         data.pop(field, None)
     clean = DraftBLReviewUpdate(**data)
 
-    review_inputs = {"checklist_data", "open_discrepancies_count", "has_blocking_mismatch", "is_draft"}
-    if review_inputs & clean.model_fields_set:
+    review_inputs = {"checklist_data", "open_discrepancies_count", "has_blocking_mismatch", "is_draft", "revision_report_data"}
+    if (review_inputs & clean.model_fields_set) or (review_inputs & schema.model_fields_set):
         is_draft = bool(clean.is_draft if "is_draft" in clean.model_fields_set else review.is_draft)
+        merged_checklist = clean.checklist_data if "checklist_data" in clean.model_fields_set and clean.checklist_data is not None else review.checklist_data
+        open_count = sum(1 for c in (merged_checklist or []) if isinstance(c, dict) and c.get("status") in ("Incorrect", "Missing"))
+        has_blocking = _checklist_has_blocking(merged_checklist or [])
+        clean.open_discrepancies_count = open_count
+        clean.has_blocking_mismatch = has_blocking
         if "checklist_data" in clean.model_fields_set and clean.checklist_data is not None:
-            open_count = sum(1 for c in clean.checklist_data if isinstance(c, dict) and c.get("status") == "Incorrect")
-            clean.open_discrepancies_count = open_count
-        else:
-            open_count = clean.open_discrepancies_count if "open_discrepancies_count" in clean.model_fields_set else review.open_discrepancies_count
-        has_blocking = clean.has_blocking_mismatch if "has_blocking_mismatch" in clean.model_fields_set else review.has_blocking_mismatch
-        clean.stage, clean.status = _draft_bl_stage_and_status(is_draft, open_count or 0, bool(has_blocking))
+            clean.revision_report_data = [
+                {
+                    "item": c.get("field_label_en") or c.get("field_label_ar", ""),
+                    "required_action": c.get("required_correction", ""),
+                    "responsible": c.get("responsible_party") or "Shipping Provider",
+                    "reason": c.get("reason", ""),
+                    "notes": c.get("notes"),
+                }
+                for c in (clean.checklist_data or [])
+                if isinstance(c, dict) and c.get("status") == "Incorrect"
+            ]
+        clean.stage, clean.status = _draft_bl_stage_and_status(is_draft, open_count, has_blocking)
     if clean.model_fields_set:
         # Content changed: earlier approvals no longer cover it.
         for field, value in _DRAFT_BL_APPROVAL_RESET.items():
@@ -2491,7 +2506,7 @@ def _draft_bl_version_chain(db: Session, parent: DraftBLReviewSession) -> Tuple[
 def create_new_draft_version_service(
     db: Session, request: NewDraftVersionRequest, user: Optional[str] = None
 ) -> DraftBLReviewSession:
-    parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id)
+    parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id, include_inactive=True)
     if not parent:
         raise not_found(LABEL_DRAFT_BL_REVIEW, request.parent_session_id)
     _active_import_file(db, parent.import_file_id)
@@ -2531,7 +2546,9 @@ def create_new_draft_version_service(
             itm["previous_status"] = prev_itm.get("status") if prev_itm else None
         new_checklist.append(itm)
 
-    open_count = len([c for c in new_checklist if c["status"] == "Incorrect"])
+    open_count = len([c for c in new_checklist if isinstance(c, dict) and c.get("status") in ("Incorrect", "Missing")])
+    has_blocking = _checklist_has_blocking(new_checklist)
+    stage_val, status_val = _draft_bl_stage_and_status(False, open_count, has_blocking)
     new_session = DraftBLReviewSession(
         bl_review_code=f"{root_code}-v{new_version_num}",
         import_file_id=parent.import_file_id,
@@ -2556,21 +2573,23 @@ def create_new_draft_version_service(
         draft_source=request.draft_source,
         version_number=new_version_num,
         parent_session_id=parent.bl_review_id,
-        stage="Stage 3: Reviewed",
+        stage=stage_val,
         system_snapshot_data=comp_res["system_snapshot_data"],
         draft_input_data=request.draft_fields,
         comparison_matrix=comp_res["comparison_matrix"],
         checklist_data=new_checklist,
         revision_report_data=comp_res["revision_report_data"],
-        has_blocking_mismatch=comp_res["has_blocking_mismatch"],
+        has_blocking_mismatch=has_blocking,
         open_discrepancies_count=open_count,
         blocking_reasons=comp_res["blocking_reasons"],
         blocking_reasons_coded=comp_res["blocking_reasons_coded"],
         correction_request_letter=comp_res["correction_request_letter"],
-        status=_draft_bl_stage_and_status(False, open_count, bool(comp_res["has_blocking_mismatch"]))[1],
+        status=status_val,
         reviewed_by=_actor(user),
         reviewed_at=datetime.now(timezone.utc),
     )
+    if parent.status not in DRAFT_BL_TERMINAL_STATUSES:
+        parent.is_active = False
     db.add(new_session)
     db.commit()
     db.refresh(new_session)
