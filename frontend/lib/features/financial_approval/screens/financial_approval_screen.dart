@@ -2501,12 +2501,20 @@ class _FinancialApprovalScreenState
 
                   if (pay.status == 'Approved') ...[
                     const Divider(),
-                    TextField(
-                      controller: swiftController,
-                      textDirection: TextDirection.ltr,
-                      decoration: InputDecoration(
-                          labelText: context.l10n.swiftReferenceInputLabel,
-                          border: const OutlineInputBorder()),
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: swiftController,
+                      builder: (context, value, _) {
+                        final isEmpty = value.text.trim().isEmpty;
+                        return TextField(
+                          controller: swiftController,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.swiftReferenceInputLabel,
+                            errorText: isEmpty ? context.l10n.fieldRequired : null,
+                            border: const OutlineInputBorder(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ],
@@ -2532,16 +2540,24 @@ class _FinancialApprovalScreenState
               ),
             ],
             if (pay.status == 'Approved') ...[
-              AsyncActionButton(
-                label: context.l10n.markAsPaidAction,
-                variant: AppButtonVariant.success,
-                onAction: () async {
-                  final nav = Navigator.of(context);
-                  await ref
-                      .read(paymentRequestsProvider.notifier)
-                      .executePayment(pay.paymentId,
-                          swiftRef: swiftController.text.trim());
-                  nav.pop();
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: swiftController,
+                builder: (context, value, _) {
+                  final canPay = value.text.trim().isNotEmpty;
+                  return AsyncActionButton(
+                    label: context.l10n.markAsPaidAction,
+                    variant: AppButtonVariant.success,
+                    enabled: canPay,
+                    onAction: () async {
+                      if (!canPay) return;
+                      final nav = Navigator.of(context);
+                      await ref
+                          .read(paymentRequestsProvider.notifier)
+                          .executePayment(pay.paymentId,
+                              swiftRef: swiftController.text.trim());
+                      nav.pop();
+                    },
+                  );
                 },
               ),
             ],

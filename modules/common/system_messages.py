@@ -1121,6 +1121,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "The SWIFT currency {swift_currency} does not match the payment request currency {currency_code}.",
     },
     "FA_SWIFT_REF_ALREADY_USED": {"note": "SWIFT reference {swift_ref} is already used by payment request {payment_code}."},
+    "FA_SWIFT_REF_REQUIRED": {
+        "note": "A SWIFT reference is required before recording payment for request {payment_code}."
+    },
     "FA_SWIFT_BATCH_ALREADY_RECONCILED": {
         "note": "SWIFT batch {batch_code} is already reconciled with payment request {payment_code}.",
     },

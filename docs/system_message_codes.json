@@ -1808,6 +1808,14 @@
       "note"
     ]
   },
+  "FA_SWIFT_REF_REQUIRED": {
+    "params": [
+      "payment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_TASK_ISSUE_ACID": {
     "params": [
       "import_file_code",

@@ -739,3 +739,65 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+def test_pay_without_swift_reference_raises_fa_swift_ref_required(db):
+    """/pay with swift_reference_no="" on an Approved request without a stored reference returns 400 (BE02-T04)."""
+    p = _payment(db)
+    service.approve_payment_request_service(db, p.payment_id)
+    assert p.status == "Approved"
+    assert p.swift_reference_no is None
+
+    with pytest.raises(HTTPException) as exc:
+        service.execute_payment_service(db, p.payment_id, swift_reference_no="")
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_SWIFT_REF_REQUIRED"
+    assert exc.value.detail.get("payment_code") == p.payment_code
+
+    with pytest.raises(HTTPException) as exc2:
+        service.execute_payment_service(db, p.payment_id, swift_reference_no="   ")
+    assert exc2.value.status_code == 400
+    assert _code(exc2) == "FA_SWIFT_REF_REQUIRED"
+
+    refreshed = db.query(PaymentRequestSession).filter_by(payment_id=p.payment_id).one()
+    assert refreshed.status == "Approved"
+
+
+def test_pay_with_swift_reference_records_paid_and_syncs_file(db):
+    """/pay with valid swift_reference_no returns Paid and updates import_files.swift_no (BE02-T04)."""
+    from modules.import_files.model import ImportFile
+
+    imp = seed_file(db)
+    p = _payment(db, import_file_id=imp.import_file_id)
+    service.approve_payment_request_service(db, p.payment_id)
+
+    paid = service.execute_payment_service(db, p.payment_id, swift_reference_no="FT2610050001")
+    assert paid.status == "Paid"
+    assert paid.swift_reference_no == "FT2610050001"
+
+    file_row = db.query(ImportFile).filter_by(import_file_id=imp.import_file_id).one()
+    assert file_row.swift_no == "FT2610050001"
+
+
+def test_pay_without_param_succeeds_when_request_has_stored_reference(db):
+    """/pay with no parameter on a request that already has a reference from smart-reconcile succeeds (BE02-T04)."""
+    p = _payment(db)
+    service.approve_payment_request_service(db, p.payment_id)
+
+    reconciled = service.smart_reconcile_swift_service(
+        db,
+        SmartSwiftReconcileRequest(
+            payment_id=p.payment_id,
+            swift_reference_no="FT2610050002",
+            swift_receipt_date=date(2026, 8, 20),
+            swift_transferred_amount=10000.0,
+            swift_transferred_currency="USD",
+            auto_execute=False,
+        ),
+    )
+    assert reconciled.status == "Approved"
+    assert reconciled.swift_reference_no == "FT2610050002"
+
+    paid = service.execute_payment_service(db, p.payment_id, swift_reference_no=None)
+    assert paid.status == "Paid"
+    assert paid.swift_reference_no == "FT2610050002"
