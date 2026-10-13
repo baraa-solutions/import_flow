@@ -54,6 +54,8 @@ def db():
                            supplier_name="Exporter Co", is_active=True))
     session.add(ImportFile(import_file_id=2, import_file_code="IMP-T-002", company_name="Other", supplier_name="Supp2", is_active=True))
     session.add(ImportFile(import_file_id=3, import_file_code="IMP-T-DEL", company_name="Del", supplier_name="Del", is_active=False))
+    session.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    session.add(curr_models.Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
     session.commit()
     yield session
     session.close()
@@ -288,9 +290,9 @@ def test_doc07_missing_invoice_bl_session_gives_404(db):
 
 # --- DOC-09 -------------------------------------------------------------------------------------------------
 def test_doc09_recreate_after_delete_reactivates_row(db):
-    first = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, final_invoice_number="A"), user="a")
+    first = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, currency="USD", final_invoice_number="A"), user="a")
     service.delete_po_reconciliation_session_service(db, first.session_id, user="a")
-    again = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, final_invoice_number="B"), user="b")
+    again = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, currency="USD", final_invoice_number="B"), user="b")
     assert again.session_id == first.session_id and again.is_active and again.final_invoice_number == "B"
     assert db.query(POPackingReconciliationSession).count() == 1
 
@@ -313,8 +315,10 @@ def test_doc11_failing_lifecycle_does_not_block_following_steps(db, monkeypatch)
 
 # --- DOC-13 -------------------------------------------------------------------------------------------------
 def _seed_codes(db):
-    db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
-    db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
+    if not db.query(curr_models.Currency).filter_by(currency_code="USD").first():
+        db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    if not db.query(inc_models.Incoterm).filter_by(incoterm_code="FOB").first():
+        db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
     db.commit()
 
 
@@ -364,7 +368,16 @@ def test_doc13_second_certified_session_gives_409(db):
 def test_doc13_critical_without_notes_gives_400(db):
     _seed_codes(db)
     with pytest.raises(HTTPException) as exc:
-        service.create_invoice_bl_match_session_service(db, _cert_payload(critical_discrepancies_count=2, notes=" "), user="a")
+        service.create_invoice_bl_match_session_service(
+            db,
+            _cert_payload(
+                invoice_data={"invoice_number": "INV-9", "currency": "USD", "total_gross_weight_kg": 1000},
+                bl_data={"draft_bl_number": "BL-9", "total_gross_weight_kg": 1500},
+                is_safe_for_certification=True,
+                notes=" ",
+            ),
+            user="a",
+        )
     assert exc.value.status_code == 400
 
 
@@ -566,3 +579,66 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert db.get(DraftBLReviewSession, other.bl_review_id).is_active is False
     log = db.query(AuditLog).filter_by(entity_type="DraftBLReviewSession", action="DELETE").one()
     assert log.performed_by == "eve"
+
+
+# --- BE03-T05: Server-owned gate fields for invoice/B-L and PO reconciliation sessions ---
+def test_be03_t05_po_recon_empty_post_does_not_advance_lifecycle(db, monkeypatch):
+    import modules.lifecycle_board.service as lc
+    called = []
+    monkeypatch.setattr(lc, "advance_lifecycle_step_service", lambda *args, **kwargs: called.append(kwargs))
+
+    res = service.create_po_reconciliation_session_service(
+        db,
+        POReconciliationSessionCreate(import_file_id=1, currency="USD"),
+        user="operator",
+    )
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(called) == 0
+
+
+def test_be03_t05_po_recon_missing_currency_gives_422():
+    with pytest.raises(ValidationError):
+        POReconciliationSessionCreate(import_file_id=1)
+
+
+def test_be03_t05_po_recon_router_validation(db):
+    from fastapi.testclient import TestClient
+    from main import app
+    from database.database import get_db
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        # Missing currency -> 422
+        resp = client.post("/api/v1/import-documentation/po-reconciliation/sessions", json={"import_file_id": 1})
+        assert resp.status_code == 422
+
+        # Inactive / unknown currency -> 400
+        resp_bad = client.post(
+            "/api/v1/import-documentation/po-reconciliation/sessions",
+            json={"import_file_id": 1, "currency": "XYZ"},
+        )
+        assert resp_bad.status_code == 400
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+def test_be03_t05_invoice_bl_server_gate_overrides_client(db):
+    _seed_codes(db)
+    # Draft session: client claims FULLY_MATCHED and is_safe=True without files
+    session_data = InvoiceBLMatchSessionCreate(
+        import_file_id=1,
+        is_draft=True,
+        is_safe_for_certification=True,
+        overall_status="FULLY_MATCHED",
+        critical_discrepancies_count=0,
+    )
+    saved = service.create_invoice_bl_match_session_service(db, session_data, user="operator")
+    assert saved.is_safe_for_certification is False
+    assert saved.overall_status == "DISCREPANCY_DETECTED"
+

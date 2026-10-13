@@ -5003,6 +5003,31 @@ def create_invoice_bl_match_session_service(
     if not payload.import_file_code:
         payload.import_file_code = imp_file.custom_file_number or imp_file.import_file_code
 
+    # Server-owned gate fields (BE03-T05)
+    if payload.invoice_data and payload.bl_data:
+        from modules.import_documentation.ai_document_parser import match_invoice_with_bl
+        sys_snap = _build_system_bl_snapshot(db, payload.import_file_id)
+        match_result = match_invoice_with_bl(
+            payload.invoice_data,
+            payload.bl_data,
+            sys_snap,
+            payload.packing_list_data,
+        )
+        payload.overall_status = match_result["overall_status"]
+        payload.is_safe_for_certification = match_result["is_safe_for_certification"]
+        payload.match_score_percentage = match_result["match_score_percentage"]
+        payload.critical_discrepancies_count = match_result["critical_discrepancies_count"]
+        payload.warning_discrepancies_count = match_result["warning_discrepancies_count"]
+        payload.comparison_matrix = match_result["comparison_matrix"]
+        if match_result.get("correction_letter") and not payload.correction_letter:
+            payload.correction_letter = match_result["correction_letter"]
+    else:
+        payload.is_safe_for_certification = False
+        payload.overall_status = "DISCREPANCY_DETECTED"
+        payload.match_score_percentage = 0.0
+        payload.critical_discrepancies_count = 0
+        payload.warning_discrepancies_count = 0
+
     existing = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=True)
     certify = not payload.is_draft
     existing_certified = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=False)
@@ -5054,41 +5079,20 @@ def get_invoice_bl_match_session_service(
     return session
 
 
-def extract_and_compare_po_documents_service(
-    db: Session, request: POExtractAndCompareRequest
-) -> POExtractAndCompareResponse:
-    from modules.import_documentation.ai_document_parser import (
-        extract_commercial_invoice_data,
-        extract_packing_list_data,
-        reconcile_po_documents_with_system,
-    )
-    from modules.import_files.model import ImportFile
-
-    # 1. Extract Invoice Data
-    inv_data = dict(request.invoice_data or {})
-    if request.invoice_raw_text and request.invoice_raw_text.strip():
-        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
-        for k, v in extracted_inv.items():
-            if k not in inv_data or not inv_data[k]:
-                inv_data[k] = v
-
-    # 2. Extract Packing List Data
-    pl_data = dict(request.packing_data or {})
-    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
-        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
-        for k, v in extracted_pl.items():
-            if k not in pl_data or not pl_data[k]:
-                pl_data[k] = v
-
-    # 3. Fetch System PO Items and File Metadata if import_file_id is provided
-    system_items = list(request.system_items or [])
+def _build_po_recon_system_inputs(
+    db: Session,
+    import_file_id: Optional[int],
+    inv_data: dict,
+    initial_system_items: Optional[List[dict]] = None,
+) -> Tuple[List[dict], dict, List[dict]]:
+    system_items = list(initial_system_items or [])
     system_packing_items = []
     file_metadata = {}
-    if request.import_file_id:
-        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if import_file_id:
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
         if imp_file:
             from modules.purchase_orders.model import PurchaseOrder
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).first()
+            po = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == import_file_id).first()
             if not po and imp_file.po_number:
                 po = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == imp_file.po_number).first()
 
@@ -5156,7 +5160,7 @@ def extract_and_compare_po_documents_service(
                 "hs_code": hs_code_val,
             }
             if not system_items:
-                po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
+                po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == import_file_id).all()
                 for p_rec in po_records:
                     pkg_map = {}
                     for p_item in p_rec.packing_list_items:
@@ -5189,7 +5193,7 @@ def extract_and_compare_po_documents_service(
 
             # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
             if not system_packing_items:
-                po_records_for_packing = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
+                po_records_for_packing = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == import_file_id).all()
                 for p_rec in po_records_for_packing:
                     if p_rec and p_rec.packing_list_items:
                         for p_item in p_rec.packing_list_items:
@@ -5226,6 +5230,74 @@ def extract_and_compare_po_documents_service(
     # Use system_items as packing fallback if no dedicated packing items found
     if not system_packing_items:
         system_packing_items = system_items
+
+    return system_items, file_metadata, system_packing_items
+
+
+def _compute_po_reconciliation_gate_fields(
+    db: Session,
+    import_file_id: int,
+    extracted_inv_data: Optional[Dict[str, Any]],
+    extracted_pl_data: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if extracted_inv_data:
+        from modules.import_documentation.ai_document_parser import reconcile_po_documents_with_system
+        system_items, file_metadata, system_packing_items = _build_po_recon_system_inputs(
+            db, import_file_id, extracted_inv_data
+        )
+        reconciled = reconcile_po_documents_with_system(
+            extracted_inv_data,
+            extracted_pl_data or {},
+            system_items,
+            file_metadata,
+            system_packing_items=system_packing_items,
+        )
+        return {
+            "overall_status": reconciled["overall_status"],
+            "is_safe_for_certification": reconciled["is_safe_for_certification"],
+            "critical_discrepancies_count": reconciled["critical_discrepancies_count"],
+            "warning_discrepancies_count": reconciled["warning_discrepancies_count"],
+            "header_discrepancies": reconciled.get("header_discrepancies"),
+            "reconciled_invoice_items": reconciled.get("reconciled_invoice_items"),
+            "reconciled_packing_items": reconciled.get("reconciled_packing_items"),
+        }
+    return {
+        "overall_status": "DRAFT",
+        "is_safe_for_certification": False,
+        "critical_discrepancies_count": 0,
+        "warning_discrepancies_count": 0,
+    }
+
+
+def extract_and_compare_po_documents_service(
+    db: Session, request: POExtractAndCompareRequest
+) -> POExtractAndCompareResponse:
+    from modules.import_documentation.ai_document_parser import (
+        extract_commercial_invoice_data,
+        extract_packing_list_data,
+        reconcile_po_documents_with_system,
+    )
+
+    # 1. Extract Invoice Data
+    inv_data = dict(request.invoice_data or {})
+    if request.invoice_raw_text and request.invoice_raw_text.strip():
+        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
+        for k, v in extracted_inv.items():
+            if k not in inv_data or not inv_data[k]:
+                inv_data[k] = v
+
+    # 2. Extract Packing List Data
+    pl_data = dict(request.packing_data or {})
+    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
+        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
+        for k, v in extracted_pl.items():
+            if k not in pl_data or not pl_data[k]:
+                pl_data[k] = v
+
+    # 3. Fetch System PO Items and File Metadata if import_file_id is provided
+    system_items, file_metadata, system_packing_items = _build_po_recon_system_inputs(
+        db, request.import_file_id, inv_data, initial_system_items=request.system_items
+    )
 
     # 4. Perform 4-Way Reconciliation
     reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items)
@@ -5338,6 +5410,16 @@ def create_po_reconciliation_session_service(
     actor = _actor(user, schema.certified_by)
     schema.certified_by = actor
 
+    # Currency validation: required 3-letter active currency
+    schema.currency = _validate_currency_code(db, schema.currency)
+
+    # Server-owned gate fields (BE03-T05)
+    gates = _compute_po_reconciliation_gate_fields(
+        db, schema.import_file_id, schema.extracted_invoice_data, schema.extracted_packing_data
+    )
+    for k, v in gates.items():
+        setattr(schema, k, v)
+
     # 2. Strict Rule: Prevent duplicate session for the same import file!
     existing = repo.get_po_reconciliation_session_by_file_id(db, schema.import_file_id, include_inactive=True)
     if existing and existing.is_active:
@@ -5398,6 +5480,35 @@ def update_po_reconciliation_session_service(
         raise not_found(LABEL_PO_RECON_SESSION, session_id)
     actor = _actor(user, schema.certified_by)
     schema.certified_by = actor
+
+    if schema.currency is not None:
+        schema.currency = _validate_currency_code(db, schema.currency)
+
+    # Server-owned gate fields (BE03-T05)
+    if schema.extracted_invoice_data is not None:
+        gates = _compute_po_reconciliation_gate_fields(
+            db,
+            session.import_file_id,
+            schema.extracted_invoice_data,
+            schema.extracted_packing_data if schema.extracted_packing_data is not None else session.extracted_packing_data,
+        )
+        for k, v in gates.items():
+            setattr(schema, k, v)
+    elif schema.extracted_packing_data is not None and session.extracted_invoice_data:
+        gates = _compute_po_reconciliation_gate_fields(
+            db,
+            session.import_file_id,
+            session.extracted_invoice_data,
+            schema.extracted_packing_data,
+        )
+        for k, v in gates.items():
+            setattr(schema, k, v)
+    else:
+        # Keep existing server-owned gate fields from session, ignoring client tampering
+        schema.overall_status = session.overall_status
+        schema.is_safe_for_certification = session.is_safe_for_certification
+        schema.critical_discrepancies_count = session.critical_discrepancies_count
+        schema.warning_discrepancies_count = session.warning_discrepancies_count
 
     update_data = schema.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(session, k, None) for k in update_data.keys()}
