@@ -790,12 +790,15 @@ def restore_acid_session_service(db: Session, acid_id: int, user: Optional[str] 
     item = repo.restore_acid_session(db, acid_id)
     if not item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
+    db.commit()
+    db.refresh(item)
     return enrich_acid_response(db, item)
 
 
 def soft_delete_acid_session_service(db: Session, acid_id: int, user: Optional[str] = None) -> bool:
     if not repo.soft_delete_acid_session(db, acid_id):
         raise not_found(LABEL_ACID_SESSION, acid_id)
+    db.commit()
     return True
 
 
@@ -1022,6 +1025,7 @@ def receive_banking_document_service(
 def delete_banking_document_service(db: Session, bank_doc_id: int, user: Optional[str] = None):
     item = _get_banking_document_or_404(db, bank_doc_id)
     repo.delete_banking_document(db, item)
+    db.commit()
     return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
@@ -5419,6 +5423,7 @@ def delete_po_reconciliation_session_service(db: Session, session_id: int, user:
         )
     repo.delete_po_reconciliation_session(db, session_id)
     _audit_po_recon(db, session, "DELETE", _actor(user, session.certified_by))
+    db.commit()
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
 
 
@@ -5454,6 +5459,7 @@ def delete_draft_bl_review_service(db: Session, review_id: int, user: Optional[s
     repo.delete_draft_bl_review(db, review_id)
     # The table has no updated_by / deleted_by column (DOC-26, deferred): the deleting user goes to the audit log.
     _audit_draft_bl(db, review, "DELETE", {"is_active": False}, _actor(user))
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
 
 def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
@@ -5466,6 +5472,7 @@ def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] =
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة مراجعة شهادة المنشأ رقم {review_id} غير موجودة للحذف.",
         )
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة المنشأ رقم {review_id} بنجاح", "deleted": True}
 
 def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
@@ -5478,6 +5485,7 @@ def delete_inspection_review_service(db: Session, review_id: int, user: Optional
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة مراجعة شهادة الفحص رقم {review_id} غير موجودة للحذف.",
         )
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة شهادة الفحص رقم {review_id} بنجاح", "deleted": True}
 
 
