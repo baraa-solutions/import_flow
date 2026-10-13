@@ -939,8 +939,8 @@ class POExtractAndCompareResponse(BaseModel):
 
 class InvoiceBLSyncRequest(BaseModel):
     import_file_id: int
-    invoice_data: Dict[str, Any]
-    bl_data: Dict[str, Any]
+    invoice_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
     sync_to_po: bool = True
     sync_to_shipping: bool = True
     notes: Optional[str] = None

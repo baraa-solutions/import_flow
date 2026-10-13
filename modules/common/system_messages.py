@@ -1172,6 +1172,10 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "Invoice {invoice_number} and B/L {draft_bl_number} matched, approved and synced to the import file "
         "and customs approvals.",
     },
+    "DOC_INVOICE_BL_NOT_CERTIFIED": {
+        "note": "No active certified invoice vs B/L match session exists for import file {import_file_id}. "
+        "Certify the session first.",
+    },
     # ── 03b Original documents collection (ODC), docs customs approval (DCA), smart document upload (SDU) ──
     "ODC_COURIER_NOT_FOUND": {
         "note": "Courier {courier_no} is not registered on this file's original documents session. Add it to the session first.",

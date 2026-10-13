@@ -4901,9 +4901,39 @@ def _apply_invoice_bl_sync(
             CargoShippingRecord.is_active == True
         ).first()
         # Only containers_loading_data is a real column; B/L number, vessel and gross weight have no cargo column
-        # (deferred: schema change) and are kept on the import file / session data.
         if cargo_shp and bl.get("containers"):
-            cargo_shp.containers_loading_data = bl["containers"]
+            raw_containers = bl["containers"]
+            merged = [dict(c) for c in (cargo_shp.containers_loading_data or []) if isinstance(c, dict)]
+            index = {str(c.get("container_no") or "").strip().upper(): c for c in merged if c.get("container_no")}
+            for item in raw_containers:
+                if isinstance(item, dict):
+                    key = str(item.get("container_no") or "").strip().upper()
+                    item_dict = dict(item)
+                elif hasattr(item, "model_dump"):
+                    item_dict = item.model_dump()
+                    key = str(item_dict.get("container_no") or "").strip().upper()
+                elif hasattr(item, "__dict__"):
+                    item_dict = dict(item.__dict__)
+                    key = str(item_dict.get("container_no") or "").strip().upper()
+                else:
+                    continue
+                if not key:
+                    continue
+                row = index.get(key)
+                if row is None:
+                    new_row = dict(item_dict)
+                    new_row["container_no"] = key
+                    merged.append(new_row)
+                    index[key] = new_row
+                else:
+                    for k, v in item_dict.items():
+                        if k in ("vgm_status", "tracking_status"):
+                            if v is not None:
+                                row[k] = v
+                        elif v is not None:
+                            row[k] = v
+            cargo_shp.containers_loading_data = list(merged)
+            cargo_shp.updated_by = actor
 
 
 def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], bl: Dict[str, Any], actor: str) -> None:
@@ -4968,8 +4998,21 @@ def sync_certified_invoice_bl_to_file_service(
 ) -> dict:
     imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     actor = _actor(user)
-    inv = request.invoice_data or {}
-    bl = request.bl_data or {}
+
+    session = repo.get_invoice_bl_match_session_by_file_id(db, request.import_file_id, include_drafts=False)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DOC_INVOICE_BL_NOT_CERTIFIED",
+                "message": f"لا توجد جلسة مطابقة معتمدة للفاتورة والبوليصة لملف الاستيراد {imp_file.import_file_code}: يجب اعتماد جلسة المطابقة أولاً قبل المزامنة.",
+                "import_file_id": imp_file.import_file_id,
+            },
+        )
+
+    # Use certified session's invoice_data and bl_data (ignoring client request body)
+    inv = session.invoice_data or {}
+    bl = session.bl_data or {}
 
     _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
     db.commit()
@@ -4992,6 +5035,7 @@ def sync_certified_invoice_bl_to_file_service(
         # Kept for old clients: the file has no amount column (deferred), the currency is estimated_cost_currency.
         "total_amount": None,
         "currency": imp_file.estimated_cost_currency,
+        "session_code": session.session_code,
     }
 
 
