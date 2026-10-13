@@ -3470,7 +3470,7 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 "description": clean_desc,
                 "hs_code": hs or "",
                 "origin": clean_itm_origin,
-                "quantity": float(itm.quantity or 1.0),
+                "quantity": float(itm.quantity) if itm.quantity is not None else None,
                 "unit": itm.unit_of_measure or "PCS",
                 "total_price": float(itm.total_price or 0.0),
             })
@@ -4241,7 +4241,13 @@ def generate_inspection_draft_template_service(
     if items_summary:
         for idx, itm in enumerate(items_summary, start=1):
             d_name = itm.get("product_name") or itm.get("description") or f"Item {idx}"
-            q_val = f"{itm.get('quantity', 1)} {itm.get('uom', 'pieces')}"
+            qty = itm.get("quantity")
+            if qty is not None and str(qty).strip() != "" and float(qty) > 0:
+                uom = itm.get("uom") or itm.get("unit") or "pieces"
+                qty_display = int(qty) if isinstance(qty, (int, float)) and qty == int(qty) else qty
+                q_val = f"{qty_display} {uom}".strip()
+            else:
+                q_val = ""
             is_acoustic = "acoustic" in d_name.lower() or "panel" in d_name.lower()
             is_chair = any(w in d_name.lower() for w in ["chair", "seat", "armchair", "stool"])
             is_table = any(w in d_name.lower() for w in ["table", "desk"])
@@ -4255,15 +4261,18 @@ def generate_inspection_draft_template_service(
                 p_type = "Office Furniture / Tables"
                 std = "ES 4029-1 / 2024 + ES 7321 / 2011"
             else:
-                p_type = "Commercial Goods"
-                std = "ES 7321 / 2011"
+                p_type = ""
+                std = ""
+
+            brand_part = f", brand: {exporter_name.split()[0]}" if exporter_name else ""
+            desc = f"{d_name}{brand_part}"
 
             inspected_items.append({
                 "item_no": idx,
                 "quantity": q_val,
                 "country_of_origin": itm.get("origin_country") or origin_countries_str,
                 "product_type": p_type,
-                "description": f"{d_name}, brand: {exporter_name.split()[0] if exporter_name else 'Standard'}",
+                "description": desc,
                 "adopted_standard": std,
             })
     # DOC-03: no PO lines -> no inspected items (the former sample item lists were invented data).
@@ -4277,17 +4286,14 @@ def generate_inspection_draft_template_service(
             if s_clean and s_clean not in unique_standards:
                 unique_standards.append(s_clean)
 
-    applicable_standards = unique_standards if unique_standards else [
-        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
-        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
-    ]
+    applicable_standards = unique_standards
 
     issuing_office = f"TÜV Rheinland Sweden AB" if "TÜV" in agency or "TUV" in agency else (f"Cotecna Inspection S.A. Geneva Office" if "COTECNA" in agency else f"{agency} Inspection Office")
 
     template = {
         "inspection_agency": agency,
         "inspection_type": cert_type,
-        "coc_number": f"DEG-{import_file_id:06d}" if "TÜV" in agency or "TUV" in agency else f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
+        "coc_number": "",
         "is_draft": True,
         "confirmation_deadline": "PLEASE CONFIRM THIS DRAFT WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE AS IT IS",
         "importer_name_and_address": f"{importer_name}\n{importer_addr}",
@@ -4336,6 +4342,8 @@ def generate_inspection_draft_template_service(
 ### 📋 Egyptian Mandatory Standards Tested:
 """ + "\n".join([f"- {s}" for s in applicable_standards])
 
+    has_adopted_standard = bool(inspected_items) and all(bool(itm.get("adopted_standard")) for itm in inspected_items)
+
     missing = _missing_fields(
         acid_number=acid_no,
         hs_code=hs_codes_list,
@@ -4347,6 +4355,8 @@ def generate_inspection_draft_template_service(
         currency=inv_currency,
         incoterm=incoterm_val,
         port_of_entry=template["port_of_entry"],
+        coc_number=template["coc_number"],
+        adopted_standard=has_adopted_standard,
     )
     template["missing_fields"] = missing
     return _template_response(
