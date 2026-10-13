@@ -231,7 +231,13 @@ def budget_code_exists(db: Session, code: str) -> bool:
     return db.query(ImportBudgetApproval.budget_id).filter(ImportBudgetApproval.budget_code == code).first() is not None
 
 
-def add_import_budget(db: Session, schema: ImportBudgetCreate, code: str) -> ImportBudgetApproval:
+def add_import_budget(
+    db: Session,
+    schema: ImportBudgetCreate,
+    code: str,
+    invoice_amount_egp: float,
+    freight_cost_egp: float,
+) -> ImportBudgetApproval:
     db_item = ImportBudgetApproval(
         budget_code=code,
         title=schema.title,
@@ -240,15 +246,18 @@ def add_import_budget(db: Session, schema: ImportBudgetCreate, code: str) -> Imp
         project_id=schema.project_id,
         invoice_amount_foreign=schema.invoice_amount_foreign,
         invoice_currency=schema.invoice_currency,
-        invoice_amount_egp=schema.invoice_amount_egp,
+        invoice_amount_egp=invoice_amount_egp,
         freight_cost_foreign=schema.freight_cost_foreign,
         freight_currency=schema.freight_currency,
-        freight_cost_egp=schema.freight_cost_egp,
+        freight_cost_egp=freight_cost_egp,
         customs_duties_egp=schema.customs_duties_egp,
         clearance_inland_egp=schema.clearance_inland_egp,
         exchange_rate=schema.exchange_rate,
         total_budget_egp=(
-            schema.invoice_amount_egp + schema.freight_cost_egp + schema.customs_duties_egp + schema.clearance_inland_egp
+            (invoice_amount_egp or 0.0)
+            + (freight_cost_egp or 0.0)
+            + (schema.customs_duties_egp or 0.0)
+            + (schema.clearance_inland_egp or 0.0)
         ),
         budget_status="Pending Review",
         notes=schema.notes,
