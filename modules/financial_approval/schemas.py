@@ -126,6 +126,8 @@ class PaymentRequestResponse(PaymentRequestBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -208,6 +210,8 @@ class ImportBudgetResponse(ImportBudgetBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
