@@ -33,6 +33,7 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewCreate,
     InvoiceBLMatchSessionCreate,
     NewDraftVersionRequest,
+    POExtractAndCompareRequest,
     POFinalAdjustmentRequest,
     POReconciliationItem,
     POReconciliationSessionCreate,
@@ -568,6 +569,64 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert log.performed_by == "eve"
 
 
+# --- BE03-T11: Real PO sources in compare and DCA matrix -----------------------------------
+def test_be03_t11_soft_deleted_po_not_used(db):
+    db.add(ImportFile(import_file_id=10, import_file_code="IMP-SD-1", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=101, po_number="PO-SD", import_file_id=10, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=False))
+    db.add(POLineItem(item_id=1001, po_id=101, description_ar="Soft Item", quantity=10, unit_price=5.0))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=10,
+        invoice_data={"invoice_number": "INV-10", "items": [{"item_code": "X", "quantity": 10, "unit_price": 5.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is True
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(res.reconciled_invoice_items) == 0
+
+
+def test_be03_t11_file_with_no_po_lines_has_system_items_missing(db):
+    db.add(ImportFile(import_file_id=11, import_file_code="IMP-NO-LINES", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=102, po_number="PO-EMPTY", import_file_id=11, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=11,
+        invoice_data={"invoice_number": "INV-11", "items": [{"item_code": "Y", "quantity": 20, "unit_price": 10.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is True
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(res.reconciled_invoice_items) == 0
+
+
+def test_be03_t11_packing_rows_expose_packing_item_id_and_po_item_id(db):
+    db.add(ImportFile(import_file_id=12, import_file_code="IMP-PKG-TEST", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=103, po_number="PO-PKG", import_file_id=12, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.add(POLineItem(item_id=2001, po_id=103, item_code="MAT-100", description_ar="Material", quantity=50, unit_price=2.0))
+    db.add(PackingListItem(packing_item_id=3001, po_id=103, item_code="MAT-100", qty_pcs=50, qty_pkg=5, package_type="Carton",
+                           total_gross_weight_kg=120.0, total_net_weight_kg=100.0, total_cbm=1.5, hs_code="841510"))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=12,
+        invoice_data={"invoice_number": "INV-12", "items": [{"item_code": "MAT-100", "quantity": 50, "unit_price": 2.0}]},
+        packing_data={"packing_list_number": "PL-12", "items": [{"item_code": "MAT-100", "packages_count": 5, "gross_weight_kg": 120.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is False
+    assert len(res.reconciled_packing_items) == 1
+    pkg_row = res.reconciled_packing_items[0]
+    assert pkg_row.packing_item_id == 3001
+    assert pkg_row.po_item_id == 2001
+
+
 # --- BE03-T12: Inspection draft template without invented standards -----------------------
 def test_be03_t12_inspection_draft_no_invented_standards(db):
     # 1. No PO lines -> applicable_standards is empty list
@@ -619,4 +678,3 @@ def test_be03_t12_inspection_draft_matched_product_has_standard(db):
     assert "brand: Mega" in item["description"]
     assert "adopted_standard" not in res.template_data["missing_fields"]
     assert "coc_number" in res.template_data["missing_fields"]
-
