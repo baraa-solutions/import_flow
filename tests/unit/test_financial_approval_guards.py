@@ -739,3 +739,78 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+# ─── BE02-T17: task auto-close and import_files.swift_no scope ───────────────
+
+def test_approving_budget_closes_only_tasks_matching_its_budget_code(db):
+    imp = seed_file(db)
+    budget_a = seed_budget(db, imp.import_file_id, status="Pending Review")
+
+    t1 = SmartTask(
+        task_code="TSK-BGT-01",
+        title="Review Budget A",
+        task_type="System Generated",
+        import_file_id=imp.import_file_id,
+        status="Pending",
+        notes=f"Please review {budget_a.budget_code} for approval",
+        is_active=True,
+    )
+    t2 = SmartTask(
+        task_code="TSK-BGT-02",
+        title="General Budget Task",
+        task_type="System Generated",
+        import_file_id=imp.import_file_id,
+        status="Pending",
+        notes="General BUDGET follow-up note",
+        is_active=True,
+    )
+    db.add_all([t1, t2])
+    db.commit()
+
+    service.approve_import_budget_service(db, budget_a.budget_id)
+
+    db.refresh(t1)
+    db.refresh(t2)
+    assert t1.status == "Completed"
+    assert t1.is_auto_closed is True
+    assert t2.status == "Pending"
+
+
+def test_smart_reconcile_auto_execute_false_leaves_file_swift_no_unchanged(db):
+    imp = seed_file(db, swift_no=None)
+    p = _approved(db, import_file_id=imp.import_file_id)
+
+    service.smart_reconcile_swift_service(db, SmartSwiftReconcileRequest(
+        payment_id=p.payment_id,
+        swift_reference_no="FT2610130001",
+        swift_receipt_date=date(2026, 8, 14),
+        swift_transferred_amount=10000.0,
+        swift_transferred_currency="USD",
+        auto_execute=False,
+    ))
+
+    db.refresh(imp)
+    db.refresh(p)
+    assert imp.swift_no is None
+    assert p.status == "Approved"
+    assert p.swift_reference_no == "FT2610130001"
+
+    # Now when paid, import_files.swift_no is updated
+    service.execute_payment_service(db, p.payment_id, "FT2610130001")
+    db.refresh(imp)
+    db.refresh(p)
+    assert p.status == "Paid"
+    assert imp.swift_no == "FT2610130001"
+
+
+def test_mark_paid_does_not_overwrite_different_file_swift_no(db):
+    imp = seed_file(db, swift_no="SWIFT-EXISTING-999")
+    p = _approved(db, import_file_id=imp.import_file_id)
+
+    service.execute_payment_service(db, p.payment_id, "SWIFT-NEW-111")
+    db.refresh(imp)
+    db.refresh(p)
+    assert p.status == "Paid"
+    assert p.swift_reference_no == "SWIFT-NEW-111"
+    assert imp.swift_no == "SWIFT-EXISTING-999"

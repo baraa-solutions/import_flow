@@ -230,7 +230,8 @@ def test_approve_import_budget_workflow(db_session, seed_data):
         priority="High",
         reminder_type="Budget Review",
         status="Pending",
-        notes="REQ_TYPE:BUDGET_APPROVAL | File: IMP-2026-0001",
+        # BE02-T17: _close_budget_tasks matches budget_code, not generic 'BUDGET' in notes
+        notes=f"REQ_TYPE:BUDGET_APPROVAL | Budget: {budget.budget_code} | File: IMP-2026-0001",
         is_active=True,
     )
     db_session.add(smart_task)
