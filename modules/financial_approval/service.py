@@ -1621,7 +1621,7 @@ def sync_budget_with_upstream_service(
     orig_status = budget.budget_status
 
     if orig_status == BUDGET_APPROVED:
-        next_rev = budget.revision_number + 1
+        next_rev = (budget.revision_number or 1) + 1
         rev_code = f"{budget.budget_code.split('-REV')[0]}-REV{next_rev}"
         if repo.budget_code_exists(db, rev_code):
             raise fa_error(status.HTTP_409_CONFLICT, "FA_CODE_GENERATION_CONFLICT",

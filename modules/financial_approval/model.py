@@ -4,6 +4,7 @@ Financial & Management Approval Models (Phase 2 - BP-012 & BP-013)
 
 from datetime import datetime, date, timezone
 from typing import Optional
+import sqlalchemy as sa
 from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
@@ -80,7 +81,7 @@ class PaymentRequestSession(Base):
 
     # Audit & Soft Delete
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
@@ -141,18 +142,18 @@ class ImportBudgetApproval(Base):
     parent_budget_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("import_budget_approvals.budget_id"), nullable=True, index=True
     )
-    revision_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    revision_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
     # Upstream Variance & Segregation of Duties Tracking
     last_variance_check: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    has_unresolved_variance: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_unresolved_variance: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa.false(), nullable=False)
     variance_override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     variance_overridden_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     upstream_modified_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Audit & Soft Delete
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
