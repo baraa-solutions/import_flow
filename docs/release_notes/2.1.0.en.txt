@@ -1,7 +1,0 @@
-In-app updates: a notice appears when a new version is available; download, verification, installation and restart take one click.
-Automatic database backup before every update and before any database upgrade, with the option to roll back to the previous version.
-Full data protection: installing or updating never replaces the database, and the system switches to read-only safe mode if an upgrade fails.
-Every update is verified with a digital signature before it is installed; untrusted or modified files are rejected.
-More reliable start-up on new Windows machines, with a "starting the system" screen while the server starts.
-Security improvements: sign-in is required for every function, and user permissions are stricter.
-Fixed sign-in failing for some users, fixed errors in the purchase order report preview and the currencies and customs tariff screens, and improved screen layouts.

@@ -1,9 +1,0 @@
-#!/bin/sh
-# ImportFlow guardrails (any editor / AI agent). Enable once per clone:  git config core.hooksPath .githooks
-# Same gate as GitHub PR Checks (boot, Alembic, guard tests, touched tests); skipped for tags and deletions.
-# Interpreter: the project's .venv first (editor Git panels usually run without it activated), then python / py.
-if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe
-elif [ -x .venv/bin/python ]; then PY=.venv/bin/python
-elif python -c "" >/dev/null 2>&1; then PY=python
-else PY=py; fi
-exec "$PY" scripts/ci/guardrails.py pre-push "$@"

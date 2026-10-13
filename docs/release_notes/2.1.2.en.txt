@@ -1,3 +1,0 @@
-New installations come with a default administrator account (admin); its password must be changed at first login.
-Extra protection: the program cannot be used with this account until the password is changed.
-Security and reliability improvements.
