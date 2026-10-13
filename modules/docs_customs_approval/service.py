@@ -981,6 +981,10 @@ def create_customs_approval_session_service(
         )
 
     if final:
+        set_file_tracking(import_file, step_code="STEP_10", next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX"))
+        if (import_file.progress_percent or 0.0) < 60.0:
+            import_file.progress_percent = 60.0
+
         from modules.lifecycle_board.service import transition_stage_activity_service
 
         transition_stage_activity_service(
@@ -991,9 +995,6 @@ def create_customs_approval_session_service(
             notes=render_en("DOC_CUSTOMS_APPROVAL_GRANTED", {"session_code": session_res.session_code}, "note"),
             performed_by=actor,
         )
-        set_file_tracking(import_file, step_code="STEP_10", next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX"))
-        if (import_file.progress_percent or 0.0) < 60.0:
-            import_file.progress_percent = 60.0
 
     db.commit()
     db.refresh(session_res)

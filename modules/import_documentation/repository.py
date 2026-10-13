@@ -83,7 +83,7 @@ def _soft_delete(db: Session, item) -> bool:
         return False
     item.is_active = False
     item.updated_at = _now()
-    db.commit()
+    db.flush()
     return True
 
 
@@ -177,8 +177,7 @@ def restore_acid_session(db: Session, acid_id: int) -> AcidRegistrationSession |
         return None
     item.is_active = True
     item.updated_at = _now()
-    db.commit()
-    db.refresh(item)
+    db.flush()
     return item
 
 
