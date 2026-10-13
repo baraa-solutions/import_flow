@@ -3492,7 +3492,7 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 "description": clean_desc,
                 "hs_code": hs or "",
                 "origin": clean_itm_origin,
-                "quantity": float(itm.quantity or 1.0),
+                "quantity": float(itm.quantity) if itm.quantity is not None else None,
                 "unit": itm.unit_of_measure or "PCS",
                 "total_price": float(itm.total_price or 0.0),
             })
@@ -4263,7 +4263,13 @@ def generate_inspection_draft_template_service(
     if items_summary:
         for idx, itm in enumerate(items_summary, start=1):
             d_name = itm.get("product_name") or itm.get("description") or f"Item {idx}"
-            q_val = f"{itm.get('quantity', 1)} {itm.get('uom', 'pieces')}"
+            qty = itm.get("quantity")
+            if qty is not None and str(qty).strip() != "" and float(qty) > 0:
+                uom = itm.get("uom") or itm.get("unit") or "pieces"
+                qty_display = int(qty) if isinstance(qty, (int, float)) and qty == int(qty) else qty
+                q_val = f"{qty_display} {uom}".strip()
+            else:
+                q_val = ""
             is_acoustic = "acoustic" in d_name.lower() or "panel" in d_name.lower()
             is_chair = any(w in d_name.lower() for w in ["chair", "seat", "armchair", "stool"])
             is_table = any(w in d_name.lower() for w in ["table", "desk"])
@@ -4277,15 +4283,18 @@ def generate_inspection_draft_template_service(
                 p_type = "Office Furniture / Tables"
                 std = "ES 4029-1 / 2024 + ES 7321 / 2011"
             else:
-                p_type = "Commercial Goods"
-                std = "ES 7321 / 2011"
+                p_type = ""
+                std = ""
+
+            brand_part = f", brand: {exporter_name.split()[0]}" if exporter_name else ""
+            desc = f"{d_name}{brand_part}"
 
             inspected_items.append({
                 "item_no": idx,
                 "quantity": q_val,
                 "country_of_origin": itm.get("origin_country") or origin_countries_str,
                 "product_type": p_type,
-                "description": f"{d_name}, brand: {exporter_name.split()[0] if exporter_name else 'Standard'}",
+                "description": desc,
                 "adopted_standard": std,
             })
     # DOC-03: no PO lines -> no inspected items (the former sample item lists were invented data).
@@ -4299,17 +4308,14 @@ def generate_inspection_draft_template_service(
             if s_clean and s_clean not in unique_standards:
                 unique_standards.append(s_clean)
 
-    applicable_standards = unique_standards if unique_standards else [
-        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
-        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
-    ]
+    applicable_standards = unique_standards
 
     issuing_office = f"TÜV Rheinland Sweden AB" if "TÜV" in agency or "TUV" in agency else (f"Cotecna Inspection S.A. Geneva Office" if "COTECNA" in agency else f"{agency} Inspection Office")
 
     template = {
         "inspection_agency": agency,
         "inspection_type": cert_type,
-        "coc_number": f"DEG-{import_file_id:06d}" if "TÜV" in agency or "TUV" in agency else f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
+        "coc_number": "",
         "is_draft": True,
         "confirmation_deadline": "PLEASE CONFIRM THIS DRAFT WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE AS IT IS",
         "importer_name_and_address": f"{importer_name}\n{importer_addr}",
@@ -4358,6 +4364,8 @@ def generate_inspection_draft_template_service(
 ### 📋 Egyptian Mandatory Standards Tested:
 """ + "\n".join([f"- {s}" for s in applicable_standards])
 
+    has_adopted_standard = bool(inspected_items) and all(bool(itm.get("adopted_standard")) for itm in inspected_items)
+
     missing = _missing_fields(
         acid_number=acid_no,
         hs_code=hs_codes_list,
@@ -4369,6 +4377,8 @@ def generate_inspection_draft_template_service(
         currency=inv_currency,
         incoterm=incoterm_val,
         port_of_entry=template["port_of_entry"],
+        coc_number=template["coc_number"],
+        adopted_standard=has_adopted_standard,
     )
     template["missing_fields"] = missing
     return _template_response(
@@ -5107,12 +5117,23 @@ def extract_and_compare_po_documents_service(
     system_packing_items = []
     file_metadata = {}
     if request.import_file_id:
-        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+        imp_file = db.query(ImportFile).filter(
+            ImportFile.import_file_id == request.import_file_id,
+            ImportFile.is_active == True,
+        ).first()
         if imp_file:
             from modules.purchase_orders.model import PurchaseOrder
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).first()
-            if not po and imp_file.po_number:
-                po = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == imp_file.po_number).first()
+            active_pos = db.query(PurchaseOrder).filter(
+                PurchaseOrder.import_file_id == request.import_file_id,
+                PurchaseOrder.is_active == True,
+            ).all()
+            if not active_pos and imp_file.po_number:
+                active_pos = db.query(PurchaseOrder).filter(
+                    PurchaseOrder.po_number == imp_file.po_number,
+                    PurchaseOrder.is_active == True,
+                ).all()
+
+            po = active_pos[0] if active_pos else None
 
             tax_no = None
             if imp_file.company:
@@ -5122,17 +5143,17 @@ def extract_and_compare_po_documents_service(
                     or getattr(imp_file.company, 'tax_id', None)
                 )
 
-            po_curr = "USD"
-            if po and po.currency and hasattr(po.currency, 'currency_code'):
+            po_curr = None
+            if po and po.currency and getattr(po.currency, 'currency_code', None):
                 po_curr = po.currency.currency_code
             elif imp_file.estimated_cost_currency:
                 po_curr = imp_file.estimated_cost_currency
 
-            po_amt = float(po.total_amount_fob) if (po and po.total_amount_fob) else float(imp_file.estimated_cost or 0.0)
-            po_pkgs = int(po.total_packages_count) if (po and po.total_packages_count) else 0
-            po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg) else 0.0
-            po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg) else 0.0
-            po_cbm = float(po.total_cbm) if (po and po.total_cbm) else 0.0
+            po_amt = float(po.total_amount_fob) if (po and po.total_amount_fob is not None) else (float(imp_file.estimated_cost) if imp_file.estimated_cost is not None else None)
+            po_pkgs = int(po.total_packages_count) if (po and po.total_packages_count is not None) else 0
+            po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg is not None) else 0.0
+            po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg is not None) else 0.0
+            po_cbm = float(po.total_cbm) if (po and po.total_cbm is not None) else 0.0
 
             # Resolve supplier name
             supplier_name_val = ""
@@ -5178,8 +5199,7 @@ def extract_and_compare_po_documents_service(
                 "hs_code": hs_code_val,
             }
             if not system_items:
-                po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
-                for p_rec in po_records:
+                for p_rec in active_pos:
                     pkg_map = {}
                     for p_item in p_rec.packing_list_items:
                         if p_item.item_code:
@@ -5189,11 +5209,11 @@ def extract_and_compare_po_documents_service(
                         code_key = (itm.item_code or "").strip().upper()
                         pkg_info = pkg_map.get(code_key)
 
-                        pkg_count = float(pkg_info.qty_pkg) if pkg_info else 1.0
-                        net_w = float(pkg_info.total_net_weight_kg) if pkg_info else float(itm.net_weight_kg or 0.0)
-                        gross_w = float(pkg_info.total_gross_weight_kg) if pkg_info else float(itm.gross_weight_kg or 0.0)
-                        cbm_val = float(pkg_info.total_cbm) if pkg_info else float(itm.total_cbm or 0.0)
-                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else "Carton"
+                        pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
+                        net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
+                        gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
+                        cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
+                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
 
                         system_items.append({
                             "po_item_id": itm.item_id,
@@ -5201,8 +5221,8 @@ def extract_and_compare_po_documents_service(
                             "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
                             "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
                             "package_type": pkg_type,
-                            "initial_quantity": float(itm.quantity),
-                            "initial_unit_price": float(itm.unit_price),
+                            "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
+                            "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
                             "initial_packages_count": pkg_count,
                             "initial_net_weight_kg": net_w,
                             "initial_gross_weight_kg": gross_w,
@@ -5211,51 +5231,52 @@ def extract_and_compare_po_documents_service(
 
             # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
             if not system_packing_items:
-                po_records_for_packing = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
-                for p_rec in po_records_for_packing:
+                for p_rec in active_pos:
+                    line_map = {}
+                    for itm in p_rec.line_items:
+                        if itm.item_code:
+                            line_map[itm.item_code.strip().upper()] = itm.item_id
+
                     if p_rec and p_rec.packing_list_items:
                         for p_item in p_rec.packing_list_items:
+                            code_key = (p_item.item_code or "").strip().upper()
+                            matching_po_item_id = line_map.get(code_key)
                             system_packing_items.append({
-                                "po_item_id": p_item.packing_item_id,
+                                "packing_item_id": p_item.packing_item_id,
+                                "po_item_id": matching_po_item_id,
                                 "item_code": p_item.item_code or "",
                                 "description": p_item.description or p_item.item_code or "",
                                 "hs_code": p_item.hs_code or "",
-                                "package_type": p_item.package_type or "Carton",
-                                "initial_quantity": float(p_item.qty_pcs or 0.0),
-                                "initial_packages_count": float(p_item.qty_pkg or 0.0),
-                                "initial_net_weight_kg": float(p_item.total_net_weight_kg or 0.0),
-                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg or 0.0),
-                                "initial_cbm": float(p_item.total_cbm or 0.0),
+                                "package_type": p_item.package_type if p_item.package_type else None,
+                                "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
+                                "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
+                                "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
+                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
+                                "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
                             })
 
-    if not system_items:
-        inv_itms = inv_data.get("items", [])
-        for idx, itm in enumerate(inv_itms, 1):
-            system_items.append({
-                "po_item_id": idx,
-                "item_code": itm.get("item_code", f"ITEM-{idx}"),
-                "description": itm.get("description", f"Item {idx}"),
-                "hs_code": itm.get("hs_code", ""),
-                "package_type": "Package",
-                "initial_quantity": itm.get("quantity", 1.0),
-                "initial_unit_price": itm.get("unit_price", 0.0),
-                "initial_packages_count": 1.0,
-                "initial_net_weight_kg": 0.0,
-                "initial_gross_weight_kg": 0.0,
-                "initial_cbm": 0.0,
-            })
+    system_items_missing = not bool(system_items)
 
     # Use system_items as packing fallback if no dedicated packing items found
     if not system_packing_items:
         system_packing_items = system_items
 
     # 4. Perform 4-Way Reconciliation
-    reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items)
+    reconciled = reconcile_po_documents_with_system(
+        inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items
+    )
+
+    if system_items_missing:
+        overall_status = "DRAFT"
+        is_safe_for_certification = False
+    else:
+        overall_status = reconciled["overall_status"]
+        is_safe_for_certification = reconciled["is_safe_for_certification"]
 
     return POExtractAndCompareResponse(
         import_file_id=request.import_file_id,
-        overall_status=reconciled["overall_status"],
-        is_safe_for_certification=reconciled["is_safe_for_certification"],
+        overall_status=overall_status,
+        is_safe_for_certification=is_safe_for_certification,
         critical_discrepancies_count=reconciled["critical_discrepancies_count"],
         warning_discrepancies_count=reconciled["warning_discrepancies_count"],
         header_discrepancies=reconciled["header_discrepancies"],
@@ -5263,6 +5284,7 @@ def extract_and_compare_po_documents_service(
         reconciled_packing_items=reconciled["reconciled_packing_items"],
         extracted_invoice_data=reconciled["extracted_invoice_data"],
         extracted_packing_data=reconciled["extracted_packing_data"],
+        system_items_missing=system_items_missing,
     )
 
 

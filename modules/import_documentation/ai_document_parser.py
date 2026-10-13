@@ -2088,7 +2088,8 @@ def reconcile_po_documents_with_system(
             has_warning = True
 
         reconciled_pl_items.append({
-            "po_item_id": sys_pl.get("po_item_id") or sys_pl.get("packing_item_id") or p_idx,
+            "po_item_id": sys_pl.get("po_item_id"),
+            "packing_item_id": sys_pl.get("packing_item_id"),
             "item_code": p_code,
             "description": p_desc,
             "hs_code": p_hs,

@@ -33,6 +33,7 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewCreate,
     InvoiceBLMatchSessionCreate,
     NewDraftVersionRequest,
+    POExtractAndCompareRequest,
     POFinalAdjustmentRequest,
     POReconciliationItem,
     POReconciliationSessionCreate,
@@ -568,6 +569,117 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert log.performed_by == "eve"
 
 
+# --- BE03-T11: Real PO sources in compare and DCA matrix -----------------------------------
+def test_be03_t11_soft_deleted_po_not_used(db):
+    db.add(ImportFile(import_file_id=10, import_file_code="IMP-SD-1", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=101, po_number="PO-SD", import_file_id=10, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=False))
+    db.add(POLineItem(item_id=1001, po_id=101, description_ar="Soft Item", quantity=10, unit_price=5.0))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=10,
+        invoice_data={"invoice_number": "INV-10", "items": [{"item_code": "X", "quantity": 10, "unit_price": 5.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is True
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(res.reconciled_invoice_items) == 0
+
+
+def test_be03_t11_file_with_no_po_lines_has_system_items_missing(db):
+    db.add(ImportFile(import_file_id=11, import_file_code="IMP-NO-LINES", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=102, po_number="PO-EMPTY", import_file_id=11, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=11,
+        invoice_data={"invoice_number": "INV-11", "items": [{"item_code": "Y", "quantity": 20, "unit_price": 10.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is True
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(res.reconciled_invoice_items) == 0
+
+
+def test_be03_t11_packing_rows_expose_packing_item_id_and_po_item_id(db):
+    db.add(ImportFile(import_file_id=12, import_file_code="IMP-PKG-TEST", company_name="Co", supplier_name="Sup", is_active=True))
+    db.add(PurchaseOrder(po_id=103, po_number="PO-PKG", import_file_id=12, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.add(POLineItem(item_id=2001, po_id=103, item_code="MAT-100", description_ar="Material", quantity=50, unit_price=2.0))
+    db.add(PackingListItem(packing_item_id=3001, po_id=103, item_code="MAT-100", qty_pcs=50, qty_pkg=5, package_type="Carton",
+                           total_gross_weight_kg=120.0, total_net_weight_kg=100.0, total_cbm=1.5, hs_code="841510"))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=12,
+        invoice_data={"invoice_number": "INV-12", "items": [{"item_code": "MAT-100", "quantity": 50, "unit_price": 2.0}]},
+        packing_data={"packing_list_number": "PL-12", "items": [{"item_code": "MAT-100", "packages_count": 5, "gross_weight_kg": 120.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is False
+    assert len(res.reconciled_packing_items) == 1
+    pkg_row = res.reconciled_packing_items[0]
+    assert pkg_row.packing_item_id == 3001
+    assert pkg_row.po_item_id == 2001
+
+
+# --- BE03-T12: Inspection draft template without invented standards -----------------------
+def test_be03_t12_inspection_draft_no_invented_standards(db):
+    # 1. No PO lines -> applicable_standards is empty list
+    res_empty = service.generate_inspection_draft_template_service(db, 2, "SGS", "COC")
+    assert res_empty.applicable_standards == []
+    assert res_empty.template_data["coc_number"] == ""
+    assert "coc_number" in res_empty.template_data["missing_fields"]
+    assert "adopted_standard" in res_empty.template_data["missing_fields"]
+
+    # 2. PO line "Steel bolts" -> item adopted_standard == "" and "adopted_standard" in missing_fields, no "brand: Standard"
+    file_id = 15
+    db.add(ImportFile(import_file_id=file_id, import_file_code="IMP-BOLTS-1", company_name="Co", supplier_name="", is_active=True))
+    po = PurchaseOrder(po_id=150, po_number="PO-BOLTS", import_file_id=file_id, project_id=1, company_id=1, supplier_id=1,
+                       incoterm_id=1, currency_id=1, status="DRAFT", is_active=True)
+    db.add(po)
+    line = POLineItem(item_id=1501, po_id=150, description_en="Steel bolts", description_ar="مسامير صلب", quantity=500.0, unit_price=0.5)
+    db.add(line)
+    db.commit()
+
+    res = service.generate_inspection_draft_template_service(db, file_id, "COTECNA", "COC")
+    assert res.template_data["coc_number"] == ""
+    assert res.applicable_standards == []
+    assert len(res.template_data["inspected_items"]) == 1
+    item = res.template_data["inspected_items"][0]
+    assert item["product_type"] == ""
+    assert item["adopted_standard"] == ""
+    assert "brand: Standard" not in item["description"]
+    assert "adopted_standard" in res.template_data["missing_fields"]
+    assert "coc_number" in res.template_data["missing_fields"]
+
+
+def test_be03_t12_inspection_draft_matched_product_has_standard(db):
+    file_id = 16
+    db.add(ImportFile(import_file_id=file_id, import_file_code="IMP-CHAIR-1", company_name="Co", supplier_name="Mega Furn", is_active=True))
+    po = PurchaseOrder(po_id=160, po_number="PO-CHAIR", import_file_id=file_id, project_id=1, company_id=1, supplier_id=1,
+                       incoterm_id=1, currency_id=1, status="DRAFT", is_active=True)
+    db.add(po)
+    line = POLineItem(item_id=1601, po_id=160, description_en="Office Chairs", description_ar="كراسي", quantity=20.0, unit_price=50.0)
+    db.add(line)
+    db.commit()
+
+    res = service.generate_inspection_draft_template_service(db, file_id, "TÜV", "COC")
+    assert res.template_data["coc_number"] == ""
+    assert any("ES 7321" in s for s in res.applicable_standards)
+    assert len(res.template_data["inspected_items"]) == 1
+    item = res.template_data["inspected_items"][0]
+    assert item["product_type"] == "Office Chairs"
+    assert "ES 7321" in item["adopted_standard"]
+    assert "brand: Mega" in item["description"]
+    assert "adopted_standard" not in res.template_data["missing_fields"]
+    assert "coc_number" in res.template_data["missing_fields"]
+
+
 # --- BE03-T16: Certified COO review is locked ---------------------------------------------
 def test_be03_t16_certified_coo_post_locked_and_lifecycle_unchanged(db, monkeypatch):
     lifecycle_calls = []
@@ -643,4 +755,3 @@ def test_be03_t16_certified_coo_put_locked_except_notes_and_delete_locked(db):
     with pytest.raises(HTTPException) as exc:
         service.delete_coo_review_service(db, saved.coo_review_id, user="alice")
     assert exc.value.status_code == 409
-
