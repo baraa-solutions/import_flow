@@ -25,6 +25,7 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
+import '../utils/shipping_scenario_calculator.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -370,107 +371,18 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     super.dispose();
   }
 
-  double _calculateTotalQuoteValue(ShippingScenarioItemModel item, List<CurrencyModel> currencies) {
-    double total = 0.0;
-    final targetCurrency = item.quotationCurrency;
-    
-    double targetRate = 1.0;
-    final mainCurr = currencies.where((c) => c.currencyCode == targetCurrency).firstOrNull;
-    if (mainCurr != null) {
-      targetRate = mainCurr.latestCommercialRate ?? 1.0;
-    }
-
-    double convert(double amount, String sourceCurrency) {
-      if (sourceCurrency == targetCurrency) return amount;
-      double sourceRate = 1.0;
-      final srcCurr = currencies.where((c) => c.currencyCode == sourceCurrency).firstOrNull;
-      if (srcCurr != null) {
-        sourceRate = srcCurr.latestCommercialRate ?? 1.0;
-      }
-      return amount * (sourceRate / targetRate);
-    }
-
-    if (item.container40ftApplicable) {
-      total += convert(item.container40ftPrice * item.container40ftQty, item.container40ftCurrency);
-    }
-    if (item.container20ftApplicable) {
-      total += convert(item.container20ftPrice * item.container20ftQty, item.container20ftCurrency);
-    }
-    if (item.lclCbmApplicable) {
-      total += convert(item.lclCbmPrice * item.lclCbmQty, item.lclCbmCurrency);
-    }
-    if (item.expressCourierApplicable) {
-      total += convert(item.expressCourierPrice, item.expressCourierCurrency);
-    }
-    if (item.eurAtrApplicable) {
-      total += convert(item.eurAtrPrice, item.eurAtrCurrency);
-    }
-    if (item.solasVgmApplicable) {
-      total += convert(item.solasVgmPrice, item.solasVgmCurrency);
-    }
-    if (item.vgmNotificationApplicable) {
-      // Sum container counts only if container type is applicable to fix calculation bugs
-      final totalQty = (item.container40ftApplicable ? item.container40ftQty : 0) + 
-                       (item.container20ftApplicable ? item.container20ftQty : 0);
-      total += convert(item.vgmNotificationPrice * totalQty, item.vgmNotificationCurrency);
-    }
-    if (item.telexReleaseApplicable) {
-      total += convert(item.telexReleasePrice, item.telexReleaseCurrency);
-    }
-    if (item.insuranceApplicable) {
-      total += convert(item.insurancePrice, item.insuranceCurrency);
-    }
-    if (item.bookingCancellationApplicable) {
-      total += convert(item.bookingCancellationPrice, item.bookingCancellationCurrency);
-    }
-
-    // 4 Previous fee columns
-    if (item.ics2FilingFeeApplicable) {
-      total += convert(item.ics2FilingFeePrice, item.ics2FilingFeeCurrency);
-    }
-    if (item.othersFeeApplicable) {
-      total += convert(item.othersFeePrice, item.othersFeeCurrency);
-    }
-    if (item.documentFeesApplicable) {
-      total += convert(item.documentFeesPrice, item.documentFeesCurrency);
-    }
-    if (item.waiverLetterFeeApplicable) {
-      total += convert(item.waiverLetterFeePrice, item.waiverLetterFeeCurrency);
-    }
-
-    // 3 New quotation fee items: DTHC, Storage per week, Extra day storage
-    if (item.dthcApplicable) {
-      total += convert(item.dthcPrice, item.dthcCurrency);
-    }
-    if (item.storagePerWeekApplicable) {
-      total += convert(item.storagePerWeekPrice, item.storagePerWeekCurrency);
-    }
-    if (item.extraDayStorageApplicable) {
-      total += convert(item.extraDayStoragePrice, item.extraDayStorageCurrency);
-    }
-
-    // 4 Customs Clearance & Broker Fee Items
-    if (item.clearanceFeeApplicable) {
-      total += convert(item.clearanceFeePrice, item.clearanceFeeCurrency);
-    }
-    if (item.inspectionFeeApplicable) {
-      total += convert(item.inspectionFeePrice, item.inspectionFeeCurrency);
-    }
-    if (item.inlandTransportFeeApplicable) {
-      total += convert(item.inlandTransportFeePrice, item.inlandTransportFeeCurrency);
-    }
-    if (item.portExpensesApplicable) {
-      total += convert(item.portExpensesPrice, item.portExpensesCurrency);
-    }
-
-    return total;
+  double? _calculateTotalQuoteValue(ShippingScenarioItemModel item, List<CurrencyModel> currencies) {
+    return ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currencies).total;
   }
 
   void _updateItem(int idx, ShippingScenarioItemModel updatedItem, List<CurrencyModel> currencies) {
     final rawTotal = _calculateTotalQuoteValue(updatedItem, currencies);
-    final totalAmount = rawTotal.roundToDouble(); // Round to integer values to prevent decimals
+    final totalAmount = rawTotal?.roundToDouble();
     setState(() {
-      _evalItems[idx] = updatedItem.copyWith(totalQuotationAmount: totalAmount);
+      _evalItems[idx] = updatedItem.copyWith(
+        totalQuotationAmount: totalAmount,
+        clearTotalQuotationAmount: totalAmount == null,
+      );
     });
   }
 
@@ -1380,7 +1292,10 @@ Best regards,
         ? crd.add(Duration(days: avgTotalDays)).toString().substring(0, 10)
         : 'N/A';
 
-    final recItemMap = calculatedScenarios.where((c) => (c['item'] as ShippingScenarioItemModel).isRecommended).firstOrNull;
+    final recItemMap = calculatedScenarios.where((c) {
+      final it = c['item'] as ShippingScenarioItemModel;
+      return it.isRecommended && it.totalQuotationAmount != null;
+    }).firstOrNull;
     final recItem = recItemMap != null ? (recItemMap['item'] as ShippingScenarioItemModel) : null;
 
     final earliestItemMap = validScenarios.isNotEmpty
@@ -2376,12 +2291,35 @@ Best regards,
                                           AppButton(
                                             label: isExpanded 
                                                   ? l.hideQuote 
-                                                  : '${l.quoteDetails} [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
+                                                  : (item.totalQuotationAmount != null
+                                                      ? '${l.quoteDetails} [${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}]'
+                                                      : '${l.quoteDetails} [—]'),
                                             icon: isExpanded ? Icons.expand_less : Icons.expand_more,
                                             variant: AppButtonVariant.secondary,
                                             size: AppButtonSize.small,
                                             onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
                                           ),
+                                          if (item.totalQuotationAmount == null) ...[
+                                            const SizedBox(width: 6),
+                                            Builder(
+                                              builder: (context) {
+                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
+                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
+                                                return Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
+                                                  ),
+                                                  child: Text(
+                                                    l.rateMissingWarning(missingStr),
+                                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
                                           const SizedBox(width: 10),
                                           Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                         ],
@@ -2725,10 +2663,40 @@ Best regards,
                                             '${l.totalQuoteValue}:',
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                           ),
-                                          Text(
-                                            '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
-                                          ),
+                                          if (item.totalQuotationAmount != null)
+                                            Text(
+                                              '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                                            )
+                                          else
+                                            Builder(
+                                              builder: (context) {
+                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
+                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
+                                                return Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
+                                                      ),
+                                                      child: Text(
+                                                        l.rateMissingWarning(missingStr),
+                                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    const Text(
+                                                      '—',
+                                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.wcagOrange),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -2782,12 +2750,45 @@ Best regards,
                               rows: calculatedScenarios.map((c) {
                                 final idx = c['index'] as int;
                                 final item = c['item'] as ShippingScenarioItemModel;
-                                final rowSummary = '${item.providerName} | ${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency} | WH: ${c["expectedWhDate"]} (${c["totalDays"]}d) | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
+                                final totalStr = item.totalQuotationAmount != null
+                                    ? '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? ""}'
+                                    : '—';
+                                final rowSummary = '${item.providerName} | $totalStr | WH: ${c["expectedWhDate"]} (${c["totalDays"]}d) | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
                                 return DataRow(
                                   cells: [
                                     DataCell(CopyableTableCell(value: '${idx + 1}', rowSummary: rowSummary, child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold)))),
                                     DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                    DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
+                                    DataCell(CopyableTableCell(
+                                      value: totalStr,
+                                      rowSummary: rowSummary,
+                                      child: item.totalQuotationAmount != null
+                                          ? Text(totalStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))
+                                          : Builder(
+                                              builder: (context) {
+                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
+                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
+                                                return Tooltip(
+                                                  message: l.rateMissingWarning(missingStr),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.wcagOrange),
+                                                        SizedBox(width: 4),
+                                                        Text('—', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagOrange)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                    )),
                                     DataCell(CopyableTableCell(value: '${c["expectedWhDate"]}', rowSummary: rowSummary, child: Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)))),
                                     DataCell(CopyableTableCell(value: '${c["totalDays"]} d', rowSummary: rowSummary, child: Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                                     DataCell(CopyableTableCell(
@@ -3224,6 +3225,20 @@ Best regards,
         );
         return;
       }
+
+      if (item.totalQuotationAmount == null) {
+        final currenciesList = ref.read(currenciesProvider).valueOrNull ?? [];
+        final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
+        final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.scenarioSaveRateMissingError(i + 1, item.providerName, missingStr)),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
       seen.add(key);
     }
 
@@ -3377,9 +3392,9 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.totalQuotationAmount, n.totalQuotationAmount)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - إجمالي قيمة العرض (${n.quotationCurrency})',
-                oldValue: '${o.totalQuotationAmount.toStringAsFixed(2)} ${o.quotationCurrency}',
-                newValue: '${n.totalQuotationAmount.toStringAsFixed(2)} ${n.quotationCurrency}',
+                fieldName: '$quoteTitle - إجمالي قيمة العرض (${n.quotationCurrency ?? ""})',
+                oldValue: o.totalQuotationAmount != null ? '${o.totalQuotationAmount!.toStringAsFixed(2)} ${o.quotationCurrency ?? ""}' : '—',
+                newValue: n.totalQuotationAmount != null ? '${n.totalQuotationAmount!.toStringAsFixed(2)} ${n.quotationCurrency ?? ""}' : '—',
               ));
             }
             if (FieldChangeItem.isDifferent(o.isExcludedFromAverage, n.isExcludedFromAverage)) {
@@ -3567,7 +3582,7 @@ Best regards,
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(l.avgTransitDays(item.expectedTotalDaysToWarehouse.toString()), style: const TextStyle(fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                            Padding(padding: const EdgeInsets.all(8), child: CopyableText('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.totalQuotationAmount != null ? '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? ""}' : '—', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson))),
                             Padding(
                               padding: const EdgeInsets.all(8),
                               child: CopyableText(

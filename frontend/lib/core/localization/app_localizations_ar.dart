@@ -727,6 +727,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get quoteDetails => 'تفاصيل عرض السعر';
   @override String get hideQuote => 'إخفاء عرض السعر';
   @override String get totalQuoteValue => 'إجمالي قيمة العرض';
+  @override String rateMissingWarning(String codes) => 'سعر الصرف مفقود: $codes';
+  @override String scenarioSaveRateMissingError(int index, String provider, String codes) => 'تعذر حفظ دراسة الشحن: سعر الصرف مفقود للعملات ($codes) في سيناريو $index ($provider).';
   @override String get container40ftItem => 'شحن حاوية 40 قدم';
   @override String get container20ftItem => 'شحن حاوية 20 قدم';
   @override String get lclCbmItem => 'شحن CBM لشحنة LCL';
