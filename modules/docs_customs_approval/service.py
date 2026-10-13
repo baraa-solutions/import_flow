@@ -111,9 +111,16 @@ def _check_version(db: Session, record, submitted_version: Optional[int], entity
 
 
 def _po_for_file(db: Session, import_file: ImportFile) -> Optional[PurchaseOrder]:
-    if not import_file.po_number:
-        return None
-    return db.query(PurchaseOrder).filter(PurchaseOrder.po_number == import_file.po_number).first()
+    query = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file.import_file_id,
+        PurchaseOrder.is_active == True,
+    )
+    if import_file.po_number:
+        query = query.filter(PurchaseOrder.po_number == import_file.po_number)
+    pos = query.all()
+    if len(pos) == 1:
+        return pos[0]
+    return None
 
 
 def _file_label(import_file: ImportFile) -> str:

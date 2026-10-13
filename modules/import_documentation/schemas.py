@@ -935,6 +935,7 @@ class POExtractAndCompareResponse(BaseModel):
     reconciled_packing_items: List[POReconciliationItem]
     extracted_invoice_data: Dict[str, Any]
     extracted_packing_data: Dict[str, Any]
+    system_items_missing: bool = False
 
 
 class InvoiceBLSyncRequest(BaseModel):
