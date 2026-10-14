@@ -521,6 +521,13 @@ def list_bookings_service(
 def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
     booking = get_booking_service(db, booking_id)
 
+    validators.validate_editable_fields(booking, payload.model_fields_set, payload=payload)
+
+    if "shipment_type" in payload.model_fields_set or "containers_data" in payload.model_fields_set:
+        eff_type = payload.shipment_type if ("shipment_type" in payload.model_fields_set and payload.shipment_type is not None) else booking.shipment_type
+        eff_containers = payload.containers_data if ("containers_data" in payload.model_fields_set and payload.containers_data is not None) else booking.containers_data
+        validators.validate_container_allocation(eff_type, eff_containers)
+
     if "status" in payload.model_fields_set:
         validators.validate_manual_status(payload.status, booking.status)
     if payload.import_file_id is not None:
