@@ -699,6 +699,55 @@ def _require_settlement_permission(db: Session, actor: Any) -> None:
             )
 
 
+def _sync_containers_from_tracking(db: Session, tracking: DemurrageTracking, user: str) -> None:
+    """DEV-OPS-01: Synchronize demurrage calculation outputs to independent ShipmentContainer entities."""
+    try:
+        from modules.containers.model import ShipmentContainer
+        if not tracking.import_file_id or not isinstance(tracking.containers, list):
+            return
+        containers = db.query(ShipmentContainer).filter(
+            ShipmentContainer.import_file_id == tracking.import_file_id,
+            ShipmentContainer.is_active == True,
+        ).all()
+        if not containers:
+            return
+        c_map = {str(c.get("container_no", "")).strip().upper(): c for c in tracking.containers}
+        for sc in containers:
+            c_data = c_map.get(sc.container_number)
+            if c_data:
+                sc.demurrage_tracking_id = tracking.tracking_id
+                gate_out = c_data.get("gate_out_date") or tracking.gate_out_date
+                if gate_out:
+                    if isinstance(gate_out, str):
+                        try:
+                            gate_out = date.fromisoformat(gate_out[:10])
+                        except ValueError:
+                            gate_out = None
+                    if gate_out:
+                        sc.gate_out_date = gate_out
+                empty_ret = c_data.get("empty_return_date") or tracking.empty_return_date
+                if empty_ret:
+                    if isinstance(empty_ret, str):
+                        try:
+                            empty_ret = date.fromisoformat(empty_ret[:10])
+                        except ValueError:
+                            empty_ret = None
+                    if empty_ret:
+                        sc.empty_return_date = empty_ret
+                sc.demurrage_days = int(c_data.get("demurrage_days") or 0)
+                sc.detention_days = int(c_data.get("detention_days") or 0)
+                sc.storage_days = int(c_data.get("storage_days") or 0)
+                sc.demurrage_cost_fx = float(c_data.get("demurrage_fx") or 0.0)
+                sc.detention_cost_fx = float(c_data.get("detention_fx") or 0.0)
+                sc.storage_cost_egp = float(c_data.get("storage_egp") or 0.0)
+                sc.total_cost_egp = float(c_data.get("total_egp") or 0.0)
+                if c_data.get("status"):
+                    sc.status = c_data["status"]
+                sc.updated_by = user
+    except Exception as exc:
+        logger.warning("Failed to sync containers from tracking: %s", exc)
+
+
 def recalculate_and_update_tracking_service(
     db: Session, tracking_id: int, req: DemurrageTrackingUpdate, user: str = "System", actor: Any = None
 ) -> DemurrageTracking:
@@ -732,6 +781,7 @@ def recalculate_and_update_tracking_service(
         tracking.notes = req.notes
     tracking.updated_by = user
     tracking.updated_at = datetime.now(timezone.utc)
+    _sync_containers_from_tracking(db, tracking, user)
     db.commit()
     _recalculate_settlement_follow_up(db, settlement_id, user)
     db.refresh(tracking)
@@ -1584,6 +1634,26 @@ def record_empty_container_return_service(
         existing_eirs.append(payload.eir_number)
     imp_file.empty_containers_eir_numbers = ", ".join(existing_eirs)
     imp_file.empty_containers_depot_name = payload.depot_name or "Carrier Depot"
+
+    # DEV-OPS-01: Update empty return info on ShipmentContainer entities
+    try:
+        from modules.containers.model import ShipmentContainer
+        sc_list = db.query(ShipmentContainer).filter(
+            ShipmentContainer.import_file_id == payload.import_file_id,
+            ShipmentContainer.is_active == True,
+        ).all()
+        for sc in sc_list:
+            if not returned_container_numbers or sc.container_number in returned_container_numbers:
+                sc.empty_return_date = payload.empty_return_date
+                sc.eir_number = payload.eir_number
+                if payload.depot_name:
+                    sc.depot_name = payload.depot_name
+                if payload.condition_at_return:
+                    sc.condition_at_return = payload.condition_at_return
+                sc.status = "Returned Empty"
+                sc.updated_by = user
+    except Exception as exc:
+        logger.warning("Failed to sync return empty to ShipmentContainer: %s", exc)
 
     if all_returned:
         # 4. Inland transport bookings complete only when every container is back
