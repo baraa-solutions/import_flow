@@ -39,6 +39,18 @@ class CargoInsuranceRepository:
             .first()
         )
 
+    def get_active_for_file(self, import_file_id: int) -> Optional[CargoInsuranceCertificate]:
+        """Finds the active non-cancelled certificate linked to the import file (BE45-T05)."""
+        return (
+            self.db.query(CargoInsuranceCertificate)
+            .filter(
+                CargoInsuranceCertificate.import_file_id == import_file_id,
+                CargoInsuranceCertificate.is_active == True,
+                CargoInsuranceCertificate.status != "CANCELLED",
+            )
+            .first()
+        )
+
     def list_certificates(
         self,
         skip: int = 0,

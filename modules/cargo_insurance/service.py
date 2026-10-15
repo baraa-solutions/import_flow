@@ -21,6 +21,7 @@ from modules.cargo_insurance.validators import (
     validate_cargo_insurance_update,
     validate_certificate_editable,
     validate_coverage_clause,
+    validate_no_active_certificate_for_file,
     validate_transport_mode,
 )
 from modules.common.system_parameters import get_float_parameter
@@ -150,6 +151,10 @@ class CargoInsuranceService:
         current_user: str = "system",
     ) -> CargoInsuranceCertificate:
         validate_cargo_insurance_create(data)
+
+        if data.import_file_id is not None:
+            existing = self.repo.get_active_for_file(data.import_file_id)
+            validate_no_active_certificate_for_file(existing)
 
         # 1. Run Financial Engine Calculation
         calc_result = calculate_cargo_insurance_engine(InsuranceCalculationInput(
