@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone, date
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import HTTPException, status
 
 from modules.import_files.schemas import (
@@ -11,6 +12,7 @@ from modules.import_files.schemas import (
     ImportFileResponse,
     ImportMasterReportSummary,
     CloneImportFileRequest,
+    CreatePartialBatchRequest,
     CloseShipmentSubmit,
     ReopenShipmentSubmit,
 )
@@ -548,6 +550,8 @@ def get_all_import_files_service(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ):
     return repo.get_all_import_files(
         db,
@@ -565,6 +569,8 @@ def get_all_import_files_service(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
 
 def get_paginated_import_files_service(
@@ -584,6 +590,8 @@ def get_paginated_import_files_service(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ) -> dict:
     return repo.get_paginated_import_files(
         db,
@@ -601,6 +609,8 @@ def get_paginated_import_files_service(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
 
 def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = None, priority: Optional[str] = None, broker_id: Optional[int] = None, broker_name: Optional[str] = None, search: Optional[str] = None):
@@ -1278,6 +1288,203 @@ def clone_import_file_service(
     db.commit()
     db.refresh(new_file)
     return new_file
+
+
+def create_partial_batch_service(
+    db: Session,
+    parent_file_id: int,
+    payload: CreatePartialBatchRequest,
+    current_user: str = "System",
+) -> ImportFile:
+    """
+    Creates a new independent partial shipment file linked to a parent import file (DEV-OPS-04).
+    - Inherits master data (Company, Supplier, Broker, PO links, Incoterms, Ports, HS code, etc.)
+    - Sets parent_import_file_id and parent_file_code
+    - Marks is_partial_shipment = True on both child and parent
+    - Generates unique target code e.g. IMP-2026-0001-P2 if not provided
+    - Initializes independent lifecycle board activities for the child file
+    """
+    parent = repo.get_import_file_by_id(db, parent_file_id)
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد الرئيسي برقم المعرف {parent_file_id} غير موجود.",
+        )
+
+    # 1. Determine target_code
+    target_code = payload.target_import_file_code
+    if target_code:
+        target_code = target_code.strip()
+        existing_code = repo.get_import_file_by_code(db, target_code)
+        if existing_code:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"كود ملف الاستيراد '{target_code}' مستخدم بالفعل.",
+            )
+    else:
+        # Auto-generate: parent_code-P<N>
+        child_count = repo.count_child_partial_files(db, parent.import_file_id)
+        counter = child_count + 1
+        candidate = f"{parent.import_file_code}-P{counter}"
+        while repo.get_import_file_by_code(db, candidate):
+            counter += 1
+            candidate = f"{parent.import_file_code}-P{counter}"
+        target_code = candidate
+
+    # 2. Check custom_file_number uniqueness if provided
+    if payload.target_custom_file_number:
+        existing_custom = db.query(ImportFile).filter(
+            ImportFile.custom_file_number == payload.target_custom_file_number.strip()
+        ).first()
+        if existing_custom:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"رقم الملف الجمركي '{payload.target_custom_file_number}' مستخدم بالفعل.",
+            )
+
+    # 3. Inherit & initialize data
+    initial_step = payload.initial_starting_step or "STEP_01"
+    step_config = STEP_INITIAL_CONFIG.get(initial_step, {
+        "module": "BP-001 Receive Purchase Order & Planning",
+        "stage": "Phase 1: Import Planning & Feasibility",
+        "progress": 15.0,
+        "next_action": "Evaluate Shipping Scenarios & Request Freight Quotations",
+    })
+
+    invoices = payload.invoices_data if payload.invoices_data is not None else []
+    packings = payload.packing_lists_data if payload.packing_lists_data is not None else []
+    estimated_cost = payload.estimated_cost if payload.estimated_cost is not None else 0.0
+
+    child_data = {
+        "import_file_code": target_code,
+        "custom_file_number": payload.target_custom_file_number.strip() if payload.target_custom_file_number else None,
+        "company_id": parent.company_id,
+        "company_name": parent.company_name,
+        "supplier_id": parent.supplier_id,
+        "supplier_name": parent.supplier_name,
+        "broker_id": parent.broker_id,
+        "broker_name": parent.broker_name,
+        "po_number": parent.po_number,
+        "po_ids": list(parent.po_ids) if parent.po_ids else [],
+        "pi_number": parent.pi_number,
+        "invoices_data": invoices,
+        "packing_lists_data": packings,
+        "invoices_count": len(invoices),
+        "extraction_preference": parent.extraction_preference or "all_consolidated",
+        "project_ids": list(parent.project_ids) if parent.project_ids else [],
+        "project_names": parent.project_names,
+        "shipment_mode": payload.shipment_mode or parent.shipment_mode or "Sea FCL",
+        "incoterm_code": parent.incoterm_code or "FOB",
+        "priority": parent.priority or "High",
+        "shipment_category": parent.shipment_category or "New Purchase",
+        "hs_code": parent.hs_code,
+        "product_category": parent.product_category,
+        "required_eta": payload.required_eta or parent.required_eta,
+        "file_opening_date": date.today(),
+        "selected_scenario": parent.selected_scenario,
+        "pickup_address": parent.pickup_address,
+        "port_of_loading": parent.port_of_loading,
+        "port_of_discharge": parent.port_of_discharge,
+        "cargo_ready_date": None,
+        "target_free_days": parent.target_free_days or 21,
+        "service_type_preference": parent.service_type_preference or "Direct",
+        "shipping_instructions_notes": parent.shipping_instructions_notes,
+        "estimated_cost": estimated_cost,
+        "estimated_cost_currency": parent.estimated_cost_currency or "USD",
+        # Partial linkage
+        "parent_import_file_id": parent.import_file_id,
+        "parent_file_code": parent.import_file_code,
+        "is_partial_shipment": True,
+        # Fresh Lifecycle status
+        "current_module": step_config["module"],
+        "current_stage": step_config["stage"],
+        "progress_percent": step_config["progress"],
+        "next_action": step_config["next_action"],
+        "current_step_code": initial_step,
+        "initial_starting_stage": step_config["stage"],
+        "initial_starting_step": initial_step,
+        "status": "Open",
+        "owner": parent.owner or current_user,
+        "notes": payload.notes or f"دفعة شحن مجزأة تابعة للملف الأساسي: {parent.import_file_code}",
+        "is_active": True,
+        "created_by": current_user,
+        "updated_by": current_user,
+    }
+
+    child_file = ImportFile(**child_data)
+    db.add(child_file)
+
+    # Mark parent as also part of a partial shipment if not already
+    if not parent.is_partial_shipment:
+        parent.is_partial_shipment = True
+
+    db.commit()
+    db.refresh(child_file)
+
+    # Initialize lifecycle board activities
+    try:
+        from modules.lifecycle_board.service import initialize_file_lifecycle_service
+        initialize_file_lifecycle_service(db, child_file.import_file_code, initial_step)
+    except Exception:
+        pass
+
+    # Generate system tasks
+    try:
+        from modules.smart_tasks.service import auto_generate_system_tasks_for_file
+        auto_generate_system_tasks_for_file(db, child_file)
+    except Exception:
+        pass
+
+    # Log audit activity
+    try:
+        AuditLogService(db).log_activity(
+            entity_type="ImportFile",
+            entity_id=child_file.import_file_id,
+            entity_code=child_file.import_file_code,
+            action="CREATE_PARTIAL_BATCH",
+            new_data={
+                "parent_file_id": parent.import_file_id,
+                "parent_file_code": parent.import_file_code,
+                "child_file_code": child_file.import_file_code,
+            },
+            performed_by=current_user,
+            changes_summary=f"Created child partial batch {child_file.import_file_code} from parent {parent.import_file_code}",
+        )
+    except Exception:
+        pass
+
+    return child_file
+
+
+def get_partial_batches_service(db: Session, import_file_id: int) -> List[ImportFile]:
+    """
+    Returns all linked partial shipment files for a given import file.
+    If the file is a parent, returns all its children.
+    If the file is a child, returns its parent and siblings.
+    """
+    target = repo.get_import_file_by_id(db, import_file_id)
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    root_id = target.parent_import_file_id if target.parent_import_file_id else target.import_file_id
+
+    linked_files = (
+        db.query(ImportFile)
+        .filter(
+            or_(
+                ImportFile.import_file_id == root_id,
+                ImportFile.parent_import_file_id == root_id,
+            ),
+            ImportFile.is_active == True,
+        )
+        .order_by(ImportFile.import_file_id.asc())
+        .all()
+    )
+    return linked_files
+
 
 
 

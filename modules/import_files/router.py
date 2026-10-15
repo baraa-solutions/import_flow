@@ -24,6 +24,7 @@ from modules.import_files.schemas import (
     HoldShipmentPayload,
     ResumeShipmentPayload,
     CloneImportFileRequest,
+    CreatePartialBatchRequest,
 )
 import modules.import_files.service as service
 from modules.auth.permissions import require_permission
@@ -67,6 +68,8 @@ def list_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
@@ -86,6 +89,8 @@ def list_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
 
 
@@ -110,6 +115,8 @@ def list_paginated_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
@@ -130,9 +137,12 @@ def list_paginated_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
     response.headers["X-Total-Count"] = str(result["total"])
     return result
+
 
 
 @router.get(
@@ -430,6 +440,41 @@ def clone_shipment(
         payload=payload,
         current_user=user_name,
     )
+
+
+@router.post(
+    "/{import_file_id}/create-partial-batch",
+    response_model=ImportFileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new independent partial shipment file linked to parent file (DEV-OPS-04)",
+)
+def create_partial_batch(
+    import_file_id: int,
+    payload: CreatePartialBatchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.create")),
+):
+    user_name = current_user.username if (current_user and hasattr(current_user, "username")) else "System"
+    return service.create_partial_batch_service(
+        db,
+        parent_file_id=import_file_id,
+        payload=payload,
+        current_user=user_name,
+    )
+
+
+@router.get(
+    "/{import_file_id}/partial-batches",
+    response_model=List[ImportFileResponse],
+    summary="List all linked partial shipment files for a given import file (DEV-OPS-04)",
+)
+def list_partial_batches(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    return service.get_partial_batches_service(db, import_file_id=import_file_id)
+
 
 
 

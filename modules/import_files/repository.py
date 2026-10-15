@@ -48,9 +48,16 @@ def _apply_import_file_filters(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ):
     if not include_inactive:
         query = query.filter(ImportFile.is_active == True)
+
+    if parent_import_file_id is not None:
+        query = query.filter(ImportFile.parent_import_file_id == parent_import_file_id)
+    if is_partial_shipment is not None:
+        query = query.filter(ImportFile.is_partial_shipment == is_partial_shipment)
 
     if company_id:
         query = query.filter(ImportFile.company_id == company_id)
@@ -133,6 +140,8 @@ def get_all_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ) -> List[ImportFile]:
     query = db.query(ImportFile)
     query = _apply_import_file_filters(
@@ -151,6 +160,8 @@ def get_all_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
     return query.order_by(ImportFile.import_file_id.desc()).all()
 
@@ -171,6 +182,8 @@ def count_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ) -> int:
     query = db.query(ImportFile)
     query = _apply_import_file_filters(
@@ -189,6 +202,8 @@ def count_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
     return query.count()
 
@@ -210,6 +225,8 @@ def get_paginated_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
 ) -> dict:
     effective_search = params.q if params.q is not None else search
 
@@ -230,6 +247,8 @@ def get_paginated_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
 
     return paginate(
@@ -239,6 +258,31 @@ def get_paginated_import_files(
         default_sort=[ImportFile.import_file_id.desc()],
         pk=ImportFile.import_file_id,
     )
+
+
+def get_child_partial_files(db: Session, parent_file_id: int) -> List[ImportFile]:
+    """Fetches all active child partial files linked to a parent file."""
+    return (
+        db.query(ImportFile)
+        .filter(
+            ImportFile.parent_import_file_id == parent_file_id,
+            ImportFile.is_active == True,
+        )
+        .order_by(ImportFile.import_file_id.asc())
+        .all()
+    )
+
+
+def count_child_partial_files(db: Session, parent_file_id: int) -> int:
+    """Counts total child partial files linked to a parent file."""
+    return (
+        db.query(ImportFile)
+        .filter(
+            ImportFile.parent_import_file_id == parent_file_id,
+        )
+        .count()
+    )
+
 
 
 
