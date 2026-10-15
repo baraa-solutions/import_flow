@@ -832,9 +832,16 @@ def get_comprehensive_shipment_dossier_service(
         )
 
     dossier_net_weight: Optional[float] = None
-    if getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
-        dossier_net_weight = float(imp.net_weight_kg)
+    # Priority 1: sum net weight from purchase_orders (most reliable source — FC-07 / BE810-T07)
+    po_nw = sum(
+        float(p["total_net_weight_kg"])
+        for p in po_summaries
+        if p.get("total_net_weight_kg") is not None
+    )
+    if po_nw > 0:
+        dossier_net_weight = round(po_nw, 2)
     else:
+        # Priority 2: sum net weight from individual PO items
         po_items_nw = sum(
             float(itm["net_weight_kg"])
             for itm in items_detail
@@ -842,14 +849,9 @@ def get_comprehensive_shipment_dossier_service(
         )
         if po_items_nw > 0:
             dossier_net_weight = round(po_items_nw, 2)
-        else:
-            po_nw = sum(
-                float(p["total_net_weight_kg"])
-                for p in po_summaries
-                if p.get("total_net_weight_kg") is not None
-            )
-            if po_nw > 0:
-                dossier_net_weight = round(po_nw, 2)
+        elif getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
+            # Priority 3: import file record (may be stale — use as last resort)
+            dossier_net_weight = float(imp.net_weight_kg)
 
     # 8. Container loading & seal matrix
     cargo_ship = repo.latest_active_cargo_shipping(db, import_file_id)
@@ -1137,12 +1139,27 @@ def get_comprehensive_shipment_dossier_service(
         from modules.experience_guide.service import ExperienceGuideService
         from modules.experience_guide.schemas import GuideMatchRequest
         guide_svc = ExperienceGuideService(db)
+        # Collect HS codes and categories from file and PO line items
+        file_hs = imp.hs_code or (po_summaries[0].get("hs_code") if po_summaries else None)
+        file_category = imp.product_category or (po_summaries[0].get("product_category") if po_summaries else None)
+        all_hs = [file_hs] if file_hs else []
+        all_cats = [file_category] if file_category else []
+        for itm in (items_detail or []):
+            if itm.get("hs_code") and itm.get("hs_code") not in all_hs:
+                all_hs.append(itm.get("hs_code"))
+            if itm.get("product_category") and itm.get("product_category") not in all_cats:
+                all_cats.append(itm.get("product_category"))
+
         match_req = GuideMatchRequest(
+            hs_code=file_hs,
+            hs_codes=all_hs or None,
+            product_category=file_category,
+            product_categories=all_cats or None,
             supplier=supplier_name,
             port_of_loading=imp.port_of_loading,
             port_of_discharge=imp.port_of_discharge,
             destination_port=imp.port_of_discharge,
-            shipping_line=getattr(imp, "shipping_line", None),
+            shipping_line=getattr(imp, "shipping_line", None) or getattr(imp, "selected_scenario", None),
             incoterm=imp.incoterm_code,
             import_file_id=imp.import_file_id,
             import_file_reference=imp.import_file_code,

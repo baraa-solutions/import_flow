@@ -83,9 +83,21 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   int _currentPhaseIndex(ImportFileModel file) {
-    final mod = file.currentModule;
-    for (int i = 1; i <= 10; i++) {
-      if (mod.contains('Phase $i')) return i - 1;
+    // Priority 1: use the explicit phase id stored in the backend
+    if (file.currentPhaseId != null && file.currentPhaseId! >= 1 && file.currentPhaseId! <= 10) {
+      return file.currentPhaseId! - 1;
+    }
+    // Priority 2: parse from currentStage (e.g. "Phase 3: Booking & Doc Prep")
+    final stageMatch = RegExp(r'Phase\s*(\d+)').firstMatch(file.currentStage);
+    if (stageMatch != null) {
+      final n = int.tryParse(stageMatch.group(1) ?? '');
+      if (n != null && n >= 1 && n <= 10) return n - 1;
+    }
+    // Priority 3: parse from currentModule (legacy fallback)
+    final modMatch = RegExp(r'Phase\s*(\d+)').firstMatch(file.currentModule);
+    if (modMatch != null) {
+      final n = int.tryParse(modMatch.group(1) ?? '');
+      if (n != null && n >= 1 && n <= 10) return n - 1;
     }
     return 0;
   }
@@ -419,9 +431,9 @@ class _ImportFileComprehensiveReportScreenState
                                     const SizedBox(height: 14),
                                     _buildDocumentsCard(context, _selectedFile!),
                                     const SizedBox(height: 14),
-                                    _buildInvoicesCard(context, _selectedFile!),
+                                    _buildInvoicesCard(context, _selectedFile!, dossier),
                                     const SizedBox(height: 14),
-                                    _buildPackingListCard(context, _selectedFile!),
+                                    _buildPackingListCard(context, _selectedFile!, dossier),
                                   ],
                                 ),
                               ),
@@ -433,7 +445,7 @@ class _ImportFileComprehensiveReportScreenState
                                   children: [
                                     _buildStatusCard(context, _selectedFile!),
                                     const SizedBox(height: 14),
-                                    _buildFinancialCard(context, _selectedFile!),
+                                    _buildFinancialCard(context, _selectedFile!, dossier),
                                     const SizedBox(height: 14),
                                     _buildFxReconciliationCard(context, dossier, _selectedFile!),
                                     const SizedBox(height: 14),
@@ -932,74 +944,196 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  // ── Section 3c: Invoices ──────────────────────────────────────────
-  Widget _buildInvoicesCard(BuildContext context, ImportFileModel file) {
+  // ── Section 3c: Invoices & Purchase Orders ────────────────────────
+  Widget _buildInvoicesCard(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+  ) {
     final l = context.l10n;
+    final pos = dossier?.purchaseOrders ?? [];
+    final invs = file.invoicesData;
+
+    if (pos.isEmpty && invs.isEmpty) {
+      return _reportCard(
+        title: l.compReportSecInvoices(0),
+        icon: Icons.receipt_outlined,
+        iconColor: AppTheme.emerald,
+        child: Text(l.compReportNoInvoices, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+      );
+    }
+
     return _reportCard(
-      title: l.compReportSecInvoices(file.invoicesData.length),
+      title: 'الفواتير وأوامر الشراء (${pos.length} PO • ${invs.length} فاتورة)',
       icon: Icons.receipt_outlined,
       iconColor: AppTheme.emerald,
-      child: file.invoicesData.isEmpty
-          ? Text(l.compReportNoInvoices, style: const TextStyle(color: Colors.grey, fontSize: 12))
-          : Column(
-              children: file.invoicesData.map((inv) {
-                final rowSummary = '${inv.invoiceNo} | ${inv.invoiceType} | ${inv.amount.toStringAsFixed(2)} ${inv.currency}${inv.date != null ? " | ${inv.date}" : ""}';
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: CopyableTableCell(
-                    value: inv.invoiceNo,
-                    rowSummary: rowSummary,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.teal.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.teal.shade100),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Linked Purchase Orders
+          if (pos.isNotEmpty) ...[
+            const Text(
+              '📦 أوامر التوريد المعتمدة (Purchase Orders):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+            ),
+            const SizedBox(height: 6),
+            ...pos.map((po) {
+              final poNo = po['po_number']?.toString() ?? 'PO';
+              final poRef = po['po_reference']?.toString() ?? '';
+              final poFob = (po['total_amount_fob'] as num?)?.toDouble() ?? 0.0;
+              final curr = po['currency']?.toString() ?? 'USD';
+              final piNo = po['proforma_invoice_number']?.toString();
+              final status = po['status']?.toString() ?? 'Approved';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    _buildCopyBadge(
+                      context,
+                      poNo,
+                      color: Colors.white,
+                      borderColor: Colors.blue.shade300,
+                      textColor: const Color(0xFF1E3A8A),
+                    ),
+                    if (poRef.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(poRef, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                    ],
+                    if (piNo != null && piNo.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Text('PI: $piNo', style: const TextStyle(fontSize: 10, color: AppTheme.charcoal)),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.receipt, size: 16, color: Colors.teal),
-                          const SizedBox(width: 8),
-                          _buildCopyBadge(
-                            context,
-                            inv.invoiceNo,
-                            color: Colors.white,
-                            borderColor: Colors.teal.shade200,
-                            textColor: Colors.teal.shade900,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(inv.invoiceType, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                          const Spacer(),
-                          Text(
-                            '${inv.amount.toStringAsFixed(2)} ${inv.currency}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
-                          ),
-                          if (inv.date != null) ...[
-                            const SizedBox(width: 8),
-                            Text(inv.date!, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                          ],
-                        ],
+                    ],
+                    const Spacer(),
+                    Text(
+                      '${poFob.toStringAsFixed(2)} $curr',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), fontSize: 12),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        status,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 10),
+          ],
+
+          // 2. Commercial / Proforma Invoices
+          if (invs.isNotEmpty) ...[
+            const Text(
+              '🧾 الفواتير المرفقة (Invoices):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
             ),
+            const SizedBox(height: 6),
+            ...invs.map((inv) {
+              final rowSummary = '${inv.invoiceNo} | ${inv.invoiceType} | ${inv.amount.toStringAsFixed(2)} ${inv.currency}${inv.date != null ? " | ${inv.date}" : ""}';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: CopyableTableCell(
+                  value: inv.invoiceNo,
+                  rowSummary: rowSummary,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.teal.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.receipt, size: 16, color: Colors.teal),
+                        const SizedBox(width: 8),
+                        _buildCopyBadge(
+                          context,
+                          inv.invoiceNo,
+                          color: Colors.white,
+                          borderColor: Colors.teal.shade200,
+                          textColor: Colors.teal.shade900,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(inv.invoiceType, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                        const Spacer(),
+                        Text(
+                          '${inv.amount.toStringAsFixed(2)} ${inv.currency}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                        ),
+                        if (inv.date != null) ...[
+                          const SizedBox(width: 8),
+                          Text(inv.date!, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 
-  // ── Section 3d: Packing Lists ─────────────────────────────────────
-  Widget _buildPackingListCard(BuildContext context, ImportFileModel file) {
+  // ── Section 3d: Packing Lists & Cargo Physical Breakdown ─────────
+  Widget _buildPackingListCard(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+  ) {
     final l = context.l10n;
-    double totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
-    double totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
-    int totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
+    // Source physical totals from dossier (which resolves from POs and packing sessions)
+    // with fallback to file.packingListsData
+    final cbmFromDossier = (dossier?.cargoPhysicalSummary?['total_cbm'] as num?)?.toDouble() ??
+        (dossier != null && dossier.totalCbm > 0 ? dossier.totalCbm : 0.0);
+    final grossFromDossier = (dossier?.cargoPhysicalSummary?['total_gross_weight_kg'] as num?)?.toDouble() ??
+        (dossier?.cargoPhysicalSummary?['gross_weight_kg'] as num?)?.toDouble() ??
+        (dossier != null && dossier.grossWeightKg > 0 ? dossier.grossWeightKg : 0.0);
+    final netFromDossier = dossier?.netWeightKg ??
+        (dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0;
+    final pkgsFromDossier = (dossier?.cargoPhysicalSummary?['total_packages'] as num?)?.toInt() ??
+        (dossier != null && dossier.totalPackages > 0 ? dossier.totalPackages : 0);
+
+    final double totalCbm = cbmFromDossier > 0 ? cbmFromDossier : file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
+    final double totalWeight = grossFromDossier > 0 ? grossFromDossier : file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
+    final double totalNet = netFromDossier > 0 ? netFromDossier : 0.0;
+    final int totalPkgs = pkgsFromDossier > 0 ? pkgsFromDossier : file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
+
+    final hasPhysicalData = totalCbm > 0 || totalWeight > 0 || totalPkgs > 0 || file.packingListsData.isNotEmpty;
+
+    final plCount = file.packingListsData.isNotEmpty
+        ? file.packingListsData.length
+        : (dossier != null && dossier.posCount > 0 ? 1 : 0);
 
     return _reportCard(
-      title: l.compReportSecPackingLists(file.packingListsData.length),
+      title: 'بيان العبوة ومواصفات الشحن ($plCount بيان تعبئة)',
       icon: Icons.inventory_2_outlined,
       iconColor: AppTheme.cobalt,
-      child: file.packingListsData.isEmpty
+      child: !hasPhysicalData
           ? Text(l.compReportNoPackingLists, style: const TextStyle(color: Colors.grey, fontSize: 12))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,57 +1141,74 @@ class _ImportFileComprehensiveReportScreenState
                 // Summary totals
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.cobalt.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.15)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _miniStat(l.compReportTotalPackages, l.compReportPiecesUnit(totalPkgs)),
-                      _miniStat(l.compReportTotalWeight, '${PoPackingMatcher.formatWeight(totalWeight)} KG'),
-                      _miniStat(l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
+                      _miniStat('إجمالي الطرود', '$totalPkgs طرد'),
+                      _miniStat('الوزن القائم', '${PoPackingMatcher.formatWeight(totalWeight)} كجم'),
+                      if (totalNet > 0)
+                        _miniStat('الوزن الصافي', '${PoPackingMatcher.formatWeight(totalNet)} كجم'),
+                      _miniStat('الحجم الإجمالي', '${totalCbm.toStringAsFixed(3)} m³'),
                     ],
                   ),
                 ),
-                ...file.packingListsData.map((pl) {
-                  final rowSummary = '${pl.plNo} | ${pl.totalPackages} pkgs | ${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG | ${pl.cbm.toStringAsFixed(2)} CBM';
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: CopyableTableCell(
-                      value: pl.plNo,
-                      rowSummary: rowSummary,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.indigo.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.indigo.shade100),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.inventory_2, size: 14, color: Colors.indigo),
-                            const SizedBox(width: 6),
-                            _buildCopyBadge(
-                              context,
-                              pl.plNo,
-                              color: Colors.white,
-                              borderColor: Colors.indigo.shade200,
-                              textColor: Colors.indigo.shade900,
-                            ),
-                            const Spacer(),
-                            Text(l.compReportPackagesUnit(pl.totalPackages), style: const TextStyle(fontSize: 11)),
-                            const SizedBox(width: 10),
-                            Text('${pl.grossWeightKg.toStringAsFixed(1)} KG', style: const TextStyle(fontSize: 11)),
-                            const SizedBox(width: 10),
-                            Text('${pl.cbm.toStringAsFixed(2)} CBM', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                          ],
+                if (file.packingListsData.isNotEmpty)
+                  ...file.packingListsData.map((pl) {
+                    final rowSummary = '${pl.plNo} | ${pl.totalPackages} pkgs | ${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG | ${pl.cbm.toStringAsFixed(2)} CBM';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: CopyableTableCell(
+                        value: pl.plNo,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.indigo.shade100),
+                          ),
+                          child: Row(
+                            children: [
+                              _buildCopyBadge(context, pl.plNo),
+                              const SizedBox(width: 8),
+                              Text('${pl.totalPackages} pkgs', style: const TextStyle(fontSize: 11)),
+                              const Spacer(),
+                              Text('${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              Text('${pl.cbm.toStringAsFixed(2)} m³', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                            ],
+                          ),
                         ),
                       ),
+                    );
+                  })
+                else if (dossier != null && dossier.purchaseOrders.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
-                  );
-                }),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 16, color: AppTheme.emerald),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'تم اعتماد أوزان وأحجام الشحنة من أمر التوريد ${dossier.purchaseOrders.first["po_number"]} بإجمالي $totalPkgs طرد (${PoPackingMatcher.formatWeight(totalWeight)} كجم قائم / ${totalCbm.toStringAsFixed(3)} CBM).',
+                            style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
     );
@@ -1117,10 +1268,21 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3f: Financial Card ─────────────────────────────────────
-  Widget _buildFinancialCard(BuildContext context, ImportFileModel file) {
+  Widget _buildFinancialCard(BuildContext context, ImportFileModel file, ComprehensiveShipmentDossierModel? dossier) {
     final l = context.l10n;
     final curr = l.compReportCurrencyUsd;
-    double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+
+    // 1. PO FOB total from purchase_orders table
+    final double poFobTotal = dossier?.totalFobFc ??
+        (dossier?.purchaseOrders.isNotEmpty == true
+            ? (dossier!.purchaseOrders.first['total_amount_fob'] as num?)?.toDouble() ?? 0.0
+            : 0.0);
+    final String fobCurrency = dossier?.fobCurrency ?? curr;
+
+    // 2. Commercial Invoices attached total
+    final double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+
+    final double effectiveBase = poFobTotal > 0 ? poFobTotal : totalInvoicesValue;
 
     return _reportCard(
       title: l.compReportSecFinancial,
@@ -1128,11 +1290,28 @@ class _ImportFileComprehensiveReportScreenState
       iconColor: AppTheme.orange,
       child: Column(
         children: [
-          _financialRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} $curr', Colors.teal),
-          _financialRow(l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} $curr', AppTheme.cobalt),
+          if (poFobTotal > 0)
+            _financialRow(
+              'إجمالي أمر التوريد (PO Total FOB)',
+              '${poFobTotal.toStringAsFixed(2)} $fobCurrency',
+              const Color(0xFF1E3A8A),
+            ),
+          _financialRow(
+            'إجمالي الفواتير المرفقة (Invoices Total)',
+            '${(totalInvoicesValue > 0 ? totalInvoicesValue : poFobTotal).toStringAsFixed(2)} $fobCurrency',
+            Colors.teal,
+          ),
+          _financialRow(
+            l.compReportEstimatedCostVal,
+            '${file.estimatedCost.toStringAsFixed(2)} $curr',
+            AppTheme.cobalt,
+          ),
           const Divider(height: 16),
-          _financialRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} $curr',
-              file.estimatedCost > totalInvoicesValue ? AppTheme.orange : AppTheme.emerald),
+          _financialRow(
+            l.compReportEstimatedVariance,
+            '${(file.estimatedCost - effectiveBase).toStringAsFixed(2)} $curr',
+            file.estimatedCost >= effectiveBase ? AppTheme.emerald : AppTheme.orange,
+          ),
         ],
       ),
     );
@@ -2709,9 +2888,13 @@ class _ImportFileComprehensiveReportScreenState
 
     // 2. Gross Weight
     final fallbackGross = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
-    final grossVal = (dossier?.cargoPhysicalSummary?['gross_weight_kg'] as num?)?.toDouble() ??
+    final grossVal = (dossier?.cargoPhysicalSummary?['total_gross_weight_kg'] as num?)?.toDouble() ??
+        (dossier?.cargoPhysicalSummary?['gross_weight_kg'] as num?)?.toDouble() ??
         (dossier != null && dossier.grossWeightKg > 0 ? dossier.grossWeightKg : fallbackGross);
-    final netVal = (dossier?.cargoPhysicalSummary?['net_weight_kg'] as num?)?.toDouble() ?? dossier?.netWeightKg;
+    // Priority: dossier.netWeightKg is sourced from PO totals (reliable).
+    // cargoPhysicalSummary['total_net_weight_kg'] may come from container loader sessions (unreliable).
+    final netVal = dossier?.netWeightKg ??
+        (dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble();
     final displayGross = grossVal > 0 ? '${PoPackingMatcher.formatWeight(grossVal)} كجم' : '—';
     final displayNet = netVal != null && netVal > 0 ? 'صافي: ${PoPackingMatcher.formatWeight(netVal)} كجم' : 'وزن الشحن القائم';
 
@@ -2765,7 +2948,7 @@ class _ImportFileComprehensiveReportScreenState
         _kpiMetricCard(
           context: context,
           title: 'الفواتير وأوامر الشراء',
-          primaryValue: '$invCount فواتير  |  $poCount POs',
+          primaryValue: '$poCount PO  •  $invCount فاتورة',
           subtitle: itemsCount > 0 ? '$itemsCount صنف مدرج بالملف' : 'أوامر التوريد المعتمدة',
           icon: Icons.receipt_long_outlined,
           color: const Color(0xFFD97706),
