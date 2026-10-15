@@ -195,7 +195,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     _vesselNameController = TextEditingController(text: widget.isClone ? "" : (b?.vesselName ?? ""));
     _voyageNoController = TextEditingController(text: widget.isClone ? "" : (b?.voyageNumber ?? ""));
     _releaseOrderNoController = TextEditingController(text: widget.isClone ? "" : (b?.containerReleaseOrderNo ?? ""));
-    _freeDemurrageController = TextEditingController(text: b != null ? b.freeDemurrageDays.toString() : '');
+    _freeDemurrageController = TextEditingController(text: b?.freeDemurrageDays != null ? b!.freeDemurrageDays.toString() : '');
     _expectedWhDaysController = TextEditingController(text: (b?.expectedWarehouseDays ?? 7).toString());
     _ownerController = TextEditingController(text: widget.isClone ? '' : (b?.owner ?? ''));
     _notesController = TextEditingController(text: b?.notes ?? '');
@@ -657,7 +657,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         'etd': _etd?.toIso8601String(),
         'eta': _eta?.toIso8601String(),
         'atd': _atd?.toIso8601String(),
-        'free_demurrage_days': int.tryParse(_freeDemurrageController.text.trim()) ?? 14,
+        'free_demurrage_days': _freeDemurrageController.text.trim().isNotEmpty ? int.tryParse(_freeDemurrageController.text.trim()) : null,
         'expected_warehouse_days': int.tryParse(_expectedWhDaysController.text.trim()) ?? 7,
         'vessel_name': _vesselNameController.text.trim(),
         'voyage_number': _voyageNoController.text.trim(),
@@ -1183,7 +1183,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                   keyboardType: TextInputType.number,
                   decoration: ccInputDecoration(prefix: Icons.timelapse_outlined),
                   validator: (v) {
-                    final n = int.tryParse((v ?? '').trim());
+                    if (v == null || v.trim().isEmpty) return null;
+                    final n = int.tryParse(v.trim());
                     return (n == null || n < 0) ? l.fbkValidatorFreeDays : null;
                   },
                 ),

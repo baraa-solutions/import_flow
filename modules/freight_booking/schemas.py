@@ -53,7 +53,7 @@ class ShipmentBookingBase(BaseModel):
     departure_delay_days: Optional[int] = 0
     expected_warehouse_days: Optional[int] = 7
     expected_warehouse_arrival_date: Optional[datetime] = None
-    free_demurrage_days: int = 14
+    free_demurrage_days: Optional[int] = Field(None, ge=0)
     cargo_cutoff_date: Optional[datetime] = None
     si_cutoff_date: Optional[datetime] = None
     vessel_name: Optional[str] = None
@@ -96,7 +96,7 @@ class ShipmentBookingUpdate(BaseModel):
     departure_delay_days: Optional[int] = None
     expected_warehouse_days: Optional[int] = None
     expected_warehouse_arrival_date: Optional[datetime] = None
-    free_demurrage_days: Optional[int] = None
+    free_demurrage_days: Optional[int] = Field(None, ge=0)
     cargo_cutoff_date: Optional[datetime] = None
     si_cutoff_date: Optional[datetime] = None
     vessel_name: Optional[str] = None
@@ -122,7 +122,7 @@ class ShipmentBookingConfirm(BaseModel):
     voyage_number: Optional[str] = Field(None, description="Voyage Number (e.g. 2608W)")
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
-    free_demurrage_days: Optional[int] = Field(14, description="Agreed Free Demurrage Days")
+    free_demurrage_days: Optional[int] = Field(None, ge=0, description="Agreed Free Demurrage Days")
     notes: Optional[str] = None
 
 
@@ -139,6 +139,7 @@ class ShipmentDepartureConfirm(BaseModel):
 @read_model
 class ShipmentBookingResponse(LegacyRowTolerantModel, ShipmentBookingBase):
     # free_demurrage_days is a nullable column an update may clear (PUT {"free_demurrage_days": null}).
+    free_demurrage_days: Optional[int] = None
     booking_id: int
     booking_code: str
     booking_request_date: Optional[datetime] = None
