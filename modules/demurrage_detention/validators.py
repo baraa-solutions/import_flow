@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import HTTPException, status
 from .schemas import TierRateItem
 
@@ -74,4 +74,22 @@ def validate_positive_amount(val: float, field_name: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"الحقل {field_name} يجب أن يكون أكبر من صفر.",
+        )
+
+
+def validate_no_active_tracking_for_file(existing: Optional[Any]) -> None:
+    """Enforces one active demurrage tracking per import file (BE45-T06)."""
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد بالفعل جلسة تتبع نشطة لهذا الملف ({existing.tracking_code})",
+        )
+
+
+def validate_no_active_tracking_for_bl(existing: Optional[Any], bl_no: str) -> None:
+    """Enforces one active demurrage tracking per Bill of Lading when unlinked (BE45-T06)."""
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد بالفعل جلسة تتبع نشطة لبوليصة الشحن {bl_no} ({existing.tracking_code})",
         )

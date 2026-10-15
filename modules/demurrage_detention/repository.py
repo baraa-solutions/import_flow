@@ -83,6 +83,32 @@ def get_tracking_by_code(db: Session, tracking_code: str) -> Optional[DemurrageT
     ).first()
 
 
+def get_active_tracking_for_file(db: Session, import_file_id: int) -> Optional[DemurrageTracking]:
+    """Returns the active demurrage tracking linked to this import file (BE45-T06)."""
+    return db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == import_file_id,
+        DemurrageTracking.is_active == True,
+    ).first()
+
+
+def get_active_trackings_for_file(db: Session, import_file_id: int) -> List[DemurrageTracking]:
+    """Returns all active demurrage trackings linked to this import file (BE45-T06)."""
+    return db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == import_file_id,
+        DemurrageTracking.is_active == True,
+    ).all()
+
+
+def get_active_tracking_for_bl(db: Session, bill_of_lading_no: str) -> Optional[DemurrageTracking]:
+    """Returns the active demurrage tracking with this B/L number (BE45-T06)."""
+    if not bill_of_lading_no or not bill_of_lading_no.strip():
+        return None
+    return db.query(DemurrageTracking).filter(
+        func.lower(DemurrageTracking.bill_of_lading_no) == bill_of_lading_no.strip().lower(),
+        DemurrageTracking.is_active == True,
+    ).first()
+
+
 def get_trackings(
     db: Session,
     import_file_id: Optional[int] = None,
