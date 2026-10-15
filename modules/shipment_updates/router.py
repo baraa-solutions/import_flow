@@ -3,7 +3,7 @@ FastAPI Router for Operational & Daily Shipment Update Engine
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from modules.users.model import User
@@ -80,13 +80,7 @@ def get_update_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
-    log_rec = service.get_update_log_by_id_service(db, update_id)
-    if not log_rec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"تحديث الشحنة رقم '{update_id}' غير موجود.",
-        )
-    return log_rec
+    return service.get_update_log_by_id_service(db, update_id)
 
 
 @router.put(
@@ -113,9 +107,4 @@ def soft_delete_update_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.edit")),
 ):
-    success = service.soft_delete_update_log_service(db, update_id, user_name=current_user.username)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"تحديث الشحنة رقم '{update_id}' غير موجود.",
-        )
+    service.soft_delete_update_log_service(db, update_id, user_name=current_user.username)
