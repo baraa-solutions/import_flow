@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
@@ -26,6 +27,7 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
@@ -1614,6 +1616,18 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                              onPressed: () => SmartChecklistDialog.show(context, file),
                                            ),
                                            const SizedBox(width: 4),
+                                           IconButton(
+                                             icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
+                                             tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
+                                             splashRadius: 18,
+                                             padding: EdgeInsets.zero,
+                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                             onPressed: () {
+                                               ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+                                               selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+                                             },
+                                           ),
+                                           const SizedBox(width: 4),
                                            RowActionsPill(
                                            onView: () => _showImportFileDetailsDialog(context, file),
                                            onEdit: () => _showAddEditFileDialog(file),
@@ -2067,6 +2081,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
+                    tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
+                    onPressed: () {
+                      ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+                      selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.info_outline, size: 18),
                     tooltip: l.viewDetails,

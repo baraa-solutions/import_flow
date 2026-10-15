@@ -90,6 +90,7 @@ class DeliveryOrderPaymentSubmit(BaseModel):
     delivery_order_fees: float = Field(..., ge=0.0, description="قيمة مصاريف إذن التسليم الملاحي")
     delivery_order_currency: str = Field("EGP", description="عملة السداد")
     delivery_order_payment_ref: str = Field(..., min_length=2, description="رقم إيصال أو مرجع سداد مصاريف التوكيل")
+    delivery_order_requested_at: Optional[datetime] = Field(None, description="تاريخ وساعة تقديم طلب إذن التسليم للتوكيل لحساب الـ SLA")
     delivery_order_paid_at: Optional[datetime] = Field(None, description="تاريخ سداد مصاريف التوكيل الملاحي")
     delivery_order_file_url: Optional[str] = Field(None, description="رابط أو مسار صورة إذن التسليم المرفوع")
     notes: Optional[str] = Field(None, description="ملاحظات إضافية")
@@ -410,6 +411,7 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
     delivery_order_number: Optional[str] = None
+    delivery_order_requested_at: Optional[datetime] = None
     delivery_order_date: Optional[datetime] = None
     delivery_order_expiry: Optional[datetime] = None
     free_days_allowed: int = 14

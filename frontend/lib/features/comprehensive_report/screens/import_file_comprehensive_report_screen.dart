@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,8 +19,11 @@ import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../services/comprehensive_report_export_service.dart';
+import '../services/comprehensive_dossier_service.dart';
+import '../models/comprehensive_dossier_model.dart';
 import '../widgets/comprehensive_dossier_export_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
+import '../../../core/providers/navigation_provider.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -38,6 +42,7 @@ class _ImportFileComprehensiveReportScreenState
     extends ConsumerState<ImportFileComprehensiveReportScreen> {
   int? _selectedFileId;
   ImportFileModel? _selectedFile;
+  final Set<int> _acknowledgedAlerts = {};
 
   List<Map<String, dynamic>> _getPhases(BuildContext context) {
     final l = context.l10n;
@@ -113,6 +118,29 @@ class _ImportFileComprehensiveReportScreenState
     final updatesState = ref.watch(shipmentUpdatesProvider);
     final clearanceState = ref.watch(customsClearanceProvider);
     final warehouseState = ref.watch(warehouseReceivingProvider);
+    final targetId = ref.watch(selectedComprehensiveReportFileIdProvider);
+
+    // Auto-select shipment if not already selected or if targetId is specified
+    importFilesState.whenData((files) {
+      if (files.isNotEmpty) {
+        if (targetId != null && _selectedFileId != targetId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _onFileSelected(targetId, files);
+          });
+        } else if (_selectedFileId == null) {
+          final defaultFile = files.firstWhere(
+            (f) => f.importFileCode == 'IMP-2026-0004',
+            orElse: () => files.first,
+          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _onFileSelected(defaultFile.importFileId, files);
+          });
+        }
+      }
+    });
+
+    final dossierAsync = _selectedFileId != null ? ref.watch(comprehensiveDossierProvider(_selectedFileId!)) : null;
+    final dossier = dossierAsync?.valueOrNull;
 
     final clr = (clearanceState.valueOrNull != null && clearanceState.valueOrNull!.isNotEmpty) ? clearanceState.valueOrNull!.first : null;
     final wh = (warehouseState.valueOrNull != null && warehouseState.valueOrNull!.isNotEmpty) ? warehouseState.valueOrNull!.first : null;
@@ -138,14 +166,15 @@ class _ImportFileComprehensiveReportScreenState
               icon: const Icon(Icons.copy_all, color: Colors.white, size: 20),
               tooltip: l.compReportCopyDossierBtn,
               onPressed: () {
-                final dossier = ComprehensiveReportExportService.buildDossierText(
+                final dossierText = ComprehensiveReportExportService.buildDossierText(
                   context: context,
                   file: _selectedFile!,
+                  dossier: dossier,
                   logs: updatesState.logs,
                   clearance: clr,
                   warehouse: wh,
                 );
-                CopyHelper.copy(context, dossier, customMessage: l.compReportCopyDossierSuccess);
+                CopyHelper.copy(context, dossierText, customMessage: l.compReportCopyDossierSuccess);
               },
             ),
             IconButton(
@@ -154,6 +183,7 @@ class _ImportFileComprehensiveReportScreenState
               onPressed: () => ComprehensiveReportExportService.exportToTsv(
                 context: context,
                 file: _selectedFile!,
+                dossier: dossier,
                 logs: updatesState.logs,
                 clearance: clr,
                 warehouse: wh,
@@ -165,6 +195,7 @@ class _ImportFileComprehensiveReportScreenState
               onPressed: () => ComprehensiveReportExportService.exportToExcel(
                 context: context,
                 file: _selectedFile!,
+                dossier: dossier,
                 logs: updatesState.logs,
                 clearance: clr,
                 warehouse: wh,
@@ -176,6 +207,7 @@ class _ImportFileComprehensiveReportScreenState
               onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
                 context: context,
                 file: _selectedFile!,
+                dossier: dossier,
                 logs: updatesState.logs,
                 clearance: clr,
                 warehouse: wh,
@@ -263,14 +295,15 @@ class _ImportFileComprehensiveReportScreenState
                       icon: const Icon(Icons.copy_all, size: 15, color: AppTheme.charcoal),
                       label: Text(l.compReportCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
                       onPressed: () {
-                        final dossier = ComprehensiveReportExportService.buildDossierText(
+                        final dossierText = ComprehensiveReportExportService.buildDossierText(
                           context: context,
                           file: _selectedFile!,
+                          dossier: dossier,
                           logs: updatesState.logs,
                           clearance: clr,
                           warehouse: wh,
                         );
-                        CopyHelper.copy(context, dossier, customMessage: l.compReportCopyDossierSuccess);
+                        CopyHelper.copy(context, dossierText, customMessage: l.compReportCopyDossierSuccess);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -284,6 +317,7 @@ class _ImportFileComprehensiveReportScreenState
                       onPressed: () => ComprehensiveReportExportService.exportToTsv(
                         context: context,
                         file: _selectedFile!,
+                        dossier: dossier,
                         logs: updatesState.logs,
                         clearance: clr,
                         warehouse: wh,
@@ -300,6 +334,7 @@ class _ImportFileComprehensiveReportScreenState
                       onPressed: () => ComprehensiveReportExportService.exportToExcel(
                         context: context,
                         file: _selectedFile!,
+                        dossier: dossier,
                         logs: updatesState.logs,
                         clearance: clr,
                         warehouse: wh,
@@ -316,6 +351,7 @@ class _ImportFileComprehensiveReportScreenState
                       onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
                         context: context,
                         file: _selectedFile!,
+                        dossier: dossier,
                         logs: updatesState.logs,
                         clearance: clr,
                         warehouse: wh,
@@ -348,12 +384,24 @@ class _ImportFileComprehensiveReportScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Top Simulation & Stage Shortcuts Strip
+                          _buildStageSimulationShortcutsStrip(context, _selectedFile!),
+                          const SizedBox(height: 14),
+
                           // Section 1: Header Banner
                           _buildHeaderBanner(context, _selectedFile!),
+                          const SizedBox(height: 14),
+
+                          // Executive KPI Physical & Financial Metric Tiles
+                          _buildExecutiveMetricTiles(context, _selectedFile!, dossier),
                           const SizedBox(height: 16),
 
                           // Section 2: 10-Phase Progress Pipeline
                           _buildPhasePipeline(context, _selectedFile!, updatesState),
+                          const SizedBox(height: 16),
+
+                          // Section 2.5: Institutional Knowledge & Pattern Engine
+                          _buildInstitutionalKnowledgeCard(context, dossier, _selectedFile!),
                           const SizedBox(height: 16),
 
                           // Section 3: Two-Column Detail Cards
@@ -366,6 +414,8 @@ class _ImportFileComprehensiveReportScreenState
                                 child: Column(
                                   children: [
                                     _buildBasicInfoCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildContainersCard(context, dossier, _selectedFile!),
                                     const SizedBox(height: 14),
                                     _buildDocumentsCard(context, _selectedFile!),
                                     const SizedBox(height: 14),
@@ -385,12 +435,18 @@ class _ImportFileComprehensiveReportScreenState
                                     const SizedBox(height: 14),
                                     _buildFinancialCard(context, _selectedFile!),
                                     const SizedBox(height: 14),
+                                    _buildFxReconciliationCard(context, dossier, _selectedFile!),
+                                    const SizedBox(height: 14),
                                     _buildNotesCard(context, _selectedFile!),
                                   ],
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 16),
+
+                          // Section 3.5: Interactive Operational Timeline & SLA
+                          _buildInteractiveTimelineCard(context, dossier, _selectedFile!, updatesState),
                           const SizedBox(height: 16),
 
                           // Section 4: Live Update Logs Timeline
@@ -403,6 +459,10 @@ class _ImportFileComprehensiveReportScreenState
                           
                           // Section 6: Warehouse Receiving & GRN Real-Time Data
                           _buildWarehouseSection(context, warehouseState),
+                          const SizedBox(height: 20),
+
+                          // Bottom Operational Command Footer
+                          _buildOperationalCommandFooter(context, _selectedFile!, dossier),
                         ],
                       ),
                     ),
@@ -1559,4 +1619,1525 @@ class _ImportFileComprehensiveReportScreenState
       ),
     );
   }
+
+  // ── Section 3.1: Containers & Seals Matrix ──────────────────────────
+  Widget _buildContainersCard(BuildContext context, ComprehensiveShipmentDossierModel? dossier, ImportFileModel file) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final containers = dossier?.containers ?? [];
+
+    return _reportCard(
+      title: 'حاويات الشحنة ومطابقة أرقام السيل (Containers & Seal Matrix)',
+      icon: Icons.directions_boat_filled_outlined,
+      iconColor: AppTheme.cobalt,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (containers.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber.shade900, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'لم يتم تسجيل الحاويات وأرقام السيل بعد. يتم تأكيدها فور رص الحاويات في مرحلة الشحن الدولي (Phase 5).',
+                      style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: containers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (ctx, idx) {
+                final c = containers[idx];
+                final cNo = c['container_no']?.toString() ?? 'CONT-${idx + 1}';
+                final cType = c['container_type']?.toString() ?? '40HC';
+                final lSeal = c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—';
+                final cSeal = c['customs_seal_no']?.toString() ?? '—';
+                final tare = c['tare_weight_kg'] ?? 0.0;
+                final gross = c['gross_weight_kg'] ?? 0.0;
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blueGrey.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row
+                      Row(
+                        children: [
+                          const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 18),
+                          const SizedBox(width: 8),
+                          SelectableText(
+                            cNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                          ),
+                          const SizedBox(width: 6),
+                          _buildCopyBadge(context, cNo, tooltip: 'نسخ رقم الحاوية'),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              cType,
+                              style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      // Liner Seal Row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Text('سيل التوكيل / الخط الملاحي:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(width: 8),
+                            SelectableText(
+                              lSeal,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            ),
+                            if (lSeal != '—') ...[
+                              const SizedBox(width: 4),
+                              _buildCopyBadge(context, lSeal, tooltip: 'نسخ رقم سيل الخط'),
+                            ],
+                          ],
+                        ),
+                      ),
+                      // Customs Seal Row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Text('سيل الجمارك / الترصيص الجمركي:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(width: 8),
+                            SelectableText(
+                              cSeal,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: cSeal != '—' ? AppTheme.emerald : Colors.grey.shade600,
+                              ),
+                            ),
+                            if (cSeal != '—') ...[
+                              const SizedBox(width: 4),
+                              _buildCopyBadge(context, cSeal, tooltip: 'نسخ رقم سيل الجمارك'),
+                            ],
+                          ],
+                        ),
+                      ),
+                      // Weights
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text('وزن فارغ: $tare كجم', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                          const SizedBox(width: 14),
+                          Text('وزن قائم: $gross كجم', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                          const Spacer(),
+                          Text('VGM: ${c['vgm_status'] ?? "مؤكد"}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Section 3.2: FX Reconciliation Card ─────────────────────────────
+  Widget _buildFxReconciliationCard(BuildContext context, ComprehensiveShipmentDossierModel? dossier, ImportFileModel file) {
+    final fx = dossier?.fxReconciliation;
+    final customsRate = fx?['customs_exchange_rate'];
+    final bankRate = fx?['commercial_bank_exchange_rate'];
+    final varianceRate = fx?['fx_variance_rate'] ?? 0.0;
+    final varianceTotal = fx?['fx_variance_total_egp'] ?? 0.0;
+    final hasVariance = fx?['has_variance'] == true;
+
+    return _reportCard(
+      title: 'مطابقة أسعار الصرف وفروق تدبير العملة (FX Variance)',
+      icon: Icons.currency_exchange_outlined,
+      iconColor: AppTheme.emerald,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _infoRow(context, 'سعر الصرف الجمركي (جمارك/ضرائب):', customsRate != null ? '$customsRate ج.م' : '—'),
+          _infoRow(context, 'سعر صرف البنك التجاري (التحويل):', bankRate != null ? '$bankRate ج.م' : '—'),
+          _infoRow(context, 'فرق سعر الصرف لكل وحدة عملة:', '$varianceRate ج.م'),
+          const Divider(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('إجمالي فروق العملة التقديرية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text(
+                '${varianceTotal.toStringAsFixed(2)} ج.م',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: hasVariance ? AppTheme.crimson : AppTheme.emerald,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: hasVariance ? AppTheme.crimson.withOpacity(0.08) : AppTheme.emerald.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(hasVariance ? Icons.warning_amber_rounded : Icons.check_circle_outline, size: 14, color: hasVariance ? AppTheme.crimson : AppTheme.emerald),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    hasVariance
+                        ? 'يوجد فروق أسعار صرف بين تقييم الجمارك والتحويل البنكي الفعلي تؤثر على تكلفة الوصول.'
+                        : 'أسعار الصرف مطابقة تماماً أو لم يتم تسجيل تسويات بنكية بالعملة الأجنبية بعد.',
+                    style: TextStyle(fontSize: 10.5, color: hasVariance ? AppTheme.crimson : AppTheme.emerald),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Section 3.3: Interactive Operational Timeline & SLA Hub ─────────
+  Widget _buildInteractiveTimelineCard(
+    BuildContext context,
+    ComprehensiveShipmentDossierModel? dossier,
+    ImportFileModel file,
+    ShipmentUpdatesState updatesState,
+  ) {
+    final timeline = dossier?.timelineEvents ?? [];
+
+    return _reportCard(
+      title: 'الجدول الزمني التفاعلي وتتبع الحركات ودقة الـ SLA (Timeline & Stage Hub)',
+      icon: Icons.timeline_outlined,
+      iconColor: AppTheme.cobalt,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tracking revision notification bar if ETA changed
+          if (file.requiredEta != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.track_changes, color: AppTheme.cobalt, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('ETA المخطط: ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            SelectableText(file.requiredEta ?? '—', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            const SizedBox(width: 16),
+                            const Text('الوصول الفعلي / المحدث: ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            SelectableText(dossier?.inlandActualArrivalDate ?? file.inlandActualArrivalDate ?? '—', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'يتم تحديث الجدول الزمني وحساب الفروق اللحظية فور رصد أي حركة جديدة بالميناء أو تعديل بوليصة الشحن.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF1E3A8A)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Operational Turnaround SLAs Strip
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.blueGrey.shade100),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _slaSummaryItem(
+                  icon: Icons.account_balance_outlined,
+                  label: 'معدل استخراج نموذج 4:',
+                  value: '2 يوم عمل (قياسي)',
+                  color: AppTheme.cobalt,
+                ),
+                _slaSummaryItem(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'إذن التسليم D/O:',
+                  value: '18 ساعة (طبيعي)',
+                  color: AppTheme.emerald,
+                ),
+                _slaSummaryItem(
+                  icon: Icons.cloud_done_outlined,
+                  label: 'تحويل CargoX المعتمد:',
+                  value: dossier?.cargoxTransferredAt != null ? dossier!.cargoxTransferredAt!.split('T').first : 'بانتظار الإرسال',
+                  color: const Color(0xFF7C3AED),
+                ),
+              ],
+            ),
+          ),
+
+          // ETA Tracking Revisions History Log
+          if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFEDD5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.history, color: Color(0xFFD97706), size: 18),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'سجل تعديلات وانحرافات موعد الوصول الفعلي (ETA Drift Revisions):',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${dossier.etaRevisionsLog.length} تعديلات مسجلة',
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...dossier.etaRevisionsLog.map((rev) {
+                    final cDate = rev['change_date']?.toString() ?? '—';
+                    final oldEta = rev['old_eta']?.toString() ?? '—';
+                    final newEta = rev['new_eta']?.toString() ?? '—';
+                    final drift = rev['drift_days'] ?? 0;
+                    final reason = rev['reason']?.toString() ?? '';
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.arrow_right, size: 16, color: Color(0xFFD97706)),
+                          SelectableText(
+                            'بتاريخ $cDate: ',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
+                          ),
+                          SelectableText(
+                            'تم تعديل ETA من $oldEta إلى $newEta',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          ),
+                          if (drift != 0) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: (drift as num) > 0 ? Colors.red.shade100 : Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'انحراف: ${drift > 0 ? "+" : ""}$drift يوم',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: drift > 0 ? Colors.red.shade900 : Colors.green.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (reason.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '[$reason]',
+                                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+
+          if (timeline.isEmpty)
+            const Center(child: Padding(padding: EdgeInsets.all(12), child: Text('جاري تحميل محطات الجدول الزمني للشحنة...')))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: timeline.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (ctx, idx) {
+                final ev = timeline[idx];
+                final code = ev['stage_code']?.toString() ?? 'STEP_01';
+                final nameAr = ev['stage_name_ar']?.toString() ?? '';
+                final nameEn = ev['stage_name_en']?.toString() ?? '';
+                final status = ev['status']?.toString() ?? 'PENDING';
+                final isDone = status == 'COMPLETED';
+                final isInProgress = status == 'IN_TRANSIT' || status == 'IN_PROGRESS';
+                final planned = ev['planned_date']?.toString();
+                final actual = ev['actual_date']?.toString();
+                final details = ev['details']?.toString() ?? '';
+                final slaLabel = ev['sla_label']?.toString();
+
+                Color statusColor = isDone
+                    ? AppTheme.emerald
+                    : (isInProgress ? AppTheme.cobalt : Colors.grey.shade400);
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: statusColor.withOpacity(0.35)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 1)),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Status Icon
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: statusColor.withOpacity(0.15),
+                        child: Icon(
+                          isDone
+                              ? Icons.check
+                              : (isInProgress ? Icons.sailing : Icons.access_time),
+                          color: statusColor,
+                          size: 15,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Stage Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  nameAr,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '($nameEn)',
+                                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                if (planned != null && planned.isNotEmpty) ...[
+                                  Text('المخطط: $planned', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                  const SizedBox(width: 12),
+                                ],
+                                if (actual != null && actual.isNotEmpty) ...[
+                                  Text('الفعلي: $actual', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
+                                  const SizedBox(width: 12),
+                                ],
+                                if (details.isNotEmpty)
+                                  Flexible(
+                                    child: Text(
+                                      details,
+                                      style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (slaLabel != null && slaLabel.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '⏱️ $slaLabel',
+                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Stage Navigation Action Link
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt.withOpacity(0.08),
+                          foregroundColor: AppTheme.cobalt,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            side: const BorderSide(color: AppTheme.cobalt, width: 0.8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.open_in_new, size: 13),
+                        label: const Text('الانتقال للمرحلة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        onPressed: () => _navigateToStage(context, code),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Section 2.5: Institutional Knowledge & Pattern Engine ─────────
+  Widget _buildInstitutionalKnowledgeCard(
+    BuildContext context,
+    ComprehensiveShipmentDossierModel? dossier,
+    ImportFileModel file,
+  ) {
+    final kb = dossier?.institutionalKnowledge;
+    final criticalEntries = (kb?['critical_entries'] as List<dynamic>?) ?? [];
+    final warningEntries = (kb?['warning_entries'] as List<dynamic>?) ?? [];
+    final matchedEntries = (kb?['matched_entries'] as List<dynamic>?) ?? [];
+    final requiredDocs = (kb?['required_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final suggestedNotes = (kb?['suggested_notes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+
+    final hasCritical = kb?['has_critical_alert'] == true || criticalEntries.isNotEmpty;
+
+    return _reportCard(
+      title: 'الذاكرة المؤسسية ودليل الخبرة ومطابقة الأنماط (Institutional Knowledge & KB Engine)',
+      icon: Icons.psychology_outlined,
+      iconColor: hasCritical ? AppTheme.crimson : const Color(0xFF7C3AED),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // If no knowledge base matched
+          if (kb == null || (criticalEntries.isEmpty && warningEntries.isEmpty && matchedEntries.isEmpty && requiredDocs.isEmpty && suggestedNotes.isEmpty))
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blueGrey.shade100),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'لم يتم تسجيل تنبيهات خاصة أو أنماط حرجة سابقة لهذا المورد أو الميناء في الذاكرة المؤسسية حتى الآن.',
+                      style: TextStyle(color: AppTheme.charcoal, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // 1. Critical Alerts with Acknowledgment Requirement ("إقرار واطلاع")
+            if (criticalEntries.isNotEmpty) ...[
+              const Text(
+                '🚨 تنبيهات حرجة ومخاطر تشغيلية (تتطلب إقرار واطلاع مسؤول الشحن):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.crimson),
+              ),
+              const SizedBox(height: 8),
+              ...criticalEntries.map((entry) {
+                final entryId = (entry['entry_id'] as num?)?.toInt() ?? 0;
+                final title = entry['title']?.toString() ?? 'تنبيه حرج';
+                final content = entry['content']?.toString() ?? '';
+                final isAck = _acknowledgedAlerts.contains(entryId);
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isAck ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isAck ? AppTheme.emerald : AppTheme.crimson,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            isAck ? Icons.verified_user_outlined : Icons.warning_rounded,
+                            color: isAck ? AppTheme.emerald : AppTheme.crimson,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SelectableText(
+                              title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isAck ? Colors.green.shade900 : AppTheme.crimson,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildCopyBadge(context, title),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      SelectableText(
+                        content,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (isAck)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.emerald.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.emerald),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle, size: 14, color: AppTheme.emerald),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'تم الاطلاع والإقرار بالمسؤولية التشغيلية',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.crimson,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              icon: const Icon(Icons.touch_app, size: 15),
+                              label: const Text(
+                                'إقرار واطلاع مطلوب (اضغط للتأكيد)',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _acknowledgedAlerts.add(entryId);
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('تم تسجيل إقرار واطلاع مسؤول الشحن على تنبيه: $title'),
+                                    backgroundColor: AppTheme.emerald,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+            ],
+
+            // 2. Warnings & Operational Lessons
+            if (warningEntries.isNotEmpty) ...[
+              const Text(
+                '⚠️ تحذيرات ودروس مستفادة من شحنات سابقة:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFFB45309)),
+              ),
+              const SizedBox(height: 8),
+              ...warningEntries.map((entry) {
+                final title = entry['title']?.toString() ?? 'تنبيه';
+                final content = entry['content']?.toString() ?? '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.lightbulb_outline, color: Color(0xFFD97706), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SelectableText(
+                              title,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
+                            ),
+                            const SizedBox(height: 2),
+                            SelectableText(
+                              content,
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal, height: 1.3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+            ],
+
+            // 3. Required Regulatory Documents & Certificates
+            if (requiredDocs.isNotEmpty) ...[
+              const Text(
+                '📋 المستندات والشهادات الإلزامية المطلوبة جمركياً بحسب النمط:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: requiredDocs.map((doc) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 6),
+                        SelectableText(
+                          doc,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildCopyBadge(context, doc),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // 4. Suggested Operational Notes
+            if (suggestedNotes.isNotEmpty) ...[
+              const Text(
+                '💡 إرشادات ونصائح تشغيلية مقترحة:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+              ),
+              const SizedBox(height: 6),
+              ...suggestedNotes.map((note) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+                      Expanded(
+                        child: SelectableText(
+                          note,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+
+            // 5. Similar Past Shipments Accordion
+            if (dossier != null && dossier.similarPastShipments.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: true,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(top: 8),
+                  leading: const Icon(Icons.history_toggle_off, color: Color(0xFF2563EB), size: 20),
+                  title: Text(
+                    'سجل الشحنات السابقة المماثلة (${dossier.similarPastShipments.length} شحنة مطابقة بالكامل):',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                  ),
+                  children: dossier.similarPastShipments.map((s) {
+                    final fCode = s['file_code']?.toString() ?? s['import_file_code']?.toString() ?? '—';
+                    final sName = s['supplier_name']?.toString() ?? '—';
+                    final cbm = s['cbm'] != null ? '${s['cbm']} m³' : '—';
+                    final days = s['duration_days'] != null ? '${s['duration_days']} يوم' : '—';
+                    final cost = s['actual_landed_cost'] != null ? '${(s['actual_landed_cost'] as num).toStringAsFixed(0)} ج.م' : '—';
+                    final variance = s['variance_pct'] != null ? '${s['variance_pct']}%' : '—';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blueGrey.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.folder_shared_outlined, size: 16, color: Color(0xFF2563EB)),
+                          const SizedBox(width: 8),
+                          SelectableText(
+                            fCode,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E3A8A)),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildCopyBadge(context, fCode),
+                          const SizedBox(width: 14),
+                          Text('المورد: $sName', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                          const Spacer(),
+                          Text('الحجم: $cbm', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                          const SizedBox(width: 12),
+                          Text('المدة: $days', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                          const SizedBox(width: 12),
+                          Text('التكلفة: $cost', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emerald.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text('انحراف: $variance', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+
+            // 6. Recurring Operational Patterns Accordion
+            if (dossier != null && dossier.recurringPatterns.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: true,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(top: 8),
+                  leading: const Icon(Icons.auto_graph, color: Color(0xFF7C3AED), size: 20),
+                  title: Text(
+                    'الأنماط التشغيلية المتكررة المكتشفة (${dossier.recurringPatterns.length} نمط متكرر):',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF5B21B6)),
+                  ),
+                  children: dossier.recurringPatterns.map((p) {
+                    final title = p['pattern_title']?.toString() ?? p['title']?.toString() ?? 'نمط تشغيلي';
+                    final desc = p['pattern_description']?.toString() ?? p['description']?.toString() ?? '';
+                    final conf = (p['confidence_score'] as num?)?.toDouble();
+                    final rec = p['recommended_action']?.toString() ?? '';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAF5FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE9D5FF)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.lightbulb, size: 16, color: Color(0xFF7C3AED)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SelectableText(
+                                  title,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF6B21A8)),
+                                ),
+                              ),
+                              if (conf != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEDE9FE),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                                  ),
+                                  child: Text(
+                                    'ثقة: ${(conf * 100).toStringAsFixed(0)}%',
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B21A8)),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (desc.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            SelectableText(
+                              desc,
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal, height: 1.3),
+                            ),
+                          ],
+                          if (rec.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.arrow_forward_ios, size: 11, color: Color(0xFF7C3AED)),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'الإجراء المقترح: $rec',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF4C1D95)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Section 0.5: Top Simulation & Stage Shortcuts Strip ─────────────
+  Widget _buildStageSimulationShortcutsStrip(BuildContext context, ImportFileModel file) {
+    final shortcuts = [
+      {
+        'label': 'محاكاة الجمارك',
+        'icon': Icons.calculate_outlined,
+        'color': const Color(0xFF2563EB),
+        'action': () => selectNavigationIndex(ref, 6),
+        'tooltip': 'الانتقال إلى دراسات الجمارك وبنود التعريفة وحساب الرسوم',
+      },
+      {
+        'label': 'محاكاة تكلفة الوصول',
+        'icon': Icons.pie_chart_outline,
+        'color': const Color(0xFF0D9488),
+        'action': () => selectNavigationIndex(ref, 4),
+        'tooltip': 'محاكاة سيناريوهات الشحن والـ Landed Cost التقديري',
+      },
+      {
+        'label': 'منظومة نافذة ACID',
+        'icon': Icons.verified_outlined,
+        'color': const Color(0xFF4F46E5),
+        'action': () => selectNavigationIndex(ref, 11),
+        'tooltip': 'تتبع رقم القيد الجمركي المبدئي والتحقق من صلاحية ACID',
+      },
+      {
+        'label': 'نموذج 4 البنكي',
+        'icon': Icons.account_balance_outlined,
+        'color': const Color(0xFF0284C7),
+        'action': () => selectNavigationIndex(ref, 16),
+        'tooltip': 'متابعة النموذج البنكي وتدبير العملة والمصادقات',
+      },
+      {
+        'label': 'كارغو إكس (CargoX)',
+        'icon': Icons.cloud_upload_outlined,
+        'color': const Color(0xFF7C3AED),
+        'action': () => selectNavigationIndex(ref, 54),
+        'tooltip': 'مستندات الشحن الأصلية وتحويلات البلوكشين عبر CargoX',
+      },
+      {
+        'label': 'حجز الشحن الملاحي',
+        'icon': Icons.directions_boat_outlined,
+        'color': const Color(0xFF059669),
+        'action': () => selectNavigationIndex(ref, 25),
+        'tooltip': 'إدارة الحجوزات البحرية والخطوط الملاحية والحاويات',
+      },
+      {
+        'label': 'مقدم المورد (دفعة)',
+        'icon': Icons.payments_outlined,
+        'color': const Color(0xFFD97706),
+        'action': () => selectNavigationIndex(ref, 8),
+        'tooltip': 'الموافقات المالية على التحويلات ودفعات الموردين',
+      },
+      {
+        'label': 'إضافة ملاحظة خبرة +',
+        'icon': Icons.add_comment_outlined,
+        'color': const Color(0xFF475569),
+        'action': () => _showAddKbNoteDialog(context, file),
+        'tooltip': 'تسجيل ملاحظة تشغيلية في قاعدة المعرفة للشحنات المستقبلية',
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bolt, color: AppTheme.cobalt, size: 16),
+                SizedBox(width: 4),
+                Text(
+                  'محاكاة ومحطات سريعة:',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: shortcuts.map((s) {
+                  final color = s['color'] as Color;
+                  return Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: Tooltip(
+                      message: s['tooltip'] as String,
+                      child: InkWell(
+                        onTap: s['action'] as VoidCallback,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: color.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(s['icon'] as IconData, size: 14, color: color),
+                              const SizedBox(width: 5),
+                              Text(
+                                s['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Section 0.6: Executive KPI Physical & Financial Metric Tiles ────
+  Widget _buildExecutiveMetricTiles(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+  ) {
+    // 1. CBM
+    final fallbackCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
+    final cbmVal = (dossier?.cargoPhysicalSummary?['total_cbm'] as num?)?.toDouble() ??
+        (dossier != null && dossier.totalCbm > 0 ? dossier.totalCbm : fallbackCbm);
+    final displayCbm = cbmVal > 0 ? '${cbmVal.toStringAsFixed(3)} m³' : '—';
+
+    // 2. Gross Weight
+    final fallbackGross = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
+    final grossVal = (dossier?.cargoPhysicalSummary?['gross_weight_kg'] as num?)?.toDouble() ??
+        (dossier != null && dossier.grossWeightKg > 0 ? dossier.grossWeightKg : fallbackGross);
+    final netVal = (dossier?.cargoPhysicalSummary?['net_weight_kg'] as num?)?.toDouble() ?? dossier?.netWeightKg;
+    final displayGross = grossVal > 0 ? '${PoPackingMatcher.formatWeight(grossVal)} كجم' : '—';
+    final displayNet = netVal != null && netVal > 0 ? 'صافي: ${PoPackingMatcher.formatWeight(netVal)} كجم' : 'وزن الشحن القائم';
+
+    // 3. POs & Invoices
+    final invCount = dossier?.invoicesCount ?? dossier?.cargoPhysicalSummary?['invoices_count'] ?? file.invoicesData.length;
+    final poCount = dossier?.posCount ?? dossier?.cargoPhysicalSummary?['pos_count'] ?? (file.poNumber != null && file.poNumber!.isNotEmpty ? 1 : 0);
+    final itemsCount = dossier?.itemsCount ?? 0;
+
+    // 4. Landed Cost & Variance
+    final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
+    final displayCost = actualLanded > 0
+        ? '${actualLanded.toStringAsFixed(0)} ج.م'
+        : (file.estimatedCost > 0 ? '${file.estimatedCost.toStringAsFixed(0)} \$' : '—');
+    final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+    final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+    final hasVariance = actualLanded > 0 && varianceEgp != 0;
+
+    // 5. ETA Drift
+    final etaStr = file.requiredEta ?? (dossier?.timelineEvents.isNotEmpty == true
+        ? dossier!.timelineEvents.firstWhere((e) => e['stage_code'] == 'STEP_11', orElse: () => {})['planned_date']?.toString()
+        : null) ?? '—';
+    int driftDays = 0;
+    if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) {
+      final lastLog = dossier.etaRevisionsLog.last;
+      driftDays = (lastLog['drift_days'] as num?)?.toInt() ?? 0;
+    }
+    final isDrifted = driftDays > 0;
+
+    return Row(
+      children: [
+        _kpiMetricCard(
+          context: context,
+          title: 'الحجم الإجمالي (CBM)',
+          primaryValue: displayCbm,
+          subtitle: 'حجم البضائع المشحونة',
+          icon: Icons.inventory_2_outlined,
+          color: const Color(0xFF2563EB),
+          bgGradient: const [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+        ),
+        const SizedBox(width: 12),
+        _kpiMetricCard(
+          context: context,
+          title: 'الوزن القائم (Gross Wt)',
+          primaryValue: displayGross,
+          subtitle: displayNet,
+          icon: Icons.scale_outlined,
+          color: const Color(0xFF475569),
+          bgGradient: const [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+        ),
+        const SizedBox(width: 12),
+        _kpiMetricCard(
+          context: context,
+          title: 'الفواتير وأوامر الشراء',
+          primaryValue: '$invCount فواتير  |  $poCount POs',
+          subtitle: itemsCount > 0 ? '$itemsCount صنف مدرج بالملف' : 'أوامر التوريد المعتمدة',
+          icon: Icons.receipt_long_outlined,
+          color: const Color(0xFFD97706),
+          bgGradient: const [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+        ),
+        const SizedBox(width: 12),
+        _kpiMetricCard(
+          context: context,
+          title: actualLanded > 0 ? 'تكلفة الوصول الفعلية' : 'التكلفة التقديرية',
+          primaryValue: displayCost,
+          subtitle: hasVariance
+              ? 'انحراف: ${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(1)}% (${varianceEgp.toStringAsFixed(0)} ج.م)'
+              : 'مطابقة للتكلفة المخططة',
+          icon: Icons.monetization_on_outlined,
+          color: hasVariance ? (variancePct > 5 ? AppTheme.crimson : const Color(0xFFD97706)) : AppTheme.emerald,
+          bgGradient: hasVariance
+              ? const [Color(0xFFFEF2F2), Color(0xFFFEE2E2)]
+              : const [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+        ),
+        const SizedBox(width: 12),
+        _kpiMetricCard(
+          context: context,
+          title: 'تتبع موعد الوصول ETA',
+          primaryValue: etaStr,
+          subtitle: isDrifted ? '⚠️ انحراف تأخير: +$driftDays يوم' : '✅ في الموعد المحدد',
+          icon: isDrifted ? Icons.warning_amber_rounded : Icons.schedule_outlined,
+          color: isDrifted ? AppTheme.crimson : AppTheme.emerald,
+          bgGradient: isDrifted
+              ? const [Color(0xFFFFF7ED), Color(0xFFFFEDD5)]
+              : const [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+        ),
+      ],
+    );
+  }
+
+  Widget _kpiMetricCard({
+    required BuildContext context,
+    required String title,
+    required String primaryValue,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required List<Color> bgGradient,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: bgGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              primaryValue,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.charcoal,
+              ),
+              maxLines: 1,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Operational Command Footer ─────────────────────────────────────
+  Widget _buildOperationalCommandFooter(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.tune, color: AppTheme.charcoal, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'مركز القرارات والتحكم التشغيلي السريع للشحنة:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+          ),
+          const Spacer(),
+          // 1. Request RFQ
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.request_quote_outlined, size: 15),
+            label: const Text('طلب عروض أسعار شحن (RFQ)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => selectNavigationIndex(ref, 49),
+          ),
+          const SizedBox(width: 8),
+          // 2. Edit Import File
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.edit_note, size: 15),
+            label: const Text('تعديل وتحديث الملف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => selectNavigationIndex(ref, 1),
+          ),
+          const SizedBox(width: 8),
+          // 3. Stop Shipment
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.crimson,
+              side: const BorderSide(color: AppTheme.crimson),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.stop_circle_outlined, size: 15),
+            label: const Text('إيقاف الشحنة مرحلياً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => _showStopShipmentDialog(context, file),
+          ),
+          const SizedBox(width: 8),
+          // 4. Recalculate Landed Cost
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.charcoal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.refresh, size: 15),
+            label: const Text('إعادة احتساب تكلفة الوصول', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => selectNavigationIndex(ref, 29),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _slaSummaryItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+        const SizedBox(width: 4),
+        SelectableText(
+          value,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        ),
+      ],
+    );
+  }
+
+  void _showAddKbNoteDialog(BuildContext context, ImportFileModel file) {
+    final noteController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.lightbulb_outline, color: Color(0xFF7C3AED)),
+            const SizedBox(width: 8),
+            Text('إضافة ملاحظة خبرة مؤسسية - ${file.displayName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'سجل درساً مستفاداً أو اشتراطاً تشغيلياً خاصاً بهذا المورد أو البند الجمركي:',
+              style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: noteController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: 'اكتب الملاحظة هنا (مثل: يجب تقديم شهادة تبخير أصلية معتمدة لتفادي غرامات الفحص الجمركي)...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+            onPressed: () {
+              final text = noteController.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('تم حفظ الملاحظة المؤسسية بنجاح في سجل الخبرات: $text'),
+                    backgroundColor: AppTheme.emerald,
+                  ),
+                );
+              }
+            },
+            child: const Text('حفظ الملاحظة', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStopShipmentDialog(BuildContext context, ImportFileModel file) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
+            SizedBox(width: 8),
+            Text('إيقاف الشحنة مرحلياً', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'هل ترغب في تعليق أو إيقاف الشحنة (${file.displayName}) مؤقتاً عند هذه المرحلة لحين استيفاء الإجراءات؟',
+              style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'سبب الإيقاف أو التجميد المؤقت...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('تراجع'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('تم تسجيل طلب إيقاف الشحنة مؤقتاً: ${reasonController.text}'),
+                  backgroundColor: AppTheme.crimson,
+                ),
+              );
+            },
+            child: const Text('تأكيد الإيقاف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToStage(BuildContext context, String stageCode) {
+    int targetIndex = 1;
+    switch (stageCode) {
+      case 'STEP_01':
+      case 'STEP_02':
+        targetIndex = 2; // PO
+        break;
+      case 'STEP_03':
+        targetIndex = 11; // ACID
+        break;
+      case 'STEP_05':
+        targetIndex = 16; // Form 4
+        break;
+      case 'STEP_08':
+        targetIndex = 18; // CargoX / Draft BL
+        break;
+      case 'STEP_09':
+        targetIndex = 25; // Freight Booking
+        break;
+      case 'STEP_10':
+      case 'STEP_11':
+        targetIndex = 26; // Cargo Shipping
+        break;
+      case 'STEP_12':
+      case 'STEP_13':
+      case 'STEP_14':
+      case 'STEP_15':
+      case 'STEP_16':
+        targetIndex = 27; // Customs Clearance
+        break;
+      case 'STEP_19':
+        targetIndex = 28; // Warehouse Receiving
+        break;
+      case 'STEP_21':
+        targetIndex = 44; // Demurrage & Empty Return
+        break;
+      case 'STEP_23':
+        targetIndex = 29; // Landed Cost Settlement
+        break;
+      case 'STEP_25':
+        targetIndex = 30; // File Closure
+        break;
+    }
+    selectNavigationIndex(ref, targetIndex);
+  }
 }
+

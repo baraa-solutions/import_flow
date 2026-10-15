@@ -102,6 +102,21 @@ class ComprehensiveReportExportService {
     }
     sb.writeln();
 
+    // Section: Physical Cargo Summary & KPIs
+    final phys = dossier?.cargoPhysicalSummary;
+    if (phys != null) {
+      sb.writeln('--- ملخص الأوزان والأبعاد الفيزيائية للشحنة (Physical Cargo Summary) ---');
+      sb.writeln('الحجم الإجمالي: ${phys['total_cbm'] ?? 0.0} m³ | الوزن القائم: ${phys['gross_weight_kg'] ?? 0.0} KG | الوزن الصافي: ${phys['net_weight_kg'] ?? '—'} KG');
+      sb.writeln('عدد الطرود: ${phys['total_packages'] ?? 0} | عدد الفواتير: ${phys['invoices_count'] ?? 0} | عدد أوامر الشراء POs: ${phys['pos_count'] ?? 0}');
+      if ((phys['invoice_numbers'] as List<dynamic>?)?.isNotEmpty == true) {
+        sb.writeln('أرقام الفواتير: ${(phys['invoice_numbers'] as List<dynamic>).join(', ')}');
+      }
+      if ((phys['po_numbers'] as List<dynamic>?)?.isNotEmpty == true) {
+        sb.writeln('أوامر الشراء المرتبطة: ${(phys['po_numbers'] as List<dynamic>).join(', ')}');
+      }
+      sb.writeln();
+    }
+
     // Section: Financials
     double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
     sb.writeln('--- ${l.compReportSecFinancial} ---');
@@ -122,6 +137,104 @@ class ComprehensiveReportExportService {
       sb.writeln('معامل زيادة التكلفة (Markup Factor): ${markup != null ? "${markup.toStringAsFixed(3)}x" : "—"}');
       sb.writeln('انحراف التكلفة الفعلية عن التقديرية: ${varianceEgp.toStringAsFixed(2)} EGP (${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(2)}%)');
       sb.writeln('حالة التسوية المالية: ${file.financialSettlementStatus ?? "COST_ALLOCATED"}');
+      sb.writeln();
+    }
+
+    // Section: Containers & Seal Matrix
+    if (dossier != null && dossier.containers.isNotEmpty) {
+      sb.writeln('--- حاويات الشحنة ومطابقة أرقام السيل (Containers & Seal Matrix) ---');
+      for (final c in dossier.containers) {
+        final cNo = c['container_no'] ?? '—';
+        final cType = c['container_type'] ?? '40HC';
+        final lSeal = c['liner_seal_no'] ?? c['seal_no'] ?? '—';
+        final cSeal = c['customs_seal_no'] ?? '—';
+        final gross = c['gross_weight_kg'] ?? 0.0;
+        final vgm = c['vgm_status'] ?? 'Verified';
+        sb.writeln('• $cNo ($cType) | سيل التوكيل: $lSeal | سيل الجمارك: $cSeal | وزن قائم: $gross KG | VGM: $vgm');
+      }
+      sb.writeln();
+    }
+
+    // Section: FX Reconciliation
+    final fx = dossier?.fxReconciliation;
+    if (fx != null) {
+      sb.writeln('--- مطابقة أسعار الصرف وفروق تدبير العملة (FX Variance) ---');
+      sb.writeln('سعر الصرف الجمركي: ${fx['customs_exchange_rate'] ?? '—'} EGP');
+      sb.writeln('سعر صرف البنك التجاري: ${fx['commercial_bank_exchange_rate'] ?? '—'} EGP');
+      sb.writeln('فرق سعر الصرف للوحدة: ${fx['fx_variance_rate'] ?? 0.0} EGP');
+      sb.writeln('إجمالي فروق العملة التقديرية: ${fx['fx_variance_total_egp'] ?? 0.0} EGP');
+      sb.writeln();
+    }
+
+    // Section: Interactive Operational Timeline & SLA Hub
+    if (dossier != null && dossier.timelineEvents.isNotEmpty) {
+      sb.writeln('--- الجدول الزمني التفاعلي ومعدلات الإنجاز (Timeline & SLA Hub) ---');
+      for (final ev in dossier.timelineEvents) {
+        final act = ev['actual_date'] != null && ev['actual_date'].toString().isNotEmpty ? 'الفعلي: ${ev['actual_date']}' : '';
+        final plan = ev['planned_date'] != null && ev['planned_date'].toString().isNotEmpty ? 'المخطط: ${ev['planned_date']}' : '';
+        final sla = ev['sla_label'] != null ? ' | ⏱️ ${ev['sla_label']}' : '';
+        sb.writeln('• ${ev['stage_name_ar']} (${ev['stage_code']}): $act $plan $sla [${ev['status']}]');
+      }
+      sb.writeln();
+    }
+
+    // Section: ETA Tracking Revisions Log
+    if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) {
+      sb.writeln('--- سجل تعديلات وانحرافات موعد الوصول (ETA Tracking & Drift Revisions) ---');
+      for (final eta in dossier.etaRevisionsLog) {
+        final changeDate = eta['change_date'] ?? '—';
+        final oldEta = eta['old_eta'] ?? '—';
+        final newEta = eta['new_eta'] ?? '—';
+        final reason = eta['reason'] ?? '';
+        final drift = eta['drift_days'] != null ? ' (انحراف: ${eta['drift_days']} يوم)' : '';
+        sb.writeln('• في $changeDate: تم تعديل ETA من $oldEta إلى $newEta$drift ${reason.toString().isNotEmpty ? "[$reason]" : ""}');
+      }
+      sb.writeln();
+    }
+
+    // Section: Institutional Knowledge & Operational Patterns
+    final ik = dossier?.institutionalKnowledge;
+    if (ik != null) {
+      sb.writeln('--- دليل الخبرة المؤسسية والأنماط التشغيلية (Institutional Knowledge & Patterns) ---');
+      final crit = (ik['critical_entries'] as List<dynamic>?) ?? [];
+      final warn = (ik['warning_entries'] as List<dynamic>?) ?? [];
+      final reqDocs = (ik['required_documents'] as List<dynamic>?) ?? [];
+      for (final c in crit) {
+        sb.writeln('🔴 تنبيه حرج: [${c['title']}] ${c['content']}');
+      }
+      for (final w in warn) {
+        sb.writeln('🟡 تنبيه إرشادي: [${w['title']}] ${w['content']}');
+      }
+      if (reqDocs.isNotEmpty) {
+        sb.writeln('مستندات واشتراطات مطلوبة مؤسسياً: ${reqDocs.join(', ')}');
+      }
+      sb.writeln();
+    }
+
+    // Section: Similar Past Shipments
+    if (dossier != null && dossier.similarPastShipments.isNotEmpty) {
+      sb.writeln('--- سجل الشحنات السابقة المماثلة (Similar Past Shipments) ---');
+      for (final s in dossier.similarPastShipments) {
+        final code = s['file_code'] ?? s['import_file_code'] ?? '—';
+        final supplier = s['supplier_name'] ?? '—';
+        final cbm = s['cbm'] != null ? '${s['cbm']} m³' : '';
+        final dur = s['duration_days'] != null ? 'المدة: ${s['duration_days']} يوم' : '';
+        final cost = s['actual_landed_cost'] != null ? 'التكلفة: ${s['actual_landed_cost']} EGP' : '';
+        final variance = s['variance_pct'] != null ? 'انحراف: ${s['variance_pct']}%' : '';
+        sb.writeln('• $code | مورد: $supplier | $cbm | $dur | $cost | $variance');
+      }
+      sb.writeln();
+    }
+
+    // Section: Recurring Operational Patterns
+    if (dossier != null && dossier.recurringPatterns.isNotEmpty) {
+      sb.writeln('--- الأنماط التشغيلية المتكررة المكتشفة (Discovered Operational Patterns) ---');
+      for (final p in dossier.recurringPatterns) {
+        final title = p['pattern_title'] ?? p['title'] ?? 'نمط تشغيلي';
+        final desc = p['pattern_description'] ?? p['description'] ?? '';
+        final conf = p['confidence_score'] != null ? ' (ثقة: ${(p['confidence_score'] * 100).toStringAsFixed(0)}%)' : '';
+        sb.writeln('• $title$conf: $desc');
+      }
       sb.writeln();
     }
 
@@ -244,200 +357,19 @@ class ComprehensiveReportExportService {
   static Future<void> printOrSavePdf({
     required BuildContext context,
     required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
     List<ShipmentUpdateLogModel>? logs,
     CustomsClearanceModel? clearance,
     WarehouseReceivingModel? warehouse,
   }) async {
-    final l = context.l10n;
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
-    final pdf = pw.Document();
-    final cairoRegular = await PdfGoogleFonts.cairoRegular();
-    final cairoBold = await PdfGoogleFonts.cairoBold();
-
-    final totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
-    final totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
-    final totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
-    final totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
-        theme: pw.ThemeData.withFont(base: cairoRegular, bold: cairoBold),
-        build: (pw.Context pdfContext) => [
-          pw.Directionality(
-            textDirection: isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Top Header Banner
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-                  ),
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            l.compReportDossierHeader,
-                            style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            '${file.displayName}  |  ${file.supplierName}  |  ${file.companyName}',
-                            style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
-                          ),
-                        ],
-                      ),
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: pw.BoxDecoration(
-                          color: file.status.toLowerCase() == 'closed' ? PdfColors.grey600 : PdfColor.fromHex('#27AE60'),
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                        ),
-                        child: pw.Text(
-                          file.status,
-                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 12),
-
-                // Section 1: Basic Information Table
-                pw.Text(l.compReportSecBasicInfo, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
-                pw.SizedBox(height: 4),
-                pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey300),
-                  children: [
-                    _pdfTableRow(l.compReportColFileCode, file.importFileCode, l.compReportColCustomsFileNo, file.customFileNumber ?? '—'),
-                    _pdfTableRow(l.compReportColImportCompany, file.companyName, l.compReportColSupplier, file.supplierName),
-                    _pdfTableRow(l.compReportColBroker, file.brokerName ?? '—', l.compReportColShipmentMode, file.shipmentMode),
-                    _pdfTableRow(l.compReportColIncoterm, file.incotermCode, l.compReportColCategory, file.shipmentCategory),
-                    _pdfTableRow(l.compReportColPoNumber, file.poNumber ?? '—', l.compReportColPiNumber, file.piNumber ?? '—'),
-                    _pdfTableRow(l.compReportColScenario, file.selectedScenario ?? '—', l.compReportColRequiredEta, file.requiredEta ?? '—'),
-                    _pdfTableRow(l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr), l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%'),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-
-                // Section 2: Official Documents Table
-                pw.Text(l.compReportSecDocs, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#E67E22'))),
-                pw.SizedBox(height: 4),
-                pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey300),
-                  children: [
-                    _pdfTableRow(l.compReportAcidNumber, file.acidNumber ?? '—', l.compReportBankForm4, file.form4No ?? '—'),
-                    _pdfTableRow(l.compReportSwiftNumber, file.swiftNo ?? '—', l.compReportForm46Number, file.form46No ?? '—'),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-
-                // Section 3: Invoices & Financials Table
-                pw.Text(l.compReportSecFinancial, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
-                pw.SizedBox(height: 4),
-                pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey300),
-                  children: [
-                    _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
-                    _pdfTableRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD', l.compReportTotalPackages, '$totalPkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG, ${totalCbm.toStringAsFixed(2)} m³)'),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-
-                // Section 4: Customs Clearance (if any)
-                if (clearance != null) ...[
-                  pw.Text(l.compReportSecClearance, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#3498DB'))),
-                  pw.SizedBox(height: 4),
-                  pw.Table(
-                    border: pw.TableBorder.all(color: PdfColors.grey300),
-                    children: [
-                      _pdfTableRow(l.compReportForm46Number, clearance.declaration46No ?? '—', 'Channel / Office', '${clearance.channelType} / ${clearance.customsOfficeName}'),
-                      _pdfTableRow(l.compReportDutyImport, CcFormat.fixed(clearance.importDutyAmount), l.compReportDutyVat, CcFormat.fixed(clearance.vatAmount)),
-                      _pdfTableRow(l.compReportDutySchedule, CcFormat.fixed(clearance.scheduleTaxAmount), l.compReportDutyTotal, CcFormat.fixed(clearance.totalDutyPayable)),
-                    ],
-                  ),
-                  pw.SizedBox(height: 12),
-                ],
-
-                // Section 5: Warehouse Receiving (if any)
-                if (warehouse != null) ...[
-                  pw.Text(l.compReportSecWarehouse, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
-                  pw.SizedBox(height: 4),
-                  pw.Table(
-                    border: pw.TableBorder.all(color: PdfColors.grey300),
-                    children: [
-                      _pdfTableRow('GRN / Warehouse', '${warehouse.grnCode} / ${warehouse.warehouseName}', 'Arrival / Inspector', '${warehouse.arrivalDatetime.split('T').first} / ${warehouse.inspectorName}'),
-                      _pdfTableRow(l.compReportQtyInvoiced, '${warehouse.totalInvoicedQty}', l.compReportQtyAccepted, '${warehouse.totalAcceptedQty}'),
-                      _pdfTableRow(l.compReportQtyShortage, '${warehouse.totalShortageQty}', l.compReportQtyDamaged, '${warehouse.totalDamagedQty}'),
-                    ],
-                  ),
-                  pw.SizedBox(height: 12),
-                ],
-
-                // Section 6: Operational Timeline Logs (Recent)
-                if (logs != null && logs.isNotEmpty) ...[
-                  pw.Text(l.compReportSecTimeline(logs.length), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
-                  pw.SizedBox(height: 4),
-                  pw.Table(
-                    border: pw.TableBorder.all(color: PdfColors.grey300),
-                    children: [
-                      pw.TableRow(
-                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
-                        children: [
-                          _pdfHeaderCell('Date', widthFactor: 1.5),
-                          _pdfHeaderCell('Category', widthFactor: 1.5),
-                          _pdfHeaderCell('Phase', widthFactor: 1.5),
-                          _pdfHeaderCell('Note', widthFactor: 3.5),
-                        ],
-                      ),
-                      ...logs.take(10).map((log) => pw.TableRow(
-                        children: [
-                          _pdfDataCell(log.logDate.split('T').first),
-                          _pdfDataCell(log.updateCategory),
-                          _pdfDataCell(log.targetPhase),
-                          _pdfDataCell(log.note),
-                        ],
-                      )),
-                    ],
-                  ),
-                  pw.SizedBox(height: 12),
-                ],
-
-                if (file.notes != null && file.notes!.isNotEmpty) ...[
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey100,
-                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-                    ),
-                    child: pw.Text('${l.compReportSecNotes}: ${file.notes}', style: const pw.TextStyle(fontSize: 8)),
-                  ),
-                  pw.SizedBox(height: 12),
-                ],
-
-                // Sign-off footer
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Export Date: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
-                    pw.Text('Sorour Logistics ERP Enterprise Edition', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final pdf = await _buildPdfDocument(
+      context: context,
+      file: file,
+      dossier: dossier,
+      logs: logs,
+      clearance: clearance,
+      warehouse: warehouse,
     );
-
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
       name: 'Comprehensive Dossier - ${file.primaryNameWithCode}.pdf',
@@ -446,6 +378,34 @@ class ComprehensiveReportExportService {
 
   /// Generates vector A4 PDF using Cairo typography and saves directly to user-selected location via FileSaveHelper.
   static Future<void> exportToPdf({
+    required BuildContext context,
+    required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+    List<ShipmentUpdateLogModel>? logs,
+    CustomsClearanceModel? clearance,
+    WarehouseReceivingModel? warehouse,
+  }) async {
+    final pdf = await _buildPdfDocument(
+      context: context,
+      file: file,
+      dossier: dossier,
+      logs: logs,
+      clearance: clearance,
+      warehouse: warehouse,
+    );
+    final pdfBytes = await pdf.save();
+    final filename = 'Comprehensive Dossier - ${file.primaryNameWithCode}.pdf';
+    if (!context.mounted) return;
+    await FileSaveHelper.saveBytes(
+      context: context,
+      bytes: pdfBytes,
+      defaultFileName: filename,
+      dialogTitle: 'حفظ وتصدير الملف الشامل PDF',
+      allowedExtensions: ['pdf'],
+    );
+  }
+
+  static Future<pw.Document> _buildPdfDocument({
     required BuildContext context,
     required ImportFileModel file,
     ComprehensiveShipmentDossierModel? dossier,
@@ -545,6 +505,63 @@ class ComprehensiveReportExportService {
                 ),
                 pw.SizedBox(height: 12),
 
+                // Section 2.1: Containers & Seal Matrix (if available)
+                if (dossier != null && dossier.containers.isNotEmpty) ...[
+                  pw.Text('حاويات الشحنة ومطابقة أرقام السيل (Containers & Seal Matrix)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                        children: [
+                          _pdfHeaderCell('Container No'),
+                          _pdfHeaderCell('Type'),
+                          _pdfHeaderCell('Liner Seal (التوكيل)'),
+                          _pdfHeaderCell('Customs Seal (الجمارك)'),
+                          _pdfHeaderCell('Gross Weight'),
+                          _pdfHeaderCell('VGM'),
+                        ],
+                      ),
+                      ...dossier.containers.map((c) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(c['container_no']?.toString() ?? '—'),
+                          _pdfDataCell(c['container_type']?.toString() ?? '40HC'),
+                          _pdfDataCell(c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—'),
+                          _pdfDataCell(c['customs_seal_no']?.toString() ?? '—'),
+                          _pdfDataCell('${c['gross_weight_kg'] ?? 0} KG'),
+                          _pdfDataCell(c['vgm_status']?.toString() ?? 'Verified'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 2.2: FX Variance Reconciliation (if available)
+                if (dossier != null && dossier.fxReconciliation != null) ...[
+                  pw.Text('مطابقة أسعار الصرف وفروق تدبير العملة (FX Variance)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      _pdfTableRow(
+                        'سعر الصرف الجمركي',
+                        '${dossier.fxReconciliation!['customs_exchange_rate'] ?? "—"} EGP',
+                        'سعر صرف البنك التجاري',
+                        '${dossier.fxReconciliation!['commercial_bank_exchange_rate'] ?? "—"} EGP',
+                      ),
+                      _pdfTableRow(
+                        'فرق سعر الصرف للوحدة',
+                        '${dossier.fxReconciliation!['fx_variance_rate'] ?? 0.0} EGP',
+                        'إجمالي فروق العملة',
+                        '${(dossier.fxReconciliation!['fx_variance_total_egp'] as num?)?.toStringAsFixed(2) ?? "0.00"} EGP',
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
                 // Section 3: Financial Summary & Landed Cost (CLO-01 & CLO-02)
                 pw.Text('${l.compReportSecFinancial} & Actual Landed Cost', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
                 pw.SizedBox(height: 4),
@@ -553,6 +570,8 @@ class ComprehensiveReportExportService {
                   children: [
                     _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
                     _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
+                    if (dossier?.cargoPhysicalSummary != null)
+                      _pdfTableRow('POs Count', '${dossier!.cargoPhysicalSummary!['pos_count'] ?? 0}', 'Invoices Count', '${dossier.cargoPhysicalSummary!['invoices_count'] ?? 0}'),
                     if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) ...[
                       _pdfTableRow(
                         'Actual Landed Cost',
@@ -599,6 +618,118 @@ class ComprehensiveReportExportService {
                       if (file.emptyContainersReturnedAt != null || (dossier != null && dossier.emptyContainersReturnedAt != null))
                         _pdfTableRow('EIR Receipts', file.emptyContainersEirNumbers ?? dossier?.emptyContainersEirNumbers ?? '—', 'Returned Date', file.emptyContainersReturnedAt ?? dossier?.emptyContainersReturnedAt ?? '—'),
                     ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 5.1: Interactive Operational Timeline & SLA Hub (if available)
+                if (dossier != null && dossier.timelineEvents.isNotEmpty) ...[
+                  pw.Text('الجدول الزمني ومعدلات الإنجاز (Timeline & SLA Hub)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2980B9'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2980B9')),
+                        children: [
+                          _pdfHeaderCell('Stage Name / المرحلة'),
+                          _pdfHeaderCell('Planned / المخطط'),
+                          _pdfHeaderCell('Actual / الفعلي'),
+                          _pdfHeaderCell('SLA / الفارق الزمني'),
+                          _pdfHeaderCell('Status / الحالة'),
+                        ],
+                      ),
+                      ...dossier.timelineEvents.map((ev) => pw.TableRow(
+                        children: [
+                          _pdfDataCell('${ev['stage_name_ar']} (${ev['stage_code']})'),
+                          _pdfDataCell(ev['planned_date']?.toString() ?? '—'),
+                          _pdfDataCell(ev['actual_date']?.toString() ?? '—'),
+                          _pdfDataCell(ev['sla_label']?.toString() ?? '—'),
+                          _pdfDataCell(ev['status']?.toString() ?? '—'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 5.1.1: ETA Revisions Log (if available)
+                if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) ...[
+                  pw.Text('سجل تعديلات وانحرافات موعد الوصول (ETA Tracking Log)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#E67E22'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#E67E22')),
+                        children: [
+                          _pdfHeaderCell('تاريخ التعديل'),
+                          _pdfHeaderCell('ETA السابق'),
+                          _pdfHeaderCell('ETA الجديد'),
+                          _pdfHeaderCell('انحراف (أيام)'),
+                          _pdfHeaderCell('السبب / البيان'),
+                        ],
+                      ),
+                      ...dossier.etaRevisionsLog.map((eta) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(eta['change_date']?.toString() ?? '—'),
+                          _pdfDataCell(eta['old_eta']?.toString() ?? '—'),
+                          _pdfDataCell(eta['new_eta']?.toString() ?? '—'),
+                          _pdfDataCell(eta['drift_days']?.toString() ?? '0'),
+                          _pdfDataCell(eta['reason']?.toString() ?? '—'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 5.2: Institutional Knowledge & Patterns (if available)
+                if (dossier != null && (dossier.institutionalKnowledge != null || dossier.similarPastShipments.isNotEmpty || dossier.recurringPatterns.isNotEmpty)) ...[
+                  pw.Text('دليل الخبرة المؤسسية والأنماط (Institutional Knowledge & Patterns)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#8E44AD'))),
+                  pw.SizedBox(height: 4),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        if (dossier.institutionalKnowledge != null && ((dossier.institutionalKnowledge!['critical_entries'] as List<dynamic>?) ?? []).isNotEmpty)
+                          ...((dossier.institutionalKnowledge!['critical_entries'] as List<dynamic>)).map((c) => pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                            child: pw.Text('🔴 [تنبيه حرج]: ${c['title']} - ${c['content']}', style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold)),
+                          )),
+                        if (dossier.institutionalKnowledge != null && ((dossier.institutionalKnowledge!['warning_entries'] as List<dynamic>?) ?? []).isNotEmpty)
+                          ...((dossier.institutionalKnowledge!['warning_entries'] as List<dynamic>)).map((w) => pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                            child: pw.Text('🟡 [تنبيه إرشادي]: ${w['title']} - ${w['content']}', style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#D35400'))),
+                          )),
+                        if (dossier.institutionalKnowledge != null && ((dossier.institutionalKnowledge!['required_documents'] as List<dynamic>?) ?? []).isNotEmpty)
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 2),
+                            child: pw.Text('مستندات واشتراطات مؤسسية: ${((dossier.institutionalKnowledge!['required_documents'] as List<dynamic>)).join(", ")}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.black)),
+                          ),
+                        if (dossier.similarPastShipments.isNotEmpty) ...[
+                          pw.SizedBox(height: 4),
+                          pw.Text('سجل الشحنات السابقة المماثلة:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                          ...dossier.similarPastShipments.take(3).map((s) => pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 1),
+                            child: pw.Text('• ${s['file_code'] ?? s['import_file_code'] ?? "—"} | مورد: ${s['supplier_name'] ?? "—"} | ${s['cbm'] ?? 0} m³ | مدة: ${s['duration_days'] ?? "—"} يوم | تكلفة: ${s['actual_landed_cost'] ?? "—"} EGP', style: const pw.TextStyle(fontSize: 7)),
+                          )),
+                        ],
+                        if (dossier.recurringPatterns.isNotEmpty) ...[
+                          pw.SizedBox(height: 4),
+                          pw.Text('الأنماط التشغيلية المتكررة المكتشفة:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                          ...dossier.recurringPatterns.take(3).map((p) => pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 1),
+                            child: pw.Text('• ${p['pattern_title'] ?? p['title'] ?? ""}: ${p['pattern_description'] ?? p['description'] ?? ""}', style: const pw.TextStyle(fontSize: 7)),
+                          )),
+                        ],
+                      ],
+                    ),
                   ),
                   pw.SizedBox(height: 12),
                 ],
@@ -659,16 +790,7 @@ class ComprehensiveReportExportService {
       ),
     );
 
-    final pdfBytes = await pdf.save();
-    final filename = 'Comprehensive Dossier - ${file.primaryNameWithCode}.pdf';
-    if (!context.mounted) return;
-    await FileSaveHelper.saveBytes(
-      context: context,
-      bytes: pdfBytes,
-      defaultFileName: filename,
-      dialogTitle: 'حفظ وتصدير الملف الشامل PDF',
-      allowedExtensions: ['pdf'],
-    );
+    return pdf;
   }
 
   static pw.TableRow _pdfTableRow(String label1, String val1, String label2, String val2) {
@@ -762,6 +884,18 @@ class ComprehensiveReportExportService {
       addRow(sPL, '${pl.plNo} (#${i + 1})', '${pl.totalPackages} pkgs | ${pl.grossWeightKg.toStringAsFixed(1)} KG', '${pl.cbm.toStringAsFixed(2)} CBM');
     }
 
+    // Physical Cargo Summary & KPIs
+    final phys = dossier?.cargoPhysicalSummary;
+    if (phys != null) {
+      const sPhys = 'الملخص الفيزيائي والمقاييس (Physical Cargo)';
+      addRow(sPhys, 'إجمالي الحجم CBM', '${phys['total_cbm'] ?? 0.0} m³');
+      addRow(sPhys, 'الوزن القائم Gross Weight', '${phys['gross_weight_kg'] ?? 0.0} KG');
+      addRow(sPhys, 'الوزن الصافي Net Weight', '${phys['net_weight_kg'] ?? "—"} KG');
+      addRow(sPhys, 'عدد الطرود Packages', '${phys['total_packages'] ?? 0}');
+      addRow(sPhys, 'عدد الفواتير Invoices', '${phys['invoices_count'] ?? 0}');
+      addRow(sPhys, 'عدد أوامر الشراء POs', '${phys['pos_count'] ?? 0}');
+    }
+
     // Financial
     final sFin = l.compReportSecFinancial;
     final totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
@@ -836,6 +970,99 @@ class ComprehensiveReportExportService {
       final sLogs = l.compReportSecTimeline(logs.length);
       for (final log in logs) {
         addRow(sLogs, '${log.logDate} - ${log.targetPhase}', '${log.updateCategory}: ${log.note}', 'User: ${log.assignedUser}');
+      }
+    }
+
+    // Containers & Seals Matrix
+    if (dossier != null && dossier.containers.isNotEmpty) {
+      const sCont = 'مصفوفة الحاويات وأرقام السيل';
+      for (var i = 0; i < dossier.containers.length; i++) {
+        final c = dossier.containers[i];
+        final cNo = c['container_no']?.toString() ?? 'CONT-${i + 1}';
+        final cType = c['container_type']?.toString() ?? '40HC';
+        final lSeal = c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—';
+        final cSeal = c['customs_seal_no']?.toString() ?? '—';
+        final gross = c['gross_weight_kg'] ?? 0.0;
+        final vgm = c['vgm_status'] ?? 'Verified';
+        addRow(sCont, '$cNo ($cType)', 'سيل التوكيل: $lSeal | سيل الجمارك: $cSeal', 'Gross: $gross KG | VGM: $vgm');
+      }
+    }
+
+    // FX Reconciliation
+    final fx = dossier?.fxReconciliation;
+    if (fx != null) {
+      const sFx = 'فروق أسعار الصرف (FX Variance)';
+      addRow(sFx, 'سعر الصرف الجمركي', '${fx['customs_exchange_rate'] ?? "—"} EGP');
+      addRow(sFx, 'سعر صرف البنك التجاري', '${fx['commercial_bank_exchange_rate'] ?? "—"} EGP');
+      addRow(sFx, 'فرق سعر الصرف للوحدة', '${fx['fx_variance_rate'] ?? 0.0} EGP');
+      addRow(sFx, 'إجمالي فروق العملة التقديرية', '${fx['fx_variance_total_egp'] ?? 0.0} EGP');
+    }
+
+    // Interactive Timeline Events & SLAs
+    if (dossier != null && dossier.timelineEvents.isNotEmpty) {
+      const sTimeline = 'الجدول الزمني ومعدلات الإنجاز SLA';
+      for (final ev in dossier.timelineEvents) {
+        final name = '${ev['stage_name_ar']} (${ev['stage_code']})';
+        final dates = 'الفعلي: ${ev['actual_date'] ?? "—"} | المخطط: ${ev['planned_date'] ?? "—"}';
+        final detail = '${ev['sla_label'] ?? ""} [${ev['status']}]';
+        addRow(sTimeline, name, dates, detail);
+      }
+    }
+
+    // ETA Tracking Revisions Log
+    if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) {
+      const sEta = 'سجل تعديلات وانحرافات موعد الوصول ETA';
+      for (final eta in dossier.etaRevisionsLog) {
+        addRow(
+          sEta,
+          'تعديل ${eta['change_date'] ?? ""}',
+          'من ${eta['old_eta'] ?? "—"} إلى ${eta['new_eta'] ?? "—"}',
+          'انحراف: ${eta['drift_days'] ?? 0} يوم | السبب: ${eta['reason'] ?? ""}',
+        );
+      }
+    }
+
+    // Institutional Knowledge & Operational Patterns
+    final ik = dossier?.institutionalKnowledge;
+    if (ik != null) {
+      const sIk = 'دليل الخبرة المؤسسية والأنماط';
+      final crit = (ik['critical_entries'] as List<dynamic>?) ?? [];
+      final warn = (ik['warning_entries'] as List<dynamic>?) ?? [];
+      final reqDocs = (ik['required_documents'] as List<dynamic>?) ?? [];
+      for (final c in crit) {
+        addRow(sIk, 'تنبيه حرج 🔴', c['title']?.toString() ?? '', c['content']?.toString() ?? '');
+      }
+      for (final w in warn) {
+        addRow(sIk, 'تنبيه إرشادي 🟡', w['title']?.toString() ?? '', w['content']?.toString() ?? '');
+      }
+      if (reqDocs.isNotEmpty) {
+        addRow(sIk, 'مستندات مطلوبة مؤسسياً', reqDocs.join(' | '));
+      }
+    }
+
+    // Similar Past Shipments
+    if (dossier != null && dossier.similarPastShipments.isNotEmpty) {
+      const sSim = 'الشحنات السابقة المماثلة';
+      for (final s in dossier.similarPastShipments) {
+        addRow(
+          sSim,
+          s['file_code']?.toString() ?? s['import_file_code']?.toString() ?? '—',
+          'المورد: ${s['supplier_name'] ?? "—"} | CBM: ${s['cbm'] ?? "—"}',
+          'مدة: ${s['duration_days'] ?? "—"} يوم | تكلفة: ${s['actual_landed_cost'] ?? "—"} EGP (${s['variance_pct'] ?? "—"}%)',
+        );
+      }
+    }
+
+    // Recurring Operational Patterns
+    if (dossier != null && dossier.recurringPatterns.isNotEmpty) {
+      const sPat = 'الأنماط التشغيلية المتكررة';
+      for (final p in dossier.recurringPatterns) {
+        addRow(
+          sPat,
+          p['pattern_title']?.toString() ?? p['title']?.toString() ?? 'نمط',
+          p['pattern_description']?.toString() ?? p['description']?.toString() ?? '',
+          p['confidence_score'] != null ? 'ثقة: ${(p['confidence_score'] * 100).toStringAsFixed(0)}%' : '',
+        );
       }
     }
 
