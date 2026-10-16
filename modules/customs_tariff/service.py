@@ -520,7 +520,7 @@ def resolve_insurance_freight(
     # Resolution of Freight (support foreign currency freight & specific freight exchange rate)
     effective_actual_freight_egp = actual_freight_egp
     if freight_currency and freight_currency.upper() != "EGP" and freight_foreign_amount > Decimal("0.00"):
-        frt_rate = freight_exchange_rate if (freight_exchange_rate and freight_exchange_rate > Decimal("0.00")) else exchange_rate
+        frt_rate = freight_exchange_rate if (freight_exchange_rate and freight_exchange_rate > Decimal("0.00")) else Decimal("0.00")
         effective_actual_freight_egp = _round(freight_foreign_amount * frt_rate)
 
     if has_freight_document and effective_actual_freight_egp > Decimal("0.00"):
@@ -680,6 +680,22 @@ def estimate_multi_item_customs_duty_service(
         effective_exchange_rate = request.exchange_rate
     else:
         effective_exchange_rate, rate_date, rate_id = _customs_rate(db, request.currency, on_date)
+    # Step 0: Resolve Freight Rate & Source (ACC1-T01)
+    freight_curr = (request.freight_currency or "EGP").strip().upper()
+    freight_foreign_amt = request.freight_foreign_amount or Decimal("0.00")
+    freight_rate_used: Optional[Decimal] = None
+    freight_rate_source: Optional[str] = None
+
+    if request.has_freight_document and freight_curr != "EGP" and freight_foreign_amt > Decimal("0.00"):
+        if freight_curr == (request.currency or "").strip().upper():
+            freight_rate_used = effective_exchange_rate
+            freight_rate_source = "invoice_currency"
+        elif request.freight_exchange_rate is not None and request.freight_exchange_rate > Decimal("0.00"):
+            freight_rate_used = request.freight_exchange_rate
+            freight_rate_source = "manual"
+        else:
+            freight_rate_used, _, _ = _customs_rate(db, freight_curr, on_date)
+            freight_rate_source = "table"
 
     # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
     (
@@ -697,11 +713,15 @@ def estimate_multi_item_customs_duty_service(
         has_freight_document=request.has_freight_document,
         deemed_insurance_rate=request.deemed_insurance_rate,
         deemed_freight_rate=request.deemed_freight_rate,
-        freight_currency=request.freight_currency or "EGP",
-        freight_foreign_amount=request.freight_foreign_amount or Decimal("0.00"),
-        freight_exchange_rate=request.freight_exchange_rate,
+        freight_currency=freight_curr,
+        freight_foreign_amount=freight_foreign_amt,
+        freight_exchange_rate=freight_rate_used,
         packaging_egp=request.packaging_egp or Decimal("0.00"),
     )
+
+    if freight_source == "deemed" or freight_curr == "EGP" or freight_foreign_amt <= Decimal("0.00"):
+        freight_rate_source = None
+        freight_rate_used = None
 
     total_insurance_freight_packaging_egp = resolved_insurance_egp + resolved_freight_egp + request.packaging_egp
 
@@ -903,6 +923,8 @@ def estimate_multi_item_customs_duty_service(
         packaging_egp=request.packaging_egp,
         insurance_source=insurance_source,
         freight_source=freight_source,
+        freight_exchange_rate_used=freight_rate_used,
+        freight_rate_source=freight_rate_source,
         additional_fees_egp=additional_fees_total_egp,
         estimate_date=on_date,
         lines=line_breakdowns,
@@ -1351,6 +1373,39 @@ def evaluate_duty_by_origin_and_document_service(
         )
 
 
+def _resolve_origin_iso2(
+    db: Session,
+    origin_val: Optional[str] = None,
+    country_id: Optional[int] = None,
+) -> Optional[str]:
+    from modules.transport_locations.model import Country
+    if country_id:
+        c = db.query(Country).filter(Country.country_id == country_id, Country.is_active == True).first()
+        if c and c.country_code and len(c.country_code.strip()) == 2:
+            return c.country_code.strip().upper()
+    if not origin_val:
+        return None
+    val = str(origin_val).strip()
+    if not val:
+        return None
+    token = val.split(" - ")[0].strip() if " - " in val else val
+    # Master Country table lookup by token (e.g. ISO-2 code)
+    c = db.query(Country).filter(Country.country_code.ilike(token), Country.is_active == True).first()
+    if c and c.country_code and len(c.country_code.strip()) == 2:
+        return c.country_code.strip().upper()
+    # Master Country table lookup by full name or Arabic name
+    c = db.query(Country).filter(
+        (Country.country_name.ilike(val)) | (Country.country_name_ar == val),
+        Country.is_active == True,
+    ).first()
+    if c and c.country_code and len(c.country_code.strip()) == 2:
+        return c.country_code.strip().upper()
+    # If not found in Country table, check if token itself is an ISO-2 alphabetic code
+    if len(token) == 2 and token.isalpha():
+        return token.upper()
+    return None
+
+
 def simulate_import_file_customs_duty_service(
     db: Session,
     import_file_id: int,
@@ -1358,14 +1413,15 @@ def simulate_import_file_customs_duty_service(
 ) -> ImportFileCustomsSimulationResponse:
     """
     محاكاة واحتساب الرسوم والضرائب التقديرية لملف الشحنة الاستيرادية (PL-07: Customs Duty Simulation).
-    1. استخراج بنود أمر الشراء أو الفواتير المرتبطة بالملف.
-    2. استرجاع سعر الصرف الجمركي الرسمي للعملة في تاريخ التقدير.
-    3. استرجاع أو احتساب النولون والتأمين (فعلي أو حكمي).
-    4. تشغيل محرك الحساب الجمركي المصري المتعدد الأصناف (Nafeza Statement Engine).
-    5. حفظ وتحديث قيمة الرسوم التقديرية ومستندات الفحص والموافقات في دراسة الاستشارة وميزانية الملف.
+    1. استخراج بنود أمر الشراء أو الفواتير المرتبطة بالملف دون أي قيم أو بنود مخترعة.
+    2. استرجاع سعر الصرف الجمركي الرسمي لكل عملة لأوامر الشراء في تاريخ التقدير.
+    3. تحويل البنود إلى الجنيه المصري وتمريرها لمحرك الضرائب الموحد.
+    4. استرجاع أو احتساب النولون والتأمين (فعلي أو حكمي).
+    5. تحديث جلسة الاستشارة الجمركية القائمة، أو إنشاء واحدة جديدة فقط في حال تعيين مخلص جمركي.
     """
     from modules.import_files.model import ImportFile
     from modules.purchase_orders.model import PurchaseOrder
+    from modules.currencies.model import Currency
     from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 
     req = request or ImportFileCustomsSimulationRequest()
@@ -1386,88 +1442,187 @@ def simulate_import_file_customs_duty_service(
     )
     po_numbers = [po.po_number for po in pos if po.po_number]
 
-    # Collect lines
     estimate_lines: List[MultiItemCustomsEstimateLine] = []
-    currency = "USD"
+    skipped_lines: List[dict] = []
+    warnings: List[str] = []
+    unique_currencies: Set[str] = set()
     line_idx = 1
 
+    # Pre-scan distinct PO currencies upfront to safely handle manual exchange_rate override
+    po_currencies: Dict[int, Optional[str]] = {}
+    distinct_non_egp_currencies: Set[str] = set()
     for po in pos:
-        if po.currency and po.currency.currency_code:
-            currency = po.currency.currency_code
+        c_code = (po.currency.currency_code if po.currency and po.currency.currency_code else getattr(po, "currency_code", None) or "").upper().strip()
+        if not c_code and getattr(po, "currency_id", None):
+            c_obj = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
+            if c_obj and c_obj.currency_code:
+                c_code = c_obj.currency_code.upper().strip()
+        po_currencies[po.po_id] = c_code if c_code else None
+        if c_code and c_code != "EGP":
+            distinct_non_egp_currencies.add(c_code)
+
+    override_applies = (
+        req.exchange_rate is not None
+        and req.exchange_rate > Decimal("0.00")
+        and len(distinct_non_egp_currencies) == 1
+    )
+    if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00") and len(distinct_non_egp_currencies) > 1:
+        warnings.append("EXCHANGE_RATE_OVERRIDE_AMBIGUOUS")
+
+    for po in pos:
+        po_curr = po_currencies.get(po.po_id)
+        if not po_curr:
+            for item in (po.line_items or []):
+                item_code_val = (
+                    getattr(item, "item_code", "")
+                    or getattr(item, "description_ar", "")
+                    or getattr(item, "description_en", "")
+                    or ""
+                )
+                skipped_lines.append({
+                    "po_number": po.po_number or "",
+                    "item_code": item_code_val,
+                    "reason": "NO_CURRENCY",
+                })
+            continue
+
+        unique_currencies.add(po_curr)
+
+        # Resolve exchange rate for this PO currency
+        if po_curr == "EGP":
+            po_rate = Decimal("1.0000")
+        elif override_applies and po_curr in distinct_non_egp_currencies:
+            po_rate = req.exchange_rate
+        else:
+            po_rate, _, _ = _customs_rate(db, po_curr, calc_date)
+
         for item in (po.line_items or []):
             hs = (item.tariff.hs_code if getattr(item, "tariff", None) else getattr(item, "hs_code", "")) or ""
             hs = hs.strip()
             if not hs and import_file.hs_code:
                 hs = import_file.hs_code.strip()
-            if not hs:
-                hs = "8479.89.90"
 
-            qty = Decimal(str(item.quantity or 1.0))
+            item_code_val = (
+                getattr(item, "item_code", "")
+                or getattr(item, "description_ar", "")
+                or getattr(item, "description_en", "")
+                or ""
+            )
+
+            if not hs:
+                skipped_lines.append({
+                    "po_number": po.po_number or "",
+                    "item_code": item_code_val,
+                    "reason": "NO_HS",
+                })
+                continue
+
+            qty = Decimal(str(item.quantity or 0.0))
             u_price = Decimal(str(item.unit_price or 0.0))
             val_fc = Decimal(str(item.total_price or (qty * u_price)))
             if val_fc <= Decimal("0.00"):
-                val_fc = Decimal("1000.00")
+                skipped_lines.append({
+                    "po_number": po.po_number or "",
+                    "item_code": item_code_val,
+                    "reason": "NO_VALUE",
+                })
+                continue
 
-            origin = (getattr(item, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
-            if origin and " - " in origin:
-                origin = origin.split(" - ")[0].strip()
-            if origin and len(origin) > 2:
-                origin = origin[:2]
+            origin_raw = (getattr(item, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
+            country_id = getattr(item, "country_id", None) or getattr(po, "country_id", None)
+            origin_iso = _resolve_origin_iso2(db, origin_val=origin_raw, country_id=country_id)
+
+            val_egp = _round(val_fc * po_rate)
 
             estimate_lines.append(
                 MultiItemCustomsEstimateLine(
                     line_no=line_idx,
                     hs_code=hs,
-                    value_fc=val_fc,
+                    value_fc=val_egp,
                     weight_kg=Decimal(str(getattr(item, "gross_weight_kg", 0.0) or 0.0)),
-                    qty=qty,
-                    origin_country=origin.upper() if origin else None,
+                    qty=qty if qty > Decimal("0.00") else Decimal("1.00"),
+                    origin_country=origin_iso,
                 )
             )
             line_idx += 1
 
     # Fallback to invoices_data if no PO items exist
-    if not estimate_lines and import_file.invoices_data:
+    if not estimate_lines and not pos and import_file.invoices_data:
+        inv_non_egp_currencies: Set[str] = set()
         for inv in import_file.invoices_data:
-            inv_amt = Decimal(str(inv.get("amount") or 0.0))
-            if inv_amt > Decimal("0.00"):
-                inv_curr = inv.get("currency") or "USD"
-                currency = inv_curr
-                hs = (import_file.hs_code or "8479.89.90").strip()
-                estimate_lines.append(
-                    MultiItemCustomsEstimateLine(
-                        line_no=line_idx,
-                        hs_code=hs,
-                        value_fc=inv_amt,
-                        weight_kg=Decimal("0.00"),
-                        qty=Decimal("1.00"),
-                        origin_country=None,
-                    )
-                )
-                line_idx += 1
+            c = (inv.get("currency") or "").upper().strip()
+            if c and c != "EGP":
+                inv_non_egp_currencies.add(c)
 
-    # If still no items, provide a baseline estimate line
-    if not estimate_lines:
-        cost = Decimal(str(import_file.estimated_cost or 10000.0))
-        currency = import_file.estimated_cost_currency or "USD"
-        estimate_lines.append(
-            MultiItemCustomsEstimateLine(
-                line_no=1,
-                hs_code=(import_file.hs_code or "8479.89.90").strip(),
-                value_fc=cost if cost > Decimal("0.00") else Decimal("10000.00"),
-                weight_kg=Decimal("0.00"),
-                qty=Decimal("1.00"),
-                origin_country=None,
+        inv_override_applies = (
+            req.exchange_rate is not None
+            and req.exchange_rate > Decimal("0.00")
+            and len(inv_non_egp_currencies) == 1
+        )
+        if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00") and len(inv_non_egp_currencies) > 1:
+            warnings.append("EXCHANGE_RATE_OVERRIDE_AMBIGUOUS")
+
+        for inv in import_file.invoices_data:
+            inv_curr = (inv.get("currency") or "").upper().strip()
+            inv_num = inv.get("invoice_number", "") or "INVOICE"
+            if not inv_curr:
+                skipped_lines.append({
+                    "po_number": inv_num,
+                    "item_code": "INVOICE",
+                    "reason": "NO_CURRENCY",
+                })
+                continue
+
+            unique_currencies.add(inv_curr)
+            if inv_curr == "EGP":
+                inv_rate = Decimal("1.0000")
+            elif inv_override_applies and inv_curr in inv_non_egp_currencies:
+                inv_rate = req.exchange_rate
+            else:
+                inv_rate, _, _ = _customs_rate(db, inv_curr, calc_date)
+
+            hs = (import_file.hs_code or "").strip()
+            if not hs:
+                skipped_lines.append({
+                    "po_number": inv_num,
+                    "item_code": "INVOICE",
+                    "reason": "NO_HS",
+                })
+                continue
+
+            inv_amt = Decimal(str(inv.get("amount") or 0.0))
+            if inv_amt <= Decimal("0.00"):
+                skipped_lines.append({
+                    "po_number": inv_num,
+                    "item_code": "INVOICE",
+                    "reason": "NO_VALUE",
+                })
+                continue
+
+            val_egp = _round(inv_amt * inv_rate)
+            estimate_lines.append(
+                MultiItemCustomsEstimateLine(
+                    line_no=line_idx,
+                    hs_code=hs,
+                    value_fc=val_egp,
+                    weight_kg=Decimal("0.00"),
+                    qty=Decimal("1.00"),
+                    origin_country=None,
+                )
             )
+            line_idx += 1
+
+    # If no lines exist, fail with 422 CT_SIMULATION_NO_LINES
+    if not estimate_lines:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "CT_SIMULATION_NO_LINES",
+                "message": "لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.",
+            },
         )
 
-    # 2. Resolve Currency & Customs Exchange Rate
-    if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
-        fx_rate = req.exchange_rate
-    else:
-        fx_rate, _, _ = _customs_rate(db, currency, calc_date)
-
-    # 3. Resolve Freight & Insurance
+    # 2. Resolve Freight & Insurance
     has_freight_doc = req.freight_egp is not None and req.freight_egp > Decimal("0.00")
     freight_val_egp = req.freight_egp or Decimal("0.00")
     if not has_freight_doc:
@@ -1483,21 +1638,26 @@ def simulate_import_file_customs_duty_service(
                 FreightQuotationItem.quotation_id == awarded_rfq.selected_quotation_id
             ).first()
             if winning_q and winning_q.total_cost:
-                q_cost = Decimal(str(winning_q.total_cost))
-                q_curr = winning_q.currency_code or currency
-                if q_curr.upper() == "EGP":
-                    freight_val_egp = q_cost
+                q_curr = (winning_q.currency_code or "").upper().strip()
+                if not q_curr:
+                    warnings.append("CT_SIMULATION_FREIGHT_NO_CURRENCY")
                 else:
-                    freight_val_egp = _round(q_cost * fx_rate)
-                has_freight_doc = True
+                    q_cost = Decimal(str(winning_q.total_cost))
+                    if q_curr == "EGP":
+                        freight_val_egp = q_cost
+                    else:
+                        q_rate, _, _ = _customs_rate(db, q_curr, calc_date)
+                        freight_val_egp = _round(q_cost * q_rate)
+                    has_freight_doc = True
 
     has_ins_doc = req.insurance_egp is not None and req.insurance_egp > Decimal("0.00")
     ins_val_egp = req.insurance_egp or Decimal("0.00")
 
-    # 4. Build Multi-Item Calculation Request and execute
+    # 3. Build Multi-Item Calculation Request and execute
+    # Lines have already been converted to EGP per their PO customs exchange rates
     calc_request = MultiItemCustomsEstimateRequest(
-        currency=currency,
-        exchange_rate=fx_rate,
+        currency="EGP",
+        exchange_rate=Decimal("1.0000"),
         insurance_egp=ins_val_egp,
         freight_egp=freight_val_egp,
         packaging_egp=req.packaging_egp or Decimal("0.00"),
@@ -1509,7 +1669,7 @@ def simulate_import_file_customs_duty_service(
 
     breakdown = estimate_multi_item_customs_duty_service(db, calc_request)
 
-    # 5. Persist to Consultation Session if requested
+    # 4. Persist to Consultation Session if requested
     consultation_id = None
     if req.save_to_consultation:
         consultation = (
@@ -1523,83 +1683,91 @@ def simulate_import_file_customs_duty_service(
 
         grand_duties_egp = float(breakdown.grand_total_payable_egp)
 
-        if not consultation:
+        if consultation:
+            consultation.estimated_duties_egp = grand_duties_egp
+            db.commit()
+            db.refresh(consultation)
+            consultation_id = consultation.consultation_id
+        elif import_file.broker_id:
             from modules.external_service_providers.model import ExternalServiceProvider
             broker = (
                 db.query(ExternalServiceProvider)
-                .filter(ExternalServiceProvider.partner_type.ilike("%Broker%"), ExternalServiceProvider.is_active == True)
+                .filter(ExternalServiceProvider.provider_id == import_file.broker_id, ExternalServiceProvider.is_active == True)
                 .first()
             )
-            broker_id = broker.provider_id if broker else (import_file.broker_id or 1)
-            broker_name = broker.partner_name if broker else (import_file.broker_name or "Approved Customs Broker")
-
-            consultation = CustomsConsultationSession(
-                consultation_code=f"CONS-{import_file.import_file_code}",
-                title=f"Customs consultation study - {import_file.import_file_code}",
-                broker_id=broker_id,
-                broker_name=broker_name,
-                import_file_id=import_file_id,
-                overall_status="Pending Review",
-                estimated_duties_egp=grand_duties_egp,
-                is_active=True,
-            )
-            db.add(consultation)
-            db.flush()
-
-            checklist_items = []
-            acid_needed = any(l.requires_acid for l in breakdown.lines)
-            if acid_needed:
-                checklist_items.append(
-                    CustomsChecklistItem(
-                        consultation_id=consultation.consultation_id,
-                        document_type="Advance ACID Filing (Nafeza / CargoX)",
-                        is_required=True,
-                        is_blocking_shipment=True,
-                        responsible_party="Importer Team",
-                        regulatory_agency="Nafeza / CargoX",
-                        status="Pending",
-                        remarks="The advance ACID number is mandatory before the B/L is issued.",
-                    )
+            if broker:
+                broker_name = broker.partner_name
+                consultation = CustomsConsultationSession(
+                    consultation_code=f"CONS-{import_file.import_file_code}",
+                    title=f"Customs consultation study - {import_file.import_file_code}",
+                    broker_id=import_file.broker_id,
+                    broker_name=broker_name,
+                    import_file_id=import_file_id,
+                    overall_status="Pending Review",
+                    estimated_duties_egp=grand_duties_egp,
+                    is_active=True,
                 )
+                db.add(consultation)
+                db.flush()
 
-            coo_needed = any(l.requires_coo for l in breakdown.lines)
-            if coo_needed:
-                checklist_items.append(
-                    CustomsChecklistItem(
-                        consultation_id=consultation.consultation_id,
-                        document_type="Certificate of Origin (COO / EUR.1)",
-                        is_required=True,
-                        is_blocking_shipment=True,
-                        responsible_party="Supplier / Exporter",
-                        regulatory_agency="Chamber of Commerce / Customs",
-                        status="Pending",
-                        remarks="Official certificate of origin required to apply customs exemptions.",
+                checklist_items = []
+                acid_needed = any(l.requires_acid for l in breakdown.lines)
+                if acid_needed:
+                    checklist_items.append(
+                        CustomsChecklistItem(
+                            consultation_id=consultation.consultation_id,
+                            document_type="Advance ACID Filing (Nafeza / CargoX)",
+                            is_required=True,
+                            is_blocking_shipment=True,
+                            responsible_party="Importer Team",
+                            regulatory_agency="Nafeza / CargoX",
+                            status="Pending",
+                            remarks="The advance ACID number is mandatory before the B/L is issued.",
+                        )
                     )
-                )
 
-            insp_needed = any(l.requires_inspection for l in breakdown.lines)
-            if insp_needed:
-                checklist_items.append(
-                    CustomsChecklistItem(
-                        consultation_id=consultation.consultation_id,
-                        document_type="GOEIC Inspection",
-                        is_required=True,
-                        is_blocking_shipment=True,
-                        responsible_party="Customs Broker",
-                        regulatory_agency="GOEIC",
-                        status="Pending",
-                        remarks="Physical inspection and lab sampling by GOEIC.",
+                coo_needed = any(l.requires_coo for l in breakdown.lines)
+                if coo_needed:
+                    checklist_items.append(
+                        CustomsChecklistItem(
+                            consultation_id=consultation.consultation_id,
+                            document_type="Certificate of Origin (COO / EUR.1)",
+                            is_required=True,
+                            is_blocking_shipment=True,
+                            responsible_party="Supplier / Exporter",
+                            regulatory_agency="Chamber of Commerce / Customs",
+                            status="Pending",
+                            remarks="Official certificate of origin required to apply customs exemptions.",
+                        )
                     )
-                )
 
-            if checklist_items:
-                db.add_all(checklist_items)
+                insp_needed = any(l.requires_inspection for l in breakdown.lines)
+                if insp_needed:
+                    checklist_items.append(
+                        CustomsChecklistItem(
+                            consultation_id=consultation.consultation_id,
+                            document_type="GOEIC Inspection",
+                            is_required=True,
+                            is_blocking_shipment=True,
+                            responsible_party="Customs Broker",
+                            regulatory_agency="GOEIC",
+                            status="Pending",
+                            remarks="Physical inspection and lab sampling by GOEIC.",
+                        )
+                    )
+
+                if checklist_items:
+                    db.add_all(checklist_items)
+
+                db.commit()
+                db.refresh(consultation)
+                consultation_id = consultation.consultation_id
+            else:
+                warnings.append("CT_SIMULATION_NO_BROKER")
         else:
-            consultation.estimated_duties_egp = grand_duties_egp
+            warnings.append("CT_SIMULATION_NO_BROKER")
 
-        db.commit()
-        db.refresh(consultation)
-        consultation_id = consultation.consultation_id
+    resp_currency = list(unique_currencies)[0] if len(unique_currencies) == 1 else "EGP"
 
     summary = (
         f"تمت المحاكاة الجمركية لملف {import_file.import_file_code}: "
@@ -1613,10 +1781,12 @@ def simulate_import_file_customs_duty_service(
         import_file_id=import_file_id,
         import_file_code=import_file.import_file_code,
         po_numbers=po_numbers,
-        currency=currency,
+        currency=resp_currency,
         breakdown=breakdown,
         consultation_id=consultation_id,
         summary_ar=summary,
+        warnings=warnings,
+        skipped_lines=skipped_lines,
     )
 
 

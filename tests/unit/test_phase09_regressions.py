@@ -249,7 +249,24 @@ def test_unbalanced_journal_is_not_exported_and_fx_rows_name_their_currency(db):
 
 def test_approve_without_calculate_permission_is_403(db):
     import main
+    from modules.auth.security import create_access_token, hash_password
+    from modules.users.model import User
     from modules.auth.permissions import invalidate_permission_cache
+
+    user = User(
+        username="operator_perm_test",
+        email="operator_perm@test.com",
+        full_name="Operator Perm Test",
+        hashed_password=hash_password("Password123"),
+        role="OPERATOR",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
 
     invalidate_permission_cache()
     main.app.dependency_overrides[get_db] = lambda: db
@@ -257,9 +274,9 @@ def test_approve_without_calculate_permission_is_403(db):
         with patch.object(permissions, "has_user_permission",
                           lambda _db, _u, code: code == "financial_settlement.view"):
             client = TestClient(main.app)
-            r = client.post("/api/v1/financial-settlement/approve-actual-landed-cost", json={"import_file_id": 1})
+            r = client.post("/api/v1/financial-settlement/approve-actual-landed-cost", json={"import_file_id": 1}, headers=headers)
             assert r.status_code == 403
-            r = client.put("/api/v1/financial-settlement/1", json={"status": "Approved"})
+            r = client.put("/api/v1/financial-settlement/1", json={"status": "Approved"}, headers=headers)
             assert r.status_code == 403
     finally:
         main.app.dependency_overrides.pop(get_db, None)
@@ -434,9 +451,26 @@ def test_customs_row_uses_the_assessed_total_for_amount_and_balance(db):
 
 def test_flutter_egp_payload_without_exchange_rate_is_accepted(db):
     import main
+    from modules.auth.security import create_access_token, hash_password
+    from modules.users.model import User
     from modules.auth.permissions import invalidate_permission_cache
 
     imp = seed_shipment(db)
+    user = User(
+        username="admin_flutter_egp",
+        email="admin_flutter_egp@test.com",
+        full_name="Admin EGP",
+        hashed_password=hash_password("Admin@123"),
+        role="ADMIN",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
+
     invalidate_permission_cache()
     main.app.dependency_overrides[get_db] = lambda: db
     try:
@@ -445,7 +479,7 @@ def test_flutter_egp_payload_without_exchange_rate_is_accepted(db):
             "import_file_id": imp.import_file_id,
             "expense_invoices": [{"invoice_no": "INV-1", "category": "Freight", "provider_name": "Maersk",
                                   "currency": "EGP", "amount_fx": 5000, "allocation_rule": "Value-Based"}],
-        })
+        }, headers=headers)
     finally:
         main.app.dependency_overrides.pop(get_db, None)
         invalidate_permission_cache()
@@ -533,7 +567,7 @@ def test_rfq_quote_in_another_currency_uses_its_own_customs_rate(db):
     rfq = _fill_required(FreightRFQRequest(import_file_id=imp.import_file_id))
     db.add(rfq)
     db.flush()
-    q = _fill_required(FreightQuotationItem(rfq_id=rfq.rfq_id, currency_code="EUR", total_cost=2000.0))
+    q = _fill_required(FreightQuotationItem(rfq_id=rfq.rfq_id, currency_code="EUR", ocean_freight_cost=2000.0, total_cost=2000.0))
     db.add(q)
     db.flush()
     rfq.selected_quotation_id = q.quotation_id

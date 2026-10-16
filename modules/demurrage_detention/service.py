@@ -38,7 +38,8 @@ from .validators import validate_tier_rates, validate_demurrage_dates, validate_
 from . import repository
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
-from modules.common.file_tracking import set_file_tracking
+from modules.common.file_tracking import set_file_tracking, _file_past_step
+from modules.common.clock import cairo_today
 
 # Prefix of the free-days agreement note kept in ImportFile.shipping_instructions_notes.
 FREE_DAYS_NOTE_PREFIX = "Free days agreement: "
@@ -421,7 +422,7 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     """
     Simulates Demurrage, Detention, and Port Storage calculations with full breakdowns.
     """
-    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date)
+    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=None)
 
     calc_date = req.calculation_date or date.today()
     dem_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in (req.demurrage_tiers or DEFAULT_DEMURRAGE_TIERS)]
@@ -617,7 +618,7 @@ def delete_demurrage_policy_service(db: Session, policy_id: int, user: str = "Sy
 def create_demurrage_tracking_service(
     db: Session, req: DemurrageTrackingCreate, user: str = "System"
 ) -> DemurrageTracking:
-    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date)
+    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=cairo_today())
     if req.exchange_rate is not None:
         validate_positive_amount(req.exchange_rate, "exchange_rate")
         rate = float(req.exchange_rate)
@@ -688,10 +689,22 @@ def get_demurrage_tracking_by_id_service(db: Session, tracking_id: int) -> Demur
     return tracking
 
 
+def _require_settlement_permission(db: Session, actor: Any) -> None:
+    if actor is not None:
+        from modules.auth.permissions import has_user_permission
+        if not has_user_permission(db, actor, "financial_settlement.calculate"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ترحيل الغرامات إلى التسوية المالية يتطلب صلاحية حساب تكلفة الوصول (financial_settlement.calculate).",
+            )
+
+
 def recalculate_and_update_tracking_service(
-    db: Session, tracking_id: int, req: DemurrageTrackingUpdate, user: str = "System"
+    db: Session, tracking_id: int, req: DemurrageTrackingUpdate, user: str = "System", actor: Any = None
 ) -> DemurrageTracking:
     tracking = get_demurrage_tracking_by_id_service(db, tracking_id)
+    if actor is not None and tracking.is_pushed_to_settlement:
+        _require_settlement_permission(db, actor)
     sent = req.model_fields_set
 
     # explicit null clears a date; an omitted field keeps the stored value
@@ -702,7 +715,7 @@ def recalculate_and_update_tracking_service(
         rate = float(req.exchange_rate)
     else:
         rate = _tracking_rate(tracking)
-    validate_demurrage_dates(tracking.discharge_date, gate_out, empty_return)
+    validate_demurrage_dates(tracking.discharge_date, gate_out, empty_return, today=cairo_today())
 
     tariff = _tracking_tariff(db, tracking)
     containers, dem, det, stor = _recalculate_containers(tracking, tariff, rate, gate_out, empty_return)
@@ -735,13 +748,7 @@ def push_demurrage_to_financial_settlement_service(
     settlement engine. ``actor`` (the logged-in User, passed by the router) must also hold
     ``financial_settlement.calculate``: the push writes settlement rows.
     """
-    if actor is not None:
-        from modules.auth.permissions import has_user_permission
-        if not has_user_permission(db, actor, "financial_settlement.calculate"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="ترحيل الغرامات إلى التسوية المالية يتطلب صلاحية حساب تكلفة الوصول (financial_settlement.calculate).",
-            )
+    _require_settlement_permission(db, actor)
     tracking = get_demurrage_tracking_by_id_service(db, req.tracking_id)
     file_id = tracking.import_file_id
     if req.import_file_id and file_id and req.import_file_id != file_id:
@@ -931,8 +938,11 @@ def update_single_container_service(
     container_no: str,
     req: ContainerIndividualUpdate,
     user: str = "System",
+    actor: Any = None,
 ) -> DemurrageTracking:
     tracking = get_demurrage_tracking_by_id_service(db, tracking_id)
+    if actor is not None and tracking.is_pushed_to_settlement:
+        _require_settlement_permission(db, actor)
     rate = _tracking_rate(tracking)
     tariff = _tracking_tariff(db, tracking)
 
@@ -956,6 +966,7 @@ def update_single_container_service(
                 tracking.discharge_date,
                 _parse_date(c.get("gate_out_date")) or tracking.gate_out_date,
                 _parse_date(c.get("empty_return_date")) or tracking.empty_return_date,
+                today=cairo_today(),
             )
 
     if not found:
@@ -1011,6 +1022,7 @@ def register_free_days_agreement_service(
     db: Session,
     payload: FreeDaysAgreementRegister,
     user: str = "Logistics Officer",
+    actor: Any = None,
 ) -> FreeDaysAgreementResponse:
     """
     BK-02: Free Days Agreement Registration (one transaction).
@@ -1022,6 +1034,15 @@ def register_free_days_agreement_service(
     """
     from modules.import_files.model import ImportFile
     from modules.freight_booking.model import ShipmentBooking
+
+    if actor is not None:
+        has_pushed = db.query(DemurrageTracking).filter(
+            DemurrageTracking.import_file_id == payload.import_file_id,
+            DemurrageTracking.is_active == True,
+            DemurrageTracking.is_pushed_to_settlement == True,
+        ).first() is not None
+        if has_pushed:
+            _require_settlement_permission(db, actor)
 
     file_rec = db.query(ImportFile).filter(
         ImportFile.import_file_id == payload.import_file_id,
@@ -1421,6 +1442,7 @@ def record_empty_container_return_service(
     db: Session,
     payload: EmptyContainerReturnSubmit,
     user: str = "Logistics Coordinator",
+    actor: Any = None,
 ) -> EmptyContainerReturnResponse:
     """
     TR-05: Empty Container Return (EIR), one transaction.
@@ -1440,6 +1462,15 @@ def record_empty_container_return_service(
     from modules.smart_tasks.model import SmartTask
     from modules.notifications.model import SystemNotification
 
+    if actor is not None:
+        has_pushed = db.query(DemurrageTracking).filter(
+            DemurrageTracking.import_file_id == payload.import_file_id,
+            DemurrageTracking.is_active == True,
+            DemurrageTracking.is_pushed_to_settlement == True,
+        ).first() is not None
+        if has_pushed:
+            _require_settlement_permission(db, actor)
+
     # 1. Validate Import File
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
@@ -1449,6 +1480,13 @@ def record_empty_container_return_service(
         )
 
     # 2. Locate active DemurrageTracking session for this import file
+    today = cairo_today()
+    if payload.empty_return_date > today:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="تاريخ إعادة الحاوية الفارغة لا يمكن أن يكون في المستقبل.",
+        )
+
     tracking = db.query(DemurrageTracking).filter(
         DemurrageTracking.import_file_id == payload.import_file_id,
         DemurrageTracking.is_active == True,
@@ -1495,6 +1533,7 @@ def record_empty_container_return_service(
                 tracking.discharge_date,
                 _parse_date(c.get("gate_out_date")) or tracking.gate_out_date,
                 payload.empty_return_date,
+                today=today,
             )
             c["container_no"] = c_no
             c["empty_return_date"] = payload.empty_return_date.isoformat()
@@ -1556,8 +1595,9 @@ def record_empty_container_return_service(
             tb.status = "Completed"
             tb.tracking_notes = f"{tb.tracking_notes or ''}\n[TR-05] Empty containers returned to the carrier under EIR #{payload.eir_number}".strip()
         imp_file.inland_transport_status = "COMPLETED"
-        imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
-        set_file_tracking(imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
+        if not _file_past_step(imp_file, "STEP_20"):
+            imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
+            set_file_tracking(imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
 
     # 5. Auto-close pending TR-05 SmartTasks once every container is back (a partial return leaves them open)
     if all_returned:
@@ -1618,7 +1658,7 @@ def record_empty_container_return_service(
     _recalculate_settlement_follow_up(db, repush_settlement_id, user)
 
     # 8. Follow-up: lifecycle board STEP_19 -> STEP_20, only when every container is returned
-    if all_returned:
+    if all_returned and not _file_past_step(imp_file, "STEP_20"):
         def _advance_board() -> None:
             from modules.lifecycle_board.service import advance_lifecycle_step_service
             advance_lifecycle_step_service(
@@ -1631,8 +1671,9 @@ def record_empty_container_return_service(
             )
             # Re-apply after the board transition, which writes its own generic next action.
             file_row = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id).first()
-            set_file_tracking(file_row, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
-            db.commit()
+            if file_row and not _file_past_step(file_row, "STEP_20"):
+                set_file_tracking(file_row, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
+                db.commit()
 
         best_effort(db, _advance_board, "Lifecycle advance STEP_19->STEP_20 on empty return")
     db.refresh(imp_file)

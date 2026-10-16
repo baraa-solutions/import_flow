@@ -650,7 +650,7 @@ def test_financial_settlement_approved_hard_block(db: Session):
 
     assert result.action_taken == "recalculated"
     db.refresh(settlement)
-    assert settlement.status == "Calculated"
+    assert settlement.status == "Approved"
     assert settlement.total_fob_egp == pytest.approx(150_000.0, abs=1.0)
     assert settlement.total_expenses_egp == pytest.approx(40_000.0, abs=1.0)
 
@@ -805,6 +805,98 @@ def test_master_data_sync_service_retires_settlement_expense_seeds(db: Session):
     assert len(active_after) == 1
     assert active_after[0].target_field == "total_fob_egp"
 
+
+
+
+def test_approved_settlement_recalculation_refreshes_file_and_stays_approved(db: Session):
+    """
+    BE09-T02: A justified recalculation on an Approved settlement keeps it Approved,
+    refreshes import file KPIs (actual_landed_cost_total_egp, variance_egp, variance_pct),
+    and prevents subsequent direct edits via 409 SETTLEMENT_NOT_EDITABLE.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.recalculation import service
+    from modules.recalculation.schemas import RecalculationApplyRequest
+    from modules.financial_settlement.service import update_settlement_service
+    from modules.financial_settlement.schemas import FinancialSettlementUpdate
+
+    seed_deps(db)
+    seed_variance_setting(db, threshold_pct=5.0)
+
+    # 1. Setup ImportFile with initial actual landed cost 150,000 and variance 10,000 (estimated = 140,000)
+    imp = ImportFile(
+        import_file_id=10,
+        import_file_code="IMP-BE09-T02",
+        company_name="Test Company",
+        supplier_name="Test Supplier",
+        actual_landed_cost_total_egp=150_000.0,
+        actual_landed_cost_variance_egp=10_000.0,
+        actual_landed_cost_variance_pct=7.14,
+        is_active=True,
+    )
+    db.add(imp)
+    db.flush()
+
+    # 2. Approved settlement linked to this file
+    # Initial totals: FOB 100,000 + Freight 20,000 + Customs 15,000 + Clearance 5,000 = 140,000
+    settlement = make_settlement(
+        db,
+        status="Approved",
+        import_file_id=imp.import_file_id,
+        fob_egp=100_000.0,
+        freight_egp=20_000.0,
+        customs_egp=15_000.0,
+        clearance_egp=5_000.0,
+    )
+    user = make_user(db, username="manager_be09", role="GENERAL_MANAGER")
+
+    # 3. Source fetchers mock. Since BE09-T03 only total_fob_egp is recalculated on a settlement:
+    # PO FOB 115,000; actual expenses stay 20k + 15k + 5k = 40k; new total landed cost = 155,000.
+    # The consultation / scenario estimates below must be ignored.
+    with (
+        patch("modules.recalculation.service.has_user_permission", return_value=True),
+        patch.object(service, "_SOURCE_FETCHERS", {
+            "customs_consultation": lambda *a: 20_000.0,
+            "shipping_scenarios": lambda *a: 30_000.0,
+            "purchase_orders": lambda *a: 115_000.0,
+        }),
+    ):
+        request = RecalculationApplyRequest(
+            target_entity_type="financial_settlement",
+            target_entity_id=settlement.settlement_id,
+            source_page="SettlementReview",
+            justification="Carrier freight increase and customs tariff adjustment",
+        )
+        result = service.apply(db=db, request=request, current_user=user)
+
+    assert result.action_taken == "recalculated"
+    db.refresh(settlement)
+    db.refresh(imp)
+
+    # Acceptance criteria:
+    # 1. Settlement status stays "Approved"
+    assert settlement.status == "Approved"
+    assert settlement.total_fob_egp == pytest.approx(115_000.0, abs=1.0)
+    assert settlement.total_expenses_egp == pytest.approx(40_000.0, abs=1.0)
+    assert settlement.total_landed_cost_egp == pytest.approx(155_000.0, abs=1.0)
+
+    # 2. Import file KPIs updated:
+    # new_total = 155,000; estimated = 150,000 - 10,000 = 140,000
+    # new_var = 155,000 - 140,000 = 15,000; variance_pct = 15,000 / 140,000 * 100 = 10.71%
+    assert imp.actual_landed_cost_total_egp == 155000.0
+    assert imp.actual_landed_cost_variance_egp == 15000.0
+    assert imp.actual_landed_cost_variance_pct == 10.71
+
+    # 3. Direct updates on the approved settlement are rejected with 409 SETTLEMENT_NOT_EDITABLE
+    with pytest.raises(HTTPException) as exc_info:
+        update_settlement_service(
+            db=db,
+            settlement_id=settlement.settlement_id,
+            schema=FinancialSettlementUpdate(incoterm_code="CIF"),
+            actor=user.username,
+        )
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail.get("code") == "SETTLEMENT_NOT_EDITABLE"
 
 
 
