@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from sqlalchemy.orm.attributes import flag_modified
@@ -32,7 +32,9 @@ def get_cargo_shipping_list(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CargoShippingRecord]:
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[CargoShippingRecord], int]:
     query = db.query(CargoShippingRecord)
     if not include_inactive:
         query = query.filter(CargoShippingRecord.is_active == True)
@@ -46,7 +48,9 @@ def get_cargo_shipping_list(
             (CargoShippingRecord.cargo_shipping_code.ilike(pattern)) |
             (CargoShippingRecord.owner.ilike(pattern))
         )
-    return query.order_by(desc(CargoShippingRecord.cargo_shipping_id)).all()
+    total = query.count()
+    records = query.order_by(desc(CargoShippingRecord.cargo_shipping_id)).offset(skip).limit(limit).all()
+    return records, total
 
 def _client_cargox_data(cargox_item, current: Optional[dict]) -> dict:
     """cargox_exchange_data from a request: client fields (platform provider) are taken, the server-managed

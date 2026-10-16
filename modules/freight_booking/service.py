@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta, date
 import logging
 import re
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -513,9 +513,11 @@ def list_bookings_service(
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
-    search: Optional[str] = None
-) -> List[ShipmentBooking]:
-    return repo.list_bookings(db, include_inactive, import_file_id, status, search)
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentBooking], int]:
+    return repo.list_bookings(db, include_inactive, import_file_id, status, search, skip=skip, limit=limit)
 
 
 def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
