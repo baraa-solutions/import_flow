@@ -1003,6 +1003,7 @@ class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    currency_mismatch: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
