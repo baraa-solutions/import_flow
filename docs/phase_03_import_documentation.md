@@ -40,5 +40,8 @@
   - `Draft` -> `Received` -> `Under Review` -> `Approved` / `Rejected`.
   - ربط كل مستند بالنسخة الإلكترونية والأصلية وتسجيل تاريخ الاستلام.
 
+## 📚 Module Docs
+- [import_documentation](modules/import_documentation.md) — مرجع الـ module من الكود (backend + Flutter + tests).
+
 ---
 *توثيق المرحلة الثالثة - ImportFlow ERP*

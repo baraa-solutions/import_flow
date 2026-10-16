@@ -770,7 +770,8 @@ class POReconciliationItemModel {
       itemCode: json['item_code'] ?? '',
       description: json['description'] ?? '',
       hsCode: json['hs_code'],
-      packageType: json['package_type'] ?? 'Carton',
+      // null = no package type recorded (PO line without a packing row): keep it empty, never invent one.
+      packageType: json['package_type'] as String? ?? '',
       initialQuantity: (json['initial_quantity'] as num?)?.toDouble() ?? 0.0,
       finalQuantity: (json['final_quantity'] as num?)?.toDouble() ?? 0.0,
       initialUnitPrice: initPrice,

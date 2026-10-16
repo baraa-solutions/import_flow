@@ -560,6 +560,11 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "body": "Truck {truck_plate_number} booked to move {import_file_code} from {pickup_location} to "
         "{destination_warehouse}. Driver: {driver_name} ({driver_phone}).",
     },
+    "TR_SEAL_BROKEN": {
+        "title": "Broken customs seal reported for truck {truck_plate_number}",
+        "body": "Truck {truck_plate_number} arrived with a broken customs seal ({seal_number}).",
+        "note": "Broken customs seal {seal_number} reported upon arrival.",
+    },
     "DD_FREE_DAYS_RECORDED": {
         "title": "Free days recorded ({demurrage_free_days} days) (BK-02)",
         "body": "Free days recorded for {import_file_code}. Demurrage free days: {demurrage_free_days}, "
@@ -1296,6 +1301,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_CLAIM_CURRENCY_INVALID": {
+        "note": "Claim currency code '{currency_code}' is invalid or inactive.",
+    },
     "WR_FIELD_NOT_EDITABLE": {
         "note": "Field '{field_name}' cannot be edited directly.",
     },
@@ -1308,6 +1316,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_GRN_LOCKED": {
         "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
     },
+    "WR_DATE_IN_FUTURE": {
+        "note": "The inspection date cannot be more than 24 hours in the future.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
@@ -1316,6 +1327,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "IT_TRUCK_TYPE_INVALID": {
         "note": "Truck type '{truck_type}' is invalid.",
+    },
+    "IT_SEAL_REQUIRED": {
+        "note": "Seal number is required when seal is broken.",
+    },
+    "IT_DATE_IN_FUTURE": {
+        "note": "{field_name} cannot be more than 24 hours in the future.",
     },
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
@@ -1339,6 +1356,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "Unknown or inactive currency code '{currency_code}'.",
     },
     "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
+    "FC_EXPORT_BLOCKED": {"note": "The comprehensive dossier export cannot proceed: {blocking} not met."},
     "FC_CLOSED_RECORD_LOCKED": {
         "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",
     },
@@ -1387,6 +1405,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "RECALC_APPLIED": {"note": "Recalculation applied ({action_taken})."},
     "RECALC_RATE_MISSING": {
         "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
+    },
+    "CT_SIMULATION_NO_LINES": {
+        "note": "No items with HS code and value available to calculate estimated customs duties.",
+    },
+    "CT_SIMULATION_NO_BROKER": {
+        "note": "No customs broker assigned to the import file; customs consultation session was not created.",
     },
     "CT_AGREEMENT_DATA_INVALID": {
         "note": "Invalid preferential trade agreement data ({reason}).",

@@ -21,3 +21,8 @@ last resort). Scope leftovers removed. New MINORs: mixed PO-level allocs (some F
 ignore the zero-FOB qty; qty 0 + FOB 0 alloc still drops silently. 65 tests green in related files.
 Process note: a stale non-git scratch dir made `git worktree add` fail silently -> always check rev-parse HEAD in the
 scratch tree before trusting a run, and remove worktrees only by the exact path you created (never by grep pattern).
+
+Re-review 2026-10-08 at cf777093 (fix 3b6cdab9): mixed PO-level FOB item fixed - value_known = all(fob > 0) mirrors
+compute_po_balance, else qty ratio; case 2c test (200/2000 + 200/0 -> 400, 0.4). 89 tests green (settlement, recalc
+engine, purchase_orders). Other diffs (SettlementFx 404/409, deleted_at/by) come from main. Left: stale docstring,
+qty0+FOB0 silent drop, multi-line unit mixing in qty fallback (all MINOR).

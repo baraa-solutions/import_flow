@@ -218,6 +218,26 @@ async def read_validated_upload(file: UploadFile) -> tuple:
     return file_type, content
 
 
+def read_limited_sync(file: UploadFile, limit: int = MAX_FILE_SIZE_BYTES) -> bytes:
+    """Read at most ``limit + 1`` bytes synchronously: an upload above ``limit`` is rejected with 413 without loading the rest
+    into memory (SDU-03 / BE03-T15)."""
+    content = file.file.read(limit + 1)
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"The file is too large. Maximum allowed: {limit // (1024 * 1024)} MB.",
+        )
+    return content
+
+
+def read_validated_upload_sync(file: UploadFile) -> tuple:
+    """Extension whitelist + sync bounded read + size / magic-byte checks. Returns ``(file_type, content_bytes)``."""
+    file_type = validate_upload_file(file)
+    content = read_limited_sync(file)
+    validate_file_size(content, file.filename or "unknown")
+    return file_type, content
+
+
 def validate_files_count(files: Optional[List[UploadFile]]) -> None:
     if files and len(files) > MAX_FILES_PER_UPLOAD:
         raise HTTPException(
