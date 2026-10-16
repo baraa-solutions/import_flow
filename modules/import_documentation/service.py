@@ -790,12 +790,15 @@ def restore_acid_session_service(db: Session, acid_id: int, user: Optional[str] 
     item = repo.restore_acid_session(db, acid_id)
     if not item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
+    db.commit()
+    db.refresh(item)
     return enrich_acid_response(db, item)
 
 
 def soft_delete_acid_session_service(db: Session, acid_id: int, user: Optional[str] = None) -> bool:
     if not repo.soft_delete_acid_session(db, acid_id):
         raise not_found(LABEL_ACID_SESSION, acid_id)
+    db.commit()
     return True
 
 
@@ -1022,6 +1025,7 @@ def receive_banking_document_service(
 def delete_banking_document_service(db: Session, bank_doc_id: int, user: Optional[str] = None):
     item = _get_banking_document_or_404(db, bank_doc_id)
     repo.delete_banking_document(db, item)
+    db.commit()
     return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
@@ -2638,6 +2642,19 @@ def _compare_origins(sys_origin: str, drf_origin: str) -> Tuple[bool, float]:
 
 
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
+def _extraction_failed_row(key: str, label_ar: str, sys_val: Any, severity: str, details_code: str) -> Dict[str, Any]:
+    """Comparison-matrix row for a certificate field that could not be read from the uploaded draft."""
+    return finalize_structured_values({
+        "field_key": key,
+        "field_label_ar": label_ar,
+        "system_value": sys_val,
+        "draft_value": Placeholder("NOT_EXTRACTED"),
+        "match_status": "EXTRACTION_FAILED",
+        "severity": severity,
+        **coded_text("details", details_code),
+    })
+
+
 def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
@@ -2680,7 +2697,6 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     ]
 
     from modules.import_documentation.ai_document_parser import clean_exporter_name, clean_consignee_name
-    cert_type_str = str(request.certificate_type or "").upper()
 
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
@@ -2701,25 +2717,15 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
                 matched = True
                 ratio = 1.0
             else:
-                matched = False
-                ratio = 0.0
-                match_status = "EXTRACTION_FAILED"
-                severity = "BLOCKING" if is_critical else "WARNING"
                 has_discrepancies = True
                 if is_critical:
                     has_critical = True
-                matrix.append(finalize_structured_values({
-                    "field_key": key,
-                    "field_label_ar": label_ar,
-                    "system_value": sys_val,
-                    "draft_value": Placeholder("NOT_EXTRACTED"),
-                    "match_status": match_status,
-                    "severity": severity,
-                    **coded_text("details", "DOC_COO_VALUE_NOT_FOUND"),
-                }))
+                matrix.append(_extraction_failed_row(
+                    key, label_ar, sys_val,
+                    severity="BLOCKING" if is_critical else "WARNING",
+                    details_code="DOC_COO_VALUE_NOT_FOUND",
+                ))
                 continue
-        elif key == "exporter_reg_id":
-            matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         else:
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
@@ -2907,10 +2913,15 @@ def create_coo_review_service(
         schema.reviewed_at = datetime.now(timezone.utc)
 
     existing_certified = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=False)
-    if is_draft and existing_certified:
+    if existing_certified:
+        if is_draft:
+            raise _conflict(
+                f"يوجد بالفعل دراسة معتمدة لشهادة المنشأ لهذا الملف ({existing_certified.coo_review_code}): "
+                f"لا يمكن حفظ مسودة فوقها."
+            )
         raise _conflict(
             f"يوجد بالفعل دراسة معتمدة لشهادة المنشأ لهذا الملف ({existing_certified.coo_review_code}): "
-            f"لا يمكن حفظ مسودة فوقها."
+            f"الدراسة المعتمدة مقفلة ولا يمكن اعتماد دراسة جديدة فوقها."
         )
     existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     if existing:
@@ -2934,6 +2945,23 @@ def update_coo_review_service(
     if not review:
         raise not_found(LABEL_COO_REVIEW, review_id)
     fields = schema.model_fields_set
+
+    if not review.is_draft:
+        disallowed = set(fields) - {"notes", "override_reason"}
+        if disallowed:
+            raise _conflict(
+                f"دراسة شهادة المنشأ ({review.coo_review_code}) معتمدة ومقفلة: "
+                f"لا يمكن تعديل الحقول ({', '.join(sorted(disallowed))})، يسمح فقط بتعديل الملاحظات."
+            )
+        if "notes" in fields:
+            review.notes = schema.notes
+            db.commit()
+            db.refresh(review)
+        elif "override_reason" in fields:
+            review.override_reason = schema.override_reason
+            db.commit()
+            db.refresh(review)
+        return review
 
     def _merged(name: str) -> Any:
         return getattr(schema, name) if name in fields else getattr(review, name)
@@ -3043,21 +3071,13 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
                     **coded_text("details", "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED"),
                 }))
                 continue
-            matched = False
-            ratio = 0.0
-            match_status = "EXTRACTION_FAILED"
-            severity = "BLOCKING"
             has_discrepancies = True
             has_critical = True
-            matrix.append(finalize_structured_values({
-                "field_key": key,
-                "field_label_ar": label_ar,
-                "system_value": sys_val,
-                "draft_value": Placeholder("NOT_EXTRACTED"),
-                "match_status": match_status,
-                "severity": severity,
-                **coded_text("details", "DOC_INSPECTION_VALUE_NOT_FOUND"),
-            }))
+            matrix.append(_extraction_failed_row(
+                key, label_ar, sys_val,
+                severity="BLOCKING",
+                details_code="DOC_INSPECTION_VALUE_NOT_FOUND",
+            ))
             continue
         elif key == "regulatory_authority":
             sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
@@ -3470,7 +3490,7 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 "description": clean_desc,
                 "hs_code": hs or "",
                 "origin": clean_itm_origin,
-                "quantity": float(itm.quantity or 1.0),
+                "quantity": float(itm.quantity) if itm.quantity is not None else None,
                 "unit": itm.unit_of_measure or "PCS",
                 "total_price": float(itm.total_price or 0.0),
             })
@@ -4241,7 +4261,13 @@ def generate_inspection_draft_template_service(
     if items_summary:
         for idx, itm in enumerate(items_summary, start=1):
             d_name = itm.get("product_name") or itm.get("description") or f"Item {idx}"
-            q_val = f"{itm.get('quantity', 1)} {itm.get('uom', 'pieces')}"
+            qty = itm.get("quantity")
+            if qty is not None and str(qty).strip() != "" and float(qty) > 0:
+                uom = itm.get("uom") or itm.get("unit") or "pieces"
+                qty_display = int(qty) if isinstance(qty, (int, float)) and qty == int(qty) else qty
+                q_val = f"{qty_display} {uom}".strip()
+            else:
+                q_val = ""
             is_acoustic = "acoustic" in d_name.lower() or "panel" in d_name.lower()
             is_chair = any(w in d_name.lower() for w in ["chair", "seat", "armchair", "stool"])
             is_table = any(w in d_name.lower() for w in ["table", "desk"])
@@ -4255,15 +4281,18 @@ def generate_inspection_draft_template_service(
                 p_type = "Office Furniture / Tables"
                 std = "ES 4029-1 / 2024 + ES 7321 / 2011"
             else:
-                p_type = "Commercial Goods"
-                std = "ES 7321 / 2011"
+                p_type = ""
+                std = ""
+
+            brand_part = f", brand: {exporter_name.split()[0]}" if exporter_name else ""
+            desc = f"{d_name}{brand_part}"
 
             inspected_items.append({
                 "item_no": idx,
                 "quantity": q_val,
                 "country_of_origin": itm.get("origin_country") or origin_countries_str,
                 "product_type": p_type,
-                "description": f"{d_name}, brand: {exporter_name.split()[0] if exporter_name else 'Standard'}",
+                "description": desc,
                 "adopted_standard": std,
             })
     # DOC-03: no PO lines -> no inspected items (the former sample item lists were invented data).
@@ -4277,17 +4306,14 @@ def generate_inspection_draft_template_service(
             if s_clean and s_clean not in unique_standards:
                 unique_standards.append(s_clean)
 
-    applicable_standards = unique_standards if unique_standards else [
-        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
-        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
-    ]
+    applicable_standards = unique_standards
 
     issuing_office = f"TÜV Rheinland Sweden AB" if "TÜV" in agency or "TUV" in agency else (f"Cotecna Inspection S.A. Geneva Office" if "COTECNA" in agency else f"{agency} Inspection Office")
 
     template = {
         "inspection_agency": agency,
         "inspection_type": cert_type,
-        "coc_number": f"DEG-{import_file_id:06d}" if "TÜV" in agency or "TUV" in agency else f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
+        "coc_number": "",
         "is_draft": True,
         "confirmation_deadline": "PLEASE CONFIRM THIS DRAFT WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE AS IT IS",
         "importer_name_and_address": f"{importer_name}\n{importer_addr}",
@@ -4336,6 +4362,8 @@ def generate_inspection_draft_template_service(
 ### 📋 Egyptian Mandatory Standards Tested:
 """ + "\n".join([f"- {s}" for s in applicable_standards])
 
+    has_adopted_standard = bool(inspected_items) and all(bool(itm.get("adopted_standard")) for itm in inspected_items)
+
     missing = _missing_fields(
         acid_number=acid_no,
         hs_code=hs_codes_list,
@@ -4347,6 +4375,8 @@ def generate_inspection_draft_template_service(
         currency=inv_currency,
         incoterm=incoterm_val,
         port_of_entry=template["port_of_entry"],
+        coc_number=template["coc_number"],
+        adopted_standard=has_adopted_standard,
     )
     template["missing_fields"] = missing
     return _template_response(
@@ -5112,47 +5142,36 @@ def extract_and_compare_po_documents_service(
     system_packing_items = []
     file_metadata = {}
     if request.import_file_id:
-        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+        imp_file = db.query(ImportFile).filter(
+            ImportFile.import_file_id == request.import_file_id,
+            ImportFile.is_active == True,
+        ).first()
         if imp_file:
-            from modules.purchase_orders.model import PurchaseOrder
-            po = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).first()
-            if not po and imp_file.po_number:
-                po = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == imp_file.po_number).first()
+            active_pos = repo.get_active_purchase_orders_for_file(db, request.import_file_id, imp_file.po_number)
+            po = active_pos[0] if active_pos else None
+            company = imp_file.company
 
-            tax_no = None
-            if imp_file.company:
-                tax_no = (
-                    getattr(imp_file.company, 'vat_id', None)
-                    or getattr(imp_file.company, 'tax_card_number', None)
-                    or getattr(imp_file.company, 'tax_id', None)
-                )
+            tax_no = (company.vat_id or None) if company else None
 
-            po_curr = "USD"
-            if po and po.currency and hasattr(po.currency, 'currency_code'):
+            po_curr = None
+            if po and po.currency and getattr(po.currency, 'currency_code', None):
                 po_curr = po.currency.currency_code
             elif imp_file.estimated_cost_currency:
                 po_curr = imp_file.estimated_cost_currency
 
-            po_amt = float(po.total_amount_fob) if (po and po.total_amount_fob) else float(imp_file.estimated_cost or 0.0)
-            po_pkgs = int(po.total_packages_count) if (po and po.total_packages_count) else 0
-            po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg) else 0.0
-            po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg) else 0.0
-            po_cbm = float(po.total_cbm) if (po and po.total_cbm) else 0.0
+            po_amt = float(po.total_amount_fob) if (po and po.total_amount_fob is not None) else (float(imp_file.estimated_cost) if imp_file.estimated_cost is not None else None)
+            po_pkgs = int(po.total_packages_count) if (po and po.total_packages_count is not None) else 0
+            po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg is not None) else 0.0
+            po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg is not None) else 0.0
+            po_cbm = float(po.total_cbm) if (po and po.total_cbm is not None) else 0.0
 
             # Resolve supplier name
             supplier_name_val = ""
             if po and po.supplier:
-                supplier_name_val = (getattr(po.supplier, 'company_name', '') or getattr(po.supplier, 'name', '') or "").strip()
+                supplier_name_val = (po.supplier.company_name or "").strip()
 
             # Resolve importer name
-            importer_name_val = ""
-            if imp_file.company:
-                importer_name_val = (
-                    getattr(imp_file.company, 'importer_name', '')
-                    or getattr(imp_file.company, 'company_name', '')
-                    or getattr(imp_file.company, 'name', '')
-                    or ""
-                ).strip()
+            importer_name_val = (company.importer_name or "").strip() if company else ""
             if not importer_name_val:
                 importer_name_val = (imp_file.company_name or "").strip()
 
@@ -5160,8 +5179,8 @@ def extract_and_compare_po_documents_service(
             hs_code_val = ""
             if po and po.line_items:
                 first_item = po.line_items[0]
-                if hasattr(first_item, 'tariff') and first_item.tariff:
-                    hs_code_val = getattr(first_item.tariff, 'hs_code', '') or ""
+                if first_item.tariff:
+                    hs_code_val = first_item.tariff.hs_code or ""
                 if not hs_code_val and po.packing_list_items:
                     hs_code_val = po.packing_list_items[0].hs_code or ""
 
@@ -5182,85 +5201,82 @@ def extract_and_compare_po_documents_service(
                 "importer_name": importer_name_val,
                 "hs_code": hs_code_val,
             }
-            if not system_items:
-                po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
-                for p_rec in po_records:
-                    pkg_map = {}
-                    for p_item in p_rec.packing_list_items:
-                        if p_item.item_code:
-                            pkg_map[p_item.item_code.strip().upper()] = p_item
+            # system_packing_items always come from the DB packing list (real weights, not PO line item values);
+            # system_items are built from PO line items only when the caller did not supply them.
+            build_system_items = not system_items
+            for p_rec in active_pos:
+                line_map = {}
+                for itm in p_rec.line_items:
+                    if itm.item_code:
+                        line_map[itm.item_code.strip().upper()] = itm.item_id
 
-                    for itm in p_rec.line_items:
-                        code_key = (itm.item_code or "").strip().upper()
-                        pkg_info = pkg_map.get(code_key)
+                pkg_map = {}
+                for p_item in p_rec.packing_list_items:
+                    code_key = (p_item.item_code or "").strip().upper()
+                    if p_item.item_code:
+                        pkg_map[code_key] = p_item
+                    system_packing_items.append({
+                        "packing_item_id": p_item.packing_item_id,
+                        "po_item_id": line_map.get(code_key),
+                        "item_code": p_item.item_code or "",
+                        "description": p_item.description or p_item.item_code or "",
+                        "hs_code": p_item.hs_code or "",
+                        "package_type": p_item.package_type if p_item.package_type else None,
+                        "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
+                        "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
+                        "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
+                        "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
+                        "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
+                    })
 
-                        pkg_count = float(pkg_info.qty_pkg) if pkg_info else 1.0
-                        net_w = float(pkg_info.total_net_weight_kg) if pkg_info else float(itm.net_weight_kg or 0.0)
-                        gross_w = float(pkg_info.total_gross_weight_kg) if pkg_info else float(itm.gross_weight_kg or 0.0)
-                        cbm_val = float(pkg_info.total_cbm) if pkg_info else float(itm.total_cbm or 0.0)
-                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else "Carton"
+                if not build_system_items:
+                    continue
+                for itm in p_rec.line_items:
+                    code_key = (itm.item_code or "").strip().upper()
+                    pkg_info = pkg_map.get(code_key)
 
-                        system_items.append({
-                            "po_item_id": itm.item_id,
-                            "item_code": itm.item_code or str(itm.item_id),
-                            "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
-                            "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
-                            "package_type": pkg_type,
-                            "initial_quantity": float(itm.quantity),
-                            "initial_unit_price": float(itm.unit_price),
-                            "initial_packages_count": pkg_count,
-                            "initial_net_weight_kg": net_w,
-                            "initial_gross_weight_kg": gross_w,
-                            "initial_cbm": cbm_val,
-                        })
+                    pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
+                    net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
+                    gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
+                    cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
+                    pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
 
-            # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
-            if not system_packing_items:
-                po_records_for_packing = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
-                for p_rec in po_records_for_packing:
-                    if p_rec and p_rec.packing_list_items:
-                        for p_item in p_rec.packing_list_items:
-                            system_packing_items.append({
-                                "po_item_id": p_item.packing_item_id,
-                                "item_code": p_item.item_code or "",
-                                "description": p_item.description or p_item.item_code or "",
-                                "hs_code": p_item.hs_code or "",
-                                "package_type": p_item.package_type or "Carton",
-                                "initial_quantity": float(p_item.qty_pcs or 0.0),
-                                "initial_packages_count": float(p_item.qty_pkg or 0.0),
-                                "initial_net_weight_kg": float(p_item.total_net_weight_kg or 0.0),
-                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg or 0.0),
-                                "initial_cbm": float(p_item.total_cbm or 0.0),
-                            })
+                    system_items.append({
+                        "po_item_id": itm.item_id,
+                        "item_code": itm.item_code or str(itm.item_id),
+                        "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
+                        "hs_code": (itm.tariff.hs_code if itm.tariff else "") or (pkg_info.hs_code if pkg_info else ""),
+                        "package_type": pkg_type,
+                        "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
+                        "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
+                        "initial_packages_count": pkg_count,
+                        "initial_net_weight_kg": net_w,
+                        "initial_gross_weight_kg": gross_w,
+                        "initial_cbm": cbm_val,
+                    })
 
-    if not system_items:
-        inv_itms = inv_data.get("items", [])
-        for idx, itm in enumerate(inv_itms, 1):
-            system_items.append({
-                "po_item_id": idx,
-                "item_code": itm.get("item_code", f"ITEM-{idx}"),
-                "description": itm.get("description", f"Item {idx}"),
-                "hs_code": itm.get("hs_code", ""),
-                "package_type": "Package",
-                "initial_quantity": itm.get("quantity", 1.0),
-                "initial_unit_price": itm.get("unit_price", 0.0),
-                "initial_packages_count": 1.0,
-                "initial_net_weight_kg": 0.0,
-                "initial_gross_weight_kg": 0.0,
-                "initial_cbm": 0.0,
-            })
+    system_items_missing = not bool(system_items)
 
     # Use system_items as packing fallback if no dedicated packing items found
     if not system_packing_items:
         system_packing_items = system_items
 
     # 4. Perform 4-Way Reconciliation
-    reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items)
+    reconciled = reconcile_po_documents_with_system(
+        inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items
+    )
+
+    if system_items_missing:
+        overall_status = "DRAFT"
+        is_safe_for_certification = False
+    else:
+        overall_status = reconciled["overall_status"]
+        is_safe_for_certification = reconciled["is_safe_for_certification"]
 
     return POExtractAndCompareResponse(
         import_file_id=request.import_file_id,
-        overall_status=reconciled["overall_status"],
-        is_safe_for_certification=reconciled["is_safe_for_certification"],
+        overall_status=overall_status,
+        is_safe_for_certification=is_safe_for_certification,
         critical_discrepancies_count=reconciled["critical_discrepancies_count"],
         warning_discrepancies_count=reconciled["warning_discrepancies_count"],
         header_discrepancies=reconciled["header_discrepancies"],
@@ -5268,6 +5284,7 @@ def extract_and_compare_po_documents_service(
         reconciled_packing_items=reconciled["reconciled_packing_items"],
         extracted_invoice_data=reconciled["extracted_invoice_data"],
         extracted_packing_data=reconciled["extracted_packing_data"],
+        system_items_missing=system_items_missing,
     )
 
 
@@ -5446,6 +5463,7 @@ def delete_po_reconciliation_session_service(db: Session, session_id: int, user:
         )
     repo.delete_po_reconciliation_session(db, session_id)
     _audit_po_recon(db, session, "DELETE", _actor(user, session.certified_by))
+    db.commit()
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
 
 
@@ -5481,18 +5499,30 @@ def delete_draft_bl_review_service(db: Session, review_id: int, user: Optional[s
     repo.delete_draft_bl_review(db, review_id)
     # The table has no updated_by / deleted_by column (DOC-26, deferred): the deleting user goes to the audit log.
     _audit_draft_bl(db, review, "DELETE", {"is_active": False}, _actor(user))
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
 
 def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
     return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
 
 def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
+    review = repo.get_coo_review_by_id(db, review_id)
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة مراجعة شهادة المنشأ رقم {review_id} غير موجودة للحذف.",
+        )
+    if not review.is_draft:
+        raise _conflict(
+            f"دراسة شهادة المنشأ ({review.coo_review_code}) معتمدة ومقفلة: لا يمكن حذف دراسة معتمدة."
+        )
     ok = repo.delete_coo_review(db, review_id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة مراجعة شهادة المنشأ رقم {review_id} غير موجودة للحذف.",
         )
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة المنشأ رقم {review_id} بنجاح", "deleted": True}
 
 def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
@@ -5505,6 +5535,7 @@ def delete_inspection_review_service(db: Session, review_id: int, user: Optional
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة مراجعة شهادة الفحص رقم {review_id} غير موجودة للحذف.",
         )
+    db.commit()
     return {"message": f"تم حذف جلسة مراجعة شهادة الفحص رقم {review_id} بنجاح", "deleted": True}
 
 

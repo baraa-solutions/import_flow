@@ -243,7 +243,7 @@ def test_final_close_end_state(db_session):
     ])
     db_session.commit()
 
-    rec = close_import_file_service(db_session, FileClosureCreate(import_file_id=imp.import_file_id))
+    rec = close_import_file_service(db_session, FileClosureCreate(import_file_id=imp.import_file_id), trusted=True)
 
     assert rec.status == "Closed"
     db_session.refresh(imp)

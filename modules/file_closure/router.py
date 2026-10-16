@@ -145,6 +145,6 @@ def official_close_import_file(
     """
     CLO-04: Issue official closure certificate, lock file to 100% closed, advance lifecycle board to STEP_21.
     """
-    return official_close_import_file_service(db, schema, user=current_user.username)
+    return official_close_import_file_service(db, schema, user=current_user.username, actor=current_user)
 
 
