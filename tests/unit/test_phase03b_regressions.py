@@ -303,7 +303,23 @@ def test_open_ticket_blocks_final(db, imp):
     assert e.value.detail["open_tickets_count"] == 1
 
 
+def _approve_core_documents(db, file_id, include_coc=False):
+    doc_types = ["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin"]
+    if include_coc:
+        doc_types.append("Inspection Certificate")
+    for i, dt in enumerate(doc_types, start=1):
+        db.add(CustomsDocumentApproval(
+            approval_code=f"CDA-TEST-{file_id}-{i}",
+            import_file_id=file_id,
+            document_type=dt,
+            overall_status="Approved for Clearance",
+            is_active=True,
+        ))
+    db.commit()
+
+
 def test_final_session_locked_and_signed_by_user(db, imp, customs_officer):
+    _approve_core_documents(db, imp.import_file_id)
     res = dca_service.create_customs_approval_session_service(
         db, DocsCustomsApprovalSessionCreate(import_file_id=imp.import_file_id, is_draft=False,
                                              customs_signoff_by="spoof", created_by="spoof", **FIVE),
@@ -324,10 +340,12 @@ def test_final_session_locked_and_signed_by_user(db, imp, customs_officer):
 
 def test_final_session_failure_before_lifecycle_rolls_back(db, imp, customs_officer, monkeypatch):
     """BE03-T17: Failure before lifecycle call leaves session uncertified and lifecycle not advanced."""
+    _approve_core_documents(db, imp.import_file_id)
     def fail_tracking(*args, **kwargs):
         raise RuntimeError("simulated set_file_tracking failure")
 
     monkeypatch.setattr(dca_service, "set_file_tracking", fail_tracking)
+
 
     with pytest.raises(RuntimeError, match="simulated set_file_tracking failure"):
         dca_service.create_customs_approval_session_service(

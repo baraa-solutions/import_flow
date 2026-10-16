@@ -186,8 +186,18 @@ def test_docs_customs_approval_session_lifecycle(db_session):
         customs_broker_name="Al-Amal Customs Clearance",
         notes="All documents certified for customs clearance",
     )
+    for i, dt in enumerate(["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin", "Inspection Certificate"], start=1):
+        db_session.add(CustomsDocumentApproval(
+            approval_code=f"CDA-IBL-{file.import_file_id}-{i}",
+            import_file_id=file.import_file_id,
+            document_type=dt,
+            overall_status="Approved for Clearance",
+            is_active=True,
+        ))
+    db_session.commit()
     final_res = create_customs_approval_session_service(db_session, final_payload)
     assert final_res.is_draft is False
+
     assert final_res.overall_status == "APPROVED"
 
     # Verify ImportFile progression
