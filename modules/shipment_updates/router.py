@@ -3,7 +3,7 @@ FastAPI Router for Operational & Daily Shipment Update Engine
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from modules.users.model import User
@@ -41,20 +41,27 @@ def create_update_log(
     summary="List all update logs with filters",
 )
 def list_update_logs(
+    response: Response,
     import_file_id: Optional[int] = None,
     update_category: Optional[str] = None,
     target_phase: Optional[str] = None,
     search: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
-    return service.get_all_update_logs_service(
+    items, total = service.get_all_update_logs_service(
         db,
         import_file_id=import_file_id,
         update_category=update_category,
         target_phase=target_phase,
         search=search,
+        skip=skip,
+        limit=limit,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get(

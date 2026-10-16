@@ -2,7 +2,7 @@
 Database Repository for Shipment Update Engine
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -56,7 +56,9 @@ def get_all_update_logs(
     update_category: Optional[str] = None,
     target_phase: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[ShipmentUpdateLog]:
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentUpdateLog], int]:
     query = db.query(ShipmentUpdateLog).filter(ShipmentUpdateLog.is_active == True)
 
     if import_file_id:
@@ -79,7 +81,9 @@ def get_all_update_logs(
             )
         )
 
-    return query.order_by(ShipmentUpdateLog.update_id.desc()).all()
+    total = query.count()
+    items = query.order_by(ShipmentUpdateLog.update_id.desc()).offset(skip).limit(limit).all()
+    return items, total
 
 
 def update_log_record(db: Session, update_id: int, update_data: dict, updated_by: str = "System") -> Optional[ShipmentUpdateLog]:

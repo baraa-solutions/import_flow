@@ -108,9 +108,10 @@ class TestShipmentUpdateEngine:
         )
         log = service.create_update_log_service(db_session, schema)
 
-        all_logs = repo.get_all_update_logs(db_session, import_file_id=1)
+        all_logs, _ = repo.get_all_update_logs(db_session, import_file_id=1)
         assert len(all_logs) == 1
 
         success = repo.soft_delete_update_log(db_session, log.update_id)
         assert success is True
-        assert len(repo.get_all_update_logs(db_session, import_file_id=1)) == 0
+        logs_after, _ = repo.get_all_update_logs(db_session, import_file_id=1)
+        assert len(logs_after) == 0
