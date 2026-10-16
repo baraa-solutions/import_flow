@@ -92,3 +92,12 @@ def validate_certificate_deletable(cert_status: str, certificate_code: str) -> N
             status_code=status.HTTP_409_CONFLICT,
             detail=f"لا يمكن حذف وثيقة التأمين {certificate_code} بعد إصدارها.",
         )
+
+
+def validate_no_active_certificate_for_file(existing: Optional[Any]) -> None:
+    if existing:
+        code = getattr(existing, "certificate_code", None) or getattr(existing, "certificate_id", "")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد بالفعل وثيقة تأمين نشطة لهذا الملف ({code})",
+        )
