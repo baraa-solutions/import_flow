@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -52,6 +52,30 @@ def validate_actual_times(actual_departure_at: Optional[datetime], actual_arriva
             status_code=400,
             detail="موعد الوصول الفعلي للمخزن لا يمكن أن يسبق موعد الخروج الفعلي من الميناء.",
         )
+
+
+def validate_not_future(dt: Optional[datetime], field_name: str = "التاريخ") -> None:
+    if dt is None:
+        return
+    now_utc = datetime.now(timezone.utc)
+    dt_aware = _aware(dt)
+    if dt_aware > now_utc + timedelta(days=1):
+        raise coded_error(
+            400,
+            "IT_DATE_IN_FUTURE",
+            f"موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.",
+            field_name=field_name,
+        )
+
+
+def validate_seal_evidence(seal_intact: bool, seal_number: Optional[str]) -> None:
+    if not seal_intact:
+        if not seal_number or not str(seal_number).strip():
+            raise coded_error(
+                400,
+                "IT_SEAL_REQUIRED",
+                "رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم الجمركي.",
+            )
 
 
 def validate_text_fields(
