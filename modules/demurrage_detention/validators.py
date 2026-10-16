@@ -75,3 +75,21 @@ def validate_positive_amount(val: float, field_name: str) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"الحقل {field_name} يجب أن يكون أكبر من صفر.",
         )
+
+
+def validate_no_active_tracking_for_file(existing: Optional[Any]) -> None:
+    if existing:
+        code = getattr(existing, "tracking_code", None) or getattr(existing, "tracking_id", "")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد بالفعل جلسة تتبع أرضيات نشطة لهذا الملف ({code}).",
+        )
+
+
+def validate_no_active_tracking_for_bl(existing: Optional[Any], bl_no: str) -> None:
+    if existing:
+        code = getattr(existing, "tracking_code", None) or getattr(existing, "tracking_id", "")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد بالفعل جلسة تتبع أرضيات نشطة لبوليصة الشحن {bl_no} ({code}).",
+        )

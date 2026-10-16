@@ -11,7 +11,8 @@ from fastapi import HTTPException, status
 
 from modules.common.errors import best_effort
 from modules.common.system_parameters import get_float_parameter, get_parameter
-from modules.common.validators import not_found
+from modules.common.validators import not_found, require_active
+from modules.import_files.model import ImportFile
 
 from .model import DemurragePolicy, DemurrageTracking
 from .schemas import (
@@ -34,7 +35,13 @@ from .schemas import (
     EmptyContainerReturnSubmit,
     EmptyContainerReturnResponse,
 )
-from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
+from .validators import (
+    validate_tier_rates,
+    validate_demurrage_dates,
+    validate_positive_amount,
+    validate_no_active_tracking_for_file,
+    validate_no_active_tracking_for_bl,
+)
 from . import repository
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
@@ -618,6 +625,16 @@ def delete_demurrage_policy_service(db: Session, policy_id: int, user: str = "Sy
 def create_demurrage_tracking_service(
     db: Session, req: DemurrageTrackingCreate, user: str = "System"
 ) -> DemurrageTracking:
+    file_code = None
+    if req.import_file_id:
+        imp_file = require_active(db, ImportFile, req.import_file_id, "ملف الاستيراد", status_code=status.HTTP_404_NOT_FOUND)
+        file_code = imp_file.custom_file_number or imp_file.import_file_code
+        existing = repository.get_active_tracking_for_file(db, req.import_file_id)
+        validate_no_active_tracking_for_file(existing)
+    else:
+        existing = repository.get_active_tracking_for_bl(db, req.bill_of_lading_no)
+        validate_no_active_tracking_for_bl(existing, req.bill_of_lading_no)
+
     validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=cairo_today())
     if req.exchange_rate is not None:
         validate_positive_amount(req.exchange_rate, "exchange_rate")
@@ -638,7 +655,7 @@ def create_demurrage_tracking_service(
 
     tracking = DemurrageTracking(
         import_file_id=req.import_file_id,
-        import_file_code=req.import_file_code,
+        import_file_code=file_code,
         policy_id=policy.policy_id if policy else None,
         carrier_name=req.carrier_name,
         bill_of_lading_no=req.bill_of_lading_no,
@@ -1487,10 +1504,16 @@ def record_empty_container_return_service(
             detail="تاريخ إعادة الحاوية الفارغة لا يمكن أن يكون في المستقبل.",
         )
 
-    tracking = db.query(DemurrageTracking).filter(
+    active_trackings = db.query(DemurrageTracking).filter(
         DemurrageTracking.import_file_id == payload.import_file_id,
         DemurrageTracking.is_active == True,
-    ).first()
+    ).all()
+    if len(active_trackings) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد أكثر من جلسة تتبع نشطة لملف الاستيراد رقم {payload.import_file_id}. يرجى معالجة التكرار أولاً.",
+        )
+    tracking = active_trackings[0] if active_trackings else None
 
     requested = [c.strip().upper() for c in (payload.returned_containers or []) if c and c.strip()]
     final_dem_fx = 0.0
