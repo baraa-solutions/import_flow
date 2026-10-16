@@ -142,6 +142,38 @@ def test_reconcile_po_documents_with_system():
     assert result["reconciled_invoice_items"][0]["final_unit_price"] == 18602.375
 
 
+
+def test_reconcile_po_line_without_packing_row_keeps_package_type_unset():
+    """A PO line with no packing-list row has no recorded package type: the reconciler passes None through,
+    and the extract-and-compare response must accept it (it used to raise ValidationError -> HTTP 500)."""
+    from modules.import_documentation.schemas import POExtractAndCompareResponse
+
+    system_items = [{
+        "po_item_id": 1,
+        "item_code": "CYK4R6018210001",
+        "description": "Double Skin Packaged Roof Top Units",
+        "package_type": None,
+        "initial_quantity": 2.0,
+        "initial_unit_price": 18602.375,
+        "initial_packages_count": None,
+    }]
+    result = reconcile_po_documents_with_system({"items": []}, {"items": []}, system_items, {})
+    assert result["reconciled_invoice_items"][0]["package_type"] is None
+
+    response = POExtractAndCompareResponse(
+        overall_status=result["overall_status"],
+        is_safe_for_certification=result["is_safe_for_certification"],
+        critical_discrepancies_count=result["critical_discrepancies_count"],
+        warning_discrepancies_count=result["warning_discrepancies_count"],
+        header_discrepancies=result["header_discrepancies"],
+        reconciled_invoice_items=result["reconciled_invoice_items"],
+        reconciled_packing_items=result["reconciled_packing_items"],
+        extracted_invoice_data=result["extracted_invoice_data"],
+        extracted_packing_data=result["extracted_packing_data"],
+    )
+    assert response.reconciled_invoice_items[0].package_type is None
+    assert response.model_dump()["reconciled_invoice_items"][0]["package_type"] is None
+
 def test_api_extract_and_compare_po_endpoint():
     client = TestClient(app)
     response = client.post(
