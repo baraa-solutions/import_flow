@@ -13,4 +13,5 @@
 - [Single-language stale tests](single_language_stale_tests.md) — Arabic/legacy fixtures after phases A/B/C; OpenBLAS OOM in corrupt-DB subprocess test
 - [Legacy NULL list 500](legacy_null_list_500.md) — ResponseValidationError on None: startup ADD COLUMN NULLs (real) vs raw-SQL seed (artifact)
 - [Smart Extract heuristics](smart_extract_heuristics.md) — PO extract is regex-only (no LLM); 3-decimal EU kg, legal-text EUR, dialog HS prefix match
+- [Settlement engine total](settlement_engine_total_contract.md) — post-BEW0-06 total = engine sum of amount_egp; old tests sum net_payable_egp
 - [Flutter gate flakes](flutter_gate_flakes.md) — KPI-finder/Form46 test data patterns, concurrent flutter test runs cause 'did not complete'

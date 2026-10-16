@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -35,6 +34,7 @@ import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/metric_card.dart';
 import 'idoc_ui.dart';
+import '../../purchase_orders/models/purchase_order_model.dart' as po_models;
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -270,34 +270,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         final fileBytes = FilePickerHelper.getBytes(file);
-        final ext = (file.name.split('.').last).toLowerCase();
-        final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
+        final text = (FilePickerHelper.isPlainTextFile(file.name)
+                ? FilePickerHelper.tryDecodeText(fileBytes)
+                : null) ??
+            l.poRecExtractedDigitalFileNotice(file.name);
 
         setState(() {
           if (isInvoice) {
             _selectedInvoiceFileName = file.name;
             _invoiceFileBytes = fileBytes;
-            if (isTextFormat && fileBytes != null) {
-              try {
-                _invoiceTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
-              } catch (_) {
-                _invoiceTextCtrl.text = '';
-              }
-            } else {
-              _invoiceTextCtrl.text = l.poRecExtractedDigitalFileNotice(file.name);
-            }
+            _invoiceTextCtrl.text = text;
           } else {
             _selectedPackingFileName = file.name;
             _packingFileBytes = fileBytes;
-            if (isTextFormat && fileBytes != null) {
-              try {
-                _packingTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
-              } catch (_) {
-                _packingTextCtrl.text = '';
-              }
-            } else {
-              _packingTextCtrl.text = l.poRecExtractedDigitalFileNotice(file.name);
-            }
+            _packingTextCtrl.text = text;
           }
         });
 
@@ -926,7 +912,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     for (var po in linkedPOs) {
       // Build a quick lookup map: itemCode -> packing list item
-      final pkgMap = <String, dynamic>{};
+      final pkgMap = <String, po_models.PackingListItemModel>{};
       for (var plItm in po.packingListItems) {
         final code = plItm.itemCode.trim().toLowerCase();
         if (code.isNotEmpty) pkgMap[code] = plItm;
@@ -2216,6 +2202,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     bool isDark,
   ) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
     final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
     final linkedPO = allPOs.where((po) => po.importFileId == _selectedImportFileId).firstOrNull;
@@ -2543,11 +2530,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
-                        dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
-                        headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
-                        columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
-                        horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+                        dataRowMinHeight: density.tableRowHeight - 4,
+                        dataRowMaxHeight: density.tableRowHeight + 6,
+                        headingRowHeight: density.tableHeadingHeight,
+                        columnSpacing: density.byDensity<double>(16, 12, 10),
+                        horizontalMargin: density.byDensity<double>(16, 12, 8),
                         columns: [
                           DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
@@ -2791,11 +2778,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
-                        dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
-                        headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
-                        columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
-                        horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+                        dataRowMinHeight: density.tableRowHeight - 4,
+                        dataRowMaxHeight: density.tableRowHeight + 6,
+                        headingRowHeight: density.tableHeadingHeight,
+                        columnSpacing: density.byDensity<double>(16, 12, 10),
+                        horizontalMargin: density.byDensity<double>(16, 12, 8),
                         columns: [
                           DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
@@ -2997,6 +2984,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     bool isDark,
   ) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     // Apply filters
     var filtered = allSessions.where((s) {
@@ -3281,11 +3269,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
-                      dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
-                      headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
-                      columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 14 : 18),
-                      horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+                      dataRowMinHeight: density.tableRowHeight - 4,
+                      dataRowMaxHeight: density.tableRowHeight + 6,
+                      headingRowHeight: density.tableHeadingHeight,
+                      columnSpacing: density.byDensity<double>(18, 14, 10),
+                      horizontalMargin: density.byDensity<double>(16, 12, 8),
                       headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.white.withValues(alpha: 0.06) : AppTheme.charcoal.withValues(alpha: 0.04)),
                       columns: [
                         DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -4413,6 +4401,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   Widget _buildDiscrepanciesResultSection([bool isDark = false]) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final data = _extractedReconciliationData!;
     final overallStatus = data['overall_status'] as String? ?? 'FULLY_MATCHED';
     final critCount = data['critical_discrepancies_count'] as int? ?? 0;
@@ -4486,11 +4475,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
-              dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
-              dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
-              columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 12 : (ref.watch(displayDensityProvider).isCompact ? 16 : 20),
-              horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+              headingRowHeight: density.tableHeadingHeight,
+              dataRowMinHeight: density.tableRowHeight - 4,
+              dataRowMaxHeight: density.tableRowHeight + 6,
+              columnSpacing: density.byDensity<double>(20, 16, 12),
+              horizontalMargin: density.byDensity<double>(16, 12, 8),
               columns: [
                 DataColumn(label: Text(l.poRecColCheckItem)),
                 DataColumn(label: Text(context.l10n.idocAColSystemValueInvoice)),
