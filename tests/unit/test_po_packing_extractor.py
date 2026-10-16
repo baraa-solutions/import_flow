@@ -185,10 +185,13 @@ def test_api_extract_and_compare_po_endpoint():
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["is_safe_for_certification"] is True
+    # No import file -> no system PO items (BE03-T11: none are invented), so the result is a draft, not certifiable.
+    assert data["system_items_missing"] is True
+    assert data["overall_status"] == "DRAFT"
+    assert data["is_safe_for_certification"] is False
+    assert data["reconciled_invoice_items"] == []
     assert data["extracted_invoice_data"]["acid_number"] == "2001830441013710010"
     assert data["extracted_packing_data"]["total_packages"] == 4
-    assert len(data["reconciled_invoice_items"]) >= 2
 
 
 def test_purchase_order_extractor_narbutas_pipe_items():
