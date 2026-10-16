@@ -111,26 +111,18 @@ def _check_version(db: Session, record, submitted_version: Optional[int], entity
 
 
 def _po_for_file(db: Session, import_file: ImportFile) -> Optional[PurchaseOrder]:
-    query = db.query(PurchaseOrder).filter(
-        PurchaseOrder.import_file_id == import_file.import_file_id,
-        PurchaseOrder.is_active == True,
+    if not import_file or not import_file.import_file_id:
+        return None
+    pos = (
+        db.query(PurchaseOrder)
+        .filter(
+            PurchaseOrder.import_file_id == import_file.import_file_id,
+            PurchaseOrder.is_active == True,
+        )
+        .all()
     )
-    if import_file.po_number:
-        query = query.filter(PurchaseOrder.po_number == import_file.po_number)
-    pos = query.all()
     if len(pos) == 1:
         return pos[0]
-    if len(pos) > 1:
-        return None
-    # Fallback for legacy POs where import_file_id is null but po_number matches
-    if import_file.po_number:
-        legacy_pos = db.query(PurchaseOrder).filter(
-            PurchaseOrder.po_number == import_file.po_number,
-            PurchaseOrder.import_file_id.is_(None),
-            PurchaseOrder.is_active == True,
-        ).all()
-        if len(legacy_pos) == 1:
-            return legacy_pos[0]
     return None
 
 

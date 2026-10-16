@@ -361,15 +361,15 @@ class POReconciliationItem(BaseModel):
     description: str
     hs_code: Optional[str] = None
     # None = no package type recorded (PO line with no packing-list row); never substituted with an invented type.
-    package_type: Optional[str] = "Carton"
+    package_type: Optional[str] = None
     initial_quantity: float
     final_quantity: float
     initial_unit_price: float = 0.0
     unit_price: float = 0.0
     final_unit_price: float = 0.0
-    currency: str = "USD"
-    initial_packages_count: float = 0.0
-    final_packages_count: float = 0.0
+    currency: Optional[str] = None
+    initial_packages_count: Optional[float] = None
+    final_packages_count: Optional[float] = None
     initial_net_weight_kg: float = 0.0
     final_net_weight_kg: float = 0.0
     initial_gross_weight_kg: float = 0.0

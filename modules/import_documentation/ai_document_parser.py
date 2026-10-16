@@ -1849,33 +1849,36 @@ def reconcile_po_documents_with_system(
     # 1.6 Total Amount & Currency Check
     inv_tot = float(invoice_data.get("total_amount") or 0.0)
     sys_tot = float(file_meta.get("total_amount") or 0.0)
-    sys_curr = file_meta.get("currency") or "USD"
-    inv_curr = invoice_data.get("currency") or sys_curr
-    curr_match = (inv_curr.upper() == sys_curr.upper())
+    sys_curr = (file_meta.get("currency") or "").strip() or None
+    inv_curr = (invoice_data.get("currency") or "").strip() or None
+    curr_match = bool(sys_curr and inv_curr and sys_curr.upper() == inv_curr.upper())
 
     amt_match, amt_pct, amt_diff = _numeric_tolerance_match(sys_tot, inv_tot, tolerance_pct=0.01)
     if (not curr_match) or (not amt_match and sys_tot > 0 and inv_tot > 0):
         has_warning = True
 
-    is_amount_matched = (amt_match and curr_match) or (sys_tot == 0.0 and inv_tot == 0.0)
+    is_amount_matched = (amt_match and curr_match)
     details_fields = coded_text("details", "DOC_CHK_AMOUNT_MATCH")
     if not curr_match:
         details_fields = coded_text(
-            "details", "DOC_CHK_CURRENCY_MISMATCH", system_currency=sys_curr, document_currency=inv_curr
+            "details", "DOC_CHK_CURRENCY_MISMATCH", system_currency=sys_curr or "—", document_currency=inv_curr or "—"
         )
     elif not amt_match and sys_tot > 0:
         details_fields = coded_text(
             "details", "DOC_CHK_AMOUNT_VARIANCE",
-            variance_amount=round(amt_diff, 2), currency=sys_curr, variance_pct=round(amt_pct, 2),
+            variance_amount=round(amt_diff, 2), currency=sys_curr or "—", variance_pct=round(amt_pct, 2),
         )
+
+    sys_curr_display = f" {sys_curr}" if sys_curr else ""
+    inv_curr_display = f" {inv_curr}" if inv_curr else ""
 
     discrepancies.append(_header_row(
         "CHK_TOTAL_AMOUNT", "total_amount", "إجمالي قيمة الفاتورة (Total Invoice Amount)",
-        f"{sys_tot:,.2f} {sys_curr}",
-        f"{inv_tot:,.2f} {inv_curr}",
-        f"{sys_tot:,.2f} {sys_curr}",
+        f"{sys_tot:,.2f}{sys_curr_display}",
+        f"{inv_tot:,.2f}{inv_curr_display}",
+        f"{sys_tot:,.2f}{sys_curr_display}",
         Placeholder("NOT_IN_PACKING_LIST"),
-        f"{inv_tot:,.2f} {inv_curr}",
+        f"{inv_tot:,.2f}{inv_curr_display}",
         "—",
         "MATCH" if is_amount_matched else "MINOR_VARIANCE",
         details_fields,
@@ -2030,7 +2033,7 @@ def reconcile_po_documents_with_system(
         final_net = matched_pl.get("net_weight_kg", s_net) if matched_pl else s_net
         final_gross = matched_pl.get("gross_weight_kg", s_gross) if matched_pl else s_gross
         final_cbm = matched_pl.get("calculated_cbm", s_cbm) if matched_pl else s_cbm
-        pkg_type = matched_pl.get("package_type", sys_itm.get("package_type", "Carton")) if matched_pl else sys_itm.get("package_type", "Carton")
+        pkg_type = (matched_pl.get("package_type") or sys_itm.get("package_type")) if matched_pl else sys_itm.get("package_type")
 
         # Variances
         qty_var = round(((final_qty - s_qty) / s_qty) * 100.0, 2) if s_qty > 0 else 0.0
@@ -2075,7 +2078,7 @@ def reconcile_po_documents_with_system(
         p_net = float(sys_pl.get("initial_net_weight_kg") or sys_pl.get("total_net_weight_kg") or 0.0)
         p_gross = float(sys_pl.get("initial_gross_weight_kg") or sys_pl.get("total_gross_weight_kg") or 0.0)
         p_cbm = float(sys_pl.get("initial_cbm") or sys_pl.get("total_cbm") or 0.0)
-        p_type = sys_pl.get("package_type") or "Carton"
+        p_type = sys_pl.get("package_type") or None
         p_hs = sys_pl.get("hs_code") or ""
 
         # Try to match with uploaded packing list item
