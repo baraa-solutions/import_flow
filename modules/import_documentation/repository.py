@@ -188,7 +188,10 @@ def get_all_acid_sessions(
     search: str | None = None,
     import_file_id: int | None = None,
     status: str | None = None,
-) -> list[AcidRegistrationSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[AcidRegistrationSession] | tuple[list[AcidRegistrationSession], int]:
     query = db.query(AcidRegistrationSession)
     if not include_inactive:
         query = query.filter(AcidRegistrationSession.is_active == True)
@@ -208,7 +211,16 @@ def get_all_acid_sessions(
             | AcidRegistrationSession.exporter_name.ilike(p)
         )
 
-    return query.order_by(AcidRegistrationSession.acid_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(AcidRegistrationSession.acid_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def update_acid_session(
@@ -296,11 +308,26 @@ def delete_banking_document(db: Session, db_item: BankingDocumentSession) -> boo
     return _soft_delete(db, db_item if db_item is not None and db_item.is_active else None)
 
 
-def get_all_banking_documents(db: Session, import_file_id: int | None = None) -> list[BankingDocumentSession]:
+def get_all_banking_documents(
+    db: Session,
+    import_file_id: int | None = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[BankingDocumentSession] | tuple[list[BankingDocumentSession], int]:
     query = db.query(BankingDocumentSession).filter(BankingDocumentSession.is_active == True)
     if import_file_id:
         query = query.filter(BankingDocumentSession.import_file_id == import_file_id)
-    return query.order_by(BankingDocumentSession.bank_doc_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(BankingDocumentSession.bank_doc_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 # --- SHIPMENT DOCUMENT ITEMS REPOSITORY (BP-016 to BP-018) ---
@@ -335,11 +362,26 @@ def get_shipment_document_active(db: Session, doc_id: int) -> ShipmentDocumentIt
     return _active_by_id(db, ShipmentDocumentItem, ShipmentDocumentItem.document_id, doc_id)
 
 
-def get_all_shipment_documents(db: Session, import_file_id: int | None = None) -> list[ShipmentDocumentItem]:
+def get_all_shipment_documents(
+    db: Session,
+    import_file_id: int | None = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[ShipmentDocumentItem] | tuple[list[ShipmentDocumentItem], int]:
     query = db.query(ShipmentDocumentItem).filter(ShipmentDocumentItem.is_active == True)
     if import_file_id:
         query = query.filter(ShipmentDocumentItem.import_file_id == import_file_id)
-    return query.order_by(ShipmentDocumentItem.document_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(ShipmentDocumentItem.document_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def update_shipment_document(
@@ -394,7 +436,10 @@ def get_draft_bl_reviews(
     status: str | None = None,
     search: str | None = None,
     is_draft: bool | None = None,
-) -> list[DraftBLReviewSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[DraftBLReviewSession] | tuple[list[DraftBLReviewSession], int]:
     query = db.query(DraftBLReviewSession)
     if not include_inactive:
         query = query.filter(DraftBLReviewSession.is_active == True)
@@ -415,7 +460,16 @@ def get_draft_bl_reviews(
             | (DraftBLReviewSession.mbl_no.ilike(s))
             | (DraftBLReviewSession.vessel_name.ilike(s))
         )
-    return query.order_by(DraftBLReviewSession.bl_review_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(DraftBLReviewSession.bl_review_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def get_draft_bl_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> DraftBLReviewSession | None:
@@ -515,7 +569,10 @@ def get_coo_reviews(
     status: str | None = None,
     search: str | None = None,
     is_draft: bool | None = None,
-) -> list[CertificateOfOriginReviewSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[CertificateOfOriginReviewSession] | tuple[list[CertificateOfOriginReviewSession], int]:
     query = db.query(CertificateOfOriginReviewSession)
     if not include_inactive:
         query = query.filter(CertificateOfOriginReviewSession.is_active == True)
@@ -535,7 +592,16 @@ def get_coo_reviews(
             | (CertificateOfOriginReviewSession.invoice_number.ilike(s))
             | (CertificateOfOriginReviewSession.certificate_type.ilike(s))
         )
-    return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def get_coo_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> CertificateOfOriginReviewSession | None:
@@ -604,7 +670,10 @@ def get_inspection_reviews(
     import_file_id: int | None = None,
     status: str | None = None,
     search: str | None = None,
-) -> list[InspectionCertificateReviewSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[InspectionCertificateReviewSession] | tuple[list[InspectionCertificateReviewSession], int]:
     query = db.query(InspectionCertificateReviewSession)
     if not include_inactive:
         query = query.filter(InspectionCertificateReviewSession.is_active == True)
@@ -621,7 +690,16 @@ def get_inspection_reviews(
             | (InspectionCertificateReviewSession.inspection_type.ilike(s))
             | (InspectionCertificateReviewSession.regulatory_authority.ilike(s))
         )
-    return query.order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(InspectionCertificateReviewSession.inspection_review_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def get_inspection_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> InspectionCertificateReviewSession | None:
@@ -683,7 +761,10 @@ def get_po_reconciliation_sessions(
     import_file_id: int | None = None,
     overall_status: str | None = None,
     search: str | None = None,
-) -> list[POPackingReconciliationSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[POPackingReconciliationSession] | tuple[list[POPackingReconciliationSession], int]:
     query = db.query(POPackingReconciliationSession)
     if not include_inactive:
         query = query.filter(POPackingReconciliationSession.is_active == True)
@@ -700,7 +781,16 @@ def get_po_reconciliation_sessions(
             | (POPackingReconciliationSession.acid_number.ilike(s))
             | (POPackingReconciliationSession.shipper_name.ilike(s))
         )
-    return query.order_by(POPackingReconciliationSession.session_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(POPackingReconciliationSession.session_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def get_po_reconciliation_session_by_id(
@@ -821,7 +911,10 @@ def list_invoice_bl_match_sessions(
     import_file_id: int | None = None,
     is_draft: bool | None = None,
     search: str | None = None,
-) -> list[InvoiceBLMatchSession]:
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[InvoiceBLMatchSession] | tuple[list[InvoiceBLMatchSession], int]:
     query = db.query(InvoiceBLMatchSession).filter(InvoiceBLMatchSession.is_active == True)
     if import_file_id is not None:
         query = query.filter(InvoiceBLMatchSession.import_file_id == import_file_id)
@@ -838,7 +931,16 @@ def list_invoice_bl_match_sessions(
                 InvoiceBLMatchSession.import_file_code.ilike(s),
             )
         )
-    return query.order_by(InvoiceBLMatchSession.session_id.desc()).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(InvoiceBLMatchSession.session_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def create_invoice_bl_match_session(

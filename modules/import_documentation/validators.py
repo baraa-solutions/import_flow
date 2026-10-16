@@ -202,3 +202,18 @@ def validate_upload(filename: Optional[str], content: bytes) -> str:
             detail=f"حجم الملف '{name}' يتجاوز الحد الأقصى المسموح به ({MAX_UPLOAD_BYTES // (1024 * 1024)} ميجابايت).",
         )
     return name
+
+
+# --- BE03-T14: raw text limits ---------------------------------------------------------------------------------
+MAX_RAW_TEXT_CHARS = 200_000
+
+
+def validate_raw_text_length(text: Optional[str], field_name: str = "raw_text") -> Optional[str]:
+    """Ensures raw text does not exceed MAX_RAW_TEXT_CHARS (422 otherwise)."""
+    if text and len(text) > MAX_RAW_TEXT_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"النص المدخل في الحقل '{field_name}' يتجاوز الحد الأقصى المسموح به ({MAX_RAW_TEXT_CHARS:,} حرف).",
+        )
+    return text
+

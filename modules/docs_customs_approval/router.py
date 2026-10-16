@@ -6,7 +6,7 @@ customs-broker sign-off ``customs_clearance.update`` (a final session save check
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from modules.users.model import User
@@ -59,14 +59,30 @@ def create_approval(payload: CustomsDocumentApprovalCreate, db: Session = Depend
     dependencies=[Depends(require_permission(VIEW))],
 )
 def list_approvals(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = Query(None),
     document_type: Optional[str] = Query(None),
     overall_status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    return service.list_approvals_service(db, include_inactive, import_file_id, document_type, overall_status, search)
+    res = service.list_approvals_service(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        document_type=document_type,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
+    )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post(
@@ -96,15 +112,32 @@ def run_matrix_check(import_file_id: int, db: Session = Depends(get_db)):
     dependencies=[Depends(require_permission(VIEW))],
 )
 def list_tickets(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = Query(None),
     approval_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     severity: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    return service.list_rectification_tickets_service(db, include_inactive, import_file_id, approval_id, status, severity, search)
+    res = service.list_rectification_tickets_service(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        approval_id=approval_id,
+        status=status,
+        severity=severity,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
+    )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post(
@@ -171,14 +204,26 @@ def create_customs_approval_session(
     dependencies=[Depends(require_permission(VIEW))],
 )
 def list_customs_approval_sessions(
+    response: Response,
     import_file_id: Optional[int] = Query(None),
     is_draft: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    return service.list_customs_approval_sessions_service(
-        db, import_file_id=import_file_id, is_draft=is_draft, search=search
+    res = service.list_customs_approval_sessions_service(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get(

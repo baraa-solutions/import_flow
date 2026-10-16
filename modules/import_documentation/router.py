@@ -13,7 +13,7 @@ HTTP only (Phase 3a, DOC-01 / DOC-12 / DOC-14 / DOC-16 / DOC-17):
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -172,16 +172,29 @@ def create_acid_session(
 
 @router.get("/acid-sessions", response_model=List[AcidRegistrationResponse])
 def list_acid_sessions(
+    response: Response,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return service.list_acid_sessions_service(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
+    res = service.list_acid_sessions_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse)
@@ -224,9 +237,19 @@ def create_banking_document(
 
 @router.get("/banking-documents", response_model=List[BankingDocumentResponse])
 def list_banking_documents(
-    import_file_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(can_view)
+    response: Response,
+    import_file_id: Optional[int] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
-    return service.list_banking_documents_service(db, import_file_id=import_file_id)
+    res = service.list_banking_documents_service(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=True
+    )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
@@ -284,9 +307,19 @@ def create_shipment_document(
 
 @router.get("/shipment-documents", response_model=List[ShipmentDocumentResponse])
 def list_shipment_documents(
-    import_file_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(can_view)
+    response: Response,
+    import_file_id: Optional[int] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
 ):
-    return service.list_shipment_documents_service(db, import_file_id=import_file_id)
+    res = service.list_shipment_documents_service(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=True
+    )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post(
@@ -362,6 +395,8 @@ def extract_po_reconciliation_files_and_compare(
     Accepts uploaded Commercial Invoice and/or Packing List files (PDF, Word, Excel, Text)
     and executes 3-way reconciliation against System PO data.
     """
+    validators.validate_raw_text_length(invoice_text, "invoice_text")
+    validators.validate_raw_text_length(packing_text, "packing_text")
     return service.extract_po_files_and_compare_service(
         db,
         invoice=_read_upload(invoice_file) if invoice_file else None,
@@ -397,18 +432,30 @@ def create_po_reconciliation_session(
     status_code=status.HTTP_200_OK,
 )
 def get_po_reconciliation_sessions(
+    response: Response,
     import_file_id: Optional[int] = None,
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
     """
     Lists saved PO & Packing List final reconciliation sessions with optional filters.
     """
-    return service.get_po_reconciliation_sessions_service(
-        db, import_file_id=import_file_id, overall_status=overall_status, search=search
+    res = service.get_po_reconciliation_sessions_service(
+        db,
+        import_file_id=import_file_id,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get(
@@ -499,22 +546,31 @@ def create_draft_bl_review(
 
 @router.get("/draft-bl", response_model=List[DraftBLReviewResponse])
 def list_draft_bl_reviews(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return service.get_draft_bl_reviews_service(
+    res = service.get_draft_bl_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,
         status=status,
         search=search,
         is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
@@ -589,22 +645,31 @@ def create_coo_review(
 
 @router.get("/coo", response_model=List[CertificateOfOriginReviewResponse])
 def list_coo_reviews(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return service.get_coo_reviews_service(
+    res = service.get_coo_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,
         status=status,
         search=search,
         is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.put("/coo/{review_id}", response_model=CertificateOfOriginReviewResponse)
@@ -665,20 +730,29 @@ def create_inspection_review(
 
 @router.get("/inspection", response_model=List[InspectionCertificateReviewResponse])
 def list_inspection_reviews(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return service.get_inspection_reviews_service(
+    res = service.get_inspection_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,
         status=status,
         search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.put("/inspection/{review_id}", response_model=InspectionCertificateReviewResponse)
@@ -815,6 +889,9 @@ def extract_invoice_bl_files_and_match(
     Accepts uploaded Invoice, Packing List, and/or B/L files (Single or Multi-Page / Multi-File)
     and executes automated multi-page extraction and cross-matching.
     """
+    validators.validate_raw_text_length(invoice_text, "invoice_text")
+    validators.validate_raw_text_length(bl_text, "bl_text")
+    validators.validate_raw_text_length(packing_list_text, "packing_list_text")
     return service.extract_invoice_bl_files_and_match_service(
         db,
         invoices=_read_uploads(invoice_files, invoice_file),
@@ -859,15 +936,27 @@ def create_invoice_bl_session(
     summary="List all Invoice vs B/L Match Sessions with optional filters",
 )
 def list_invoice_bl_sessions(
+    response: Response,
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return service.list_invoice_bl_match_sessions_service(
-        db, import_file_id=import_file_id, is_draft=is_draft, search=search
+    res = service.list_invoice_bl_match_sessions_service(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    items, total = res if isinstance(res, tuple) else (res, len(res))
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get(
