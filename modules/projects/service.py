@@ -56,7 +56,9 @@ class ProjectService:
                     return None
                 rate_cache[cur] = val
                 return val
-            except Exception:
+            except HTTPException:
+                # 404 CURRENCY_NOT_FOUND / 409 CURRENCY_RATE_MISSING (BEX-T07): reported as a missing rate.
+                # Any other error (e.g. a database failure) propagates instead of looking like a missing rate.
                 rate_cache[cur] = None
                 return None
 

@@ -548,3 +548,26 @@ def test_get_all_rate_caching_on_missing_rates(db_context):
         assert r.missing_rate_currencies == ["EUR"]
 
 
+class _RateService:
+    """Stand-in for CurrencyService._get_rate_to_egp in the pure commitment-total tests."""
+
+    def __init__(self, rates=None, error=None):
+        self.rates, self.error = rates or {}, error
+
+    def _get_rate_to_egp(self, code, rate_type="commercial"):
+        if self.error is not None:
+            raise self.error
+        if code not in self.rates:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=409, detail={"code": "CURRENCY_RATE_MISSING", "currency": code})
+        return self.rates[code], None, None
+
+
+def test_commitment_totals_only_rate_lookup_errors_count_as_missing(db_context):
+    service = ProjectService(db_context["session"])
+    po_data = [("USD", 10000.0, 1), ("EUR", 10000.0, 1)]
+    res = service._calculate_commitment_totals(100000.0, po_data, _RateService({"USD": 48.5}))
+    assert res["total_committed_usd"] is None and res["missing_rate_currencies"] == ["EUR"]
+    with pytest.raises(RuntimeError):
+        service._calculate_commitment_totals(100000.0, po_data, _RateService(error=RuntimeError("db down")))
+
