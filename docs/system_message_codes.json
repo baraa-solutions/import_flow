@@ -558,6 +558,18 @@
       "note"
     ]
   },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_CODE_UNKNOWN": {
     "params": [
       "currency_code"
@@ -1923,6 +1935,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [
@@ -2107,6 +2127,20 @@
     "params": [
       "carrier_id"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -3670,6 +3704,17 @@
       "body"
     ]
   },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
     "params": [],
     "parts": [
@@ -3750,10 +3795,24 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_CUSTOMS_NOT_RELEASED": {
     "params": [
       "import_file_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
     "parts": [
       "note"
     ]

@@ -924,6 +924,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'متابعة وصول الشاحنة للمستودع وإصدار إذن الإضافة GRN (TR-03)',
   },
+  'TR_SEAL_BROKEN': {
+    'title': 'إبلاغ عن كسر الختم الجمركي للشاحنة {truck_plate_number}',
+    'body': 'وصلت الشاحنة {truck_plate_number} بختم جمركي مكسور/تالف ({seal_number}).',
+    'note': 'تم الإبلاغ عن كسر الختم الجمركي {seal_number} عند الوصول.',
+  },
 
   'WH_GRN_ISSUED': {
     'title': 'تم إصدار إذن الإضافة المخزني ({grn_code})',
@@ -1440,6 +1445,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
+  },
   'WR_FIELD_NOT_EDITABLE': {
     'note': 'لا يمكن تعديل الحقل \'{field_name}\' مباشرة.',
   },
@@ -1452,6 +1460,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_GRN_LOCKED': {
     'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
   },
+  'WR_DATE_IN_FUTURE': {
+    'note': 'تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
@@ -1460,6 +1471,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'IT_TRUCK_TYPE_INVALID': {
     'note': 'نوع الشاحنة \'{truck_type}\' غير صالح.',
+  },
+  'IT_SEAL_REQUIRED': {
+    'note': 'رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم.',
+  },
+  'IT_DATE_IN_FUTURE': {
+    'note': 'موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.',
   },
   'IT_STATUS_INVALID': {
     'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
@@ -1490,6 +1507,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
+  },
+  'FC_EXPORT_BLOCKED': {
+    'note': 'لا يمكن تصدير واعتماد الملف الشامل: الشروط التالية غير مستوفاة: {blocking}.',
   },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'سجل الإغلاق {closure_code} يتبع ملفاً مغلقاً: أعد فتح الملف أولاً.',
@@ -1559,5 +1579,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'RECALC_RATE_MISSING': {
     'note': 'تعذرت مقارنة بعض البنود: لا يوجد سعر صرف لعملتها ({fields}).',
+  },
+  'CT_SIMULATION_NO_LINES': {
+    'note': 'لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.',
+  },
+  'CT_SIMULATION_NO_BROKER': {
+    'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
   },
 };
