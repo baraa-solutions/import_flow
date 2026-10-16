@@ -171,14 +171,16 @@ class AcidRequestTemplateResponse(BaseModel):
 
 # --- BANKING DOCUMENT SCHEMAS (BP-015) ---
 class BankingDocumentBase(BaseModel):
-    doc_type: str = Field(default="Form 4", description="Form 4, Form 9, Letter of Credit (L/C)")
+    doc_type: Literal["Form 4", "Form 9", "Letter of Credit (L/C)"] = Field(
+        default="Form 4", description="Form 4, Form 9, Letter of Credit (L/C)"
+    )
     import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     bank_id: Optional[int] = None
     bank_name: str = Field(..., min_length=2, max_length=200)
     doc_reference_number: Optional[str] = Field(default="PENDING", max_length=100)
     amount: float = Field(..., gt=0.0)
-    currency_code: str = Field(default="USD", max_length=10)
+    currency_code: str = Field(..., min_length=3, max_length=10, description="Active ISO 4217 currency code")
     request_date: Optional[date] = None
     received_date: Optional[date] = None
     execution_days: Optional[int] = 0
@@ -192,11 +194,12 @@ class BankingDocumentCreate(BankingDocumentBase):
 
 
 class BankingDocumentUpdate(BaseModel):
+    doc_type: Optional[Literal["Form 4", "Form 9", "Letter of Credit (L/C)"]] = None
     doc_reference_number: Optional[str] = None
     import_file_id: Optional[int] = None
     bank_id: Optional[int] = None
     bank_name: Optional[str] = None
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(None, gt=0.0)
     currency_code: Optional[str] = None
     request_date: Optional[date] = None
     received_date: Optional[date] = None
@@ -281,9 +284,9 @@ class CustomsDeclarationBase(BaseModel):
     acid_number: str = Field(..., min_length=19, max_length=19)
     form4_number: Optional[str] = None
     bl_number: Optional[str] = None
-    total_cif_val_egp: float = Field(default=0.0, ge=0.0)
-    total_customs_duties_egp: float = Field(default=0.0, ge=0.0)
-    total_vat_egp: float = Field(default=0.0, ge=0.0)
+    total_cif_val_egp: Optional[float] = Field(None, ge=0.0)
+    total_customs_duties_egp: Optional[float] = Field(None, ge=0.0)
+    total_vat_egp: Optional[float] = Field(None, ge=0.0)
 
 
 class CustomsDeclarationCreate(CustomsDeclarationBase):
@@ -296,6 +299,7 @@ class CustomsDeclarationResponse(CustomsDeclarationBase):
     declaration_code: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    amounts_entered: bool = False
     declaration_status: str
     is_active: bool
     created_at: datetime

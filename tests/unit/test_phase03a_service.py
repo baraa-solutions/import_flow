@@ -37,6 +37,9 @@ from modules.import_documentation.schemas import (
     POFinalAdjustmentRequest,
     POReconciliationItem,
     POReconciliationSessionCreate,
+    BankingDocumentCreate,
+    BankingDocumentUpdate,
+    CustomsDeclarationCreate,
 )
 import modules.import_documentation.service as service
 
@@ -55,6 +58,9 @@ def db():
                            supplier_name="Exporter Co", is_active=True))
     session.add(ImportFile(import_file_id=2, import_file_code="IMP-T-002", company_name="Other", supplier_name="Supp2", is_active=True))
     session.add(ImportFile(import_file_id=3, import_file_code="IMP-T-DEL", company_name="Del", supplier_name="Del", is_active=False))
+    session.add(curr_models.Currency(currency_id=1, currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    session.add(curr_models.Currency(currency_id=2, currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+    session.add(curr_models.Currency(currency_id=3, currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True))
     session.commit()
     yield session
     session.close()
@@ -314,8 +320,10 @@ def test_doc11_failing_lifecycle_does_not_block_following_steps(db, monkeypatch)
 
 # --- DOC-13 -------------------------------------------------------------------------------------------------
 def _seed_codes(db):
-    db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
-    db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
+    if not db.query(curr_models.Currency).filter(curr_models.Currency.currency_code == "USD").first():
+        db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    if not db.query(inc_models.Incoterm).filter(inc_models.Incoterm.incoterm_code == "FOB").first():
+        db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
     db.commit()
 
 
@@ -755,3 +763,157 @@ def test_be03_t16_certified_coo_put_locked_except_notes_and_delete_locked(db):
     with pytest.raises(HTTPException) as exc:
         service.delete_coo_review_service(db, saved.coo_review_id, user="alice")
     assert exc.value.status_code == 409
+
+
+# --- BE03-T13: Declaration 46 and Banking Document Validation ----------------
+def test_be03_t13_banking_create_without_currency_gives_422(db):
+    # Banking create without currency raises ValidationError (422 in FastAPI)
+    with pytest.raises(ValidationError):
+        BankingDocumentCreate(
+            import_file_id=1,
+            bank_name="Banque Misr",
+            amount=50000.0,
+            # currency_code omitted
+        )
+
+
+def test_be03_t13_banking_doc_type_and_amount_validation(db):
+    # doc_type must be one of {"Form 4", "Form 9", "Letter of Credit (L/C)"}
+    with pytest.raises(ValidationError):
+        BankingDocumentCreate(
+            doc_type="Invalid Doc Type",
+            import_file_id=1,
+            bank_name="Banque Misr",
+            amount=50000.0,
+            currency_code="USD",
+        )
+
+    # BankingDocumentUpdate amount must be gt=0
+    with pytest.raises(ValidationError):
+        BankingDocumentUpdate(amount=0.0)
+
+    with pytest.raises(ValidationError):
+        BankingDocumentUpdate(amount=-50.0)
+
+
+def test_be03_t13_banking_invalid_currency_gives_400(db):
+    # currency_code="XYZ" is not in currencies table -> 400 Bad Request
+    payload = BankingDocumentCreate(
+        import_file_id=1,
+        bank_name="Banque Misr",
+        amount=50000.0,
+        currency_code="XYZ",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_banking_document_service(db, payload)
+    assert exc.value.status_code == 400
+    assert "XYZ" in exc.value.detail
+
+
+def test_be03_t13_banking_receive_before_request_date_gives_400(db):
+    payload = BankingDocumentCreate(
+        doc_type="Form 4",
+        import_file_id=1,
+        bank_name="Banque Misr",
+        amount=50000.0,
+        currency_code="USD",
+        request_date=date(2026, 2, 1),
+    )
+    created = service.create_banking_document_service(db, payload)
+
+    # Received date earlier than requested date -> 400 Bad Request
+    with pytest.raises(HTTPException) as exc:
+        service.receive_banking_document_service(
+            db,
+            bank_doc_id=created.bank_doc_id,
+            form4_number="F4-VAL-001",
+            received_date=date(2026, 1, 1),
+        )
+    assert exc.value.status_code == 400
+    assert "لا يمكن أن يكون قبل تاريخ الطلب" in exc.value.detail
+
+    # Received date on or after request date -> success
+    received = service.receive_banking_document_service(
+        db,
+        bank_doc_id=created.bank_doc_id,
+        form4_number="F4-VAL-001",
+        received_date=date(2026, 2, 5),
+    )
+    assert received.status == "Received"
+    assert received.execution_days == 4
+
+
+def test_be03_t13_declaration_non_numeric_acid_gives_400(db):
+    # ACID with letters -> 400 Bad Request
+    payload = CustomsDeclarationCreate(
+        import_file_id=1,
+        acid_number="12345678901234567AB",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(db, payload)
+    assert exc.value.status_code == 400
+    assert "19 numeric digits" in exc.value.detail
+
+
+def test_be03_t13_declaration_mismatched_file_acid_gives_409(db):
+    file1 = db.query(ImportFile).filter(ImportFile.import_file_id == 1).one()
+    file1.acid_number = "1111122222333334444"
+    db.commit()
+
+    # Payload with different ACID -> 409 Conflict
+    payload = CustomsDeclarationCreate(
+        import_file_id=1,
+        acid_number="9999988888777776666",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(db, payload)
+    assert exc.value.status_code == 409
+    assert "لا يطابق رقم ACID المسجل للملف" in exc.value.detail
+
+
+def test_be03_t13_declaration_duplicate_draft_gives_409(db):
+    acid = "1111122222333334444"
+    file1 = db.query(ImportFile).filter(ImportFile.import_file_id == 1).one()
+    file1.acid_number = acid
+    db.commit()
+
+    # First declaration draft succeeds
+    first = service.create_customs_declaration_service(
+        db,
+        CustomsDeclarationCreate(import_file_id=1, acid_number=acid),
+    )
+    assert first.declaration_id is not None
+
+    # Second declaration draft for the same file -> 409 Conflict
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(
+            db,
+            CustomsDeclarationCreate(import_file_id=1, acid_number=acid),
+        )
+    assert exc.value.status_code == 409
+    assert "يوجد بالفعل مسودة إقرار جمركي" in exc.value.detail
+
+
+def test_be03_t13_declaration_amounts_entered_flag(db):
+    acid = "5555566666777778888"
+    file2 = db.query(ImportFile).filter(ImportFile.import_file_id == 2).one()
+    file2.acid_number = acid
+    db.commit()
+
+    # Case A: money fields omitted -> amounts_entered=False and total_*_egp are None
+    res_no_amounts = service.create_customs_declaration_service(
+        db,
+        CustomsDeclarationCreate(import_file_id=2, acid_number=acid),
+    )
+    assert res_no_amounts.amounts_entered is False
+    assert res_no_amounts.total_cif_val_egp is None
+    assert res_no_amounts.total_customs_duties_egp is None
+    assert res_no_amounts.total_vat_egp is None
+
+    # In DB, non-null column stores 0.0
+    from modules.import_documentation.model import CustomsDeclarationDraft
+    db_draft = db.query(CustomsDeclarationDraft).filter(CustomsDeclarationDraft.declaration_id == res_no_amounts.declaration_id).one()
+    assert db_draft.total_cif_val_egp == 0.0
+    assert db_draft.total_customs_duties_egp == 0.0
+    assert db_draft.total_vat_egp == 0.0
+

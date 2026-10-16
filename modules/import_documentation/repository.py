@@ -368,9 +368,9 @@ def create_customs_declaration(
         acid_number=schema.acid_number,
         form4_number=schema.form4_number,
         bl_number=schema.bl_number,
-        total_cif_val_egp=schema.total_cif_val_egp,
-        total_customs_duties_egp=schema.total_customs_duties_egp,
-        total_vat_egp=schema.total_vat_egp,
+        total_cif_val_egp=schema.total_cif_val_egp if schema.total_cif_val_egp is not None else 0.0,
+        total_customs_duties_egp=schema.total_customs_duties_egp if schema.total_customs_duties_egp is not None else 0.0,
+        total_vat_egp=schema.total_vat_egp if schema.total_vat_egp is not None else 0.0,
         declaration_status="Draft Prepared",
         is_active=True,
     )

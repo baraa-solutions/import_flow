@@ -30,7 +30,10 @@ from modules.import_documentation.validators import (
     validate_acid_expiry,
     validate_no_duplicate_acid_session,
     validate_no_duplicate_form4_session,
+    validate_no_duplicate_declaration_draft,
+    validate_currency_code,
 )
+_validate_currency_code = validate_currency_code
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
 from modules.common.system_messages import coded_text, msg, render_en
@@ -959,6 +962,7 @@ def create_banking_document_service(
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
+    _validate_currency_code(db, schema.currency_code)
     if schema.doc_type == "Form 4":
         validate_no_duplicate_form4_session(db, schema.import_file_id)
 
@@ -982,6 +986,9 @@ def update_banking_document_service(
 ):
     item = _get_banking_document_or_404(db, bank_doc_id)
 
+    if schema.currency_code is not None:
+        _validate_currency_code(db, schema.currency_code)
+
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
         validate_no_duplicate_form4_session(db, schema.import_file_id, current_doc_id=bank_doc_id)
@@ -1002,8 +1009,12 @@ def receive_banking_document_service(
 ):
     item = _get_banking_document_or_404(db, bank_doc_id)
 
-    req_date = item.request_date or item.issue_date or date.today()
-    exec_days = max(0, (received_date - req_date).days)
+    req_date = item.request_date or item.issue_date
+    if req_date and received_date < req_date:
+        raise _bad_request(
+            f"تاريخ الاستلام ({received_date}) لا يمكن أن يكون قبل تاريخ الطلب ({req_date})."
+        )
+    exec_days = max(0, (received_date - (req_date or date.today())).days)
 
     item.doc_reference_number = form4_number.strip()
     item.received_date = received_date
@@ -1088,11 +1099,53 @@ def update_cargox_and_bl_endorsement_service(
 # --- CUSTOMS DECLARATION SERVICE ---
 def create_customs_declaration_service(
     db: Session, schema: CustomsDeclarationCreate, user: Optional[str] = None
-) -> CustomsDeclarationDraft:
+) -> CustomsDeclarationResponse:
+    validate_acid_number(schema.acid_number, allow_pending=False)
+
+    imp_file = None
     if schema.import_file_id is not None:
-        _active_import_file(db, schema.import_file_id)
+        imp_file = _active_import_file(db, schema.import_file_id)
+        validate_no_duplicate_declaration_draft(db, schema.import_file_id)
+        if imp_file.acid_number:
+            clean_file_acid = imp_file.acid_number.strip()
+            if clean_file_acid and clean_file_acid.upper() not in ["PENDING", "REQUESTED", "DRAFT", ""]:
+                if schema.acid_number.strip() != clean_file_acid:
+                    raise _conflict(
+                        f"رقم ACID في الإقرار ({schema.acid_number}) لا يطابق رقم ACID المسجل للملف ({clean_file_acid})."
+                    )
+
     _require_active_po(db, schema.po_id)
-    return repo.create_customs_declaration(db, schema)
+    item = repo.create_customs_declaration(db, schema)
+
+    amounts_entered = any(
+        v is not None
+        for v in (schema.total_cif_val_egp, schema.total_customs_duties_egp, schema.total_vat_egp)
+    )
+
+    import_file_code = None
+    if imp_file:
+        import_file_code = imp_file.import_file_code or imp_file.custom_file_number
+    elif item.import_file_id:
+        import_file_code = codes_by_ids(db, [item.import_file_id]).get(item.import_file_id)
+
+    return CustomsDeclarationResponse(
+        declaration_id=item.declaration_id,
+        declaration_code=item.declaration_code,
+        import_file_id=item.import_file_id,
+        import_file_code=import_file_code,
+        po_id=item.po_id,
+        acid_number=item.acid_number,
+        form4_number=item.form4_number,
+        bl_number=item.bl_number,
+        total_cif_val_egp=schema.total_cif_val_egp,
+        total_customs_duties_egp=schema.total_customs_duties_egp,
+        total_vat_egp=schema.total_vat_egp,
+        amounts_entered=amounts_entered,
+        declaration_status=item.declaration_status,
+        is_active=item.is_active,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 # ==============================================================================
@@ -4874,15 +4927,6 @@ def extract_and_match_invoice_bl_service(
 
 
 
-def _validate_currency_code(db: Session, value: Any) -> str:
-    """Active ISO currency code or 400 (DOC-13). (D1 may later move this to validators.validate_currency_code.)"""
-    from modules.currencies.model import Currency
-    from modules.common import enum_codes
-    code = str(enum_codes.normalize_currency(value) or "").strip().upper()
-    found = db.query(Currency.currency_id).filter(Currency.currency_code == code, Currency.is_active == True).first() if code else None
-    if not found:
-        raise _bad_request(f"رمز العملة '{value}' غير معروف أو غير نشط في جدول العملات.")
-    return code
 
 
 def _validate_incoterm_code(db: Session, value: Any) -> str:
