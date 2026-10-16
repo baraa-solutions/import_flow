@@ -492,6 +492,8 @@ class MultiItemCustomsBreakdown(BaseModel):
     packaging_egp: Decimal = Decimal("0.00")
     insurance_source: str = Field("actual", description="مصدر التأمين الكلي: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر النولون الكلي: actual أو deemed")
+    freight_exchange_rate_used: Optional[Decimal] = None
+    freight_rate_source: Optional[str] = Field(None, description="مصدر سعر صرف النولون: invoice_currency أو table أو manual")
     additional_fees_egp: Decimal
     estimate_date: date
 
@@ -528,5 +530,7 @@ class ImportFileCustomsSimulationResponse(BaseModel):
     breakdown: MultiItemCustomsBreakdown
     consultation_id: Optional[int] = None
     summary_ar: str
+    warnings: List[str] = Field(default_factory=list, description="تحذيرات محاكاة الجمارك (مثل عدم وجود مخلص)")
+    skipped_lines: List[dict] = Field(default_factory=list, description="البنود التي تم استبعادها لعدم وجود بند جمركي أو قيمة")
 
 

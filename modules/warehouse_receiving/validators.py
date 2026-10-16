@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Iterable, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -109,12 +110,22 @@ def normalize_verdict(verdict: Optional[str], allowed: frozenset = WR_SUBMIT_VER
 
 
 def validate_verdict_consistency(verdict: Optional[str], shortage_qty: int, damaged_qty: int) -> None:
-    """ACCEPTED_FULL cannot be recorded while the quantities show a shortage or damage (plan WR-03)."""
+    """ACCEPTED_FULL cannot be recorded while the quantities show a shortage or damage, and
+    ACCEPTED_WITH_DISCREPANCY cannot remain when quantities have no discrepancy (plan WR-03 / BE810-T05)."""
     if verdict == "ACCEPTED_FULL" and (shortage_qty or 0) + (damaged_qty or 0) > 0:
         raise coded_error(
             400,
             "WR_VERDICT_INCONSISTENT",
             "لا يمكن اعتماد قرار القبول الكامل مع وجود عجز أو تالف في الكميات.",
+            verdict=verdict,
+            shortage_qty=int(shortage_qty or 0),
+            damaged_qty=int(damaged_qty or 0),
+        )
+    if verdict in ("ACCEPTED_WITH_DISCREPANCY", "DAMAGE_CLAIM_PENDING") and (shortage_qty or 0) + (damaged_qty or 0) == 0:
+        raise coded_error(
+            400,
+            "WR_VERDICT_INCONSISTENT",
+            f"قرار الفحص معتمد بوجود فروق ({verdict}) بينما الكميات الحالية لا يوجد بها عجز أو تالف. يلزم إعادة اعتماد محضر الفحص.",
             verdict=verdict,
             shortage_qty=int(shortage_qty or 0),
             damaged_qty=int(damaged_qty or 0),
@@ -127,16 +138,70 @@ def validate_verdict_matches(verdict: Optional[str], expected: frozenset, derive
     if verdict is not None and verdict not in expected:
         raise coded_error(
             400,
-            "WR_VERDICT_INCONSISTENT",
+            "WR_VERDICT_INCONSISTENT_EXPECTED",
             f"قرار الفحص {verdict} لا يتفق مع نتيجة الفحص (المتوقع: {derived}).",
             verdict=verdict,
             expected_verdict=derived,
         )
 
 
+def validate_inspection_date(inspection_date: Optional[datetime]) -> None:
+    """Inspection date cannot be > now + 24 hours (BE810-T19 / F36)."""
+    if inspection_date is not None:
+        target = inspection_date if inspection_date.tzinfo else inspection_date.replace(tzinfo=timezone.utc)
+        limit = datetime.now(timezone.utc) + timedelta(hours=24)
+        if target > limit:
+            raise coded_error(
+                400,
+                "WR_DATE_IN_FUTURE",
+                "تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).",
+                field_name="inspection_date",
+            )
+
+
 def validate_status_label(status: Optional[str]) -> None:
     if status is not None and status not in WR_STATUS_LABELS:
         raise coded_error(400, "WR_STATUS_INVALID", f"حالة إذن الاستلام '{status}' غير معروفة.", status=status)
+
+
+WR_ALLOWED_PUT_STATUS_TRANSITIONS = frozenset({
+    ("Draft / Pending Warehouse Count", "Goods Received"),
+    ("Goods Received", "GRN Audited"),
+    ("GRN Audited", "Closed"),
+})
+
+
+def validate_grn_status_transition(current_status: str, target_status: Optional[str]) -> None:
+    if target_status is None or target_status == current_status:
+        return
+    validate_status_label(target_status)
+    if (current_status, target_status) not in WR_ALLOWED_PUT_STATUS_TRANSITIONS:
+        raise coded_error(
+            409,
+            "WR_STATUS_CHANGE_NOT_ALLOWED",
+            f"لا يمكن تغيير حالة إذن الاستلام من '{current_status}' إلى '{target_status}'.",
+            current_status=current_status,
+            target_status=target_status,
+        )
+
+
+def validate_grn_put_fields(schema: Any) -> None:
+    fields_set = getattr(schema, "model_fields_set", None)
+    if fields_set is not None:
+        if "inspection_verdict" in fields_set:
+            raise coded_error(
+                400,
+                "WR_FIELD_NOT_EDITABLE",
+                "لا يمكن تعديل قرار الفحص مباشرة؛ يتم تحديد القرار من خلال محضر الفحص فقط.",
+                field_name="inspection_verdict",
+            )
+    elif getattr(schema, "inspection_verdict", None) is not None:
+        raise coded_error(
+            400,
+            "WR_FIELD_NOT_EDITABLE",
+            "لا يمكن تعديل قرار الفحص مباشرة؛ يتم تحديد القرار من خلال محضر الفحص فقط.",
+            field_name="inspection_verdict",
+        )
 
 
 def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
@@ -147,6 +212,48 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             f"نوع الفرق '{discrepancy_type}' غير معروف.",
             discrepancy_type=discrepancy_type,
         )
+
+def validate_claim_amount_and_currency(
+    db: Any,
+    amount: Optional[float],
+    currency: Optional[str],
+) -> Tuple[Optional[float], Optional[str]]:
+    """Validate claim amount and currency for inspection and receiving updates (plan WR-F11 / BE810-T12).
+
+    - If amount is None or == 0: returns (None, None).
+    - If amount > 0: currency is required and must match an active currency in the currencies master.
+      Raises 400 WR_CLAIM_CURRENCY_INVALID if currency is missing, unknown, or inactive.
+      Returns (amount, normalized_currency_code).
+    """
+    if amount is None or amount == 0:
+        return None, None
+
+    norm = enum_codes.normalize_currency(currency)
+    clean_currency = str(norm or "").strip().upper()
+    if not clean_currency:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            "يلزم تحديد عملة المطالبة عند تسجيل قيمة تقديرية للمطالبة.",
+            currency_code="",
+        )
+
+    from modules.currencies.model import Currency
+    row = (
+        db.query(Currency)
+        .filter(Currency.currency_code == clean_currency, Currency.is_active.is_(True))
+        .first()
+    )
+    if not row:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            f"عملة المطالبة '{clean_currency}' غير معروفة أو غير نشطة.",
+            currency_code=clean_currency,
+        )
+
+    return float(amount), clean_currency
+
 
 def validate_customs_release(imp: Any, clearance: Any) -> None:
     """GRN create precondition (plan WR-F08 / BE810-T11).

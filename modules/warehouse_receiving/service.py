@@ -2,9 +2,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams
 
 from .model import WarehouseReceivingRecord
 from .schemas import (
@@ -20,6 +22,7 @@ from .repository import (
     get_warehouse_receiving_by_id,
     get_active_grn_for_file,
     get_warehouse_receiving_list,
+    paginate_warehouse_receivings as repo_paginate_warehouse_receivings,
     add_warehouse_receiving,
     apply_changes,
     set_active,
@@ -35,8 +38,12 @@ from .validators import (
     validate_verdict_matches,
     validate_status_label,
     validate_discrepancy_type,
+    validate_claim_amount_and_currency,
+    validate_grn_status_transition,
+    validate_grn_put_fields,
     validate_customs_release,
     validate_grn_deletable,
+    validate_inspection_date,
     WR_VERDICT_CODES,
 )
 from modules.import_files.model import ImportFile
@@ -73,6 +80,14 @@ def _line_totals(items: List[Dict[str, Any]]) -> Dict[str, int]:
         "total_shortage_qty": sum(int(i.get("shortage_qty", 0) or 0) for i in items),
         "total_damaged_qty": sum(int(i.get("damaged_qty", 0) or 0) for i in items),
     }
+
+
+def _discrepancy_rate(totals: Dict[str, int]) -> float:
+    invoiced = int(totals.get("total_invoiced_qty", 0) or 0)
+    if invoiced <= 0:
+        return 0.0
+    discrepancy = int(totals.get("total_shortage_qty", 0) or 0) + int(totals.get("total_damaged_qty", 0) or 0)
+    return round((discrepancy / invoiced) * 100.0, 2)
 
 
 def _create_discrepancy_type(totals: Dict[str, int]) -> str:
@@ -287,8 +302,40 @@ def list_warehouse_receivings_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[WarehouseReceivingRecord]:
-    return get_warehouse_receiving_list(db, include_inactive, import_file_id, status, search)
+    skip: int = 0,
+    limit: int = 200,
+    return_total: bool = False,
+):
+    items, total = get_warehouse_receiving_list(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+    if return_total:
+        return items, total
+    return items
+
+
+def paginate_warehouse_receivings_service(
+    db: Session,
+    params: PageParams,
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    response: Optional[Response] = None,
+) -> Dict[str, Any]:
+    return repo_paginate_warehouse_receivings(
+        db,
+        params=params,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        response=response,
+    )
 
 
 def get_warehouse_receiving_by_file_service(db: Session, import_file_id: int) -> Optional[WarehouseReceivingRecord]:
@@ -304,6 +351,13 @@ def report_receiving_discrepancy_service(
 ) -> WarehouseReceivingRecord:
     """BP-035 Report Receiving Discrepancies & Damage Claims."""
     validate_discrepancy_type(payload.discrepancy_type)
+    if payload.discrepancy_type == "None":
+        raise coded_error(
+            400,
+            "WR_DISCREPANCY_TYPE_INVALID",
+            "لا يمكن الإبلاغ عن فروق مع اختيار نوع 'None'. يلزم تحديد نوع الفرق (عجز، تلف، زيادة، صنف خطأ).",
+            discrepancy_type="None",
+        )
     validate_discrepancy_claim(payload.discrepancy_type, payload.discrepancy_notes)
 
     record = get_warehouse_receiving_service(db, record_id)
@@ -319,6 +373,19 @@ def report_receiving_discrepancy_service(
 
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="REPORT_DISCREPANCY",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR report discrepancy audit log")
     return record
 
 
@@ -330,28 +397,46 @@ def update_warehouse_receiving_service(
 ) -> WarehouseReceivingRecord:
     existing = get_warehouse_receiving_service(db, record_id)
     _require_open_file_for_grn(db, existing.import_file_id)
-    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
 
-    validate_status_label(update_data.get("status"))
+    validate_grn_put_fields(schema)
+
+    NOT_NULL_COLUMNS = {"warehouse_name", "seal_intact", "inspector_name", "status", "discrepancy_type", "inspection_verdict"}
+    update_data = {
+        k: v for k, v in schema.model_dump(exclude_unset=True).items()
+        if not (v is None and k in NOT_NULL_COLUMNS)
+    }
+
+    if "status" in update_data:
+        validate_grn_status_transition(existing.status, update_data["status"])
+
     validate_discrepancy_type(update_data.get("discrepancy_type"))
-    if "inspection_verdict" in update_data:
-        update_data["inspection_verdict"] = normalize_verdict(update_data["inspection_verdict"], WR_VERDICT_CODES)
 
     values: Dict[str, Any] = {k: v for k, v in update_data.items() if k != "grn_items"}
     if "inspector_name" in values:
         values["inspector_name"] = user
+    if "claim_amount_estimated" in update_data or "claim_currency" in update_data:
+        req_amount = update_data["claim_amount_estimated"] if "claim_amount_estimated" in update_data else existing.claim_amount_estimated
+        req_currency = update_data["claim_currency"] if "claim_currency" in update_data else existing.claim_currency
+        amount, currency = validate_claim_amount_and_currency(db, req_amount, req_currency)
+        values["claim_amount_estimated"] = amount
+        values["claim_currency"] = currency
     if schema.grn_items is not None:
         validate_grn_lines(schema.grn_items)
         items = [i.model_dump() for i in schema.grn_items]
+        totals = _line_totals(items)
         values["grn_items"] = items
-        values.update(_line_totals(items))
+        values.update(totals)
+        values["discrepancy_rate_percent"] = _discrepancy_rate(totals)
 
-    if "inspection_verdict" in values:
-        validate_verdict_consistency(
-            values["inspection_verdict"],
-            values.get("total_shortage_qty", existing.total_shortage_qty),
-            values.get("total_damaged_qty", existing.total_damaged_qty),
-        )
+        if existing.inspection_protocol_number:
+            validate_verdict_consistency(
+                existing.inspection_verdict,
+                totals["total_shortage_qty"],
+                totals["total_damaged_qty"],
+            )
+        else:
+            if "discrepancy_type" not in values:
+                values["discrepancy_type"] = _create_discrepancy_type(totals)
 
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
     apply_changes(existing, values, user)
@@ -380,6 +465,18 @@ def soft_delete_warehouse_receiving_service(db: Session, record_id: int, user: s
     validate_grn_deletable(record)
     set_active(record, False, user)
     db.commit()
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR delete audit log")
     return True
 
 
@@ -395,6 +492,18 @@ def restore_warehouse_receiving_service(db: Session, record_id: int, user: str =
     set_active(record, True, user)
     db.commit()
     db.refresh(record)
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="RESTORE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "WR restore audit log")
     return record
 
 
@@ -487,6 +596,7 @@ def submit_warehouse_inspection_protocol_service(
     record = get_warehouse_receiving_service(db, record_id)
     refresh_quarantine_lock(db, record, user=user_name)
     _require_open_file_for_grn(db, record.import_file_id)
+    validate_inspection_date(schema.inspection_date)
     verdict = normalize_verdict(schema.inspection_verdict)
     if schema.discrepancy_type is not None:
         validate_discrepancy_type(schema.discrepancy_type)
@@ -503,11 +613,11 @@ def submit_warehouse_inspection_protocol_service(
 
     # 2. Discrepancy calculations
     total_discrepancy = (record.total_shortage_qty or 0) + (record.total_damaged_qty or 0)
-    invoiced = record.total_invoiced_qty or 0
-    if invoiced > 0:
-        record.discrepancy_rate_percent = round((total_discrepancy / invoiced) * 100.0, 2)
-    else:
-        record.discrepancy_rate_percent = 0.0
+    record.discrepancy_rate_percent = _discrepancy_rate({
+        "total_invoiced_qty": record.total_invoiced_qty,
+        "total_shortage_qty": record.total_shortage_qty,
+        "total_damaged_qty": record.total_damaged_qty,
+    })
 
     # 3. Protocol Number Generation
     if not record.inspection_protocol_number:
@@ -523,8 +633,11 @@ def submit_warehouse_inspection_protocol_service(
     record.insurance_claim_ref = schema.insurance_claim_ref
     record.supplier_claim_filed = schema.supplier_claim_filed
     record.supplier_claim_ref = schema.supplier_claim_ref
-    record.claim_amount_estimated = schema.claim_amount_estimated or 0.0
-    record.claim_currency = schema.claim_currency or "EGP"
+    amount, currency = validate_claim_amount_and_currency(
+        db, schema.claim_amount_estimated, schema.claim_currency
+    )
+    record.claim_amount_estimated = amount
+    record.claim_currency = currency
     record.inspector_name = user_name
     if schema.notes:
         record.notes = schema.notes
@@ -648,6 +761,19 @@ def submit_warehouse_inspection_protocol_service(
         db.commit()
 
     best_effort(db, _notify, "WR inspection notification")
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_code,
+            action="INSPECTION_PROTOCOL",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user_name,
+        )
+
+    best_effort(db, _audit, "WR inspection protocol audit log")
     return record
 
 
@@ -673,8 +799,8 @@ def get_inspection_summary_service(db: Session, record_id: int) -> InspectionSum
         insurance_claim_ref=record.insurance_claim_ref,
         supplier_claim_filed=record.supplier_claim_filed or False,
         supplier_claim_ref=record.supplier_claim_ref,
-        claim_amount_estimated=record.claim_amount_estimated or 0.0,
-        claim_currency=record.claim_currency or "EGP",
+        claim_amount_estimated=record.claim_amount_estimated,
+        claim_currency=record.claim_currency,
         status=record.status or "Goods Received",
         is_ready_for_landed_cost=(record.inspection_verdict != "REJECTED_QUARANTINED" and not record.quarantine_lock_active),
     )

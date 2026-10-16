@@ -76,7 +76,10 @@ def db_session():
         target_free_days=21,
         status="In Progress",
     )
-    db.add_all([comp, sup, import_file])
+    from modules.currencies.model import Currency
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="LE", is_active=True)
+    db.add_all([comp, sup, import_file, usd, egp])
     db.commit()
 
     try:
