@@ -348,9 +348,11 @@ def test_dd06_second_partial_return_and_unknown_container(db):
     assert db.query(SmartTask).filter(SmartTask.task_code == "TSK-0901-1").count() == 1
 
 
-def test_dd07_push_uses_settlement_code_and_recalculates(db):
-    t = _tracking(db, date(2026, 8, 1), total_cost_egp=1234.5, total_demurrage_fx=20.0, total_detention_fx=0.0,
-                  total_storage_egp=234.5)
+def test_dd07_push_uses_settlement_code_and_recalculates(db, monkeypatch):
+    fixed_today = date(2026, 8, 15)
+    monkeypatch.setattr(dd, "_today", lambda: fixed_today)
+    policy = _policy(db)
+    t = _tracking(db, date(2026, 8, 1), policy_id=policy.policy_id)
     res = dd.push_demurrage_to_financial_settlement_service(
         db, PushToSettlementRequest(tracking_id=t.tracking_id, accountant_name="spoof"), user="acct1")
     from modules.financial_settlement.model import LandedCostSettlementRecord
@@ -361,11 +363,11 @@ def test_dd07_push_uses_settlement_code_and_recalculates(db):
     # two rows (carrier USD x rate, storage EGP at 1.0), each amount_fx x rate == amount_egp
     rows = {i["invoice_no"]: i for i in settlement.expense_invoices if i["invoice_no"].startswith("INV-")}
     assert set(rows) == {"INV-DND-DND-T-0001", "INV-STO-DND-T-0001"}
-    assert (rows["INV-DND-DND-T-0001"]["amount_fx"], rows["INV-DND-DND-T-0001"]["amount_egp"]) == (20.0, 1000.0)
-    assert (rows["INV-STO-DND-T-0001"]["currency"], rows["INV-STO-DND-T-0001"]["exchange_rate"], rows["INV-STO-DND-T-0001"]["amount_egp"]) == ("EGP", 1.0, 234.5)
+    assert (rows["INV-DND-DND-T-0001"]["amount_fx"], rows["INV-DND-DND-T-0001"]["amount_egp"]) == (900.0, 45000.0)
+    assert (rows["INV-STO-DND-T-0001"]["currency"], rows["INV-STO-DND-T-0001"]["exchange_rate"], rows["INV-STO-DND-T-0001"]["amount_egp"]) == ("EGP", 1.0, 900.0)
     for row in rows.values():
         assert round(row["amount_fx"] * row["exchange_rate"], 2) == row["amount_egp"]
-    assert settlement.total_landed_cost_egp == 1234.5
+    assert settlement.total_landed_cost_egp == 45900.0
     # a second push replaces the rows (no duplicates)
     dd.push_demurrage_to_financial_settlement_service(db, PushToSettlementRequest(tracking_id=t.tracking_id), user="acct1")
     db.refresh(settlement)
