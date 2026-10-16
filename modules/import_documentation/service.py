@@ -2642,6 +2642,19 @@ def _compare_origins(sys_origin: str, drf_origin: str) -> Tuple[bool, float]:
 
 
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
+def _extraction_failed_row(key: str, label_ar: str, sys_val: Any, severity: str, details_code: str) -> Dict[str, Any]:
+    """Comparison-matrix row for a certificate field that could not be read from the uploaded draft."""
+    return finalize_structured_values({
+        "field_key": key,
+        "field_label_ar": label_ar,
+        "system_value": sys_val,
+        "draft_value": Placeholder("NOT_EXTRACTED"),
+        "match_status": "EXTRACTION_FAILED",
+        "severity": severity,
+        **coded_text("details", details_code),
+    })
+
+
 def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
@@ -2684,7 +2697,6 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     ]
 
     from modules.import_documentation.ai_document_parser import clean_exporter_name, clean_consignee_name
-    cert_type_str = str(request.certificate_type or "").upper()
 
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
@@ -2705,25 +2717,15 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
                 matched = True
                 ratio = 1.0
             else:
-                matched = False
-                ratio = 0.0
-                match_status = "EXTRACTION_FAILED"
-                severity = "BLOCKING" if is_critical else "WARNING"
                 has_discrepancies = True
                 if is_critical:
                     has_critical = True
-                matrix.append(finalize_structured_values({
-                    "field_key": key,
-                    "field_label_ar": label_ar,
-                    "system_value": sys_val,
-                    "draft_value": Placeholder("NOT_EXTRACTED"),
-                    "match_status": match_status,
-                    "severity": severity,
-                    **coded_text("details", "DOC_COO_VALUE_NOT_FOUND"),
-                }))
+                matrix.append(_extraction_failed_row(
+                    key, label_ar, sys_val,
+                    severity="BLOCKING" if is_critical else "WARNING",
+                    details_code="DOC_COO_VALUE_NOT_FOUND",
+                ))
                 continue
-        elif key == "exporter_reg_id":
-            matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         else:
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
@@ -3069,21 +3071,13 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
                     **coded_text("details", "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED"),
                 }))
                 continue
-            matched = False
-            ratio = 0.0
-            match_status = "EXTRACTION_FAILED"
-            severity = "BLOCKING"
             has_discrepancies = True
             has_critical = True
-            matrix.append(finalize_structured_values({
-                "field_key": key,
-                "field_label_ar": label_ar,
-                "system_value": sys_val,
-                "draft_value": Placeholder("NOT_EXTRACTED"),
-                "match_status": match_status,
-                "severity": severity,
-                **coded_text("details", "DOC_INSPECTION_VALUE_NOT_FOUND"),
-            }))
+            matrix.append(_extraction_failed_row(
+                key, label_ar, sys_val,
+                severity="BLOCKING",
+                details_code="DOC_INSPECTION_VALUE_NOT_FOUND",
+            ))
             continue
         elif key == "regulatory_authority":
             sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
@@ -5126,26 +5120,11 @@ def extract_and_compare_po_documents_service(
             ImportFile.is_active == True,
         ).first()
         if imp_file:
-            from modules.purchase_orders.model import PurchaseOrder
-            active_pos = db.query(PurchaseOrder).filter(
-                PurchaseOrder.import_file_id == request.import_file_id,
-                PurchaseOrder.is_active == True,
-            ).all()
-            if not active_pos and imp_file.po_number:
-                active_pos = db.query(PurchaseOrder).filter(
-                    PurchaseOrder.po_number == imp_file.po_number,
-                    PurchaseOrder.is_active == True,
-                ).all()
-
+            active_pos = repo.get_active_purchase_orders_for_file(db, request.import_file_id, imp_file.po_number)
             po = active_pos[0] if active_pos else None
+            company = imp_file.company
 
-            tax_no = None
-            if imp_file.company:
-                tax_no = (
-                    getattr(imp_file.company, 'vat_id', None)
-                    or getattr(imp_file.company, 'tax_card_number', None)
-                    or getattr(imp_file.company, 'tax_id', None)
-                )
+            tax_no = (company.vat_id or None) if company else None
 
             po_curr = None
             if po and po.currency and getattr(po.currency, 'currency_code', None):
@@ -5162,17 +5141,10 @@ def extract_and_compare_po_documents_service(
             # Resolve supplier name
             supplier_name_val = ""
             if po and po.supplier:
-                supplier_name_val = (getattr(po.supplier, 'company_name', '') or getattr(po.supplier, 'name', '') or "").strip()
+                supplier_name_val = (po.supplier.company_name or "").strip()
 
             # Resolve importer name
-            importer_name_val = ""
-            if imp_file.company:
-                importer_name_val = (
-                    getattr(imp_file.company, 'importer_name', '')
-                    or getattr(imp_file.company, 'company_name', '')
-                    or getattr(imp_file.company, 'name', '')
-                    or ""
-                ).strip()
+            importer_name_val = (company.importer_name or "").strip() if company else ""
             if not importer_name_val:
                 importer_name_val = (imp_file.company_name or "").strip()
 
@@ -5180,8 +5152,8 @@ def extract_and_compare_po_documents_service(
             hs_code_val = ""
             if po and po.line_items:
                 first_item = po.line_items[0]
-                if hasattr(first_item, 'tariff') and first_item.tariff:
-                    hs_code_val = getattr(first_item.tariff, 'hs_code', '') or ""
+                if first_item.tariff:
+                    hs_code_val = first_item.tariff.hs_code or ""
                 if not hs_code_val and po.packing_list_items:
                     hs_code_val = po.packing_list_items[0].hs_code or ""
 
@@ -5202,62 +5174,59 @@ def extract_and_compare_po_documents_service(
                 "importer_name": importer_name_val,
                 "hs_code": hs_code_val,
             }
-            if not system_items:
-                for p_rec in active_pos:
-                    pkg_map = {}
-                    for p_item in p_rec.packing_list_items:
-                        if p_item.item_code:
-                            pkg_map[p_item.item_code.strip().upper()] = p_item
+            # system_packing_items always come from the DB packing list (real weights, not PO line item values);
+            # system_items are built from PO line items only when the caller did not supply them.
+            build_system_items = not system_items
+            for p_rec in active_pos:
+                line_map = {}
+                for itm in p_rec.line_items:
+                    if itm.item_code:
+                        line_map[itm.item_code.strip().upper()] = itm.item_id
 
-                    for itm in p_rec.line_items:
-                        code_key = (itm.item_code or "").strip().upper()
-                        pkg_info = pkg_map.get(code_key)
+                pkg_map = {}
+                for p_item in p_rec.packing_list_items:
+                    code_key = (p_item.item_code or "").strip().upper()
+                    if p_item.item_code:
+                        pkg_map[code_key] = p_item
+                    system_packing_items.append({
+                        "packing_item_id": p_item.packing_item_id,
+                        "po_item_id": line_map.get(code_key),
+                        "item_code": p_item.item_code or "",
+                        "description": p_item.description or p_item.item_code or "",
+                        "hs_code": p_item.hs_code or "",
+                        "package_type": p_item.package_type if p_item.package_type else None,
+                        "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
+                        "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
+                        "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
+                        "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
+                        "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
+                    })
 
-                        pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
-                        net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
-                        gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
-                        cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
-                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
+                if not build_system_items:
+                    continue
+                for itm in p_rec.line_items:
+                    code_key = (itm.item_code or "").strip().upper()
+                    pkg_info = pkg_map.get(code_key)
 
-                        system_items.append({
-                            "po_item_id": itm.item_id,
-                            "item_code": itm.item_code or str(itm.item_id),
-                            "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
-                            "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
-                            "package_type": pkg_type,
-                            "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
-                            "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
-                            "initial_packages_count": pkg_count,
-                            "initial_net_weight_kg": net_w,
-                            "initial_gross_weight_kg": gross_w,
-                            "initial_cbm": cbm_val,
-                        })
+                    pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
+                    net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
+                    gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
+                    cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
+                    pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
 
-            # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
-            if not system_packing_items:
-                for p_rec in active_pos:
-                    line_map = {}
-                    for itm in p_rec.line_items:
-                        if itm.item_code:
-                            line_map[itm.item_code.strip().upper()] = itm.item_id
-
-                    if p_rec and p_rec.packing_list_items:
-                        for p_item in p_rec.packing_list_items:
-                            code_key = (p_item.item_code or "").strip().upper()
-                            matching_po_item_id = line_map.get(code_key)
-                            system_packing_items.append({
-                                "packing_item_id": p_item.packing_item_id,
-                                "po_item_id": matching_po_item_id,
-                                "item_code": p_item.item_code or "",
-                                "description": p_item.description or p_item.item_code or "",
-                                "hs_code": p_item.hs_code or "",
-                                "package_type": p_item.package_type if p_item.package_type else None,
-                                "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
-                                "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
-                                "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
-                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
-                                "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
-                            })
+                    system_items.append({
+                        "po_item_id": itm.item_id,
+                        "item_code": itm.item_code or str(itm.item_id),
+                        "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
+                        "hs_code": (itm.tariff.hs_code if itm.tariff else "") or (pkg_info.hs_code if pkg_info else ""),
+                        "package_type": pkg_type,
+                        "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
+                        "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
+                        "initial_packages_count": pkg_count,
+                        "initial_net_weight_kg": net_w,
+                        "initial_gross_weight_kg": gross_w,
+                        "initial_cbm": cbm_val,
+                    })
 
     system_items_missing = not bool(system_items)
 

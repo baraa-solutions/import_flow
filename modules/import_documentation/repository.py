@@ -49,6 +49,7 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewCreate,
     InspectionCertificateReviewUpdate,
 )
+from modules.purchase_orders.model import PurchaseOrder
 
 # ACID validity used when the request carries no expiry date (same default as the ACID tracker, DOC-15/DOC-21).
 ACID_DEFAULT_VALIDITY_DAYS = 90
@@ -868,3 +869,23 @@ def update_invoice_bl_match_session(
 
 def delete_invoice_bl_match_session(db: Session, session_id: int) -> bool:
     return _soft_delete(db, get_invoice_bl_match_session_active(db, session_id))
+
+
+# --- PURCHASE ORDER LOOKUP FOR PO / PACKING RECONCILIATION (BP-016) ---
+def get_active_purchase_orders_for_file(
+    db: Session, import_file_id: int, po_number: Optional[str]
+) -> List[PurchaseOrder]:
+    """
+    Active purchase orders backing an import file: every active PO linked through import_file_id,
+    otherwise every active PO whose po_number equals the file's PO number. Returns [] when none is found.
+    """
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True,
+    ).all()
+    if not pos and po_number:
+        pos = db.query(PurchaseOrder).filter(
+            PurchaseOrder.po_number == po_number,
+            PurchaseOrder.is_active == True,
+        ).all()
+    return pos
