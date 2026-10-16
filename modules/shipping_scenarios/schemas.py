@@ -118,12 +118,12 @@ class ShippingScenarioItemBase(BaseModel):
 
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
-    pass
+    item_id: Optional[int] = None
 
 
 # Every stored scenario field (create payload == model columns besides ids): used for create, update,
 # clone and the response so the ~90-field mapping is written once.
-SCENARIO_ITEM_FIELDS = tuple(ShippingScenarioItemCreate.model_fields)
+SCENARIO_ITEM_FIELDS = tuple(f for f in ShippingScenarioItemCreate.model_fields if f != "item_id")
 
 
 class ShippingScenarioItemUpdate(BaseModel):
