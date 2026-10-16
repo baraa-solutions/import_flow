@@ -2,6 +2,7 @@
 Freight Quotations Calculation & Business Service Engine (BP-008)
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -21,15 +22,21 @@ from modules.freight_quotations.validators import (
     validate_po_exists,
     validate_project_exists,
 )
-
+from modules.common.validators import get_or_404, not_null_columns
+from modules.import_files.repository import codes_by_ids
 
 
 class FreightQuotationService:
 
     @staticmethod
-    def _compute_rfq_metrics(db: Session, db_rfq: FreightRFQRequest) -> FreightRFQRequestResponse:
+    def _compute_rfq_metrics(
+        db: Session,
+        db_rfq: FreightRFQRequest,
+        import_file_code: Optional[str] = None,
+    ) -> FreightRFQRequestResponse:
         """
         Calculates summary metrics: lowest freight cost, avg freight cost, fastest transit days, avg transit days, awarded provider name.
+        Pure read computation: never mutates quotation or RFQ state.
         """
         quotes = db_rfq.quotations or []
         total_count = len(quotes)
@@ -46,10 +53,11 @@ class FreightQuotationService:
             costs = [q.total_cost for q in quotes]
             lowest_cost = round(min(costs), 2)
 
-            for q in quotes:
-                if q.is_awarded or (db_rfq.selected_quotation_id and q.quotation_id == db_rfq.selected_quotation_id):
-                    awarded_name = q.provider_name
-                    q.is_awarded = True
+            if db_rfq.selected_quotation_id:
+                for q in quotes:
+                    if q.quotation_id == db_rfq.selected_quotation_id:
+                        awarded_name = q.provider_name
+                        break
 
         if included_quotes:
             inc_costs = [q.total_cost for q in included_quotes]
@@ -59,12 +67,8 @@ class FreightQuotationService:
             fastest_transit = min(transits)
             avg_transit = round(sum(transits) / len(transits), 1)
 
-        import_file_code = None
-        if db_rfq.import_file_id:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_rfq.import_file_id).first()
-            if imp:
-                import_file_code = imp.import_file_code or imp.custom_file_number
+        if import_file_code is None and db_rfq.import_file_id:
+            import_file_code = codes_by_ids(db, [db_rfq.import_file_id]).get(db_rfq.import_file_id)
 
         res = FreightRFQRequestResponse.model_validate(db_rfq)
         res.total_quotations_count = total_count
@@ -90,16 +94,13 @@ class FreightQuotationService:
             validate_quotation_dates(rfq_in.crd_date, q.sailing_date, q.estimated_arrival_date)
 
         db_rfq = FreightQuotationRepository.create(db, rfq_in)
+        db.commit()
+        db.refresh(db_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
 
     @staticmethod
     def get_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
-            )
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
         return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
 
     @staticmethod
@@ -123,17 +124,28 @@ class FreightQuotationService:
             project_id=project_id,
             status=status,
         )
-        return [FreightQuotationService._compute_rfq_metrics(db, r) for r in rfqs]
+        file_ids = [r.import_file_id for r in rfqs if r.import_file_id]
+        codes_map = codes_by_ids(db, file_ids) if file_ids else {}
+        return [
+            FreightQuotationService._compute_rfq_metrics(
+                db, r, import_file_code=codes_map.get(r.import_file_id)
+            )
+            for r in rfqs
+        ]
 
     @staticmethod
     def update_rfq(
         db: Session, rfq_id: int, update_in: FreightRFQRequestUpdate
     ) -> FreightRFQRequestResponse:
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
+
+        data = update_in.model_dump(exclude_unset=True)
+        protected = not_null_columns(FreightRFQRequest)
+        cleared = sorted(name for name, val in data.items() if val is None and name in protected)
+        if cleared:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"لا يمكن مسح الحقول الإلزامية: {', '.join(cleared)}",
             )
 
         if update_in.import_file_id:
@@ -145,11 +157,32 @@ class FreightQuotationService:
 
         crd = update_in.crd_date or db_rfq.crd_date
         if update_in.quotations is not None:
+            sent_ids = [q.quotation_id for q in update_in.quotations if q.quotation_id is not None]
+            if len(sent_ids) != len(set(sent_ids)):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="يوجد تكرار في معرفات عروض الأسعار في الطلب.",
+                )
+
+            if db_rfq.selected_quotation_id and db_rfq.selected_quotation_id not in sent_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="لا يمكن حذف العرض المعتمد.",
+                )
+
+            existing_ids = {q.quotation_id for q in db_rfq.quotations}
             for q in update_in.quotations:
+                if q.quotation_id is not None and q.quotation_id not in existing_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"عرض السعر رقم {q.quotation_id} غير تابع لطلب عروض الأسعار.",
+                    )
                 validate_carrier_exists(db, q.provider_id)
                 validate_quotation_dates(crd, q.sailing_date, q.estimated_arrival_date)
 
         updated_rfq = FreightQuotationRepository.update(db, db_rfq, update_in)
+        db.commit()
+        db.refresh(updated_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, updated_rfq)
 
     @staticmethod
@@ -158,11 +191,12 @@ class FreightQuotationService:
         Awards a specific carrier quotation, freezes choice, and updates RFQ status to 'Awarded'.
         Also bidirectionally synchronizes the awarded scenario with the linked ImportFile.
         """
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار", active_only=True)
+
+        if db_rfq.status == "Cancelled":
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="لا يمكن اعتماد عرض سعر لطلب عروض أسعار ملغي (Cancelled).",
             )
 
         found_quote = None
@@ -181,6 +215,7 @@ class FreightQuotationService:
 
         db_rfq.selected_quotation_id = quotation_id
         db_rfq.status = "Awarded"
+        db_rfq.updated_at = datetime.now(timezone.utc)
 
         # Bidirectional sync with linked ImportFile
         if db_rfq.import_file_id:
@@ -205,24 +240,18 @@ class FreightQuotationService:
 
     @staticmethod
     def soft_delete_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
-            )
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
         deleted_rfq = FreightQuotationRepository.soft_delete(db, db_rfq)
+        db.commit()
+        db.refresh(deleted_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, deleted_rfq)
 
     @staticmethod
     def restore_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
-            )
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
         restored_rfq = FreightQuotationRepository.restore(db, db_rfq)
+        db.commit()
+        db.refresh(restored_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, restored_rfq)
 
     @staticmethod
@@ -231,12 +260,7 @@ class FreightQuotationService:
         AI-BENCH-007: Multi-Factor Weighted Scoring & Ranking Engine for Competing Freight Quotes.
         Weights: Cost (50%), Free Days (25%), Transit Time (15%), Partner Reliability (10%).
         """
-        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
-        if not db_rfq:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
-            )
+        db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
 
         quotes = db_rfq.quotations or []
         if not quotes:
