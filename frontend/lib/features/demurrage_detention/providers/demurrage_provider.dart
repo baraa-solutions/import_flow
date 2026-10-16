@@ -179,9 +179,13 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
 
   Future<Map<String, dynamic>?> pushToSettlement(int trackingId, {int? importFileId}) async {
     try {
+      final payload = <String, dynamic>{'tracking_id': trackingId};
+      if (importFileId != null) {
+        payload['import_file_id'] = importFileId;
+      }
       final res = await _dio.post(
         '/demurrage-detention/trackings/push-to-settlement',
-        data: {'tracking_id': trackingId, 'import_file_id': importFileId},
+        data: payload,
       );
       _ref?.invalidate(importFilesProvider);
       _ref?.invalidate(lifecycleBoardSummaryProvider);
