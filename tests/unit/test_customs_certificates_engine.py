@@ -434,6 +434,30 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertIn("GOEIC", archive.goeic_inspection_alert)
         self.assertIn("TÜV Rheinland", archive.goeic_inspection_alert)
 
+    def test_get_central_archive_without_currency_returns_none(self):
+        """BE03-F25: Central archive falls back to None (not 'EUR') when import file has no currency."""
+        no_currency_file = imp_models.ImportFile(
+            import_file_code="IMP-2026-NOCURR",
+            custom_file_number="FILE-NOCURR-001",
+            company_id=self.company.company_id,
+            company_name=self.company.importer_name,
+            supplier_id=self.supplier.supplier_id,
+            supplier_name=self.supplier.company_name,
+            pi_number="IN-NOCURR",
+            estimated_cost=1000.0,
+            estimated_cost_currency="",
+            acid_number="7595528271020210099",
+            incoterm_code="FOB",
+            is_active=True,
+        )
+        self.db.add(no_currency_file)
+        self.db.commit()
+
+        archive = service.get_central_archive_service(self.db, no_currency_file.import_file_id)
+        self.assertIsNone(archive.currency)
+        self.assertIsNone(archive.final_invoice.details["currency"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

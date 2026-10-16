@@ -220,7 +220,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 191 | BE02-T16 | financial_approval | MINOR | Hygiene: status codes, Arabic details, layering, revision race | none | no | yes: small (409, 422, 404) | yes | [be-02](be-02-review.md) | todo |
 | 192 | BE02-T17 | financial_approval | MINOR | Task auto-close and `import_files.swift_no` scope | BE02-T04 | no | no | yes | [be-02](be-02-review.md) | todo |
 | 193 | BE02-T18 | financial_approval | MINOR | Legacy-tolerant budget money and base64 size limit | none | no | yes: nullable money | yes | [be-02](be-02-review.md) | todo |
-| 194 | BE03-T19 | import_documentation, original_documents_collection | MINOR | Minor hygiene (no EUR fallback, no DHL default, validators in service) | none | no | yes: nullable currency / courier | yes | [be-03](be-03-review.md) | todo |
+| 194 | BE03-T19 | import_documentation, original_documents_collection | MINOR | Minor hygiene (no EUR fallback, no DHL default, validators in service) | none | no | yes: nullable currency / courier | yes | [be-03](be-03-review.md) | in_progress |
 | 195 | BE45-T23 | cargo_insurance, shipment_updates, demurrage_detention | MINOR | Restore endpoints (+ tracking delete) | BE45-T05, BE45-T06 | no | yes: new endpoints | yes | [be-04-05](be-04-05-review.md) | todo |
 | 196 | BE67-T20 | customs_clearance_quotations | MINOR | Audit wiring on the quotation tables | BE67-T19, BEW0-05 | via BEW0-05 | additive | yes | [be-06-07](be-06-07-review.md) | todo |
 | 197 | BE67-T21 | customs_clearance, customs_tariff | MINOR | Minor hygiene (clearance `/paginated`, messages, history, dead code) | BE67-T11, BE67-T18, BEW0-04 | no | additive | yes | [be-06-07](be-06-07-review.md) | todo |

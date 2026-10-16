@@ -189,7 +189,7 @@ class OriginalDocumentsCollectionService:
         default_couriers = [
             CourierEntry(
                 courier_no="",
-                courier_company="DHL",
+                courier_company=None,
                 dispatch_date=None,
                 is_received=False,
                 received_date=None,
@@ -198,7 +198,7 @@ class OriginalDocumentsCollectionService:
             ),
             CourierEntry(
                 courier_no="",
-                courier_company="FedEx",
+                courier_company=None,
                 dispatch_date=None,
                 is_received=False,
                 received_date=None,
@@ -598,12 +598,12 @@ class OriginalDocumentsCollectionService:
         row_idx += 1
 
         if not couriers:
-            couriers = [{"courier_no": "—", "courier_company": "DHL", "dispatch_date": "—", "is_received": False, "received_date": "—", "received_by": "—", "notes": ""}]
+            couriers = [{"courier_no": "—", "courier_company": "", "dispatch_date": "—", "is_received": False, "received_date": "—", "received_by": "—", "notes": ""}]
 
         for idx, cr in enumerate(couriers, start=1):
             ws.cell(row=row_idx, column=1, value=idx).alignment = align_center
             ws.cell(row=row_idx, column=2, value=cr.get("courier_no") or "—").alignment = align_left
-            ws.cell(row=row_idx, column=3, value=cr.get("courier_company") or "DHL").alignment = align_center
+            ws.cell(row=row_idx, column=3, value=cr.get("courier_company") or "").alignment = align_center
             ws.cell(row=row_idx, column=4, value=cr.get("dispatch_date") or "—").alignment = align_center
             ws.cell(row=row_idx, column=5, value="Yes" if cr.get("is_received") else "No").alignment = align_center
             ws.cell(row=row_idx, column=6, value=cr.get("received_date") or "—").alignment = align_center
@@ -693,9 +693,13 @@ class OriginalDocumentsCollectionService:
         return output.getvalue()
 
     @staticmethod
-    def build_carrier_tracking_url(company: str, awb: str) -> str:
+    def build_carrier_tracking_url(company: Optional[str], awb: Optional[str]) -> Optional[str]:
+        if not company or not company.strip():
+            return None
+        if not awb or not awb.strip():
+            return None
         clean_awb = awb.strip()
-        c = (company or "").upper()
+        c = company.strip().upper()
         if "DHL" in c:
             return f"https://www.dhl.com/en/express/tracking.html?AWB={clean_awb}"
         elif "FEDEX" in c:
@@ -708,7 +712,7 @@ class OriginalDocumentsCollectionService:
             return f"https://www.naqelexpress.com/tracking?trackNumbers={clean_awb}"
         elif "SMSA" in c:
             return f"https://www.smsaexpress.com/track?trackNumber={clean_awb}"
-        return f"https://www.google.com/search?q={quote_plus(f'{company or ''} {clean_awb} tracking')}"
+        return f"https://www.google.com/search?q={quote_plus(f'{company.strip()} {clean_awb} tracking')}"
 
     @staticmethod
     def confirm_courier_receipt(
@@ -758,7 +762,7 @@ class OriginalDocumentsCollectionService:
             existing_notes = courier.get("notes") or ""
             courier["notes"] = f"{existing_notes} | {request.notes}".strip(" |")
         courier["tracking_url"] = OriginalDocumentsCollectionService.build_carrier_tracking_url(
-            courier.get("courier_company") or "DHL", courier.get("courier_no") or ""
+            courier.get("courier_company"), courier.get("courier_no") or ""
         )
 
         docs = copy.deepcopy(session.documents_list or [])
@@ -804,7 +808,7 @@ class OriginalDocumentsCollectionService:
             for c in (s.couriers_list or []):
                 total_active_couriers += 1
                 c_no = c.get("courier_no") or ""
-                c_company = c.get("courier_company") or "DHL"
+                c_company = c.get("courier_company") or ""
                 is_rcv = c.get("is_received", False)
                 disp_str = c.get("dispatch_date")
 
@@ -815,20 +819,23 @@ class OriginalDocumentsCollectionService:
                 pending_count += 1
                 days = _days_since(disp_str, today)
 
+                label_ar = f"طرد {c_company}".strip()
+                label_en = f"Courier {c_company}".strip()
+
                 if days >= validators.COURIER_SLA_DAYS:
                     level = "CRITICAL"
                     delayed_count += 1
-                    msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} وتجاوز المهلة المقررة (SLA)"
-                    msg_en = f"Courier {c_company} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — SLA breached!"
+                    msg_ar = f"{label_ar} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} وتجاوز المهلة المقررة (SLA)"
+                    msg_en = f"{label_en} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — SLA breached!"
                 elif days >= validators.COURIER_WARN_DAYS:
                     level = "WARNING"
                     delayed_count += 1
-                    msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} ويقترب من مهلة التسليم"
-                    msg_en = f"Courier {c_company} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — approaching SLA threshold"
+                    msg_ar = f"{label_ar} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} ويقترب من مهلة التسليم"
+                    msg_en = f"{label_en} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — approaching SLA threshold"
                 else:
                     level = "INFO"
-                    msg_ar = f"طرد {c_company} رقم ({c_no}) قيد التوصيل للشحنة {s.import_file_code} (منذ {days} يوم)"
-                    msg_en = f"Courier {c_company} ({c_no}) in transit for shipment {s.import_file_code} ({days} days elapsed)"
+                    msg_ar = f"{label_ar} رقم ({c_no}) قيد التوصيل للشحنة {s.import_file_code} (منذ {days} يوم)"
+                    msg_en = f"{label_en} ({c_no}) in transit for shipment {s.import_file_code} ({days} days elapsed)"
 
                 alerts.append(
                     CourierAlertItem(
@@ -869,7 +876,7 @@ class OriginalDocumentsCollectionService:
             docs = s.documents_list or []
             for c in (s.couriers_list or []):
                 c_no = (c.get("courier_no") or "").strip()
-                c_comp = c.get("courier_company") or "DHL"
+                c_comp = c.get("courier_company") or ""
                 is_rcv = c.get("is_received", False)
                 disp_str = c.get("dispatch_date")
                 days = _days_since(disp_str, today)

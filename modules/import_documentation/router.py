@@ -196,7 +196,6 @@ def update_acid_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(can_upload),
 ):
-    validators.validate_status("acid", payload.status)
     return service.update_acid_session_service(db, acid_id, payload, user=current_user.username)
 
 
@@ -241,7 +240,6 @@ def update_banking_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(can_upload),
 ):
-    validators.validate_status("banking", payload.status)
     return service.update_banking_document_service(db, bank_doc_id, payload, user=current_user.username)
 
 
@@ -387,7 +385,6 @@ def create_po_reconciliation_session(
     Creates a new PO & Packing List final reconciliation session.
     Strictly prevents duplicate sessions for the same import file.
     """
-    validators.validate_status("reconciliation", payload.overall_status)
     return service.create_po_reconciliation_session_service(db, payload, user=current_user.username)
 
 
@@ -441,7 +438,6 @@ def update_po_reconciliation_session(
     """
     Updates an existing PO & Packing List final reconciliation session.
     """
-    validators.validate_status("reconciliation", payload.overall_status)
     return service.update_po_reconciliation_session_service(db, session_id, payload, user=current_user.username)
 
 
@@ -583,7 +579,6 @@ def compare_coo(payload: COOComparisonRequest, db: Session = Depends(get_db), cu
 def create_coo_review(
     payload: CertificateOfOriginReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    validators.validate_status("coo", payload.status)
     return service.create_coo_review_service(db, payload, user=current_user.username)
 
 
@@ -614,7 +609,6 @@ def update_coo_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(can_upload),
 ):
-    validators.validate_status("coo", payload.status)
     return service.update_coo_review_service(db, review_id, payload, user=current_user.username)
 
 
@@ -659,7 +653,6 @@ def create_inspection_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(can_upload),
 ):
-    validators.validate_status("inspection", payload.status)
     return service.create_inspection_review_service(db, payload, user=current_user.username)
 
 
@@ -688,7 +681,6 @@ def update_inspection_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(can_upload),
 ):
-    validators.validate_status("inspection", payload.status)
     return service.update_inspection_review_service(db, review_id, payload, user=current_user.username)
 
 
@@ -849,7 +841,6 @@ def certify_and_sync_invoice_bl(
 def create_invoice_bl_session(
     payload: InvoiceBLMatchSessionCreate, db: Session = Depends(get_db), current_user: User = Depends(can_upload)
 ):
-    validators.validate_status("invoice_bl", payload.overall_status)
     return service.create_invoice_bl_match_session_service(db, payload, user=current_user.username)
 
 

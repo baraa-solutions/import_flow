@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CourierEntry(BaseModel):
     courier_no: str = Field(..., description="Courier Air Waybill / Tracking Number (e.g. DHL-981245)")
-    courier_company: Optional[str] = Field("DHL", description="Courier Service Provider (DHL, FedEx, Aramex, UPS, Naqel, etc.)")
+    courier_company: Optional[str] = Field(None, description="Courier Service Provider (DHL, FedEx, Aramex, UPS, Naqel, etc.)")
     dispatch_date: Optional[str] = Field(None, description="Courier dispatch date (YYYY-MM-DD)")
     is_received: bool = Field(False, description="Whether courier envelope package is physically delivered")
     received_date: Optional[str] = Field(None, description="Physical delivery / reception date (YYYY-MM-DD)")
@@ -30,7 +30,7 @@ class CourierReceiptProofRequest(BaseModel):
 
 class CourierAlertItem(BaseModel):
     courier_no: str
-    courier_company: str
+    courier_company: Optional[str] = None
     import_file_id: int
     import_file_code: str
     acid_number: Optional[str] = None
@@ -53,7 +53,7 @@ class CourierAlertsResponse(BaseModel):
 
 class CourierFlatItemResponse(BaseModel):
     courier_no: str
-    courier_company: str
+    courier_company: Optional[str] = None
     import_file_id: int
     import_file_code: str
     importer_name: Optional[str] = None

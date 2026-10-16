@@ -31,6 +31,7 @@ from modules.import_documentation.validators import (
     validate_no_duplicate_acid_session,
     validate_no_duplicate_form4_session,
     validate_unique_po_lines,
+    validate_status,
 )
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
@@ -511,6 +512,7 @@ def create_acid_session_service(
 def update_acid_session_service(
     db: Session, acid_id: int, schema: AcidRegistrationUpdate, user: Optional[str] = None
 ) -> AcidRegistrationResponse:
+    validate_status("acid", schema.status)
     db_item = repo.get_acid_session_by_id(db, acid_id)
     if not db_item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
@@ -981,6 +983,7 @@ def _get_banking_document_or_404(db: Session, bank_doc_id: int) -> BankingDocume
 def update_banking_document_service(
     db: Session, bank_doc_id: int, schema: BankingDocumentUpdate, user: Optional[str] = None
 ):
+    validate_status("banking", schema.status)
     item = _get_banking_document_or_404(db, bank_doc_id)
 
     if schema.import_file_id is not None:
@@ -2911,6 +2914,7 @@ def _coo_certified_follow_ups(db: Session, file_id: int, certificate_type: Optio
 def create_coo_review_service(
     db: Session, schema: CertificateOfOriginReviewCreate, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession:
+    validate_status("coo", schema.status)
     _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
     actor = _actor(user, schema.reviewed_by)
@@ -2982,6 +2986,7 @@ def create_coo_review_service(
 def update_coo_review_service(
     db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession:
+    validate_status("coo", schema.status)
     review = repo.get_coo_review_by_id(db, review_id)
     if not review:
         raise not_found(LABEL_COO_REVIEW, review_id)
@@ -3207,6 +3212,7 @@ def _inspection_status(has_disc: bool, has_crit: bool, override_reason: Optional
 def create_inspection_review_service(
     db: Session, schema: InspectionCertificateReviewCreate, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession:
+    validate_status("inspection", schema.status)
     _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
     actor = _actor(user, schema.reviewed_by)
@@ -3257,6 +3263,7 @@ def create_inspection_review_service(
 def update_inspection_review_service(
     db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession:
+    validate_status("inspection", schema.status)
     review = repo.get_inspection_review_by_id(db, review_id)
     if not review:
         raise not_found(LABEL_INSPECTION_REVIEW, review_id)
@@ -5086,6 +5093,7 @@ def sync_certified_invoice_bl_to_file_service(
 def create_invoice_bl_match_session_service(
     db: Session, payload: InvoiceBLMatchSessionCreate, user: Optional[str] = None
 ) -> InvoiceBLMatchSession:
+    validate_status("invoice_bl", payload.overall_status)
     imp_file = _active_import_file(db, payload.import_file_id)
     actor = _actor(user, payload.certified_by)
     if not payload.import_file_code:
@@ -5418,6 +5426,7 @@ def _po_recon_lifecycle(db: Session, session: POPackingReconciliationSession, ms
 def create_po_reconciliation_session_service(
     db: Session, schema: POReconciliationSessionCreate, user: Optional[str] = None
 ) -> POReconciliationSessionResponse:
+    validate_status("reconciliation", schema.overall_status)
     # 1. Validate import file exists and is active
     _active_import_file(db, schema.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     actor = _actor(user, schema.certified_by)
@@ -5478,6 +5487,7 @@ def get_po_reconciliation_session_by_id_service(
 def update_po_reconciliation_session_service(
     db: Session, session_id: int, schema: POReconciliationSessionUpdate, user: Optional[str] = None
 ) -> POReconciliationSessionResponse:
+    validate_status("reconciliation", schema.overall_status)
     session = repo.get_po_reconciliation_session_by_id(db, session_id)
     if not session:
         raise not_found(LABEL_PO_RECON_SESSION, session_id)
@@ -5741,7 +5751,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         details={
             "invoice_number": (po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
             "total_amount": float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
-            "currency": (po_reconciliation.currency if po_reconciliation else None) or getattr(imp_file, 'estimated_cost_currency', 'EUR'),
+            "currency": (po_reconciliation.currency if po_reconciliation else None) or (getattr(imp_file, 'estimated_cost_currency', None) or None),
             "shipper_name": (po_reconciliation.shipper_name if po_reconciliation else None) or (supplier.company_name if supplier else imp_file.supplier_name),
             "reconciled_items_count": len(po_reconciliation.reconciled_invoice_items or []) if po_reconciliation else 0,
             "certified_by": po_reconciliation.certified_by if po_reconciliation else None,
@@ -6019,7 +6029,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         port_of_discharge=getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None),
         total_packages=int(po_reconciliation.total_packages) if po_reconciliation else (booking.packages_count if booking else 0),
         total_gross_weight_kg=float(po_reconciliation.total_gross_weight_kg) if po_reconciliation else (booking.gross_weight if booking else 0.0),
-        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or "EUR"),
+        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or None),
         fob_or_cif_amount=float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
         readiness_status=readiness_status,
         readiness_score=round(final_score, 1),
