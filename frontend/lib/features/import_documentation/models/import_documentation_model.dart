@@ -883,6 +883,7 @@ class POReconciliationResultModel {
   final double totalGrossWeightKg;
   final double totalCbm;
   final double totalFinalAmount;
+  final Map<String, double>? totalFinalAmountByCurrency;
   final List<POReconciliationItemModel> items;
 
   POReconciliationResultModel({
@@ -896,11 +897,18 @@ class POReconciliationResultModel {
     required this.totalGrossWeightKg,
     required this.totalCbm,
     required this.totalFinalAmount,
+    this.totalFinalAmountByCurrency,
     required this.items,
   });
 
   factory POReconciliationResultModel.fromJson(Map<String, dynamic> json) {
     var rawItems = json['items'] as List<dynamic>? ?? [];
+    Map<String, double>? curTotals;
+    if (json['total_final_amount_by_currency'] is Map) {
+      curTotals = (json['total_final_amount_by_currency'] as Map).map(
+        (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+      );
+    }
     return POReconciliationResultModel(
       status: json['status'] ?? 'success',
       message: json['message'] ?? '',
@@ -912,6 +920,7 @@ class POReconciliationResultModel {
       totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       totalFinalAmount: (json['total_final_amount'] as num?)?.toDouble() ?? 0.0,
+      totalFinalAmountByCurrency: curTotals,
       items: rawItems.map((i) => POReconciliationItemModel.fromJson(i)).toList(),
     );
   }
@@ -927,6 +936,8 @@ class POReconciliationResultModel {
     'total_gross_weight_kg': totalGrossWeightKg,
     'total_cbm': totalCbm,
     'total_final_amount': totalFinalAmount,
+    if (totalFinalAmountByCurrency != null)
+      'total_final_amount_by_currency': totalFinalAmountByCurrency,
     'items': items.map((i) => i.toJson()).toList(),
   };
 }

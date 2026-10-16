@@ -99,7 +99,7 @@ def test_doc02_cancelled_po_line_gives_400(db):
 def test_doc02_updates_line_bumps_version_once_and_leaves_packing_row(db):
     _po(db, 1, 1)
     req = POFinalAdjustmentRequest(import_file_id=1, final_invoice_number="INV-1",
-                                   items=[_adj_item(po_item_id=10), _adj_item(po_item_id=10, final_quantity=12)])
+                                   items=[_adj_item(po_item_id=10, final_quantity=12)])
     res = service.reconcile_po_final_adjustments_service(db, req, user="alice")
     line = db.get(POLineItem, 10)
     po = db.get(PurchaseOrder, 1)
@@ -108,8 +108,89 @@ def test_doc02_updates_line_bumps_version_once_and_leaves_packing_row(db):
     assert float(line.total_price) == 12.06  # round(12 * 1.005, 2)
     assert po.version == 2 and po.updated_by == "alice"
     assert float(pack.qty_pkg) == 5 and float(pack.total_gross_weight_kg) == 50  # untouched without packing_item_id
-    assert res["total_final_amount"] == 24.12
+    assert res["total_final_amount"] == 12.06
+    assert res["total_final_amount_by_currency"] == {"USD": 12.06}
     assert res["items"][0]["variance_percentage"] == 20.0
+
+
+def test_doc02_duplicate_po_line_rejected(db):
+    _po(db, 1, 1)
+    req = POFinalAdjustmentRequest(import_file_id=1, final_invoice_number="INV-1",
+                                   items=[_adj_item(po_item_id=10), _adj_item(po_item_id=10, final_quantity=12)])
+    with pytest.raises(HTTPException) as exc:
+        service.reconcile_po_final_adjustments_service(db, req, user="alice")
+    assert exc.value.status_code == 400
+    assert "مكرر" in exc.value.detail
+
+
+def test_be03_t01_po_final_adjustment_single_line_and_packing(db):
+    # PO line item_id=11, qty 100, unit_price 2.5, total 250.00; packing row 21 (same PO), qty_pcs 1000.
+    po = PurchaseOrder(po_id=10, po_number="PO-T-10", import_file_id=1, project_id=1, company_id=1,
+                       supplier_id=1, incoterm_id=1, currency_id=1, status="DRAFT", version=1, is_active=True)
+    db.add(po)
+    line = POLineItem(item_id=11, po_id=10, description_ar="item11", quantity=100, unit_price=2.5, total_price=250.0)
+    pack = PackingListItem(packing_item_id=21, po_id=10, hs_code="940130", item_code="X",
+                           qty_pkg=10, total_gross_weight_kg=100)
+    db.add(line)
+    db.add(pack)
+    db.commit()
+
+    # Request:
+    # {po_item_id:11, final_quantity:98, final_unit_price:2.5} and
+    # {po_item_id:11, packing_item_id:21, final_quantity:1000, final_unit_price:2.5, final_gross_weight_kg:500}
+    req = POFinalAdjustmentRequest(
+        import_file_id=1,
+        final_invoice_number="INV-FINAL-1",
+        items=[
+            _adj_item(po_item_id=11, final_quantity=98, final_unit_price=2.5, unit_price=2.5),
+            _adj_item(po_item_id=11, packing_item_id=21, final_quantity=1000, final_unit_price=2.5,
+                      unit_price=2.5, final_gross_weight_kg=500.0, final_packages_count=15),
+        ],
+    )
+    res = service.reconcile_po_final_adjustments_service(db, req, user="alice")
+
+    db.refresh(line)
+    db.refresh(po)
+    db.refresh(pack)
+
+    assert line.quantity == 98
+    assert line.total_price == 245.00
+    assert po.total_amount_fob == 245.00
+    assert pack.total_gross_weight_kg == 500.0
+    assert pack.qty_pkg == 15
+    assert po.total_packages_count == 15
+    assert res["total_final_amount"] == 245.00
+    assert res["total_gross_weight_kg"] == 500.0
+    assert res["total_final_amount_by_currency"] == {"USD": 245.00}
+
+
+def test_be03_t01_multi_po_weight_aggregation_with_and_without_packing(db):
+    # PO 10 has packing row 21; PO 20 has NO packing row.
+    po1 = PurchaseOrder(po_id=10, po_number="PO-T-10", import_file_id=1, project_id=1, company_id=1,
+                        supplier_id=1, incoterm_id=1, currency_id=1, status="DRAFT", version=1, is_active=True)
+    po2 = PurchaseOrder(po_id=20, po_number="PO-T-20", import_file_id=1, project_id=1, company_id=1,
+                        supplier_id=1, incoterm_id=1, currency_id=1, status="DRAFT", version=1, is_active=True)
+    line1 = POLineItem(item_id=11, po_id=10, description_ar="line1", quantity=10, unit_price=2.0, total_price=20.0, gross_weight_kg=10.0)
+    pack1 = PackingListItem(packing_item_id=21, po_id=10, hs_code="940130", item_code="X", qty_pkg=1, total_gross_weight_kg=15.0)
+    line2 = POLineItem(item_id=21, po_id=20, description_ar="line2", quantity=5, unit_price=4.0, total_price=20.0, gross_weight_kg=8.0)
+    db.add_all([po1, po2, line1, pack1, line2])
+    db.commit()
+
+    req = POFinalAdjustmentRequest(
+        import_file_id=1,
+        final_invoice_number="INV-MULTI-1",
+        items=[
+            _adj_item(po_item_id=11, final_quantity=10, final_unit_price=2.0, unit_price=2.0, final_gross_weight_kg=10.0),
+            _adj_item(po_item_id=11, packing_item_id=21, final_gross_weight_kg=25.0, final_packages_count=2),
+            _adj_item(po_item_id=21, final_quantity=5, final_unit_price=4.0, unit_price=4.0, final_gross_weight_kg=12.0),
+        ],
+    )
+    res = service.reconcile_po_final_adjustments_service(db, req, user="alice")
+
+    # PO 10 takes 25.0 from packing row; PO 20 takes 12.0 from line item -> total 37.0
+    assert res["total_gross_weight_kg"] == 37.0
+    assert res["total_final_amount"] == 40.0
+    assert res["total_final_amount_by_currency"] == {"USD": 40.0}
 
 
 def test_doc02_negative_value_rejected(db):
