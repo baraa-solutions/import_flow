@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 
 # -------------------------------------------------------------
@@ -120,47 +121,48 @@ class CargoInsuranceCertificateUpdate(BaseModel):
     remarks: Optional[str] = None
 
 
-class CargoInsuranceCertificateResponse(BaseModel):
+@read_model
+class CargoInsuranceCertificateResponse(LegacyRowTolerantModel):
     certificate_id: int
     certificate_code: str
     policy_number: Optional[str] = None
-    policy_type: str
+    policy_type: str = "SPECIFIC"
     import_file_id: Optional[int] = None
     insurance_company_id: Optional[int] = None
     insurance_company_name: Optional[str] = None
-    insured_entity_name: str
+    insured_entity_name: str = ""
 
-    transport_mode: str
+    transport_mode: str = "OCEAN"
     carrier_name: Optional[str] = None
     vessel_or_flight_no: Optional[str] = None
     voyage_number: Optional[str] = None
     tracking_reference: Optional[str] = None
-    port_of_loading: str
-    port_of_discharge: str
+    port_of_loading: str = ""
+    port_of_discharge: str = ""
     final_destination: Optional[str] = None
 
-    currency: str
-    exchange_rate: float
-    invoice_value: float
-    freight_cost: float
-    other_logistics_costs: float
-    cif_value: float
-    markup_percentage: float
-    insured_value: float
+    currency: str = "USD"
+    exchange_rate: Optional[float] = None
+    invoice_value: Optional[float] = None
+    freight_cost: Optional[float] = None
+    other_logistics_costs: Optional[float] = None
+    cif_value: Optional[float] = None
+    markup_percentage: Optional[float] = None
+    insured_value: Optional[float] = None
 
-    coverage_clause: str
-    include_war_and_strikes: bool
-    base_rate: float
-    war_rate: float
+    coverage_clause: str = "ICC_A"
+    include_war_and_strikes: bool = True
+    base_rate: Optional[float] = None
+    war_rate: Optional[float] = None
 
-    base_premium: float
-    war_strikes_premium: float
-    minimum_premium: float
-    net_premium: float
-    issuance_fee: float
-    tax_rate: float
-    tax_amount: float
-    total_payable_premium: float
+    base_premium: Optional[float] = None
+    war_strikes_premium: Optional[float] = None
+    minimum_premium: Optional[float] = None
+    net_premium: Optional[float] = None
+    issuance_fee: Optional[float] = None
+    tax_rate: Optional[float] = None
+    tax_amount: Optional[float] = None
+    total_payable_premium: Optional[float] = None
 
     goods_description: Optional[str] = None
     package_count: Optional[int] = None
@@ -169,14 +171,14 @@ class CargoInsuranceCertificateResponse(BaseModel):
     survey_agent_in_destination: Optional[str] = None
     claims_payable_at: Optional[str] = None
 
-    status: str
+    status: str = "DRAFT"
     issued_at: Optional[datetime] = None
     remarks: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    created_by: str
-    updated_by: str
-    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

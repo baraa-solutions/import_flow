@@ -2,7 +2,7 @@ from datetime import datetime, date
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from modules.common.legacy_rows import read_model
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 
 class TierRateItem(BaseModel):
@@ -87,7 +87,8 @@ class DemurrageTrackingUpdate(BaseModel):
     status: Optional[str] = None
 
 
-class DemurrageTrackingResponse(BaseModel):
+@read_model
+class DemurrageTrackingResponse(LegacyRowTolerantModel):
     model_config = ConfigDict(from_attributes=True)
 
     tracking_id: int
@@ -95,28 +96,28 @@ class DemurrageTrackingResponse(BaseModel):
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     policy_id: Optional[int] = None
-    carrier_name: str
-    bill_of_lading_no: str
-    port_name: str
-    discharge_date: date
+    carrier_name: str = ""
+    bill_of_lading_no: str = ""
+    port_name: str = ""
+    discharge_date: Optional[date] = None
     gate_out_date: Optional[date] = None
     empty_return_date: Optional[date] = None
-    containers: List[Dict[str, Any]]
-    total_demurrage_fx: float
-    total_detention_fx: float
-    total_storage_egp: float
-    currency: str
-    exchange_rate: float
-    total_cost_egp: float
-    status: str
-    is_pushed_to_settlement: bool
+    containers: List[Dict[str, Any]] = Field(default_factory=list)
+    total_demurrage_fx: Optional[float] = None
+    total_detention_fx: Optional[float] = None
+    total_storage_egp: Optional[float] = None
+    currency: str = "USD"
+    exchange_rate: Optional[float] = None
+    total_cost_egp: Optional[float] = None
+    status: str = "Free Time Active"
+    is_pushed_to_settlement: bool = False
     settlement_record_id: Optional[int] = None
     settlement_warning_code: Optional[str] = Field(
         None, description="DD_SETTLEMENT_STALE: the tracking was pushed but its settlement is locked or gone, so the "
         "recalculated charges were not re-pushed"
     )
     notes: Optional[str] = None
-    is_active: bool
+    is_active: bool = True
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
     updated_at: Optional[datetime] = None

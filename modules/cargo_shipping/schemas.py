@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 class ContainerLoadingTrackingItem(BaseModel):
     container_no: str
@@ -139,7 +140,8 @@ class CargoShippingUpdate(BaseModel):
     owner: Optional[str] = None
     notes: Optional[str] = None
 
-class CargoShippingResponse(BaseModel):
+@read_model
+class CargoShippingResponse(LegacyRowTolerantModel):
     cargo_shipping_id: int
     cargo_shipping_code: str
     import_file_id: int
@@ -149,28 +151,28 @@ class CargoShippingResponse(BaseModel):
     shipment_type: str = "FCL"
     crd_date: Optional[datetime] = None
     cargo_cutoff_date: Optional[datetime] = None
-    is_crd_validated: bool
-    containers_loading_data: List[Dict[str, Any]]
+    is_crd_validated: bool = True
+    containers_loading_data: List[Dict[str, Any]] = Field(default_factory=list)
     lcl_tracking_data: Optional[Dict[str, Any]] = None
-    level1_approval_status: str
+    level1_approval_status: str = "Pending"
     level1_approved_by: Optional[str] = None
     level1_approved_at: Optional[datetime] = None
     level1_notes: Optional[str] = None
-    level2_approval_status: str
+    level2_approval_status: str = "Pending"
     level2_approved_by: Optional[str] = None
     level2_approved_at: Optional[datetime] = None
     level2_notes: Optional[str] = None
-    dual_approval_status: str
-    courier_tracking_data: Dict[str, Any]
-    cargox_exchange_data: Dict[str, Any]
+    dual_approval_status: str = "Pending"
+    courier_tracking_data: Dict[str, Any] = Field(default_factory=dict)
+    cargox_exchange_data: Dict[str, Any] = Field(default_factory=dict)
     live_tracking_url: Optional[str] = None
-    status: str
-    owner: str
+    status: str = "Cargo Ready"
+    owner: str = ""
     notes: Optional[str] = None
-    is_active: bool
-    created_at: datetime
-    created_by: str
-    updated_at: datetime
-    updated_by: str
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

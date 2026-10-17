@@ -5,6 +5,7 @@ Pydantic Schemas for Shipment Update Engine & Daily Log
 from typing import Literal, Optional, List
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 UpdateCategory = Literal["Follow-up & Notes", "Phase Cost Adjustment", "Future Phase Alert", "Daily Check-in", "Milestone Phase Progression"]
 PhaseStatus = Literal["Completed", "Current", "Future"]
@@ -62,14 +63,23 @@ class ShipmentUpdateLogUpdate(BaseModel):
     _log_date = field_validator("log_date")(_check_log_date)
 
 
-class ShipmentUpdateLogResponse(ShipmentUpdateLogBase):
+@read_model
+class ShipmentUpdateLogResponse(ShipmentUpdateLogBase, LegacyRowTolerantModel):
     update_id: int
     update_code: str
-    is_active: bool
-    created_at: datetime
-    created_by: str
-    updated_at: datetime
-    updated_by: str
+    target_phase: str = "Phase 1"
+    phase_status: str = "Current"
+    log_date: str = ""
+    note: str = ""
+    previous_cost: Optional[float] = None
+    new_cost: Optional[float] = None
+    alert_priority: str = "Normal"
+    update_category: str = "Follow-up & Notes"
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

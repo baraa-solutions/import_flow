@@ -177,7 +177,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 153 | BE45-T12 | freight_booking | MAJOR | Lock Sailed and Cancelled bookings | BE45-T04 | no | yes: 409 | yes | [be-04-05](be-04-05-review.md) | todo |
 | 154 | BE45-T15 | freight_booking, cargo_shipping | MAJOR | `/paginated` for booking and cargo shipping lists | BEW0-04 | no | additive | yes | [be-04-05](be-04-05-review.md) | done |
 | 155 | BE45-T16 | shipment_updates, demurrage_detention | MAJOR | `/paginated` for shipment updates, trackings, policies; radar cost | BE45-T15 | no | additive; radar filter | yes | [be-04-05](be-04-05-review.md) | done |
-| 156 | BE45-T17 | cargo_shipping, cargo_insurance, shipment_updates, demurrage_detention | MAJOR | Legacy-tolerant response schemas | none | no | no | yes | [be-04-05](be-04-05-review.md) | todo |
+| 156 | BE45-T17 | cargo_shipping, cargo_insurance, shipment_updates, demurrage_detention | MAJOR | Legacy-tolerant response schemas | none | no | no | yes | [be-04-05](be-04-05-review.md) | done |
 | 157 | BE45-T18 | cargo_insurance, demurrage_detention | MAJOR | Remove invented defaults | BE45-T17 | no | yes: required port / container type, nullable fields | yes | [be-04-05](be-04-05-review.md) | todo |
 | 158 | BE45-T19 | freight_booking | MAJOR | Booking FK master data on update | BE45-T12 | no | additive FK ids; Literal types | yes | [be-04-05](be-04-05-review.md) | todo |
 | 159 | BE45-T21 | freight_booking | MAJOR | Audit wiring on `shipment_bookings` | BEW0-05 | via BEW0-05 (backfill from owner) | additive | yes | [be-04-05](be-04-05-review.md) | todo |
