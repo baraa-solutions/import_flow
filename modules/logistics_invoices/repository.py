@@ -6,7 +6,7 @@ Database CRUD operations and queries without business logic.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional, Tuple
 from sqlalchemy import func, select, and_, or_
 from sqlalchemy.orm import Session, joinedload
